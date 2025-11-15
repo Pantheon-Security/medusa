@@ -18,7 +18,7 @@ console = Console()
 
 
 def print_banner():
-    """Print MEDUSA banner"""
+    """Print MEDUSA banner with fallback for Windows encoding issues"""
     banner = f"""
 [bold magenta]╔════════════════════════════════════════════════════════════════════╗
 ║                                                                    ║
@@ -29,7 +29,25 @@ def print_banner():
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
 """
-    rprint(banner)
+    try:
+        rprint(banner)
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        # Fallback for Windows terminals that don't support Unicode
+        fallback_banner = f"""
+[bold magenta]╔════════════════════════════════════════════════════════════════════╗
+║                                                                    ║
+║              MEDUSA v{__version__} - Security Guardian                 ║
+║                                                                    ║
+║              The 42-Headed Universal Security Scanner             ║
+║           One look from Medusa stops vulnerabilities dead          ║
+║                                                                    ║
+╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
+"""
+        try:
+            rprint(fallback_banner)
+        except:
+            # Last resort: plain text
+            print(f"\nMEDUSA v{__version__} - Security Guardian\n")
 
 
 @click.group(invoke_without_command=True)
