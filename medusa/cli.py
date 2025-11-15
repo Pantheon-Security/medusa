@@ -421,8 +421,9 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, no_report, in
 
 
 @main.command()
-@click.option('--ide', type=click.Choice(['claude-code', 'cursor', 'vscode', 'gemini-cli', 'none']),
-              default=None, help='IDE to configure')
+@click.option('--ide', multiple=True,
+              type=click.Choice(['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot', 'all', 'none']),
+              default=None, help='IDE(s) to configure (can specify multiple)')
 @click.option('--force', is_flag=True, help='Overwrite existing configuration')
 @click.option('--install', is_flag=True, help='Install missing tools automatically')
 def init(ide, force, install):
@@ -437,10 +438,12 @@ def init(ide, force, install):
     - Configure IDE integration
 
     Examples:
-        medusa init                      # Interactive setup
-        medusa init --ide claude-code    # Setup for Claude Code
-        medusa init --force              # Overwrite existing config
-        medusa init --install            # Auto-install missing tools
+        medusa init                                    # Interactive setup
+        medusa init --ide claude-code                  # Setup for Claude Code
+        medusa init --ide gemini-cli --ide cursor      # Setup for multiple IDEs
+        medusa init --ide all                          # Setup for all IDEs
+        medusa init --force                            # Overwrite existing config
+        medusa init --install                          # Auto-install missing tools
     """
     print_banner()
 
@@ -500,54 +503,132 @@ def init(ide, force, install):
     console.print("\n[bold cyan]Step 3/4: Creating configuration...[/bold cyan]")
     config = MedusaConfig()
 
+    # Convert ide tuple to list
+    ide_list = list(ide) if ide else []
+
+    # Handle 'all' option
+    if 'all' in ide_list:
+        ide_list = ['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot']
+
+    # Remove 'none' if present with other options
+    if 'none' in ide_list and len(ide_list) > 1:
+        ide_list.remove('none')
+
     # Auto-detect IDE if not specified
-    if ide is None:
+    if not ide_list or ide_list == ['none']:
+        detected_ides = []
         if (project_root / ".claude").exists():
-            ide = 'claude-code'
-        elif (project_root / ".cursor").exists():
-            ide = 'cursor'
-        elif (project_root / ".vscode").exists():
-            ide = 'vscode'
-        else:
+            detected_ides.append('claude-code')
+        if (project_root / ".cursor").exists():
+            detected_ides.append('cursor')
+        if (project_root / ".gemini").exists():
+            detected_ides.append('gemini-cli')
+        if (project_root / "AGENTS.md").exists():
+            detected_ides.append('openai-codex')
+        if (project_root / ".github" / "copilot-instructions.md").exists():
+            detected_ides.append('github-copilot')
+
+        if detected_ides:
+            console.print(f"\n[green]Detected IDE(s):[/green] {', '.join(detected_ides)}")
+            if click.confirm("Use detected IDE configuration?", default=True):
+                ide_list = detected_ides
+
+        if not ide_list or ide_list == ['none']:
             # Ask user
-            console.print("\nWhich IDE are you using?")
+            console.print("\nWhich IDE(s) are you using? (multiple selections allowed)")
             console.print("  1. Claude Code")
             console.print("  2. Cursor")
-            console.print("  3. VS Code")
-            console.print("  4. Gemini CLI")
-            console.print("  5. None")
-            choice = click.prompt("Select IDE", type=int, default=5)
-            ide_map = {1: 'claude-code', 2: 'cursor', 3: 'vscode', 4: 'gemini-cli', 5: 'none'}
-            ide = ide_map.get(choice, 'none')
+            console.print("  3. Gemini CLI")
+            console.print("  4. OpenAI Codex")
+            console.print("  5. GitHub Copilot")
+            console.print("  6. All of the above")
+            console.print("  7. None")
+            choices = click.prompt("Select IDE(s) (comma-separated, e.g., 1,2,3)", type=str, default="7")
 
-    # Configure IDE settings
-    if ide == 'claude-code':
-        config.ide_claude_code_enabled = True
-    elif ide == 'cursor':
-        config.ide_cursor_enabled = True
-    elif ide == 'vscode':
-        config.ide_vscode_enabled = True
-    elif ide == 'gemini-cli':
-        config.ide_gemini_enabled = True
+            choice_nums = [int(c.strip()) for c in choices.split(',') if c.strip().isdigit()]
+            ide_map = {
+                1: 'claude-code',
+                2: 'cursor',
+                3: 'gemini-cli',
+                4: 'openai-codex',
+                5: 'github-copilot',
+                6: 'all',
+                7: 'none'
+            }
+
+            ide_list = []
+            for num in choice_nums:
+                if num == 6:  # All
+                    ide_list = ['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot']
+                    break
+                elif num == 7:  # None
+                    if len(choice_nums) == 1:
+                        ide_list = ['none']
+                    # Skip 'none' if other options selected
+                elif num in ide_map:
+                    ide_list.append(ide_map[num])
+
+    # Configure IDE settings in config
+    for selected_ide in ide_list:
+        if selected_ide == 'claude-code':
+            config.ide_claude_code_enabled = True
+        elif selected_ide == 'cursor':
+            config.ide_cursor_enabled = True
+        elif selected_ide == 'gemini-cli':
+            config.ide_gemini_enabled = True
+        elif selected_ide == 'openai-codex':
+            config.ide_openai_enabled = True
+        elif selected_ide == 'github-copilot':
+            config.ide_copilot_enabled = True
 
     # Save configuration
     ConfigManager.save_config(config, config_path)
     console.print(f"[green]✓[/green] Created {config_path}")
 
     # Step 4: Setup IDE integration
-    if ide != 'none':
-        console.print(f"\n[bold cyan]Step 4/4: Setting up {ide} integration...[/bold cyan]")
+    if ide_list and ide_list != ['none']:
+        console.print(f"\n[bold cyan]Step 4/4: Setting up IDE integration(s)...[/bold cyan]")
 
-        if ide == 'claude-code':
-            from medusa.ide.claude_code import setup_claude_code
-            if setup_claude_code(project_root):
-                console.print("[green]✓[/green] Claude Code integration configured")
-        elif ide == 'cursor':
-            console.print("[yellow]⚠️  Cursor integration coming soon[/yellow]")
-        elif ide == 'vscode':
-            console.print("[yellow]⚠️  VS Code integration coming soon[/yellow]")
-        elif ide == 'gemini-cli':
-            console.print("[yellow]⚠️  Gemini CLI integration coming soon[/yellow]")
+        from medusa.ide.claude_code import (
+            setup_claude_code,
+            setup_cursor,
+            setup_gemini_cli,
+            setup_openai_codex,
+            setup_github_copilot
+        )
+
+        success_count = 0
+        for selected_ide in ide_list:
+            if selected_ide == 'claude-code':
+                if setup_claude_code(project_root):
+                    console.print("[green]✓[/green] Claude Code integration configured")
+                    console.print("  • Created .claude/ directory with agents and commands")
+                    console.print("  • Created CLAUDE.md project context")
+                    success_count += 1
+            elif selected_ide == 'cursor':
+                if setup_cursor(project_root):
+                    console.print("[green]✓[/green] Cursor integration configured")
+                    console.print("  • Created .cursor/mcp-config.json for MCP support")
+                    console.print("  • Reused .claude/ structure (Cursor is VS Code fork)")
+                    success_count += 1
+            elif selected_ide == 'gemini-cli':
+                if setup_gemini_cli(project_root):
+                    console.print("[green]✓[/green] Gemini CLI integration configured")
+                    console.print("  • Created .gemini/commands/ with .toml files")
+                    console.print("  • Created GEMINI.md project context")
+                    success_count += 1
+            elif selected_ide == 'openai-codex':
+                if setup_openai_codex(project_root):
+                    console.print("[green]✓[/green] OpenAI Codex integration configured")
+                    console.print("  • Created AGENTS.md project context")
+                    success_count += 1
+            elif selected_ide == 'github-copilot':
+                if setup_github_copilot(project_root):
+                    console.print("[green]✓[/green] GitHub Copilot integration configured")
+                    console.print("  • Created .github/copilot-instructions.md")
+                    success_count += 1
+
+        console.print(f"\n[green]✓[/green] Configured {success_count}/{len(ide_list)} IDE integration(s)")
     else:
         console.print("\n[bold cyan]Step 4/4: Skipping IDE integration[/bold cyan]")
 

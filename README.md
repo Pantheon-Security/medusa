@@ -1,6 +1,6 @@
-# 🐍 MEDUSA v0.7.0.0 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.8.0.0 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.7.0.0-blue.svg)](https://github.com/chimera/medusa)
+[![Version](https://img.shields.io/badge/version-0.8.0.0-blue.svg)](https://github.com/chimera/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
@@ -60,7 +60,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v0.7.0.0 - Security Guardian
+🐍 MEDUSA v0.8.0.0 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -234,6 +234,12 @@ medusa init
 # Initialize with specific IDE
 medusa init --ide claude-code
 
+# Initialize with multiple IDEs
+medusa init --ide claude-code --ide gemini-cli --ide cursor
+
+# Initialize with all supported IDEs
+medusa init --ide all
+
 # Force overwrite existing config
 medusa init --force
 
@@ -251,7 +257,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 0.7.0
+version: 0.8.0
 
 # Scanner control
 scanners:
@@ -314,33 +320,88 @@ This creates `.medusa.yml` with sensible defaults and auto-detects your IDE.
 
 ## 🤖 IDE Integration
 
-### Claude Code (Full Support)
+MEDUSA supports **5 major AI coding assistants** with native integrations. Initialize with `medusa init --ide all` or select specific platforms.
 
-MEDUSA integrates seamlessly with Claude Code:
+### Supported Platforms
 
-**Features:**
-- 🔄 Auto-scan on file save
-- ⚡ `/medusa-scan` slash command
-- 📝 Inline issue annotations
-- ⚙️ Configurable severity thresholds
+| IDE | Context File | Commands | Status |
+|-----|-------------|----------|--------|
+| **Claude Code** | `CLAUDE.md` | `/medusa-scan`, `/medusa-install` | ✅ Full Support |
+| **Gemini CLI** | `GEMINI.md` | `/scan`, `/install` | ✅ Full Support |
+| **OpenAI Codex** | `AGENTS.md` | Native slash commands | ✅ Full Support |
+| **GitHub Copilot** | `.github/copilot-instructions.md` | Code suggestions | ✅ Full Support |
+| **Cursor** | Reuses `CLAUDE.md` | MCP + Claude commands | ✅ Full Support |
 
-**Setup:**
+### Quick Setup
+
 ```bash
-medusa init --ide claude-code
+# Setup for all IDEs (recommended)
+medusa init --ide all
+
+# Or select specific platforms
+medusa init --ide claude-code --ide gemini-cli
 ```
 
-This creates:
+### Claude Code
+
+**What it creates:**
+- `CLAUDE.md` - Project context file
 - `.claude/agents/medusa/agent.json` - Agent configuration
-- `.claude/commands/medusa-scan.md` - Command documentation
+- `.claude/commands/medusa-scan.md` - Scan slash command
+- `.claude/commands/medusa-install.md` - Install slash command
 
-**Usage in Claude Code:**
-- Save a `.py`, `.js`, `.sh`, or other file → Auto-scan
-- Type `/medusa-scan` → Full project scan
-- View issues inline in your code
+**Usage:**
+```
+Type: /medusa-scan
+Claude: *runs security scan*
+Results: Displayed in terminal + chat
+```
 
-### Cursor, VS Code, Gemini CLI
+### Gemini CLI
 
-Basic integration structure created. Full support coming in v0.8.0.
+**What it creates:**
+- `GEMINI.md` - Project context file
+- `.gemini/commands/scan.toml` - Scan command config
+- `.gemini/commands/install.toml` - Install command config
+
+**Usage:**
+```bash
+gemini /scan              # Full scan
+gemini /scan --quick      # Quick scan
+gemini /install --check   # Check tools
+```
+
+### OpenAI Codex
+
+**What it creates:**
+- `AGENTS.md` - Project context (root level)
+
+**Usage:**
+```
+Ask: "Run a security scan"
+Codex: *executes medusa scan .*
+```
+
+### GitHub Copilot
+
+**What it creates:**
+- `.github/copilot-instructions.md` - Security standards and best practices
+
+**How it helps:**
+- Knows project security standards
+- Suggests secure code patterns
+- Recommends running scans after changes
+- Helps fix security issues
+
+### Cursor
+
+**What it creates:**
+- `.cursor/mcp-config.json` - MCP server configuration
+- Reuses `.claude/` structure (Cursor is VS Code fork)
+
+**Usage:**
+- Works like Claude Code integration
+- MCP-native for future deeper integration
 
 ---
 
