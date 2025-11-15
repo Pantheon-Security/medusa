@@ -14,6 +14,15 @@ from rich import print as rprint
 
 from medusa import __version__
 
+# Force UTF-8 encoding for stdout/stderr on Windows to handle emojis
+# This fixes UnicodeEncodeError on Windows terminals that default to cp1252
+if sys.platform == 'win32':
+    import io
+    if isinstance(sys.stdout, io.TextIOWrapper):
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    if isinstance(sys.stderr, io.TextIOWrapper):
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Create console with Windows encoding handling
 console = Console()
 
