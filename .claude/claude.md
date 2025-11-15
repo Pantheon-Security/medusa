@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**MEDUSA v0.8.0.0** - The 42-Headed Security Guardian
+**MEDUSA v0.9.0.0** - The 42-Headed Security Guardian
 - Universal security scanner for all languages and platforms
 - Python-based CLI tool with 42 different language scanners
 - Parallel processing for high performance
@@ -170,7 +170,7 @@ make docker-build-simple
 
 ### Building
 - Always build wheel first: `python -m build --wheel`
-- Wheel location: `dist/medusa_security-0.8.0.0-py3-none-any.whl`
+- Wheel location: `dist/medusa_security-0.9.0.0-py3-none-any.whl`
 - Dockerfile.simple is fastest (uses pre-built wheel)
 - Dockerfile does full build from source
 
@@ -178,7 +178,7 @@ make docker-build-simple
 
 ### .medusa.yml
 ```yaml
-version: 0.8.0
+version: 0.9.0.0
 scanners:
   enabled: []     # Empty = all enabled
   disabled: []    # List to disable
@@ -324,7 +324,7 @@ bash test-docker-install.sh
 
 ## Version Info
 
-- **Current Version**: 0.8.0.0
+- **Current Version**: 0.9.0.0
 - **Python Required**: >=3.10
 - **Development Status**: Beta (Production Ready)
 - **License**: MIT
