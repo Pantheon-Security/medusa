@@ -21,27 +21,35 @@ console = Console()
 _original_print = console.print
 
 def _safe_print(*args, **kwargs):
-    """Windows-safe console.print that removes emojis on encoding errors"""
+    """Windows-safe console.print that removes emojis and Unicode symbols on encoding errors"""
     try:
         _original_print(*args, **kwargs)
     except (UnicodeEncodeError, UnicodeDecodeError):
-        # Remove emojis and retry
+        # Remove all Unicode characters that might fail on Windows cp1252
         import re
-        # Remove all emojis (Unicode characters U+1F000 and above)
-        emoji_pattern = re.compile(r'[\U00010000-\U0010ffff]', flags=re.UNICODE)
+        # Remove emojis, symbols, and other non-Latin characters
+        # Keep only ASCII printable + basic Latin chars
+        unicode_pattern = re.compile(r'[^\x00-\x7F]+', flags=re.UNICODE)
 
         safe_args = []
         for arg in args:
             if isinstance(arg, str):
-                safe_args.append(emoji_pattern.sub('', arg))
+                # Remove Unicode, then clean up extra spaces
+                cleaned = unicode_pattern.sub('', arg)
+                cleaned = ' '.join(cleaned.split())  # Normalize whitespace
+                safe_args.append(cleaned)
             else:
                 safe_args.append(arg)
 
         try:
             _original_print(*safe_args, **kwargs)
         except:
-            # Last resort: plain print
-            print(' '.join(str(a) for a in safe_args))
+            # Last resort: plain print with ASCII-only
+            ascii_text = ' '.join(str(a).encode('ascii', 'ignore').decode('ascii') for a in safe_args)
+            try:
+                print(ascii_text)
+            except:
+                pass  # Give up silently
 
 console.print = _safe_print
 
