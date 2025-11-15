@@ -79,7 +79,7 @@ class ToolMapper:
     """
 
     # Python tools that can be installed via pip as fallback
-    PYTHON_TOOLS = {'bandit', 'yamllint', 'sqlfluff', 'ansible-lint'}
+    PYTHON_TOOLS = {'bandit', 'yamllint', 'sqlfluff', 'ansible-lint', 'vint', 'cmake-lint', 'gixy'}
 
     # npm tools that can be installed via npm as fallback
     NPM_TOOLS = {'eslint', 'markdownlint', 'stylelint', 'htmlhint', 'tsc', 'solhint', 'graphql-schema-linter'}
@@ -222,6 +222,54 @@ class ToolMapper:
         'luacheck': {
             'brew': 'luacheck',
             'manual': 'luarocks install luacheck',
+        },
+        'mix': {
+            'apt': 'elixir',
+            'yum': 'elixir',
+            'dnf': 'elixir',
+            'pacman': 'elixir',
+            'brew': 'elixir',
+            'manual': 'https://elixir-lang.org/install.html',
+        },
+        'hlint': {
+            'apt': 'hlint',
+            'brew': 'hlint',
+            'pacman': 'hlint',
+            'manual': 'cabal install hlint',
+        },
+        'clj-kondo': {
+            'brew': 'borkdude/brew/clj-kondo',
+            'manual': 'bash <(curl -s https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo)',
+        },
+        'dart': {
+            'apt': 'dart',
+            'brew': 'dart',
+            'pacman': 'dart',
+            'manual': 'https://dart.dev/get-dart',
+        },
+        'codenarc': {
+            'brew': 'codenarc',
+            'manual': 'Download from: https://github.com/CodeNarc/CodeNarc',
+        },
+        'vint': {
+            'pip': 'vim-vint',
+        },
+        'cmake-lint': {
+            'pip': 'cmakelang',
+        },
+        'checkmake': {
+            'brew': 'checkmake',
+            'manual': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+        },
+        'gixy': {
+            'apt': 'gixy',
+            'pip': 'gixy',
+        },
+        'zig': {
+            'apt': 'zig',
+            'brew': 'zig',
+            'pacman': 'zig',
+            'manual': 'https://ziglang.org/download/',
         },
     }
 
