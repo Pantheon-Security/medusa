@@ -163,8 +163,17 @@ def _handle_batch_install(target, auto_install):
     # Prompt to install missing tools
     if missing_tools:
         console.print(f"\n[bold yellow]📦 Missing Tools ({len(missing_tools)}):[/bold yellow]")
+
+        # Create mapping of tool -> description
+        tool_descriptions = {
+            scanner.tool_name: f"{scanner.name.replace('Scanner', '')} linter"
+            for scanner in needed_scanners
+            if not scanner.is_available()
+        }
+
         for tool in missing_tools:
-            console.print(f"   • {tool}")
+            description = tool_descriptions.get(tool, "security scanner")
+            console.print(f"   • {tool:20} ([dim]{description}[/dim])")
 
         if auto_install:
             console.print("\n[cyan]Auto-installing missing tools...[/cyan]")
