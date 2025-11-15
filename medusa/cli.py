@@ -63,6 +63,189 @@ def _safe_print(*args, **kwargs):
 console.print = _safe_print
 
 
+def _detect_file_types(target_path: Path) -> dict:
+    """
+    Quick scan to detect file types in target directory
+
+    Returns:
+        dict: {file_extension: count} mapping
+    """
+    from collections import Counter
+
+    file_types = Counter()
+    target = Path(target_path)
+
+    # Quick scan - just count extensions
+    for file_path in target.rglob('*'):
+        if file_path.is_file() and not any(part.startswith('.') for part in file_path.parts):
+            ext = file_path.suffix.lower()
+            if ext:
+                file_types[ext] += 1
+
+    return dict(file_types)
+
+
+def _get_needed_scanners(file_types: dict):
+    """
+    Determine which scanners are needed based on file types found
+
+    Args:
+        file_types: dict of {extension: count}
+
+    Returns:
+        tuple: (needed_scanners, available_scanners, missing_tools)
+    """
+    from medusa.scanners import registry
+
+    all_scanners = registry.get_all_scanners()
+    needed_scanners = []
+
+    # Find scanners that match the file types we found
+    for scanner in all_scanners:
+        scanner_exts = scanner.get_file_extensions()
+        for ext in file_types.keys():
+            if ext in scanner_exts:
+                if scanner not in needed_scanners:
+                    needed_scanners.append(scanner)
+                break
+
+    # Check which are available vs missing
+    available_scanners = []
+    missing_tools = []
+
+    for scanner in needed_scanners:
+        if scanner.is_available():
+            available_scanners.append(scanner)
+        else:
+            if scanner.tool_name not in missing_tools:
+                missing_tools.append(scanner.tool_name)
+
+    return needed_scanners, available_scanners, missing_tools
+
+
+def _handle_batch_install(target, auto_install):
+    """
+    Handle batch installation mode - scan project, show summary, prompt once
+
+    Args:
+        target: Target directory to scan
+        auto_install: Whether to auto-install without prompting
+    """
+    console.print("\n[cyan]🔍 Detecting project languages...[/cyan]")
+
+    # Detect file types
+    file_types = _detect_file_types(Path(target))
+
+    if not file_types:
+        return  # No files found
+
+    # Get needed scanners
+    needed_scanners, available_scanners, missing_tools = _get_needed_scanners(file_types)
+
+    if not needed_scanners:
+        return  # No scanners needed
+
+    # Show summary
+    total_files = sum(file_types.values())
+    console.print(f"   Found {total_files} files across {len(file_types)} file types\n")
+
+    # Show scanner status
+    if needed_scanners:
+        console.print("[bold cyan]📊 Scanner Status:[/bold cyan]")
+        for scanner in needed_scanners:
+            status = "✅" if scanner.is_available() else "❌"
+            scanner_exts = scanner.get_file_extensions()
+            exts = ', '.join(scanner_exts[:3])
+            if len(scanner_exts) > 3:
+                exts += f" (+{len(scanner_exts) - 3} more)"
+            console.print(f"   {status} {scanner.name:25} ({scanner.tool_name:15}) → {exts}")
+
+    # Prompt to install missing tools
+    if missing_tools:
+        console.print(f"\n[bold yellow]📦 Missing Tools ({len(missing_tools)}):[/bold yellow]")
+        for tool in missing_tools:
+            console.print(f"   • {tool}")
+
+        if auto_install:
+            console.print("\n[cyan]Auto-installing missing tools...[/cyan]")
+            install_tools = True
+        else:
+            install_tools = click.confirm(f"\nInstall {len(missing_tools)} missing tools?", default=True)
+
+        if install_tools:
+            _install_tools(missing_tools)
+        else:
+            console.print("[dim]Skipping installation. Some files may not be scanned.[/dim]")
+    else:
+        console.print(f"\n[green]✅ All required scanners are installed![/green]")
+
+    console.print()
+
+
+def _install_tools(tools: list):
+    """
+    Install a list of tools
+
+    Args:
+        tools: List of tool names to install
+    """
+    from medusa.platform import get_platform_info
+    from medusa.platform.installers import (
+        AptInstaller, DnfInstaller, PacmanInstaller,
+        HomebrewInstaller, NpmInstaller, PipInstaller, ToolMapper
+    )
+
+    platform_info = get_platform_info()
+    pm = platform_info.primary_package_manager
+
+    # Get appropriate installer
+    installer = None
+    if pm:
+        from medusa.platform import PackageManager
+        installer_map = {
+            PackageManager.APT: AptInstaller(),
+            PackageManager.DNF: DnfInstaller(),
+            PackageManager.PACMAN: PacmanInstaller(),
+            PackageManager.BREW: HomebrewInstaller(),
+        }
+        installer = installer_map.get(pm)
+
+    npm_installer = NpmInstaller() if shutil.which('npm') else None
+    pip_installer = PipInstaller() if shutil.which('pip') or shutil.which('pip3') else None
+
+    installed = 0
+    failed = 0
+
+    for tool in tools:
+        console.print(f"[cyan]Installing {tool}...[/cyan] ", end="")
+
+        success = False
+
+        # Try platform package manager first
+        if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
+            success = installer.install(tool)
+
+        # Try npm for npm tools
+        if not success and npm_installer and ToolMapper.is_npm_tool(tool):
+            success = npm_installer.install(tool)
+
+        # Try pip for python tools
+        if not success and pip_installer and ToolMapper.is_python_tool(tool):
+            success = pip_installer.install(tool)
+
+        if success:
+            console.print("[green]✅[/green]")
+            installed += 1
+        else:
+            console.print("[red]❌[/red]")
+            failed += 1
+
+    if installed > 0:
+        console.print(f"\n[green]✅ Installed {installed}/{len(tools)} tools[/green]")
+    if failed > 0:
+        console.print(f"[yellow]⚠️  {failed} tools failed to install (may need manual installation)[/yellow]")
+
+
 def print_banner():
     """Print MEDUSA banner with fallback for Windows encoding issues"""
     banner = f"""
@@ -137,7 +320,14 @@ def main(ctx, version):
               help='Output directory for reports')
 @click.option('--no-report', is_flag=True,
               help='Skip report generation (faster)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, no_report):
+@click.option('--install-mode', type=click.Choice(['batch', 'progressive', 'never']),
+              default='batch',
+              help='How to handle missing linters (batch=ask once, progressive=ask per tool, never=skip)')
+@click.option('--auto-install', is_flag=True,
+              help='Automatically install missing linters without prompting')
+@click.option('--no-install', is_flag=True,
+              help='Never prompt for installation (same as --install-mode never)')
+def scan(target, workers, quick, force, no_cache, fail_on, output, no_report, install_mode, auto_install, no_install):
     """
     Scan a directory or file for security issues.
 
@@ -153,8 +343,16 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, no_report):
     """
     print_banner()
 
+    # Handle install mode flags
+    if no_install:
+        install_mode = 'never'
+
     console.print(f"\n[cyan]🎯 Target:[/cyan] {target}")
     console.print(f"[cyan]🔧 Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
+
+    # Pre-scan for missing linters (batch mode)
+    if install_mode == 'batch':
+        _handle_batch_install(target, auto_install)
 
     # Check system load and recommend optimal workers
     from medusa.core.system import check_system_load, get_optimal_workers
