@@ -1,6 +1,6 @@
-# 🐍 MEDUSA v0.8.0.0 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.9.0.0 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.8.0.0-blue.svg)](https://github.com/chimera/medusa)
+[![Version](https://img.shields.io/badge/version-0.9.0.0-blue.svg)](https://github.com/chimera/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
@@ -60,7 +60,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v0.8.0.0 - Security Guardian
+🐍 MEDUSA v0.9.0.0 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -257,7 +257,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 0.8.0
+version: 0.9.0
 
 # Scanner control
 scanners:
