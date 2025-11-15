@@ -24,7 +24,7 @@ FROM python:3.11-slim
 
 LABEL maintainer="Chimera Trading Systems <support@medusa-security.dev>"
 LABEL description="MEDUSA - The 42-Headed Security Guardian"
-LABEL version="0.7.0.0"
+LABEL version="0.8.0.0"
 
 WORKDIR /app
 
