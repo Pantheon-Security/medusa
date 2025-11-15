@@ -14,7 +14,36 @@ from rich import print as rprint
 
 from medusa import __version__
 
+# Create console with Windows encoding handling
 console = Console()
+
+# Monkey-patch console.print to handle Windows encoding issues
+_original_print = console.print
+
+def _safe_print(*args, **kwargs):
+    """Windows-safe console.print that removes emojis on encoding errors"""
+    try:
+        _original_print(*args, **kwargs)
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        # Remove emojis and retry
+        import re
+        # Remove all emojis (Unicode characters U+1F000 and above)
+        emoji_pattern = re.compile(r'[\U00010000-\U0010ffff]', flags=re.UNICODE)
+
+        safe_args = []
+        for arg in args:
+            if isinstance(arg, str):
+                safe_args.append(emoji_pattern.sub('', arg))
+            else:
+                safe_args.append(arg)
+
+        try:
+            _original_print(*safe_args, **kwargs)
+        except:
+            # Last resort: plain print
+            print(' '.join(str(a) for a in safe_args))
+
+console.print = _safe_print
 
 
 def print_banner():
