@@ -15,8 +15,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022, macos-13, macos-14]
         python-version: ['3.10', '3.11', '3.12']
+        exclude:
+          # Reduce test matrix size - skip some combinations
+          - os: ubuntu-24.04
+            python-version: '3.10'
+          - os: macos-13
+            python-version: '3.10'
 
     steps:
     - name: Checkout code
@@ -40,18 +46,40 @@ jobs:
         medusa --version
         medusa --help
 
-    - name: Test init command
+    - name: Test init command (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
       run: |
         cd /tmp
-        mkdir test-project
+        mkdir -p test-project
         cd test-project
         echo 'print("Hello, World!")' > test.py
         echo 'n' | medusa init --ide claude-code --force
         test -f .medusa.yml && echo "✅ Config created"
 
-    - name: Test scan command
+    - name: Test init command (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd $env:TEMP
+        New-Item -ItemType Directory -Force -Path test-project
+        cd test-project
+        "print('Hello, World!')" | Out-File -FilePath test.py -Encoding utf8
+        "n" | medusa init --ide claude-code --force
+        if (Test-Path .medusa.yml) { Write-Host "✅ Config created" }
+
+    - name: Test scan command (Unix)
+      if: runner.os != 'Windows'
+      shell: bash
       run: |
         cd /tmp/test-project
+        medusa scan . --workers 2
+
+    - name: Test scan command (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd $env:TEMP/test-project
         medusa scan . --workers 2
 
     - name: Test install --check command
