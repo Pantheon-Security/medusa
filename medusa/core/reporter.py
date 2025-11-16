@@ -732,8 +732,8 @@ class MedusaReportGenerator:
         </div>
 
         <div class="footer">
-            <div class="footer-title">MEDUSA v0.7.0</div>
-            <div>The 42-Headed Security Guardian • Project Chimera</div>
+            <div class="footer-title">MEDUSA v0.9.1.0</div>
+            <div>The 42-Headed Security Guardian • Pantheon Security</div>
         </div>
     </div>
 </body>

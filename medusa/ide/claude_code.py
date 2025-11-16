@@ -182,7 +182,7 @@ Edit `.medusa.yml` to customize:
 ## Learn More
 
 - Documentation: https://docs.medusa-security.dev
-- Report Issues: https://github.com/chimera/medusa/issues
+- Report Issues: https://github.com/Pantheon-Security/medusa/issues
 """
 
 
@@ -382,8 +382,8 @@ exclude:
 ## Learn More
 
 - **Documentation**: https://docs.medusa-security.dev
-- **GitHub**: https://github.com/chimera/medusa
-- **Report Issues**: https://github.com/chimera/medusa/issues
+- **GitHub**: https://github.com/Pantheon-Security/medusa
+- **Report Issues**: https://github.com/Pantheon-Security/medusa/issues
 
 ---
 
@@ -704,8 +704,8 @@ exclude:
 ### Documentation
 
 - Docs: https://docs.medusa-security.dev
-- GitHub: https://github.com/chimera/medusa
-- Issues: https://github.com/chimera/medusa/issues
+- GitHub: https://github.com/Pantheon-Security/medusa
+- Issues: https://github.com/Pantheon-Security/medusa/issues
 
 ---
 
@@ -867,7 +867,7 @@ Generated in `.medusa/reports/`:
 ### Getting Help
 
 - Documentation: https://docs.medusa-security.dev
-- GitHub Issues: https://github.com/chimera/medusa/issues
+- GitHub Issues: https://github.com/Pantheon-Security/medusa/issues
 - Run: `medusa --help`
 
 ---
