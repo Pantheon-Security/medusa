@@ -5,6 +5,7 @@ Package installers that work on multiple platforms (npm, pip)
 """
 
 from medusa.platform.installers.base import BaseInstaller, ToolMapper
+from medusa.platform.version_manager import VersionManager
 
 
 class NpmInstaller(BaseInstaller):
@@ -12,8 +13,9 @@ class NpmInstaller(BaseInstaller):
 
     def __init__(self):
         super().__init__('npm')
+        self.version_mgr = VersionManager()
 
-    def install(self, package: str, sudo: bool = False) -> bool:
+    def install(self, package: str, sudo: bool = False, use_latest: bool = False) -> bool:
         """Install package using npm (global)"""
         if not self.pm_path:
             return False
@@ -22,7 +24,10 @@ class NpmInstaller(BaseInstaller):
         if not package_name:
             return False
 
-        cmd = ['npm', 'install', '-g', package_name]
+        # Get versioned package spec
+        package_spec = self.version_mgr.get_package_spec(package, package_name, 'npm', use_latest)
+
+        cmd = ['npm', 'install', '-g', package_spec]
 
         try:
             result = self.run_command(cmd, check=True)
@@ -54,8 +59,9 @@ class PipInstaller(BaseInstaller):
 
     def __init__(self):
         super().__init__('pip')
+        self.version_mgr = VersionManager()
 
-    def install(self, package: str, sudo: bool = False) -> bool:
+    def install(self, package: str, sudo: bool = False, use_latest: bool = False) -> bool:
         """Install package using pip"""
         if not self.pm_path:
             return False
@@ -64,7 +70,10 @@ class PipInstaller(BaseInstaller):
         if not package_name:
             return False
 
-        cmd = ['pip', 'install', package_name]
+        # Get versioned package spec
+        package_spec = self.version_mgr.get_package_spec(package, package_name, 'pip', use_latest)
+
+        cmd = ['pip', 'install', package_spec]
         if sudo:
             cmd = ['sudo'] + cmd
 
