@@ -1,6 +1,6 @@
-# 🐍 MEDUSA v0.9.0.0 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.9.1.0 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.9.0.0-blue.svg)](https://github.com/chimera/medusa)
+[![Version](https://img.shields.io/badge/version-0.9.1.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
@@ -38,7 +38,7 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 pip install medusa-security
 
 # Or install from source
-git clone https://github.com/chimera/medusa.git
+git clone https://github.com/Pantheon-Security/medusa.git
 cd medusa
 pip install -e .
 ```
@@ -688,7 +688,7 @@ MIT License - See [LICENSE](LICENSE) file
 ## 🙏 Credits
 
 **Development:**
-- Chimera Trading Systems
+- Pantheon Security
 - Claude AI (Anthropic) - AI-assisted development
 
 **Built With:**
@@ -707,7 +707,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/chimera/medusa/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/Pantheon-Security/medusa/issues)
 - **Email**: support@medusa-security.dev
 - **Documentation**: https://docs.medusa-security.dev (coming soon)
 - **Discord**: https://discord.gg/medusa (coming soon)
