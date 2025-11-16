@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir build && \
 # Stage 2: Runtime
 FROM python:3.11-slim
 
-LABEL maintainer="Chimera Trading Systems <support@medusa-security.dev>"
+LABEL maintainer="Pantheon Security <security@pantheonsecurity.io>"
 LABEL description="MEDUSA - The 42-Headed Security Guardian"
 LABEL version="0.9.0.0"
 
