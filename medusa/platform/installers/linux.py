@@ -70,6 +70,26 @@ class AptInstaller(BaseInstaller):
         except:
             return False
 
+    def uninstall(self, package: str, sudo: bool = True) -> bool:
+        """Uninstall package using apt"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'apt')
+        if not package_name:
+            return False
+
+        cmd = []
+        if sudo:
+            cmd.append('sudo')
+        cmd.extend(['apt', 'remove', '-y', package_name])
+
+        try:
+            result = self.run_command(cmd, check=True)
+            return result.returncode == 0
+        except:
+            return False
+
     def get_install_command(self, package: str, sudo: bool = True) -> str:
         package_name = ToolMapper.get_package_name(package, 'apt')
         if not package_name:
@@ -110,6 +130,26 @@ class YumInstaller(BaseInstaller):
 
         try:
             result = self.run_command(['rpm', '-q', package_name], check=False)
+            return result.returncode == 0
+        except:
+            return False
+
+    def uninstall(self, package: str, sudo: bool = True) -> bool:
+        """Uninstall package using yum"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'yum')
+        if not package_name:
+            return False
+
+        cmd = []
+        if sudo:
+            cmd.append('sudo')
+        cmd.extend(['yum', 'remove', '-y', package_name])
+
+        try:
+            result = self.run_command(cmd, check=True)
             return result.returncode == 0
         except:
             return False
@@ -158,6 +198,26 @@ class DnfInstaller(BaseInstaller):
         except:
             return False
 
+    def uninstall(self, package: str, sudo: bool = True) -> bool:
+        """Uninstall package using dnf"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'dnf')
+        if not package_name:
+            return False
+
+        cmd = []
+        if sudo:
+            cmd.append('sudo')
+        cmd.extend(['dnf', 'remove', '-y', package_name])
+
+        try:
+            result = self.run_command(cmd, check=True)
+            return result.returncode == 0
+        except:
+            return False
+
     def get_install_command(self, package: str, sudo: bool = True) -> str:
         package_name = ToolMapper.get_package_name(package, 'dnf')
         if not package_name:
@@ -198,6 +258,26 @@ class PacmanInstaller(BaseInstaller):
 
         try:
             result = self.run_command(['pacman', '-Q', package_name], check=False)
+            return result.returncode == 0
+        except:
+            return False
+
+    def uninstall(self, package: str, sudo: bool = True) -> bool:
+        """Uninstall package using pacman"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'pacman')
+        if not package_name:
+            return False
+
+        cmd = []
+        if sudo:
+            cmd.append('sudo')
+        cmd.extend(['pacman', '-R', '--noconfirm', package_name])
+
+        try:
+            result = self.run_command(cmd, check=True)
             return result.returncode == 0
         except:
             return False

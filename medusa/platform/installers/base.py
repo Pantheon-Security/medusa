@@ -46,6 +46,20 @@ class BaseInstaller(ABC):
         """
         pass
 
+    @abstractmethod
+    def uninstall(self, package: str, sudo: bool = True) -> bool:
+        """
+        Uninstall a package
+
+        Args:
+            package: Package name to uninstall
+            sudo: Whether to use sudo (default True)
+
+        Returns:
+            True if uninstallation succeeded
+        """
+        pass
+
     def get_install_command(self, package: str, sudo: bool = True) -> str:
         """
         Get the install command as a string

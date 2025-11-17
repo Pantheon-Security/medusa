@@ -818,6 +818,159 @@ def install(tool, check, all, yes, use_latest):
 
 
 @main.command()
+@click.argument('tool', required=False)
+@click.option('--all', is_flag=True, help='Uninstall all MEDUSA scanner tools')
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
+def uninstall(tool, all, yes):
+    """
+    Uninstall security scanner tools.
+
+    Examples:
+        medusa uninstall shellcheck  # Uninstall specific tool
+        medusa uninstall --all       # Uninstall all tools
+    """
+    print_banner()
+
+    console.print("\n[cyan]📦 Tool Uninstallation[/cyan]\n")
+
+    from medusa.platform import get_platform_info
+    from medusa.scanners import registry
+    from medusa.platform.installers import (
+        AptInstaller, YumInstaller, DnfInstaller, PacmanInstaller,
+        HomebrewInstaller, NpmInstaller, PipInstaller, ToolMapper
+    )
+
+    platform_info = get_platform_info()
+
+    # Get installed tools
+    installed_tools = []
+    for scanner in registry.get_all_scanners():
+        if scanner.is_available():
+            tool_name = scanner.command
+            if tool_name and tool_name not in installed_tools:
+                installed_tools.append(tool_name)
+
+    if not installed_tools:
+        console.print("[yellow]No MEDUSA scanner tools found to uninstall[/yellow]")
+        return
+
+    # Uninstall specific tool
+    if tool:
+        if tool not in installed_tools:
+            console.print(f"[yellow]Tool '{tool}' is not installed or not a MEDUSA scanner tool[/yellow]")
+            return
+
+        if not yes:
+            confirm = click.confirm(f"Uninstall {tool}?", default=False)
+            if not confirm:
+                console.print("[yellow]Uninstallation cancelled[/yellow]")
+                return
+
+        console.print(f"[cyan]Uninstalling {tool}...[/cyan] ", end="")
+
+        # Get appropriate installer
+        pm = platform_info.primary_package_manager
+        installer = None
+
+        if pm:
+            from medusa.platform import PackageManager
+            installer_map = {
+                PackageManager.APT: AptInstaller(),
+                PackageManager.YUM: YumInstaller(),
+                PackageManager.DNF: DnfInstaller(),
+                PackageManager.PACMAN: PacmanInstaller(),
+                PackageManager.BREW: HomebrewInstaller(),
+            }
+            installer = installer_map.get(pm)
+
+        npm_installer = NpmInstaller() if shutil.which('npm') else None
+        pip_installer = PipInstaller() if shutil.which('pip') else None
+
+        success = False
+
+        # Try appropriate uninstaller
+        if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
+            success = installer.uninstall(tool)
+        elif npm_installer and ToolMapper.is_npm_tool(tool):
+            success = npm_installer.uninstall(tool)
+        elif pip_installer and ToolMapper.is_python_tool(tool):
+            success = pip_installer.uninstall(tool)
+
+        if success:
+            console.print("[green]✅[/green]")
+        else:
+            console.print("[red]❌[/red]")
+            console.print(f"[yellow]Note: You may need to uninstall {tool} manually[/yellow]")
+
+    # Uninstall all tools
+    elif all:
+        console.print(f"[bold]Found {len(installed_tools)} installed tools:[/bold]")
+        for t in installed_tools:
+            console.print(f"  • {t}")
+        console.print()
+
+        if not yes:
+            confirm = click.confirm(f"Uninstall all {len(installed_tools)} tools?", default=False)
+            if not confirm:
+                console.print("[yellow]Uninstallation cancelled[/yellow]")
+                return
+
+        # Get appropriate installer
+        pm = platform_info.primary_package_manager
+        installer = None
+
+        if pm:
+            from medusa.platform import PackageManager
+            installer_map = {
+                PackageManager.APT: AptInstaller(),
+                PackageManager.YUM: YumInstaller(),
+                PackageManager.DNF: DnfInstaller(),
+                PackageManager.PACMAN: PacmanInstaller(),
+                PackageManager.BREW: HomebrewInstaller(),
+            }
+            installer = installer_map.get(pm)
+
+        npm_installer = NpmInstaller() if shutil.which('npm') else None
+        pip_installer = PipInstaller() if shutil.which('pip') else None
+
+        uninstalled = 0
+        failed = 0
+
+        for tool_name in installed_tools:
+            console.print(f"[cyan]Uninstalling {tool_name}...[/cyan]", end=" ")
+
+            success = False
+
+            # Try appropriate uninstaller
+            if installer and ToolMapper.get_package_name(tool_name, pm.value if pm else ''):
+                success = installer.uninstall(tool_name)
+            elif npm_installer and ToolMapper.is_npm_tool(tool_name):
+                success = npm_installer.uninstall(tool_name)
+            elif pip_installer and ToolMapper.is_python_tool(tool_name):
+                success = pip_installer.uninstall(tool_name)
+
+            if success:
+                console.print("[green]✅[/green]")
+                uninstalled += 1
+            else:
+                console.print("[red]❌[/red]")
+                failed += 1
+
+        console.print()
+        console.print(f"[bold]Uninstallation Summary:[/bold]")
+        console.print(f"  ✅ Uninstalled: {uninstalled}")
+        if failed > 0:
+            console.print(f"  ❌ Failed: {failed}")
+
+    else:
+        console.print("[yellow]Please specify a tool name or use --all[/yellow]")
+        console.print(f"\n[bold]Currently installed tools:[/bold]")
+        for t in installed_tools:
+            console.print(f"  • {t}")
+        console.print(f"\n[dim]Example: medusa uninstall shellcheck[/dim]")
+
+
+@main.command()
 def config():
     """
     Show MEDUSA configuration.

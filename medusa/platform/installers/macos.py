@@ -42,6 +42,23 @@ class HomebrewInstaller(BaseInstaller):
         except:
             return False
 
+    def uninstall(self, package: str, sudo: bool = False) -> bool:
+        """Uninstall package using brew (no sudo needed)"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'brew')
+        if not package_name:
+            return False
+
+        cmd = ['brew', 'uninstall', package_name]
+
+        try:
+            result = self.run_command(cmd, check=True)
+            return result.returncode == 0
+        except:
+            return False
+
     def get_install_command(self, package: str, sudo: bool = False) -> str:
         package_name = ToolMapper.get_package_name(package, 'brew')
         if not package_name:
