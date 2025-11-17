@@ -273,5 +273,5 @@ docker run --rm -v $(pwd)/dist:/dist:ro ubuntu:22.04 bash -c "
 ---
 
 **Last Updated**: 2025-11-15
-**Tested By**: Claude Code + ross-churchill
+**Tested By**: Claude Code + Pantheon Security Team
 **Status**: ✅ Production Ready (on supported platforms)

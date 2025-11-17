@@ -169,4 +169,4 @@ sg docker -c "docker run --rm -v $(pwd)/dist:/dist:ro alpine:latest sh -c '
 ---
 
 *Last updated: 2025-11-15*
-*Tested by: Claude Code + ross-churchill*
+*Tested by: Claude Code + Pantheon Security Team*
