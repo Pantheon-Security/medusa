@@ -43,6 +43,12 @@ cd medusa
 pip install -e .
 ```
 
+**macOS Users:** If `medusa` command is not found after installation, run:
+```bash
+python3 -m medusa setup_path
+```
+This will automatically configure your PATH. Then open a new terminal or run `source ~/.zshrc`
+
 ### 5-Minute Setup
 
 ```bash
