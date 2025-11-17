@@ -47,6 +47,23 @@ class NpmInstaller(BaseInstaller):
         except:
             return False
 
+    def uninstall(self, package: str, sudo: bool = False) -> bool:
+        """Uninstall package using npm (global)"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'npm')
+        if not package_name:
+            return False
+
+        cmd = ['npm', 'uninstall', '-g', package_name]
+
+        try:
+            result = self.run_command(cmd, check=True)
+            return result.returncode == 0
+        except:
+            return False
+
     def get_install_command(self, package: str, sudo: bool = False) -> str:
         package_name = ToolMapper.get_package_name(package, 'npm')
         if not package_name:
@@ -91,6 +108,25 @@ class PipInstaller(BaseInstaller):
 
         try:
             result = self.run_command(['pip', 'show', package_name], check=False)
+            return result.returncode == 0
+        except:
+            return False
+
+    def uninstall(self, package: str, sudo: bool = False) -> bool:
+        """Uninstall package using pip"""
+        if not self.pm_path:
+            return False
+
+        package_name = ToolMapper.get_package_name(package, 'pip')
+        if not package_name:
+            return False
+
+        cmd = ['pip', 'uninstall', '-y', package_name]
+        if sudo:
+            cmd = ['sudo'] + cmd
+
+        try:
+            result = self.run_command(cmd, check=True)
             return result.returncode == 0
         except:
             return False
