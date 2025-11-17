@@ -825,7 +825,7 @@ EOF
 
 ### Report Issues
 
-1. Check [existing issues](https://github.com/chimera/medusa/issues)
+1. Check [existing issues](https://github.com/Pantheon-Security/medusa/issues)
 2. Create new issue with:
    - MEDUSA version
    - Python version
@@ -906,4 +906,4 @@ medusa scan . --force
 **Last Updated**: 2025-11-15
 **MEDUSA Version**: 0.7.0.0
 
-**Still having issues?** [Open a GitHub issue](https://github.com/chimera/medusa/issues)
+**Still having issues?** [Open a GitHub issue](https://github.com/Pantheon-Security/medusa/issues)

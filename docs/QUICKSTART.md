@@ -23,7 +23,7 @@ pip install medusa-security
 ### Option B: From Source
 
 ```bash
-git clone https://github.com/chimera/medusa.git
+git clone https://github.com/Pantheon-Security/medusa.git
 cd medusa
 pip install -e .
 ```
@@ -441,7 +441,7 @@ scanners:
 
 ### Contribute
 
-- Report issues on [GitHub](https://github.com/chimera/medusa/issues)
+- Report issues on [GitHub](https://github.com/Pantheon-Security/medusa/issues)
 - Submit feature requests
 - Contribute new scanners
 - Improve documentation
@@ -506,6 +506,6 @@ medusa init && medusa install --all && medusa scan .
 
 ---
 
-**Questions?** Open an issue on [GitHub](https://github.com/chimera/medusa/issues)
+**Questions?** Open an issue on [GitHub](https://github.com/Pantheon-Security/medusa/issues)
 
 **Next:** Explore the [full documentation](../README.md) for advanced features.

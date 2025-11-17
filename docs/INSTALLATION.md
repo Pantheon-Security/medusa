@@ -508,7 +508,7 @@ brew install node
 
 ```bash
 # Clone repository
-git clone https://github.com/chimera/medusa.git
+git clone https://github.com/Pantheon-Security/medusa.git
 cd medusa
 
 # Create virtual environment
@@ -688,7 +688,7 @@ After installation:
 
 ---
 
-**Installation Support**: [GitHub Issues](https://github.com/chimera/medusa/issues)
+**Installation Support**: [GitHub Issues](https://github.com/Pantheon-Security/medusa/issues)
 
 **Last Updated**: 2025-11-15
 **MEDUSA Version**: 0.7.0.0

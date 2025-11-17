@@ -2,7 +2,7 @@
 
 **Date**: 2025-11-15
 **Version**: 0.7.0.0
-**Tester**: Claude Code + ross-churchill
+**Tester**: Claude Code + Pantheon Security Team
 
 ---
 

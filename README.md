@@ -1,6 +1,6 @@
-# 🐍 MEDUSA v0.9.1.0 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.9.1.1 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.9.1.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
+[![Version](https://img.shields.io/badge/version-0.9.1.1-blue.svg)](https://github.com/Pantheon-Security/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
