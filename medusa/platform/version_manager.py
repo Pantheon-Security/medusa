@@ -24,8 +24,8 @@ class VersionManager:
             lock_file: Path to tool-versions.lock file (default: project root)
         """
         if lock_file is None:
-            # Find lock file relative to this module
-            lock_file = Path(__file__).parent.parent.parent / "tool-versions.lock"
+            # Find lock file in package directory
+            lock_file = Path(__file__).parent.parent / "tool-versions.lock"
 
         self.lock_file = lock_file
         self.versions = self._load_versions()

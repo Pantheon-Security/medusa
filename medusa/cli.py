@@ -191,12 +191,13 @@ def _handle_batch_install(target, auto_install):
     console.print()
 
 
-def _install_tools(tools: list):
+def _install_tools(tools: list, use_latest: bool = False):
     """
     Install a list of tools
 
     Args:
         tools: List of tool names to install
+        use_latest: Whether to install latest versions (bypassing version pinning)
     """
     from medusa.platform import get_platform_info
     from medusa.platform.installers import (
@@ -236,11 +237,11 @@ def _install_tools(tools: list):
 
         # Try npm for npm tools
         if not success and npm_installer and ToolMapper.is_npm_tool(tool):
-            success = npm_installer.install(tool)
+            success = npm_installer.install(tool, use_latest=use_latest)
 
         # Try pip for python tools
         if not success and pip_installer and ToolMapper.is_python_tool(tool):
-            success = pip_installer.install(tool)
+            success = pip_installer.install(tool, use_latest=use_latest)
 
         if success:
             console.print("[green]✅[/green]")
@@ -643,11 +644,12 @@ def init(ide, force, install):
 
 
 @main.command()
+@click.argument('tool', required=False)
 @click.option('--check', is_flag=True, help='Check which linters are installed')
 @click.option('--all', is_flag=True, help='Install all missing linters')
-@click.option('--tool', type=str, help='Install specific tool')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-def install(check, all, tool, yes):
+@click.option('--use-latest', is_flag=True, help='Install latest versions (bypass version pinning)')
+def install(tool, check, all, yes, use_latest):
     """
     Install security linters for your platform.
 
@@ -655,10 +657,10 @@ def install(check, all, tool, yes):
     This command helps you install them on your OS.
 
     Examples:
-        medusa install --check           # Check what's installed
-        medusa install --all             # Install all missing linters
-        medusa install --tool shellcheck # Install specific tool
-        medusa install                   # Interactive selection
+        medusa install --check        # Check what's installed
+        medusa install --all          # Install all missing linters
+        medusa install shellcheck     # Install specific tool
+        medusa install                # Interactive selection
     """
     print_banner()
 
@@ -746,7 +748,7 @@ def install(check, all, tool, yes):
             if ToolMapper.get_package_name(tool, 'npm') and npm_installer:
                 cmd = npm_installer.get_install_command(tool)
                 console.print(f"[dim]Command: {cmd}[/dim]\n")
-                success = npm_installer.install(tool)
+                success = npm_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
                 else:
@@ -754,7 +756,7 @@ def install(check, all, tool, yes):
             elif ToolMapper.get_package_name(tool, 'pip') and pip_installer:
                 cmd = pip_installer.get_install_command(tool)
                 console.print(f"[dim]Command: {cmd}[/dim]\n")
-                success = pip_installer.install(tool)
+                success = pip_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
                 else:
@@ -794,11 +796,11 @@ def install(check, all, tool, yes):
 
             # Try npm
             if not success and npm_installer and ToolMapper.get_package_name(tool_name, 'npm'):
-                success = npm_installer.install(tool_name)
+                success = npm_installer.install(tool_name, use_latest=use_latest)
 
             # Try pip
             if not success and pip_installer and ToolMapper.get_package_name(tool_name, 'pip'):
-                success = pip_installer.install(tool_name)
+                success = pip_installer.install(tool_name, use_latest=use_latest)
 
             if success:
                 console.print("[green]✅[/green]")
@@ -887,6 +889,51 @@ def output(bash_id):
     """Development helper: Check background process output"""
     # This is primarily for development/debugging
     console.print("[yellow]This command is for development use only[/yellow]")
+
+
+@main.command()
+@click.option('--check-updates', is_flag=True, help='Check for newer versions')
+def versions(check_updates):
+    """
+    Show pinned tool versions from tool-versions.lock.
+
+    Displays the versions of external security tools that MEDUSA will install.
+    This ensures reproducible scans across environments.
+    """
+    from medusa.platform.version_manager import VersionManager
+    from rich.table import Table
+
+    vm = VersionManager()
+
+    if not vm.is_locked():
+        console.print("[yellow]⚠ No tool-versions.lock found[/yellow]")
+        console.print("[dim]Run 'python scripts/capture_tool_versions.py' to create it[/dim]")
+        return
+
+    # Show metadata
+    meta = vm.get_metadata()
+    console.print(f"\n[bold cyan]MEDUSA Tool Versions[/bold cyan]")
+    console.print(f"[dim]Lock file version: {meta.get('lockfile_version')}[/dim]")
+    console.print(f"[dim]MEDUSA version: {meta.get('medusa_version')}[/dim]")
+    console.print(f"[dim]Generated: {meta.get('generated_at', '').split('T')[0]}[/dim]\n")
+
+    # Create table
+    table = Table(title="Pinned Tool Versions", show_header=True, header_style="bold cyan")
+    table.add_column("Category", style="cyan")
+    table.add_column("Tool", style="magenta")
+    table.add_column("Version", style="green")
+
+    all_versions = vm.get_all_versions()
+    for category, tools in sorted(all_versions.items()):
+        for i, (tool, version) in enumerate(sorted(tools.items())):
+            cat_display = category.title() if i == 0 else ""
+            table.add_row(cat_display, tool, version)
+
+    console.print(table)
+
+    total = sum(len(tools) for tools in all_versions.values())
+    console.print(f"\n[bold]Total: {total} pinned tools[/bold]")
+    console.print(f"[dim]Use --use-latest flag with 'medusa install' to bypass pinning[/dim]\n")
 
 
 if __name__ == '__main__':
