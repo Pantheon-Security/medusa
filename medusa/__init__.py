@@ -3,8 +3,8 @@ MEDUSA - The 42-Headed Security Guardian
 Universal security scanner for all languages and platforms.
 """
 
-__version__ = "0.9.0.0"
-__author__ = "Chimera Trading Systems"
+__version__ = "0.9.1.1"
+__author__ = "Pantheon Security"
 __license__ = "MIT"
 
 # Core modules are imported on-demand to avoid circular imports
