@@ -846,7 +846,7 @@ def uninstall(tool, all, yes):
     installed_tools = []
     for scanner in registry.get_all_scanners():
         if scanner.is_available():
-            tool_name = scanner.command
+            tool_name = scanner.tool_name
             if tool_name and tool_name not in installed_tools:
                 installed_tools.append(tool_name)
 
