@@ -179,7 +179,10 @@ def _handle_batch_install(target, auto_install):
             console.print("\n[cyan]Auto-installing missing tools...[/cyan]")
             install_tools = True
         else:
-            install_tools = click.confirm(f"\nInstall {len(missing_tools)} missing tools?", default=True)
+            console.print(f"\n[bold]Installation Options:[/bold]")
+            console.print(f"  [green]1.[/green] Install these {len(missing_tools)} missing tools (recommended)")
+            console.print(f"  [yellow]2.[/yellow] Skip installation (some files won't be scanned)")
+            install_tools = click.confirm(f"\nInstall the {len(missing_tools)} missing tools listed above?", default=True)
 
         if install_tools:
             _install_tools(missing_tools)
