@@ -1,7 +1,7 @@
 # MEDUSA Docker Testing Results
 
 **Date**: 2025-11-15
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Tester**: Claude Code + Pantheon Security Team
 
 ---
@@ -11,7 +11,7 @@
 ✅ **6/15 Tests Completed** (40%)
 - All Phase 1 & Phase 2 tests passed
 - 3 Docker images built successfully
-- Version numbers corrected to v0.7.0
+- Version numbers corrected to v0.9.1
 - Ready for production use
 
 ---
@@ -23,7 +23,7 @@
 #### Test 1.1: Version Command
 - **Status**: ✅ PASS
 - **Command**: `docker run --rm medusa-security:latest --version`
-- **Result**: `MEDUSA v0.7.0.0`
+- **Result**: `MEDUSA v0.9.1.1`
 - **Notes**: Clean output, correct version
 
 #### Test 1.2: Help Command
@@ -108,7 +108,7 @@
 - **Image Size**: 295MB
 - **Command**: `docker build -f Dockerfile -t medusa-security:production .`
 - **Test Result**:
-  - Version: v0.7.0.0 ✅
+  - Version: v0.9.1.1 ✅
   - Scan: 114 files successfully ✅
   - Size: Same as simple build (optimal)
 - **Notes**:
@@ -175,12 +175,12 @@
 
 ### Issue 2: Version Number Inconsistency ✅ FIXED
 - **Problem**:
-  - Main version: v0.7.0.0
+  - Main version: v0.9.1.1
   - Parallel Scanner: v6.1.0
   - Report Generator: v6.0.0
 - **Solution**: Updated hardcoded versions in:
-  - `medusa/core/parallel.py` → v0.7.0
-  - `medusa/core/reporter.py` → v0.7.0
+  - `medusa/core/parallel.py` → v0.9.1
+  - `medusa/core/reporter.py` → v0.9.1
 - **Status**: Resolved, needs rebuild
 
 ### Issue 3: CHANGELOG.md Excluded in Docker Build ✅ FIXED
@@ -298,10 +298,10 @@
 - ✅ Multi-stage for production deployment
 - ✅ Test image for development
 
-All basic functionality tested and working. Version numbers now consistent at v0.7.0.
+All basic functionality tested and working. Version numbers now consistent at v0.9.1.
 
 **Status**: Ready for continued testing and deployment.
 
 ---
 
-**Next Session**: Rebuild images with v0.7.0, test Docker Compose, and complete remaining test phases.
+**Next Session**: Rebuild images with v0.9.1, test Docker Compose, and complete remaining test phases.

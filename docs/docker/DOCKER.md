@@ -248,7 +248,7 @@ make test-install
 3. **Pre-built wheel available** (for Dockerfile.simple)
    ```bash
    ls dist/*.whl
-   # Should show: medusa_security-0.7.0.0-py3-none-any.whl
+   # Should show: medusa_security-0.9.1.1-py3-none-any.whl
    ```
 
 ### Building the Wheel
@@ -430,5 +430,5 @@ make docker-clean
 ---
 
 **Last Updated**: 2025-11-15
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Status**: Ready for Testing

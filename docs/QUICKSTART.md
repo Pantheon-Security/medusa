@@ -32,7 +32,7 @@ pip install -e .
 
 ```bash
 medusa --version
-# Output: MEDUSA v0.7.0.0
+# Output: MEDUSA v0.9.1.1
 ```
 
 ---
@@ -164,7 +164,7 @@ medusa scan .
 ```
 ╔════════════════════════════════════════════════════════════════════╗
 ║                                                                    ║
-║          🐍🐍🐍 MEDUSA v0.7.0.0 - Security Guardian 🐍🐍🐍           ║
+║          🐍🐍🐍 MEDUSA v0.9.1.1 - Security Guardian 🐍🐍🐍           ║
 ║                                                                    ║
 ║              The 42-Headed Universal Security Scanner             ║
 ║           One look from Medusa stops vulnerabilities dead          ║

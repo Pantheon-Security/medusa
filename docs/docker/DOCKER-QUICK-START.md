@@ -1,6 +1,6 @@
 # 🐳 MEDUSA Docker Quick Start
 
-**Version**: 0.7.0
+**Version**: 0.9.1
 **Status**: ✅ Production Ready
 **Last Updated**: 2025-11-15
 
@@ -31,8 +31,8 @@ sg docker -c "docker run --rm medusa:latest --version"
 
 | Image | Tag | Size | Purpose |
 |-------|-----|------|---------|
-| medusa-security | latest | 295MB | Current version (v0.7.0) |
-| medusa-security | v0.7.0 | 295MB | Tagged release |
+| medusa-security | latest | 295MB | Current version (v0.9.1) |
+| medusa-security | v0.9.1 | 295MB | Tagged release |
 | medusa-security | simple | 295MB | Same as latest |
 | medusa-security | production | 295MB | Multi-stage build |
 | medusa-test | latest | 395MB | With pytest & dev tools |
@@ -56,7 +56,7 @@ sg docker -c "docker run --rm medusa:latest --version"
 - `DOCKER-QUICK-START.md` - This file
 
 ### Code
-- `dist/medusa_security-0.7.0.0-py3-none-any.whl` - Built package
+- `dist/medusa_security-0.9.1.1-py3-none-any.whl` - Built package
 
 ---
 
@@ -186,7 +186,7 @@ sg docker -c "docker images | grep medusa"
 
 # 2. Test version
 sg docker -c "docker run --rm medusa:latest --version"
-# Should show: MEDUSA v0.7.0.0
+# Should show: MEDUSA v0.9.1.1
 
 # 3. Test help
 sg docker -c "docker run --rm medusa:latest --help"
@@ -196,17 +196,17 @@ sg docker -c "docker run --rm medusa:latest config"
 
 # 5. Test scan
 sg docker -c "docker run --rm -v $(pwd):/workspace:ro medusa:latest scan /workspace --workers 2"
-# Should show: MEDUSA Parallel Scanner v0.7.0
+# Should show: MEDUSA Parallel Scanner v0.9.1
 ```
 
-All showing v0.7.0? ✅ You're ready to go!
+All showing v0.9.1? ✅ You're ready to go!
 
 ---
 
 ## 🚀 Next Steps
 
 1. ✅ All Docker images built
-2. ✅ Version numbers consistent (v0.7.0)
+2. ✅ Version numbers consistent (v0.9.1)
 3. ✅ Documentation complete
 4. 📦 Optional: Push to Docker Hub
 5. 🔄 Optional: Set up CI/CD
