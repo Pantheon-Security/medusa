@@ -1,7 +1,7 @@
 # MEDUSA Multi-Distribution Testing Results
 
 **Date**: 2025-11-15
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Test Scope**: 8 Modern Linux distributions
 
 ---
@@ -112,10 +112,10 @@ apk add --no-cache python3 py3-pip bash gcc python3-dev musl-dev linux-headers
 
 | Platform | Package Manager | Install Command | Support Level |
 |----------|----------------|-----------------|---------------|
-| **Ubuntu 22.04+** | apt | `pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages` | ✅ Full |
-| **Debian 12+** | apt | `pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages` | ✅ Full |
-| **Fedora 39+** | dnf | `pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages` | ✅ Full |
-| **Arch Linux** | pacman | `pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages` | ✅ Full |
+| **Ubuntu 22.04+** | apt | `pip install medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages` | ✅ Full |
+| **Debian 12+** | apt | `pip install medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages` | ✅ Full |
+| **Fedora 39+** | dnf | `pip install medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages` | ✅ Full |
+| **Arch Linux** | pacman | `pip install medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages` | ✅ Full |
 | **Alpine** | apk | Requires build deps first | ⚠️ Partial |
 | **Ubuntu 20.04** | apt | Not supported | ❌ None |
 | **Debian 11** | apt | Not supported | ❌ None |
@@ -162,7 +162,7 @@ apk add --no-cache python3 py3-pip bash gcc python3-dev musl-dev linux-headers
 ```bash
 python3 -m venv medusa-env
 source medusa-env/bin/activate
-pip install medusa_security-0.7.0.0-py3-none-any.whl
+pip install medusa_security-0.9.1.1-py3-none-any.whl
 ```
 
 #### 2. Docker (Recommended for CI/CD)
@@ -172,7 +172,7 @@ docker run --rm -v $(pwd):/workspace medusa:latest scan /workspace
 
 #### 3. System-wide (Development only)
 ```bash
-pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages
+pip install medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages
 ```
 
 ---
@@ -206,7 +206,7 @@ pip install medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages
 **Solution**: Install build dependencies:
 ```bash
 apk add gcc python3-dev musl-dev linux-headers
-pip install medusa_security-0.7.0.0-py3-none-any.whl
+pip install medusa_security-0.9.1.1-py3-none-any.whl
 ```
 
 **Status**: Documented, requires manual fix
@@ -239,7 +239,7 @@ pip install medusa_security-0.7.0.0-py3-none-any.whl
 
 ## Conclusion
 
-MEDUSA v0.7.0.0 successfully runs on **6 major Linux distributions** covering:
+MEDUSA v0.9.1.1 successfully runs on **6 major Linux distributions** covering:
 - 90%+ of production Linux servers
 - All modern LTS releases (Ubuntu 22.04+, Debian 12+)
 - Popular CI/CD platforms (GitHub Actions uses Ubuntu)
@@ -265,7 +265,7 @@ bash test-docker-install-extended.sh
 docker run --rm -v $(pwd)/dist:/dist:ro ubuntu:22.04 bash -c "
   apt-get update -qq &&
   apt-get install -y python3-pip &&
-  pip3 install /dist/medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages &&
+  pip3 install /dist/medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages &&
   medusa --version
 "
 ```

@@ -708,7 +708,7 @@ MIT License - See [LICENSE](LICENSE) file
 ## 📞 Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/Pantheon-Security/medusa/issues)
-- **Email**: support@medusa-security.dev
+- **Email**: support@pantheonsecurity.io
 - **Documentation**: https://docs.medusa-security.dev (coming soon)
 - **Discord**: https://discord.gg/medusa (coming soon)
 
@@ -716,7 +716,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ## 📈 Statistics
 
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Release Date**: 2025-11-15
 **Total Scanners**: 42
 **Language Coverage**: 16 major ecosystems
@@ -754,7 +754,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ---
 
-**🐍🐍🐍 MEDUSA v0.7.0.0 - The 42-Headed Security Guardian 🐍🐍🐍**
+**🐍🐍🐍 MEDUSA v0.9.1.1 - The 42-Headed Security Guardian 🐍🐍🐍**
 
 *One look from Medusa stops vulnerabilities dead.*
 

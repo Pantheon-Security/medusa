@@ -448,7 +448,7 @@ Dataclass representing `.medusa.yml` configuration.
 from medusa.config import MedusaConfig
 
 config = MedusaConfig(
-    version="0.7.0",
+    version="0.9.1",
     fail_on="high",
     workers=4,
     cache_enabled=True,
@@ -848,10 +848,10 @@ MEDUSA follows Semantic Versioning (SemVer):
 - **Minor**: New features, backward compatible
 - **Patch**: Bug fixes, backward compatible
 
-Current API Version: **0.7.0**
+Current API Version: **0.9.1**
 
 ---
 
 **Last Updated**: 2025-11-15
-**MEDUSA Version**: 0.7.0.0
-**API Status**: Stable (v0.7.0)
+**MEDUSA Version**: 0.9.1.1
+**API Status**: Stable (v0.9.1)

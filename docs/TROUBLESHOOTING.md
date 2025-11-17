@@ -904,6 +904,6 @@ medusa scan . --force
 ---
 
 **Last Updated**: 2025-11-15
-**MEDUSA Version**: 0.7.0.0
+**MEDUSA Version**: 0.9.1.1
 
 **Still having issues?** [Open a GitHub issue](https://github.com/Pantheon-Security/medusa/issues)

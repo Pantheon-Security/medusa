@@ -940,4 +940,4 @@ See `docs/development/adding-scanners.md` for detailed guide.
 ---
 
 **Last Updated**: 2025-11-15
-**MEDUSA Version**: 0.7.0.0
+**MEDUSA Version**: 0.9.1.1

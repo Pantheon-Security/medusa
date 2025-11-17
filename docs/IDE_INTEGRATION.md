@@ -56,7 +56,7 @@ Create `.claude/agents/medusa/agent.json`:
 {
   "name": "MEDUSA Security Scanner",
   "description": "Security scanning agent for code quality and vulnerability detection",
-  "version": "0.7.0.0",
+  "version": "0.9.1.1",
   "triggers": {
     "file_save": {
       "enabled": true,
@@ -242,7 +242,7 @@ password = "admin123"  # Hard-coded password
 
 **On Save:**
 ```
-🐍 MEDUSA v0.7.0.0 - Security Guardian
+🐍 MEDUSA v0.9.1.1 - Security Guardian
 
 Scanning app.py...
 
@@ -435,7 +435,7 @@ File extension must be in the patterns list:
 
 ```bash
 medusa --version
-# Should output: MEDUSA v0.7.0.0
+# Should output: MEDUSA v0.9.1.1
 ```
 
 ### Slash Command Not Found
@@ -627,7 +627,7 @@ Run full scans periodically (daily/weekly) instead of on every save:
 
 `.medusa.yml`:
 ```yaml
-version: 0.7.0
+version: 0.9.1
 
 scanners:
   enabled: [bandit]  # Only Python scanner
@@ -655,7 +655,7 @@ Agent action:
 
 `.medusa.yml`:
 ```yaml
-version: 0.7.0
+version: 0.9.1
 
 scanners:
   enabled: [bandit, eslint, shellcheck]
@@ -710,5 +710,5 @@ Agent with multiple actions:
 ---
 
 **Last Updated**: 2025-11-15
-**MEDUSA Version**: 0.7.0.0
-**Claude Code Support**: Full (v0.7.0.0)
+**MEDUSA Version**: 0.9.1.1
+**Claude Code Support**: Full (v0.9.1.1)

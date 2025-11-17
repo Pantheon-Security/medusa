@@ -1,7 +1,7 @@
 # 🎉 MEDUSA Docker OS Testing - COMPLETE!
 
 **Date**: 2025-11-15
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Status**: ✅ **100% SUCCESS on Modern Distributions**
 
 ---
@@ -102,7 +102,7 @@ apk add --no-cache gcc python3-dev musl-dev linux-headers
 
 ## 🚀 Ready for Production
 
-MEDUSA v0.7.0.0 is now **production-ready** on:
+MEDUSA v0.9.1.1 is now **production-ready** on:
 - ✅ All modern Ubuntu LTS releases (22.04, 24.04)
 - ✅ All current Debian stable (12+)
 - ✅ All current Fedora releases (39, 40)
@@ -129,14 +129,14 @@ bash test-docker-install-extended.sh
 # Ubuntu 24.04
 sg docker -c "docker run --rm -v $(pwd)/dist:/dist:ro ubuntu:24.04 bash -c '
   apt-get update -qq && apt-get install -y -qq python3-pip &&
-  pip3 install /dist/medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages &&
+  pip3 install /dist/medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages &&
   medusa --version
 '"
 
 # Alpine Linux
 sg docker -c "docker run --rm -v $(pwd)/dist:/dist:ro alpine:latest sh -c '
   apk add --no-cache python3 py3-pip gcc python3-dev musl-dev linux-headers &&
-  pip3 install /dist/medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages &&
+  pip3 install /dist/medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages &&
   medusa --version
 '"
 ```

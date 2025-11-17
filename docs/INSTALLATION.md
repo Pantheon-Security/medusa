@@ -376,7 +376,7 @@ medusa scan .
 
 Expected output:
 ```
-🐍 MEDUSA v0.7.0.0 - Security Guardian
+🐍 MEDUSA v0.9.1.1 - Security Guardian
 ...
 ✅ Scan complete!
 ```
@@ -691,4 +691,4 @@ After installation:
 **Installation Support**: [GitHub Issues](https://github.com/Pantheon-Security/medusa/issues)
 
 **Last Updated**: 2025-11-15
-**MEDUSA Version**: 0.7.0.0
+**MEDUSA Version**: 0.9.1.1

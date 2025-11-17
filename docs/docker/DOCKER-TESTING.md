@@ -1,6 +1,6 @@
 # MEDUSA Docker Testing Plan
 
-**Version**: 0.7.0.0
+**Version**: 0.9.1.1
 **Date**: 2025-11-15
 **Status**: In Progress
 
@@ -12,7 +12,7 @@
 
 #### 1.1 Version Command
 - **Test**: `docker run --rm medusa:latest --version`
-- **Expected**: MEDUSA v0.7.0.0
+- **Expected**: MEDUSA v0.9.1.1
 - **Status**: ⏳ Pending
 
 #### 1.2 Help Command
@@ -213,7 +213,7 @@
   docker run --rm -v $(pwd)/dist:/dist:ro ubuntu:22.04 bash -c "
     apt-get update -qq &&
     apt-get install -y -qq python3 python3-pip &&
-    pip3 install /dist/medusa_security-0.7.0.0-py3-none-any.whl --break-system-packages &&
+    pip3 install /dist/medusa_security-0.9.1.1-py3-none-any.whl --break-system-packages &&
     medusa --version
   "
   ```
