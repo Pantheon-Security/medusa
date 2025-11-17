@@ -483,17 +483,21 @@ def init(ide, force, install):
     else:
         console.print("[yellow]⚠️  No language files detected[/yellow]")
 
-    # Step 2: Check scanner availability
+    # Step 2: Check scanner availability (only for detected languages)
     console.print("\n[bold cyan]Step 2/4: Checking scanner availability...[/bold cyan]")
-    available = registry.get_available_scanners()
-    missing_tools = registry.get_missing_tools()
 
-    console.print(f"[green]✓[/green] {len(available)}/{len(registry.get_all_scanners())} scanners available")
+    # Get only scanners needed for detected files
+    needed_scanners = [s for s in registry.get_all_scanners() if s.name in detected_files]
+    available_scanners = [s for s in needed_scanners if s.is_available()]
+    missing_scanners = [s for s in needed_scanners if not s.is_available()]
+    missing_tools = [s.tool_name for s in missing_scanners]
+
+    console.print(f"[green]✓[/green] {len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
     if missing_tools:
-        console.print(f"[yellow]⚠️[/yellow]  {len(missing_tools)} tools missing: {', '.join(missing_tools[:5])}" +
+        console.print(f"[yellow]⚠️[/yellow]  {len(missing_tools)} tools missing for your project: {', '.join(missing_tools[:5])}" +
                      (f" and {len(missing_tools) - 5} more" if len(missing_tools) > 5 else ""))
 
-        if install or click.confirm(f"\nInstall {len(missing_tools)} missing tools?", default=False):
+        if install or click.confirm(f"\nInstall {len(missing_tools)} missing tools for your project?", default=False):
             console.print("[cyan]Installing missing tools...[/cyan]")
             # Import installer logic
             from medusa.platform import get_platform_info
