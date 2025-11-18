@@ -325,9 +325,9 @@ def _install_tools(tools: list, use_latest: bool = False):
 
             # Prompt user
             response = Prompt.ask(
-                "   Install Node.js via winget to enable these tools?",
-                choices=["Y", "n"],
-                default="Y"
+                "   Install Node.js via winget to enable these tools? (y/n)",
+                choices=["y", "Y", "n", "N"],
+                default="y"
             )
 
             if response.upper() == "Y":
