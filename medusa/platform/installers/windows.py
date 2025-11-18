@@ -103,13 +103,23 @@ class WingetInstaller(BaseInstaller):
 
     def is_installed(self, package: str) -> bool:
         """Check if package is installed via winget"""
+        # First, check if the tool binary is actually in PATH (most reliable)
+        tool_binary = shutil.which(package)
+        if tool_binary:
+            return True
+
+        # Fallback: check winget list output (winget may report non-zero even when installed)
         package_name = ToolMapper.get_package_name(package, 'winget')
         if not package_name:
             return False
 
         try:
             result = self.run_command(['winget', 'list', '--id', package_name], check=False)
-            return result.returncode == 0
+            # Check output text, not just return code
+            if result.stdout:
+                output = result.stdout.lower()
+                return package_name.lower() in output or package.lower() in output
+            return False
         except:
             return False
 
