@@ -180,10 +180,17 @@ def _handle_batch_install(target, auto_install):
             console.print("\n[cyan]Auto-installing missing tools...[/cyan]")
             install_tools = True
         else:
-            console.print(f"\n[bold]Installation Options:[/bold]")
-            console.print(f"  [green]1.[/green] Install these {len(missing_tools)} missing tools (recommended)")
-            console.print(f"  [yellow]2.[/yellow] Skip installation (some files won't be scanned)")
-            install_tools = click.confirm(f"\nInstall the {len(missing_tools)} missing tools listed above?", default=True)
+            # Check if running in non-interactive mode (CI environment)
+            if not sys.stdin.isatty():
+                console.print(f"\n[yellow]⚠️  Non-interactive mode detected (CI environment)[/yellow]")
+                console.print(f"[yellow]   Skipping installation of {len(missing_tools)} tools[/yellow]")
+                console.print(f"[dim]   Run with --auto-install to enable in CI[/dim]")
+                install_tools = False
+            else:
+                console.print(f"\n[bold]Installation Options:[/bold]")
+                console.print(f"  [green]1.[/green] Install these {len(missing_tools)} missing tools (recommended)")
+                console.print(f"  [yellow]2.[/yellow] Skip installation (some files won't be scanned)")
+                install_tools = click.confirm(f"\nInstall the {len(missing_tools)} missing tools listed above?", default=True)
 
         if install_tools:
             _install_tools(missing_tools)
@@ -296,6 +303,11 @@ def _install_tools(tools: list, use_latest: bool = False):
         if pm == PackageManager.WINGET:
             console.print("")
             console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
+
+            # Check if running in non-interactive mode (CI environment)
+            if not sys.stdin.isatty():
+                console.print("[yellow]   Non-interactive mode detected, skipping Node.js installation[/yellow]")
+                return  # Skip Node.js prompt in CI
 
             # Prompt user
             response = Prompt.ask(
