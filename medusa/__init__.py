@@ -1,6 +1,6 @@
 """
-MEDUSA - The 42-Headed Security Guardian
-Universal security scanner for all languages and platforms.
+MEDUSA - Multi-Language Security Scanner
+Universal security scanner with 40+ specialized analyzers for all languages and platforms.
 """
 
 __version__ = "0.10.0"
