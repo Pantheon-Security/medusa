@@ -41,7 +41,7 @@ RUN apt-get update && apt-get install -y $python_pkg $pip_pkg git build-essentia
     yum install -y $python_pkg $pip_pkg git gcc python3-devel || \
     apk add --no-cache $python_pkg $pip_pkg git gcc python3-dev musl-dev linux-headers
 COPY $WHEEL_FILE /tmp/$WHEEL_FILENAME
-RUN pip3 install /tmp/$WHEEL_FILENAME || pip install /tmp/$WHEEL_FILENAME
+RUN pip3 install --break-system-packages /tmp/$WHEEL_FILENAME || pip install --break-system-packages /tmp/$WHEEL_FILENAME
 CMD ["medusa", "--version"]
 EOF
 
