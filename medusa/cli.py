@@ -299,6 +299,17 @@ def _install_tools(tools: list, use_latest: bool = False):
 
     # Offer to install Node.js if npm tools failed on Windows
     if npm_tools_failed and platform_info.os_type.value == 'windows':
+        # Check if we've already attempted Node.js installation this session
+        global _nodejs_install_attempted
+        if '_nodejs_install_attempted' not in globals():
+            _nodejs_install_attempted = False
+
+        if _nodejs_install_attempted:
+            console.print("")
+            console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
+            console.print("[dim]   Node.js installation was already attempted. Please restart your terminal.[/dim]")
+            return
+
         from medusa.platform import PackageManager
         if pm == PackageManager.WINGET:
             console.print("")
@@ -308,6 +319,9 @@ def _install_tools(tools: list, use_latest: bool = False):
             if not sys.stdin.isatty():
                 console.print("[yellow]   Non-interactive mode detected, skipping Node.js installation[/yellow]")
                 return  # Skip Node.js prompt in CI
+
+            # Mark that we're attempting Node.js installation
+            _nodejs_install_attempted = True
 
             # Prompt user
             response = Prompt.ask(
@@ -368,9 +382,12 @@ def _install_tools(tools: list, use_latest: bool = False):
                             console.print(f"[green]✅ Installed {npm_installed}/{len(npm_tools_failed)} npm tools[/green]")
                     else:
                         console.print("[yellow]⚠️  npm still not available. Try restarting your terminal.[/yellow]")
+                        console.print("[dim]   Node.js may need a terminal restart to be detected.[/dim]")
+                        return  # Don't ask again this session
                 else:
                     console.print("[red]❌ Failed to install Node.js[/red]")
                     console.print("[yellow]You can manually install Node.js from: https://nodejs.org[/yellow]")
+                    return  # Don't ask again this session
 
 
 def print_banner():
