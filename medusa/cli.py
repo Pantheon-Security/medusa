@@ -1212,5 +1212,116 @@ def versions(check_updates):
     console.print(f"[dim]Use --use-latest flag with 'medusa install' to bypass pinning[/dim]\n")
 
 
+@main.command()
+@click.argument('file_path')
+@click.argument('scanner_name', required=False)
+@click.option('--list', '-l', 'list_scanners', is_flag=True, help='List available scanners')
+@click.option('--show', '-s', is_flag=True, help='Show current overrides')
+@click.option('--remove', '-r', is_flag=True, help='Remove override for this file')
+def override(file_path, scanner_name, list_scanners, show, remove):
+    """
+    Override scanner selection for specific files.
+
+    MEDUSA uses confidence scoring to automatically choose the right scanner
+    for YAML files (Ansible, Kubernetes, Docker Compose, or generic YAML).
+
+    If it chooses wrong, use this command to correct it. The override will be
+    saved in .medusa.yml and remembered for future scans.
+
+    Examples:
+        # Set docker-compose.dev.yml to use Docker Compose scanner
+        medusa override docker-compose.dev.yml DockerComposeScanner
+
+        # Show all available scanners
+        medusa override . --list
+
+        # Show current overrides
+        medusa override . --show
+
+        # Remove an override
+        medusa override docker-compose.dev.yml --remove
+    """
+    from medusa.config import ConfigManager
+    from medusa.scanners import registry
+    from rich.table import Table
+
+    # Load config
+    config_path = ConfigManager.find_config()
+    if config_path:
+        config = ConfigManager.load_config(config_path)
+    else:
+        config_path = Path.cwd() / ".medusa.yml"
+        config = ConfigManager.load_config(config_path)
+
+    # List available scanners
+    if list_scanners:
+        table = Table(title="Available Scanners", show_header=True, header_style="bold cyan")
+        table.add_column("Scanner Name", style="cyan")
+        table.add_column("Tool", style="magenta")
+        table.add_column("Extensions", style="green")
+        table.add_column("Status", style="yellow")
+
+        for scanner in sorted(registry.get_all_scanners(), key=lambda s: s.name):
+            status = "✓ Installed" if scanner.is_available() else "✗ Not installed"
+            exts = ", ".join(scanner.get_file_extensions())
+            table.add_row(scanner.name, scanner.tool_name, exts, status)
+
+        console.print(table)
+        console.print(f"\n[dim]Use: medusa override <file> <scanner_name>[/dim]")
+        return
+
+    # Show current overrides
+    if show:
+        if not config.scanner_overrides:
+            console.print("[yellow]No scanner overrides configured[/yellow]")
+            console.print("[dim]Use: medusa override <file> <scanner_name>[/dim]")
+            return
+
+        table = Table(title="Scanner Overrides", show_header=True, header_style="bold cyan")
+        table.add_column("File Pattern", style="cyan")
+        table.add_column("Scanner", style="magenta")
+
+        for file_pattern, scanner in sorted(config.scanner_overrides.items()):
+            table.add_row(file_pattern, scanner)
+
+        console.print(table)
+        console.print(f"\n[dim]Total: {len(config.scanner_overrides)} override(s)[/dim]")
+        return
+
+    # Remove override
+    if remove:
+        if file_path in config.scanner_overrides:
+            removed_scanner = config.scanner_overrides.pop(file_path)
+            ConfigManager.save_config(config, config_path)
+            console.print(f"[green]✓[/green] Removed override for [cyan]{file_path}[/cyan]")
+            console.print(f"[dim]  (was: {removed_scanner})[/dim]")
+        else:
+            console.print(f"[yellow]No override found for {file_path}[/yellow]")
+        return
+
+    # Set override
+    if not scanner_name:
+        console.print("[red]Error: scanner_name required[/red]")
+        console.print("[dim]Use --list to see available scanners[/dim]")
+        return
+
+    # Validate scanner exists
+    scanner_exists = any(s.name == scanner_name for s in registry.get_all_scanners())
+    if not scanner_exists:
+        console.print(f"[red]Error: Scanner '{scanner_name}' not found[/red]")
+        console.print("[dim]Use --list to see available scanners[/dim]")
+        return
+
+    # Add override
+    config.scanner_overrides[file_path] = scanner_name
+    ConfigManager.save_config(config, config_path)
+
+    console.print(f"[green]✓[/green] Scanner override saved")
+    console.print(f"  File: [cyan]{file_path}[/cyan]")
+    console.print(f"  Scanner: [magenta]{scanner_name}[/magenta]")
+    console.print(f"  Config: [dim]{config_path}[/dim]")
+    console.print(f"\n[dim]This file will now always use {scanner_name} for scanning[/dim]")
+
+
 if __name__ == '__main__':
     main()

@@ -20,6 +20,7 @@ class MedusaConfig:
     # Scanner configuration
     scanners_enabled: List[str] = field(default_factory=list)  # Empty = all
     scanners_disabled: List[str] = field(default_factory=list)
+    scanner_overrides: Dict[str, str] = field(default_factory=dict)  # file_path -> scanner_name
 
     # Severity settings
     fail_on: str = "high"  # critical, high, medium, low
@@ -76,6 +77,7 @@ class MedusaConfig:
         scanners = data.get('scanners', {})
         config.scanners_enabled = scanners.get('enabled', [])
         config.scanners_disabled = scanners.get('disabled', [])
+        config.scanner_overrides = scanners.get('overrides', {})
 
         # Exclusions
         exclude = data.get('exclude', {})
@@ -109,6 +111,7 @@ class MedusaConfig:
             'scanners': {
                 'enabled': self.scanners_enabled,
                 'disabled': self.scanners_disabled,
+                'overrides': self.scanner_overrides,
             },
             'fail_on': self.fail_on,
             'exclude': {
