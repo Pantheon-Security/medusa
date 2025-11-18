@@ -33,21 +33,47 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### Installation
 
-**Windows:**
+**Windows (Recommended - Virtual Environment):**
 ```powershell
-# Install MEDUSA (clean output, no warnings)
+# Create and activate virtual environment (security best practice)
+py -m venv medusa-env
+medusa-env\Scripts\activate
+
+# Install MEDUSA
+pip install medusa-security
+
+# Verify installation
+medusa --version
+```
+
+**Windows (System-wide - Not Recommended):**
+```powershell
+# Install MEDUSA system-wide (not recommended)
 py -m pip install medusa-security --no-warn-script-location
 
 # Verify installation
 py -m medusa --version
 ```
 
-> **Note for Windows users**: If you see PATH warnings during installation, they're safe to ignore. Use `py -m medusa` for all commands.
+> **Note for Windows users**: Virtual environments provide better isolation and avoid PATH warnings. If using system-wide install, use `py -m medusa` for all commands.
 
-**macOS/Linux:**
+**macOS/Linux (Recommended - Virtual Environment):**
 ```bash
+# Create and activate virtual environment (security best practice)
+python3 -m venv medusa-env
+source medusa-env/bin/activate
+
 # Install MEDUSA
 pip install medusa-security
+
+# Verify installation
+medusa --version
+```
+
+**macOS/Linux (System-wide - Not Recommended):**
+```bash
+# Only use if you understand the implications
+pip install medusa-security --user
 
 # Verify installation
 medusa --version
@@ -57,6 +83,11 @@ medusa --version
 ```bash
 git clone https://github.com/Pantheon-Security/medusa.git
 cd medusa
+
+# Use virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 pip install -e .
 ```
 
