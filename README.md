@@ -1,6 +1,6 @@
-# 🐍 MEDUSA v0.9.2.2 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.9.2.3 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.9.2.2-blue.svg)](https://github.com/Pantheon-Security/medusa)
+[![Version](https://img.shields.io/badge/version-0.9.2.3-blue.svg)](https://github.com/Pantheon-Security/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
@@ -33,24 +33,59 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### Installation
 
+**Windows:**
+```powershell
+# Install MEDUSA (clean output, no warnings)
+py -m pip install medusa-security --no-warn-script-location
+
+# Verify installation
+py -m medusa --version
+```
+
+> **Note for Windows users**: If you see PATH warnings during installation, they're safe to ignore. Use `py -m medusa` for all commands.
+
+**macOS/Linux:**
 ```bash
 # Install MEDUSA
 pip install medusa-security
 
-# Or install from source
+# Verify installation
+medusa --version
+```
+
+**Install from source (all platforms):**
+```bash
 git clone https://github.com/Pantheon-Security/medusa.git
 cd medusa
 pip install -e .
 ```
 
-**macOS Users:** If `medusa` command is not found after installation, run:
-```bash
-python3 -m medusa setup_path
-```
-This will automatically configure your PATH. Then open a new terminal or run `source ~/.zshrc`
+**Platform-Specific Notes:**
+
+- **Windows**: Use `py -m medusa` instead of `medusa` if the command is not found
+- **macOS**: If `medusa` command is not found, run `python3 -m medusa setup_path` or use `python3 -m medusa`
+- **Linux**: Should work out of the box with `medusa` command
+
+> **⚠️ Windows Auto-Installation Limitation**:
+> The `medusa install` command currently only supports macOS and Linux.
+> Windows users need to manually install security tools. See [Windows Tool Installation](#windows-tool-installation) below.
 
 ### 5-Minute Setup
 
+**Windows:**
+```powershell
+# 1. Initialize in your project
+cd your-project
+py -m medusa init
+
+# 2. Install security tools (auto-detected for your platform)
+py -m medusa install --all
+
+# 3. Run your first scan
+py -m medusa scan .
+```
+
+**macOS/Linux:**
 ```bash
 # 1. Initialize in your project
 cd your-project
@@ -251,6 +286,56 @@ medusa init --force
 
 # Initialize and install tools
 medusa init --install
+```
+
+### Windows Tool Installation
+
+**⚠️ Note**: Auto-installation (`medusa install`) is not yet supported on Windows. Tools must be installed manually.
+
+**Option 1: Using Chocolatey (Recommended)**
+
+1. Install Chocolatey: https://chocolatey.org/install
+2. Install tools:
+```powershell
+# Run PowerShell as Administrator
+choco install shellcheck -y
+choco install markdownlint-cli -y
+choco install nodejs -y  # For npm-based tools
+npm install -g eslint
+npm install -g markdownlint-cli
+```
+
+**Option 2: Using Scoop**
+
+1. Install Scoop: https://scoop.sh
+2. Install tools:
+```powershell
+scoop install shellcheck
+scoop install nodejs
+npm install -g markdownlint-cli eslint
+```
+
+**Option 3: Using winget (Windows 11)**
+
+```powershell
+winget install ShellCheck.ShellCheck
+winget install OpenJS.NodeJS
+npm install -g markdownlint-cli eslint
+```
+
+**Common Tools for Windows:**
+
+| Tool | Install Command (Chocolatey) | Install Command (npm) |
+|------|------------------------------|----------------------|
+| shellcheck | `choco install shellcheck` | N/A |
+| bandit | `py -m pip install bandit` | N/A |
+| eslint | `choco install nodejs` → | `npm install -g eslint` |
+| markdownlint | N/A | `npm install -g markdownlint-cli` |
+| yamllint | `py -m pip install yamllint` | N/A |
+
+**After installing tools**, verify with:
+```powershell
+py -m medusa install --check
 ```
 
 ---
