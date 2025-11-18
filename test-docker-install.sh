@@ -13,6 +13,9 @@ if [ -z "$WHEEL_FILE" ]; then
     exit 1
 fi
 
+# Get just the filename (not the path)
+WHEEL_FILENAME=$(basename "$WHEEL_FILE")
+
 echo "📦 Using wheel: $WHEEL_FILE"
 echo ""
 
@@ -37,8 +40,8 @@ FROM $base_image
 RUN apt-get update && apt-get install -y $python_pkg $pip_pkg git && rm -rf /var/lib/apt/lists/* || \
     yum install -y $python_pkg $pip_pkg git || \
     apk add --no-cache $python_pkg $pip_pkg git
-COPY $WHEEL_FILE /tmp/medusa.whl
-RUN pip3 install /tmp/medusa.whl || pip install /tmp/medusa.whl
+COPY $WHEEL_FILE /tmp/$WHEEL_FILENAME
+RUN pip3 install /tmp/$WHEEL_FILENAME || pip install /tmp/$WHEEL_FILENAME
 CMD ["medusa", "--version"]
 EOF
 
@@ -77,8 +80,8 @@ echo "-------------------------------"
 cat > Dockerfile.test <<EOF
 FROM alpine:latest
 RUN apk add --no-cache python3 py3-pip git
-COPY $WHEEL_FILE /tmp/medusa.whl
-RUN pip3 install --break-system-packages /tmp/medusa.whl
+COPY $WHEEL_FILE /tmp/$WHEEL_FILENAME
+RUN pip3 install --break-system-packages /tmp/$WHEEL_FILENAME
 CMD ["medusa", "--version"]
 EOF
 
