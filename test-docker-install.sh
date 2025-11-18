@@ -37,11 +37,13 @@ test_distro() {
     # Create a temporary Dockerfile
     cat > Dockerfile.test <<EOF
 FROM $base_image
-RUN apt-get update && apt-get install -y $python_pkg $pip_pkg git build-essential python3-dev && rm -rf /var/lib/apt/lists/* || \
+RUN apt-get update && apt-get install -y $python_pkg $pip_pkg git build-essential python3-dev python3-venv && rm -rf /var/lib/apt/lists/* || \
     yum install -y $python_pkg $pip_pkg git gcc python3-devel || \
     apk add --no-cache $python_pkg $pip_pkg git gcc python3-dev musl-dev linux-headers
 COPY $WHEEL_FILE /tmp/$WHEEL_FILENAME
-RUN pip3 install --break-system-packages /tmp/$WHEEL_FILENAME || pip install --break-system-packages /tmp/$WHEEL_FILENAME
+RUN python3 -m venv /opt/medusa && \
+    /opt/medusa/bin/pip install /tmp/$WHEEL_FILENAME && \
+    ln -s /opt/medusa/bin/medusa /usr/local/bin/medusa
 CMD ["medusa", "--version"]
 EOF
 
@@ -81,7 +83,9 @@ cat > Dockerfile.test <<EOF
 FROM alpine:latest
 RUN apk add --no-cache python3 py3-pip git gcc python3-dev musl-dev linux-headers
 COPY $WHEEL_FILE /tmp/$WHEEL_FILENAME
-RUN pip3 install --break-system-packages /tmp/$WHEEL_FILENAME
+RUN python3 -m venv /opt/medusa && \
+    /opt/medusa/bin/pip install /tmp/$WHEEL_FILENAME && \
+    ln -s /opt/medusa/bin/medusa /usr/local/bin/medusa
 CMD ["medusa", "--version"]
 EOF
 
