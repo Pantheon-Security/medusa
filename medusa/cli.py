@@ -232,28 +232,55 @@ def _install_tools(tools: list, use_latest: bool = False):
     failed = 0
 
     for tool in tools:
-        console.print(f"[cyan]Installing {tool}...[/cyan] ", end="")
+        console.print(f"[cyan]Installing {tool}...[/cyan]")
 
         success = False
+        attempted_installers = []
 
         # Try platform package manager first
-        if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
+        pm_package = ToolMapper.get_package_name(tool, pm.value if pm else '') if pm else None
+        if installer and pm_package:
+            console.print(f"  → Trying {pm.value}: {pm_package}")
+            attempted_installers.append(pm.value)
             success = installer.install(tool)
+            if success:
+                console.print(f"  [green]✅ Installed via {pm.value}[/green]")
+        elif pm:
+            console.print(f"  ⊘ Not available in {pm.value}")
 
         # Try npm for npm tools
-        if not success and npm_installer and ToolMapper.is_npm_tool(tool):
-            success = npm_installer.install(tool, use_latest=use_latest)
+        if not success and ToolMapper.is_npm_tool(tool):
+            if npm_installer:
+                npm_package = ToolMapper.get_package_name(tool, 'npm')
+                console.print(f"  → Trying npm: {npm_package}")
+                attempted_installers.append('npm')
+                success = npm_installer.install(tool, use_latest=use_latest)
+                if success:
+                    console.print(f"  [green]✅ Installed via npm[/green]")
+            else:
+                console.print(f"  ⊘ npm not available (install Node.js)")
+                attempted_installers.append('npm (Node.js required)')
 
         # Try pip for python tools
-        if not success and pip_installer and ToolMapper.is_python_tool(tool):
-            success = pip_installer.install(tool, use_latest=use_latest)
+        if not success and ToolMapper.is_python_tool(tool):
+            if pip_installer:
+                pip_package = ToolMapper.get_package_name(tool, 'pip')
+                console.print(f"  → Trying pip: {pip_package}")
+                attempted_installers.append('pip')
+                success = pip_installer.install(tool, use_latest=use_latest)
+                if success:
+                    console.print(f"  [green]✅ Installed via pip[/green]")
+            else:
+                console.print(f"  ⊘ pip not available")
+                attempted_installers.append('pip (not available)')
 
         if success:
-            console.print("[green]✅[/green]")
             installed += 1
         else:
-            console.print("[red]❌[/red]")
+            console.print(f"  [red]❌ Failed[/red] (tried: {', '.join(attempted_installers) if attempted_installers else 'no installers available'})")
             failed += 1
+
+        console.print("")  # Blank line between tools
 
     if installed > 0:
         console.print(f"\n[green]✅ Installed {installed}/{len(tools)} tools[/green]")

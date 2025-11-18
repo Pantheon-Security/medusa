@@ -1,8 +1,8 @@
-# 🐍 MEDUSA v0.9.2.3 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.9.4.0 - The 42-Headed Security Guardian
 
-[![Version](https://img.shields.io/badge/version-0.9.2.3-blue.svg)](https://github.com/Pantheon-Security/medusa)
+[![Version](https://img.shields.io/badge/version-0.9.4.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
 
 **Universal security scanner for all languages and platforms.**
@@ -772,7 +772,11 @@ See `docs/development/adding-scanners.md` for a guide on adding new language sup
 
 ## 📜 License
 
-MIT License - See [LICENSE](LICENSE) file
+AGPL-3.0-or-later - See [LICENSE](LICENSE) file
+
+MEDUSA is free and open source software. You can use, modify, and distribute it freely, but any modifications or derivative works (including SaaS deployments) must also be released under AGPL-3.0.
+
+For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 

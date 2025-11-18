@@ -6,7 +6,60 @@ Package installers for Windows using winget and Chocolatey
 
 import subprocess
 import shutil
+import os
+import sys
 from medusa.platform.installers.base import BaseInstaller, ToolMapper
+
+
+def refresh_windows_path() -> bool:
+    """
+    Refresh PATH environment variable from Windows registry.
+    This makes newly installed tools available in the current process.
+    Returns True if successful, False otherwise.
+    """
+    if sys.platform != 'win32':
+        return False
+
+    try:
+        import winreg
+
+        # Get system PATH
+        try:
+            with winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+            ) as key:
+                system_path = winreg.QueryValueEx(key, 'Path')[0]
+        except:
+            system_path = ''
+
+        # Get user PATH
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment') as key:
+                user_path = winreg.QueryValueEx(key, 'Path')[0]
+        except:
+            user_path = ''
+
+        # Also add common winget install locations
+        windows_apps = os.path.expandvars(r'%LOCALAPPDATA%\Microsoft\WindowsApps')
+
+        # Combine all paths, removing duplicates while preserving order
+        paths = []
+        for path_str in [user_path, system_path]:
+            for path in path_str.split(';'):
+                path = path.strip()
+                if path and path not in paths:
+                    paths.append(path)
+
+        # Ensure WindowsApps is included
+        if windows_apps not in paths:
+            paths.insert(0, windows_apps)
+
+        # Update current process PATH
+        os.environ['PATH'] = ';'.join(paths)
+        return True
+    except Exception:
+        return False
 
 
 class WingetInstaller(BaseInstaller):
@@ -27,8 +80,24 @@ class WingetInstaller(BaseInstaller):
         cmd = ['winget', 'install', '--id', package_name, '--accept-source-agreements', '--accept-package-agreements']
 
         try:
-            result = self.run_command(cmd, check=True)
-            return result.returncode == 0
+            result = self.run_command(cmd, check=False)  # Don't throw on non-zero
+            output = result.stdout.lower() if hasattr(result, 'stdout') else ''
+
+            # Success if:
+            # - Exit code is 0, OR
+            # - Package is already installed (exit code may be non-zero but this is still success)
+            success = (
+                result.returncode == 0 or
+                'already installed' in output or
+                'no available upgrade found' in output
+            )
+
+            # If install succeeded (or package already installed), refresh PATH
+            # This makes the tool available in current session
+            if success:
+                refresh_windows_path()
+
+            return success
         except:
             return False
 
@@ -121,7 +190,14 @@ class ChocolateyInstaller(BaseInstaller):
 
         try:
             result = self.run_command(cmd, check=True)
-            return result.returncode == 0
+            success = result.returncode == 0
+
+            # If install succeeded, refresh PATH
+            # This makes the tool available in current session
+            if success:
+                refresh_windows_path()
+
+            return success
         except:
             return False
 
