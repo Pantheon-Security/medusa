@@ -10,6 +10,7 @@ import click
 from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich import print as rprint
 
 from medusa import __version__
@@ -230,6 +231,7 @@ def _install_tools(tools: list, use_latest: bool = False):
 
     installed = 0
     failed = 0
+    npm_tools_failed = []  # Track tools that failed due to missing npm
 
     for tool in tools:
         console.print(f"[cyan]Installing {tool}...[/cyan]")
@@ -260,6 +262,7 @@ def _install_tools(tools: list, use_latest: bool = False):
             else:
                 console.print(f"  ⊘ npm not available (install Node.js)")
                 attempted_installers.append('npm (Node.js required)')
+                npm_tools_failed.append(tool)  # Track this tool
 
         # Try pip for python tools
         if not success and ToolMapper.is_python_tool(tool):
@@ -286,6 +289,76 @@ def _install_tools(tools: list, use_latest: bool = False):
         console.print(f"\n[green]✅ Installed {installed}/{len(tools)} tools[/green]")
     if failed > 0:
         console.print(f"[yellow]⚠️  {failed} tools failed to install (may need manual installation)[/yellow]")
+
+    # Offer to install Node.js if npm tools failed on Windows
+    if npm_tools_failed and platform_info.os_type.value == 'windows':
+        from medusa.platform import PackageManager
+        if pm == PackageManager.WINGET:
+            console.print("")
+            console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
+
+            # Prompt user
+            response = Prompt.ask(
+                "   Install Node.js via winget to enable these tools?",
+                choices=["Y", "n"],
+                default="Y"
+            )
+
+            if response.upper() == "Y":
+                console.print("\n[cyan]Installing Node.js...[/cyan]")
+
+                # Install Node.js via winget
+                winget_installer = WingetInstaller()
+                nodejs_success = False
+
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['winget', 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
+                        capture_output=True,
+                        text=True
+                    )
+                    output = result.stdout.lower() if result.stdout else ''
+                    nodejs_success = (
+                        result.returncode == 0 or
+                        'already installed' in output or
+                        'no available upgrade found' in output
+                    )
+                except:
+                    nodejs_success = False
+
+                if nodejs_success:
+                    console.print("[green]✅ Node.js installed successfully[/green]")
+
+                    # Refresh PATH
+                    if platform_info.os_type.value == 'windows':
+                        from medusa.platform.installers.windows import refresh_windows_path
+                        refresh_windows_path()
+
+                    # Retry npm tools
+                    console.print("\n[cyan]Retrying npm tools...[/cyan]\n")
+                    npm_installer = NpmInstaller() if shutil.which('npm') else None
+
+                    if npm_installer:
+                        npm_installed = 0
+                        for tool in npm_tools_failed:
+                            console.print(f"[cyan]Installing {tool}...[/cyan]")
+                            npm_package = ToolMapper.get_package_name(tool, 'npm')
+                            console.print(f"  → Trying npm: {npm_package}")
+
+                            if npm_installer.install(tool, use_latest=use_latest):
+                                console.print(f"  [green]✅ Installed via npm[/green]\n")
+                                npm_installed += 1
+                            else:
+                                console.print(f"  [red]❌ Failed[/red]\n")
+
+                        if npm_installed > 0:
+                            console.print(f"[green]✅ Installed {npm_installed}/{len(npm_tools_failed)} npm tools[/green]")
+                    else:
+                        console.print("[yellow]⚠️  npm still not available. Try restarting your terminal.[/yellow]")
+                else:
+                    console.print("[red]❌ Failed to install Node.js[/red]")
+                    console.print("[yellow]You can manually install Node.js from: https://nodejs.org[/yellow]")
 
 
 def print_banner():
