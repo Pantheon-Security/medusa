@@ -325,9 +325,10 @@ def _install_tools(tools: list, use_latest: bool = False):
 
             # Prompt user
             response = Prompt.ask(
-                "   Install Node.js via winget to enable these tools? (y/n)",
+                "   Install Node.js via winget to enable these tools?",
                 choices=["y", "Y", "n", "N"],
-                default="y"
+                default="y",
+                show_choices=False
             )
 
             if response.upper() == "Y":
@@ -387,9 +388,15 @@ def _install_tools(tools: list, use_latest: bool = False):
                     npm_path = shutil.which('npm')
                     if npm_path:
                         console.print(f"[green]✓[/green] npm found at: {npm_path}")
-                        # Verify npm works
+                        # Verify npm works (use shell=True on Windows for .cmd files)
                         try:
-                            npm_version_check = subprocess.run(['npm', '--version'], capture_output=True, text=True, timeout=5)
+                            npm_version_check = subprocess.run(
+                                ['npm', '--version'],
+                                capture_output=True,
+                                text=True,
+                                timeout=5,
+                                shell=True  # Required for .CMD files on Windows
+                            )
                             if npm_version_check.returncode == 0:
                                 console.print(f"[green]✓[/green] npm version: {npm_version_check.stdout.strip()}")
                             else:
@@ -436,7 +443,7 @@ def print_banner():
 ║                                                                    ║
 ║          🐍🐍🐍 MEDUSA v{__version__} - Security Guardian 🐍🐍🐍           ║
 ║                                                                    ║
-║              The 42-Headed Universal Security Scanner             ║
+║         Universal Scanner with 40+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
@@ -450,7 +457,7 @@ def print_banner():
 ║                                                                    ║
 ║              MEDUSA v{__version__} - Security Guardian                 ║
 ║                                                                    ║
-║              The 42-Headed Universal Security Scanner             ║
+║         Universal Scanner with 40+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
@@ -467,9 +474,9 @@ def print_banner():
 @click.pass_context
 def main(ctx, version):
     """
-    MEDUSA - The 42-Headed Security Guardian
+    MEDUSA - Multi-Language Security Scanner
 
-    Universal security scanner for all languages and platforms.
+    Universal security scanner with 40+ specialized analyzers for all platforms.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
