@@ -430,10 +430,16 @@ class MedusaParallelScanner:
 
         return results
 
-    def generate_report(self, results: List[ScanResult], output_dir: Path):
-        """Generate JSON/HTML reports"""
-        # Aggregate all issues in Bandit JSON format
-        bandit_results = []
+    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None):
+        """Generate reports in requested formats (json, html, markdown)"""
+        if formats is None:
+            formats = ['json', 'html']
+
+        from medusa.core.reporter import MedusaReportGenerator
+        from datetime import datetime
+
+        # Aggregate findings from all scan results
+        findings = []
         total_issues = 0
         cached_count = sum(1 for r in results if r.cached)
         file_metrics = {}
@@ -451,58 +457,72 @@ class MedusaParallelScanner:
                 except:
                     file_metrics[result.file] = {'loc': 0}
 
-                # Convert to Bandit format (handle both old dict and new ScannerIssue format)
+                # Convert to standardized format
                 for issue in result.issues:
                     # Handle old dict format (backward compatibility)
                     if isinstance(issue, dict):
-                        bandit_results.append({
-                            'filename': result.file,
-                            'issue_severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
-                            'issue_text': issue.get('issue_text', issue.get('message', str(issue))),
-                            'line_number': issue.get('line_number', issue.get('line', 0)),
-                            'issue_confidence': issue.get('issue_confidence', 'HIGH'),
-                            'issue_cwe': issue.get('issue_cwe', {'id': issue.get('code', 'unknown')}),
-                            'code': issue.get('code', 'unknown')
+                        findings.append({
+                            'scanner': result.scanner or 'unknown',
+                            'file': result.file,
+                            'line': issue.get('line_number', issue.get('line', 0)),
+                            'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
+                            'confidence': issue.get('issue_confidence', 'HIGH'),
+                            'issue': issue.get('issue_text', issue.get('message', str(issue))),
+                            'cwe': issue.get('issue_cwe', {}).get('id', issue.get('code')),
+                            'code': issue.get('code', '')
                         })
                     # Handle new ScannerIssue object format
                     else:
-                        bandit_results.append({
-                            'filename': result.file,
-                            'issue_severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
-                            'issue_text': issue.message,
-                            'line_number': issue.line,
-                            'issue_confidence': 'HIGH',
-                            'issue_cwe': {'id': issue.code},
+                        findings.append({
+                            'scanner': result.scanner or 'unknown',
+                            'file': result.file,
+                            'line': issue.line,
+                            'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
+                            'confidence': 'HIGH',
+                            'issue': issue.message,
+                            'cwe': issue.code,
                             'code': issue.code
                         })
 
         # Calculate total lines
         total_lines = sum(m.get('loc', 0) for m in file_metrics.values())
 
-        # Save intermediate JSON in Bandit format for medusa-report.py
-        temp_json = output_dir / "parallel_scan_temp.json"
-        with open(temp_json, 'w') as f:
-            json.dump({
-                'results': bandit_results,
-                'metrics': {
-                    **file_metrics,
-                    '_totals': {
-                        'loc': total_lines
-                    }
-                }
-            }, f, indent=2)
+        # Prepare scan results for reporter
+        scan_results = {
+            'findings': findings,
+            'files_scanned': len(results) - cached_count,
+            'total_lines_scanned': total_lines
+        }
 
-        # Call medusa-report.py to generate beautiful reports
-        report_script = Path(__file__).parent / "medusa-report.py"
-        if report_script.exists():
-            try:
-                subprocess.run(
-                    [sys.executable, str(report_script), str(temp_json), str(output_dir)],
-                    check=True
-                )
-                print(f"\n✅ Reports generated in {output_dir}")
-            except subprocess.CalledProcessError as e:
-                print(f"⚠️  Report generation failed: {e}")
+        # Initialize reporter
+        generator = MedusaReportGenerator(output_dir)
+        timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+
+        generated_files = []
+
+        # Generate JSON report
+        if 'json' in formats:
+            json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json")
+            generated_files.append(('JSON', json_path))
+
+        # Generate HTML report
+        if 'html' in formats:
+            # First need JSON for HTML generation
+            if 'json' not in formats:
+                json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json")
+            html_path = generator.generate_html_report(json_path, output_dir / f"medusa-scan-{timestamp}.html")
+            generated_files.append(('HTML', html_path))
+
+        # Generate Markdown report
+        if 'markdown' in formats:
+            md_path = generator.generate_markdown_report(scan_results, output_dir / f"medusa-scan-{timestamp}.md")
+            generated_files.append(('Markdown', md_path))
+
+        # Print generated files
+        if generated_files:
+            print(f"\n📊 Reports generated:")
+            for format_name, file_path in generated_files:
+                print(f"   {format_name:10} → {file_path}")
 
         # Print summary
         print()
