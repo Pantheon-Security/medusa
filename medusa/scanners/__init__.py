@@ -14,6 +14,7 @@ from medusa.scanners.python_scanner import PythonScanner
 from medusa.scanners.bash_scanner import BashScanner
 from medusa.scanners.yaml_scanner import YAMLScanner
 from medusa.scanners.docker_scanner import DockerScanner
+from medusa.scanners.docker_compose_scanner import DockerComposeScanner
 from medusa.scanners.markdown_scanner import MarkdownScanner
 from medusa.scanners.javascript_scanner import JavaScriptScanner
 from medusa.scanners.terraform_scanner import TerraformScanner
@@ -61,6 +62,7 @@ registry.register(PythonScanner())
 registry.register(BashScanner())
 registry.register(YAMLScanner())
 registry.register(DockerScanner())
+registry.register(DockerComposeScanner())
 registry.register(MarkdownScanner())
 registry.register(JavaScriptScanner())
 registry.register(TerraformScanner())
@@ -110,6 +112,7 @@ __all__ = [
     'BashScanner',
     'YAMLScanner',
     'DockerScanner',
+    'DockerComposeScanner',
     'MarkdownScanner',
     'JavaScriptScanner',
     'TerraformScanner',
