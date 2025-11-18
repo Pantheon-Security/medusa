@@ -1,22 +1,22 @@
-# 🐍 MEDUSA v0.9.4.0 - The 42-Headed Security Guardian
+# 🐍 MEDUSA v0.10.0 - Multi-Language Security Scanner
 
-[![Version](https://img.shields.io/badge/version-0.9.4.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
+[![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
 
-**Universal security scanner for all languages and platforms.**
+**Universal security scanner with 40+ specialized analyzers for all languages and platforms.**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **42 different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **40+ different languages and file types**.
 
 ### ✨ Key Features
 
-- 🔍 **42 Language Scanners** - Most comprehensive coverage available
+- 🔍 **40+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🤖 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
