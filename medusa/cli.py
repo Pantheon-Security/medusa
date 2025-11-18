@@ -205,7 +205,7 @@ def _install_tools(tools: list, use_latest: bool = False):
     from medusa.platform import get_platform_info
     from medusa.platform.installers import (
         AptInstaller, DnfInstaller, PacmanInstaller,
-        HomebrewInstaller, NpmInstaller, PipInstaller, ToolMapper
+        HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller, ToolMapper
     )
 
     platform_info = get_platform_info()
@@ -220,6 +220,8 @@ def _install_tools(tools: list, use_latest: bool = False):
             PackageManager.DNF: DnfInstaller(),
             PackageManager.PACMAN: PacmanInstaller(),
             PackageManager.BREW: HomebrewInstaller(),
+            PackageManager.WINGET: WingetInstaller(),
+            PackageManager.CHOCOLATEY: ChocolateyInstaller(),
         }
         installer = installer_map.get(pm)
 
@@ -501,7 +503,7 @@ def init(ide, force, install):
             console.print("[cyan]Installing missing tools...[/cyan]")
             # Import installer logic
             from medusa.platform import get_platform_info
-            from medusa.platform.installers import AptInstaller, HomebrewInstaller, NpmInstaller, PipInstaller
+            from medusa.platform.installers import AptInstaller, HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller
 
             platform_info = get_platform_info()
             # This would call the actual installation - skipping for safety in init
@@ -677,7 +679,7 @@ def install(tool, check, all, yes, use_latest):
     from medusa.scanners import registry
     from medusa.platform.installers import (
         AptInstaller, YumInstaller, DnfInstaller, PacmanInstaller,
-        HomebrewInstaller, NpmInstaller, PipInstaller, ToolMapper
+        HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller, ToolMapper
     )
 
     platform_info = get_platform_info()
@@ -717,6 +719,8 @@ def install(tool, check, all, yes, use_latest):
             PackageManager.DNF: DnfInstaller(),
             PackageManager.PACMAN: PacmanInstaller(),
             PackageManager.BREW: HomebrewInstaller(),
+            PackageManager.WINGET: WingetInstaller(),
+            PackageManager.CHOCOLATEY: ChocolateyInstaller(),
         }
         installer = installer_map.get(pm)
 
@@ -844,7 +848,7 @@ def uninstall(tool, all, yes):
     from medusa.scanners import registry
     from medusa.platform.installers import (
         AptInstaller, YumInstaller, DnfInstaller, PacmanInstaller,
-        HomebrewInstaller, NpmInstaller, PipInstaller, ToolMapper
+        HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller, ToolMapper
     )
 
     platform_info = get_platform_info()
