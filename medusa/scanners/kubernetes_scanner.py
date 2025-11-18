@@ -110,16 +110,57 @@ class KubernetesScanner(BaseScanner):
                 error_message=f"Scan failed: {e}"
             )
 
-    def _is_k8s_file(self, file_path: Path) -> bool:
-        """Check if file is a Kubernetes manifest"""
+    def get_confidence_score(self, file_path: Path) -> int:
+        """
+        Analyze file content to determine confidence this is a Kubernetes manifest.
+
+        Scoring:
+        - apiVersion: +35 (strongest K8s indicator)
+        - kind: +35 (strongest K8s indicator)
+        - metadata: +15 (common but not unique to K8s)
+        - spec: +15 (common but not unique to K8s)
+        - Requires apiVersion + kind for high confidence
+
+        Returns:
+            0-100 confidence score
+        """
+        if not self.can_scan(file_path):
+            return 0
+
         try:
-            with open(file_path, 'r') as f:
-                content = f.read(500)  # Read first 500 chars
-                # Look for Kubernetes keywords
-                k8s_keywords = ['apiVersion:', 'kind:', 'metadata:', 'spec:']
-                return sum(1 for keyword in k8s_keywords if keyword in content) >= 2
-        except:
-            return False
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read(1000)  # Read first 1000 chars for analysis
+
+            score = 0
+            has_api_version = 'apiVersion:' in content
+            has_kind = 'kind:' in content
+
+            # Core Kubernetes indicators (both required for high confidence)
+            if has_api_version:
+                score += 35
+            if has_kind:
+                score += 35
+
+            # Supporting indicators
+            if 'metadata:' in content:
+                score += 15
+            if 'spec:' in content:
+                score += 15
+
+            # Require both apiVersion and kind for reasonable confidence
+            # This prevents false positives on generic YAML
+            if not (has_api_version and has_kind):
+                score = min(score, 30)  # Cap at low score without both
+
+            return min(score, 100)  # Cap at 100
+
+        except Exception:
+            # If we can't read the file, return low score
+            return 0
+
+    def _is_k8s_file(self, file_path: Path) -> bool:
+        """Check if file is a Kubernetes manifest (legacy method)"""
+        return self.get_confidence_score(file_path) > 50
 
     def _map_severity(self, k8s_level: str) -> Severity:
         """Map kube-linter severity to MEDUSA severity"""
