@@ -213,6 +213,12 @@ class ChocolateyInstaller(BaseInstaller):
 
     def is_installed(self, package: str) -> bool:
         """Check if package is installed via choco"""
+        # First, check if the tool binary is actually in PATH (most reliable)
+        tool_binary = shutil.which(package)
+        if tool_binary:
+            return True
+
+        # Fallback: check choco list output
         package_name = ToolMapper.get_package_name(package, 'choco')
         if not package_name:
             return False

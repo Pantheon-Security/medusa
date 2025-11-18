@@ -125,6 +125,14 @@ class PipInstaller(BaseInstaller):
 
     def is_installed(self, package: str) -> bool:
         """Check if pip package is installed"""
+        import shutil
+
+        # First, check if the tool binary is actually in PATH (most reliable)
+        tool_binary = shutil.which(package)
+        if tool_binary:
+            return True
+
+        # Fallback: check pip show (reliable for Python packages)
         package_name = ToolMapper.get_package_name(package, 'pip')
         if not package_name:
             return False
