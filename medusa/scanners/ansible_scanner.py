@@ -110,16 +110,52 @@ class AnsibleScanner(BaseScanner):
                 error_message=f"Scan failed: {e}"
             )
 
-    def _is_ansible_file(self, file_path: Path) -> bool:
-        """Check if file is an Ansible playbook"""
+    def get_confidence_score(self, file_path: Path) -> int:
+        """
+        Analyze file content to determine confidence this is an Ansible playbook.
+
+        Scoring:
+        - hosts: +30 (strong indicator)
+        - tasks: +30 (strong indicator)
+        - roles: +20 (good indicator)
+        - playbook in content: +10
+        - "- name:" pattern: +10 (YAML list with name keys)
+
+        Returns:
+            0-100 confidence score
+        """
+        if not self.can_scan(file_path):
+            return 0
+
         try:
-            with open(file_path, 'r') as f:
-                content = f.read(500)  # Read first 500 chars
-                # Look for Ansible keywords
-                ansible_keywords = ['hosts:', 'tasks:', 'roles:', 'playbook', '- name:']
-                return any(keyword in content for keyword in ansible_keywords)
-        except:
-            return False
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read(1000)  # Read first 1000 chars for analysis
+
+            score = 0
+
+            # Strong Ansible indicators
+            if 'hosts:' in content:
+                score += 30
+            if 'tasks:' in content:
+                score += 30
+            if 'roles:' in content:
+                score += 20
+
+            # Additional indicators
+            if 'playbook' in content.lower():
+                score += 10
+            if '- name:' in content:
+                score += 10
+
+            return min(score, 100)  # Cap at 100
+
+        except Exception:
+            # If we can't read the file, return low score
+            return 0
+
+    def _is_ansible_file(self, file_path: Path) -> bool:
+        """Check if file is an Ansible playbook (legacy method)"""
+        return self.get_confidence_score(file_path) > 50
 
     def _map_severity(self, ansible_severity: str) -> Severity:
         """Map ansible-lint severity to MEDUSA severity"""

@@ -127,6 +127,30 @@ class BaseScanner(ABC):
         """
         return file_path.suffix in self.get_file_extensions()
 
+    def get_confidence_score(self, file_path: Path) -> int:
+        """
+        Analyze file content and return confidence (0-100) that this scanner
+        should handle it. Used to intelligently choose between competing scanners
+        for the same file extension (e.g., Ansible vs Kubernetes vs generic YAML).
+
+        Default implementation: low confidence for generic scanners.
+        Override in specific scanners (Ansible, Kubernetes) for content-based detection.
+
+        Args:
+            file_path: Path to file to analyze
+
+        Returns:
+            0-100 confidence score (higher = more confident)
+            - 0-20: Low confidence (generic fallback only)
+            - 21-50: Medium confidence (some indicators present)
+            - 51-80: High confidence (strong indicators)
+            - 81-100: Very high confidence (definite match)
+        """
+        # Default: return low confidence if file extension matches
+        if self.can_scan(file_path):
+            return 20  # Generic fallback score
+        return 0  # Can't scan this file at all
+
     def is_available(self) -> bool:
         """
         Check if the scanner tool is installed and available
@@ -207,7 +231,11 @@ class ScannerRegistry:
 
     def get_scanner_for_file(self, file_path: Path) -> Optional[BaseScanner]:
         """
-        Find the appropriate scanner for a file
+        Find the appropriate scanner for a file using confidence scoring.
+
+        This intelligently chooses between competing scanners (e.g., Ansible vs
+        Kubernetes vs YAML) by analyzing file content and selecting the scanner
+        with the highest confidence score.
 
         Args:
             file_path: Path to file
@@ -215,10 +243,27 @@ class ScannerRegistry:
         Returns:
             Scanner instance that can handle the file, or None
         """
+        best_scanner = None
+        best_confidence = 0
+
         for scanner in self.scanners:
-            if scanner.can_scan(file_path) and scanner.is_available():
-                return scanner
-        return None
+            # Only consider scanners that are installed
+            if not scanner.is_available():
+                continue
+
+            # Only consider scanners that can handle this file extension
+            if not scanner.can_scan(file_path):
+                continue
+
+            # Get confidence score from content analysis
+            confidence = scanner.get_confidence_score(file_path)
+
+            # Track the scanner with highest confidence
+            if confidence > best_confidence:
+                best_confidence = confidence
+                best_scanner = scanner
+
+        return best_scanner
 
     def get_all_scanners(self) -> List[BaseScanner]:
         """Get all registered scanners"""
