@@ -15,7 +15,7 @@ class MedusaConfig:
     """MEDUSA configuration structure"""
 
     # Version
-    version: str = "0.10.10"
+    version: str = "0.11.0"
 
     # Scanner configuration
     scanners_enabled: List[str] = field(default_factory=list)  # Empty = all

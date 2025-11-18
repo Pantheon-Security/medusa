@@ -508,6 +508,10 @@ def main(ctx, version):
               help='Exit with code 1 if issues at this level or higher are found')
 @click.option('-o', '--output', type=click.Path(), default=None,
               help='Output directory for reports')
+@click.option('--format', 'output_formats', multiple=True,
+              type=click.Choice(['json', 'html', 'markdown', 'all']),
+              default=['json', 'html'],
+              help='Output format(s): json, html, markdown, or all (can specify multiple)')
 @click.option('--no-report', is_flag=True,
               help='Skip report generation (faster)')
 @click.option('--install-mode', type=click.Choice(['batch', 'progressive', 'never']),
@@ -517,7 +521,7 @@ def main(ctx, version):
               help='Automatically install missing linters without prompting')
 @click.option('--no-install', is_flag=True,
               help='Never prompt for installation (same as --install-mode never)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, no_report, install_mode, auto_install, no_install):
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, install_mode, auto_install, no_install):
     """
     Scan a directory or file for security issues.
 
@@ -583,7 +587,13 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, no_report, in
         if not no_report:
             output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
             output_dir.mkdir(parents=True, exist_ok=True)
-            scanner.generate_report(results, output_dir)
+
+            # Handle 'all' format
+            formats = list(output_formats)
+            if 'all' in formats:
+                formats = ['json', 'html', 'markdown']
+
+            scanner.generate_report(results, output_dir, formats=formats)
 
         # Check fail threshold
         if fail_on:
