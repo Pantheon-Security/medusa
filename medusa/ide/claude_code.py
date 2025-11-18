@@ -246,7 +246,7 @@ def create_claude_md(project_root: Path) -> str:
 
 ## Project Overview
 
-This project uses **MEDUSA** - The 42-Headed Security Guardian for automated security scanning.
+This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ specialized analyzers for automated security scanning.
 
 ## MEDUSA Configuration
 
@@ -502,7 +502,7 @@ def create_gemini_md(project_root: Path) -> str:
 
 ## MEDUSA Integration for Gemini CLI
 
-This project uses **MEDUSA** - The 42-Headed Security Guardian.
+This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ specialized analyzers.
 
 ## Custom Commands
 

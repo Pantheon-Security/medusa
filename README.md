@@ -880,7 +880,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 
-**🐍🐍🐍 MEDUSA v0.9.1.1 - The 42-Headed Security Guardian 🐍🐍🐍**
+**🐍🐍🐍 MEDUSA - Multi-Language Security Scanner 🐍🐍🐍**
 
 *One look from Medusa stops vulnerabilities dead.*
 
