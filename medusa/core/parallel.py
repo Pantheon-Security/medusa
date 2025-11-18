@@ -515,6 +515,16 @@ class MedusaParallelScanner:
         print(f"⏱️  Total time: {sum(r.scan_time for r in results):.2f}s")
         if self.use_cache:
             print(f"📈 Cache hit rate: {100*cached_count/len(results):.1f}%")
+
+        # Show which scanners/tools were actually used
+        scanners_used = set()
+        for result in results:
+            if result.scanner and result.scanner != 'cached':
+                scanners_used.add(result.scanner)
+
+        if scanners_used:
+            print(f"🔧 Scanners used: {', '.join(sorted(scanners_used))}")
+
         print("=" * 60)
 
 

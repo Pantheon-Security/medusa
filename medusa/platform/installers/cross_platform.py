@@ -30,20 +30,43 @@ class NpmInstaller(BaseInstaller):
         cmd = ['npm', 'install', '-g', package_spec]
 
         try:
-            result = self.run_command(cmd, check=True)
-            return result.returncode == 0
-        except:
+            result = self.run_command(cmd, check=False)
+            if result.returncode == 0:
+                return True
+
+            # Print actual error for debugging
+            if result.stderr:
+                from rich.console import Console
+                console = Console()
+                console.print(f"[yellow]npm install error: {result.stderr.strip()[:200]}[/yellow]")
+            return False
+        except Exception as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[yellow]npm install exception: {str(e)[:200]}[/yellow]")
             return False
 
     def is_installed(self, package: str) -> bool:
         """Check if npm package is installed globally"""
+        import shutil
+
+        # First, check if the tool binary is actually in PATH (most reliable)
+        tool_binary = shutil.which(package)
+        if tool_binary:
+            return True
+
+        # Fallback: check npm list output (npm list may return non-zero due to peer deps)
         package_name = ToolMapper.get_package_name(package, 'npm')
         if not package_name:
             return False
 
         try:
             result = self.run_command(['npm', 'list', '-g', package_name], check=False)
-            return result.returncode == 0
+            # Check output text, not just return code
+            if result.stdout:
+                output = result.stdout.lower()
+                return package_name.lower() in output or package.lower() in output
+            return False
         except:
             return False
 
