@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional
 import subprocess
 import shutil
+import platform
 
 
 class BaseInstaller(ABC):
@@ -84,7 +85,9 @@ class BaseInstaller(ABC):
         Returns:
             CompletedProcess result
         """
-        return subprocess.run(cmd, capture_output=True, text=True, check=check)
+        # Use shell=True on Windows for .cmd/.bat files
+        use_shell = platform.system() == 'Windows'
+        return subprocess.run(cmd, capture_output=True, text=True, check=check, shell=use_shell)
 
 
 class ToolMapper:
