@@ -331,9 +331,23 @@ def _install_tools(tools: list, use_latest: bool = False):
             )
 
             if response.upper() == "Y":
-                console.print("\n[cyan]Installing Node.js...[/cyan]")
+                # First check if Node.js is already installed
+                console.print("\n[cyan]Checking for existing Node.js installation...[/cyan]")
+                nodejs_already_installed = False
+                try:
+                    import subprocess
+                    node_check = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
+                    if node_check.returncode == 0:
+                        nodejs_already_installed = True
+                        console.print(f"[green]✓[/green] Node.js found: {node_check.stdout.strip()}")
+                        console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
+                except:
+                    console.print("[dim]   Node.js not found, installing...[/dim]")
 
-                # Install Node.js via winget
+                if not nodejs_already_installed:
+                    console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
+
+                # Install Node.js via winget (even if already installed, to ensure npm is available)
                 winget_installer = WingetInstaller()
                 nodejs_success = False
 
@@ -342,7 +356,8 @@ def _install_tools(tools: list, use_latest: bool = False):
                     result = subprocess.run(
                         ['winget', 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
                         capture_output=True,
-                        text=True
+                        text=True,
+                        timeout=120
                     )
                     output = result.stdout.lower() if result.stdout else ''
                     nodejs_success = (
@@ -350,8 +365,13 @@ def _install_tools(tools: list, use_latest: bool = False):
                         'already installed' in output or
                         'no available upgrade found' in output
                     )
-                except:
+
+                    # Show winget output for debugging
+                    if result.returncode != 0:
+                        console.print(f"[dim]Winget output: {result.stdout[:300]}[/dim]")
+                except Exception as e:
                     nodejs_success = False
+                    console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
 
                 if nodejs_success:
                     console.print("[green]✅ Node.js installed successfully[/green]")
@@ -360,10 +380,29 @@ def _install_tools(tools: list, use_latest: bool = False):
                     if platform_info.os_type.value == 'windows':
                         from medusa.platform.installers.windows import refresh_windows_path
                         refresh_windows_path()
+                        console.print("[dim]   PATH refreshed from registry[/dim]")
+
+                    # Verify npm is now available
+                    console.print("\n[cyan]Checking for npm...[/cyan]")
+                    npm_path = shutil.which('npm')
+                    if npm_path:
+                        console.print(f"[green]✓[/green] npm found at: {npm_path}")
+                        # Verify npm works
+                        try:
+                            npm_version_check = subprocess.run(['npm', '--version'], capture_output=True, text=True, timeout=5)
+                            if npm_version_check.returncode == 0:
+                                console.print(f"[green]✓[/green] npm version: {npm_version_check.stdout.strip()}")
+                            else:
+                                console.print(f"[yellow]⚠[/yellow] npm found but returned error: {npm_version_check.stderr[:100]}")
+                        except Exception as e:
+                            console.print(f"[yellow]⚠[/yellow] npm found but test failed: {str(e)[:50]}")
+                    else:
+                        console.print("[yellow]✗[/yellow] npm not found in PATH")
+                        console.print("[dim]   This usually means you need to restart your terminal[/dim]")
 
                     # Retry npm tools
                     console.print("\n[cyan]Retrying npm tools...[/cyan]\n")
-                    npm_installer = NpmInstaller() if shutil.which('npm') else None
+                    npm_installer = NpmInstaller() if npm_path else None
 
                     if npm_installer:
                         npm_installed = 0
