@@ -229,7 +229,7 @@ class ScannerRegistry:
         """Register a scanner instance"""
         self.scanners.append(scanner)
 
-    def get_scanner_for_file(self, file_path: Path) -> Optional[BaseScanner]:
+    def get_scanner_for_file(self, file_path: Path, config=None) -> Optional[BaseScanner]:
         """
         Find the appropriate scanner for a file using confidence scoring.
 
@@ -237,12 +237,31 @@ class ScannerRegistry:
         Kubernetes vs YAML) by analyzing file content and selecting the scanner
         with the highest confidence score.
 
+        User overrides (from .medusa.yml) take precedence over confidence scoring,
+        allowing manual corrections that are remembered for future scans.
+
         Args:
             file_path: Path to file
+            config: Optional MedusaConfig with scanner overrides
 
         Returns:
             Scanner instance that can handle the file, or None
         """
+        # Check for user-specified override first
+        if config and config.scanner_overrides:
+            # Try both absolute and relative paths
+            file_str = str(file_path)
+            relative_path = str(file_path.relative_to(Path.cwd())) if file_path.is_absolute() else file_str
+
+            for override_path, scanner_name in config.scanner_overrides.items():
+                # Match if either absolute path or relative path matches
+                if file_str.endswith(override_path) or relative_path == override_path:
+                    # Find scanner by name
+                    for scanner in self.scanners:
+                        if scanner.name == scanner_name and scanner.is_available():
+                            return scanner
+
+        # No override found, use confidence scoring
         best_scanner = None
         best_confidence = 0
 
