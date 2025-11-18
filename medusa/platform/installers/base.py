@@ -114,6 +114,8 @@ class ToolMapper:
             'dnf': 'ShellCheck',
             'pacman': 'shellcheck',
             'brew': 'shellcheck',
+            'winget': 'koalaman.shellcheck',
+            'choco': 'shellcheck',
         },
         'yamllint': {
             'apt': 'yamllint',
@@ -125,29 +127,35 @@ class ToolMapper:
         },
         'hadolint': {
             'brew': 'hadolint',
+            'choco': 'hadolint',
             'manual': 'wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint',
         },
         'markdownlint': {
             'npm': 'markdownlint-cli',
+            'choco': 'markdownlint-cli',
         },
         'eslint': {
             'npm': 'eslint',
         },
         'tflint': {
             'brew': 'tflint',
+            'choco': 'tflint',
             'manual': 'curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash',
         },
         'golangci-lint': {
             'brew': 'golangci-lint',
+            'choco': 'golangci-lint',
             'manual': 'curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin',
         },
         'rubocop': {
             'apt': 'rubocop',
             'brew': 'rubocop',
+            'choco': 'rubocop',
             'manual': 'gem install rubocop',
         },
         'phpstan': {
             'brew': 'phpstan',
+            'choco': 'phpstan',
             'manual': 'composer global require phpstan/phpstan',
         },
         'cargo-clippy': {
@@ -168,6 +176,7 @@ class ToolMapper:
         },
         'swiftlint': {
             'brew': 'swiftlint',
+            'choco': 'swiftlint',
             'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
         },
         'cppcheck': {
@@ -176,12 +185,14 @@ class ToolMapper:
             'dnf': 'cppcheck',
             'pacman': 'cppcheck',
             'brew': 'cppcheck',
+            'choco': 'cppcheck',
         },
         'checkstyle': {
             'apt': 'checkstyle',
             'yum': 'checkstyle',
             'dnf': 'checkstyle',
             'brew': 'checkstyle',
+            'choco': 'checkstyle',
         },
         'tsc': {
             'npm': 'typescript',
