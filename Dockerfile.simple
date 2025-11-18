@@ -12,9 +12,11 @@ WORKDIR /app
 # Copy the built wheel
 COPY dist/*.whl /tmp/
 
-# Install MEDUSA from wheel
-RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
+# Create virtual environment and install MEDUSA (security best practice)
+RUN python3 -m venv /opt/medusa && \
+    /opt/medusa/bin/pip install --no-cache-dir /tmp/*.whl && \
+    rm -rf /tmp/*.whl
 
-# Set MEDUSA as entrypoint
-ENTRYPOINT ["medusa"]
+# Set MEDUSA as entrypoint (using venv binary)
+ENTRYPOINT ["/opt/medusa/bin/medusa"]
 CMD ["--help"]
