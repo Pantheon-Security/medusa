@@ -85,12 +85,15 @@ class VersionManager:
         if use_latest:
             return package_name
 
+        # Try looking up by tool name first, then by package name
         version = self.get_version(tool)
+        if not version and tool != package_name:
+            version = self.get_version(package_name)
 
         if not version:
             # No version pinned, warn and use latest
             console.print(
-                f"[yellow]⚠ No pinned version for '{tool}', using latest[/yellow]"
+                f"[yellow]⚠ No pinned version for '{tool}' or '{package_name}', using latest[/yellow]"
             )
             return package_name
 
