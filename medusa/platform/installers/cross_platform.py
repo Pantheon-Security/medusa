@@ -101,9 +101,25 @@ class PipInstaller(BaseInstaller):
         super().__init__('pip')
         self.version_mgr = VersionManager()
 
+        # Detect if we're on Windows and should use 'py -m pip'
+        import platform
+        self.is_windows = platform.system() == 'Windows'
+
+    def _get_pip_cmd(self):
+        """Get the appropriate pip command for this platform"""
+        if self.is_windows:
+            # Windows: Use 'py -m pip' which always works
+            return ['py', '-m', 'pip']
+        else:
+            # Unix: Use 'pip' or 'pip3'
+            import shutil
+            if shutil.which('pip3'):
+                return ['pip3']
+            return ['pip']
+
     def install(self, package: str, sudo: bool = False, use_latest: bool = False) -> bool:
         """Install package using pip"""
-        if not self.pm_path:
+        if not self.pm_path and not self.is_windows:
             return False
 
         package_name = ToolMapper.get_package_name(package, 'pip')
@@ -113,8 +129,8 @@ class PipInstaller(BaseInstaller):
         # Get versioned package spec
         package_spec = self.version_mgr.get_package_spec(package, package_name, 'pip', use_latest)
 
-        cmd = ['pip', 'install', package_spec]
-        if sudo:
+        cmd = self._get_pip_cmd() + ['install', package_spec]
+        if sudo and not self.is_windows:
             cmd = ['sudo'] + cmd
 
         try:
@@ -138,7 +154,8 @@ class PipInstaller(BaseInstaller):
             return False
 
         try:
-            result = self.run_command(['pip', 'show', package_name], check=False)
+            cmd = self._get_pip_cmd() + ['show', package_name]
+            result = self.run_command(cmd, check=False)
             return result.returncode == 0
         except:
             return False
