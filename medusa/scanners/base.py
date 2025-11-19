@@ -170,6 +170,15 @@ class BaseScanner(ABC):
         import os
         import sys
 
+        # WINDOWS FIX: Check installation cache first (handles PATH refresh issue)
+        # On Windows, tools installed in current session may not be in PATH yet
+        from medusa.platform.tool_cache import ToolCache
+        cache = ToolCache()
+        if cache.is_cached(self.tool_name):
+            # Tool was installed in this session, trust the cache
+            # Return a dummy path to indicate it's available
+            return Path(f'<cached:{self.tool_name}>')
+
         # Check virtual environment first
         # Method 1: VIRTUAL_ENV environment variable (set when venv is activated)
         venv_path = os.getenv('VIRTUAL_ENV')

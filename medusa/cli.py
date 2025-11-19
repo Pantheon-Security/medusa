@@ -286,6 +286,10 @@ def _install_tools(tools: list, use_latest: bool = False):
 
         if success:
             installed += 1
+            # Mark tool as installed in cache (prevents reinstall prompts on Windows)
+            from medusa.platform.tool_cache import ToolCache
+            cache = ToolCache()
+            cache.mark_installed(tool)
         else:
             console.print(f"  [red]❌ Failed[/red] (tried: {', '.join(attempted_installers) if attempted_installers else 'no installers available'})")
             failed += 1
@@ -421,6 +425,10 @@ def _install_tools(tools: list, use_latest: bool = False):
                             if npm_installer.install(tool, use_latest=use_latest):
                                 console.print(f"  [green]✅ Installed via npm[/green]\n")
                                 npm_installed += 1
+                                # Mark tool as installed in cache
+                                from medusa.platform.tool_cache import ToolCache
+                                cache = ToolCache()
+                                cache.mark_installed(tool)
                             else:
                                 console.print(f"  [red]❌ Failed[/red]\n")
 
