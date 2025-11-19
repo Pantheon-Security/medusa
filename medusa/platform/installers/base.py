@@ -131,7 +131,14 @@ class ToolMapper:
         'hadolint': {
             'brew': 'hadolint',
             'choco': 'hadolint',
+            'winget': 'hadolint.hadolint',
             'manual': 'wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint',
+        },
+        'docker-compose': {
+            'winget': 'Docker.DockerCompose',
+            'brew': 'docker-compose',
+            'choco': 'docker-compose',
+            'apt': 'docker-compose',
         },
         'markdownlint': {
             'npm': 'markdownlint-cli',
@@ -143,11 +150,13 @@ class ToolMapper:
         'tflint': {
             'brew': 'tflint',
             'choco': 'tflint',
+            'winget': 'TerraformLinters.tflint',
             'manual': 'curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash',
         },
         'golangci-lint': {
             'brew': 'golangci-lint',
             'choco': 'golangci-lint',
+            'winget': 'GolangCI.golangci-lint',
             'manual': 'curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin',
         },
         'rubocop': {
@@ -189,6 +198,7 @@ class ToolMapper:
             'pacman': 'cppcheck',
             'brew': 'cppcheck',
             'choco': 'cppcheck',
+            'winget': 'Cppcheck.Cppcheck',
         },
         'checkstyle': {
             'apt': 'checkstyle',
@@ -219,6 +229,7 @@ class ToolMapper:
             'yum': 'R',
             'dnf': 'R',
             'brew': 'r',
+            'winget': 'RProject.R',
             'manual': 'https://www.r-project.org/',
         },
         'ansible-lint': {
@@ -226,6 +237,7 @@ class ToolMapper:
         },
         'kube-linter': {
             'brew': 'kube-linter',
+            'winget': 'stackrox.kube-linter',
             'manual': 'https://github.com/stackrox/kube-linter',
         },
         'taplo': {
@@ -273,6 +285,7 @@ class ToolMapper:
             'apt': 'dart',
             'brew': 'dart',
             'pacman': 'dart',
+            'winget': 'Google.DartSDK',
             'manual': 'https://dart.dev/get-dart',
         },
         'codenarc': {
