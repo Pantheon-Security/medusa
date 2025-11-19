@@ -130,6 +130,11 @@ class ToolMapper:
             'npm': '@bufbuild/buf',
         },
         'cargo-clippy': {
+            'winget': 'Rustlang.Rustup',
+            'brew': 'rustup',
+            'apt': 'rustup',
+            'choco': 'rustup',
+            'manual': 'rustup component add clippy',
         },
         'checkmake': {
             'brew': 'checkmake',
@@ -210,6 +215,7 @@ class ToolMapper:
         },
         'ktlint': {
             'brew': 'ktlint',
+            'choco': 'JetBrains.KtLint',
             'manual': 'curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && sudo mv ktlint /usr/local/bin/',
         },
         'kube-linter': {
@@ -259,6 +265,7 @@ class ToolMapper:
         'rubocop': {
             'apt': 'rubocop',
             'brew': 'rubocop',
+            'winget': 'RubyInstallerTeam.Ruby',
             'manual': 'gem install rubocop',
         },
         'ruff': {
@@ -295,7 +302,7 @@ class ToolMapper:
             'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
         },
         'taplo': {
-            'npm': '@taplo/cli',
+            'npm': 'taplo-cli',
         },
         'tflint': {
             'brew': 'tflint',
@@ -327,6 +334,7 @@ class ToolMapper:
             'apt': 'zig',
             'pacman': 'zig',
             'brew': 'zig',
+            'winget': 'Zig.Zig',
             'manual': 'https://ziglang.org/download/',
         },
     }
