@@ -1382,25 +1382,36 @@ def install(tool, check, all, yes, use_latest):
 
                     # Try ecosystem detection as fallback
                     from medusa.platform.installers.base import EcosystemDetector
-                    ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
-                    if ecosystem_result:
-                        ecosystem_name, command = ecosystem_result
-                        console.print(f"  → Trying ecosystem fallback: {ecosystem_name}... [green]✓ Found[/green]")
-                        console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
 
-                        ecosystem_success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
-                        if ecosystem_success:
-                            console.print(f"  [green]✅ {message}[/green]\n")
-                            installed += 1
-                            from medusa.platform.tool_cache import ToolCache
-                            cache = ToolCache()
-                            cache.mark_installed(tool_name)
+                    # Check if this tool has an ecosystem option
+                    if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
+                        ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
+                        ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
+
+                        if ecosystem_result:
+                            ecosystem_name, command = ecosystem_result
+                            console.print(f"  → Trying ecosystem fallback: {ecosystem_name}... [green]✓ Found[/green]")
+                            console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
+
+                            ecosystem_success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
+                            if ecosystem_success:
+                                console.print(f"  [green]✅ {message}[/green]\n")
+                                installed += 1
+                                from medusa.platform.tool_cache import ToolCache
+                                cache = ToolCache()
+                                cache.mark_installed(tool_name)
+                            else:
+                                console.print(f"  [red]❌ {message}[/red]\n")
+                                failed += 1
+                                failed_details.append((tool_name, f"{installer_name} → {ecosystem_name}"))
                         else:
-                            console.print(f"  [red]❌ {message}[/red]\n")
+                            # Ecosystem not found
+                            console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
+                            console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
                             failed += 1
-                            failed_details.append((tool_name, f"{installer_name} → {ecosystem_name}"))
+                            failed_details.append((tool_name, installer_name))
                     else:
-                        # No ecosystem fallback available
+                        # No ecosystem option for this tool
                         console.print()
                         failed += 1
                         failed_details.append((tool_name, installer_name))
