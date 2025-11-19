@@ -1118,6 +1118,13 @@ def install(tool, check, all, yes, use_latest):
         console.print(f"  ✅ Installed: {installed}")
         if failed > 0:
             console.print(f"  ❌ Failed: {failed}")
+
+        # Windows PATH refresh warning
+        if installed > 0 and platform_info.os_type.value == 'windows':
+            console.print(f"\n[bold yellow]⚠️  Windows PATH Update Required[/bold yellow]")
+            console.print(f"[yellow]   Please restart your terminal for the installed tools to be detected[/yellow]")
+            console.print(f"[dim]   Tools installed via winget/npm may not be in your PATH until you restart[/dim]")
+
         console.print(f"\n[dim]Run 'medusa config' to see updated scanner status[/dim]")
 
 
