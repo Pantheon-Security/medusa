@@ -14,11 +14,33 @@ class NpmInstaller(BaseInstaller):
     def __init__(self):
         # Windows: Use npm.cmd to bypass PowerShell execution policy issues
         import platform
-        npm_cmd = 'npm.cmd' if platform.system() == 'Windows' else 'npm'
+        import shutil
+        from pathlib import Path
+
+        if platform.system() == 'Windows':
+            # Try to find npm.cmd in PATH first
+            npm_path = shutil.which('npm.cmd')
+
+            # If not in PATH, check common install locations (handles PATH refresh issue)
+            if not npm_path:
+                common_paths = [
+                    Path(r'C:\Program Files\nodejs\npm.cmd'),
+                    Path(r'C:\Program Files (x86)\nodejs\npm.cmd'),
+                ]
+                for path in common_paths:
+                    if path.exists():
+                        npm_path = str(path)
+                        break
+
+            # Use full path if found, otherwise npm.cmd
+            npm_cmd = npm_path if npm_path else 'npm.cmd'
+        else:
+            npm_cmd = 'npm'
+
         super().__init__(npm_cmd)
         self.version_mgr = VersionManager()
 
-        # Store the actual command to use (npm.cmd or npm)
+        # Store the actual command to use (full path or command name)
         self.npm_cmd = npm_cmd
 
     def install(self, package: str, sudo: bool = False, use_latest: bool = False) -> bool:
