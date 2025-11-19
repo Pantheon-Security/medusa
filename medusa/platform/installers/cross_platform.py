@@ -12,8 +12,14 @@ class NpmInstaller(BaseInstaller):
     """Cross-platform npm installer"""
 
     def __init__(self):
-        super().__init__('npm')
+        # Windows: Use npm.cmd to bypass PowerShell execution policy issues
+        import platform
+        npm_cmd = 'npm.cmd' if platform.system() == 'Windows' else 'npm'
+        super().__init__(npm_cmd)
         self.version_mgr = VersionManager()
+
+        # Store the actual command to use (npm.cmd or npm)
+        self.npm_cmd = npm_cmd
 
     def install(self, package: str, sudo: bool = False, use_latest: bool = False) -> bool:
         """Install package using npm (global)"""
@@ -27,7 +33,7 @@ class NpmInstaller(BaseInstaller):
         # Get versioned package spec
         package_spec = self.version_mgr.get_package_spec(package, package_name, 'npm', use_latest)
 
-        cmd = ['npm', 'install', '-g', package_spec]
+        cmd = [self.npm_cmd, 'install', '-g', package_spec]
 
         try:
             result = self.run_command(cmd, check=False)
@@ -61,7 +67,7 @@ class NpmInstaller(BaseInstaller):
             return False
 
         try:
-            result = self.run_command(['npm', 'list', '-g', package_name], check=False)
+            result = self.run_command([self.npm_cmd, 'list', '-g', package_name], check=False)
             # Check output text, not just return code
             if result.stdout:
                 output = result.stdout.lower()
@@ -79,7 +85,7 @@ class NpmInstaller(BaseInstaller):
         if not package_name:
             return False
 
-        cmd = ['npm', 'uninstall', '-g', package_name]
+        cmd = [self.npm_cmd, 'uninstall', '-g', package_name]
 
         try:
             result = self.run_command(cmd, check=True)

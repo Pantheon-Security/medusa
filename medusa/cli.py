@@ -39,18 +39,23 @@ def _has_npm_available() -> bool:
     if shutil.which('npm'):
         return True
 
-    # Windows: Try running npm directly (might work even if not in current PATH)
+    # Windows: Try running npm.cmd directly (avoids PowerShell execution policy issues)
     import subprocess
     import platform
     if platform.system() == 'Windows':
+        # First, check for npm.cmd (bypasses execution policy)
+        if shutil.which('npm.cmd'):
+            return True
+
+        # Try running npm.cmd directly
         try:
-            result = subprocess.run(['npm', '--version'], capture_output=True, timeout=5)
+            result = subprocess.run(['npm.cmd', '--version'], capture_output=True, timeout=5)
             if result.returncode == 0:
                 return True
         except:
             pass
 
-        # Check common Windows install locations
+        # Check common Windows install locations for npm.cmd
         common_paths = [
             Path(r'C:\Program Files\nodejs\npm.cmd'),
             Path(r'C:\Program Files (x86)\nodejs\npm.cmd'),
