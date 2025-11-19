@@ -1054,31 +1054,62 @@ def install(tool, check, all, yes, use_latest):
         console.print()
         installed = 0
         failed = 0
+        failed_details = []  # Track why each tool failed
 
         for tool_name in missing_tools:
-            console.print(f"[cyan]Installing {tool_name}...[/cyan]", end=" ")
+            console.print(f"[cyan]Installing {tool_name}...[/cyan]")
 
             # Determine best installer
             success = False
+            tried = []
 
             # Try system package manager first
-            if installer and ToolMapper.get_package_name(tool_name, pm.value if pm else ''):
+            pm_package = ToolMapper.get_package_name(tool_name, pm.value if pm else '') if pm else None
+            if installer and pm_package:
+                console.print(f"  → Trying {pm.value}: {pm_package}")
+                tried.append(pm.value)
                 success = installer.install(tool_name)
+                if success:
+                    console.print(f"  [green]✅ Installed via {pm.value}[/green]\n")
+            elif pm:
+                console.print(f"  ⊘ Not available in {pm.value}")
 
-            # Try npm
-            if not success and npm_installer and ToolMapper.get_package_name(tool_name, 'npm'):
-                success = npm_installer.install(tool_name, use_latest=use_latest)
+            # Try npm for npm tools
+            if not success and ToolMapper.is_npm_tool(tool_name):
+                npm_package = ToolMapper.get_package_name(tool_name, 'npm')
+                if npm_installer and npm_package:
+                    console.print(f"  → Trying npm: {npm_package}")
+                    tried.append('npm')
+                    success = npm_installer.install(tool_name, use_latest=use_latest)
+                    if success:
+                        console.print(f"  [green]✅ Installed via npm[/green]\n")
+                else:
+                    console.print(f"  ⊘ npm not available")
+                    tried.append('npm (not available)')
 
-            # Try pip
-            if not success and pip_installer and ToolMapper.get_package_name(tool_name, 'pip'):
-                success = pip_installer.install(tool_name, use_latest=use_latest)
+            # Try pip for python tools
+            if not success and ToolMapper.is_python_tool(tool_name):
+                pip_package = ToolMapper.get_package_name(tool_name, 'pip')
+                if pip_installer and pip_package:
+                    console.print(f"  → Trying pip: {pip_package}")
+                    tried.append('pip')
+                    success = pip_installer.install(tool_name, use_latest=use_latest)
+                    if success:
+                        console.print(f"  [green]✅ Installed via pip[/green]\n")
+                else:
+                    console.print(f"  ⊘ pip not available")
+                    tried.append('pip (not available)')
 
             if success:
-                console.print("[green]✅[/green]")
                 installed += 1
+                # Mark as installed in cache
+                from medusa.platform.tool_cache import ToolCache
+                cache = ToolCache()
+                cache.mark_installed(tool_name)
             else:
-                console.print("[red]❌[/red]")
+                console.print(f"  [red]❌ Failed[/red] (tried: {', '.join(tried) if tried else 'no installers'})\n")
                 failed += 1
+                failed_details.append((tool_name, ', '.join(tried) if tried else 'no installers'))
 
         console.print()
         console.print(f"[bold]Installation Summary:[/bold]")
