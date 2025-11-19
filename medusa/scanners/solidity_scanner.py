@@ -4,7 +4,7 @@ MEDUSA Solidity Scanner
 Security and best practices scanner for Solidity smart contracts using solhint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class SolidityScanner(BaseScanner):
         return shutil.which("solhint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Solidity file with solhint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="solhint not installed. Install with: npm install -g solhint"
+                scan_time=time.time() - start_time, error_message="solhint not installed. Install with: npm install -g solhint"
             )
 
         try:
@@ -71,7 +71,7 @@ class SolidityScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -79,24 +79,21 @@ class SolidityScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="solhint timed out"
+                scan_time=time.time() - start_time, error_message="solhint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse solhint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse solhint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, solhint_severity: int) -> Severity:

@@ -4,7 +4,7 @@ MEDUSA Kotlin Scanner
 Code quality scanner for Kotlin files using ktlint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class KotlinScanner(BaseScanner):
         return shutil.which("ktlint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Kotlin file with ktlint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="ktlint not installed. Install with: brew install ktlint"
+                scan_time=time.time() - start_time, error_message="ktlint not installed. Install with: brew install ktlint"
             )
 
         try:
@@ -56,8 +56,7 @@ class KotlinScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"ktlint failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"ktlint failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -80,7 +79,7 @@ class KotlinScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -88,22 +87,19 @@ class KotlinScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="ktlint timed out"
+                scan_time=time.time() - start_time, error_message="ktlint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse ktlint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse ktlint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )

@@ -4,7 +4,7 @@ MEDUSA PowerShell Scanner
 Security and best practices scanner for PowerShell using PSScriptAnalyzer
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -28,14 +28,14 @@ class PowerShellScanner(BaseScanner):
         return shutil.which("pwsh") is not None or shutil.which("powershell") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a PowerShell file with PSScriptAnalyzer"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="PowerShell not installed. Install from: https://github.com/PowerShell/PowerShell"
+                scan_time=time.time() - start_time, success=False, error_message="PowerShell not installed. Install from: https://github.com/PowerShell/PowerShell"
             )
 
         # Use pwsh if available, otherwise powershell
@@ -63,8 +63,7 @@ class PowerShellScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message="PSScriptAnalyzer not installed. Install with: Install-Module -Name PSScriptAnalyzer"
+                    scan_time=time.time() - start_time, success=False, error_message="PSScriptAnalyzer not installed. Install with: Install-Module -Name PSScriptAnalyzer"
                 )
 
             if result.returncode != 0 and not result.stdout:
@@ -72,8 +71,7 @@ class PowerShellScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"PSScriptAnalyzer failed: {result.stderr}"
+                    scan_time=time.time() - start_time, success=False, error_message=f"PSScriptAnalyzer failed: {result.stderr}"
                 )
 
             issues = []
@@ -100,7 +98,7 @@ class PowerShellScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -108,24 +106,21 @@ class PowerShellScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="PSScriptAnalyzer timed out"
+                scan_time=time.time() - start_time, success=False, error_message="PSScriptAnalyzer timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse PSScriptAnalyzer output: {e}"
+                scan_time=time.time() - start_time, success=False, error_message=f"Failed to parse PSScriptAnalyzer output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, success=False, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, ps_severity: str) -> Severity:

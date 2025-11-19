@@ -4,7 +4,7 @@ MEDUSA Scala Scanner
 Code quality scanner for Scala using Scalastyle
 """
 
-import shutil
+import shutil, time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -31,14 +31,14 @@ class ScalaScanner(BaseScanner):
         return shutil.which("scalastyle") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Scala file with Scalastyle"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Scalastyle not installed. Install with: brew install scalastyle"
+                scan_time=time.time() - start_time, error_message="Scalastyle not installed. Install with: brew install scalastyle"
             )
 
         try:
@@ -88,15 +88,14 @@ class ScalaScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"Failed to parse Scalastyle XML: {e}"
+                    scan_time=time.time() - start_time, error_message=f"Failed to parse Scalastyle XML: {e}"
                 )
 
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -104,16 +103,14 @@ class ScalaScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Scalastyle timed out"
+                scan_time=time.time() - start_time, error_message="Scalastyle timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, scalastyle_severity: str) -> Severity:

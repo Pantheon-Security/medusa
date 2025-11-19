@@ -4,7 +4,7 @@ MEDUSA Swift Scanner
 Code quality scanner for Swift files using SwiftLint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class SwiftScanner(BaseScanner):
         return shutil.which("swiftlint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Swift file with SwiftLint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="SwiftLint not installed. Install with: brew install swiftlint"
+                scan_time=time.time() - start_time, error_message="SwiftLint not installed. Install with: brew install swiftlint"
             )
 
         try:
@@ -56,8 +56,7 @@ class SwiftScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"SwiftLint failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"SwiftLint failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -79,7 +78,7 @@ class SwiftScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -87,24 +86,21 @@ class SwiftScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="SwiftLint timed out"
+                scan_time=time.time() - start_time, error_message="SwiftLint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse SwiftLint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse SwiftLint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, swiftlint_severity: str) -> Severity:

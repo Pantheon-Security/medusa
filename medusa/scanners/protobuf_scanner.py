@@ -4,7 +4,7 @@ MEDUSA Protobuf Scanner
 Linting and style checking for Protocol Buffer files using buf
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class ProtobufScanner(BaseScanner):
         return shutil.which("buf") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a .proto file with buf"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="buf not installed. Install from: https://buf.build/docs/installation"
+                scan_time=time.time() - start_time, error_message="buf not installed. Install from: https://buf.build/docs/installation"
             )
 
         try:
@@ -79,7 +79,7 @@ class ProtobufScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -87,14 +87,12 @@ class ProtobufScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="buf timed out"
+                scan_time=time.time() - start_time, error_message="buf timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )

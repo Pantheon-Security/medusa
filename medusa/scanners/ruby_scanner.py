@@ -4,7 +4,7 @@ MEDUSA Ruby Scanner
 Security scanner for Ruby files using RuboCop
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class RubyScanner(BaseScanner):
         return shutil.which("rubocop") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Ruby file with RuboCop"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="RuboCop not installed. Install with: gem install rubocop"
+                scan_time=time.time() - start_time, error_message="RuboCop not installed. Install with: gem install rubocop"
             )
 
         try:
@@ -52,8 +52,7 @@ class RubyScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"RuboCop failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"RuboCop failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -76,7 +75,7 @@ class RubyScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -84,24 +83,21 @@ class RubyScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="RuboCop timed out"
+                scan_time=time.time() - start_time, error_message="RuboCop timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse RuboCop output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse RuboCop output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, rubocop_severity: str) -> Severity:

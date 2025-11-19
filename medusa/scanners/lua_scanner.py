@@ -4,7 +4,7 @@ MEDUSA Lua Scanner
 Code quality scanner for Lua using luacheck
 """
 
-import shutil
+import shutil, time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -26,14 +26,14 @@ class LuaScanner(BaseScanner):
         return shutil.which("luacheck") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Lua file with luacheck"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="luacheck not installed. Install with: luarocks install luacheck"
+                scan_time=time.time() - start_time, error_message="luacheck not installed. Install with: luarocks install luacheck"
             )
 
         try:
@@ -89,7 +89,7 @@ class LuaScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -97,16 +97,14 @@ class LuaScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="luacheck timed out"
+                scan_time=time.time() - start_time, error_message="luacheck timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, code: str) -> Severity:

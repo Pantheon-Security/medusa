@@ -4,7 +4,7 @@ MEDUSA Rust Scanner
 Security scanner for Rust files using Clippy
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -28,14 +28,14 @@ class RustScanner(BaseScanner):
         return shutil.which("cargo") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Rust file with Clippy"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Cargo/Clippy not installed. Install Rust from: https://rustup.rs"
+                scan_time=time.time() - start_time, error_message="Cargo/Clippy not installed. Install Rust from: https://rustup.rs"
             )
 
         # Clippy works on projects, not individual files
@@ -46,8 +46,7 @@ class RustScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=True,  # Not an error, just not a Cargo project
-                error_message="No Cargo.toml found - Clippy requires a Cargo project"
+                scan_time=time.time() - start_time, error_message="No Cargo.toml found - Clippy requires a Cargo project"
             )
 
         try:
@@ -109,7 +108,7 @@ class RustScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -117,16 +116,14 @@ class RustScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Clippy timed out"
+                scan_time=time.time() - start_time, error_message="Clippy timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _find_cargo_project(self, file_path: Path) -> Path:

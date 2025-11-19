@@ -4,7 +4,7 @@ MEDUSA SQL Scanner
 Security scanner for SQL files using SQLFluff
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class SQLScanner(BaseScanner):
         return shutil.which("sqlfluff") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a SQL file with SQLFluff"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="SQLFluff not installed. Install with: pip install sqlfluff"
+                scan_time=time.time() - start_time, error_message="SQLFluff not installed. Install with: pip install sqlfluff"
             )
 
         try:
@@ -57,8 +57,7 @@ class SQLScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"SQLFluff failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"SQLFluff failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -84,7 +83,7 @@ class SQLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -92,24 +91,21 @@ class SQLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="SQLFluff timed out"
+                scan_time=time.time() - start_time, error_message="SQLFluff timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse SQLFluff output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse SQLFluff output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _determine_severity(self, code: str, description: str) -> Severity:

@@ -4,7 +4,7 @@ MEDUSA CSS Scanner
 Security and style scanner for CSS files using Stylelint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class CSSScanner(BaseScanner):
         return shutil.which("stylelint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a CSS file with Stylelint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Stylelint not installed. Install with: npm install -g stylelint"
+                scan_time=time.time() - start_time, error_message="Stylelint not installed. Install with: npm install -g stylelint"
             )
 
         try:
@@ -56,8 +56,7 @@ class CSSScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"Stylelint failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"Stylelint failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -80,7 +79,7 @@ class CSSScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -88,24 +87,21 @@ class CSSScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Stylelint timed out"
+                scan_time=time.time() - start_time, error_message="Stylelint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse Stylelint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse Stylelint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, stylelint_severity: str) -> Severity:
