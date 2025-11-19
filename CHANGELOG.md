@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.2] - 2025-01-19
+
+### Fixed
+- **Windows Tool Reinstall Loop**: Fixed critical bug where tools installed successfully but prompted to reinstall on every scan
+- **Tool Installation Cache**: Created `.medusa/installed_tools.json` cache to track installed tools across scans in same terminal session
+- Windows PATH refresh issue: Tools installed via winget/chocolatey/npm update registry PATH, but existing PowerShell sessions don't reload PATH automatically
+- Scanners now check cache before PATH lookup, preventing false "tool not found" results
+
+### Added
+- `medusa/platform/tool_cache.py`: New ToolCache class for tracking tool installations
+- Cache integration in BaseScanner to check installed tools before PATH lookup
+- Automatic cache marking in CLI after successful tool installations
+
 ## [0.11.1] - 2025-01-19
 
 ### Fixed
