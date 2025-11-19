@@ -135,6 +135,279 @@ def _safe_print(*args, **kwargs):
 console.print = _safe_print
 
 
+def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_info):
+    """
+    Generate a markdown guide for manually installing failed tools
+
+    Args:
+        failed_tools: List of (tool_name, reason) tuples
+        guide_path: Path to write the guide
+        platform_info: Platform information object
+    """
+    from datetime import datetime
+    from medusa.platform.installers import ToolMapper
+
+    # Tool installation info database
+    TOOL_INSTALL_INFO = {
+        'hlint': {
+            'name': 'HLint',
+            'ecosystem': 'Haskell',
+            'why_failed': 'Requires Haskell toolchain (Stack or Cabal)',
+            'windows': [
+                '1. Install Haskell Stack:',
+                '   ```powershell',
+                '   winget install Haskell.Stack',
+                '   ```',
+                '2. Setup GHC (Haskell compiler):',
+                '   ```powershell',
+                '   stack setup',
+                '   ```',
+                '   ⚠️ This downloads ~2GB and takes 20-30 minutes',
+                '3. Install hlint:',
+                '   ```powershell',
+                '   stack install hlint',
+                '   ```',
+            ],
+            'docs': 'https://github.com/ndmitchell/hlint#readme',
+        },
+        'clj-kondo': {
+            'name': 'clj-kondo',
+            'ecosystem': 'Clojure',
+            'why_failed': 'Requires Clojure ecosystem',
+            'windows': [
+                '1. Download the Windows binary:',
+                '   https://github.com/clj-kondo/clj-kondo/releases',
+                '2. Extract to a directory in your PATH',
+                '3. Or use Scoop:',
+                '   ```powershell',
+                '   scoop install clj-kondo',
+                '   ```',
+            ],
+            'docs': 'https://github.com/clj-kondo/clj-kondo#installation',
+        },
+        'mix': {
+            'name': 'Mix',
+            'ecosystem': 'Elixir',
+            'why_failed': 'Requires Elixir language installation',
+            'windows': [
+                '1. Install Elixir:',
+                '   ```powershell',
+                '   choco install elixir',
+                '   ```',
+                '   ⚠️ Downloads ~150MB',
+                '2. Mix is included with Elixir',
+                '3. Verify:',
+                '   ```powershell',
+                '   mix --version',
+                '   ```',
+            ],
+            'docs': 'https://elixir-lang.org/install.html#windows',
+        },
+        'luacheck': {
+            'name': 'Luacheck',
+            'ecosystem': 'Lua',
+            'why_failed': 'Requires Lua and LuaRocks package manager',
+            'windows': [
+                '1. Install Lua:',
+                '   ```powershell',
+                '   choco install lua',
+                '   ```',
+                '2. Install LuaRocks:',
+                '   ```powershell',
+                '   choco install luarocks',
+                '   ```',
+                '3. Install luacheck:',
+                '   ```powershell',
+                '   luarocks install luacheck',
+                '   ```',
+            ],
+            'docs': 'https://github.com/mpeterv/luacheck#installation',
+        },
+        'perlcritic': {
+            'name': 'Perl::Critic',
+            'ecosystem': 'Perl',
+            'why_failed': 'Requires Perl and CPAN',
+            'windows': [
+                '1. Install Strawberry Perl:',
+                '   ```powershell',
+                '   choco install strawberryperl',
+                '   ```',
+                '2. Install Perl::Critic via CPAN:',
+                '   ```powershell',
+                '   cpan Perl::Critic',
+                '   ```',
+            ],
+            'docs': 'https://metacpan.org/pod/Perl::Critic#INSTALLATION',
+        },
+        'scalastyle': {
+            'name': 'Scalastyle',
+            'ecosystem': 'Scala',
+            'why_failed': 'Requires Scala/SBT ecosystem',
+            'windows': [
+                '1. Download scalastyle JAR:',
+                '   https://www.scalastyle.org/',
+                '2. Or install via Coursier:',
+                '   ```powershell',
+                '   cs install scalastyle',
+                '   ```',
+            ],
+            'docs': 'https://www.scalastyle.org/',
+        },
+        'codenarc': {
+            'name': 'CodeNarc',
+            'ecosystem': 'Groovy',
+            'why_failed': 'Requires Groovy ecosystem',
+            'windows': [
+                '1. Download from GitHub releases:',
+                '   https://github.com/CodeNarc/CodeNarc/releases',
+                '2. Or use if you have Gradle/Maven',
+            ],
+            'docs': 'https://github.com/CodeNarc/CodeNarc',
+        },
+        'swiftlint': {
+            'name': 'SwiftLint',
+            'ecosystem': 'Swift (macOS only)',
+            'why_failed': 'Swift development is macOS/Linux only',
+            'windows': [
+                '⚠️ SwiftLint is not officially supported on Windows.',
+                'Swift development requires macOS or Linux.',
+            ],
+            'docs': 'https://github.com/realm/SwiftLint',
+        },
+        'xmllint': {
+            'name': 'xmllint',
+            'ecosystem': 'libxml2',
+            'why_failed': 'Part of libxml2 library, complex Windows setup',
+            'windows': [
+                '1. Install via MSYS2:',
+                '   ```powershell',
+                '   # Install MSYS2 first from https://www.msys2.org/',
+                '   pacman -S mingw-w64-x86_64-libxml2',
+                '   ```',
+                '2. Or download pre-built binaries:',
+                '   http://xmlsoft.org/downloads.html',
+            ],
+            'docs': 'http://xmlsoft.org/',
+        },
+        'checkmake': {
+            'name': 'checkmake',
+            'ecosystem': 'Go',
+            'why_failed': 'Requires Go toolchain',
+            'windows': [
+                '1. Install Go:',
+                '   ```powershell',
+                '   winget install GoLang.Go',
+                '   ```',
+                '2. Install checkmake:',
+                '   ```powershell',
+                '   go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+                '   ```',
+                '3. Add Go bin to PATH:',
+                '   ```powershell',
+                '   $env:PATH += ";$env:USERPROFILE\\go\\bin"',
+                '   ```',
+            ],
+            'docs': 'https://github.com/mrtazz/checkmake',
+        },
+    }
+
+    # Generate markdown content
+    content = f"""# MEDUSA Installation Guide
+*Tools that couldn't be automatically installed*
+
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Platform: {platform_info.os_name} ({platform_info.os_type.value})
+
+---
+
+## Overview
+
+MEDUSA attempted to install {len(failed_tools)} tools but they require additional ecosystem installations.
+This guide provides manual installation instructions for each tool.
+
+**Why these tools weren't auto-installed:**
+- Require large ecosystem downloads (1-4 GB)
+- Need platform-specific toolchains
+- Have complex dependency chains
+- Are ecosystem-specific (macOS only, etc.)
+
+---
+
+## Quick Reference
+
+"""
+
+    # Add table of tools
+    content += "| Tool | Ecosystem | Why Not Installed |\n"
+    content += "|------|-----------|-------------------|\n"
+
+    for tool_name, reason in failed_tools:
+        info = TOOL_INSTALL_INFO.get(tool_name, {})
+        ecosystem = info.get('ecosystem', 'Unknown')
+        why = info.get('why_failed', 'No installer available for this platform')
+        content += f"| `{tool_name}` | {ecosystem} | {why} |\n"
+
+    content += "\n---\n\n"
+
+    # Add detailed instructions for each tool
+    content += "## Detailed Installation Instructions\n\n"
+
+    for tool_name, reason in failed_tools:
+        info = TOOL_INSTALL_INFO.get(tool_name)
+
+        if not info:
+            # Generic fallback
+            content += f"### {tool_name}\n\n"
+            content += f"**Status:** No installer available for {platform_info.os_name}\n\n"
+
+            # Try to get manual install command from ToolMapper
+            manual_cmd = ToolMapper.TOOL_PACKAGES.get(tool_name, {}).get('manual', 'See tool documentation')
+            content += f"**Manual Installation:**\n```bash\n{manual_cmd}\n```\n\n"
+            continue
+
+        # Detailed info available
+        content += f"### {info['name']}\n\n"
+        content += f"**Ecosystem:** {info['ecosystem']}\n\n"
+        content += f"**Why it failed:** {info['why_failed']}\n\n"
+
+        # Platform-specific instructions
+        if platform_info.os_type.value == 'windows' and 'windows' in info:
+            content += "**Installation Steps (Windows):**\n\n"
+            for line in info['windows']:
+                content += f"{line}\n"
+            content += "\n"
+
+        # Documentation link
+        if 'docs' in info:
+            content += f"**Official Documentation:** {info['docs']}\n\n"
+
+        content += "---\n\n"
+
+    # Add footer
+    content += """## Additional Resources
+
+- **MEDUSA Documentation:** https://github.com/pantheon-security/medusa
+- **Report Issues:** https://github.com/pantheon-security/medusa/issues
+
+## When You've Installed Tools
+
+After manually installing any tools, run:
+```bash
+medusa config
+```
+
+This will show which scanners are now available.
+
+---
+
+*This guide was automatically generated by MEDUSA*
+"""
+
+    # Write the file
+    with open(guide_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+
+
 def _detect_file_types(target_path: Path) -> dict:
     """
     Quick scan to detect file types in target directory
@@ -1124,6 +1397,14 @@ def install(tool, check, all, yes, use_latest):
             console.print(f"\n[bold yellow]⚠️  Windows PATH Update Required[/bold yellow]")
             console.print(f"[yellow]   Please restart your terminal for the installed tools to be detected[/yellow]")
             console.print(f"[dim]   Tools installed via winget/npm may not be in your PATH until you restart[/dim]")
+
+        # Generate installation guide for failed tools
+        if failed > 0:
+            guide_path = Path.cwd() / ".medusa" / "installation-guide.md"
+            guide_path.parent.mkdir(parents=True, exist_ok=True)
+            _generate_installation_guide(failed_details, guide_path, platform_info)
+            console.print(f"\n[cyan]📄 Installation guide created: {guide_path}[/cyan]")
+            console.print(f"[dim]   See this file for manual installation instructions[/dim]")
 
         console.print(f"\n[dim]Run 'medusa config' to see updated scanner status[/dim]")
 
