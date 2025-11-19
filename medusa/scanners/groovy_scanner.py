@@ -4,7 +4,7 @@ MEDUSA Groovy Scanner
 Code quality scanner for Groovy using CodeNarc
 """
 
-import shutil, subprocess
+import shutil, subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -20,8 +20,9 @@ class GroovyScanner(BaseScanner):
         return shutil.which("codenarc") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         if not self.is_available():
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message="CodeNarc not installed. Install from: https://codenarc.github.io/CodeNarc/")
 
         try:
@@ -29,7 +30,7 @@ class GroovyScanner(BaseScanner):
                 capture_output=True, text=True, timeout=30)
             issues = []
             # CodeNarc parsing would go here - simplified for brevity
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, success=True)
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, scan_time=time.time() - start_time, success=True)
         except Exception as e:
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message=f"Scan failed: {e}")
