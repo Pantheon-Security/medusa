@@ -13,4 +13,4 @@ def test_import():
 def test_version():
     """Test version is accessible"""
     from medusa import __version__
-    assert __version__ == "0.11.19"
+    assert __version__ == "0.11.20"
