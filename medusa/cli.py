@@ -27,6 +27,72 @@ if sys.platform == 'win32':
 # Create console with Windows encoding handling
 console = Console()
 
+
+def _has_npm_available() -> bool:
+    """
+    Check if npm is available (handles Windows PATH refresh issues)
+
+    On Windows, npm might be installed but not yet in PATH for the current session.
+    This checks multiple sources to detect npm reliably.
+    """
+    # Quick check: is npm in PATH?
+    if shutil.which('npm'):
+        return True
+
+    # Windows: Try running npm directly (might work even if not in current PATH)
+    import subprocess
+    import platform
+    if platform.system() == 'Windows':
+        try:
+            result = subprocess.run(['npm', '--version'], capture_output=True, timeout=5)
+            if result.returncode == 0:
+                return True
+        except:
+            pass
+
+        # Check common Windows install locations
+        common_paths = [
+            Path(r'C:\Program Files\nodejs\npm.cmd'),
+            Path(r'C:\Program Files (x86)\nodejs\npm.cmd'),
+        ]
+        for path in common_paths:
+            if path.exists():
+                return True
+
+    return False
+
+
+def _has_pip_available() -> bool:
+    """
+    Check if pip is available (handles Windows PATH refresh issues)
+
+    On Windows, pip is always available via 'py -m pip' even if not in PATH.
+    """
+    # Quick check: is pip in PATH?
+    if shutil.which('pip') or shutil.which('pip3'):
+        return True
+
+    # Windows: Python's pip is always available via 'py -m pip'
+    import subprocess
+    import platform
+    if platform.system() == 'Windows':
+        try:
+            result = subprocess.run(['py', '-m', 'pip', '--version'], capture_output=True, timeout=5)
+            return result.returncode == 0
+        except:
+            pass
+
+    # Unix: Try python3 -m pip
+    try:
+        import subprocess
+        result = subprocess.run(['python3', '-m', 'pip', '--version'], capture_output=True, timeout=5)
+        return result.returncode == 0
+    except:
+        pass
+
+    return False
+
+
 # Monkey-patch console.print to handle Windows encoding issues
 _original_print = console.print
 
@@ -233,8 +299,9 @@ def _install_tools(tools: list, use_latest: bool = False):
         }
         installer = installer_map.get(pm)
 
-    npm_installer = NpmInstaller() if shutil.which('npm') else None
-    pip_installer = PipInstaller() if shutil.which('pip') or shutil.which('pip3') else None
+    # Smart installer detection (Windows PATH refresh workaround)
+    npm_installer = NpmInstaller() if _has_npm_available() else None
+    pip_installer = PipInstaller() if _has_pip_available() else None
 
     installed = 0
     failed = 0
@@ -918,8 +985,8 @@ def install(tool, check, all, yes, use_latest):
         installer = installer_map.get(pm)
 
     # Also check for cross-platform installers
-    npm_installer = NpmInstaller() if shutil.which('npm') else None
-    pip_installer = PipInstaller() if shutil.which('pip') else None
+    npm_installer = NpmInstaller() if _has_npm_available() else None
+    pip_installer = PipInstaller() if _has_pip_available() else None
 
     # Install specific tool
     if tool:
@@ -1087,8 +1154,8 @@ def uninstall(tool, all, yes):
             }
             installer = installer_map.get(pm)
 
-        npm_installer = NpmInstaller() if shutil.which('npm') else None
-        pip_installer = PipInstaller() if shutil.which('pip') else None
+        npm_installer = NpmInstaller() if _has_npm_available() else None
+        pip_installer = PipInstaller() if _has_pip_available() else None
 
         success = False
 
@@ -1134,8 +1201,8 @@ def uninstall(tool, all, yes):
             }
             installer = installer_map.get(pm)
 
-        npm_installer = NpmInstaller() if shutil.which('npm') else None
-        pip_installer = PipInstaller() if shutil.which('pip') else None
+        npm_installer = NpmInstaller() if _has_npm_available() else None
+        pip_installer = PipInstaller() if _has_pip_available() else None
 
         uninstalled = 0
         failed = 0
