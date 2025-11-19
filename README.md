@@ -1,4 +1,4 @@
-# 🐍 MEDUSA v0.11.1 - Multi-Language Security Scanner
+# 🐍 MEDUSA v0.11.2 - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
@@ -133,7 +133,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v0.11.1 - Security Guardian
+🐍 MEDUSA v0.11.2 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
