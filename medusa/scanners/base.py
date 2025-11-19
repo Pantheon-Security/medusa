@@ -303,4 +303,17 @@ class ScannerRegistry:
 
     def get_missing_tools(self) -> List[str]:
         """Get list of scanner tools that are not installed"""
-        return [s.tool_name for s in self.scanners if not s.is_available()]
+        # Also check cache to prevent reinstalling tools that were just installed
+        # but aren't yet in PATH (Windows PATH refresh issue)
+        from medusa.platform.tool_cache import ToolCache
+        cache = ToolCache()
+        cached_tools = cache.get_cached_tools()
+
+        missing = []
+        for scanner in self.scanners:
+            # Skip if tool is available OR in cache
+            if scanner.is_available() or scanner.tool_name in cached_tools:
+                continue
+            missing.append(scanner.tool_name)
+
+        return missing
