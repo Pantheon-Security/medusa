@@ -1092,7 +1092,11 @@ def install(tool, check, all, yes, use_latest):
             # Install using the best installer
             if best_installer:
                 console.print(f"  → Installing via {installer_name}: {package_name}")
-                success = best_installer.install(tool_name, use_latest=use_latest)
+                # Only npm and pip support use_latest parameter
+                if installer_name in ('npm', 'pip'):
+                    success = best_installer.install(tool_name, use_latest=use_latest)
+                else:
+                    success = best_installer.install(tool_name)
                 if success:
                     console.print(f"  [green]✅ Installed successfully[/green]\n")
                     installed += 1
