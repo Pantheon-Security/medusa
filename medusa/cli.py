@@ -1382,9 +1382,38 @@ def install(tool, check, all, yes, use_latest):
                     failed += 1
                     failed_details.append((tool_name, installer_name))
             else:
-                console.print(f"  [yellow]⊘ No installer available for this platform[/yellow]\n")
-                failed += 1
-                failed_details.append((tool_name, 'no installer'))
+                # Try ecosystem detection before giving up
+                from medusa.platform.installers.base import EcosystemDetector
+
+                ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
+                if ecosystem_result:
+                    ecosystem_name, command = ecosystem_result
+                    console.print(f"  → Looking for {ecosystem_name}... [green]✓ Found[/green]")
+                    console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
+
+                    success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
+                    if success:
+                        console.print(f"  [green]✅ {message}[/green]\n")
+                        installed += 1
+                        # Mark as installed in cache
+                        from medusa.platform.tool_cache import ToolCache
+                        cache = ToolCache()
+                        cache.mark_installed(tool_name)
+                    else:
+                        console.print(f"  [red]❌ {message}[/red]\n")
+                        failed += 1
+                        failed_details.append((tool_name, ecosystem_name))
+                else:
+                    # Check if ecosystem exists but not found
+                    from medusa.platform.installers.base import EcosystemDetector
+                    if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
+                        ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
+                        console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
+                        console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
+                    else:
+                        console.print(f"  [yellow]⊘ No installer available for this platform[/yellow]\n")
+                    failed += 1
+                    failed_details.append((tool_name, 'no installer'))
 
         console.print()
         console.print(f"[bold]Installation Summary:[/bold]")

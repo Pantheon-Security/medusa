@@ -90,6 +90,82 @@ class BaseInstaller(ABC):
         return subprocess.run(cmd, capture_output=True, text=True, check=check, shell=use_shell)
 
 
+class EcosystemDetector:
+    """
+    Detects and uses language-specific ecosystem package managers
+    """
+
+    # Mapping of tools to their ecosystem requirements
+    ECOSYSTEM_MAP = {
+        'hlint': {'ecosystems': ['stack', 'cabal'], 'commands': {'stack': 'stack install hlint', 'cabal': 'cabal install hlint'}},
+        'rubocop': {'ecosystems': ['gem'], 'commands': {'gem': 'gem install rubocop'}},
+        'checkmake': {'ecosystems': ['go'], 'commands': {'go': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest'}},
+        'luacheck': {'ecosystems': ['luarocks'], 'commands': {'luarocks': 'luarocks install luacheck'}},
+        'perlcritic': {'ecosystems': ['cpan'], 'commands': {'cpan': 'cpan Perl::Critic'}},
+        'clj-kondo': {'ecosystems': ['brew', 'scoop'], 'commands': {'brew': 'brew install borkdude/brew/clj-kondo', 'scoop': 'scoop install clj-kondo'}},
+        'mix': {'ecosystems': ['elixir'], 'commands': {}},  # mix comes with elixir
+        'taplo': {'ecosystems': ['cargo'], 'commands': {'cargo': 'cargo install taplo-cli'}},
+    }
+
+    @classmethod
+    def detect_ecosystem(cls, tool: str) -> Optional[tuple]:
+        """
+        Detect if an ecosystem tool is available for the given tool
+
+        Returns:
+            Tuple of (ecosystem_name, install_command) if found, None otherwise
+        """
+        if tool not in cls.ECOSYSTEM_MAP:
+            return None
+
+        ecosystems = cls.ECOSYSTEM_MAP[tool]['ecosystems']
+        commands = cls.ECOSYSTEM_MAP[tool]['commands']
+
+        for ecosystem in ecosystems:
+            if shutil.which(ecosystem):
+                command = commands.get(ecosystem, '')
+                return (ecosystem, command)
+
+        return None
+
+    @classmethod
+    def try_ecosystem_install(cls, tool: str) -> tuple:
+        """
+        Try to install a tool using its ecosystem package manager
+
+        Returns:
+            Tuple of (success: bool, ecosystem_name: str, message: str)
+        """
+        result = cls.detect_ecosystem(tool)
+        if not result:
+            return (False, '', 'No ecosystem found')
+
+        ecosystem, command = result
+
+        if not command:
+            # Ecosystem exists but tool is built-in (like mix with elixir)
+            return (True, ecosystem, f'{tool} is included with {ecosystem}')
+
+        try:
+            # Run the ecosystem install command
+            result = subprocess.run(
+                command.split(),
+                capture_output=True,
+                text=True,
+                timeout=300  # 5 minute timeout
+            )
+
+            success = result.returncode == 0
+            if success:
+                return (True, ecosystem, f'Installed via {ecosystem}')
+            else:
+                return (False, ecosystem, f'Installation failed: {result.stderr[:100]}')
+        except subprocess.TimeoutExpired:
+            return (False, ecosystem, 'Installation timed out')
+        except Exception as e:
+            return (False, ecosystem, f'Error: {str(e)[:100]}')
+
+
 class ToolMapper:
     """
     Maps scanner tool names to package names for different package managers
@@ -99,7 +175,7 @@ class ToolMapper:
     PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'cmakelang', 'gixy', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
 
     # npm tools that can be installed via npm as fallback
-    NPM_TOOLS = {'buf', 'eslint', 'graphql-schema-linter', 'htmlhint', 'jshint', 'markdownlint-cli', 'prettier', 'solhint', 'standard', 'stylelint', 'taplo', 'typescript'}
+    NPM_TOOLS = {'buf', 'eslint', 'graphql-schema-linter', 'htmlhint', 'jshint', 'markdownlint-cli', 'prettier', 'solhint', 'standard', 'stylelint', 'typescript'}  # Removed taplo - uses cargo
 
     # Mapping of tool -> package name for different package managers
     TOOL_PACKAGES = {
@@ -302,7 +378,7 @@ class ToolMapper:
             'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
         },
         'taplo': {
-            'npm': 'taplo-cli',
+            # Removed npm - taplo is a Rust tool, use cargo via ecosystem detection
         },
         'tflint': {
             'brew': 'tflint',
