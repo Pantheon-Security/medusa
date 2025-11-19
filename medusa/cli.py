@@ -1342,9 +1342,18 @@ def install(tool, check, all, yes, use_latest):
             installer_name = None
             package_name = None
 
-            # Priority order: system PM → npm → pip
+            # Priority order: system PM → chocolatey (Windows) → npm → pip
             # Check which installers have this package available
             pm_package = ToolMapper.get_package_name(tool_name, pm.value if pm else '') if pm else None
+            choco_package = None
+            choco_installer = None
+
+            # On Windows, also check chocolatey as secondary package manager
+            if platform_info.os_type.value == 'windows':
+                choco_package = ToolMapper.get_package_name(tool_name, 'choco')
+                if choco_package:
+                    choco_installer = ChocolateyInstaller()
+
             npm_package = ToolMapper.get_package_name(tool_name, 'npm')
             pip_package = ToolMapper.get_package_name(tool_name, 'pip')
 
@@ -1353,6 +1362,10 @@ def install(tool, check, all, yes, use_latest):
                 best_installer = installer
                 installer_name = pm.value
                 package_name = pm_package
+            elif choco_installer and choco_package:
+                best_installer = choco_installer
+                installer_name = 'choco'
+                package_name = choco_package
             elif npm_installer and npm_package:
                 best_installer = npm_installer
                 installer_name = 'npm'
