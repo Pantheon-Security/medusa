@@ -397,6 +397,7 @@ class ToolMapper:
             'yum': 'libxml2',
             'dnf': 'libxml2',
             'brew': 'libxml2',
+            'choco': 'xsltproc',
         },
         'yamllint': {
             'apt': 'yamllint',
