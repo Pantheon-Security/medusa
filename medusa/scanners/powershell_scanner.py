@@ -17,7 +17,7 @@ class PowerShellScanner(BaseScanner):
     """Scanner for PowerShell files using PSScriptAnalyzer"""
 
     def get_tool_name(self) -> str:
-        return "pwsh"  # PowerShell Core
+        return "PSScriptAnalyzer"
 
     def get_file_extensions(self) -> List[str]:
         return [".ps1", ".psm1", ".psd1"]

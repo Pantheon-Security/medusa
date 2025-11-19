@@ -11,7 +11,7 @@ from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Sever
 
 class CMakeScanner(BaseScanner):
     def get_tool_name(self) -> str:
-        return "cmake-lint"
+        return "cmakelang"
 
     def get_file_extensions(self) -> List[str]:
         return [".cmake"]

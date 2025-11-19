@@ -17,7 +17,7 @@ class TypeScriptScanner(BaseScanner):
     """Scanner for TypeScript files using tsc (TypeScript compiler)"""
 
     def get_tool_name(self) -> str:
-        return "tsc"
+        return "typescript"
 
     def get_file_extensions(self) -> List[str]:
         return [".ts", ".tsx"]

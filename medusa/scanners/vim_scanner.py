@@ -11,7 +11,7 @@ from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Sever
 
 class VimScanner(BaseScanner):
     def get_tool_name(self) -> str:
-        return "vint"
+        return "vim-vint"
 
     def get_file_extensions(self) -> List[str]:
         return [".vim"]
