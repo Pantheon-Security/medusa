@@ -1330,6 +1330,35 @@ def install(tool, check, all, yes, use_latest):
                 return
 
         console.print()
+
+        # On Windows, check if chocolatey would be useful and offer to install it
+        if platform_info.os_type.value == 'windows' and not ChocolateyInstaller.is_chocolatey_installed():
+            # Check how many tools need chocolatey
+            choco_tools = [t for t in missing_tools if ToolMapper.get_package_name(t, 'choco')]
+
+            if choco_tools:
+                console.print(f"[yellow]💡 {len(choco_tools)} tools can be installed via Chocolatey:[/yellow]")
+                for t in choco_tools[:5]:  # Show first 5
+                    console.print(f"  • {t}")
+                if len(choco_tools) > 5:
+                    console.print(f"  • ... and {len(choco_tools) - 5} more")
+                console.print()
+
+                if not yes:
+                    install_choco = click.confirm("Install Chocolatey package manager? (Requires admin rights)", default=True)
+                else:
+                    install_choco = True
+
+                if install_choco:
+                    console.print("[cyan]Installing Chocolatey...[/cyan]")
+                    if ChocolateyInstaller.install_chocolatey():
+                        console.print("[green]✅ Chocolatey installed successfully![/green]\n")
+                    else:
+                        console.print("[red]❌ Failed to install Chocolatey (admin rights required)[/red]")
+                        console.print("[dim]You can install manually: https://chocolatey.org/install[/dim]\n")
+                else:
+                    console.print("[yellow]Skipping Chocolatey installation[/yellow]\n")
+
         installed = 0
         failed = 0
         failed_details = []  # Track why each tool failed
