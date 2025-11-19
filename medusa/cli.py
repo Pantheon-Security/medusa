@@ -1378,9 +1378,32 @@ def install(tool, check, all, yes, use_latest):
                     cache = ToolCache()
                     cache.mark_installed(tool_name)
                 else:
-                    console.print(f"  [red]❌ Installation failed[/red]\n")
-                    failed += 1
-                    failed_details.append((tool_name, installer_name))
+                    console.print(f"  [red]❌ Installation failed[/red]")
+
+                    # Try ecosystem detection as fallback
+                    from medusa.platform.installers.base import EcosystemDetector
+                    ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
+                    if ecosystem_result:
+                        ecosystem_name, command = ecosystem_result
+                        console.print(f"  → Trying ecosystem fallback: {ecosystem_name}... [green]✓ Found[/green]")
+                        console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
+
+                        ecosystem_success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
+                        if ecosystem_success:
+                            console.print(f"  [green]✅ {message}[/green]\n")
+                            installed += 1
+                            from medusa.platform.tool_cache import ToolCache
+                            cache = ToolCache()
+                            cache.mark_installed(tool_name)
+                        else:
+                            console.print(f"  [red]❌ {message}[/red]\n")
+                            failed += 1
+                            failed_details.append((tool_name, f"{installer_name} → {ecosystem_name}"))
+                    else:
+                        # No ecosystem fallback available
+                        console.print()
+                        failed += 1
+                        failed_details.append((tool_name, installer_name))
             else:
                 # Try ecosystem detection before giving up
                 from medusa.platform.installers.base import EcosystemDetector
