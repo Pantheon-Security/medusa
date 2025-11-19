@@ -4,7 +4,7 @@ MEDUSA Dart Scanner
 Code analysis for Dart using dart analyze
 """
 
-import shutil, subprocess
+import shutil, subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -20,8 +20,9 @@ class DartScanner(BaseScanner):
         return shutil.which("dart") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         if not self.is_available():
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message="Dart not installed. Install from: https://dart.dev/get-dart")
 
         try:
@@ -35,7 +36,7 @@ class DartScanner(BaseScanner):
                         message = parts[1].strip()
                         issues.append(ScannerIssue(line=0, column=0, severity=Severity.MEDIUM,
                             code="dart-analyze", message=message, rule_url="https://dart.dev/tools/linter-rules"))
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, success=True)
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, scan_time=time.time() - start_time, success=True)
         except Exception as e:
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message=f"Scan failed: {e}")

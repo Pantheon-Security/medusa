@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-MEDUSA Clojure Scanner  
+MEDUSA Clojure Scanner
 Code quality scanner for Clojure using clj-kondo
 """
 
-import json, shutil, subprocess
+import json, shutil, subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -20,8 +20,9 @@ class ClojureScanner(BaseScanner):
         return shutil.which("clj-kondo") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         if not self.is_available():
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message="clj-kondo not installed. Install from: https://github.com/clj-kondo/clj-kondo")
 
         try:
@@ -34,7 +35,7 @@ class ClojureScanner(BaseScanner):
                     issues.append(ScannerIssue(line=finding.get("row", 0), column=finding.get("col", 0),
                         severity=Severity.MEDIUM, code=finding.get("type", "unknown"),
                         message=finding.get("message", "Unknown"), rule_url="https://github.com/clj-kondo/clj-kondo"))
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, success=True)
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, scan_time=time.time() - start_time, success=True)
         except Exception as e:
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message=f"Scan failed: {e}")

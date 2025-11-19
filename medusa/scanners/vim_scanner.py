@@ -4,7 +4,7 @@ MEDUSA Vim Script Scanner
 Linting for Vim script using Vint
 """
 
-import json, shutil, subprocess
+import json, shutil, subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -20,8 +20,9 @@ class VimScanner(BaseScanner):
         return shutil.which("vint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         if not self.is_available():
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message="Vint not installed. Install with: pip install vim-vint")
 
         try:
@@ -36,7 +37,7 @@ class VimScanner(BaseScanner):
                                 severity=Severity.MEDIUM, code="vint", message=parts[3] if len(parts) > 3 else "Issue",
                                 rule_url="https://github.com/Vimjas/vint"))
                         except: pass
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, success=True)
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=issues, scan_time=time.time() - start_time, success=True)
         except Exception as e:
-            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], success=False,
+            return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
                 error_message=f"Scan failed: {e}")
