@@ -1064,57 +1064,50 @@ def install(tool, check, all, yes, use_latest):
         for tool_name in missing_tools:
             console.print(f"[cyan]Installing {tool_name}...[/cyan]")
 
-            # Determine best installer
-            success = False
-            tried = []
+            # Determine best installer upfront (more professional, direct approach)
+            best_installer = None
+            installer_name = None
+            package_name = None
 
-            # Try system package manager first
+            # Priority order: system PM → npm → pip
+            # Check which installers have this package available
             pm_package = ToolMapper.get_package_name(tool_name, pm.value if pm else '') if pm else None
+            npm_package = ToolMapper.get_package_name(tool_name, 'npm')
+            pip_package = ToolMapper.get_package_name(tool_name, 'pip')
+
+            # Pick the first available installer
             if installer and pm_package:
-                console.print(f"  → Trying {pm.value}: {pm_package}")
-                tried.append(pm.value)
-                success = installer.install(tool_name)
+                best_installer = installer
+                installer_name = pm.value
+                package_name = pm_package
+            elif npm_installer and npm_package:
+                best_installer = npm_installer
+                installer_name = 'npm'
+                package_name = npm_package
+            elif pip_installer and pip_package:
+                best_installer = pip_installer
+                installer_name = 'pip'
+                package_name = pip_package
+
+            # Install using the best installer
+            if best_installer:
+                console.print(f"  → Installing via {installer_name}: {package_name}")
+                success = best_installer.install(tool_name, use_latest=use_latest)
                 if success:
-                    console.print(f"  [green]✅ Installed via {pm.value}[/green]\n")
-            elif pm:
-                console.print(f"  ⊘ Not available in {pm.value}")
-
-            # Try npm for npm tools
-            if not success and ToolMapper.is_npm_tool(tool_name):
-                npm_package = ToolMapper.get_package_name(tool_name, 'npm')
-                if npm_installer and npm_package:
-                    console.print(f"  → Trying npm: {npm_package}")
-                    tried.append('npm')
-                    success = npm_installer.install(tool_name, use_latest=use_latest)
-                    if success:
-                        console.print(f"  [green]✅ Installed via npm[/green]\n")
+                    console.print(f"  [green]✅ Installed successfully[/green]\n")
+                    installed += 1
+                    # Mark as installed in cache
+                    from medusa.platform.tool_cache import ToolCache
+                    cache = ToolCache()
+                    cache.mark_installed(tool_name)
                 else:
-                    console.print(f"  ⊘ npm not available")
-                    tried.append('npm (not available)')
-
-            # Try pip for python tools
-            if not success and ToolMapper.is_python_tool(tool_name):
-                pip_package = ToolMapper.get_package_name(tool_name, 'pip')
-                if pip_installer and pip_package:
-                    console.print(f"  → Trying pip: {pip_package}")
-                    tried.append('pip')
-                    success = pip_installer.install(tool_name, use_latest=use_latest)
-                    if success:
-                        console.print(f"  [green]✅ Installed via pip[/green]\n")
-                else:
-                    console.print(f"  ⊘ pip not available")
-                    tried.append('pip (not available)')
-
-            if success:
-                installed += 1
-                # Mark as installed in cache
-                from medusa.platform.tool_cache import ToolCache
-                cache = ToolCache()
-                cache.mark_installed(tool_name)
+                    console.print(f"  [red]❌ Installation failed[/red]\n")
+                    failed += 1
+                    failed_details.append((tool_name, installer_name))
             else:
-                console.print(f"  [red]❌ Failed[/red] (tried: {', '.join(tried) if tried else 'no installers'})\n")
+                console.print(f"  [yellow]⊘ No installer available for this platform[/yellow]\n")
                 failed += 1
-                failed_details.append((tool_name, ', '.join(tried) if tried else 'no installers'))
+                failed_details.append((tool_name, 'no installer'))
 
         console.print()
         console.print(f"[bold]Installation Summary:[/bold]")

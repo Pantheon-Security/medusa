@@ -18,10 +18,20 @@ class ToolCache:
         Initialize tool cache
 
         Args:
-            cache_dir: Directory to store cache file (default: .medusa)
+            cache_dir: Directory to store cache file (default: user home directory)
         """
         if cache_dir is None:
-            cache_dir = Path.cwd() / ".medusa"
+            # Use user-wide cache directory instead of current directory
+            # This prevents cache misses when running from different directories
+            import os
+            import platform
+
+            if platform.system() == 'Windows':
+                # Windows: Use %LOCALAPPDATA%\MEDUSA
+                cache_dir = Path(os.environ.get('LOCALAPPDATA', os.path.expanduser('~'))) / 'MEDUSA'
+            else:
+                # Unix: Use ~/.medusa
+                cache_dir = Path.home() / '.medusa'
 
         cache_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file = cache_dir / "installed_tools.json"
