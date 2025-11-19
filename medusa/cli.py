@@ -1351,7 +1351,7 @@ def install(tool, check, all, yes, use_latest):
             # On Windows, also check chocolatey as secondary package manager
             if platform_info.os_type.value == 'windows':
                 choco_package = ToolMapper.get_package_name(tool_name, 'choco')
-                if choco_package:
+                if choco_package and ChocolateyInstaller.is_chocolatey_installed():
                     choco_installer = ChocolateyInstaller()
 
             npm_package = ToolMapper.get_package_name(tool_name, 'npm')
