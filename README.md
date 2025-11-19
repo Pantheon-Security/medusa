@@ -1,9 +1,12 @@
-# 🐍 MEDUSA v0.10.0 - Multi-Language Security Scanner
+# 🐍 MEDUSA v0.11.1 - Multi-Language Security Scanner
 
-[![Version](https://img.shields.io/badge/version-0.10.0-blue.svg)](https://github.com/Pantheon-Security/medusa)
+[![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
+[![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
+[![Windows](https://img.shields.io/badge/Windows-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
+[![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
+[![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
 **Universal security scanner with 40+ specialized analyzers for all languages and platforms.**
 *One look from Medusa stops vulnerabilities dead.*
@@ -20,11 +23,11 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🤖 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
-- 📦 **Auto-Installer** - One-command installation of all security tools
+- 📦 **Auto-Installer** - One-command installation of all security tools (Windows, macOS, Linux)
 - 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans
 - ⚙️ **Configurable** - `.medusa.yml` for project-specific settings
-- 🌍 **Cross-Platform** - Linux, macOS, Windows (WSL/Git Bash)
-- 📊 **Multiple Reports** - JSON, HTML, and terminal output
+- 🌍 **Cross-Platform** - Native Windows, macOS, and Linux support
+- 📊 **Multiple Reports** - JSON, HTML, Markdown exports for any workflow
 - 🎯 **Zero Config** - Works out of the box with sensible defaults
 
 ---
@@ -97,9 +100,7 @@ pip install -e .
 - **macOS**: If `medusa` command is not found, run `python3 -m medusa setup_path` or use `python3 -m medusa`
 - **Linux**: Should work out of the box with `medusa` command
 
-> **⚠️ Windows Auto-Installation Limitation**:
-> The `medusa install` command currently only supports macOS and Linux.
-> Windows users need to manually install security tools. See [Windows Tool Installation](#windows-tool-installation) below.
+> **✅ Windows Support**: MEDUSA now has full native Windows support with automatic tool installation via winget, chocolatey, and npm!
 
 ### 5-Minute Setup
 
@@ -132,15 +133,10 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v0.9.0.0 - Security Guardian
+🐍 MEDUSA v0.11.1 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
-
-🐍 MEDUSA Parallel Scanner v6.1.0
-   Workers: 6 cores
-   Cache: enabled
-   Mode: full
 
 📁 Found 145 scannable files
 
@@ -154,9 +150,40 @@ medusa scan .
 ⚡ Files cached: 0
 🔍 Issues found: 114
 ⏱️  Total time: 47.28s
+📈 Cache hit rate: 0.0%
+🔧 Scanners used: bandit, eslint, shellcheck, yamllint
 ============================================================
 
+📊 Reports generated:
+   JSON       → .medusa/reports/medusa-scan-20250119-083045.json
+   HTML       → .medusa/reports/medusa-scan-20250119-083045.html
+   Markdown   → .medusa/reports/medusa-scan-20250119-083045.md
+
 ✅ Scan complete!
+```
+
+### 📊 Report Formats
+
+MEDUSA generates beautiful reports in multiple formats:
+
+**JSON** - Machine-readable for CI/CD integration
+```bash
+medusa scan . --format json
+```
+
+**HTML** - Stunning glassmorphism UI with interactive charts
+```bash
+medusa scan . --format html
+```
+
+**Markdown** - Documentation-friendly for GitHub/wikis
+```bash
+medusa scan . --format markdown
+```
+
+**All Formats** - Generate everything at once
+```bash
+medusa scan . --format all
 ```
 
 ---

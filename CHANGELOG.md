@@ -7,10 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2025-01-19
+
+### Fixed
+- **Windows UTF-8 Encoding**: Fixed critical Windows bug where report generation failed with `UnicodeEncodeError: 'charmap' codec can't encode character` when writing JSON/HTML/Markdown files containing emojis
+- Added explicit `encoding='utf-8'` to all file writes in reporter module
+
+## [0.11.0] - 2025-01-19
+
 ### Added
-- Tool version management system with `tool-versions.lock`
-- Script to capture latest versions from PyPI, npm, GitHub
-- Integrated release script combining MEDUSA + tool version bumps
+- **Multi-Format Reports**: New `--format` CLI option to export reports in JSON, HTML, or Markdown
+  - `medusa scan . --format json` - Machine-readable JSON for CI/CD
+  - `medusa scan . --format html` - Beautiful glassmorphism UI
+  - `medusa scan . --format markdown` - Documentation-friendly for GitHub
+  - `medusa scan . --format all` - Generate all formats simultaneously
+- **Markdown Report Generator**: New executive summary report with severity breakdown and CWE links
+- **Improved Report Structure**: Standardized findings format across all export types
+
+### Changed
+- Default behavior now generates both JSON and HTML reports (previously just JSON)
+- Refactored report generation to use reporter module directly instead of subprocess
+- Report files now include timestamp in filename for better organization
+
+## [0.10.10] - 2025-01-18
+
+### Fixed
+- **ChocolateyInstaller**: Added `shutil.which()` PATH check for faster, more reliable tool detection
+- **PipInstaller**: Added `shutil.which()` PATH check to prevent false negatives
+- All Windows package managers now use consistent detection pattern
+
+## [0.10.9] - 2025-01-18
+
+### Fixed
+- **WingetInstaller**: Fixed tool detection bug where tools were marked as "not installed" even after successful installation
+- **NpmInstaller**: Fixed same detection issue for npm-based tools
+- Changed `is_installed()` to check PATH first using `shutil.which()`, then fallback to parsing package manager output
+- Prevents tools from being reinstalled on every scan
+
+### Changed
+- Tool detection now prioritizes PATH checks over subprocess return codes for reliability
+
+## [0.10.8] - 2025-01-18
+
+### Added
+- **Scanners Used**: New output line showing which security tools actually ran during the scan
+- Improves transparency for users to verify tools are being executed correctly
+
+## [0.10.0] - 2025-01-17
+
+### Added
+- **Full Windows Native Support**: Complete auto-installation support for Windows via winget, chocolatey, and npm
+- **Windows Package Managers**: Integrated winget and chocolatey installers for seamless Windows experience
+- **Node.js Auto-Installation**: Automatic Node.js installation on Windows when npm tools are needed
+- **Registry PATH Refresh**: Dynamic PATH updates after package installation on Windows
+- **Comprehensive Windows Testing**: Verified all features work on native Windows (not just WSL)
+
+### Changed
+- Updated CLI to handle Windows encoding issues (UTF-8 enforcement)
+- Improved error messages for Windows users
+- Enhanced Windows-specific documentation
+
+### Fixed
+- Windows terminal emoji rendering issues
+- PATH detection on Windows after tool installation
 
 ## [0.9.1.0] - 2024-11-16
 
