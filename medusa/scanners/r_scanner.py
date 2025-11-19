@@ -4,7 +4,7 @@ MEDUSA R Scanner
 Code quality scanner for R using lintr
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class RScanner(BaseScanner):
         return shutil.which("Rscript") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan an R file with lintr"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="R not installed. Install from: https://www.r-project.org/"
+                scan_time=time.time() - start_time, error_message="R not installed. Install from: https://www.r-project.org/"
             )
 
         try:
@@ -74,8 +74,7 @@ class RScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message="lintr not installed. Install with: install.packages('lintr')"
+                    scan_time=time.time() - start_time, error_message="lintr not installed. Install with: install.packages('lintr')"
                 )
 
             if result.returncode != 0 and not result.stdout:
@@ -83,8 +82,7 @@ class RScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"lintr failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"lintr failed: {result.stderr}"
                 )
 
             issues = []
@@ -107,7 +105,7 @@ class RScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -115,24 +113,21 @@ class RScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="lintr timed out"
+                scan_time=time.time() - start_time, error_message="lintr timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse lintr output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse lintr output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, r_type: str) -> Severity:

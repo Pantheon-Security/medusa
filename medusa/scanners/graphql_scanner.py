@@ -4,7 +4,7 @@ MEDUSA GraphQL Scanner
 Schema validation and linting for GraphQL using graphql-schema-linter
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class GraphQLScanner(BaseScanner):
         return shutil.which("graphql-schema-linter") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a GraphQL schema file"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="graphql-schema-linter not installed. Install with: npm install -g graphql-schema-linter"
+                scan_time=time.time() - start_time, error_message="graphql-schema-linter not installed. Install with: npm install -g graphql-schema-linter"
             )
 
         try:
@@ -82,7 +82,7 @@ class GraphQLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -90,14 +90,12 @@ class GraphQLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="graphql-schema-linter timed out"
+                scan_time=time.time() - start_time, error_message="graphql-schema-linter timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )

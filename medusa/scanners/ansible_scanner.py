@@ -4,7 +4,7 @@ MEDUSA Ansible Scanner
 Best practices and security scanner for Ansible playbooks using ansible-lint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,6 +27,7 @@ class AnsibleScanner(BaseScanner):
         return shutil.which("ansible-lint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan an Ansible playbook with ansible-lint"""
         # Only scan files that look like Ansible playbooks
         if not self._is_ansible_file(file_path):
@@ -34,8 +35,7 @@ class AnsibleScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=True,  # Not an error, just not an Ansible file
-                error_message="Not an Ansible playbook"
+                scan_time=time.time() - start_time, error_message="Not an Ansible playbook"
             )
 
         if not self.is_available():
@@ -43,8 +43,7 @@ class AnsibleScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="ansible-lint not installed. Install with: pip install ansible-lint"
+                scan_time=time.time() - start_time, error_message="ansible-lint not installed. Install with: pip install ansible-lint"
             )
 
         try:
@@ -82,7 +81,7 @@ class AnsibleScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -90,24 +89,21 @@ class AnsibleScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="ansible-lint timed out"
+                scan_time=time.time() - start_time, error_message="ansible-lint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse ansible-lint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse ansible-lint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def get_confidence_score(self, file_path: Path) -> int:

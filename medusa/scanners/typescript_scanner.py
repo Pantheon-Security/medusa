@@ -4,7 +4,7 @@ MEDUSA TypeScript Scanner
 Type-checking and linting for TypeScript using tsc compiler
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class TypeScriptScanner(BaseScanner):
         return shutil.which("tsc") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a TypeScript file with tsc"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="TypeScript not installed. Install with: npm install -g typescript"
+                scan_time=time.time() - start_time, success=False, error_message="TypeScript not installed. Install with: npm install -g typescript"
             )
 
         try:
@@ -92,7 +92,7 @@ class TypeScriptScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -100,16 +100,14 @@ class TypeScriptScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="TypeScript compiler timed out"
+                scan_time=time.time() - start_time, success=False, error_message="TypeScript compiler timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, success=False, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, tsc_level: str) -> Severity:

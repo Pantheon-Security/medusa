@@ -4,7 +4,7 @@ MEDUSA PHP Scanner
 Security scanner for PHP files using PHPStan
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class PHPScanner(BaseScanner):
         return shutil.which("phpstan") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a PHP file with PHPStan"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="PHPStan not installed. Install with: composer global require phpstan/phpstan"
+                scan_time=time.time() - start_time, error_message="PHPStan not installed. Install with: composer global require phpstan/phpstan"
             )
 
         try:
@@ -58,8 +58,7 @@ class PHPScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"PHPStan failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"PHPStan failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -83,7 +82,7 @@ class PHPScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -91,24 +90,21 @@ class PHPScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="PHPStan timed out"
+                scan_time=time.time() - start_time, error_message="PHPStan timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse PHPStan output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse PHPStan output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _determine_severity(self, message: str) -> Severity:

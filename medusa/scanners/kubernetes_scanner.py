@@ -4,7 +4,7 @@ MEDUSA Kubernetes Scanner
 Security and best practices scanner for Kubernetes manifests using kube-linter
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,6 +27,7 @@ class KubernetesScanner(BaseScanner):
         return shutil.which("kube-linter") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Kubernetes manifest with kube-linter"""
         # Only scan files that look like Kubernetes manifests
         if not self._is_k8s_file(file_path):
@@ -34,8 +35,7 @@ class KubernetesScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=True,  # Not an error, just not a K8s file
-                error_message="Not a Kubernetes manifest"
+                scan_time=time.time() - start_time, error_message="Not a Kubernetes manifest"
             )
 
         if not self.is_available():
@@ -43,8 +43,7 @@ class KubernetesScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="kube-linter not installed. Install from: https://github.com/stackrox/kube-linter"
+                scan_time=time.time() - start_time, error_message="kube-linter not installed. Install from: https://github.com/stackrox/kube-linter"
             )
 
         try:
@@ -82,7 +81,7 @@ class KubernetesScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -90,24 +89,21 @@ class KubernetesScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="kube-linter timed out"
+                scan_time=time.time() - start_time, error_message="kube-linter timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse kube-linter output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse kube-linter output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def get_confidence_score(self, file_path: Path) -> int:

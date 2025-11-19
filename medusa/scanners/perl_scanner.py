@@ -4,7 +4,7 @@ MEDUSA Perl Scanner
 Code quality and security scanner for Perl using Perl::Critic
 """
 
-import shutil
+import shutil, time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -26,14 +26,14 @@ class PerlScanner(BaseScanner):
         return shutil.which("perlcritic") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Perl file with perlcritic"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Perl::Critic not installed. Install with: cpan Perl::Critic"
+                scan_time=time.time() - start_time, error_message="Perl::Critic not installed. Install with: cpan Perl::Critic"
             )
 
         try:
@@ -83,7 +83,7 @@ class PerlScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -91,16 +91,14 @@ class PerlScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="perlcritic timed out"
+                scan_time=time.time() - start_time, error_message="perlcritic timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, perlcritic_severity: int) -> Severity:

@@ -4,7 +4,7 @@ MEDUSA HTML Scanner
 Security and quality scanner for HTML files using HTMLHint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class HTMLScanner(BaseScanner):
         return shutil.which("htmlhint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan an HTML file with HTMLHint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="HTMLHint not installed. Install with: npm install -g htmlhint"
+                scan_time=time.time() - start_time, error_message="HTMLHint not installed. Install with: npm install -g htmlhint"
             )
 
         try:
@@ -56,8 +56,7 @@ class HTMLScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"HTMLHint failed: {result.stderr}"
+                    scan_time=time.time() - start_time, error_message=f"HTMLHint failed: {result.stderr}"
                 )
 
             # Parse JSON output
@@ -80,7 +79,7 @@ class HTMLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -88,24 +87,21 @@ class HTMLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="HTMLHint timed out"
+                scan_time=time.time() - start_time, error_message="HTMLHint timed out"
             )
         except json.JSONDecodeError as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Failed to parse HTMLHint output: {e}"
+                scan_time=time.time() - start_time, error_message=f"Failed to parse HTMLHint output: {e}"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, htmlhint_type: str) -> Severity:

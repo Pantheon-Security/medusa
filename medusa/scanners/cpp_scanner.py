@@ -4,7 +4,7 @@ MEDUSA C/C++ Scanner
 Security and quality scanner for C/C++ files using cppcheck
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -27,14 +27,14 @@ class CppScanner(BaseScanner):
         return shutil.which("cppcheck") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a C/C++ file with cppcheck"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="cppcheck not installed. Install with: apt install cppcheck"
+                scan_time=time.time() - start_time, error_message="cppcheck not installed. Install with: apt install cppcheck"
             )
 
         try:
@@ -97,7 +97,7 @@ class CppScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -105,16 +105,14 @@ class CppScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="cppcheck timed out"
+                scan_time=time.time() - start_time, error_message="cppcheck timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, cppcheck_severity: str) -> Severity:

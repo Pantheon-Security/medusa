@@ -4,7 +4,7 @@ MEDUSA Java Scanner
 Code quality scanner for Java files using Checkstyle
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -33,14 +33,14 @@ class JavaScanner(BaseScanner):
         return shutil.which("checkstyle") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan a Java file with Checkstyle"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Checkstyle not installed. Install with: apt install checkstyle"
+                scan_time=time.time() - start_time, error_message="Checkstyle not installed. Install with: apt install checkstyle"
             )
 
         try:
@@ -89,15 +89,14 @@ class JavaScanner(BaseScanner):
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    success=False,
-                    error_message=f"Failed to parse Checkstyle XML output: {e}"
+                    scan_time=time.time() - start_time, error_message=f"Failed to parse Checkstyle XML output: {e}"
                 )
 
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -105,16 +104,14 @@ class JavaScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="Checkstyle timed out"
+                scan_time=time.time() - start_time, error_message="Checkstyle timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, checkstyle_severity: str) -> Severity:

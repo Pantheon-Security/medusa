@@ -4,7 +4,7 @@ MEDUSA Haskell Scanner
 Code quality scanner for Haskell using HLint
 """
 
-import json
+import json, time
 import shutil
 import subprocess
 from pathlib import Path
@@ -26,13 +26,13 @@ class HaskellScanner(BaseScanner):
         return shutil.which("hlint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="HLint not installed. Install with: cabal install hlint"
+                scan_time=time.time() - start_time, error_message="HLint not installed. Install with: cabal install hlint"
             )
 
         try:
@@ -60,7 +60,7 @@ class HaskellScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except Exception as e:
@@ -68,8 +68,7 @@ class HaskellScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
     def _map_severity(self, hlint_severity: str) -> Severity:

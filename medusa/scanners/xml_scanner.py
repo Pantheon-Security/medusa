@@ -4,7 +4,7 @@ MEDUSA XML Scanner
 Syntax validation for XML files using xmllint
 """
 
-import shutil
+import shutil, time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -26,14 +26,14 @@ class XMLScanner(BaseScanner):
         return shutil.which("xmllint") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
+        start_time = time.time()
         """Scan an XML file with xmllint"""
         if not self.is_available():
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="xmllint not installed. Install with: apt install libxml2-utils"
+                scan_time=time.time() - start_time, error_message="xmllint not installed. Install with: apt install libxml2-utils"
             )
 
         try:
@@ -80,7 +80,7 @@ class XMLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=issues,
-                success=True
+                scan_time=time.time() - start_time, success=True
             )
 
         except subprocess.TimeoutExpired:
@@ -88,14 +88,12 @@ class XMLScanner(BaseScanner):
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message="xmllint timed out"
+                scan_time=time.time() - start_time, error_message="xmllint timed out"
             )
         except Exception as e:
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                success=False,
-                error_message=f"Scan failed: {e}"
+                scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
