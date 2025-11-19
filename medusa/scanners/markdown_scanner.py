@@ -24,7 +24,7 @@ class MarkdownScanner(BaseScanner):
     """
 
     def get_tool_name(self) -> str:
-        return "markdownlint"
+        return "markdownlint-cli"
 
     def get_file_extensions(self) -> List[str]:
         return ['.md', '.markdown']

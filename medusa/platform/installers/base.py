@@ -96,134 +96,13 @@ class ToolMapper:
     """
 
     # Python tools that can be installed via pip as fallback
-    PYTHON_TOOLS = {'bandit', 'yamllint', 'sqlfluff', 'ansible-lint', 'vint', 'cmake-lint', 'gixy'}
+    PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'cmakelang', 'gixy', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
 
     # npm tools that can be installed via npm as fallback
-    NPM_TOOLS = {'eslint', 'markdownlint', 'stylelint', 'htmlhint', 'tsc', 'solhint', 'graphql-schema-linter'}
+    NPM_TOOLS = {'buf', 'eslint', 'graphql-schema-linter', 'htmlhint', 'jshint', 'markdownlint-cli', 'prettier', 'solhint', 'standard', 'stylelint', 'taplo', 'typescript'}
 
     # Mapping of tool -> package name for different package managers
     TOOL_PACKAGES = {
-        'bandit': {
-            'apt': 'python3-bandit',  # Fixed: Ubuntu/Debian uses python3-bandit
-            'yum': 'bandit',
-            'dnf': 'bandit',
-            'pacman': 'bandit',
-            'brew': 'bandit',
-            'pip': 'bandit',
-        },
-        'shellcheck': {
-            'apt': 'shellcheck',
-            'yum': 'ShellCheck',
-            'dnf': 'ShellCheck',
-            'pacman': 'shellcheck',
-            'brew': 'shellcheck',
-            'winget': 'koalaman.shellcheck',
-            'choco': 'shellcheck',
-        },
-        'yamllint': {
-            'apt': 'yamllint',
-            'yum': 'yamllint',
-            'dnf': 'yamllint',
-            'pacman': 'yamllint',
-            'brew': 'yamllint',
-            'pip': 'yamllint',
-        },
-        'hadolint': {
-            'brew': 'hadolint',
-            'choco': 'hadolint',
-            'winget': 'hadolint.hadolint',
-            'manual': 'wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint',
-        },
-        'docker-compose': {
-            'winget': 'Docker.DockerCompose',
-            'brew': 'docker-compose',
-            'choco': 'docker-compose',
-            'apt': 'docker-compose',
-        },
-        'markdownlint': {
-            'npm': 'markdownlint-cli',
-            'choco': 'markdownlint-cli',
-        },
-        'eslint': {
-            'npm': 'eslint',
-        },
-        'tflint': {
-            'brew': 'tflint',
-            'choco': 'tflint',
-            'winget': 'TerraformLinters.tflint',
-            'manual': 'curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash',
-        },
-        'golangci-lint': {
-            'brew': 'golangci-lint',
-            'choco': 'golangci-lint',
-            'winget': 'GolangCI.golangci-lint',
-            'manual': 'curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin',
-        },
-        'rubocop': {
-            'apt': 'rubocop',
-            'brew': 'rubocop',
-            'choco': 'rubocop',
-            'manual': 'gem install rubocop',
-        },
-        'phpstan': {
-            'brew': 'phpstan',
-            'choco': 'phpstan',
-            'manual': 'composer global require phpstan/phpstan',
-        },
-        'cargo-clippy': {
-            'manual': 'rustup component add clippy',
-        },
-        'sqlfluff': {
-            'pip': 'sqlfluff',
-        },
-        'stylelint': {
-            'npm': 'stylelint',
-        },
-        'htmlhint': {
-            'npm': 'htmlhint',
-        },
-        'ktlint': {
-            'brew': 'ktlint',
-            'manual': 'curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && sudo mv ktlint /usr/local/bin/',
-        },
-        'swiftlint': {
-            'brew': 'swiftlint',
-            'choco': 'swiftlint',
-            'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
-        },
-        'cppcheck': {
-            'apt': 'cppcheck',
-            'yum': 'cppcheck',
-            'dnf': 'cppcheck',
-            'pacman': 'cppcheck',
-            'brew': 'cppcheck',
-            'choco': 'cppcheck',
-            'winget': 'Cppcheck.Cppcheck',
-        },
-        'checkstyle': {
-            'apt': 'checkstyle',
-            'yum': 'checkstyle',
-            'dnf': 'checkstyle',
-            'brew': 'checkstyle',
-            'choco': 'checkstyle',
-        },
-        'tsc': {
-            'npm': 'typescript',
-        },
-        'scalastyle': {
-            'brew': 'scalastyle',
-            'manual': 'Download from: https://www.scalastyle.org/',
-        },
-        'perlcritic': {
-            'apt': 'libperl-critic-perl',
-            'brew': 'perl-critic',
-            'manual': 'cpan Perl::Critic',
-        },
-        'pwsh': {
-            'apt': 'powershell',
-            'brew': 'powershell',
-            'manual': 'https://github.com/PowerShell/PowerShell',
-        },
         'Rscript': {
             'apt': 'r-base',
             'yum': 'R',
@@ -235,33 +114,116 @@ class ToolMapper:
         'ansible-lint': {
             'pip': 'ansible-lint',
         },
+        'bandit': {
+            'apt': 'python3-bandit',
+            'yum': 'bandit',
+            'dnf': 'bandit',
+            'pacman': 'bandit',
+            'pip': 'bandit',
+            'manual': 'Python security linter',
+        },
+        'black': {
+            'pip': 'black',
+        },
+        'buf': {
+            'yum': 'buf',
+            'npm': '@bufbuild/buf',
+        },
+        'cargo-clippy': {
+        },
+        'checkmake': {
+            'brew': 'checkmake',
+            'manual': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+        },
+        'checkstyle': {
+            'apt': 'checkstyle',
+            'yum': 'checkstyle',
+            'dnf': 'checkstyle',
+            'brew': 'checkstyle',
+            'choco': 'checkstyle',
+        },
+        'clj-kondo': {
+            'brew': 'borkdude/brew/clj-kondo',
+            'manual': 'bash <(curl -s https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo)',
+        },
+        'cmakelang': {
+            'pip': 'cmakelang',
+        },
+        'codenarc': {
+            'brew': 'codenarc',
+            'manual': 'Download from: https://github.com/CodeNarc/CodeNarc',
+        },
+        'cppcheck': {
+            'apt': 'cppcheck',
+            'yum': 'cppcheck',
+            'dnf': 'cppcheck',
+            'pacman': 'cppcheck',
+            'brew': 'cppcheck',
+            'winget': 'Cppcheck.Cppcheck',
+            'choco': 'cppcheck',
+        },
+        'dart': {
+            'apt': 'dart',
+            'pacman': 'dart',
+            'brew': 'dart',
+            'winget': 'Google.DartSDK',
+            'manual': 'https://dart.dev/get-dart',
+        },
+        'docker-compose': {
+            'apt': 'docker-compose',
+            'brew': 'docker-compose',
+            'winget': 'Docker.DockerCompose',
+        },
+        'eslint': {
+            'npm': 'eslint',
+        },
+        'gixy': {
+            'apt': 'gixy',
+            'pip': 'gixy',
+        },
+        'golangci-lint': {
+            'brew': 'golangci-lint',
+            'winget': 'GolangCI.golangci-lint',
+            'choco': 'golangci-lint',
+            'manual': 'curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin',
+        },
+        'graphql-schema-linter': {
+            'npm': 'graphql-schema-linter',
+        },
+        'hadolint': {
+            'brew': 'hadolint',
+            'winget': 'hadolint.hadolint',
+            'choco': 'hadolint',
+            'manual': 'wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint',
+        },
+        'hlint': {
+            'apt': 'hlint',
+            'pacman': 'hlint',
+            'brew': 'hlint',
+            'manual': 'cabal install hlint',
+        },
+        'htmlhint': {
+            'npm': 'htmlhint',
+        },
+        'jshint': {
+            'npm': 'jshint',
+        },
+        'ktlint': {
+            'brew': 'ktlint',
+            'manual': 'curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && sudo mv ktlint /usr/local/bin/',
+        },
         'kube-linter': {
             'brew': 'kube-linter',
             'winget': 'stackrox.kube-linter',
             'manual': 'https://github.com/stackrox/kube-linter',
         },
-        'taplo': {
-            'manual': 'cargo install taplo-cli',
-        },
-        'xmllint': {
-            'apt': 'libxml2-utils',
-            'yum': 'libxml2',
-            'dnf': 'libxml2',
-            'brew': 'libxml2',
-        },
-        'buf': {
-            'brew': 'buf',
-            'manual': 'https://buf.build/docs/installation',
-        },
-        'graphql-schema-linter': {
-            'npm': 'graphql-schema-linter',
-        },
-        'solhint': {
-            'npm': 'solhint',
-        },
         'luacheck': {
             'brew': 'luacheck',
             'manual': 'luarocks install luacheck',
+        },
+        'markdownlint-cli': {
+            'choco': 'markdownlint-cli',
+            'npm': 'markdownlint-cli',
         },
         'mix': {
             'apt': 'elixir',
@@ -271,45 +233,100 @@ class ToolMapper:
             'brew': 'elixir',
             'manual': 'https://elixir-lang.org/install.html',
         },
-        'hlint': {
-            'apt': 'hlint',
-            'brew': 'hlint',
-            'pacman': 'hlint',
-            'manual': 'cabal install hlint',
+        'mypy': {
+            'pip': 'mypy',
         },
-        'clj-kondo': {
-            'brew': 'borkdude/brew/clj-kondo',
-            'manual': 'bash <(curl -s https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo)',
+        'perlcritic': {
+            'apt': 'libperl-critic-perl',
+            'brew': 'perl-critic',
+            'manual': 'cpan Perl::Critic',
         },
-        'dart': {
-            'apt': 'dart',
-            'brew': 'dart',
-            'pacman': 'dart',
-            'winget': 'Google.DartSDK',
-            'manual': 'https://dart.dev/get-dart',
+        'phpstan': {
+            'brew': 'phpstan',
+            'choco': 'phpstan',
+            'manual': 'composer global require phpstan/phpstan',
         },
-        'codenarc': {
-            'brew': 'codenarc',
-            'manual': 'Download from: https://github.com/CodeNarc/CodeNarc',
+        'prettier': {
+            'npm': 'prettier',
         },
-        'vint': {
+        'PSScriptAnalyzer': {
+            'choco': 'PSScriptAnalyzer',
+            'manual': 'Install-Module -Name PSScriptAnalyzer',
+        },
+        'pylint': {
+            'pip': 'pylint',
+        },
+        'rubocop': {
+            'apt': 'rubocop',
+            'brew': 'rubocop',
+            'manual': 'gem install rubocop',
+        },
+        'ruff': {
+            'pip': 'ruff',
+        },
+        'scalastyle': {
+            'brew': 'scalastyle',
+            'manual': 'Download from: https://www.scalastyle.org/',
+        },
+        'shellcheck': {
+            'apt': 'shellcheck',
+            'yum': 'ShellCheck',
+            'dnf': 'ShellCheck',
+            'pacman': 'shellcheck',
+            'brew': 'shellcheck',
+            'winget': 'koalaman.shellcheck',
+            'choco': 'shellcheck',
+        },
+        'solhint': {
+            'npm': 'solhint',
+        },
+        'sqlfluff': {
+            'pip': 'sqlfluff',
+        },
+        'standard': {
+            'npm': 'standard',
+        },
+        'stylelint': {
+            'npm': 'stylelint',
+        },
+        'swiftlint': {
+            'brew': 'swiftlint',
+            'choco': 'swiftlint',
+            'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
+        },
+        'taplo': {
+            'npm': '@taplo/cli',
+        },
+        'tflint': {
+            'brew': 'tflint',
+            'winget': 'TerraformLinters.tflint',
+            'choco': 'tflint',
+            'manual': 'curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash',
+        },
+        'typescript': {
+            'npm': 'typescript',
+        },
+        'vim-vint': {
             'pip': 'vim-vint',
         },
-        'cmake-lint': {
-            'pip': 'cmakelang',
+        'xmllint': {
+            'apt': 'libxml2-utils',
+            'yum': 'libxml2',
+            'dnf': 'libxml2',
+            'brew': 'libxml2',
         },
-        'checkmake': {
-            'brew': 'checkmake',
-            'manual': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
-        },
-        'gixy': {
-            'apt': 'gixy',
-            'pip': 'gixy',
+        'yamllint': {
+            'apt': 'yamllint',
+            'yum': 'yamllint',
+            'dnf': 'yamllint',
+            'pacman': 'yamllint',
+            'brew': 'yamllint',
+            'pip': 'yamllint',
         },
         'zig': {
             'apt': 'zig',
-            'brew': 'zig',
             'pacman': 'zig',
+            'brew': 'zig',
             'manual': 'https://ziglang.org/download/',
         },
     }
