@@ -62,7 +62,7 @@ class RScanner(BaseScanner):
             """
 
             result = subprocess.run(
-                ["Rscript", "-e", r_script],
+                [str(self.tool_path), "-e", r_script],
                 capture_output=True,
                 text=True,
                 timeout=30

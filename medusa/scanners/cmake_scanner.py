@@ -26,7 +26,7 @@ class CMakeScanner(BaseScanner):
                 error_message="cmake-lint not installed. Install with: pip install cmakelint")
 
         try:
-            cmd = "cmake-lint" if shutil.which("cmake-lint") else "cmakelint"
+            cmd = shutil.which("cmake-lint") or shutil.which("cmakelint") or "cmakelint"
             result = subprocess.run([cmd, str(file_path)], capture_output=True, text=True, timeout=30)
             issues = []
             for line in result.stdout.splitlines():
