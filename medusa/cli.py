@@ -83,23 +83,28 @@ def _has_pip_available() -> bool:
     # Windows: Python's pip is always available via 'py -m pip'
     import subprocess
     import platform
+    import shutil
     if platform.system() == 'Windows':
-        try:
-            result = subprocess.run(['py', '-m', 'pip', '--version'], capture_output=True, timeout=5)
-            return result.returncode == 0
-        except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
-            # py launcher not available - continue to Unix fallback
-            pass
+        py_path = shutil.which('py')
+        if py_path:
+            try:
+                result = subprocess.run([py_path, '-m', 'pip', '--version'], capture_output=True, timeout=5)
+                return result.returncode == 0
+            except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
+                # py launcher not available - continue to Unix fallback
+                pass
 
     # Unix: Try python3 -m pip
     try:
         import subprocess
-        result = subprocess.run(['python3', '-m', 'pip', '--version'], capture_output=True, timeout=5)
-        return result.returncode == 0
+        import shutil
+        python3_path = shutil.which('python3')
+        if python3_path:
+            result = subprocess.run([python3_path, '-m', 'pip', '--version'], capture_output=True, timeout=5)
+            return result.returncode == 0
     except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
-        # python3 not available or pip not installed
-        return False
-
+        pass
+    # python3 not available or pip not installed
     return False
 
 
@@ -814,7 +819,7 @@ def print_banner():
 ║                                                                    ║
 ║          🐍🐍🐍 MEDUSA v{__version__} - Security Guardian 🐍🐍🐍           ║
 ║                                                                    ║
-║         Universal Scanner with 40+ Specialized Analyzers          ║
+║         Universal Scanner with 43+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
@@ -828,7 +833,7 @@ def print_banner():
 ║                                                                    ║
 ║              MEDUSA v{__version__} - Security Guardian                 ║
 ║                                                                    ║
-║         Universal Scanner with 40+ Specialized Analyzers          ║
+║         Universal Scanner with 43+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]

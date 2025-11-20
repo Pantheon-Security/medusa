@@ -371,12 +371,10 @@ class WindowsCustomInstaller:
         script_name = WindowsCustomInstaller.SUPPORTED_TOOLS[tool]
 
         # Get the script path (bundled with the package)
-        import pkg_resources
         try:
-            script_path = pkg_resources.resource_filename(
-                'medusa',
-                f'platform/installers/windows_scripts/{script_name}'
-            )
+            from importlib.resources import files
+            script_file = files('medusa').joinpath(f'platform/installers/windows_scripts/{script_name}')
+            script_path = str(script_file)
         except Exception as e:
             if debug:
                 print(f"[DEBUG] Failed to find installer script: {e}")
