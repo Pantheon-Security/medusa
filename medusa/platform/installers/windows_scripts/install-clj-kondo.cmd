@@ -8,18 +8,18 @@ REM Create install directory
 set "INSTALL_DIR=%ProgramFiles%\clj-kondo"
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
-REM Download clj-kondo Windows binary
+REM Download clj-kondo Windows binary (using native curl.exe - less suspicious to antivirus)
 echo Downloading clj-kondo 2024.11.14...
-powershell -Command "& {Invoke-WebRequest -Uri 'https://github.com/clj-kondo/clj-kondo/releases/download/v2024.11.14/clj-kondo-2024.11.14-windows-amd64.zip' -OutFile '%TEMP%\clj-kondo.zip'}"
+curl.exe -L -o "%TEMP%\clj-kondo.zip" "https://github.com/clj-kondo/clj-kondo/releases/download/v2024.11.14/clj-kondo-2024.11.14-windows-amd64.zip"
 
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to download clj-kondo
     exit /b 1
 )
 
-REM Extract the zip file
+REM Extract the zip file (using native tar.exe - less suspicious to antivirus)
 echo Extracting clj-kondo...
-powershell -Command "& {Expand-Archive -Path '%TEMP%\clj-kondo.zip' -DestinationPath '%INSTALL_DIR%' -Force}"
+tar.exe -xf "%TEMP%\clj-kondo.zip" -C "%INSTALL_DIR%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Failed to extract clj-kondo
