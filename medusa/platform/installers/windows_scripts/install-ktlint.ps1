@@ -19,15 +19,15 @@ function Write-Log {
 try {
     Write-Log "Starting ktlint installation..." "INFO"
 
-    # Get latest release info from GitHub API
-    Write-Log "Fetching latest release information..."
-    $releaseUrl = "https://api.github.com/repos/pinterest/ktlint/releases/latest"
+    # Get pinned release info from GitHub API (version from tools-manifest.csv)
+    $version = "1.5.0"
+    Write-Log "Fetching release information for version $version..."
+    $releaseUrl = "https://api.github.com/repos/pinterest/ktlint/releases/tags/$version"
     $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{
         "User-Agent" = "MEDUSA-Installer"
     }
 
-    $version = $release.tag_name
-    Write-Log "Latest version: $version"
+    Write-Log "Installing version: $version"
 
     # Find ktlint JAR asset (just named "ktlint")
     $asset = $release.assets | Where-Object { $_.name -eq "ktlint" } | Select-Object -First 1

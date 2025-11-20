@@ -363,10 +363,11 @@ class WindowsCustomInstaller:
         'ktlint': 'install-ktlint.ps1',
         'checkstyle': 'install-checkstyle.ps1',
         'phpstan': 'install-phpstan.ps1',
+        'checkmake': 'install-checkmake.ps1',
+        'taplo': 'install-taplo.ps1',
         # Legacy tools (no longer have installers - provide manual instructions)
         'scalastyle': None,
         'codenarc': None,
-        'checkmake': None,
     }
 
     # Tools available via chocolatey (try this first to avoid antivirus false positives)
@@ -392,7 +393,7 @@ class WindowsCustomInstaller:
             print(f"\n⚠️  Unable to automatically install {tool}")
             print(f"\nPlease install manually:")
 
-            if tool in ['codenarc', 'scalastyle', 'checkmake']:
+            if tool in ['codenarc', 'scalastyle']:
                 print(f"  Install via package manager or download from official website")
 
             print(f"\nAfter installation, add to PATH and run: medusa install --check")
