@@ -1352,7 +1352,12 @@ def install(tool, check, all, yes, use_latest):
                 if install_choco:
                     console.print("[cyan]Installing Chocolatey...[/cyan]")
                     if ChocolateyInstaller.install_chocolatey():
-                        console.print("[green]✅ Chocolatey installed successfully![/green]\n")
+                        console.print("[green]✅ Chocolatey installed successfully![/green]")
+
+                        # Refresh PATH so chocolatey is available immediately
+                        from medusa.platform.installers.windows import refresh_windows_path
+                        refresh_windows_path()
+                        console.print("[dim]PATH refreshed - chocolatey is now available[/dim]\n")
                     else:
                         console.print("[red]❌ Failed to install Chocolatey (admin rights required)[/red]")
                         console.print("[dim]You can install manually: https://chocolatey.org/install[/dim]\n")
