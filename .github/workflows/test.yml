@@ -1,3 +1,4 @@
+---
 name: MEDUSA CI Tests
 
 on:
@@ -33,57 +34,57 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-    - name: Display Python version
-      run: python --version
+      - name: Display Python version
+        run: python --version
 
-    - name: Install MEDUSA
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install -e .
+      - name: Install MEDUSA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
 
-    - name: Verify MEDUSA installation
-      run: |
-        medusa --version
-        medusa --help
+      - name: Verify MEDUSA installation
+        run: |
+          medusa --version
+          medusa --help
 
-    - name: Test init command (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        cd /tmp
-        mkdir -p test-project
-        cd test-project
-        echo 'print("Hello, World!")' > test.py
-        echo 'n' | medusa init --ide claude-code --force
-        test -f .medusa.yml && echo "✅ Config created"
+      - name: Test init command (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd /tmp
+          mkdir -p test-project
+          cd test-project
+          echo 'print("Hello, World!")' > test.py
+          echo 'n' | medusa init --ide claude-code --force
+          test -f .medusa.yml && echo "✅ Config created"
 
-    - name: Test init command (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        cd $env:TEMP
-        New-Item -ItemType Directory -Force -Path test-project
-        cd test-project
-        "print('Hello, World!')" | Out-File -FilePath test.py -Encoding utf8
-        "n" | medusa init --ide claude-code --force
-        if (Test-Path .medusa.yml) { Write-Host "✅ Config created" }
+      - name: Test init command (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd $env:TEMP
+          New-Item -ItemType Directory -Force -Path test-project
+          cd test-project
+          "print('Hello, World!')" | Out-File -FilePath test.py -Encoding utf8
+          "n" | medusa init --ide claude-code --force
+          if (Test-Path .medusa.yml) { Write-Host "✅ Config created" }
 
-    - name: Test scan command (Unix)
-      if: runner.os != 'Windows'
-      shell: bash
-      run: |
-        cd /tmp/test-project
-        medusa scan . --workers 2
+      - name: Test scan command (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd /tmp/test-project
+          medusa scan . --workers 2
 
-    - name: Test scan command (Windows)
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        cd $env:TEMP/test-project
-        medusa scan . --workers 2
+      - name: Test scan command (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd $env:TEMP/test-project
+          medusa scan . --workers 2
 
-    - name: Test install --check command
-      run: medusa install --check
+      - name: Test install --check command
+        run: medusa install --check
 
   test-docker:
     name: Test Docker Build
@@ -93,23 +94,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker image (simple)
-      run: |
-        python -m pip install --upgrade pip build
-        python -m build --wheel
-        docker build -f Dockerfile.simple -t medusa:test .
+      - name: Build Docker image (simple)
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
+          docker build -f Dockerfile.simple -t medusa:test .
 
-    - name: Test Docker image
-      run: |
-        docker run --rm medusa:test --version
-        docker run --rm medusa:test --help
+      - name: Test Docker image
+        run: |
+          docker run --rm medusa:test --version
+          docker run --rm medusa:test --help
 
-    - name: Test Docker scan
-      run: |
-        docker run --rm -v $(pwd):/workspace medusa:test scan /workspace --workers 2
+      - name: Test Docker scan
+        run: |
+          docker run --rm -v $(pwd):/workspace medusa:test scan \
+            /workspace --workers 2
 
   test-multi-distro:
     name: Test Multi-Distribution
@@ -119,15 +121,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-    - name: Build wheel
-      run: |
-        python -m pip install --upgrade pip build
-        python -m build --wheel
+      - name: Build wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel
 
-    - name: Run multi-distro tests
-      run: |
-        chmod +x test-docker-install.sh
-        bash test-docker-install.sh
+      - name: Run multi-distro tests
+        run: |
+          chmod +x test-docker-install.sh
+          bash test-docker-install.sh
 
   lint-and-format:
     name: Lint and Format Check
@@ -137,21 +139,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-    - name: Install dev dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install black ruff mypy
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install black ruff mypy
 
-    - name: Check code formatting with black
-      run: black --check medusa/ || true
+      - name: Check code formatting with black
+        run: black --check medusa/ || true
 
-    - name: Lint with ruff
-      run: ruff check medusa/ || true
+      - name: Lint with ruff
+        run: ruff check medusa/ || true
 
-    - name: Type check with mypy
-      run: mypy medusa/ || true
+      - name: Type check with mypy
+        run: mypy medusa/ || true

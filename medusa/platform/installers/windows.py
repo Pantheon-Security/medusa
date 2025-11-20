@@ -30,14 +30,14 @@ def refresh_windows_path() -> bool:
                 r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
             ) as key:
                 system_path = winreg.QueryValueEx(key, 'Path')[0]
-        except:
+        except (OSError, WindowsError):
             system_path = ''
 
         # Get user PATH
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment') as key:
                 user_path = winreg.QueryValueEx(key, 'Path')[0]
-        except:
+        except (OSError, WindowsError):
             user_path = ''
 
         # Also add common winget install locations
@@ -77,6 +77,10 @@ class WingetInstaller(BaseInstaller):
         if not package_name:
             return False
 
+        # Validate package name (winget IDs can contain alphanumeric, dash, underscore, dot)
+        if not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            return False
+
         cmd = ['winget', 'install', '--id', package_name, '--accept-source-agreements', '--accept-package-agreements']
 
         try:
@@ -98,7 +102,8 @@ class WingetInstaller(BaseInstaller):
                 refresh_windows_path()
 
             return success
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError) as e:
+            # Installation failed
             return False
 
     def is_installed(self, package: str) -> bool:
@@ -120,7 +125,7 @@ class WingetInstaller(BaseInstaller):
                 output = result.stdout.lower()
                 return package_name.lower() in output or package.lower() in output
             return False
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def uninstall(self, package: str, sudo: bool = False) -> bool:
@@ -137,7 +142,7 @@ class WingetInstaller(BaseInstaller):
         try:
             result = self.run_command(cmd, check=True)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def get_install_command(self, package: str, sudo: bool = False) -> str:
@@ -267,6 +272,12 @@ class ChocolateyInstaller(BaseInstaller):
         if not package_name:
             return False
 
+        # Validate package name contains only safe characters (alphanumeric, dash, underscore, dot)
+        if not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            if self.debug:
+                print(f"[DEBUG] Invalid package name: {package_name}")
+            return False
+
         cmd = ['choco', 'install', package_name, '-y']
 
         try:
@@ -313,7 +324,7 @@ class ChocolateyInstaller(BaseInstaller):
             result = self.run_command(['choco', 'list', '--local-only', package_name], check=False)
             # Check if package appears in output
             return package_name.lower() in result.stdout.lower() if hasattr(result, 'stdout') else False
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def uninstall(self, package: str, sudo: bool = False) -> bool:
@@ -330,7 +341,7 @@ class ChocolateyInstaller(BaseInstaller):
         try:
             result = self.run_command(cmd, check=True)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def get_install_command(self, package: str, sudo: bool = False) -> str:
@@ -381,12 +392,19 @@ class WindowsCustomInstaller:
             choco_path = shutil.which('choco')
             if choco_path:
                 try:
+                    # package_name comes from hardcoded CHOCOLATEY_PACKAGES dict, not user input
                     package_name = WindowsCustomInstaller.CHOCOLATEY_PACKAGES[tool]
+                    # Validate package name contains only safe characters
+                    if not package_name or not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+                        if debug:
+                            print(f"[DEBUG] Invalid package name: {package_name}")
+                        raise ValueError(f"Invalid package name: {package_name}")
                     result = subprocess.run(
                         [choco_path, 'install', package_name, '-y'],
                         capture_output=True,
                         text=True,
-                        timeout=300
+                        timeout=300,
+                        check=False  # Don't raise on non-zero exit
                     )
                     if result.returncode == 0:
                         if debug:
@@ -423,8 +441,20 @@ class WindowsCustomInstaller:
             print(f"[DEBUG] Running custom installer: {script_path}")
 
         try:
+            # Validate script path is safe (must end with .cmd)
+            if not script_path.endswith('.cmd'):
+                if debug:
+                    print(f"[DEBUG] Invalid script path: {script_path}")
+                return False
+
             # Run the .bat script via cmd.exe (safer than shell=True)
             cmd_path = shutil.which('cmd') or 'C:\\Windows\\System32\\cmd.exe'
+            # Validate cmd path exists
+            if not os.path.exists(cmd_path):
+                if debug:
+                    print(f"[DEBUG] cmd.exe not found at: {cmd_path}")
+                return False
+
             result = subprocess.run(
                 [cmd_path, '/c', script_path],
                 shell=False,

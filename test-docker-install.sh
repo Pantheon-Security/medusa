@@ -48,24 +48,24 @@ CMD ["medusa", "--version"]
 EOF
 
     # Build and test
-    if docker build -f Dockerfile.test -t medusa-test-$distro . > /tmp/test-$distro.log 2>&1; then
-        if docker run --rm medusa-test-$distro > /tmp/run-$distro.log 2>&1; then
+    if docker build -f Dockerfile.test -t "medusa-test-$distro" . > "/tmp/test-$distro.log" 2>&1; then
+        if docker run --rm "medusa-test-$distro" > "/tmp/run-$distro.log" 2>&1; then
             echo "  ✅ $distro: PASSED"
             PASSED=$((PASSED + 1))
         else
             echo "  ❌ $distro: FAILED (runtime error)"
             FAILED=$((FAILED + 1))
-            cat /tmp/run-$distro.log
+            cat "/tmp/run-$distro.log"
         fi
     else
         echo "  ❌ $distro: FAILED (build error)"
         FAILED=$((FAILED + 1))
-        tail -20 /tmp/test-$distro.log
+        tail -20 "/tmp/test-$distro.log"
     fi
 
     # Cleanup
     rm -f Dockerfile.test
-    docker rmi -f medusa-test-$distro > /dev/null 2>&1 || true
+    docker rmi -f "medusa-test-$distro" > /dev/null 2>&1 || true
     echo ""
 }
 
