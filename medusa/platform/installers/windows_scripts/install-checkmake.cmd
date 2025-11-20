@@ -28,3 +28,5 @@ if %ERRORLEVEL% EQU 0 (
     echo ERROR: checkmake installation failed.
     exit /b 1
 )
+
+exit /b 0

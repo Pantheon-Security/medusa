@@ -40,3 +40,5 @@ echo Scalastyle installed successfully!
 echo.
 echo You may need to restart your terminal for PATH changes to take effect.
 echo Test with: scalastyle --version
+
+exit /b 0

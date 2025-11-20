@@ -390,8 +390,9 @@ class WindowsCustomInstaller:
 
         try:
             # Run the .bat script via cmd.exe (safer than shell=True)
+            cmd_path = shutil.which('cmd') or 'C:\\Windows\\System32\\cmd.exe'
             result = subprocess.run(
-                ['cmd', '/c', script_path],
+                [cmd_path, '/c', script_path],
                 shell=False,
                 check=False,
                 capture_output=not debug,  # Show output in debug mode
