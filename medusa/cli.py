@@ -1061,13 +1061,21 @@ def init(ide, force, install):
 
         if install or click.confirm(f"\nInstall {len(missing_tools)} missing tools for your project?", default=False):
             console.print("[cyan]Installing missing tools...[/cyan]")
-            # Import installer logic
-            from medusa.platform import get_platform_info
-            from medusa.platform.installers import AptInstaller, HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller
+            # Call the install command directly with --all --yes
+            import sys
+            import subprocess
 
-            platform_info = get_platform_info()
-            # This would call the actual installation - skipping for safety in init
-            console.print("[yellow]Note: Run 'medusa install --all' to install missing tools[/yellow]")
+            cmd = [sys.executable, '-m', 'medusa', 'install', '--all', '--yes']
+            result = subprocess.run(
+                cmd,
+                capture_output=False,
+                text=True,
+                check=False
+            )
+            if result.returncode != 0:
+                console.print("[yellow]⚠️  Some tools may not have installed successfully[/yellow]")
+                console.print("[dim]You can retry with: medusa install --all[/dim]")
+            console.print()  # Extra newline for spacing
 
     # Step 3: Create configuration
     console.print("\n[bold cyan]Step 3/4: Creating configuration...[/bold cyan]")
