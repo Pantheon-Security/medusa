@@ -40,3 +40,5 @@ echo CodeNarc installed successfully!
 echo.
 echo You may need to restart your terminal for PATH changes to take effect.
 echo Test with: codenarc --version
+
+exit /b 0

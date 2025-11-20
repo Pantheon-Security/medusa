@@ -39,3 +39,5 @@ echo clj-kondo installed successfully!
 echo.
 echo You may need to restart your terminal for PATH changes to take effect.
 echo Test with: clj-kondo --version
+
+exit /b 0
