@@ -360,10 +360,10 @@ class WindowsCustomInstaller:
     # Tools that have custom PowerShell installers
     SUPPORTED_TOOLS = {
         'clj-kondo': 'install-clj-kondo.ps1',
+        'ktlint': 'install-ktlint.ps1',
+        'checkstyle': 'install-checkstyle.ps1',
+        'phpstan': 'install-phpstan.ps1',
         # Legacy tools (no longer have installers - provide manual instructions)
-        'phpstan': None,
-        'ktlint': None,
-        'checkstyle': None,
         'scalastyle': None,
         'codenarc': None,
         'checkmake': None,
@@ -392,13 +392,7 @@ class WindowsCustomInstaller:
             print(f"\n⚠️  Unable to automatically install {tool}")
             print(f"\nPlease install manually:")
 
-            if tool == 'phpstan':
-                print(f"  Option 1 (Composer): composer global require phpstan/phpstan")
-                print(f"  Option 2 (Manual): Download from https://github.com/phpstan/phpstan/releases")
-            elif tool == 'ktlint':
-                print(f"  Option 1 (Scoop): scoop install ktlint")
-                print(f"  Option 2 (Manual): Download from https://github.com/pinterest/ktlint/releases")
-            elif tool in ['checkstyle', 'codenarc', 'scalastyle', 'checkmake']:
+            if tool in ['codenarc', 'scalastyle', 'checkmake']:
                 print(f"  Install via package manager or download from official website")
 
             print(f"\nAfter installation, add to PATH and run: medusa install --check")
@@ -477,7 +471,13 @@ class WindowsCustomInstaller:
             print(f"\n⚠️  Automatic installation failed")
             print(f"\nPlease install manually:")
             if tool == 'clj-kondo':
-                print(f"  Option 1 (Scoop): scoop install clj-kondo")
-                print(f"  Option 2 (Manual): Download from https://github.com/clj-kondo/clj-kondo/releases")
+                print(f"  Download from: https://github.com/clj-kondo/clj-kondo/releases")
+            elif tool == 'ktlint':
+                print(f"  Download from: https://github.com/pinterest/ktlint/releases")
+            elif tool == 'checkstyle':
+                print(f"  Download from: https://github.com/checkstyle/checkstyle/releases")
+            elif tool == 'phpstan':
+                print(f"  Option 1 (Composer): composer global require phpstan/phpstan")
+                print(f"  Option 2 (Manual): Download from https://github.com/phpstan/phpstan/releases")
             print(f"\nAfter installation, add to PATH and run: medusa install --check")
             return False
