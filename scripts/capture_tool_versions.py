@@ -89,7 +89,8 @@ class VersionCapture:
             match = re.search(r'(\d+\.\d+\.\d+)', output)
             if match:
                 return match.group(1)
-        except Exception:
+        except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired, ValueError):
+            # Tool not found, command failed, or version parsing failed
             pass
         return None
 

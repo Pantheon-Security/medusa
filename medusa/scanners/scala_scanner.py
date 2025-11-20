@@ -9,10 +9,7 @@ import subprocess
 from pathlib import Path
 from typing import List
 
-try:
-    from defusedxml import ElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
 
@@ -44,8 +41,7 @@ class ScalaScanner(BaseScanner):
         try:
             # Run Scalastyle with XML output
             result = subprocess.run(
-                [
-                    "scalastyle",
+                [str(self.tool_path),
                     "-q",  # Quiet mode
                     "--xmlOutput", "-",
                     str(file_path)

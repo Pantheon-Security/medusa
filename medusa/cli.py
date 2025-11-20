@@ -48,12 +48,15 @@ def _has_npm_available() -> bool:
             return True
 
         # Try running npm.cmd directly
-        try:
-            result = subprocess.run(['npm.cmd', '--version'], capture_output=True, timeout=5)
-            if result.returncode == 0:
-                return True
-        except:
-            pass
+        npm_cmd_path = shutil.which('npm.cmd')
+        if npm_cmd_path:
+            try:
+                result = subprocess.run([npm_cmd_path, '--version'], capture_output=True, timeout=5)
+                if result.returncode == 0:
+                    return True
+            except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
+                # npm.cmd not found or execution failed - continue to check other locations
+                pass
 
         # Check common Windows install locations for npm.cmd
         common_paths = [
@@ -84,7 +87,8 @@ def _has_pip_available() -> bool:
         try:
             result = subprocess.run(['py', '-m', 'pip', '--version'], capture_output=True, timeout=5)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
+            # py launcher not available - continue to Unix fallback
             pass
 
     # Unix: Try python3 -m pip
@@ -92,8 +96,9 @@ def _has_pip_available() -> bool:
         import subprocess
         result = subprocess.run(['python3', '-m', 'pip', '--version'], capture_output=True, timeout=5)
         return result.returncode == 0
-    except:
-        pass
+    except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
+        # python3 not available or pip not installed
+        return False
 
     return False
 
@@ -124,13 +129,15 @@ def _safe_print(*args, **kwargs):
 
         try:
             _original_print(*safe_args, **kwargs)
-        except:
+        except Exception:
             # Last resort: plain print with ASCII-only
             ascii_text = ' '.join(str(a).encode('ascii', 'ignore').decode('ascii') for a in safe_args)
             try:
                 print(ascii_text)
-            except:
-                pass  # Give up silently
+            except Exception:
+                # Final fallback failed - suppress to prevent crash during output
+                # This is intentionally silent as there's nothing more we can do
+                pass
 
 console.print = _safe_print
 
@@ -684,14 +691,18 @@ def _install_tools(tools: list, use_latest: bool = False):
                 # First check if Node.js is already installed
                 console.print("\n[cyan]Checking for existing Node.js installation...[/cyan]")
                 nodejs_already_installed = False
-                try:
-                    import subprocess
-                    node_check = subprocess.run(['node', '--version'], capture_output=True, text=True, timeout=5)
-                    if node_check.returncode == 0:
-                        nodejs_already_installed = True
-                        console.print(f"[green]✓[/green] Node.js found: {node_check.stdout.strip()}")
-                        console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
-                except:
+                node_path = shutil.which('node')
+                if node_path:
+                    try:
+                        import subprocess
+                        node_check = subprocess.run([node_path, '--version'], capture_output=True, text=True, timeout=5)
+                        if node_check.returncode == 0:
+                            nodejs_already_installed = True
+                            console.print(f"[green]✓[/green] Node.js found: {node_check.stdout.strip()}")
+                            console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
+                    except:
+                        pass
+                if not nodejs_already_installed:
                     console.print("[dim]   Node.js not found, installing...[/dim]")
 
                 if not nodejs_already_installed:
@@ -701,27 +712,29 @@ def _install_tools(tools: list, use_latest: bool = False):
                 winget_installer = WingetInstaller()
                 nodejs_success = False
 
-                try:
-                    import subprocess
-                    result = subprocess.run(
-                        ['winget', 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
-                        capture_output=True,
-                        text=True,
-                        timeout=120
-                    )
-                    output = result.stdout.lower() if result.stdout else ''
-                    nodejs_success = (
-                        result.returncode == 0 or
-                        'already installed' in output or
-                        'no available upgrade found' in output
-                    )
+                winget_path = shutil.which('winget')
+                if winget_path:
+                    try:
+                        import subprocess
+                        result = subprocess.run(
+                            [winget_path, 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
+                            capture_output=True,
+                            text=True,
+                            timeout=120
+                        )
+                        output = result.stdout.lower() if result.stdout else ''
+                        nodejs_success = (
+                            result.returncode == 0 or
+                            'already installed' in output or
+                            'no available upgrade found' in output
+                        )
 
-                    # Show winget output for debugging
-                    if result.returncode != 0:
-                        console.print(f"[dim]Winget output: {result.stdout[:300]}[/dim]")
-                except Exception as e:
-                    nodejs_success = False
-                    console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
+                        # Show winget output for debugging
+                        if result.returncode != 0:
+                            console.print(f"[dim]Winget output: {result.stdout[:300]}[/dim]")
+                    except Exception as e:
+                        nodejs_success = False
+                        console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
 
                 if nodejs_success:
                     console.print("[green]✅ Node.js installed successfully[/green]")
@@ -734,17 +747,22 @@ def _install_tools(tools: list, use_latest: bool = False):
 
                     # Verify npm is now available
                     console.print("\n[cyan]Checking for npm...[/cyan]")
-                    npm_path = shutil.which('npm')
+                    # On Windows, look for npm.cmd explicitly to avoid shell=True
+                    if platform_info.os_type.value == 'windows':
+                        npm_path = shutil.which('npm.cmd') or shutil.which('npm')
+                    else:
+                        npm_path = shutil.which('npm')
+
                     if npm_path:
                         console.print(f"[green]✓[/green] npm found at: {npm_path}")
-                        # Verify npm works (use shell=True on Windows for .cmd files)
+                        # Verify npm works (no shell=True needed with explicit path)
                         try:
                             npm_version_check = subprocess.run(
-                                ['npm', '--version'],
+                                [npm_path, '--version'],
                                 capture_output=True,
                                 text=True,
                                 timeout=5,
-                                shell=True  # Required for .CMD files on Windows
+                                shell=False
                             )
                             if npm_version_check.returncode == 0:
                                 console.print(f"[green]✓[/green] npm version: {npm_version_check.stdout.strip()}")
@@ -1196,7 +1214,8 @@ def init(ide, force, install):
 @click.option('--all', is_flag=True, help='Install all missing linters')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
 @click.option('--use-latest', is_flag=True, help='Install latest versions (bypass version pinning)')
-def install(tool, check, all, yes, use_latest):
+@click.option('--debug', is_flag=True, help='Show detailed debug output (especially for Windows Chocolatey installation)')
+def install(tool, check, all, yes, use_latest, debug):
     """
     Install security linters for your platform.
 
@@ -1258,7 +1277,7 @@ def install(tool, check, all, yes, use_latest):
             PackageManager.PACMAN: PacmanInstaller(),
             PackageManager.BREW: HomebrewInstaller(),
             PackageManager.WINGET: WingetInstaller(),
-            PackageManager.CHOCOLATEY: ChocolateyInstaller(),
+            PackageManager.CHOCOLATEY: ChocolateyInstaller(debug=debug),
         }
         installer = installer_map.get(pm)
 
@@ -1354,7 +1373,9 @@ def install(tool, check, all, yes, use_latest):
 
                 if install_choco:
                     console.print("[cyan]Installing Chocolatey...[/cyan]")
-                    if ChocolateyInstaller.install_chocolatey():
+                    if debug:
+                        console.print("[dim]Debug mode enabled - showing full output[/dim]")
+                    if ChocolateyInstaller.install_chocolatey(debug=debug):
                         console.print("[green]✅ Chocolatey installed successfully![/green]")
 
                         # Refresh PATH so chocolatey is available immediately
@@ -1393,7 +1414,7 @@ def install(tool, check, all, yes, use_latest):
                 choco_package = ToolMapper.get_package_name(tool_name, 'choco')
                 # Use chocolatey if it's installed OR if we just installed it in this session
                 if choco_package and (chocolatey_just_installed or ChocolateyInstaller.is_chocolatey_installed()):
-                    choco_installer = ChocolateyInstaller()
+                    choco_installer = ChocolateyInstaller(debug=debug)
 
             npm_package = ToolMapper.get_package_name(tool_name, 'npm')
             pip_package = ToolMapper.get_package_name(tool_name, 'pip')
@@ -1492,6 +1513,22 @@ def install(tool, check, all, yes, use_latest):
                         failed += 1
                         failed_details.append((tool_name, ecosystem_name))
                 else:
+                    # On Windows, try custom .bat installers as final fallback
+                    if platform_info.os_type.value == 'windows':
+                        from medusa.platform.installers import WindowsCustomInstaller
+                        if WindowsCustomInstaller.can_install(tool_name):
+                            console.print(f"  → Using custom Windows installer...")
+                            if WindowsCustomInstaller.install(tool_name, debug=debug):
+                                console.print(f"  [green]✅ Installed successfully[/green]\n")
+                                installed += 1
+                                from medusa.platform.tool_cache import ToolCache
+                                cache = ToolCache()
+                                cache.mark_installed(tool_name)
+                                continue  # Skip to next tool
+                            else:
+                                console.print(f"  [red]❌ Custom installer failed[/red]")
+                                # Fall through to ecosystem check
+
                     # Check if ecosystem exists but not found
                     from medusa.platform.installers.base import EcosystemDetector
                     if tool_name in EcosystemDetector.ECOSYSTEM_MAP:

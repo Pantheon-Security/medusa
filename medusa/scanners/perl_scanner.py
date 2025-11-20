@@ -39,8 +39,7 @@ class PerlScanner(BaseScanner):
         try:
             # Run perlcritic with verbose output
             result = subprocess.run(
-                [
-                    "perlcritic",
+                [str(self.tool_path),
                     "--verbose", "%f:%l:%c:%s:%p:%m\n",
                     "--nocolor",
                     str(file_path)

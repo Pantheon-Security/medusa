@@ -11,7 +11,7 @@ from medusa.platform.installers.linux import (
     PacmanInstaller,
 )
 from medusa.platform.installers.macos import HomebrewInstaller
-from medusa.platform.installers.windows import WingetInstaller, ChocolateyInstaller
+from medusa.platform.installers.windows import WingetInstaller, ChocolateyInstaller, WindowsCustomInstaller
 from medusa.platform.installers.cross_platform import NpmInstaller, PipInstaller
 
 __all__ = [
@@ -24,6 +24,7 @@ __all__ = [
     'HomebrewInstaller',
     'WingetInstaller',
     'ChocolateyInstaller',
+    'WindowsCustomInstaller',
     'NpmInstaller',
     'PipInstaller',
 ]

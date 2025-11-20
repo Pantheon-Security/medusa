@@ -40,8 +40,7 @@ class HTMLScanner(BaseScanner):
         try:
             # Run HTMLHint with JSON output
             result = subprocess.run(
-                [
-                    "htmlhint",
+                [str(self.tool_path),
                     str(file_path),
                     "--format", "json"
                 ],

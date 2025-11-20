@@ -67,11 +67,12 @@ def main():
 
     # Step 3: Show what changed
     console.print("\n[bold cyan]Changes:[/bold cyan]")
-    subprocess.run(['git', 'diff', 'tool-versions.lock'], check=False)
+    git_path = shutil.which('git') or 'git'
+    subprocess.run([git_path, 'diff', 'tool-versions.lock'], check=False)
 
     if not tools_only:
-        subprocess.run(['git', 'diff', 'medusa/__init__.py'], check=False)
-        subprocess.run(['git', 'diff', 'pyproject.toml'], check=False)
+        subprocess.run([git_path, 'diff', 'medusa/__init__.py'], check=False)
+        subprocess.run([git_path, 'diff', 'pyproject.toml'], check=False)
 
     # Step 4: Summary
     console.print(Panel.fit(

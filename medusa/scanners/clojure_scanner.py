@@ -26,7 +26,7 @@ class ClojureScanner(BaseScanner):
                 error_message="clj-kondo not installed. Install from: https://github.com/clj-kondo/clj-kondo")
 
         try:
-            result = subprocess.run(["clj-kondo", "--lint", str(file_path), "--config", "{:output {:format :json}}"],
+            result = subprocess.run([str(self.tool_path), "--lint", str(file_path), "--config", "{:output {:format :json}}"],
                 capture_output=True, text=True, timeout=30)
             issues = []
             if result.stdout.strip():

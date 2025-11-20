@@ -40,8 +40,7 @@ class CppScanner(BaseScanner):
         try:
             # Run cppcheck with JSON output
             result = subprocess.run(
-                [
-                    "cppcheck",
+                [str(self.tool_path),
                     "--enable=all",
                     "--template=gcc",
                     "--quiet",

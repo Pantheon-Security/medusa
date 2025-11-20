@@ -52,8 +52,7 @@ class RustScanner(BaseScanner):
         try:
             # Run Clippy with JSON output
             result = subprocess.run(
-                [
-                    "cargo", "clippy",
+                [str(self.tool_path), "clippy",
                     "--message-format=json",
                     "--",
                     "-W", "clippy::all"

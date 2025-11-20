@@ -39,8 +39,7 @@ class XMLScanner(BaseScanner):
         try:
             # Run xmllint with validation
             result = subprocess.run(
-                [
-                    "xmllint",
+                [str(self.tool_path),
                     "--noout",  # Don't output the XML
                     str(file_path)
                 ],

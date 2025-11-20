@@ -10,10 +10,7 @@ import subprocess
 from pathlib import Path
 from typing import List
 
-try:
-    from defusedxml import ElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
 
@@ -46,8 +43,7 @@ class JavaScanner(BaseScanner):
         try:
             # Run Checkstyle with XML output
             result = subprocess.run(
-                [
-                    "checkstyle",
+                [str(self.tool_path),
                     "-f", "xml",
                     str(file_path)
                 ],

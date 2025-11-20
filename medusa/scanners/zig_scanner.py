@@ -26,7 +26,7 @@ class ZigScanner(BaseScanner):
                 error_message="Zig not installed. Install from: https://ziglang.org/download/")
 
         try:
-            result = subprocess.run(["zig", "ast-check", str(file_path)],
+            result = subprocess.run([str(self.tool_path), "ast-check", str(file_path)],
                 capture_output=True, text=True, timeout=30)
             issues = []
             for line in result.stderr.splitlines():

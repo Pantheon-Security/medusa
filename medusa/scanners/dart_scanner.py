@@ -26,7 +26,7 @@ class DartScanner(BaseScanner):
                 error_message="Dart not installed. Install from: https://dart.dev/get-dart")
 
         try:
-            result = subprocess.run(["dart", "analyze", str(file_path)],
+            result = subprocess.run([str(self.tool_path), "analyze", str(file_path)],
                 capture_output=True, text=True, timeout=30)
             issues = []
             for line in result.stdout.splitlines():

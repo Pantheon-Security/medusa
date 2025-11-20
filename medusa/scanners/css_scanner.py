@@ -40,8 +40,7 @@ class CSSScanner(BaseScanner):
         try:
             # Run Stylelint with JSON output
             result = subprocess.run(
-                [
-                    "stylelint",
+                [str(self.tool_path),
                     str(file_path),
                     "--formatter", "json"
                 ],

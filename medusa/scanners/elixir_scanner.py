@@ -40,7 +40,7 @@ class ElixirScanner(BaseScanner):
         try:
             # Run credo via mix
             result = subprocess.run(
-                ["mix", "credo", str(file_path), "--format", "json"],
+                [str(self.tool_path), "credo", str(file_path), "--format", "json"],
                 capture_output=True,
                 text=True,
                 timeout=30,
