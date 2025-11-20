@@ -44,7 +44,13 @@ test_debian() {
         test -f .medusa.yml && echo '✅ Config created'
         medusa scan . > /dev/null 2>&1 || python3 -m medusa scan . > /dev/null 2>&1
         echo '✅ SUCCESS'
-    " && { echo -e "${GREEN}✅ $distro: PASSED${NC}"; PASSED=$((PASSED + 1)); } || { echo -e "${RED}❌ $distro: FAILED${NC}"; FAILED=$((FAILED + 1)); }
+    "; then
+        echo -e "${GREEN}✅ $distro: PASSED${NC}"
+        PASSED=$((PASSED + 1))
+    else
+        echo -e "${RED}❌ $distro: FAILED${NC}"
+        FAILED=$((FAILED + 1))
+    fi
 
     echo ""
 }
@@ -71,7 +77,13 @@ test_redhat() {
         test -f .medusa.yml && echo '✅ Config created'
         medusa scan . > /dev/null 2>&1 || python3 -m medusa scan . > /dev/null 2>&1
         echo '✅ SUCCESS'
-    " && { echo -e "${GREEN}✅ $distro: PASSED${NC}"; PASSED=$((PASSED + 1)); } || { echo -e "${RED}❌ $distro: FAILED${NC}"; FAILED=$((FAILED + 1)); }
+    "; then
+        echo -e "${GREEN}✅ $distro: PASSED${NC}"
+        PASSED=$((PASSED + 1))
+    else
+        echo -e "${RED}❌ $distro: FAILED${NC}"
+        FAILED=$((FAILED + 1))
+    fi
 
     echo ""
 }
@@ -96,7 +108,13 @@ test_arch() {
         test -f .medusa.yml && echo '✅ Config created'
         medusa scan . > /dev/null 2>&1 || python3 -m medusa scan . > /dev/null 2>&1
         echo '✅ SUCCESS'
-    " && { echo -e "${GREEN}✅ $distro: PASSED${NC}"; PASSED=$((PASSED + 1)); } || { echo -e "${RED}❌ $distro: FAILED${NC}"; FAILED=$((FAILED + 1)); }
+    "; then
+        echo -e "${GREEN}✅ $distro: PASSED${NC}"
+        PASSED=$((PASSED + 1))
+    else
+        echo -e "${RED}❌ $distro: FAILED${NC}"
+        FAILED=$((FAILED + 1))
+    fi
 
     echo ""
 }
@@ -122,7 +140,13 @@ test_alpine() {
         test -f .medusa.yml && echo '✅ Config created'
         medusa scan . > /dev/null 2>&1 || python3 -m medusa scan . > /dev/null 2>&1
         echo '✅ SUCCESS'
-    " && { echo -e "${GREEN}✅ $distro: PASSED${NC}"; PASSED=$((PASSED + 1)); } || { echo -e "${RED}❌ $distro: FAILED${NC}"; FAILED=$((FAILED + 1)); }
+    "; then
+        echo -e "${GREEN}✅ $distro: PASSED${NC}"
+        PASSED=$((PASSED + 1))
+    else
+        echo -e "${RED}❌ $distro: FAILED${NC}"
+        FAILED=$((FAILED + 1))
+    fi
 
     echo ""
 }

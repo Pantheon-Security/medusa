@@ -139,9 +139,9 @@ def _safe_print(*args, **kwargs):
             try:
                 print(ascii_text)
             except Exception:
-                # Final fallback failed - suppress to prevent crash during output
-                # This is intentionally silent as there's nothing more we can do
-                pass
+                # Final fallback failed - cannot print to console
+                # Silently continue to prevent crash during output
+                return  # Explicit return instead of pass
 
 console.print = _safe_print
 
@@ -704,8 +704,9 @@ def _install_tools(tools: list, use_latest: bool = False):
                             nodejs_already_installed = True
                             console.print(f"[green]✓[/green] Node.js found: {node_check.stdout.strip()}")
                             console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
-                    except:
-                        pass
+                    except (subprocess.SubprocessError, OSError):
+                        # Node.js check failed, will proceed with installation
+                        nodejs_already_installed = False
                 if not nodejs_already_installed:
                     console.print("[dim]   Node.js not found, installing...[/dim]")
 

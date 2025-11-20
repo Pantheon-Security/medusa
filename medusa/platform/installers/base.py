@@ -173,7 +173,7 @@ class ToolMapper:
     """
 
     # Python tools that can be installed via pip as fallback
-    PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'cmakelang', 'gixy', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
+    PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'blinter', 'cmakelang', 'gixy', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
 
     # npm tools that can be installed via npm as fallback
     NPM_TOOLS = {'buf', 'eslint', 'graphql-schema-linter', 'htmlhint', 'jshint', 'markdownlint-cli', 'prettier', 'solhint', 'standard', 'stylelint', 'typescript'}  # Removed taplo - uses cargo
@@ -202,6 +202,9 @@ class ToolMapper:
         'black': {
             'pip': 'black',
         },
+        'blinter': {
+            'pip': 'Blinter',
+        },
         'buf': {
             'yum': 'buf',
             'npm': '@bufbuild/buf',
@@ -226,6 +229,7 @@ class ToolMapper:
         },
         'clj-kondo': {
             'brew': 'borkdude/brew/clj-kondo',
+            'choco': 'clj-kondo',
             'manual': 'bash <(curl -s https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo)',
         },
         'cmakelang': {
@@ -233,6 +237,7 @@ class ToolMapper:
         },
         'codenarc': {
             'brew': 'codenarc',
+            'choco': 'groovy',
             'manual': 'Download from: https://github.com/CodeNarc/CodeNarc',
         },
         'cppcheck': {
@@ -282,6 +287,7 @@ class ToolMapper:
             'apt': 'hlint',
             'pacman': 'hlint',
             'brew': 'hlint',
+            'choco': 'ghc',
             'manual': 'cabal install hlint',
         },
         'htmlhint': {
@@ -302,6 +308,7 @@ class ToolMapper:
         },
         'luacheck': {
             'brew': 'luacheck',
+            'choco': 'lua',
             'manual': 'luarocks install luacheck',
         },
         'markdownlint-cli': {
@@ -314,6 +321,7 @@ class ToolMapper:
             'dnf': 'elixir',
             'pacman': 'elixir',
             'brew': 'elixir',
+            'choco': 'elixir',
             'manual': 'https://elixir-lang.org/install.html',
         },
         'mypy': {
@@ -322,6 +330,7 @@ class ToolMapper:
         'perlcritic': {
             'apt': 'libperl-critic-perl',
             'brew': 'perl-critic',
+            'choco': 'strawberryperl',
             'manual': 'cpan Perl::Critic',
         },
         'phpstan': {
@@ -350,6 +359,7 @@ class ToolMapper:
         },
         'scalastyle': {
             'brew': 'scalastyle',
+            'choco': 'scala',
             'manual': 'Download from: https://www.scalastyle.org/',
         },
         'shellcheck': {
