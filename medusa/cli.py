@@ -1331,6 +1331,9 @@ def install(tool, check, all, yes, use_latest):
 
         console.print()
 
+        # Track if we just installed chocolatey in this session
+        chocolatey_just_installed = False
+
         # On Windows, check if chocolatey would be useful and offer to install it
         if platform_info.os_type.value == 'windows' and not ChocolateyInstaller.is_chocolatey_installed():
             # Check how many tools need chocolatey
@@ -1358,6 +1361,9 @@ def install(tool, check, all, yes, use_latest):
                         from medusa.platform.installers.windows import refresh_windows_path
                         refresh_windows_path()
                         console.print("[dim]PATH refreshed - chocolatey is now available[/dim]\n")
+
+                        # Mark that we just installed it
+                        chocolatey_just_installed = True
                     else:
                         console.print("[red]❌ Failed to install Chocolatey (admin rights required)[/red]")
                         console.print("[dim]You can install manually: https://chocolatey.org/install[/dim]\n")
@@ -1385,7 +1391,8 @@ def install(tool, check, all, yes, use_latest):
             # On Windows, also check chocolatey as secondary package manager
             if platform_info.os_type.value == 'windows':
                 choco_package = ToolMapper.get_package_name(tool_name, 'choco')
-                if choco_package and ChocolateyInstaller.is_chocolatey_installed():
+                # Use chocolatey if it's installed OR if we just installed it in this session
+                if choco_package and (chocolatey_just_installed or ChocolateyInstaller.is_chocolatey_installed()):
                     choco_installer = ChocolateyInstaller()
 
             npm_package = ToolMapper.get_package_name(tool_name, 'npm')
