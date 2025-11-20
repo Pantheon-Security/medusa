@@ -357,6 +357,11 @@ class WindowsCustomInstaller:
         'checkmake': 'install-checkmake.cmd',
     }
 
+    # Tools available via chocolatey (try this first to avoid antivirus false positives)
+    CHOCOLATEY_PACKAGES = {
+        'clj-kondo': 'clj-kondo',
+    }
+
     @staticmethod
     def can_install(tool: str) -> bool:
         """Check if tool has a custom Windows installer"""
@@ -367,6 +372,35 @@ class WindowsCustomInstaller:
         """Run the custom .bat installer for the tool"""
         if not WindowsCustomInstaller.can_install(tool):
             return False
+
+        # Try chocolatey first (avoids antivirus false positives)
+        if tool in WindowsCustomInstaller.CHOCOLATEY_PACKAGES:
+            if debug:
+                print(f"[DEBUG] Attempting chocolatey install for {tool}...")
+
+            choco_path = shutil.which('choco')
+            if choco_path:
+                try:
+                    package_name = WindowsCustomInstaller.CHOCOLATEY_PACKAGES[tool]
+                    result = subprocess.run(
+                        [choco_path, 'install', package_name, '-y'],
+                        capture_output=True,
+                        text=True,
+                        timeout=300
+                    )
+                    if result.returncode == 0:
+                        if debug:
+                            print(f"[DEBUG] Successfully installed {tool} via chocolatey")
+                        return True
+                    else:
+                        if debug:
+                            print(f"[DEBUG] Chocolatey install failed, falling back to custom installer")
+                except Exception as e:
+                    if debug:
+                        print(f"[DEBUG] Chocolatey install error: {e}, falling back to custom installer")
+            else:
+                if debug:
+                    print(f"[DEBUG] Chocolatey not found, using custom installer")
 
         script_name = WindowsCustomInstaller.SUPPORTED_TOOLS[tool]
 
