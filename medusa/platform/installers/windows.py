@@ -163,9 +163,10 @@ class ChocolateyInstaller(BaseInstaller):
         """
         Install Chocolatey package manager
         Runs the official Chocolatey installation script
+        Note: Must be run from an admin PowerShell
         """
         try:
-            # Official Chocolatey install command - must run as admin
+            # Official Chocolatey install command
             install_script = (
                 "Set-ExecutionPolicy Bypass -Scope Process -Force; "
                 "[System.Net.ServicePointManager]::SecurityProtocol = "
@@ -174,26 +175,27 @@ class ChocolateyInstaller(BaseInstaller):
                 "'https://community.chocolatey.org/install.ps1'))"
             )
 
-            # Run PowerShell as admin with Start-Process
-            # This ensures the nested PowerShell has admin rights
-            admin_script = f"Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"{install_script.replace(chr(34), chr(96)+chr(34))}\""
-
+            # Run directly in current PowerShell (user must be admin already)
             cmd = [
                 'powershell',
                 '-NoProfile',
                 '-ExecutionPolicy', 'Bypass',
                 '-Command',
-                admin_script
+                install_script
             ]
 
+            # Run and wait for completion
             result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=300)
 
             # Verify chocolatey was actually installed by checking for the executable
             # Wait a moment for installation to finalize
             import time
-            time.sleep(2)
+            time.sleep(3)
 
-            # Check if choco is now in PATH or in default install location
+            # Refresh PATH to pick up chocolatey
+            refresh_windows_path()
+
+            # Check if choco is now accessible
             choco_exe = shutil.which('choco')
             if not choco_exe:
                 # Check default install location
