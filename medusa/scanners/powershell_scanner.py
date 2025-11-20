@@ -50,11 +50,7 @@ class PowerShellScanner(BaseScanner):
             Invoke-ScriptAnalyzer -Path '{file_path}' | ConvertTo-Json
             """
 
-            result = subprocess.run(
-                [ps_cmd, "-NoProfile", "-Command", ps_script],
-                capture_output=True,
-                text=True,
-                timeout=30
+            result = self._run_command([ps_cmd, "-NoProfile", "-Command", ps_script], timeout=30
             )
 
             # Check for module not installed error

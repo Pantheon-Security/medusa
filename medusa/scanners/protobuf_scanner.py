@@ -39,13 +39,9 @@ class ProtobufScanner(BaseScanner):
 
         try:
             # Run buf lint
-            result = subprocess.run(
-                [str(self.tool_path), "lint",
+            result = self._run_command([str(self.tool_path), "lint",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

@@ -6,7 +6,6 @@ Code quality scanner for Haskell using HLint
 
 import json, time
 import shutil
-import subprocess
 from pathlib import Path
 from typing import List
 
@@ -36,11 +35,7 @@ class HaskellScanner(BaseScanner):
             )
 
         try:
-            result = subprocess.run(
-                [str(self.tool_path), str(file_path), "--json"],
-                capture_output=True,
-                text=True,
-                timeout=30
+            result = self._run_command([str(self.tool_path), str(file_path), "--json"], timeout=30
             )
 
             issues = []

@@ -42,22 +42,18 @@ class JavaScanner(BaseScanner):
 
         try:
             # Run Checkstyle with XML output
-            result = subprocess.run(
-                [str(self.tool_path),
-                    "-f", "xml",
-                    str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
+            result = self._run_command([
+                str(self.tool_path),
+                "-f", "xml",
+                str(file_path)
+            ], timeout=30)
 
             issues = []
 
             # Parse XML output
             try:
                 # Using defusedxml if available, fallback to standard ET (parsing trusted checkstyle output)
-                root = ET.fromstring(result.stdout)  # nosec B314
+                root = ET.fromstring(result.stdout)
 
                 # Checkstyle XML: <checkstyle><file><error line="X" column="Y" severity="Z" message="..." source="..."/></file></checkstyle>
                 for file_elem in root.findall(".//file"):

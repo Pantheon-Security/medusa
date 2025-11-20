@@ -26,7 +26,7 @@ class VimScanner(BaseScanner):
                 error_message="Vint not installed. Install with: pip install vim-vint")
 
         try:
-            result = subprocess.run([str(self.tool_path), str(file_path)], capture_output=True, text=True, timeout=30)
+            result = self._run_command([str(self.tool_path), str(file_path)], timeout=30)
             issues = []
             for line in result.stdout.splitlines():
                 if ":" in line:

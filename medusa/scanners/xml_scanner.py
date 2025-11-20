@@ -38,14 +38,10 @@ class XMLScanner(BaseScanner):
 
         try:
             # Run xmllint with validation
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "--noout",  # Don't output the XML
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

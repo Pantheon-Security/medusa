@@ -353,24 +353,25 @@ class ChocolateyInstaller(BaseInstaller):
 
 class WindowsCustomInstaller:
     """
-    Custom Windows installer that runs bundled .bat scripts for tools
+    Custom Windows installer that runs bundled PowerShell scripts for tools
     that aren't available via winget or chocolatey
     """
 
-    # Tools that have custom .bat installers
+    # Tools that have custom PowerShell installers
     SUPPORTED_TOOLS = {
-        'phpstan': 'install-phpstan.cmd',
-        'ktlint': 'install-ktlint.cmd',
-        'checkstyle': 'install-checkstyle.cmd',
-        'clj-kondo': 'install-clj-kondo.cmd',
-        'scalastyle': 'install-scalastyle.cmd',
-        'codenarc': 'install-codenarc.cmd',
-        'checkmake': 'install-checkmake.cmd',
+        'clj-kondo': 'install-clj-kondo.ps1',
+        # Legacy tools (no longer have installers - provide manual instructions)
+        'phpstan': None,
+        'ktlint': None,
+        'checkstyle': None,
+        'scalastyle': None,
+        'codenarc': None,
+        'checkmake': None,
     }
 
     # Tools available via chocolatey (try this first to avoid antivirus false positives)
     CHOCOLATEY_PACKAGES = {
-        'clj-kondo': 'clj-kondo',
+        # Note: clj-kondo is NOT in chocolatey - removed
     }
 
     @staticmethod
@@ -380,61 +381,103 @@ class WindowsCustomInstaller:
 
     @staticmethod
     def install(tool: str, debug: bool = False) -> bool:
-        """Run the custom .bat installer for the tool"""
+        """Run the custom PowerShell installer for the tool"""
         if not WindowsCustomInstaller.can_install(tool):
             return False
 
-        # Try chocolatey first (avoids antivirus false positives)
-        if tool in WindowsCustomInstaller.CHOCOLATEY_PACKAGES:
-            if debug:
-                print(f"[DEBUG] Attempting chocolatey install for {tool}...")
+        script_name = WindowsCustomInstaller.SUPPORTED_TOOLS.get(tool)
 
-            choco_path = shutil.which('choco')
-            if choco_path:
-                try:
-                    # package_name comes from hardcoded CHOCOLATEY_PACKAGES dict, not user input
-                    package_name = WindowsCustomInstaller.CHOCOLATEY_PACKAGES[tool]
-                    # Validate package name contains only safe characters
-                    if not package_name or not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
-                        if debug:
-                            print(f"[DEBUG] Invalid package name: {package_name}")
-                        raise ValueError(f"Invalid package name: {package_name}")
-                    result = subprocess.run(
-                        [choco_path, 'install', package_name, '-y'],
-                        capture_output=True,
-                        text=True,
-                        timeout=300,
-                        check=False  # Don't raise on non-zero exit
-                    )
-                    if result.returncode == 0:
-                        if debug:
-                            print(f"[DEBUG] Successfully installed {tool} via chocolatey")
-                        return True
-                    else:
-                        if debug:
-                            print(f"[DEBUG] Chocolatey install failed")
-                except Exception as e:
-                    if debug:
-                        print(f"[DEBUG] Chocolatey install error: {e}")
+        # If no script available, show manual instructions
+        if not script_name:
+            print(f"\n⚠️  Unable to automatically install {tool}")
+            print(f"\nPlease install manually:")
+
+            if tool == 'phpstan':
+                print(f"  Option 1 (Composer): composer global require phpstan/phpstan")
+                print(f"  Option 2 (Manual): Download from https://github.com/phpstan/phpstan/releases")
+            elif tool == 'ktlint':
+                print(f"  Option 1 (Scoop): scoop install ktlint")
+                print(f"  Option 2 (Manual): Download from https://github.com/pinterest/ktlint/releases")
+            elif tool in ['checkstyle', 'codenarc', 'scalastyle', 'checkmake']:
+                print(f"  Install via package manager or download from official website")
+
+            print(f"\nAfter installation, add to PATH and run: medusa install --check")
+            return False
+
+        # Try to run PowerShell installer
+        try:
+            if debug:
+                print(f"[DEBUG] Running PowerShell installer: {script_name}")
+
+            # Get script path from package
+            import importlib.resources
+            try:
+                # Python 3.9+
+                script_content = importlib.resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text()
+            except AttributeError:
+                # Python 3.8 fallback
+                import importlib_resources
+                script_content = importlib_resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text()
+
+            # Write script to temp file
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.ps1', delete=False, encoding='utf-8') as f:
+                f.write(script_content)
+                temp_script = f.name
+
+            if debug:
+                print(f"[DEBUG] Script written to: {temp_script}")
+
+            # Run PowerShell script
+            ps_args = [
+                'powershell',
+                '-NoProfile',
+                '-ExecutionPolicy', 'Bypass',
+                '-File', temp_script
+            ]
+
+            if debug:
+                ps_args.append('-Debug')
+
+            if debug:
+                print(f"[DEBUG] Running: {' '.join(ps_args)}")
+
+            result = subprocess.run(
+                ps_args,
+                capture_output=False if debug else True,
+                text=True,
+                timeout=300,
+                check=False
+            )
+
+            # Clean up temp file
+            try:
+                os.remove(temp_script)
+            except (OSError, PermissionError):
+                # Ignore cleanup errors - temp file will be cleaned by OS
+                if debug:
+                    print(f"[DEBUG] Could not remove temp file: {temp_script}")
+
+            if result.returncode == 0:
+                if debug:
+                    print(f"[DEBUG] Successfully installed {tool} via PowerShell script")
+                return True
             else:
                 if debug:
-                    print(f"[DEBUG] Chocolatey not found")
+                    print(f"[DEBUG] PowerShell script failed with exit code: {result.returncode}")
+                return False
 
-        # .cmd installers are no longer bundled (antivirus false positives)
-        # If chocolatey install failed/unavailable, provide manual instructions
-        print(f"\n⚠️  Unable to automatically install {tool}")
-        print(f"\nPlease install manually:")
+        except Exception as e:
+            if debug:
+                print(f"[DEBUG] PowerShell installer error: {e}")
+                import traceback
+                traceback.print_exc()
 
-        if tool == 'clj-kondo':
-            print(f"  Option 1 (Chocolatey): choco install clj-kondo")
-            print(f"  Option 2 (Scoop): scoop install clj-kondo")
-            print(f"  Option 3 (Manual): Download from https://github.com/clj-kondo/clj-kondo/releases")
-        elif tool == 'phpstan':
-            print(f"  Option 1 (Chocolatey): choco install phpstan")
-            print(f"  Option 2 (Composer): composer global require phpstan/phpstan")
-            print(f"  Option 3 (Manual): Download from https://github.com/phpstan/phpstan/releases")
-        elif tool in ['ktlint', 'checkstyle', 'codenarc', 'scalastyle', 'checkmake']:
-            print(f"  Install via package manager or download from official website")
-
-        print(f"\nAfter installation, add to PATH and run: medusa install --check")
-        return False
+            # Fall back to manual instructions
+            print(f"\n⚠️  Automatic installation failed")
+            print(f"\nPlease install manually:")
+            if tool == 'clj-kondo':
+                print(f"  Option 1 (Scoop): scoop install clj-kondo")
+                print(f"  Option 2 (Manual): Download from https://github.com/clj-kondo/clj-kondo/releases")
+            print(f"\nAfter installation, add to PATH and run: medusa install --check")
+            return False

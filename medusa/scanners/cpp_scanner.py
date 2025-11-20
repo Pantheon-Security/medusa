@@ -39,16 +39,12 @@ class CppScanner(BaseScanner):
 
         try:
             # Run cppcheck with JSON output
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "--enable=all",
                     "--template=gcc",
                     "--quiet",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=60
+                ], timeout=60
             )
 
             issues = []

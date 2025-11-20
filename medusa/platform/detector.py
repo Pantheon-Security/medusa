@@ -109,7 +109,7 @@ class PlatformDetector:
             windows_environment=windows_env,
             is_wsl=is_wsl,
             python_version=platform.python_version(),
-            shell=self._detect_shell(),  # nosec B604 - Not subprocess shell=True, just parameter name
+            shell=self._detect_shell(),
         )
 
         return self.info

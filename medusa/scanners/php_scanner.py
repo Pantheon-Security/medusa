@@ -39,16 +39,12 @@ class PHPScanner(BaseScanner):
 
         try:
             # Run PHPStan with JSON output
-            result = subprocess.run(
-                [str(self.tool_path), "analyse",
+            result = self._run_command([str(self.tool_path), "analyse",
                     "--error-format=json",
                     "--no-progress",
                     "--level=max",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             # PHPStan returns non-zero when issues are found

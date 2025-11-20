@@ -27,7 +27,7 @@ class CMakeScanner(BaseScanner):
 
         try:
             cmd = shutil.which("cmake-lint") or shutil.which("cmakelint") or "cmakelint"
-            result = subprocess.run([cmd, str(file_path)], capture_output=True, text=True, timeout=30)
+            result = self._run_command([cmd, str(file_path)], timeout=30)
             issues = []
             for line in result.stdout.splitlines():
                 if ":" in line:

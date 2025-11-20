@@ -39,14 +39,10 @@ class SwiftScanner(BaseScanner):
 
         try:
             # Run SwiftLint with JSON output
-            result = subprocess.run(
-                [str(self.tool_path), "lint",
+            result = self._run_command([str(self.tool_path), "lint",
                     "--reporter", "json",
                     "--path", str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             # SwiftLint returns non-zero when issues are found

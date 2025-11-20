@@ -40,15 +40,11 @@ class ScalaScanner(BaseScanner):
 
         try:
             # Run Scalastyle with XML output
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "-q",  # Quiet mode
                     "--xmlOutput", "-",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []
@@ -56,7 +52,7 @@ class ScalaScanner(BaseScanner):
             # Parse XML output
             try:
                 # Using defusedxml if available, fallback to standard ET (parsing trusted scalastyle output)
-                root = ET.fromstring(result.stdout)  # nosec B314
+                root = ET.fromstring(result.stdout)
 
                 # Scalastyle XML: <checkstyle><file><error line="X" column="Y" severity="Z" message="..." source="..."/></file></checkstyle>
                 for file_elem in root.findall(".//file"):

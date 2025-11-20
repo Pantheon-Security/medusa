@@ -61,11 +61,7 @@ class RScanner(BaseScanner):
             }}
             """
 
-            result = subprocess.run(
-                [str(self.tool_path), "-e", r_script],
-                capture_output=True,
-                text=True,
-                timeout=30
+            result = self._run_command([str(self.tool_path), "-e", r_script], timeout=30
             )
 
             # Check for lintr not installed

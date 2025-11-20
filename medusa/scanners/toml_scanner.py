@@ -39,13 +39,9 @@ class TOMLScanner(BaseScanner):
 
         try:
             # Run taplo check
-            result = subprocess.run(
-                [str(self.tool_path), "check",
+            result = self._run_command([str(self.tool_path), "check",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

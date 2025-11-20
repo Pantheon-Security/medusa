@@ -26,7 +26,7 @@ class NginxScanner(BaseScanner):
                 error_message="gixy not installed. Install with: pip install gixy")
 
         try:
-            result = subprocess.run([str(self.tool_path), str(file_path)], capture_output=True, text=True, timeout=30)
+            result = self._run_command([str(self.tool_path), str(file_path)], timeout=30)
             issues = []
             for line in result.stdout.splitlines():
                 if "[" in line and "]" in line:

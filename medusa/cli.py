@@ -28,6 +28,32 @@ if sys.platform == 'win32':
 console = Console()
 
 
+def _safe_run_version_check(command: list, timeout: int = 5) -> tuple[bool, str]:
+    """
+    Safely run a version check command.
+
+    Args:
+        command: List of command and arguments
+        timeout: Timeout in seconds
+
+    Returns:
+        Tuple of (success: bool, output: str)
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False
+        )
+        return (result.returncode == 0, result.stdout)
+    except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
+        return (False, "")
+
+
+
 def _has_npm_available() -> bool:
     """
     Check if npm is available (handles Windows PATH refresh issues)
@@ -40,7 +66,6 @@ def _has_npm_available() -> bool:
         return True
 
     # Windows: Try running npm.cmd directly (avoids PowerShell execution policy issues)
-    import subprocess
     import platform
     if platform.system() == 'Windows':
         # First, check for npm.cmd (bypasses execution policy)
@@ -50,13 +75,9 @@ def _has_npm_available() -> bool:
         # Try running npm.cmd directly
         npm_cmd_path = shutil.which('npm.cmd')
         if npm_cmd_path:
-            try:
-                result = subprocess.run([npm_cmd_path, '--version'], capture_output=True, timeout=5)
-                if result.returncode == 0:
-                    return True
-            except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
-                # npm.cmd not found or execution failed - continue to check other locations
-                pass
+            success, _ = _safe_run_version_check([npm_cmd_path, '--version'])
+            if success:
+                return True
 
         # Check common Windows install locations for npm.cmd
         common_paths = [
@@ -76,9 +97,7 @@ def _has_pip_available() -> bool:
 
     On Windows, pip is always available via 'py -m pip' even if not in PATH.
     """
-    import subprocess
     import platform
-    import shutil
 
     # Quick check: is pip in PATH?
     if shutil.which('pip') or shutil.which('pip3'):
@@ -88,21 +107,15 @@ def _has_pip_available() -> bool:
     if platform.system() == 'Windows':
         py_path = shutil.which('py')
         if py_path:
-            try:
-                result = subprocess.run([py_path, '-m', 'pip', '--version'], capture_output=True, timeout=5)
-                return result.returncode == 0
-            except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
-                # py launcher not available - continue to Unix fallback
-                pass
+            success, _ = _safe_run_version_check([py_path, '-m', 'pip', '--version'])
+            if success:
+                return True
 
     # Unix: Try python3 -m pip
-    try:
-        python3_path = shutil.which('python3')
-        if python3_path:
-            result = subprocess.run([python3_path, '-m', 'pip', '--version'], capture_output=True, timeout=5)
-            return result.returncode == 0
-    except (subprocess.SubprocessError, FileNotFoundError, OSError, subprocess.TimeoutExpired):
-        pass
+    python3_path = shutil.which('python3')
+    if python3_path:
+        success, _ = _safe_run_version_check([python3_path, '-m', 'pip', '--version'])
+        return success
     # python3 not available or pip not installed
     return False
 
@@ -697,16 +710,11 @@ def _install_tools(tools: list, use_latest: bool = False):
                 nodejs_already_installed = False
                 node_path = shutil.which('node')
                 if node_path:
-                    try:
-                        import subprocess
-                        node_check = subprocess.run([node_path, '--version'], capture_output=True, text=True, timeout=5)
-                        if node_check.returncode == 0:
-                            nodejs_already_installed = True
-                            console.print(f"[green]✓[/green] Node.js found: {node_check.stdout.strip()}")
-                            console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
-                    except (subprocess.SubprocessError, OSError):
-                        # Node.js check failed, will proceed with installation
-                        nodejs_already_installed = False
+                    success, output = _safe_run_version_check([node_path, '--version'])
+                    if success:
+                        nodejs_already_installed = True
+                        console.print(f"[green]✓[/green] Node.js found: {output.strip()}")
+                        console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
                 if not nodejs_already_installed:
                     console.print("[dim]   Node.js not found, installing...[/dim]")
 
@@ -720,23 +728,20 @@ def _install_tools(tools: list, use_latest: bool = False):
                 winget_path = shutil.which('winget')
                 if winget_path:
                     try:
-                        import subprocess
-                        result = subprocess.run(
+                        success, output = _safe_run_version_check(
                             [winget_path, 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
-                            capture_output=True,
-                            text=True,
                             timeout=120
                         )
-                        output = result.stdout.lower() if result.stdout else ''
+                        output_lower = output.lower() if output else ''
                         nodejs_success = (
-                            result.returncode == 0 or
-                            'already installed' in output or
-                            'no available upgrade found' in output
+                            success or
+                            'already installed' in output_lower or
+                            'no available upgrade found' in output_lower
                         )
 
                         # Show winget output for debugging
-                        if result.returncode != 0:
-                            console.print(f"[dim]Winget output: {result.stdout[:300]}[/dim]")
+                        if not success:
+                            console.print(f"[dim]Winget output: {output[:300]}[/dim]")
                     except Exception as e:
                         nodejs_success = False
                         console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
@@ -762,17 +767,11 @@ def _install_tools(tools: list, use_latest: bool = False):
                         console.print(f"[green]✓[/green] npm found at: {npm_path}")
                         # Verify npm works (no shell=True needed with explicit path)
                         try:
-                            npm_version_check = subprocess.run(
-                                [npm_path, '--version'],
-                                capture_output=True,
-                                text=True,
-                                timeout=5,
-                                shell=False
-                            )
-                            if npm_version_check.returncode == 0:
-                                console.print(f"[green]✓[/green] npm version: {npm_version_check.stdout.strip()}")
+                            success, output = _safe_run_version_check([npm_path, '--version'])
+                            if success:
+                                console.print(f"[green]✓[/green] npm version: {output.strip()}")
                             else:
-                                console.print(f"[yellow]⚠[/yellow] npm found but returned error: {npm_version_check.stderr[:100]}")
+                                console.print(f"[yellow]⚠[/yellow] npm found but returned error")
                         except Exception as e:
                             console.print(f"[yellow]⚠[/yellow] npm found but test failed: {str(e)[:50]}")
                     else:
