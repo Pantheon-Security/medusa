@@ -363,11 +363,11 @@ class WindowsCustomInstaller:
         'ktlint': 'install-ktlint.ps1',
         'checkstyle': 'install-checkstyle.ps1',
         'phpstan': 'install-phpstan.ps1',
-        'checkmake': 'install-checkmake.ps1',
         'taplo': 'install-taplo.ps1',
         # Legacy tools (no longer have installers - provide manual instructions)
         'scalastyle': None,
         'codenarc': None,
+        'checkmake': None,  # No Windows binaries available
     }
 
     # Tools available via chocolatey (try this first to avoid antivirus false positives)
@@ -393,8 +393,10 @@ class WindowsCustomInstaller:
             print(f"\n⚠️  Unable to automatically install {tool}")
             print(f"\nPlease install manually:")
 
-            if tool in ['codenarc', 'scalastyle']:
+            if tool in ['codenarc', 'scalastyle', 'checkmake']:
                 print(f"  Install via package manager or download from official website")
+                if tool == 'checkmake':
+                    print(f"  Note: checkmake requires Go toolchain (go install github.com/mrtazz/checkmake/cmd/checkmake@latest)")
 
             print(f"\nAfter installation, add to PATH and run: medusa install --check")
             return False
