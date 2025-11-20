@@ -39,15 +39,11 @@ class SQLScanner(BaseScanner):
 
         try:
             # Run SQLFluff lint with JSON output
-            result = subprocess.run(
-                [str(self.tool_path), "lint",
+            result = self._run_command([str(self.tool_path), "lint",
                     "--format", "json",
                     "--dialect", "ansi",  # Default to ANSI SQL
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             # SQLFluff returns non-zero when issues are found

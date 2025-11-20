@@ -39,13 +39,9 @@ class GraphQLScanner(BaseScanner):
 
         try:
             # Run graphql-schema-linter
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

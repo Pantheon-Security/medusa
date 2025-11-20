@@ -6,7 +6,6 @@ Code quality scanner for Elixir using Credo
 
 import json, time
 import shutil
-import subprocess
 from pathlib import Path
 from typing import List
 
@@ -39,11 +38,7 @@ class ElixirScanner(BaseScanner):
 
         try:
             # Run credo via mix
-            result = subprocess.run(
-                [str(self.tool_path), "credo", str(file_path), "--format", "json"],
-                capture_output=True,
-                text=True,
-                timeout=30,
+            result = self._run_command([str(self.tool_path), "credo", str(file_path), "--format", "json"], timeout=30,
                 cwd=file_path.parent
             )
 

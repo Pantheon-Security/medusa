@@ -39,15 +39,11 @@ class TypeScriptScanner(BaseScanner):
 
         try:
             # Run tsc with --noEmit (type checking only) and pretty output
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "--noEmit",
                     "--pretty", "false",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

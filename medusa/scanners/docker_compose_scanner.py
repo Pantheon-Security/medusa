@@ -114,10 +114,7 @@ class DockerComposeScanner(BaseScanner):
             # Validate compose file syntax
             cmd = self._get_validate_command(file_path)
             result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=30,
+                cmd, timeout=30,
                 cwd=file_path.parent  # Run in same directory as file
             )
 

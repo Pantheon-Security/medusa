@@ -39,14 +39,10 @@ class HTMLScanner(BaseScanner):
 
         try:
             # Run HTMLHint with JSON output
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     str(file_path),
                     "--format", "json"
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             # HTMLHint returns non-zero when issues are found

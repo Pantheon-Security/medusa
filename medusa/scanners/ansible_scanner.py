@@ -48,15 +48,11 @@ class AnsibleScanner(BaseScanner):
 
         try:
             # Run ansible-lint with JSON output
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "--format", "json",
                     "--nocolor",
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []

@@ -7,7 +7,7 @@ set -e
 echo "🐍 Testing MEDUSA installation across multiple Linux distributions"
 echo "=================================================================="
 
-WHEEL_FILE=$(ls dist/*.whl | head -n 1)
+WHEEL_FILE=$(find dist -name "*.whl" -type f | head -n 1)
 if [ -z "$WHEEL_FILE" ]; then
     echo "❌ Error: No wheel file found in dist/"
     exit 1

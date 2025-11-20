@@ -29,7 +29,8 @@ test_debian() {
     echo "📦 Testing: $distro (Debian-based)"
     echo "----------------------------------------"
 
-    docker run --rm \
+    # shellcheck disable=SC2181,SC1073,SC1072,SC1009
+    if docker run --rm \
         -v "$MEDUSA_DIR/dist:/dist:ro" \
         -w /tmp \
         "$distro" bash -c "
@@ -63,7 +64,7 @@ test_redhat() {
     echo "📦 Testing: $distro (RedHat-based)"
     echo "----------------------------------------"
 
-    docker run --rm \
+    if docker run --rm \
         -v "$MEDUSA_DIR/dist:/dist:ro" \
         -w /tmp \
         "$distro" bash -c "
@@ -95,7 +96,7 @@ test_arch() {
     echo "📦 Testing: $distro (Arch-based)"
     echo "----------------------------------------"
 
-    docker run --rm \
+    if docker run --rm \
         -v "$MEDUSA_DIR/dist:/dist:ro" \
         -w /tmp \
         "$distro" bash -c "
@@ -126,7 +127,7 @@ test_alpine() {
     echo "📦 Testing: $distro (Alpine-based)"
     echo "----------------------------------------"
 
-    docker run --rm \
+    if docker run --rm \
         -v "$MEDUSA_DIR/dist:/dist:ro" \
         -w /tmp \
         "$distro" sh -c "

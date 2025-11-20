@@ -229,7 +229,6 @@ class ToolMapper:
         },
         'clj-kondo': {
             'brew': 'borkdude/brew/clj-kondo',
-            'choco': 'clj-kondo',
             'manual': 'bash <(curl -s https://raw.githubusercontent.com/clj-kondo/clj-kondo/master/script/install-clj-kondo)',
         },
         'cmakelang': {

@@ -38,15 +38,11 @@ class LuaScanner(BaseScanner):
 
         try:
             # Run luacheck with formatter
-            result = subprocess.run(
-                [str(self.tool_path),
+            result = self._run_command([str(self.tool_path),
                     "--formatter", "plain",
                     "--codes",  # Include error codes
                     str(file_path)
-                ],
-                capture_output=True,
-                text=True,
-                timeout=30
+                ], timeout=30
             )
 
             issues = []
