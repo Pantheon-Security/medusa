@@ -34,6 +34,10 @@ REM Add to PATH (user level, no UAC)
 echo Adding clj-kondo to PATH...
 powershell -Command "& {$oldPath = [Environment]::GetEnvironmentVariable('Path', 'User'); if ($oldPath -notlike '*%INSTALL_DIR%*') { [Environment]::SetEnvironmentVariable('Path', $oldPath + ';%INSTALL_DIR%', 'User') }}"
 
+if %ERRORLEVEL% NEQ 0 (
+    echo WARNING: Failed to update PATH. You may need to add %INSTALL_DIR% manually.
+)
+
 echo.
 echo clj-kondo installed successfully!
 echo.
