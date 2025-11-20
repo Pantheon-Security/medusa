@@ -85,9 +85,10 @@ class BaseInstaller(ABC):
         Returns:
             CompletedProcess result
         """
-        # Use shell=True on Windows for .cmd/.bat files
-        use_shell = platform.system() == 'Windows'
-        return subprocess.run(cmd, capture_output=True, text=True, check=check, shell=use_shell)
+        # On Windows, we don't need shell=True when using explicit paths or when
+        # the package manager executables are in PATH (winget.exe, choco.exe work fine)
+        # shell=False is safer and works for all our use cases
+        return subprocess.run(cmd, capture_output=True, text=True, check=check, shell=False)
 
 
 class EcosystemDetector:
@@ -221,7 +222,7 @@ class ToolMapper:
             'yum': 'checkstyle',
             'dnf': 'checkstyle',
             'brew': 'checkstyle',
-            'choco': 'checkstyle',
+            # Removed 'choco': chocolatey package has broken download link (404)
         },
         'clj-kondo': {
             'brew': 'borkdude/brew/clj-kondo',
@@ -291,7 +292,7 @@ class ToolMapper:
         },
         'ktlint': {
             'brew': 'ktlint',
-            'choco': 'JetBrains.KtLint',
+            # Removed 'choco': package doesn't exist in chocolatey repository
             'manual': 'curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && sudo mv ktlint /usr/local/bin/',
         },
         'kube-linter': {
@@ -325,7 +326,7 @@ class ToolMapper:
         },
         'phpstan': {
             'brew': 'phpstan',
-            'choco': 'phpstan',
+            # Removed 'choco': package doesn't exist in chocolatey repository
             'manual': 'composer global require phpstan/phpstan',
         },
         'prettier': {
@@ -374,7 +375,7 @@ class ToolMapper:
         },
         'swiftlint': {
             'brew': 'swiftlint',
-            'choco': 'swiftlint',
+            # Removed 'choco': package doesn't exist in chocolatey repository
             'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
         },
         'taplo': {

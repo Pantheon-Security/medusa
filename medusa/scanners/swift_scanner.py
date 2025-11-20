@@ -40,8 +40,7 @@ class SwiftScanner(BaseScanner):
         try:
             # Run SwiftLint with JSON output
             result = subprocess.run(
-                [
-                    "swiftlint", "lint",
+                [str(self.tool_path), "lint",
                     "--reporter", "json",
                     "--path", str(file_path)
                 ],

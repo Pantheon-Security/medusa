@@ -135,7 +135,8 @@ class PlatformDetector:
                 with open('/proc/version', 'r') as f:
                     version = f.read().lower()
                     return 'microsoft' in version or 'wsl' in version
-            except:
+            except (IOError, OSError, PermissionError):
+                # Failed to read /proc/version - not in WSL or no permissions
                 pass
         return False
 
@@ -237,7 +238,8 @@ class PlatformDetector:
                     for line in f:
                         if line.startswith('ID='):
                             return line.split('=')[1].strip().strip('"').lower()
-            except:
+            except (IOError, OSError, PermissionError, FileNotFoundError):
+                # Failed to read /etc/os-release - fallback to platform detection
                 pass
 
         # Fallback to platform

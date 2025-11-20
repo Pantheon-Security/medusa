@@ -39,8 +39,7 @@ class LuaScanner(BaseScanner):
         try:
             # Run luacheck with formatter
             result = subprocess.run(
-                [
-                    "luacheck",
+                [str(self.tool_path),
                     "--formatter", "plain",
                     "--codes",  # Include error codes
                     str(file_path)

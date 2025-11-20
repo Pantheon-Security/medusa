@@ -49,8 +49,7 @@ class KubernetesScanner(BaseScanner):
         try:
             # Run kube-linter with JSON output
             result = subprocess.run(
-                [
-                    "kube-linter", "lint",
+                [str(self.tool_path), "lint",
                     "--format", "json",
                     str(file_path)
                 ],

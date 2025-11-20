@@ -26,7 +26,7 @@ class GroovyScanner(BaseScanner):
                 error_message="CodeNarc not installed. Install from: https://codenarc.github.io/CodeNarc/")
 
         try:
-            result = subprocess.run(["codenarc", "-basedir=" + str(file_path.parent), "-includes=" + file_path.name],
+            result = subprocess.run([str(self.tool_path), "-basedir=" + str(file_path.parent), "-includes=" + file_path.name],
                 capture_output=True, text=True, timeout=30)
             issues = []
             # CodeNarc parsing would go here - simplified for brevity

@@ -40,8 +40,7 @@ class TypeScriptScanner(BaseScanner):
         try:
             # Run tsc with --noEmit (type checking only) and pretty output
             result = subprocess.run(
-                [
-                    "tsc",
+                [str(self.tool_path),
                     "--noEmit",
                     "--pretty", "false",
                     str(file_path)

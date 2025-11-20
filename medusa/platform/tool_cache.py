@@ -53,8 +53,10 @@ class ToolCache:
         try:
             with open(self.cache_file, 'w', encoding='utf-8') as f:
                 json.dump(self._cache, f, indent=2)
-        except Exception:
-            pass  # Fail silently if we can't save cache
+        except (IOError, OSError, PermissionError) as e:
+            # Fail silently if we can't save cache - not critical for functionality
+            # Cache is a performance optimization, not required for operation
+            pass
 
     def mark_installed(self, tool: str):
         """

@@ -40,8 +40,7 @@ class PHPScanner(BaseScanner):
         try:
             # Run PHPStan with JSON output
             result = subprocess.run(
-                [
-                    "phpstan", "analyse",
+                [str(self.tool_path), "analyse",
                     "--error-format=json",
                     "--no-progress",
                     "--level=max",

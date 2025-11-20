@@ -30,7 +30,7 @@ class MakeScanner(BaseScanner):
                 error_message="checkmake not installed. Install from: https://github.com/mrtazz/checkmake")
 
         try:
-            result = subprocess.run(["checkmake", str(file_path)], capture_output=True, text=True, timeout=30)
+            result = subprocess.run([str(self.tool_path), str(file_path)], capture_output=True, text=True, timeout=30)
             issues = []
             for line in result.stdout.splitlines():
                 if ":" in line:

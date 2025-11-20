@@ -163,6 +163,8 @@ class MedusaParallelScanner:
     FILE_SCANNERS = {
         '.sh': 'bash',
         '.bash': 'bash',
+        '.bat': 'bat',
+        '.cmd': 'bat',
         '.py': 'python',
         '.go': 'go',
         '.js': 'javascript',

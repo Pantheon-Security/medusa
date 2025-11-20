@@ -40,8 +40,7 @@ class GraphQLScanner(BaseScanner):
         try:
             # Run graphql-schema-linter
             result = subprocess.run(
-                [
-                    "graphql-schema-linter",
+                [str(self.tool_path),
                     str(file_path)
                 ],
                 capture_output=True,

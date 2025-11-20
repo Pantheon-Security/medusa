@@ -49,8 +49,7 @@ class AnsibleScanner(BaseScanner):
         try:
             # Run ansible-lint with JSON output
             result = subprocess.run(
-                [
-                    "ansible-lint",
+                [str(self.tool_path),
                     "--format", "json",
                     "--nocolor",
                     str(file_path)

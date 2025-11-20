@@ -34,7 +34,8 @@ class AptInstaller(BaseInstaller):
                 result = self.run_command(cmd, check=False)
                 if result.returncode == 0:
                     return True
-            except:
+            except (subprocess.SubprocessError, FileNotFoundError, OSError):
+                # Package manager command failed - try fallbacks
                 pass
 
         # Fallback to pip for Python tools
@@ -43,7 +44,8 @@ class AptInstaller(BaseInstaller):
                 pip_cmd = ['pip3', 'install', package]
                 result = self.run_command(pip_cmd, check=False)
                 return result.returncode == 0
-            except:
+            except (subprocess.SubprocessError, FileNotFoundError, OSError):
+                # pip install failed - try npm fallback
                 pass
 
         # Fallback to npm for npm tools
@@ -53,7 +55,8 @@ class AptInstaller(BaseInstaller):
                     npm_cmd = ['npm', 'install', '-g', package]
                     result = self.run_command(npm_cmd, check=False)
                     return result.returncode == 0
-                except:
+                except (subprocess.SubprocessError, FileNotFoundError, OSError):
+                    # npm install failed
                     pass
 
         return False

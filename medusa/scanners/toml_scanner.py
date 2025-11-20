@@ -40,8 +40,7 @@ class TOMLScanner(BaseScanner):
         try:
             # Run taplo check
             result = subprocess.run(
-                [
-                    "taplo", "check",
+                [str(self.tool_path), "check",
                     str(file_path)
                 ],
                 capture_output=True,

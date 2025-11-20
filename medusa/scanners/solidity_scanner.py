@@ -40,8 +40,7 @@ class SolidityScanner(BaseScanner):
         try:
             # Run solhint with JSON output
             result = subprocess.run(
-                [
-                    "solhint",
+                [str(self.tool_path),
                     "--formatter", "json",
                     str(file_path)
                 ],

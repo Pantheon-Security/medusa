@@ -37,7 +37,7 @@ class HaskellScanner(BaseScanner):
 
         try:
             result = subprocess.run(
-                ["hlint", str(file_path), "--json"],
+                [str(self.tool_path), str(file_path), "--json"],
                 capture_output=True,
                 text=True,
                 timeout=30

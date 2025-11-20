@@ -230,8 +230,10 @@ class DockerComposeScanner(BaseScanner):
                         rule_id="COMPOSE006"
                     ))
 
-        except Exception:
-            pass  # If we can't read the file, just skip security checks
+        except (IOError, OSError, PermissionError, yaml.YAMLError):
+            # If we can't read or parse the file, skip security checks
+            # Basic YAML syntax errors are already reported by yamlscanner
+            pass
 
         return issues
 

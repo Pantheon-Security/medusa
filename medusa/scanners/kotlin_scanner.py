@@ -40,8 +40,7 @@ class KotlinScanner(BaseScanner):
         try:
             # Run ktlint with JSON output
             result = subprocess.run(
-                [
-                    "ktlint",
+                [str(self.tool_path),
                     "--reporter=json",
                     str(file_path)
                 ],

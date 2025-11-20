@@ -40,8 +40,7 @@ class ProtobufScanner(BaseScanner):
         try:
             # Run buf lint
             result = subprocess.run(
-                [
-                    "buf", "lint",
+                [str(self.tool_path), "lint",
                     str(file_path)
                 ],
                 capture_output=True,

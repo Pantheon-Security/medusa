@@ -40,7 +40,7 @@ class RubyScanner(BaseScanner):
         try:
             # Run RuboCop with JSON output
             result = subprocess.run(
-                ["rubocop", "--format", "json", str(file_path)],
+                [str(self.tool_path), "--format", "json", str(file_path)],
                 capture_output=True,
                 text=True,
                 timeout=30
