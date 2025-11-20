@@ -412,69 +412,29 @@ class WindowsCustomInstaller:
                         return True
                     else:
                         if debug:
-                            print(f"[DEBUG] Chocolatey install failed, falling back to custom installer")
+                            print(f"[DEBUG] Chocolatey install failed")
                 except Exception as e:
                     if debug:
-                        print(f"[DEBUG] Chocolatey install error: {e}, falling back to custom installer")
+                        print(f"[DEBUG] Chocolatey install error: {e}")
             else:
                 if debug:
-                    print(f"[DEBUG] Chocolatey not found, using custom installer")
+                    print(f"[DEBUG] Chocolatey not found")
 
-        script_name = WindowsCustomInstaller.SUPPORTED_TOOLS[tool]
+        # .cmd installers are no longer bundled (antivirus false positives)
+        # If chocolatey install failed/unavailable, provide manual instructions
+        print(f"\n⚠️  Unable to automatically install {tool}")
+        print(f"\nPlease install manually:")
 
-        # Get the script path (bundled with the package)
-        try:
-            from importlib.resources import files
-            script_file = files('medusa').joinpath(f'platform/installers/windows_scripts/{script_name}')
-            script_path = str(script_file)
-        except Exception as e:
-            if debug:
-                print(f"[DEBUG] Failed to find installer script: {e}")
-            return False
+        if tool == 'clj-kondo':
+            print(f"  Option 1 (Chocolatey): choco install clj-kondo")
+            print(f"  Option 2 (Scoop): scoop install clj-kondo")
+            print(f"  Option 3 (Manual): Download from https://github.com/clj-kondo/clj-kondo/releases")
+        elif tool == 'phpstan':
+            print(f"  Option 1 (Chocolatey): choco install phpstan")
+            print(f"  Option 2 (Composer): composer global require phpstan/phpstan")
+            print(f"  Option 3 (Manual): Download from https://github.com/phpstan/phpstan/releases")
+        elif tool in ['ktlint', 'checkstyle', 'codenarc', 'scalastyle', 'checkmake']:
+            print(f"  Install via package manager or download from official website")
 
-        if not os.path.exists(script_path):
-            if debug:
-                print(f"[DEBUG] Installer script not found: {script_path}")
-            return False
-
-        if debug:
-            print(f"[DEBUG] Running custom installer: {script_path}")
-
-        try:
-            # Validate script path is safe (must end with .cmd)
-            if not script_path.endswith('.cmd'):
-                if debug:
-                    print(f"[DEBUG] Invalid script path: {script_path}")
-                return False
-
-            # Run the .bat script via cmd.exe (safer than shell=True)
-            cmd_path = shutil.which('cmd') or 'C:\\Windows\\System32\\cmd.exe'
-            # Validate cmd path exists
-            if not os.path.exists(cmd_path):
-                if debug:
-                    print(f"[DEBUG] cmd.exe not found at: {cmd_path}")
-                return False
-
-            result = subprocess.run(
-                [cmd_path, '/c', script_path],
-                shell=False,
-                check=False,
-                capture_output=not debug,  # Show output in debug mode
-                text=True
-            )
-
-            if debug:
-                print(f"[DEBUG] Installer exit code: {result.returncode}")
-
-            # Refresh PATH after installation
-            if result.returncode == 0:
-                refresh_windows_path()
-
-            return result.returncode == 0
-
-        except Exception as e:
-            if debug:
-                print(f"[DEBUG] Exception running installer: {type(e).__name__}: {e}")
-                import traceback
-                traceback.print_exc()
-            return False
+        print(f"\nAfter installation, add to PATH and run: medusa install --check")
+        return False
