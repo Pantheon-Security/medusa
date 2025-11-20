@@ -413,11 +413,11 @@ class WindowsCustomInstaller:
             import importlib.resources
             try:
                 # Python 3.9+
-                script_content = importlib.resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text()
+                script_content = importlib.resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text(encoding='utf-8')
             except AttributeError:
                 # Python 3.8 fallback
                 import importlib_resources
-                script_content = importlib_resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text()
+                script_content = importlib_resources.files('medusa.platform.installers.windows_scripts').joinpath(script_name).read_text(encoding='utf-8')
 
             # Write script to temp file
             import tempfile
