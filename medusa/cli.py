@@ -76,14 +76,15 @@ def _has_pip_available() -> bool:
 
     On Windows, pip is always available via 'py -m pip' even if not in PATH.
     """
+    import subprocess
+    import platform
+    import shutil
+
     # Quick check: is pip in PATH?
     if shutil.which('pip') or shutil.which('pip3'):
         return True
 
     # Windows: Python's pip is always available via 'py -m pip'
-    import subprocess
-    import platform
-    import shutil
     if platform.system() == 'Windows':
         py_path = shutil.which('py')
         if py_path:
@@ -96,8 +97,6 @@ def _has_pip_available() -> bool:
 
     # Unix: Try python3 -m pip
     try:
-        import subprocess
-        import shutil
         python3_path = shutil.which('python3')
         if python3_path:
             result = subprocess.run([python3_path, '-m', 'pip', '--version'], capture_output=True, timeout=5)
