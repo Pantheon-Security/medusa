@@ -165,7 +165,7 @@ class ChocolateyInstaller(BaseInstaller):
         Runs the official Chocolatey installation script
         """
         try:
-            # Official Chocolatey install command
+            # Official Chocolatey install command - must run as admin
             install_script = (
                 "Set-ExecutionPolicy Bypass -Scope Process -Force; "
                 "[System.Net.ServicePointManager]::SecurityProtocol = "
@@ -174,17 +174,35 @@ class ChocolateyInstaller(BaseInstaller):
                 "'https://community.chocolatey.org/install.ps1'))"
             )
 
+            # Run PowerShell as admin with Start-Process
+            # This ensures the nested PowerShell has admin rights
+            admin_script = f"Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-Command',\"{install_script.replace(chr(34), chr(96)+chr(34))}\""
+
             cmd = [
                 'powershell',
                 '-NoProfile',
                 '-ExecutionPolicy', 'Bypass',
                 '-Command',
-                install_script
+                admin_script
             ]
 
-            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-            return result.returncode == 0
-        except subprocess.CalledProcessError:
+            result = subprocess.run(cmd, check=False, capture_output=True, text=True, timeout=300)
+
+            # Verify chocolatey was actually installed by checking for the executable
+            # Wait a moment for installation to finalize
+            import time
+            time.sleep(2)
+
+            # Check if choco is now in PATH or in default install location
+            choco_exe = shutil.which('choco')
+            if not choco_exe:
+                # Check default install location
+                default_path = r'C:\ProgramData\chocolatey\bin\choco.exe'
+                if os.path.exists(default_path):
+                    choco_exe = default_path
+
+            return choco_exe is not None
+        except Exception as e:
             return False
 
     def install(self, package: str, sudo: bool = False) -> bool:
