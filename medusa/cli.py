@@ -1503,7 +1503,23 @@ def install(tool, check, all, yes, use_latest, debug):
                         failed += 1
                         failed_details.append((tool_name, installer_name))
             else:
-                # Try ecosystem detection before giving up
+                # On Windows, try custom PowerShell installers FIRST (more reliable than ecosystem)
+                if platform_info.os_type.value == 'windows':
+                    from medusa.platform.installers import WindowsCustomInstaller
+                    if WindowsCustomInstaller.can_install(tool_name):
+                        console.print(f"  → Using custom Windows installer...")
+                        if WindowsCustomInstaller.install(tool_name, debug=debug):
+                            console.print(f"  [green]✅ Installed successfully[/green]\n")
+                            installed += 1
+                            from medusa.platform.tool_cache import ToolCache
+                            cache = ToolCache()
+                            cache.mark_installed(tool_name)
+                            continue  # Skip to next tool
+                        else:
+                            console.print(f"  [red]❌ Custom installer failed[/red]")
+                            # Fall through to ecosystem check
+
+                # Try ecosystem detection as fallback
                 from medusa.platform.installers.base import EcosystemDetector
 
                 ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
@@ -1525,24 +1541,7 @@ def install(tool, check, all, yes, use_latest, debug):
                         failed += 1
                         failed_details.append((tool_name, ecosystem_name))
                 else:
-                    # On Windows, try custom .bat installers as final fallback
-                    if platform_info.os_type.value == 'windows':
-                        from medusa.platform.installers import WindowsCustomInstaller
-                        if WindowsCustomInstaller.can_install(tool_name):
-                            console.print(f"  → Using custom Windows installer...")
-                            if WindowsCustomInstaller.install(tool_name, debug=debug):
-                                console.print(f"  [green]✅ Installed successfully[/green]\n")
-                                installed += 1
-                                from medusa.platform.tool_cache import ToolCache
-                                cache = ToolCache()
-                                cache.mark_installed(tool_name)
-                                continue  # Skip to next tool
-                            else:
-                                console.print(f"  [red]❌ Custom installer failed[/red]")
-                                # Fall through to ecosystem check
-
                     # Check if ecosystem exists but not found
-                    from medusa.platform.installers.base import EcosystemDetector
                     if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
                         ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
                         console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
