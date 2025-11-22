@@ -1520,11 +1520,147 @@ def install(tool, check, all, yes, use_latest, debug):
                 else:
                     console.print("[yellow]Skipping Chocolatey installation[/yellow]\n")
 
+        # ========================================
+        # Pre-scan phase: Detect runtime dependencies
+        # ========================================
+        npm_tools_needed = []
+        php_tools_needed = []
+        java_tools_needed = []
+
+        for tool in missing_tools:
+            # Check if tool needs npm
+            npm_package = ToolMapper.get_package_name(tool, 'npm')
+            if npm_package and not npm_installer:
+                # Tool has npm package but npm isn't available
+                npm_tools_needed.append(tool)
+
+            # Check if tool needs PHP
+            if tool == 'phpstan' and not shutil.which('php'):
+                php_tools_needed.append(tool)
+
+            # Check if tool needs Java
+            if tool in {'checkstyle', 'ktlint', 'scalastyle', 'codenarc'} and not shutil.which('java'):
+                java_tools_needed.append(tool)
+
+        # ========================================
+        # Runtime installation phase
+        # ========================================
+        if npm_tools_needed or php_tools_needed or java_tools_needed:
+            console.print("[bold]Runtime Dependencies Detected:[/bold]")
+
+            # Node.js / npm
+            if npm_tools_needed:
+                console.print(f"  • Node.js needed for {len(npm_tools_needed)} tool{'s' if len(npm_tools_needed) > 1 else ''}: {', '.join(npm_tools_needed[:3])}{'...' if len(npm_tools_needed) > 3 else ''}")
+
+            # PHP
+            if php_tools_needed:
+                console.print(f"  • PHP needed for {len(php_tools_needed)} tool{'s' if len(php_tools_needed) > 1 else ''}: {', '.join(php_tools_needed)}")
+
+            # Java (info only)
+            if java_tools_needed:
+                console.print(f"  • Java needed for {len(java_tools_needed)} tool{'s' if len(java_tools_needed) > 1 else ''}: {', '.join(java_tools_needed[:3])}{'...' if len(java_tools_needed) > 3 else ''} [dim](not auto-installed for security)[/dim]")
+
+            console.print()
+
+        # Install Node.js if needed
+        if npm_tools_needed and platform_info.os_type.value == 'windows':
+            from medusa.platform import PackageManager
+            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
+                if not yes:
+                    install_nodejs = click.confirm(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True)
+                else:
+                    install_nodejs = True
+
+                if install_nodejs:
+                    console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
+                    winget_path = shutil.which('winget')
+
+                    if winget_path:
+                        try:
+                            success, output = _safe_run_version_check(
+                                [winget_path, 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
+                                timeout=120
+                            )
+                            output_lower = output.lower() if output else ''
+                            nodejs_success = (
+                                success or
+                                'already installed' in output_lower or
+                                'no available upgrade found' in output_lower
+                            )
+
+                            if nodejs_success:
+                                console.print("[green]✅ Node.js installed successfully[/green]")
+
+                                # Refresh PATH
+                                from medusa.platform.installers.windows import refresh_windows_path
+                                refresh_windows_path()
+
+                                # Re-initialize npm_installer now that npm is available
+                                from medusa.platform.installers import NpmInstaller
+                                npm_installer = NpmInstaller() if shutil.which('npm.cmd') or shutil.which('npm') else None
+                                console.print(f"[green]✓[/green] npm is now available\n")
+                            else:
+                                console.print("[red]❌ Failed to install Node.js[/red]\n")
+                        except Exception as e:
+                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
+                    else:
+                        console.print("[red]❌ winget not found[/red]\n")
+                else:
+                    console.print("[yellow]Skipping Node.js installation[/yellow]\n")
+
+        # Install PHP if needed
+        if php_tools_needed and platform_info.os_type.value == 'windows':
+            from medusa.platform import PackageManager
+            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
+                if not yes:
+                    install_php = click.confirm(f"Install PHP to enable phpstan?", default=True)
+                else:
+                    install_php = True
+
+                if install_php:
+                    console.print("\n[cyan]Installing PHP via winget...[/cyan]")
+                    winget_path = shutil.which('winget')
+
+                    if winget_path:
+                        try:
+                            success, output = _safe_run_version_check(
+                                [winget_path, 'install', '--id', 'PHP.PHP', '--accept-source-agreements', '--accept-package-agreements'],
+                                timeout=120
+                            )
+                            output_lower = output.lower() if output else ''
+                            php_success = (
+                                success or
+                                'already installed' in output_lower or
+                                'no available upgrade found' in output_lower
+                            )
+
+                            if php_success:
+                                console.print("[green]✅ PHP installed successfully[/green]")
+                                console.print("[dim]   You may need to restart your terminal for PHP to be available[/dim]\n")
+                            else:
+                                console.print("[red]❌ Failed to install PHP[/red]\n")
+                        except Exception as e:
+                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
+                    else:
+                        console.print("[red]❌ winget not found[/red]\n")
+                else:
+                    console.print("[yellow]Skipping PHP installation[/yellow]\n")
+
+        # Show Java message (no auto-install)
+        if java_tools_needed:
+            console.print(f"[yellow]⚠️  Java runtime required for {len(java_tools_needed)} tool{'s' if len(java_tools_needed) > 1 else ''}[/yellow]")
+            console.print("[dim]   We don't auto-install Java due to security concerns[/dim]")
+            console.print(f"[dim]   Tools: {', '.join(java_tools_needed)}[/dim]\n")
+
+        # ========================================
+        # Tool installation phase
+        # ========================================
         installed = 0
         failed = 0
         failed_details = []  # Track why each tool failed
         npm_tools_failed = []  # Track npm tools that failed due to missing npm
 
+        console.print("[bold]Installing Tools:[/bold]")
         for tool_name in missing_tools:
             console.print(f"[cyan]Installing {tool_name}...[/cyan]")
 
@@ -1678,21 +1814,6 @@ def install(tool, check, all, yes, use_latest, debug):
         console.print(f"  ✅ Installed: {installed}")
         if failed > 0:
             console.print(f"  ❌ Failed: {failed}")
-
-        # Check for runtime dependencies (Node.js/npm, PHP, Java)
-        if debug:
-            console.print(f"[DEBUG] npm_tools_failed: {npm_tools_failed}")
-            console.print(f"[DEBUG] platform_info.os_type: {platform_info.os_type.value}")
-            console.print(f"[DEBUG] pm: {pm}")
-
-        _check_runtime_dependencies(
-            missing_tools=missing_tools,
-            npm_tools_failed=npm_tools_failed,
-            platform_info=platform_info,
-            pm=pm,
-            use_latest=use_latest,
-            yes=yes
-        )
 
         # Windows PATH refresh warning
         if installed > 0 and platform_info.os_type.value == 'windows':
