@@ -1716,12 +1716,78 @@ def install(tool, check, all, yes, use_latest, debug):
                 else:
                     success = best_installer.install(tool_name)
                 if success:
-                    console.print(f"  [green]✅ Installed successfully[/green]\n")
-                    installed += 1
-                    # Mark as installed in cache
-                    from medusa.platform.tool_cache import ToolCache
-                    cache = ToolCache()
-                    cache.mark_installed(tool_name)
+                    # Special handling for rubocop: winget installs Ruby, then we need gem to install rubocop
+                    if tool_name == 'rubocop' and installer_name == 'winget' and platform_info.os_type.value == 'windows':
+                        console.print(f"  [green]✅ Ruby installed successfully[/green]")
+                        console.print(f"  → Refreshing PATH to find gem...")
+
+                        import time
+                        time.sleep(3)  # Wait for Ruby installation to complete
+
+                        # Refresh PATH from Windows registry
+                        try:
+                            import winreg
+                            import os
+
+                            # Read PATH from Windows registry
+                            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 0, winreg.KEY_READ) as key:
+                                system_path = winreg.QueryValueEx(key, 'PATH')[0]
+
+                            # Read user PATH
+                            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_READ) as key:
+                                user_path = winreg.QueryValueEx(key, 'PATH')[0]
+
+                            # Update current process PATH
+                            os.environ['PATH'] = system_path + ';' + user_path
+
+                            if debug:
+                                console.print(f"[DEBUG] PATH refreshed from registry")
+                        except Exception as e:
+                            if debug:
+                                console.print(f"[DEBUG] PATH refresh failed: {e}")
+
+                        # Now try to find gem
+                        gem_path = shutil.which('gem.cmd') or shutil.which('gem')
+
+                        if gem_path:
+                            console.print(f"  → Found gem: {gem_path}")
+                            console.print(f"  → Installing rubocop via gem...")
+
+                            try:
+                                result = subprocess.run(
+                                    [gem_path, 'install', 'rubocop'],
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=300,
+                                    check=False
+                                )
+
+                                if result.returncode == 0:
+                                    console.print(f"  [green]✅ rubocop installed via gem[/green]\n")
+                                    installed += 1
+                                    from medusa.platform.tool_cache import ToolCache
+                                    cache = ToolCache()
+                                    cache.mark_installed(tool_name)
+                                else:
+                                    console.print(f"  [red]❌ gem install failed: {result.stderr[:200]}[/red]\n")
+                                    failed += 1
+                                    failed_details.append((tool_name, f"gem install failed"))
+                            except Exception as e:
+                                console.print(f"  [red]❌ gem install error: {str(e)[:200]}[/red]\n")
+                                failed += 1
+                                failed_details.append((tool_name, f"gem error"))
+                        else:
+                            console.print(f"  [yellow]⚠️  gem not found after Ruby install[/yellow]")
+                            console.print(f"  [yellow]⊘ Please restart terminal and run: gem install rubocop[/yellow]\n")
+                            failed += 1
+                            failed_details.append((tool_name, "gem not found"))
+                    else:
+                        console.print(f"  [green]✅ Installed successfully[/green]\n")
+                        installed += 1
+                        # Mark as installed in cache
+                        from medusa.platform.tool_cache import ToolCache
+                        cache = ToolCache()
+                        cache.mark_installed(tool_name)
                 else:
                     console.print(f"  [red]❌ Installation failed[/red]")
 
