@@ -1680,6 +1680,11 @@ def install(tool, check, all, yes, use_latest, debug):
             console.print(f"  ❌ Failed: {failed}")
 
         # Check for runtime dependencies (Node.js/npm, PHP, Java)
+        if debug:
+            console.print(f"[DEBUG] npm_tools_failed: {npm_tools_failed}")
+            console.print(f"[DEBUG] platform_info.os_type: {platform_info.os_type.value}")
+            console.print(f"[DEBUG] pm: {pm}")
+
         _check_runtime_dependencies(
             missing_tools=missing_tools,
             npm_tools_failed=npm_tools_failed,
