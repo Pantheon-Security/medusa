@@ -617,7 +617,7 @@ def _check_runtime_dependencies(
             return
 
         from medusa.platform import PackageManager
-        if pm == PackageManager.WINGET:
+        if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
             console.print("")
             console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
 
