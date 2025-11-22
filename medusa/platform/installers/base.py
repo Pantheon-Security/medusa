@@ -350,7 +350,7 @@ class ToolMapper:
         'rubocop': {
             'apt': 'rubocop',
             'brew': 'rubocop',
-            'winget': 'RubyInstallerTeam.Ruby',
+            'winget': 'RubyInstallerTeam.RubyWithDevKit.3.4',
             'manual': 'gem install rubocop',
         },
         'ruff': {
