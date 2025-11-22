@@ -20,7 +20,7 @@ try {
     Write-Log "Starting clj-kondo installation..." "INFO"
 
     # Get pinned release info from GitHub API (version from tools-manifest.csv)
-    $version = "v2025.01.20"
+    $version = "v2025.10.23"
     Write-Log "Fetching release information for version $version..."
     $releaseUrl = "https://api.github.com/repos/clj-kondo/clj-kondo/releases/tags/$version"
     $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{

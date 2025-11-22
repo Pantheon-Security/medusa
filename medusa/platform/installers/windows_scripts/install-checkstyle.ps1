@@ -20,7 +20,7 @@ try {
     Write-Log "Starting checkstyle installation..." "INFO"
 
     # Get pinned release info from GitHub API (version from tools-manifest.csv)
-    $version = "checkstyle-10.22.1"
+    $version = "checkstyle-12.1.2"
     Write-Log "Fetching release information for version $version..."
     $releaseUrl = "https://api.github.com/repos/checkstyle/checkstyle/releases/tags/$version"
     $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{
