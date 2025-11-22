@@ -774,7 +774,7 @@ def _check_runtime_dependencies(
             if winget_path:
                 try:
                     success, output = _safe_run_version_check(
-                        [winget_path, 'install', '--id', 'PHP.PHP', '--accept-source-agreements', '--accept-package-agreements'],
+                        [winget_path, 'install', '--id', 'PHP.PHP.8.4', '--accept-source-agreements', '--accept-package-agreements'],
                         timeout=120
                     )
                     output_lower = output.lower() if output else ''
@@ -1624,7 +1624,7 @@ def install(tool, check, all, yes, use_latest, debug):
                     if winget_path:
                         try:
                             success, output = _safe_run_version_check(
-                                [winget_path, 'install', '--id', 'PHP.PHP', '--accept-source-agreements', '--accept-package-agreements'],
+                                [winget_path, 'install', '--id', 'PHP.PHP.8.4', '--accept-source-agreements', '--accept-package-agreements'],
                                 timeout=120
                             )
                             output_lower = output.lower() if output else ''
