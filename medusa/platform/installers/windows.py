@@ -196,7 +196,7 @@ class ChocolateyInstaller(BaseInstaller):
 
             # Run directly in current PowerShell (user must be admin already)
             cmd = [
-                'powershell',
+                'powershell.exe',
                 '-NoProfile',
                 '-ExecutionPolicy', 'Bypass',
                 '-Command',
@@ -427,7 +427,7 @@ class WindowsCustomInstaller:
 
             # Run PowerShell script
             ps_args = [
-                'powershell',
+                'powershell.exe',
                 '-NoProfile',
                 '-ExecutionPolicy', 'Bypass',
                 '-File', temp_script
