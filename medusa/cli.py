@@ -1557,6 +1557,83 @@ def install(tool, check, all, yes, use_latest, debug):
         if failed > 0:
             console.print(f"  ❌ Failed: {failed}")
 
+        # Check for tools that need runtime dependencies (PHP, Java)
+        if platform_info.os_type.value == 'windows':
+            # Define which tools need which runtimes
+            php_tools = {'phpstan'}
+            java_tools = {'checkstyle', 'ktlint', 'scalastyle', 'codenarc'}
+
+            # Check which runtime-dependent tools were "installed" (PowerShell installers downloaded them)
+            php_tools_installed = [t for t in missing_tools if t in php_tools]
+            java_tools_installed = [t for t in missing_tools if t in java_tools]
+
+            # PHP runtime check and auto-install offer
+            if php_tools_installed and not shutil.which('php'):
+                console.print()
+                console.print(f"[bold yellow]⚠️  {len(php_tools_installed)} tool{'s' if len(php_tools_installed) > 1 else ''} require PHP runtime:[/bold yellow]")
+                for t in php_tools_installed:
+                    console.print(f"   • {t}")
+                console.print()
+
+                if not yes:
+                    response = Prompt.ask(
+                        "   Install PHP via winget to enable these tools?",
+                        choices=["y", "Y", "n", "N"],
+                        default="y",
+                        show_choices=False
+                    )
+                    install_php = response.upper() == "Y"
+                else:
+                    install_php = True
+
+                if install_php:
+                    console.print("\n[cyan]Installing PHP via winget...[/cyan]")
+                    winget_installer = WingetInstaller()
+                    winget_path = shutil.which('winget')
+
+                    if winget_path:
+                        try:
+                            success, output = _safe_run_version_check(
+                                [winget_path, 'install', '--id', 'PHP.PHP', '--accept-source-agreements', '--accept-package-agreements'],
+                                timeout=120
+                            )
+                            output_lower = output.lower() if output else ''
+                            php_success = (
+                                success or
+                                'already installed' in output_lower or
+                                'no available upgrade found' in output_lower
+                            )
+
+                            if php_success:
+                                console.print("[green]✅ PHP installed successfully[/green]")
+                                console.print("[dim]   You may need to restart your terminal for PHP to be available[/dim]")
+                            else:
+                                console.print("[red]❌ Failed to install PHP[/red]")
+                                console.print("[yellow]You can manually install PHP from: https://windows.php.net/download/[/yellow]")
+                        except Exception as e:
+                            console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
+                    else:
+                        console.print("[red]❌ winget not found[/red]")
+                else:
+                    console.print("[yellow]Skipping PHP installation[/yellow]")
+                    console.print("[dim]   phpstan will not work without PHP runtime[/dim]")
+
+            # Java runtime check (informational only - no auto-install)
+            if java_tools_installed and not shutil.which('java'):
+                console.print()
+                console.print(f"[bold yellow]⚠️  {len(java_tools_installed)} tool{'s' if len(java_tools_installed) > 1 else ''} require Java runtime (not auto-installed for security):[/bold yellow]")
+                for t in java_tools_installed:
+                    tool_desc = {
+                        'checkstyle': 'Java linter',
+                        'ktlint': 'Kotlin linter',
+                        'scalastyle': 'Scala linter',
+                        'codenarc': 'Groovy linter'
+                    }.get(t, 'JVM linter')
+                    console.print(f"   • {t} ({tool_desc})")
+                console.print()
+                console.print("[dim]   If you install Java manually, these tools will become available.[/dim]")
+                console.print("[dim]   We don't auto-install Java due to security concerns.[/dim]")
+
         # Windows PATH refresh warning
         if installed > 0 and platform_info.os_type.value == 'windows':
             console.print(f"\n[bold yellow]⚠️  Windows PATH Update Required[/bold yellow]")
