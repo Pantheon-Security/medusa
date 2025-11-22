@@ -1846,6 +1846,34 @@ def install(tool, check, all, yes, use_latest, debug):
                 # Try ecosystem detection as fallback
                 from medusa.platform.installers.base import EcosystemDetector
 
+                # Special handling for rubocop: refresh PATH to find gem if Ruby is installed
+                if tool_name == 'rubocop' and platform_info.os_type.value == 'windows':
+                    if debug:
+                        console.print(f"[DEBUG] Checking for Ruby and refreshing PATH for gem...")
+
+                    # Refresh PATH from Windows registry to detect gem
+                    try:
+                        import winreg
+                        import os
+                        import time
+
+                        # Read PATH from Windows registry
+                        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 0, winreg.KEY_READ) as key:
+                            system_path = winreg.QueryValueEx(key, 'PATH')[0]
+
+                        # Read user PATH
+                        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_READ) as key:
+                            user_path = winreg.QueryValueEx(key, 'PATH')[0]
+
+                        # Update current process PATH
+                        os.environ['PATH'] = system_path + ';' + user_path
+
+                        if debug:
+                            console.print(f"[DEBUG] PATH refreshed from registry")
+                    except Exception as e:
+                        if debug:
+                            console.print(f"[DEBUG] PATH refresh failed: {e}")
+
                 ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
                 if ecosystem_result:
                     ecosystem_name, command = ecosystem_result
