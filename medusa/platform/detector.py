@@ -219,13 +219,13 @@ class PlatformDetector:
             return PackageManager.BREW if PackageManager.BREW in available else None
 
         elif os_type == OSType.WINDOWS:
-            # Prefer in order: chocolatey, scoop, winget
-            if PackageManager.CHOCOLATEY in available:
+            # Prefer in order: winget (built-in, modern), chocolatey, scoop
+            if PackageManager.WINGET in available:
+                return PackageManager.WINGET
+            elif PackageManager.CHOCOLATEY in available:
                 return PackageManager.CHOCOLATEY
             elif PackageManager.SCOOP in available:
                 return PackageManager.SCOOP
-            elif PackageManager.WINGET in available:
-                return PackageManager.WINGET
 
         return None
 
