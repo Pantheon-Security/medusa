@@ -213,7 +213,7 @@ class ToolMapper:
             'winget': 'Rustlang.Rustup',
             'brew': 'rustup',
             'apt': 'rustup',
-            'choco': 'rustup',
+            'choco': 'rustup.install',
             'manual': 'rustup component add clippy',
         },
         'checkmake': {
