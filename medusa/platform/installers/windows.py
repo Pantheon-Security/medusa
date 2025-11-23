@@ -425,9 +425,30 @@ class WindowsCustomInstaller:
             if debug:
                 print(f"[DEBUG] Script written to: {temp_script}")
 
+            # Find PowerShell executable
+            powershell_exe = shutil.which('powershell.exe')
+            if not powershell_exe:
+                # Try common locations if which() fails
+                common_paths = [
+                    r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe',
+                    r'C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe',
+                ]
+                for path in common_paths:
+                    if os.path.exists(path):
+                        powershell_exe = path
+                        break
+
+            if not powershell_exe:
+                if debug:
+                    print(f"[DEBUG] PowerShell not found in PATH or common locations")
+                raise FileNotFoundError("PowerShell executable not found")
+
+            if debug:
+                print(f"[DEBUG] Using PowerShell: {powershell_exe}")
+
             # Run PowerShell script
             ps_args = [
-                'powershell.exe',
+                powershell_exe,
                 '-NoProfile',
                 '-ExecutionPolicy', 'Bypass',
                 '-File', temp_script
