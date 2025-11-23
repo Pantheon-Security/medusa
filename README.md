@@ -1,4 +1,4 @@
-# 🐍 MEDUSA v0.11.2 - Multi-Language Security Scanner
+# 🐍 MEDUSA v2025.1.8 - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
@@ -8,18 +8,18 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 40+ specialized analyzers for all languages and platforms.**
+**Universal security scanner with 43+ specialized analyzers for all languages and platforms.**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **40+ different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **43+ different languages and file types**.
 
 ### ✨ Key Features
 
-- 🔍 **40+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **43+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🤖 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
@@ -133,7 +133,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v0.11.2 - Security Guardian
+🐍 MEDUSA v2025.1.8 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -869,8 +869,8 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 0.9.1.1
-**Release Date**: 2025-11-15
+**Version**: 2025.1.8
+**Release Date**: 2025-11-23
 **Total Scanners**: 42
 **Language Coverage**: 16 major ecosystems
 **Platform Support**: Linux, macOS, Windows
@@ -919,6 +919,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-11-15
+**Last Updated**: 2025-11-23
 **Status**: Production Ready
-**Current Phase**: Phase 5 - Documentation
+**Current Phase**: Public Release

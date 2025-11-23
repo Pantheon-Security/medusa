@@ -1,8 +1,8 @@
-C:\Users\rossc\Documents> medusa install --all --debug  
+PS C:\WINDOWS\system32> medusa install --all --debug  
   
 ╔════════════════════════════════════════════════════════════════════╗  
 ║                                                                    ║  
-║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v0.14.0.0 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
+║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v2025.1.7 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
 ║                                                                    ║  
 ║         Universal Scanner with 43+ Specialized Analyzers          ║  
 ║           One look from Medusa stops vulnerabilities dead          ║  
@@ -45,23 +45,22 @@ Found 39 missing tools:
   • mix  
   • hlint  
   • clj-kondo  
-  • dart                                                                                                                                                       • codenarc                                                                                                                                                   • vim-vint                                                                                                                                                   • cmakelang                                                                                                                                                  • checkmake                                                                                                                                                  • gixy  
+  • dart  
+  • codenarc  
+  • vim-vint  
+  • cmakelang  
+  • checkmake  
+  • gixy  
   • zig  
   
 Install all 39 missing tools? [Y/n]: y  
-  
-![💡](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f4a1/32.png) 14 tools can be installed via Chocolatey:  
-  • shellcheck  
-  • hadolint  
-  • markdownlint-cli  
-  • tflint  
-  • golangci-lint  
+                                                                                                                        �� 14 tools can be installed via Chocolatey:                                                                              • shellcheck                                                                                                            • hadolint                                                                                                              • markdownlint-cli                                                                                                      • tflint                                                                                                                • golangci-lint  
   • ... and 9 more  
   
 Install Chocolatey package manager? (Requires admin rights) [Y/n]: y  
 Installing Chocolatey...  
 Debug mode enabled - showing full output  
-[DEBUG] Running command: powershell -NoProfile -ExecutionPolicy Bypass -Command Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('[https://community.chocolatey.org/install.ps1'](https://community.chocolatey.org/install.ps1')))  
+[DEBUG] Running command: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('[https://community.chocolatey.org/install.ps1'](https://community.chocolatey.org/install.ps1')))  
 [DEBUG] This will download and run the Chocolatey install script...  
 [DEBUG] PowerShell output below:  
 ------------------------------------------------------------  
@@ -89,7 +88,8 @@ Creating Chocolatey CLI folders if they do not already exist.
 chocolatey.nupkg file not installed in lib.  
  Attempting to locate it from bootstrapper.  
 PATH environment variable does not have C:\ProgramData\chocolatey\bin in it. Adding...  
-WARNING: Not setting tab completion: Profile file does not exist at 'C:\Users\rossc\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'.  
+WARNING: Not setting tab completion: Profile file does not exist at  
+'C:\Users\rossc\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'.  
 Chocolatey CLI (choco.exe) is now ready.  
 You can call choco from anywhere, command line or PowerShell by typing choco.  
 Run choco /? for a list of functions.  
@@ -129,23 +129,61 @@ Installing PHP via winget...
   
 Installing Tools:  
 Installing shellcheck...  
+[DEBUG] Tool: shellcheck  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: koalaman.shellcheck  
+[DEBUG] Choco package: shellcheck  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing shellcheck via winget: koalaman.shellcheck  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing hadolint...  
+[DEBUG] Tool: hadolint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: hadolint.hadolint  
+[DEBUG] Choco package: hadolint  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing hadolint via winget: hadolint.hadolint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing docker-compose...  
+[DEBUG] Tool: docker-compose  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: Docker.DockerCompose  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing docker-compose via winget: Docker.DockerCompose  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing markdownlint-cli...  
+[DEBUG] Tool: markdownlint-cli  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: markdownlint-cli  
+[DEBUG] NPM package: markdownlint-cli  
+[DEBUG] PIP package: None  
   → Installing markdownlint-cli via choco: markdownlint-cli  
 [DEBUG] Running: choco install markdownlint-cli -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 markdownlint-cli  
 By installing, you accept licenses for the packages.  
@@ -179,7 +217,7 @@ Progress: Downloading markdownlint-cli 0.46.0... 100%
 markdownlint-cli v0.46.0 [Approved]  
 markdownlint-cli package files install completed. Performing other installation steps.  
   
-added 70 packages in 25s  
+added 70 packages in 12s  
   
 44 packages are looking for funding  
   run `npm fund` for details  
@@ -202,28 +240,66 @@ Chocolatey installed 4/4 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing eslint...  
+[DEBUG] Tool: eslint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: eslint  
+[DEBUG] PIP package: None  
   → Installing eslint via npm: eslint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing tflint...  
+[DEBUG] Tool: tflint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: TerraformLinters.tflint  
+[DEBUG] Choco package: tflint  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing tflint via winget: TerraformLinters.tflint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing golangci-lint...  
+[DEBUG] Tool: golangci-lint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: GolangCI.golangci-lint  
+[DEBUG] Choco package: golangci-lint  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing golangci-lint via winget: GolangCI.golangci-lint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing rubocop...  
-  → Installing rubocop via winget: RubyInstallerTeam.Ruby  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
-  → Looking for gem... ✗ Not found  
-  ⊘ Review installation guide for manual setup  
+[DEBUG] Tool: rubocop  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: RubyInstallerTeam.RubyWithDevKit.3.4  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
+  → Installing rubocop via winget: RubyInstallerTeam.RubyWithDevKit.3.4  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Ruby installed successfully  
+  → Refreshing PATH to find gem...  
+[DEBUG] PATH refreshed from registry  
+  → Found gem: C:\Ruby34-x64\bin\gem.cmd  
+  → Installing rubocop via gem...  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) rubocop installed via gem  
   
 Installing phpstan...  
+[DEBUG] Tool: phpstan  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-phpstan.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpcnu8bwza.ps1  
-[DEBUG] Running: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpcnu8bwza.ps1 -Debug  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpek8diqci.ps1  
+[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpek8diqci.ps1 -Debug  
 [DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
 Traceback (most recent call last):  
   File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
@@ -250,26 +326,61 @@ After installation, add to PATH and run: medusa install --check
   ⊘ No installer available for this platform  
   
 Installing cargo-clippy...  
+[DEBUG] Tool: cargo-clippy  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: Rustlang.Rustup  
+[DEBUG] Choco package: rustup  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing cargo-clippy via winget: Rustlang.Rustup  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
   
 Installing sqlfluff...  
+[DEBUG] Tool: sqlfluff  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: sqlfluff  
   → Installing sqlfluff via pip: sqlfluff  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing stylelint...  
+[DEBUG] Tool: stylelint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: stylelint  
+[DEBUG] PIP package: None  
   → Installing stylelint via npm: stylelint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing htmlhint...  
+[DEBUG] Tool: htmlhint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: htmlhint  
+[DEBUG] PIP package: None  
   → Installing htmlhint via npm: htmlhint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing ktlint...  
+[DEBUG] Tool: ktlint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-ktlint.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp4x9okq9p.ps1  
-[DEBUG] Running: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp4x9okq9p.ps1 -Debug  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp4aw6fjrl.ps1  
+[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp4aw6fjrl.ps1 -Debug  
 [DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
 Traceback (most recent call last):  
   File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
@@ -295,17 +406,38 @@ After installation, add to PATH and run: medusa install --check
   ⊘ No installer available for this platform  
   
 Installing swiftlint...  
+[DEBUG] Tool: swiftlint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   ⊘ No installer available for this platform  
   
 Installing cppcheck...  
+[DEBUG] Tool: cppcheck  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: Cppcheck.Cppcheck  
+[DEBUG] Choco package: cppcheck  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing cppcheck via winget: Cppcheck.Cppcheck  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
   
 Installing checkstyle...  
+[DEBUG] Tool: checkstyle  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-checkstyle.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpx4erm9nb.ps1  
-[DEBUG] Running: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpx4erm9nb.ps1 -Debug  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpru9qh3tt.ps1  
+[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpru9qh3tt.ps1 -Debug  
 [DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
 Traceback (most recent call last):  
   File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
@@ -331,15 +463,39 @@ After installation, add to PATH and run: medusa install --check
   ⊘ No installer available for this platform  
   
 Installing typescript...  
+[DEBUG] Tool: typescript  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: typescript  
+[DEBUG] PIP package: None  
   → Installing typescript via npm: typescript  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing scalastyle...  
+[DEBUG] Tool: scalastyle  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: scala  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing scalastyle via choco: scala  
 [DEBUG] Running: choco install scala -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 scala  
 By installing, you accept licenses for the packages.  
@@ -373,11 +529,28 @@ Chocolatey installed 1/1 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing perlcritic...  
+[DEBUG] Tool: perlcritic  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: strawberryperl  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing perlcritic via choco: strawberryperl  
 [DEBUG] Running: choco install strawberryperl -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 strawberryperl  
 By installing, you accept licenses for the packages.  
@@ -406,22 +579,50 @@ Chocolatey installed 1/1 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing Rscript...  
+[DEBUG] Tool: Rscript  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: RProject.R  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing Rscript via winget: RProject.R  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing ansible-lint...  
+[DEBUG] Tool: ansible-lint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: ansible-lint  
   → Installing ansible-lint via pip: ansible-lint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing kube-linter...  
+[DEBUG] Tool: kube-linter  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: stackrox.kube-linter  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing kube-linter via winget: stackrox.kube-linter  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing taplo...  
+[DEBUG] Tool: taplo  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-taplo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpdt43skor.ps1  
-[DEBUG] Running: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpdt43skor.ps1 -Debug  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpkt6gasrv.ps1  
+[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpkt6gasrv.ps1 -Debug  
 [DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
 Traceback (most recent call last):  
   File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
@@ -443,19 +644,32 @@ Please install manually:
   
 After installation, add to PATH and run: medusa install --check  
   ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  → Looking for cargo... ✓ Found  
-  → Installing taplo via cargo...  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed:     Updating [crates.io](http://crates.io) index  
- Downloading crates ...  
-  Downloaded taplo-cli v0.10.0  
-  Installing tap  
+  → Looking for cargo... ✗ Not found  
+  ⊘ Review installation guide for manual setup  
   
 Installing xmllint...  
+[DEBUG] Tool: xmllint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: xsltproc  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing xmllint via choco: xsltproc  
 [DEBUG] Running: choco install xsltproc -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 xsltproc  
 By installing, you accept licenses for the packages.  
@@ -513,23 +727,61 @@ Chocolatey installed 1/1 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing buf...  
+[DEBUG] Tool: buf  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: @bufbuild/buf  
+[DEBUG] PIP package: None  
   → Installing buf via npm: @bufbuild/buf  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing graphql-schema-linter...  
+[DEBUG] Tool: graphql-schema-linter  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: graphql-schema-linter  
+[DEBUG] PIP package: None  
   → Installing graphql-schema-linter via npm: graphql-schema-linter  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing solhint...  
+[DEBUG] Tool: solhint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: solhint  
+[DEBUG] PIP package: None  
   → Installing solhint via npm: solhint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing luacheck...  
+[DEBUG] Tool: luacheck  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: lua  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing luacheck via choco: lua  
 [DEBUG] Running: choco install lua -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 lua  
 By installing, you accept licenses for the packages.  
@@ -580,11 +832,28 @@ Chocolatey installed 2/2 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing mix...  
+[DEBUG] Tool: mix  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: elixir  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing mix via choco: elixir  
 [DEBUG] Running: choco install elixir -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 elixir  
 By installing, you accept licenses for the packages.  
@@ -642,16 +911,39 @@ iex
   
 Chocolatey installed 2/2 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Did you know the proceeds of Pro (and some proceeds from other  
+ licensed editions) go into bettering the community infrastructure?  
+ Your support ensures an active community, keeps Chocolatey tip-top,  
+ plus it nets you some awesome features!  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing hlint...  
+[DEBUG] Tool: hlint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: ghc  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing hlint via choco: ghc  
 [DEBUG] Running: choco install ghc -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 ghc  
 By installing, you accept licenses for the packages.  
@@ -709,10 +1001,17 @@ Chocolatey installed 2/2 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing clj-kondo...  
+[DEBUG] Tool: clj-kondo  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-clj-kondo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpc6urzvte.ps1  
-[DEBUG] Running: powershell -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpc6urzvte.ps1 -Debug  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp1fv0ier1.ps1  
+[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp1fv0ier1.ps1 -Debug  
 [DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
 Traceback (most recent call last):  
   File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
@@ -739,15 +1038,39 @@ After installation, add to PATH and run: medusa install --check
   ⊘ Review installation guide for manual setup  
   
 Installing dart...  
+[DEBUG] Tool: dart  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: Google.DartSDK  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing dart via winget: Google.DartSDK  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing codenarc...  
+[DEBUG] Tool: codenarc  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: groovy  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing codenarc via choco: groovy  
 [DEBUG] Running: choco install groovy -y  
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
+3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
+  
+Validation Warnings:  
+ - A pending system reboot request has been detected, however, this is  
+   being ignored due to the current Chocolatey configuration.  If you  
+   want to halt when this occurs, then either set the global feature  
+   using:  
+     choco feature enable --name="exitOnRebootDetected"  
+   or pass the option --exit-when-reboot-detected.  
+  
 Installing the following packages:  
 groovy  
 By installing, you accept licenses for the packages.  
@@ -776,14 +1099,35 @@ Chocolatey installed 1/1 packages.
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing vim-vint...  
+[DEBUG] Tool: vim-vint  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: vim-vint  
   → Installing vim-vint via pip: vim-vint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing cmakelang...  
+[DEBUG] Tool: cmakelang  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: cmakelang  
   → Installing cmakelang via pip: cmakelang  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing checkmake...  
+[DEBUG] Tool: checkmake  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Using custom Windows installer...  
   
 ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Unable to automatically install checkmake  
@@ -798,24 +1142,42 @@ After installation, add to PATH and run: medusa install --check
   ⊘ Review installation guide for manual setup  
   
 Installing gixy...  
+[DEBUG] Tool: gixy  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: gixy  
   → Installing gixy via pip: gixy  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing zig...  
+[DEBUG] Tool: zig  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: Zig.Zig  
+[DEBUG] Choco package: None  
+[DEBUG] NPM package: None  
+[DEBUG] PIP package: None  
   → Installing zig via winget: Zig.Zig  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
   
 Installation Summary:  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 31  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 8  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 30  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 9  
   
 ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Windows PATH Update Required  
    Please restart your terminal for the installed tools to be detected  
    Tools installed via winget/npm may not be in your PATH until you restart  
   
-![📄](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f4c4/32.png) Installation guide created: C:\Users\rossc\Documents\.medusa\installation-guide.md  
+![📄](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f4c4/32.png) Installation guide created: C:\WINDOWS\system32\.medusa\installation-guide.md  
    See this file for manual installation instructions  
   
 Run 'medusa config' to see updated scanner status  
-PS C:\Users\rossc\Documents>
+PS C:\WINDOWS\system32>
+
+|   |
+|---|
+|![](https://lh3.googleusercontent.com/a/ACg8ocJExBTtBiL71JTlriTA5D5XRxduWvnLKgkvWGZRBFJj58NVcscxWw=s40-p)|
