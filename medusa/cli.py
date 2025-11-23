@@ -493,6 +493,44 @@ def _get_needed_scanners(file_types: dict):
     return needed_scanners, available_scanners, missing_tools
 
 
+def _prompt_with_auto_all(message, default=True, auto_yes_all=None):
+    """
+    Prompt user with [Y/n/a] options where 'a' = auto-yes to all future prompts.
+
+    Args:
+        message: The prompt message
+        default: Default value if user just presses enter
+        auto_yes_all: Dict with 'enabled' key to track auto-yes-all state
+
+    Returns:
+        bool: True if yes, False if no
+    """
+    # If auto-yes-all is already enabled, return True immediately
+    if auto_yes_all and auto_yes_all.get('enabled'):
+        return True
+
+    while True:
+        response = click.prompt(
+            message + " [Y/n/a]",
+            default='Y' if default else 'n',
+            show_default=False,
+            type=str
+        ).lower().strip()
+
+        if response in ('y', 'yes', ''):
+            return True
+        elif response in ('n', 'no'):
+            return False
+        elif response == 'a':
+            # Enable auto-yes-all mode
+            if auto_yes_all is not None:
+                auto_yes_all['enabled'] = True
+            console.print("[dim]Auto-yes enabled for all remaining prompts[/dim]")
+            return True
+        else:
+            console.print("[yellow]Please enter Y (yes), n (no), or a (all)[/yellow]")
+
+
 def _handle_batch_install(target, auto_install):
     """
     Handle batch installation mode - scan project, show summary, prompt once
@@ -1472,8 +1510,11 @@ def install(tool, check, all, yes, use_latest, debug):
 
         console.print()
 
+        # Track auto-yes-all state (dict so it's mutable across function calls)
+        auto_yes_all = {'enabled': yes}  # If --yes flag, start with auto-yes enabled
+
         if not yes:
-            confirm = click.confirm(f"Install all {len(missing_tools)} missing tools?", default=True)
+            confirm = _prompt_with_auto_all(f"Install all {len(missing_tools)} missing tools?", default=True, auto_yes_all=auto_yes_all)
             if not confirm:
                 console.print("[yellow]Installation cancelled[/yellow]")
                 return
@@ -1496,10 +1537,7 @@ def install(tool, check, all, yes, use_latest, debug):
                     console.print(f"  • ... and {len(choco_tools) - 5} more")
                 console.print()
 
-                if not yes:
-                    install_choco = click.confirm("Install Chocolatey package manager? (Requires admin rights)", default=True)
-                else:
-                    install_choco = True
+                install_choco = _prompt_with_auto_all("Install Chocolatey package manager? (Requires admin rights)", default=True, auto_yes_all=auto_yes_all)
 
                 if install_choco:
                     console.print("[cyan]Installing Chocolatey...[/cyan]")
@@ -1567,10 +1605,7 @@ def install(tool, check, all, yes, use_latest, debug):
         if npm_tools_needed and platform_info.os_type.value == 'windows':
             from medusa.platform import PackageManager
             if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                if not yes:
-                    install_nodejs = click.confirm(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True)
-                else:
-                    install_nodejs = True
+                install_nodejs = _prompt_with_auto_all(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True, auto_yes_all=auto_yes_all)
 
                 if install_nodejs:
                     console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
@@ -1613,10 +1648,7 @@ def install(tool, check, all, yes, use_latest, debug):
         if php_tools_needed and platform_info.os_type.value == 'windows':
             from medusa.platform import PackageManager
             if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                if not yes:
-                    install_php = click.confirm(f"Install PHP to enable phpstan?", default=True)
-                else:
-                    install_php = True
+                install_php = _prompt_with_auto_all(f"Install PHP to enable phpstan?", default=True, auto_yes_all=auto_yes_all)
 
                 if install_php:
                     console.print("\n[cyan]Installing PHP via winget...[/cyan]")

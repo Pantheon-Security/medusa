@@ -1,4 +1,4 @@
-# 🐍 MEDUSA v2025.1.8 - Multi-Language Security Scanner
+# 🐍 MEDUSA v2025.1.9 - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
@@ -133,7 +133,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v2025.1.8 - Security Guardian
+🐍 MEDUSA v2025.1.9 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -869,7 +869,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.1.8
+**Version**: 2025.1.9
 **Release Date**: 2025-11-23
 **Total Scanners**: 42
 **Language Coverage**: 16 major ecosystems
