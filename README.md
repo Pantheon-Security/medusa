@@ -314,14 +314,25 @@ medusa scan . -o /tmp/reports
 # Check which tools are installed
 medusa install --check
 
-# Install all missing tools
+# Install all missing tools (interactive)
 medusa install --all
 
 # Install specific tool
-medusa install --tool bandit
+medusa install bandit
 
-# Skip confirmation prompts
+# Auto-yes to all prompts (non-interactive)
 medusa install --all --yes
+
+# Auto-yes to first prompt, then auto-yes all remaining
+# When prompted: type 'a' for auto-yes-all
+medusa install --all
+Install all 39 missing tools? [Y/n/a]: a
+
+# Show detailed installation output
+medusa install --all --debug
+
+# Use latest versions (bypass version pinning)
+medusa install --all --use-latest
 ```
 
 ### Init Commands
@@ -346,55 +357,97 @@ medusa init --force
 medusa init --install
 ```
 
-### Windows Tool Installation
+### Additional Commands
 
-**⚠️ Note**: Auto-installation (`medusa install`) is not yet supported on Windows. Tools must be installed manually.
+```bash
+# Uninstall specific tool
+medusa uninstall bandit
 
-**Option 1: Using Chocolatey (Recommended)**
+# Uninstall all MEDUSA tools
+medusa uninstall --all --yes
 
-1. Install Chocolatey: https://chocolatey.org/install
-2. Install tools:
-```powershell
-# Run PowerShell as Administrator
-choco install shellcheck -y
-choco install markdownlint-cli -y
-choco install nodejs -y  # For npm-based tools
-npm install -g eslint
-npm install -g markdownlint-cli
+# Check for updates
+medusa version --check-updates
+
+# Show current configuration
+medusa config
+
+# Override scanner for specific file
+medusa override path/to/file.yaml YAMLScanner
+
+# List available scanners
+medusa override --list
+
+# Show current overrides
+medusa override --show
+
+# Remove override
+medusa override path/to/file.yaml --remove
 ```
 
-**Option 2: Using Scoop**
+### Scan Options Reference
 
-1. Install Scoop: https://scoop.sh
-2. Install tools:
+| Option | Description |
+|--------|-------------|
+| `TARGET` | Directory or file to scan (default: `.`) |
+| `-w, --workers N` | Number of parallel workers (default: auto-detect) |
+| `--quick` | Quick scan (changed files only, requires git) |
+| `--force` | Force full scan (ignore cache) |
+| `--no-cache` | Disable result caching |
+| `--fail-on LEVEL` | Exit with error on severity: `critical`, `high`, `medium`, `low` |
+| `-o, --output PATH` | Custom output directory for reports |
+| `--format FORMAT` | Output format: `json`, `html`, `sarif`, `junit`, `text` (can specify multiple) |
+| `--no-report` | Skip generating HTML report |
+| `--install-mode MODE` | Tool installation: `batch`, `progressive`, `never` |
+| `--auto-install` | Automatically install missing tools without prompting |
+| `--no-install` | Never attempt to install missing tools |
+
+### Install Options Reference
+
+| Option | Description |
+|--------|-------------|
+| `TOOL` | Specific tool to install (e.g., `bandit`, `eslint`) |
+| `--check` | Check which tools are installed |
+| `--all` | Install all missing tools |
+| `-y, --yes` | Skip all confirmation prompts (auto-yes) |
+| `--debug` | Show detailed debug output |
+| `--use-latest` | Install latest versions instead of pinned versions |
+
+**Interactive Prompts:**
+- `[Y/n/a]` - Type `Y` for yes, `n` for no, `a` for auto-yes-all remaining prompts
+
+### Windows Auto-Installation
+
+**✅ Fully Supported!** MEDUSA automatically installs tools on Windows using winget/Chocolatey.
+
 ```powershell
-scoop install shellcheck
-scoop install nodejs
-npm install -g markdownlint-cli eslint
+# One-command installation (auto-installs everything)
+medusa install --all
+
+# When prompted, type 'a' for auto-yes-all:
+Install all 39 missing tools? [Y/n/a]: a
+Auto-yes enabled for all remaining prompts
+
+# MEDUSA will automatically:
+# - Install Chocolatey (if needed)
+# - Install Node.js (if needed)
+# - Install Ruby (if needed)
+# - Install PHP (if needed)
+# - Install all 36+ scanner tools
+# - No terminal restart required!
 ```
 
-**Option 3: Using winget (Windows 11)**
+**What Gets Installed:**
+- **86%** of tools install automatically (36/42 scanners)
+- Winget (priority), Chocolatey, npm, pip, gem installers
+- PowerShell scripts for specialized tools (phpstan, ktlint, checkstyle, taplo, clj-kondo)
+- Runtime dependencies (Node.js, Ruby, PHP) auto-installed
 
-```powershell
-winget install ShellCheck.ShellCheck
-winget install OpenJS.NodeJS
-npm install -g markdownlint-cli eslint
-```
-
-**Common Tools for Windows:**
-
-| Tool | Install Command (Chocolatey) | Install Command (npm) |
-|------|------------------------------|----------------------|
-| shellcheck | `choco install shellcheck` | N/A |
-| bandit | `py -m pip install bandit` | N/A |
-| eslint | `choco install nodejs` → | `npm install -g eslint` |
-| markdownlint | N/A | `npm install -g markdownlint-cli` |
-| yamllint | `py -m pip install yamllint` | N/A |
-
-**After installing tools**, verify with:
-```powershell
-py -m medusa install --check
-```
+**Manual Installation (Optional):**
+Only 3 tools require manual installation:
+- `swiftlint` - macOS only
+- `checkmake` - Requires Go: `go install github.com/mrtazz/checkmake/cmd/checkmake@latest`
+- `cppcheck` - Download from https://cppcheck.sourceforge.io/
 
 ---
 
