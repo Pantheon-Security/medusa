@@ -1695,6 +1695,7 @@ def install(tool, check, all, yes, use_latest, debug):
                 install_go = _prompt_with_auto_all(f"Install Go to enable checkmake?", default=True, auto_yes_all=auto_yes_all)
 
                 if install_go:
+                    go_installed = False
                     console.print("\n[cyan]Installing Go via winget...[/cyan]")
                     winget_path = shutil.which('winget')
 
@@ -1713,17 +1714,37 @@ def install(tool, check, all, yes, use_latest, debug):
 
                             if go_success:
                                 console.print("[green]✅ Go installed successfully[/green]")
+                                go_installed = True
 
                                 # Refresh PATH
                                 from medusa.platform.installers.windows import refresh_windows_path
                                 refresh_windows_path()
                                 console.print("[dim]   Go is now available for checkmake[/dim]\n")
                             else:
-                                console.print("[red]❌ Failed to install Go[/red]\n")
+                                if debug:
+                                    console.print(f"[dim]winget output: {output[:200]}[/dim]")
+                                console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
                         except Exception as e:
-                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
+                            if debug:
+                                console.print(f"[dim]winget error: {str(e)[:100]}[/dim]")
+                            console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
                     else:
-                        console.print("[red]❌ winget not found[/red]\n")
+                        console.print("[yellow]⚠️  winget not found, trying choco...[/yellow]")
+
+                    # Fallback to Chocolatey if winget failed
+                    if not go_installed and choco_installer:
+                        console.print("[cyan]Installing Go via choco...[/cyan]")
+                        if choco_installer.install('go'):
+                            console.print("[green]✅ Go installed successfully via choco[/green]")
+                            from medusa.platform.installers.windows import refresh_windows_path
+                            refresh_windows_path()
+                            console.print("[dim]   Go is now available for checkmake[/dim]\n")
+                            go_installed = True
+                        else:
+                            console.print("[red]❌ Failed to install Go via choco[/red]\n")
+
+                    if not go_installed:
+                        console.print("[yellow]⚠️  Go installation failed - checkmake will not be available[/yellow]\n")
                 else:
                     console.print("[yellow]Skipping Go installation[/yellow]\n")
 
