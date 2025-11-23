@@ -2029,9 +2029,9 @@ def install(tool, check, all, yes, use_latest, debug):
 
 @main.command()
 @click.argument('tool', required=False)
-@click.option('--all', is_flag=True, help='Uninstall all MEDUSA scanner tools')
+@click.option('--all', 'all_tools', is_flag=True, help='Uninstall all MEDUSA scanner tools')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-def uninstall(tool, all, yes):
+def uninstall(tool, all_tools, yes):
     """
     Uninstall security scanner tools.
 
@@ -2113,7 +2113,7 @@ def uninstall(tool, all, yes):
             console.print(f"[yellow]Note: You may need to uninstall {tool} manually[/yellow]")
 
     # Uninstall all tools
-    elif all:
+    elif all_tools:
         console.print(f"[bold]Found {len(installed_tools)} installed tools:[/bold]")
         for t in installed_tools:
             console.print(f"  • {t}")
