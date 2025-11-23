@@ -2,7 +2,7 @@ PS C:\WINDOWS\system32> medusa install --all --debug
   
 ╔════════════════════════════════════════════════════════════════════╗  
 ║                                                                    ║  
-║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v2025.1.7 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
+║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v2025.1.9 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
 ║                                                                    ║  
 ║         Universal Scanner with 43+ Specialized Analyzers          ║  
 ║           One look from Medusa stops vulnerabilities dead          ║  
@@ -53,11 +53,11 @@ Found 39 missing tools:
   • gixy  
   • zig  
   
-Install all 39 missing tools? [Y/n]: y  
-                                                                                                                        �� 14 tools can be installed via Chocolatey:                                                                              • shellcheck                                                                                                            • hadolint                                                                                                              • markdownlint-cli                                                                                                      • tflint                                                                                                                • golangci-lint  
-  • ... and 9 more  
+Install all 39 missing tools? [Y/n/a]: a  
+Auto-yes enabled for all remaining prompts  
   
-Install Chocolatey package manager? (Requires admin rights) [Y/n]: y  
+�� 14 tools can be installed via Chocolatey:                                                                              • shellcheck                                                                                                            • hadolint                                                                                                              • markdownlint-cli                                                                                                      • tflint                                                                                                                • golangci-lint                                                                                                         • ... and 9 more  
+  
 Installing Chocolatey...  
 Debug mode enabled - showing full output  
 [DEBUG] Running command: powershell.exe -NoProfile -ExecutionPolicy Bypass -Command Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('[https://community.chocolatey.org/install.ps1'](https://community.chocolatey.org/install.ps1')))  
@@ -112,13 +112,11 @@ Runtime Dependencies Detected:
   • PHP needed for 1 tool: phpstan  
   • Java needed for 4 tools: ktlint, checkstyle, scalastyle... (not auto-installed for security)  
   
-Install Node.js to enable 8 npm tools? [Y/n]: y  
   
 Installing Node.js via winget...  
 ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Node.js installed successfully  
 ✓ npm is now available  
   
-Install PHP to enable phpstan? [Y/n]: y  
   
 Installing PHP via winget...  
 ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed to install PHP  
@@ -174,16 +172,6 @@ Installing markdownlint-cli...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 markdownlint-cli  
 By installing, you accept licenses for the packages.  
@@ -217,7 +205,7 @@ Progress: Downloading markdownlint-cli 0.46.0... 100%
 markdownlint-cli v0.46.0 [Approved]  
 markdownlint-cli package files install completed. Performing other installation steps.  
   
-added 70 packages in 12s  
+added 70 packages in 13s  
   
 44 packages are looking for funding  
   run `npm fund` for details  
@@ -284,11 +272,7 @@ Installing rubocop...
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Ruby installed successfully  
   → Refreshing PATH to find gem...  
 [DEBUG] PATH refreshed from registry  
-  → Found gem: C:\Ruby34-x64\bin\gem.cmd  
-  → Installing rubocop via gem...  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) rubocop installed via gem  
-  
-Installing phpstan...  
+  → Found gem: C:\Ruby34-x64\bin\gem.cmd                                                                                  → Installing rubocop via gem...                                                                                         ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) rubocop installed via gem                                                                                                                                                                                                                  Installing phpstan...  
 [DEBUG] Tool: phpstan  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
@@ -298,32 +282,37 @@ Installing phpstan...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-phpstan.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpek8diqci.ps1  
-[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpek8diqci.ps1 -Debug  
-[DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
-Traceback (most recent call last):  
-  File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
-    result = subprocess.run(  
-             ^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 548, in run  
-    with Popen(*popenargs, **kwargs) as process:  
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1026, in __init__  
-    self._execute_child(args, executable, preexec_fn, close_fds,  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1538, in _execute_child  
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,  
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-FileNotFoundError: [WinError 2] The system cannot find the file specified  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpha_qoapq.ps1  
+[DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpha_qoapq.ps1 -Debug  
+[2025-11-23 14:41:09] [INFO] Starting phpstan installation...  
+[2025-11-23 14:41:09] [INFO] Fetching release information for version 2.0.4...  
+[2025-11-23 14:41:11] [INFO] Installing version: 2.0.4  
+[2025-11-23 14:41:11] [INFO] Found asset: phpstan.phar  
+[2025-11-23 14:41:11] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\phpstan  
+[2025-11-23 14:41:11] [INFO] Downloading from: [https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar](https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar)  
+Downloading phpstan 2.0.4...  
+[2025-11-23 14:41:36] [INFO] Download complete: C:\Users\rossc\AppData\Local\phpstan\phpstan.phar  
+[2025-11-23 14:41:36] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\phpstan\phpstan.bat  
   
-![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Automatic installation failed  
+WARNING: PHP not found in PATH  
+   phpstan requires PHP to run  
+   Install PHP from: [https://windows.php.net/download/](https://windows.php.net/download/)  
   
-Please install manually:  
-  Option 1 (Composer): composer global require phpstan/phpstan  
-  Option 2 (Manual): Download from [https://github.com/phpstan/phpstan/releases](https://github.com/phpstan/phpstan/releases)  
+SUCCESS: phpstan installed successfully!  
+   Location: C:\Users\rossc\AppData\Local\phpstan\phpstan.phar  
+   Wrapper: C:\Users\rossc\AppData\Local\phpstan\phpstan.bat  
   
-After installation, add to PATH and run: medusa install --check  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  ⊘ No installer available for this platform  
+NOTE: C:\Users\rossc\AppData\Local\phpstan is not in your PATH  
+   Add to PATH to use 'phpstan' command globally  
+  
+   To add to PATH (run as administrator):  
+   [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\phpstan', 'Machine')  
+  
+   Testing installation...  
+[2025-11-23 14:41:37] [INFO] Version check failed (PHP may not be available)  
+[DEBUG] Successfully installed phpstan via PowerShell script  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing cargo-clippy...  
 [DEBUG] Tool: cargo-clippy  
@@ -365,11 +354,7 @@ Installing htmlhint...
 [DEBUG] PM package: None  
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: htmlhint  
-[DEBUG] PIP package: None  
-  → Installing htmlhint via npm: htmlhint  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
-  
-Installing ktlint...  
+[DEBUG] PIP package: None                                                                                                 → Installing htmlhint via npm: htmlhint                                                                                 ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing ktlint...  
 [DEBUG] Tool: ktlint  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
@@ -379,31 +364,37 @@ Installing ktlint...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-ktlint.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp4aw6fjrl.ps1  
-[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp4aw6fjrl.ps1 -Debug  
-[DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
-Traceback (most recent call last):  
-  File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
-    result = subprocess.run(  
-             ^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 548, in run  
-    with Popen(*popenargs, **kwargs) as process:  
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1026, in __init__  
-    self._execute_child(args, executable, preexec_fn, close_fds,  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1538, in _execute_child  
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,  
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-FileNotFoundError: [WinError 2] The system cannot find the file specified  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp7y79ghzm.ps1  
+[DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp7y79ghzm.ps1 -Debug  
+[2025-11-23 14:42:33] [INFO] Starting ktlint installation...  
+[2025-11-23 14:42:33] [INFO] Fetching release information for version 1.5.0...  
+[2025-11-23 14:42:34] [INFO] Installing version: 1.5.0  
+[2025-11-23 14:42:34] [INFO] Found asset: ktlint  
+[2025-11-23 14:42:34] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\ktlint  
+[2025-11-23 14:42:34] [INFO] Downloading from: [https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint](https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint)  
+Downloading ktlint 1.5.0...  
+[2025-11-23 14:43:38] [INFO] Download complete: C:\Users\rossc\AppData\Local\ktlint\ktlint.jar  
+[2025-11-23 14:43:38] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\ktlint\ktlint.bat  
   
-![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Automatic installation failed  
+WARNING: Java not found in PATH  
+   ktlint requires Java to run  
+   Install Java from: [https://adoptium.net/](https://adoptium.net/)  
   
-Please install manually:  
-  Download from: [https://github.com/pinterest/ktlint/releases](https://github.com/pinterest/ktlint/releases)  
+SUCCESS: ktlint installed successfully!  
+   Location: C:\Users\rossc\AppData\Local\ktlint\ktlint.jar  
+   Wrapper: C:\Users\rossc\AppData\Local\ktlint\ktlint.bat  
   
-After installation, add to PATH and run: medusa install --check  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  ⊘ No installer available for this platform  
+NOTE: C:\Users\rossc\AppData\Local\ktlint is not in your PATH  
+   Add to PATH to use 'ktlint' command globally  
+  
+   To add to PATH (run as administrator):  
+   [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\ktlint', 'Machine')  
+  
+   Testing installation...  
+[2025-11-23 14:43:38] [INFO] Version check failed (Java may not be available)  
+[DEBUG] Successfully installed ktlint via PowerShell script  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing swiftlint...  
 [DEBUG] Tool: swiftlint  
@@ -423,11 +414,7 @@ Installing cppcheck...
 [DEBUG] Choco package: cppcheck  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
-  → Installing cppcheck via winget: Cppcheck.Cppcheck  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
-  
-Installing checkstyle...  
-[DEBUG] Tool: checkstyle  
+  → Installing cppcheck via winget: Cppcheck.Cppcheck                                                                     ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png)![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed                                                                                                                                                                                                                        Installing checkstyle...                                                                                                [DEBUG] Tool: checkstyle  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
 [DEBUG] PM package: None  
@@ -436,31 +423,37 @@ Installing checkstyle...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-checkstyle.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpru9qh3tt.ps1  
-[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpru9qh3tt.ps1 -Debug  
-[DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
-Traceback (most recent call last):  
-  File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
-    result = subprocess.run(  
-             ^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 548, in run  
-    with Popen(*popenargs, **kwargs) as process:  
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1026, in __init__  
-    self._execute_child(args, executable, preexec_fn, close_fds,  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1538, in _execute_child  
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,  
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-FileNotFoundError: [WinError 2] The system cannot find the file specified  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpb8v_2l4s.ps1  
+[DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpb8v_2l4s.ps1 -Debug  
+[2025-11-23 14:43:41] [INFO] Starting checkstyle installation...  
+[2025-11-23 14:43:41] [INFO] Fetching release information for version checkstyle-12.1.2...  
+[2025-11-23 14:43:41] [INFO] Installing version: checkstyle-12.1.2  
+[2025-11-23 14:43:42] [INFO] Found asset: checkstyle-12.1.2-all.jar  
+[2025-11-23 14:43:42] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\checkstyle  
+[2025-11-23 14:43:42] [INFO] Downloading from: [https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar](https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar)  
+Downloading checkstyle checkstyle-12.1.2...  
+[2025-11-23 14:43:56] [INFO] Download complete: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.jar  
+[2025-11-23 14:43:56] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.bat  
   
-![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Automatic installation failed  
+WARNING: Java not found in PATH  
+   checkstyle requires Java to run  
+   Install Java from: [https://adoptium.net/](https://adoptium.net/)  
   
-Please install manually:  
-  Download from: [https://github.com/checkstyle/checkstyle/releases](https://github.com/checkstyle/checkstyle/releases)  
+SUCCESS: checkstyle installed successfully!  
+   Location: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.jar  
+   Wrapper: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.bat  
   
-After installation, add to PATH and run: medusa install --check  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  ⊘ No installer available for this platform  
+NOTE: C:\Users\rossc\AppData\Local\checkstyle is not in your PATH  
+   Add to PATH to use 'checkstyle' command globally  
+  
+   To add to PATH (run as administrator):  
+   [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\checkstyle', 'Machine')  
+  
+   Testing installation...  
+[2025-11-23 14:43:56] [INFO] Version check failed (Java may not be available)  
+[DEBUG] Successfully installed checkstyle via PowerShell script  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing typescript...  
 [DEBUG] Tool: typescript  
@@ -486,16 +479,6 @@ Installing scalastyle...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 scala  
 By installing, you accept licenses for the packages.  
@@ -541,16 +524,6 @@ Installing perlcritic...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 strawberryperl  
 By installing, you accept licenses for the packages.  
@@ -608,44 +581,41 @@ Installing kube-linter...
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
-  → Installing kube-linter via winget: stackrox.kube-linter  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
-  
-Installing taplo...  
-[DEBUG] Tool: taplo  
-[DEBUG] Primary PM: winget  
-[DEBUG] Installer: WingetInstaller  
-[DEBUG] PM package: None  
+  → Installing kube-linter via winget: stackrox.kube-linter                                                               ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing taplo...                                                                                                     [DEBUG] Tool: taplo                                                                                                     [DEBUG] Primary PM: winget                                                                                              [DEBUG] Installer: WingetInstaller                                                                                      [DEBUG] PM package: None  
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-taplo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpkt6gasrv.ps1  
-[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpkt6gasrv.ps1 -Debug  
-[DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
-Traceback (most recent call last):  
-  File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
-    result = subprocess.run(  
-             ^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 548, in run  
-    with Popen(*popenargs, **kwargs) as process:  
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1026, in __init__  
-    self._execute_child(args, executable, preexec_fn, close_fds,  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1538, in _execute_child  
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,  
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-FileNotFoundError: [WinError 2] The system cannot find the file specified  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpiwta_vvk.ps1  
+[DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpiwta_vvk.ps1 -Debug  
+[2025-11-23 14:48:51] [INFO] Starting taplo installation...  
+[2025-11-23 14:48:51] [INFO] Fetching release information for version 0.9.3...  
+[2025-11-23 14:48:52] [INFO] Installing version: 0.9.3  
+[2025-11-23 14:48:52] [INFO] Found asset: taplo-full-windows-x86_64.zip  
+[2025-11-23 14:48:52] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\taplo  
+[2025-11-23 14:48:52] [INFO] Downloading from: [https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip](https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip)  
+Downloading taplo 0.9.3...  
+[2025-11-23 14:48:56] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\taplo-0.9.3.zip  
+[2025-11-23 14:48:57] [INFO] Extracting to: C:\Users\rossc\AppData\Local\taplo  
+[2025-11-23 14:48:58] [INFO] Extraction complete  
+[2025-11-23 14:48:58] [INFO] Cleaned up temporary ZIP file  
+[2025-11-23 14:48:58] [INFO] Found executable: C:\Users\rossc\AppData\Local\taplo\taplo.exe  
   
-![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Automatic installation failed  
+SUCCESS: taplo installed successfully!  
+   Location: C:\Users\rossc\AppData\Local\taplo\taplo.exe  
   
-Please install manually:  
+NOTE: C:\Users\rossc\AppData\Local\taplo is not in your PATH  
+   Add to PATH to use 'taplo' command globally  
   
-After installation, add to PATH and run: medusa install --check  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  → Looking for cargo... ✗ Not found  
-  ⊘ Review installation guide for manual setup  
+   To add to PATH (run as administrator):  
+   [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\taplo', 'Machine')  
+  
+   Testing installation...  
+   Version: taplo 0.9.3  
+[DEBUG] Successfully installed taplo via PowerShell script  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing xmllint...  
 [DEBUG] Tool: xmllint  
@@ -660,16 +630,6 @@ Installing xmllint...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 xsltproc  
 By installing, you accept licenses for the packages.  
@@ -722,6 +682,12 @@ Added C:\ProgramData\chocolatey\bin\xsltproc.exe shim pointed to '..\lib\xsltpro
   
 Chocolatey installed 1/1 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Did you know the proceeds of Pro (and some proceeds from other  
+ licensed editions) go into bettering the community infrastructure?  
+ Your support ensures an active community, keeps Chocolatey tip-top,  
+ plus it nets you some awesome features!  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -772,16 +738,6 @@ Installing luacheck...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 lua  
 By installing, you accept licenses for the packages.  
@@ -844,16 +800,6 @@ Installing mix...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 elixir  
 By installing, you accept licenses for the packages.  
@@ -911,12 +857,6 @@ iex
   
 Chocolatey installed 2/2 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
-  
-Did you know the proceeds of Pro (and some proceeds from other  
- licensed editions) go into bettering the community infrastructure?  
- Your support ensures an active community, keeps Chocolatey tip-top,  
- plus it nets you some awesome features!  
- [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -934,16 +874,6 @@ Installing hlint...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 ghc  
 By installing, you accept licenses for the packages.  
@@ -997,45 +927,39 @@ Environment Vars (like PATH) have changed. Close/reopen your shell to
 Chocolatey installed 2/2 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
 ------------------------------------------------------------  
-[DEBUG] Exit code: 0  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
-  
-Installing clj-kondo...  
-[DEBUG] Tool: clj-kondo  
-[DEBUG] Primary PM: winget  
-[DEBUG] Installer: WingetInstaller  
-[DEBUG] PM package: None  
-[DEBUG] Choco package: None  
+[DEBUG] Exit code: 0                                                                                                      ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing clj-kondo...                                                                                                 [DEBUG] Tool: clj-kondo                                                                                                 [DEBUG] Primary PM: winget                                                                                              [DEBUG] Installer: WingetInstaller                                                                                      [DEBUG] PM package: None                                                                                                [DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-clj-kondo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp1fv0ier1.ps1  
-[DEBUG] Running: powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp1fv0ier1.ps1 -Debug  
-[DEBUG] PowerShell installer error: [WinError 2] The system cannot find the file specified  
-Traceback (most recent call last):  
-  File "C:\Program Files\Python311\Lib\site-packages\medusa\platform\installers\windows.py", line 442, in install  
-    result = subprocess.run(  
-             ^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 548, in run  
-    with Popen(*popenargs, **kwargs) as process:  
-         ^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1026, in __init__  
-    self._execute_child(args, executable, preexec_fn, close_fds,  
-  File "C:\Program Files\Python311\Lib\subprocess.py", line 1538, in _execute_child  
-    hp, ht, pid, tid = _winapi.CreateProcess(executable, args,  
-                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  
-FileNotFoundError: [WinError 2] The system cannot find the file specified  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpkk68gm94.ps1  
+[DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpkk68gm94.ps1 -Debug  
+[2025-11-23 14:58:16] [INFO] Starting clj-kondo installation...  
+[2025-11-23 14:58:16] [INFO] Fetching release information for version v2025.10.23...  
+[2025-11-23 14:58:17] [INFO] Installing version: v2025.10.23  
+[2025-11-23 14:58:17] [INFO] Found asset: clj-kondo-2025.10.23-windows-amd64.zip  
+[2025-11-23 14:58:17] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\clj-kondo  
+[2025-11-23 14:58:17] [INFO] Downloading from: [https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip](https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip)  
+Downloading clj-kondo v2025.10.23...  
+[2025-11-23 14:58:40] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\clj-kondo.zip  
+[2025-11-23 14:58:40] [INFO] Extracting to: C:\Users\rossc\AppData\Local\clj-kondo  
+Extracting files...  
+[2025-11-23 14:58:42] [INFO] Cleanup complete  
   
-![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Automatic installation failed  
+SUCCESS: clj-kondo installed successfully!  
+   Location: C:\Users\rossc\AppData\Local\clj-kondo\clj-kondo.exe  
   
-Please install manually:  
-  Download from: [https://github.com/clj-kondo/clj-kondo/releases](https://github.com/clj-kondo/clj-kondo/releases)  
+NOTE: C:\Users\rossc\AppData\Local\clj-kondo is not in your PATH  
+   Add to PATH to use 'clj-kondo' command globally  
   
-After installation, add to PATH and run: medusa install --check  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Custom installer failed  
-  → Looking for brew... ✗ Not found  
-  ⊘ Review installation guide for manual setup  
+   To add to PATH (run as administrator):  
+   [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\clj-kondo', 'Machine')  
+  
+   Testing installation...  
+   Version: clj-kondo v2025.10.23  
+[DEBUG] Successfully installed clj-kondo via PowerShell script  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing dart...  
 [DEBUG] Tool: dart  
@@ -1046,7 +970,7 @@ Installing dart...
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Installing dart via winget: Google.DartSDK  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
   
 Installing codenarc...  
 [DEBUG] Tool: codenarc  
@@ -1061,16 +985,6 @@ Installing codenarc...
 [DEBUG] Chocolatey output:  
 ------------------------------------------------------------  
 Chocolatey v2.5.1  
-3 validations performed. 2 success(es), 1 warning(s), and 0 error(s).  
-  
-Validation Warnings:  
- - A pending system reboot request has been detected, however, this is  
-   being ignored due to the current Chocolatey configuration.  If you  
-   want to halt when this occurs, then either set the global feature  
-   using:  
-     choco feature enable --name="exitOnRebootDetected"  
-   or pass the option --exit-when-reboot-detected.  
-  
 Installing the following packages:  
 groovy  
 By installing, you accept licenses for the packages.  
@@ -1165,8 +1079,8 @@ Installing zig...
   
   
 Installation Summary:  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 30  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 9  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 34  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 5  
   
 ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Windows PATH Update Required  
    Please restart your terminal for the installed tools to be detected  
@@ -1177,7 +1091,3 @@ Installation Summary:
   
 Run 'medusa config' to see updated scanner status  
 PS C:\WINDOWS\system32>
-
-|   |
-|---|
-|![](https://lh3.googleusercontent.com/a/ACg8ocJExBTtBiL71JTlriTA5D5XRxduWvnLKgkvWGZRBFJj58NVcscxWw=s40-p)|

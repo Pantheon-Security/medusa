@@ -1564,6 +1564,7 @@ def install(tool, check, all, yes, use_latest, debug):
         # ========================================
         npm_tools_needed = []
         php_tools_needed = []
+        go_tools_needed = []
         java_tools_needed = []
 
         for tool in missing_tools:
@@ -1577,6 +1578,10 @@ def install(tool, check, all, yes, use_latest, debug):
             if tool == 'phpstan' and not shutil.which('php'):
                 php_tools_needed.append(tool)
 
+            # Check if tool needs Go
+            if tool == 'checkmake' and not shutil.which('go'):
+                go_tools_needed.append(tool)
+
             # Check if tool needs Java
             if tool in {'checkstyle', 'ktlint', 'scalastyle', 'codenarc'} and not shutil.which('java'):
                 java_tools_needed.append(tool)
@@ -1584,7 +1589,7 @@ def install(tool, check, all, yes, use_latest, debug):
         # ========================================
         # Runtime installation phase
         # ========================================
-        if npm_tools_needed or php_tools_needed or java_tools_needed:
+        if npm_tools_needed or php_tools_needed or go_tools_needed or java_tools_needed:
             console.print("[bold]Runtime Dependencies Detected:[/bold]")
 
             # Node.js / npm
@@ -1594,6 +1599,10 @@ def install(tool, check, all, yes, use_latest, debug):
             # PHP
             if php_tools_needed:
                 console.print(f"  • PHP needed for {len(php_tools_needed)} tool{'s' if len(php_tools_needed) > 1 else ''}: {', '.join(php_tools_needed)}")
+
+            # Go
+            if go_tools_needed:
+                console.print(f"  • Go needed for {len(go_tools_needed)} tool{'s' if len(go_tools_needed) > 1 else ''}: {', '.join(go_tools_needed)}")
 
             # Java (info only)
             if java_tools_needed:
@@ -1679,6 +1688,45 @@ def install(tool, check, all, yes, use_latest, debug):
                 else:
                     console.print("[yellow]Skipping PHP installation[/yellow]\n")
 
+        # Install Go if needed
+        if go_tools_needed and platform_info.os_type.value == 'windows':
+            from medusa.platform import PackageManager
+            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
+                install_go = _prompt_with_auto_all(f"Install Go to enable checkmake?", default=True, auto_yes_all=auto_yes_all)
+
+                if install_go:
+                    console.print("\n[cyan]Installing Go via winget...[/cyan]")
+                    winget_path = shutil.which('winget')
+
+                    if winget_path:
+                        try:
+                            success, output = _safe_run_version_check(
+                                [winget_path, 'install', '--id', 'GoLang.Go', '--accept-source-agreements', '--accept-package-agreements'],
+                                timeout=120
+                            )
+                            output_lower = output.lower() if output else ''
+                            go_success = (
+                                success or
+                                'already installed' in output_lower or
+                                'no available upgrade found' in output_lower
+                            )
+
+                            if go_success:
+                                console.print("[green]✅ Go installed successfully[/green]")
+
+                                # Refresh PATH
+                                from medusa.platform.installers.windows import refresh_windows_path
+                                refresh_windows_path()
+                                console.print("[dim]   Go is now available for checkmake[/dim]\n")
+                            else:
+                                console.print("[red]❌ Failed to install Go[/red]\n")
+                        except Exception as e:
+                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
+                    else:
+                        console.print("[red]❌ winget not found[/red]\n")
+                else:
+                    console.print("[yellow]Skipping Go installation[/yellow]\n")
+
         # Show Java message (no auto-install)
         if java_tools_needed:
             console.print(f"[yellow]⚠️  Java runtime required for {len(java_tools_needed)} tool{'s' if len(java_tools_needed) > 1 else ''}[/yellow]")
@@ -1758,6 +1806,16 @@ def install(tool, check, all, yes, use_latest, debug):
                     success = best_installer.install(tool_name, use_latest=use_latest)
                 else:
                     success = best_installer.install(tool_name)
+
+                # Fallback: If winget failed and choco is available, try choco for specific tools
+                if not success and installer_name == 'winget' and choco_installer and choco_package:
+                    if tool_name in {'cppcheck', 'cargo-clippy'}:
+                        console.print(f"  [yellow]⚠️ winget failed, trying choco fallback...[/yellow]")
+                        console.print(f"  → Installing {tool_name} via choco: {choco_package}")
+                        success = choco_installer.install(tool_name)
+                        if success:
+                            installer_name = 'choco'  # Update for reporting
+
                 if success:
                     # Special handling for rubocop: winget installs Ruby, then we need gem to install rubocop
                     if tool_name == 'rubocop' and installer_name == 'winget' and platform_info.os_type.value == 'windows':

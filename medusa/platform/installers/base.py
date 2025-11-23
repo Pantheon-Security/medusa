@@ -267,6 +267,16 @@ class ToolMapper:
             'apt': 'gixy',
             'pip': 'gixy',
         },
+        'go': {
+            'winget': 'GoLang.Go',
+            'choco': 'golang',
+            'brew': 'go',
+            'apt': 'golang-go',
+            'yum': 'golang',
+            'dnf': 'golang',
+            'pacman': 'go',
+            'manual': 'https://go.dev/dl/',
+        },
         'golangci-lint': {
             'brew': 'golangci-lint',
             'winget': 'GolangCI.golangci-lint',
@@ -331,6 +341,15 @@ class ToolMapper:
             'brew': 'perl-critic',
             'choco': 'strawberryperl',
             'manual': 'cpan Perl::Critic',
+        },
+        'php': {
+            'choco': 'php',
+            'brew': 'php',
+            'apt': 'php',
+            'yum': 'php',
+            'dnf': 'php',
+            'pacman': 'php',
+            'manual': 'https://windows.php.net/download/',
         },
         'phpstan': {
             'brew': 'phpstan',
