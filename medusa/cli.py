@@ -6,6 +6,7 @@ Modern Click-based CLI for cross-platform security scanning
 
 import sys
 import shutil
+import subprocess
 import click
 from pathlib import Path
 from rich.console import Console
