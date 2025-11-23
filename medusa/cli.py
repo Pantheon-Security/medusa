@@ -1685,6 +1685,16 @@ def install(tool, check, all, yes, use_latest, debug):
             npm_package = ToolMapper.get_package_name(tool_name, 'npm')
             pip_package = ToolMapper.get_package_name(tool_name, 'pip')
 
+            # Debug output for troubleshooting
+            if debug:
+                console.print(f"[DEBUG] Tool: {tool_name}")
+                console.print(f"[DEBUG] Primary PM: {pm.value if pm else 'None'}")
+                console.print(f"[DEBUG] Installer: {installer.__class__.__name__ if installer else 'None'}")
+                console.print(f"[DEBUG] PM package: {pm_package}")
+                console.print(f"[DEBUG] Choco package: {choco_package}")
+                console.print(f"[DEBUG] NPM package: {npm_package}")
+                console.print(f"[DEBUG] PIP package: {pip_package}")
+
             # Pick the first available installer
             if installer and pm_package:
                 best_installer = installer
