@@ -131,17 +131,20 @@ class WingetInstaller(BaseInstaller):
     def uninstall(self, package: str, sudo: bool = False) -> bool:
         """Uninstall package using winget"""
         if not self.pm_path:
-            print("[DEBUG] winget path not found")
+            sys.stderr.write("[DEBUG] winget path not found\n")
+            sys.stderr.flush()
             return False
 
         package_name = ToolMapper.get_package_name(package, 'winget')
         if not package_name:
-            print(f"[DEBUG] No winget package mapping for {package}")
+            sys.stderr.write(f"[DEBUG] No winget package mapping for {package}\n")
+            sys.stderr.flush()
             return False
 
         # Validate package name
         if not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
-            print(f"[DEBUG] Invalid package name: {package_name}")
+            sys.stderr.write(f"[DEBUG] Invalid package name: {package_name}\n")
+            sys.stderr.flush()
             return False
 
         cmd = ['winget', 'uninstall', '--id', package_name, '--silent', '--accept-source-agreements']
@@ -150,9 +153,12 @@ class WingetInstaller(BaseInstaller):
             result = self.run_command(cmd, check=False)  # Don't throw on non-zero
             output = result.stdout.lower() if hasattr(result, 'stdout') else ''
 
-            print(f"[DEBUG] Return code: {result.returncode}")
-            print(f"[DEBUG] Stdout: {result.stdout[:200] if result.stdout else 'None'}")
-            print(f"[DEBUG] Stderr: {result.stderr[:200] if hasattr(result, 'stderr') and result.stderr else 'None'}")
+            sys.stderr.write(f"[DEBUG] Winget uninstall {package_name}\n")
+            sys.stderr.write(f"[DEBUG]   Command: {' '.join(cmd)}\n")
+            sys.stderr.write(f"[DEBUG]   Return code: {result.returncode}\n")
+            sys.stderr.write(f"[DEBUG]   Stdout: {result.stdout[:200] if result.stdout else 'None'}\n")
+            sys.stderr.write(f"[DEBUG]   Stderr: {result.stderr[:200] if hasattr(result, 'stderr') and result.stderr else 'None'}\n")
+            sys.stderr.flush()
 
             # Success if:
             # - Exit code is 0, OR
@@ -165,7 +171,8 @@ class WingetInstaller(BaseInstaller):
 
             return success
         except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError) as e:
-            print(f"[DEBUG] Exception during uninstall: {e}")
+            sys.stderr.write(f"[DEBUG] Exception during uninstall: {e}\n")
+            sys.stderr.flush()
             return False
 
     def get_install_command(self, package: str, sudo: bool = False) -> str:
