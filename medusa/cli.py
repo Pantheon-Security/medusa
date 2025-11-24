@@ -2130,6 +2130,8 @@ def uninstall(tool, all_tools, yes, debug):
                 PackageManager.DNF: DnfInstaller(),
                 PackageManager.PACMAN: PacmanInstaller(),
                 PackageManager.BREW: HomebrewInstaller(),
+                PackageManager.WINGET: WingetInstaller(),
+                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
             }
             installer = installer_map.get(pm)
 
@@ -2184,6 +2186,8 @@ def uninstall(tool, all_tools, yes, debug):
                 PackageManager.DNF: DnfInstaller(),
                 PackageManager.PACMAN: PacmanInstaller(),
                 PackageManager.BREW: HomebrewInstaller(),
+                PackageManager.WINGET: WingetInstaller(),
+                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
             }
             installer = installer_map.get(pm)
 
