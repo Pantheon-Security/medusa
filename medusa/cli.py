@@ -2209,7 +2209,10 @@ def uninstall(tool, all_tools, yes, debug):
                 if debug:
                     pkg = ToolMapper.get_package_name(tool_name, pm.value)
                     console.print(f"\n[DEBUG]   Using {pm.value} to uninstall: {pkg}")
+                    console.print(f"[DEBUG]   Command: winget uninstall --id {pkg} --silent --accept-source-agreements")
                 success = installer.uninstall(tool_name)
+                if debug and not success:
+                    console.print(f"[DEBUG]   Uninstall failed - check winget output above")
             elif npm_installer and ToolMapper.is_npm_tool(tool_name):
                 if debug:
                     console.print(f"\n[DEBUG]   Using npm to uninstall")

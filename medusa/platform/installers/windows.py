@@ -131,14 +131,17 @@ class WingetInstaller(BaseInstaller):
     def uninstall(self, package: str, sudo: bool = False) -> bool:
         """Uninstall package using winget"""
         if not self.pm_path:
+            print("[DEBUG] winget path not found")
             return False
 
         package_name = ToolMapper.get_package_name(package, 'winget')
         if not package_name:
+            print(f"[DEBUG] No winget package mapping for {package}")
             return False
 
         # Validate package name
         if not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            print(f"[DEBUG] Invalid package name: {package_name}")
             return False
 
         cmd = ['winget', 'uninstall', '--id', package_name, '--silent', '--accept-source-agreements']
@@ -146,6 +149,10 @@ class WingetInstaller(BaseInstaller):
         try:
             result = self.run_command(cmd, check=False)  # Don't throw on non-zero
             output = result.stdout.lower() if hasattr(result, 'stdout') else ''
+
+            print(f"[DEBUG] Return code: {result.returncode}")
+            print(f"[DEBUG] Stdout: {result.stdout[:200] if result.stdout else 'None'}")
+            print(f"[DEBUG] Stderr: {result.stderr[:200] if hasattr(result, 'stderr') and result.stderr else 'None'}")
 
             # Success if:
             # - Exit code is 0, OR
@@ -157,7 +164,8 @@ class WingetInstaller(BaseInstaller):
             )
 
             return success
-        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError) as e:
+            print(f"[DEBUG] Exception during uninstall: {e}")
             return False
 
     def get_install_command(self, package: str, sudo: bool = False) -> str:
