@@ -1,8 +1,8 @@
-PS C:\WINDOWS\system32> medusa install --all --debug  
+WINDOWS\system32> medusa install --all --debug  
   
 ╔════════════════════════════════════════════════════════════════════╗  
 ║                                                                    ║  
-║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v2025.1.9 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
+║          ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png) MEDUSA v2025.2.0.0 - Security Guardian ![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)![🐍](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f40d/32.png)           ║  
 ║                                                                    ║  
 ║         Universal Scanner with 43+ Specialized Analyzers          ║  
 ║           One look from Medusa stops vulnerabilities dead          ║  
@@ -37,12 +37,7 @@ Found 39 missing tools:
   • ansible-lint  
   • kube-linter  
   • taplo  
-  • xmllint  
-  • buf  
-  • graphql-schema-linter  
-  • solhint  
-  • luacheck  
-  • mix  
+  • xmllint                                                                                                                                                    • buf                                                                                                                                                        • graphql-schema-linter                                                                                                                                      • solhint                                                                                                                                                    • luacheck                                                                                                                                                   • mix  
   • hlint  
   • clj-kondo  
   • dart  
@@ -56,7 +51,13 @@ Found 39 missing tools:
 Install all 39 missing tools? [Y/n/a]: a  
 Auto-yes enabled for all remaining prompts  
   
-�� 14 tools can be installed via Chocolatey:                                                                              • shellcheck                                                                                                            • hadolint                                                                                                              • markdownlint-cli                                                                                                      • tflint                                                                                                                • golangci-lint                                                                                                         • ... and 9 more  
+![💡](https://fonts.gstatic.com/s/e/notoemoji/16.0/1f4a1/32.png) 14 tools can be installed via Chocolatey:  
+  • shellcheck  
+  • hadolint  
+  • markdownlint-cli  
+  • tflint  
+  • golangci-lint  
+  • ... and 9 more  
   
 Installing Chocolatey...  
 Debug mode enabled - showing full output  
@@ -88,8 +89,7 @@ Creating Chocolatey CLI folders if they do not already exist.
 chocolatey.nupkg file not installed in lib.  
  Attempting to locate it from bootstrapper.  
 PATH environment variable does not have C:\ProgramData\chocolatey\bin in it. Adding...  
-WARNING: Not setting tab completion: Profile file does not exist at  
-'C:\Users\rossc\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'.  
+WARNING: Not setting tab completion: Profile file does not exist at 'C:\Users\rossc\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'.  
 Chocolatey CLI (choco.exe) is now ready.  
 You can call choco from anywhere, command line or PowerShell by typing choco.  
 Run choco /? for a list of functions.  
@@ -110,6 +110,7 @@ PATH refreshed - chocolatey is now available
 Runtime Dependencies Detected:  
   • Node.js needed for 8 tools: markdownlint-cli, eslint, stylelint...  
   • PHP needed for 1 tool: phpstan  
+  • Go needed for 1 tool: checkmake  
   • Java needed for 4 tools: ktlint, checkstyle, scalastyle... (not auto-installed for security)  
   
   
@@ -120,6 +121,10 @@ Installing Node.js via winget...
   
 Installing PHP via winget...  
 ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed to install PHP  
+  
+  
+Installing Go via winget...  
+![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed to install Go  
   
 ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Java runtime required for 4 tools  
    We don't auto-install Java due to security concerns  
@@ -205,7 +210,7 @@ Progress: Downloading markdownlint-cli 0.46.0... 100%
 markdownlint-cli v0.46.0 [Approved]  
 markdownlint-cli package files install completed. Performing other installation steps.  
   
-added 70 packages in 13s  
+added 70 packages in 11s  
   
 44 packages are looking for funding  
   run `npm fund` for details  
@@ -223,6 +228,10 @@ Only an exit code of non-zero will fail the package by default. Set
   
 Chocolatey installed 4/4 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Enjoy using Chocolatey? Explore more amazing features to take your  
+experience to the next level at  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -255,11 +264,7 @@ Installing golangci-lint...
 [DEBUG] Installer: WingetInstaller  
 [DEBUG] PM package: GolangCI.golangci-lint  
 [DEBUG] Choco package: golangci-lint  
-[DEBUG] NPM package: None  
-[DEBUG] PIP package: None  
-  → Installing golangci-lint via winget: GolangCI.golangci-lint  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
-  
+[DEBUG] NPM package: None                                                                                                                                    [DEBUG] PIP package: None                                                                                                                                      → Installing golangci-lint via winget: GolangCI.golangci-lint                                                                                                ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                    
 Installing rubocop...  
 [DEBUG] Tool: rubocop  
 [DEBUG] Primary PM: winget  
@@ -272,7 +277,11 @@ Installing rubocop...
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Ruby installed successfully  
   → Refreshing PATH to find gem...  
 [DEBUG] PATH refreshed from registry  
-  → Found gem: C:\Ruby34-x64\bin\gem.cmd                                                                                  → Installing rubocop via gem...                                                                                         ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) rubocop installed via gem                                                                                                                                                                                                                  Installing phpstan...  
+  → Found gem: C:\Ruby34-x64\bin\gem.cmd  
+  → Installing rubocop via gem...  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) rubocop installed via gem  
+  
+Installing phpstan...  
 [DEBUG] Tool: phpstan  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
@@ -282,18 +291,18 @@ Installing rubocop...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-phpstan.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpha_qoapq.ps1  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpp_z49ffu.ps1  
 [DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
-[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpha_qoapq.ps1 -Debug  
-[2025-11-23 14:41:09] [INFO] Starting phpstan installation...  
-[2025-11-23 14:41:09] [INFO] Fetching release information for version 2.0.4...  
-[2025-11-23 14:41:11] [INFO] Installing version: 2.0.4  
-[2025-11-23 14:41:11] [INFO] Found asset: phpstan.phar  
-[2025-11-23 14:41:11] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\phpstan  
-[2025-11-23 14:41:11] [INFO] Downloading from: [https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar](https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar)  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpp_z49ffu.ps1 -Debug  
+[2025-11-23 16:32:23] [INFO] Starting phpstan installation...  
+[2025-11-23 16:32:23] [INFO] Fetching release information for version 2.0.4...  
+[2025-11-23 16:32:24] [INFO] Installing version: 2.0.4  
+[2025-11-23 16:32:24] [INFO] Found asset: phpstan.phar  
+[2025-11-23 16:32:24] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\phpstan  
+[2025-11-23 16:32:24] [INFO] Downloading from: [https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar](https://github.com/phpstan/phpstan/releases/download/2.0.4/phpstan.phar)  
 Downloading phpstan 2.0.4...  
-[2025-11-23 14:41:36] [INFO] Download complete: C:\Users\rossc\AppData\Local\phpstan\phpstan.phar  
-[2025-11-23 14:41:36] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\phpstan\phpstan.bat  
+[2025-11-23 16:32:52] [INFO] Download complete: C:\Users\rossc\AppData\Local\phpstan\phpstan.phar  
+[2025-11-23 16:32:52] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\phpstan\phpstan.bat  
   
 WARNING: PHP not found in PATH  
    phpstan requires PHP to run  
@@ -310,7 +319,7 @@ NOTE: C:\Users\rossc\AppData\Local\phpstan is not in your PATH
    [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\phpstan', 'Machine')  
   
    Testing installation...  
-[2025-11-23 14:41:37] [INFO] Version check failed (PHP may not be available)  
+[2025-11-23 16:32:53] [INFO] Version check failed (PHP may not be available)  
 [DEBUG] Successfully installed phpstan via PowerShell script  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
@@ -323,6 +332,40 @@ Installing cargo-clippy...
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Installing cargo-clippy via winget: Rustlang.Rustup  
+  ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png) winget failed, trying choco fallback...  
+  → Installing cargo-clippy via choco: rustup  
+[DEBUG] Running: choco install rustup -y  
+[DEBUG] Chocolatey output:  
+------------------------------------------------------------  
+Chocolatey v2.5.1  
+Installing the following packages:  
+rustup  
+By installing, you accept licenses for the packages.  
+rustup not installed. The package was not found with the source(s) listed.  
+ Source(s): '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+ NOTE: When you specify explicit sources, it overrides default sources.  
+If the package version is a prerelease and you didn't specify `--pre`,  
+ the package may not be found.  
+Please see [https://docs.chocolatey.org/en-us/troubleshooting](https://docs.chocolatey.org/en-us/troubleshooting) for more  
+ assistance.  
+  
+Chocolatey installed 0/1 packages. 1 packages failed.  
+ See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Failures  
+ - rustup - rustup not installed. The package was not found with the source(s) listed.  
+ Source(s): '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+ NOTE: When you specify explicit sources, it overrides default sources.  
+If the package version is a prerelease and you didn't specify `--pre`,  
+ the package may not be found.  
+Please see [https://docs.chocolatey.org/en-us/troubleshooting](https://docs.chocolatey.org/en-us/troubleshooting) for more  
+ assistance.  
+  
+Enjoy using Chocolatey? Explore more amazing features to take your  
+experience to the next level at  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
+------------------------------------------------------------  
+[DEBUG] Exit code: 1  
   ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
   
 Installing sqlfluff...  
@@ -337,11 +380,7 @@ Installing sqlfluff...
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing stylelint...  
-[DEBUG] Tool: stylelint  
-[DEBUG] Primary PM: winget  
-[DEBUG] Installer: WingetInstaller  
-[DEBUG] PM package: None  
-[DEBUG] Choco package: None  
+[DEBUG] Tool: stylelint                                                                                                                                      [DEBUG] Primary PM: winget                                                                                                                                   [DEBUG] Installer: WingetInstaller                                                                                                                           [DEBUG] PM package: None                                                                                                                                     [DEBUG] Choco package: None  
 [DEBUG] NPM package: stylelint  
 [DEBUG] PIP package: None  
   → Installing stylelint via npm: stylelint  
@@ -354,7 +393,11 @@ Installing htmlhint...
 [DEBUG] PM package: None  
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: htmlhint  
-[DEBUG] PIP package: None                                                                                                 → Installing htmlhint via npm: htmlhint                                                                                 ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing ktlint...  
+[DEBUG] PIP package: None  
+  → Installing htmlhint via npm: htmlhint  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  
+Installing ktlint...  
 [DEBUG] Tool: ktlint  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
@@ -364,18 +407,18 @@ Installing htmlhint...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-ktlint.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp7y79ghzm.ps1  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp6a7k4tes.ps1  
 [DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
-[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp7y79ghzm.ps1 -Debug  
-[2025-11-23 14:42:33] [INFO] Starting ktlint installation...  
-[2025-11-23 14:42:33] [INFO] Fetching release information for version 1.5.0...  
-[2025-11-23 14:42:34] [INFO] Installing version: 1.5.0  
-[2025-11-23 14:42:34] [INFO] Found asset: ktlint  
-[2025-11-23 14:42:34] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\ktlint  
-[2025-11-23 14:42:34] [INFO] Downloading from: [https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint](https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint)  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp6a7k4tes.ps1 -Debug  
+[2025-11-23 16:33:50] [INFO] Starting ktlint installation...  
+[2025-11-23 16:33:50] [INFO] Fetching release information for version 1.5.0...  
+[2025-11-23 16:33:51] [INFO] Installing version: 1.5.0  
+[2025-11-23 16:33:51] [INFO] Found asset: ktlint  
+[2025-11-23 16:33:51] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\ktlint  
+[2025-11-23 16:33:51] [INFO] Downloading from: [https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint](https://github.com/pinterest/ktlint/releases/download/1.5.0/ktlint)  
 Downloading ktlint 1.5.0...  
-[2025-11-23 14:43:38] [INFO] Download complete: C:\Users\rossc\AppData\Local\ktlint\ktlint.jar  
-[2025-11-23 14:43:38] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\ktlint\ktlint.bat  
+[2025-11-23 16:35:10] [INFO] Download complete: C:\Users\rossc\AppData\Local\ktlint\ktlint.jar  
+[2025-11-23 16:35:10] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\ktlint\ktlint.bat  
   
 WARNING: Java not found in PATH  
    ktlint requires Java to run  
@@ -392,7 +435,7 @@ NOTE: C:\Users\rossc\AppData\Local\ktlint is not in your PATH
    [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\ktlint', 'Machine')  
   
    Testing installation...  
-[2025-11-23 14:43:38] [INFO] Version check failed (Java may not be available)  
+[2025-11-23 16:35:10] [INFO] Version check failed (Java may not be available)  
 [DEBUG] Successfully installed ktlint via PowerShell script  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
@@ -414,7 +457,112 @@ Installing cppcheck...
 [DEBUG] Choco package: cppcheck  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
-  → Installing cppcheck via winget: Cppcheck.Cppcheck                                                                     ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png)![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed                                                                                                                                                                                                                        Installing checkstyle...                                                                                                [DEBUG] Tool: checkstyle  
+  → Installing cppcheck via winget: Cppcheck.Cppcheck  
+  ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png) winget failed, trying choco fallback...  
+  → Installing cppcheck via choco: cppcheck  
+[DEBUG] Running: choco install cppcheck -y  
+[DEBUG] Chocolatey output:  
+------------------------------------------------------------  
+Chocolatey v2.5.1  
+Installing the following packages:  
+cppcheck  
+By installing, you accept licenses for the packages.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading chocolatey-windowsupdate.extension 1.0.5... 100%  
+  
+chocolatey-windowsupdate.extension v1.0.5 [Approved]  
+chocolatey-windowsupdate.extension package files install completed. Performing other installation steps.  
+ Installed/updated chocolatey-windowsupdate extensions.  
+ The install of chocolatey-windowsupdate.extension was successful.  
+  Deployed to 'C:\ProgramData\chocolatey\extensions\chocolatey-windowsupdate'  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading KB2919442 1.0.20160915... 100%  
+  
+KB2919442 v1.0.20160915 [Approved]  
+KB2919442 package files install completed. Performing other installation steps.  
+Skipping installation because this hotfix only applies to Windows 8.1 and Windows Server 2012 R2.  
+ The install of KB2919442 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading KB2919355 1.0.20160915... 100%  
+  
+KB2919355 v1.0.20160915 [Approved]  
+KB2919355 package files install completed. Performing other installation steps.  
+Skipping installation because this hotfix only applies to Windows 8.1 and Windows Server 2012 R2.  
+ The install of KB2919355 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading KB2999226 1.0.20181019... 100%  
+  
+KB2999226 v1.0.20181019 [Approved]  
+KB2999226 package files install completed. Performing other installation steps.  
+Skipping installation because update KB2999226 does not apply to this operating system (Microsoft Windows 11 Home).  
+ The install of KB2999226 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading KB3035131 1.0.3... 100%  
+  
+KB3035131 v1.0.3 [Approved]  
+KB3035131 package files install completed. Performing other installation steps.  
+Skipping installation because update KB3035131 does not apply to this operating system (Microsoft Windows 11 Home).  
+ The install of KB3035131 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading KB3033929 1.0.5... 100%  
+  
+KB3033929 v1.0.5 [Approved]  
+KB3033929 package files install completed. Performing other installation steps.  
+Skipping installation because update KB3033929 does not apply to this operating system (Microsoft Windows 11 Home).  
+ The install of KB3033929 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading vcredist140 14.44.35211... 100%  
+  
+vcredist140 v14.44.35211 [Approved] - Possibly broken  
+vcredist140 package files install completed. Performing other installation steps.  
+Runtime for architecture x86 version 14.44.35211 is already installed.  
+Runtime for architecture x64 version 14.44.35211 is already installed.  
+ The install of vcredist140 was successful.  
+  Software install location not explicitly set, it could be in package or  
+  default install location of installer.  
+Downloading package from source '[https://community.chocolatey.org/api/v2/](https://community.chocolatey.org/api/v2/)'  
+Progress: Downloading cppcheck 2.16.0... 100%  
+  
+cppcheck v2.16.0 [Approved] - Likely broken for FOSS users (due to download location changes)  
+cppcheck package files install completed. Performing other installation steps.  
+Downloading cppcheck 64 bit  
+  from '[https://github.com/danmar/cppcheck/releases/download/2.16.0/cppcheck-2.16.0-x64-Setup.msi](https://github.com/danmar/cppcheck/releases/download/2.16.0/cppcheck-2.16.0-x64-Setup.msi)'  
+Progress: 100% - Completed download of C:\Users\rossc\AppData\Local\Temp\chocolatey\cppcheck\2.16.0\cppcheck-2.16.0-x64-Setup.msi (19.68 MB).  
+Download of cppcheck-2.16.0-x64-Setup.msi (19.68 MB) completed.  
+Hashes match.  
+Installing cppcheck...  
+cppcheck has been installed.  
+PATH environment variable does not have C:\Program Files\Cppcheck in it. Adding...  
+  cppcheck may be able to be automatically uninstalled.  
+Environment Vars (like PATH) have changed. Close/reopen your shell to                                                                                         see the changes (or in powershell/cmd.exe just type `refreshenv`).                                                                                           The install of cppcheck was successful.                                                                                                                       Software installed as 'MSI', install location is likely default.                                                                                            
+Chocolatey installed 8/8 packages.  
+ See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Installed:  
+ - chocolatey-windowsupdate.extension v1.0.5  
+ - cppcheck v2.16.0  
+ - KB2919355 v1.0.20160915  
+ - KB2919442 v1.0.20160915  
+ - KB2999226 v1.0.20181019  
+ - KB3033929 v1.0.5  
+ - KB3035131 v1.0.3  
+ - vcredist140 v14.44.35211  
+------------------------------------------------------------  
+[DEBUG] Exit code: 0  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  
+Installing checkstyle...  
+[DEBUG] Tool: checkstyle  
 [DEBUG] Primary PM: winget  
 [DEBUG] Installer: WingetInstaller  
 [DEBUG] PM package: None  
@@ -423,18 +571,18 @@ Installing cppcheck...
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-checkstyle.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpb8v_2l4s.ps1  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp6tudxsgx.ps1  
 [DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
-[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpb8v_2l4s.ps1 -Debug  
-[2025-11-23 14:43:41] [INFO] Starting checkstyle installation...  
-[2025-11-23 14:43:41] [INFO] Fetching release information for version checkstyle-12.1.2...  
-[2025-11-23 14:43:41] [INFO] Installing version: checkstyle-12.1.2  
-[2025-11-23 14:43:42] [INFO] Found asset: checkstyle-12.1.2-all.jar  
-[2025-11-23 14:43:42] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\checkstyle  
-[2025-11-23 14:43:42] [INFO] Downloading from: [https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar](https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar)  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp6tudxsgx.ps1 -Debug  
+[2025-11-23 16:35:45] [INFO] Starting checkstyle installation...  
+[2025-11-23 16:35:45] [INFO] Fetching release information for version checkstyle-12.1.2...  
+[2025-11-23 16:35:45] [INFO] Installing version: checkstyle-12.1.2  
+[2025-11-23 16:35:46] [INFO] Found asset: checkstyle-12.1.2-all.jar  
+[2025-11-23 16:35:46] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\checkstyle  
+[2025-11-23 16:35:46] [INFO] Downloading from: [https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar](https://github.com/checkstyle/checkstyle/releases/download/checkstyle-12.1.2/checkstyle-12.1.2-all.jar)  
 Downloading checkstyle checkstyle-12.1.2...  
-[2025-11-23 14:43:56] [INFO] Download complete: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.jar  
-[2025-11-23 14:43:56] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.bat  
+[2025-11-23 16:36:06] [INFO] Download complete: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.jar  
+[2025-11-23 16:36:06] [INFO] Created wrapper script: C:\Users\rossc\AppData\Local\checkstyle\checkstyle.bat  
   
 WARNING: Java not found in PATH  
    checkstyle requires Java to run  
@@ -451,7 +599,7 @@ NOTE: C:\Users\rossc\AppData\Local\checkstyle is not in your PATH
    [Environment]::SetEnvironmentVariable('Path', $env:Path + ';C:\Users\rossc\AppData\Local\checkstyle', 'Machine')  
   
    Testing installation...  
-[2025-11-23 14:43:56] [INFO] Version check failed (Java may not be available)  
+[2025-11-23 16:36:06] [INFO] Version check failed (Java may not be available)  
 [DEBUG] Successfully installed checkstyle via PowerShell script  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
@@ -547,6 +695,12 @@ Environment Vars (like PATH) have changed. Close/reopen your shell to
   
 Chocolatey installed 1/1 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Did you know the proceeds of Pro (and some proceeds from other  
+ licensed editions) go into bettering the community infrastructure?  
+ Your support ensures an active community, keeps Chocolatey tip-top,  
+ plus it nets you some awesome features!  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -563,14 +717,7 @@ Installing Rscript...
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing ansible-lint...  
-[DEBUG] Tool: ansible-lint  
-[DEBUG] Primary PM: winget  
-[DEBUG] Installer: WingetInstaller  
-[DEBUG] PM package: None  
-[DEBUG] Choco package: None  
-[DEBUG] NPM package: None  
-[DEBUG] PIP package: ansible-lint  
-  → Installing ansible-lint via pip: ansible-lint  
+[DEBUG] Tool: ansible-lint                                                                                                                                   [DEBUG] Primary PM: winget                                                                                                                                   [DEBUG] Installer: WingetInstaller                                                                                                                           [DEBUG] PM package: None                                                                                                                                     [DEBUG] Choco package: None                                                                                                                                  [DEBUG] NPM package: None                                                                                                                                    [DEBUG] PIP package: ansible-lint                                                                                                                              → Installing ansible-lint via pip: ansible-lint  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing kube-linter...  
@@ -581,27 +728,34 @@ Installing kube-linter...
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
-  → Installing kube-linter via winget: stackrox.kube-linter                                                               ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing taplo...                                                                                                     [DEBUG] Tool: taplo                                                                                                     [DEBUG] Primary PM: winget                                                                                              [DEBUG] Installer: WingetInstaller                                                                                      [DEBUG] PM package: None  
+  → Installing kube-linter via winget: stackrox.kube-linter  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  
+Installing taplo...  
+[DEBUG] Tool: taplo  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
 [DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-taplo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpiwta_vvk.ps1  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmp23_cwzn7.ps1  
 [DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
-[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpiwta_vvk.ps1 -Debug  
-[2025-11-23 14:48:51] [INFO] Starting taplo installation...  
-[2025-11-23 14:48:51] [INFO] Fetching release information for version 0.9.3...  
-[2025-11-23 14:48:52] [INFO] Installing version: 0.9.3  
-[2025-11-23 14:48:52] [INFO] Found asset: taplo-full-windows-x86_64.zip  
-[2025-11-23 14:48:52] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\taplo  
-[2025-11-23 14:48:52] [INFO] Downloading from: [https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip](https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip)  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmp23_cwzn7.ps1 -Debug  
+[2025-11-23 16:39:58] [INFO] Starting taplo installation...  
+[2025-11-23 16:39:58] [INFO] Fetching release information for version 0.9.3...  
+[2025-11-23 16:39:59] [INFO] Installing version: 0.9.3  
+[2025-11-23 16:39:59] [INFO] Found asset: taplo-full-windows-x86_64.zip  
+[2025-11-23 16:39:59] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\taplo  
+[2025-11-23 16:39:59] [INFO] Downloading from: [https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip](https://github.com/tamasfe/taplo/releases/download/0.9.3/taplo-full-windows-x86_64.zip)  
 Downloading taplo 0.9.3...  
-[2025-11-23 14:48:56] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\taplo-0.9.3.zip  
-[2025-11-23 14:48:57] [INFO] Extracting to: C:\Users\rossc\AppData\Local\taplo  
-[2025-11-23 14:48:58] [INFO] Extraction complete  
-[2025-11-23 14:48:58] [INFO] Cleaned up temporary ZIP file  
-[2025-11-23 14:48:58] [INFO] Found executable: C:\Users\rossc\AppData\Local\taplo\taplo.exe  
+[2025-11-23 16:40:25] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\taplo-0.9.3.zip  
+[2025-11-23 16:40:25] [INFO] Extracting to: C:\Users\rossc\AppData\Local\taplo  
+[2025-11-23 16:40:26] [INFO] Extraction complete  
+[2025-11-23 16:40:26] [INFO] Cleaned up temporary ZIP file  
+[2025-11-23 16:40:26] [INFO] Found executable: C:\Users\rossc\AppData\Local\taplo\taplo.exe  
   
 SUCCESS: taplo installed successfully!  
    Location: C:\Users\rossc\AppData\Local\taplo\taplo.exe  
@@ -682,12 +836,6 @@ Added C:\ProgramData\chocolatey\bin\xsltproc.exe shim pointed to '..\lib\xsltpro
   
 Chocolatey installed 1/1 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
-  
-Did you know the proceeds of Pro (and some proceeds from other  
- licensed editions) go into bettering the community infrastructure?  
- Your support ensures an active community, keeps Chocolatey tip-top,  
- plus it nets you some awesome features!  
- [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -909,15 +1057,7 @@ ghc package files install completed. Performing other installation steps.
 Downloading ghc 64 bit  
   from '[https://downloads.haskell.org/~ghc/9.8.2/ghc-9.8.2-x86_64-unknown-mingw32.tar.xz](https://downloads.haskell.org/~ghc/9.8.2/ghc-9.8.2-x86_64-unknown-mingw32.tar.xz)'  
 Progress: 100% - Completed download of C:\tools\ghc-9.8.2\tmp\ghcInstall (309.95 MB).  
-Download of ghcInstall (309.95 MB) completed.  
-Hashes match.  
-C:\tools\ghc-9.8.2\tmp\ghcInstall  
-Extracting C:\tools\ghc-9.8.2\tmp\ghcInstall to C:\tools...  
-C:\tools  
-Extracting C:\tools\ghcInstall~ to C:\tools...  
-C:\tools  
-Renamed C:\tools\ghc-9.8.2-x86_64-unknown-mingw32 to C:\tools\ghc-9.8.2  
-PATH environment variable does not have C:\tools\ghc-9.8.2\bin in it. Adding...  
+Download of ghcInstall (309.95 MB) completed.                                                                                                                Hashes match.                                                                                                                                                C:\tools\ghc-9.8.2\tmp\ghcInstall                                                                                                                            Extracting C:\tools\ghc-9.8.2\tmp\ghcInstall to C:\tools...                                                                                                  C:\tools                                                                                                                                                     Extracting C:\tools\ghcInstall~ to C:\tools...                                                                                                               C:\tools                                                                                                                                                     Renamed C:\tools\ghc-9.8.2-x86_64-unknown-mingw32 to C:\tools\ghc-9.8.2                                                                                      PATH environment variable does not have C:\tools\ghc-9.8.2\bin in it. Adding...  
 Hiding shims for 'C:\tools'.  
 Environment Vars (like PATH) have changed. Close/reopen your shell to  
  see the changes (or in powershell/cmd.exe just type `refreshenv`).  
@@ -927,25 +1067,33 @@ Environment Vars (like PATH) have changed. Close/reopen your shell to
 Chocolatey installed 2/2 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
 ------------------------------------------------------------  
-[DEBUG] Exit code: 0                                                                                                      ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png)![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully                                                                                                                                                                                                                     Installing clj-kondo...                                                                                                 [DEBUG] Tool: clj-kondo                                                                                                 [DEBUG] Primary PM: winget                                                                                              [DEBUG] Installer: WingetInstaller                                                                                      [DEBUG] PM package: None                                                                                                [DEBUG] Choco package: None  
+[DEBUG] Exit code: 0  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
+  
+Installing clj-kondo...  
+[DEBUG] Tool: clj-kondo  
+[DEBUG] Primary PM: winget  
+[DEBUG] Installer: WingetInstaller  
+[DEBUG] PM package: None  
+[DEBUG] Choco package: None  
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Using custom Windows installer...  
 [DEBUG] Running PowerShell installer: install-clj-kondo.ps1  
-[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpkk68gm94.ps1  
+[DEBUG] Script written to: C:\Users\rossc\AppData\Local\Temp\tmpw3jh6jvp.ps1  
 [DEBUG] Using PowerShell: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe  
-[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpkk68gm94.ps1 -Debug  
-[2025-11-23 14:58:16] [INFO] Starting clj-kondo installation...  
-[2025-11-23 14:58:16] [INFO] Fetching release information for version v2025.10.23...  
-[2025-11-23 14:58:17] [INFO] Installing version: v2025.10.23  
-[2025-11-23 14:58:17] [INFO] Found asset: clj-kondo-2025.10.23-windows-amd64.zip  
-[2025-11-23 14:58:17] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\clj-kondo  
-[2025-11-23 14:58:17] [INFO] Downloading from: [https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip](https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip)  
+[DEBUG] Running: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\Users\rossc\AppData\Local\Temp\tmpw3jh6jvp.ps1 -Debug  
+[2025-11-23 17:27:49] [INFO] Starting clj-kondo installation...  
+[2025-11-23 17:27:49] [INFO] Fetching release information for version v2025.10.23...  
+[2025-11-23 17:27:49] [INFO] Installing version: v2025.10.23  
+[2025-11-23 17:27:49] [INFO] Found asset: clj-kondo-2025.10.23-windows-amd64.zip  
+[2025-11-23 17:27:49] [INFO] Creating install directory: C:\Users\rossc\AppData\Local\clj-kondo  
+[2025-11-23 17:27:49] [INFO] Downloading from: [https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip](https://github.com/clj-kondo/clj-kondo/releases/download/v2025.10.23/clj-kondo-2025.10.23-windows-amd64.zip)  
 Downloading clj-kondo v2025.10.23...  
-[2025-11-23 14:58:40] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\clj-kondo.zip  
-[2025-11-23 14:58:40] [INFO] Extracting to: C:\Users\rossc\AppData\Local\clj-kondo  
+[2025-11-23 17:28:12] [INFO] Download complete: C:\Users\rossc\AppData\Local\Temp\clj-kondo.zip  
+[2025-11-23 17:28:12] [INFO] Extracting to: C:\Users\rossc\AppData\Local\clj-kondo  
 Extracting files...  
-[2025-11-23 14:58:42] [INFO] Cleanup complete  
+[2025-11-23 17:28:14] [INFO] Cleanup complete  
   
 SUCCESS: clj-kondo installed successfully!  
    Location: C:\Users\rossc\AppData\Local\clj-kondo\clj-kondo.exe  
@@ -970,7 +1118,7 @@ Installing dart...
 [DEBUG] NPM package: None  
 [DEBUG] PIP package: None  
   → Installing dart via winget: Google.DartSDK  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Installation failed  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
   
 Installing codenarc...  
 [DEBUG] Tool: codenarc  
@@ -1008,6 +1156,10 @@ Environment Vars (like PATH) have changed. Close/reopen your shell to
   
 Chocolatey installed 1/1 packages.  
  See the log for details (C:\ProgramData\chocolatey\logs\chocolatey.log).  
+  
+Enjoy using Chocolatey? Explore more amazing features to take your  
+experience to the next level at  
+ [https://chocolatey.org/compare](https://chocolatey.org/compare)  
 ------------------------------------------------------------  
 [DEBUG] Exit code: 0  
   ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed successfully  
@@ -1079,8 +1231,8 @@ Installing zig...
   
   
 Installation Summary:  
-  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 34  
-  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 5  
+  ![✅](https://fonts.gstatic.com/s/e/notoemoji/16.0/2705/32.png) Installed: 36  
+  ![❌](https://fonts.gstatic.com/s/e/notoemoji/16.0/274c/32.png) Failed: 3  
   
 ![⚠️](https://fonts.gstatic.com/s/e/notoemoji/16.0/26a0_fe0f/32.png)  Windows PATH Update Required  
    Please restart your terminal for the installed tools to be detected  
