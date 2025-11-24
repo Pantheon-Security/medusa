@@ -218,7 +218,7 @@ class ToolMapper:
         },
         'checkmake': {
             'brew': 'checkmake',
-            'manual': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+            'manual': 'go install github.com/checkmake/checkmake/cmd/checkmake@latest',
         },
         'checkstyle': {
             'apt': 'checkstyle',
