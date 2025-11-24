@@ -15,7 +15,6 @@ from rich.prompt import Prompt
 from rich import print as rprint
 
 from medusa import __version__
-from medusa.platform.install_manifest import get_manifest
 
 # Force UTF-8 encoding for stdout/stderr on Windows to handle emojis
 # This fixes UnicodeEncodeError on Windows terminals that default to cp1252
@@ -326,14 +325,14 @@ def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_
                 '   ```',
                 '2. Install checkmake:',
                 '   ```powershell',
-                '   go install github.com/checkmake/checkmake/cmd/checkmake@latest',
+                '   go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
                 '   ```',
                 '3. Add Go bin to PATH:',
                 '   ```powershell',
                 '   $env:PATH += ";$env:USERPROFILE\\go\\bin"',
                 '   ```',
             ],
-            'docs': 'https://github.com/checkmake/checkmake',
+            'docs': 'https://github.com/mrtazz/checkmake',
         },
     }
 
@@ -492,44 +491,6 @@ def _get_needed_scanners(file_types: dict):
                 missing_tools.append(scanner.tool_name)
 
     return needed_scanners, available_scanners, missing_tools
-
-
-def _prompt_with_auto_all(message, default=True, auto_yes_all=None):
-    """
-    Prompt user with [Y/n/a] options where 'a' = auto-yes to all future prompts.
-
-    Args:
-        message: The prompt message
-        default: Default value if user just presses enter
-        auto_yes_all: Dict with 'enabled' key to track auto-yes-all state
-
-    Returns:
-        bool: True if yes, False if no
-    """
-    # If auto-yes-all is already enabled, return True immediately
-    if auto_yes_all and auto_yes_all.get('enabled'):
-        return True
-
-    while True:
-        response = click.prompt(
-            message + " [Y/n/a]",
-            default='Y' if default else 'n',
-            show_default=False,
-            type=str
-        ).lower().strip()
-
-        if response in ('y', 'yes', ''):
-            return True
-        elif response in ('n', 'no'):
-            return False
-        elif response == 'a':
-            # Enable auto-yes-all mode
-            if auto_yes_all is not None:
-                auto_yes_all['enabled'] = True
-            console.print("[dim]Auto-yes enabled for all remaining prompts[/dim]")
-            return True
-        else:
-            console.print("[yellow]Please enter Y (yes), n (no), or a (all)[/yellow]")
 
 
 def _handle_batch_install(target, auto_install):
@@ -1465,11 +1426,6 @@ def install(tool, check, all, yes, use_latest, debug):
         # Determine best installer for this tool
         package_name = ToolMapper.get_package_name(tool, pm.value if pm else '')
 
-        # Check if tool already exists before installing
-        manifest = get_manifest()
-        scanner = registry.get_scanner_by_tool_name(tool)
-        was_already_installed = scanner is not None and scanner.is_available()
-
         if package_name and installer:
             cmd = installer.get_install_command(tool)
             console.print(f"[dim]Command: {cmd}[/dim]\n")
@@ -1483,48 +1439,24 @@ def install(tool, check, all, yes, use_latest, debug):
             success = installer.install(tool)
             if success:
                 console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                # Record installation in manifest
-                manifest.mark_installed(
-                    tool_name=tool,
-                    package_manager=pm.value if pm else 'unknown',
-                    package_id=package_name,
-                    already_existed=was_already_installed
-                )
             else:
                 console.print(f"[red]❌ Failed to install {tool}[/red]")
         else:
             # Try npm or pip
-            npm_package = ToolMapper.get_package_name(tool, 'npm')
-            pip_package = ToolMapper.get_package_name(tool, 'pip')
-
-            if npm_package and npm_installer:
+            if ToolMapper.get_package_name(tool, 'npm') and npm_installer:
                 cmd = npm_installer.get_install_command(tool)
                 console.print(f"[dim]Command: {cmd}[/dim]\n")
                 success = npm_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                    # Record installation in manifest
-                    manifest.mark_installed(
-                        tool_name=tool,
-                        package_manager='npm',
-                        package_id=npm_package,
-                        already_existed=was_already_installed
-                    )
                 else:
                     console.print(f"[red]❌ Failed to install {tool}[/red]")
-            elif pip_package and pip_installer:
+            elif ToolMapper.get_package_name(tool, 'pip') and pip_installer:
                 cmd = pip_installer.get_install_command(tool)
                 console.print(f"[dim]Command: {cmd}[/dim]\n")
                 success = pip_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                    # Record installation in manifest
-                    manifest.mark_installed(
-                        tool_name=tool,
-                        package_manager='pip',
-                        package_id=pip_package,
-                        already_existed=was_already_installed
-                    )
                 else:
                     console.print(f"[red]❌ Failed to install {tool}[/red]")
             else:
@@ -1540,11 +1472,8 @@ def install(tool, check, all, yes, use_latest, debug):
 
         console.print()
 
-        # Track auto-yes-all state (dict so it's mutable across function calls)
-        auto_yes_all = {'enabled': yes}  # If --yes flag, start with auto-yes enabled
-
         if not yes:
-            confirm = _prompt_with_auto_all(f"Install all {len(missing_tools)} missing tools?", default=True, auto_yes_all=auto_yes_all)
+            confirm = click.confirm(f"Install all {len(missing_tools)} missing tools?", default=True)
             if not confirm:
                 console.print("[yellow]Installation cancelled[/yellow]")
                 return
@@ -1567,7 +1496,10 @@ def install(tool, check, all, yes, use_latest, debug):
                     console.print(f"  • ... and {len(choco_tools) - 5} more")
                 console.print()
 
-                install_choco = _prompt_with_auto_all("Install Chocolatey package manager? (Requires admin rights)", default=True, auto_yes_all=auto_yes_all)
+                if not yes:
+                    install_choco = click.confirm("Install Chocolatey package manager? (Requires admin rights)", default=True)
+                else:
+                    install_choco = True
 
                 if install_choco:
                     console.print("[cyan]Installing Chocolatey...[/cyan]")
@@ -1594,7 +1526,6 @@ def install(tool, check, all, yes, use_latest, debug):
         # ========================================
         npm_tools_needed = []
         php_tools_needed = []
-        go_tools_needed = []
         java_tools_needed = []
 
         for tool in missing_tools:
@@ -1608,10 +1539,6 @@ def install(tool, check, all, yes, use_latest, debug):
             if tool == 'phpstan' and not shutil.which('php'):
                 php_tools_needed.append(tool)
 
-            # Check if tool needs Go
-            if tool == 'checkmake' and not shutil.which('go'):
-                go_tools_needed.append(tool)
-
             # Check if tool needs Java
             if tool in {'checkstyle', 'ktlint', 'scalastyle', 'codenarc'} and not shutil.which('java'):
                 java_tools_needed.append(tool)
@@ -1619,7 +1546,7 @@ def install(tool, check, all, yes, use_latest, debug):
         # ========================================
         # Runtime installation phase
         # ========================================
-        if npm_tools_needed or php_tools_needed or go_tools_needed or java_tools_needed:
+        if npm_tools_needed or php_tools_needed or java_tools_needed:
             console.print("[bold]Runtime Dependencies Detected:[/bold]")
 
             # Node.js / npm
@@ -1629,10 +1556,6 @@ def install(tool, check, all, yes, use_latest, debug):
             # PHP
             if php_tools_needed:
                 console.print(f"  • PHP needed for {len(php_tools_needed)} tool{'s' if len(php_tools_needed) > 1 else ''}: {', '.join(php_tools_needed)}")
-
-            # Go
-            if go_tools_needed:
-                console.print(f"  • Go needed for {len(go_tools_needed)} tool{'s' if len(go_tools_needed) > 1 else ''}: {', '.join(go_tools_needed)}")
 
             # Java (info only)
             if java_tools_needed:
@@ -1644,7 +1567,10 @@ def install(tool, check, all, yes, use_latest, debug):
         if npm_tools_needed and platform_info.os_type.value == 'windows':
             from medusa.platform import PackageManager
             if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_nodejs = _prompt_with_auto_all(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True, auto_yes_all=auto_yes_all)
+                if not yes:
+                    install_nodejs = click.confirm(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True)
+                else:
+                    install_nodejs = True
 
                 if install_nodejs:
                     console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
@@ -1687,7 +1613,10 @@ def install(tool, check, all, yes, use_latest, debug):
         if php_tools_needed and platform_info.os_type.value == 'windows':
             from medusa.platform import PackageManager
             if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_php = _prompt_with_auto_all(f"Install PHP to enable phpstan?", default=True, auto_yes_all=auto_yes_all)
+                if not yes:
+                    install_php = click.confirm(f"Install PHP to enable phpstan?", default=True)
+                else:
+                    install_php = True
 
                 if install_php:
                     console.print("\n[cyan]Installing PHP via winget...[/cyan]")
@@ -1717,66 +1646,6 @@ def install(tool, check, all, yes, use_latest, debug):
                         console.print("[red]❌ winget not found[/red]\n")
                 else:
                     console.print("[yellow]Skipping PHP installation[/yellow]\n")
-
-        # Install Go if needed
-        if go_tools_needed and platform_info.os_type.value == 'windows':
-            from medusa.platform import PackageManager
-            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_go = _prompt_with_auto_all(f"Install Go to enable checkmake?", default=True, auto_yes_all=auto_yes_all)
-
-                if install_go:
-                    go_installed = False
-                    console.print("\n[cyan]Installing Go via winget...[/cyan]")
-                    winget_path = shutil.which('winget')
-
-                    if winget_path:
-                        try:
-                            success, output = _safe_run_version_check(
-                                [winget_path, 'install', '--id', 'GoLang.Go', '--accept-source-agreements', '--accept-package-agreements'],
-                                timeout=120
-                            )
-                            output_lower = output.lower() if output else ''
-                            go_success = (
-                                success or
-                                'already installed' in output_lower or
-                                'no available upgrade found' in output_lower
-                            )
-
-                            if go_success:
-                                console.print("[green]✅ Go installed successfully[/green]")
-                                go_installed = True
-
-                                # Refresh PATH
-                                from medusa.platform.installers.windows import refresh_windows_path
-                                refresh_windows_path()
-                                console.print("[dim]   Go is now available for checkmake[/dim]\n")
-                            else:
-                                if debug:
-                                    console.print(f"[dim]winget output: {output[:200]}[/dim]")
-                                console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
-                        except Exception as e:
-                            if debug:
-                                console.print(f"[dim]winget error: {str(e)[:100]}[/dim]")
-                            console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
-                    else:
-                        console.print("[yellow]⚠️  winget not found, trying choco...[/yellow]")
-
-                    # Fallback to Chocolatey if winget failed
-                    if not go_installed and choco_installer:
-                        console.print("[cyan]Installing Go via choco...[/cyan]")
-                        if choco_installer.install('go'):
-                            console.print("[green]✅ Go installed successfully via choco[/green]")
-                            from medusa.platform.installers.windows import refresh_windows_path
-                            refresh_windows_path()
-                            console.print("[dim]   Go is now available for checkmake[/dim]\n")
-                            go_installed = True
-                        else:
-                            console.print("[red]❌ Failed to install Go via choco[/red]\n")
-
-                    if not go_installed:
-                        console.print("[yellow]⚠️  Go installation failed - checkmake will not be available[/yellow]\n")
-                else:
-                    console.print("[yellow]Skipping Go installation[/yellow]\n")
 
         # Show Java message (no auto-install)
         if java_tools_needed:
@@ -1857,16 +1726,6 @@ def install(tool, check, all, yes, use_latest, debug):
                     success = best_installer.install(tool_name, use_latest=use_latest)
                 else:
                     success = best_installer.install(tool_name)
-
-                # Fallback: If winget failed and choco is available, try choco for specific tools
-                if not success and installer_name == 'winget' and choco_installer and choco_package:
-                    if tool_name in {'cppcheck', 'cargo-clippy'}:
-                        console.print(f"  [yellow]⚠️ winget failed, trying choco fallback...[/yellow]")
-                        console.print(f"  → Installing {tool_name} via choco: {choco_package}")
-                        success = choco_installer.install(tool_name)
-                        if success:
-                            installer_name = 'choco'  # Update for reporting
-
                 if success:
                     # Special handling for rubocop: winget installs Ruby, then we need gem to install rubocop
                     if tool_name == 'rubocop' and installer_name == 'winget' and platform_info.os_type.value == 'windows':
@@ -2080,11 +1939,9 @@ def install(tool, check, all, yes, use_latest, debug):
 
 @main.command()
 @click.argument('tool', required=False)
-@click.option('--all', 'all_tools', is_flag=True, help='Uninstall all MEDUSA scanner tools')
+@click.option('--all', is_flag=True, help='Uninstall all MEDUSA scanner tools')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-@click.option('--debug', is_flag=True, help='Show detailed debug output')
-@click.option('--force', is_flag=True, help='Uninstall even if not installed by MEDUSA (use with caution)')
-def uninstall(tool, all_tools, yes, debug, force):
+def uninstall(tool, all, yes):
     """
     Uninstall security scanner tools.
 
@@ -2096,9 +1953,6 @@ def uninstall(tool, all_tools, yes, debug, force):
 
     console.print("\n[cyan]📦 Tool Uninstallation[/cyan]\n")
 
-    if debug:
-        console.print("[dim]Debug mode enabled - showing detailed output[/dim]\n")
-
     from medusa.platform import get_platform_info
     from medusa.scanners import registry
     from medusa.platform.installers import (
@@ -2108,55 +1962,16 @@ def uninstall(tool, all_tools, yes, debug, force):
 
     platform_info = get_platform_info()
 
-    if debug:
-        console.print(f"[DEBUG] Platform: {platform_info.os_type.value}")
-        console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
-
-    # Get manifest
-    manifest = get_manifest()
-
     # Get installed tools
     installed_tools = []
-    skipped_tools = []  # Tools found but not installed by MEDUSA
-    if debug:
-        console.print("[DEBUG] Scanning for installed tools...")
     for scanner in registry.get_all_scanners():
         if scanner.is_available():
             tool_name = scanner.tool_name
             if tool_name and tool_name not in installed_tools:
-                # Check if this tool was installed by MEDUSA or if --force is used
-                was_medusa_installed = manifest.was_installed_by_medusa(tool_name)
-                is_support_software = manifest.is_support_software(tool_name)
-
-                if force or (was_medusa_installed and not is_support_software):
-                    installed_tools.append(tool_name)
-                    if debug:
-                        console.print(f"[DEBUG]   Found: {tool_name} (MEDUSA installed: {was_medusa_installed})")
-                else:
-                    skipped_tools.append(tool_name)
-                    if debug:
-                        reason = "support software" if is_support_software else "not installed by MEDUSA"
-                        console.print(f"[DEBUG]   Skipped: {tool_name} ({reason})")
-
-    if debug:
-        console.print(f"[DEBUG] Total installed tools: {len(installed_tools)}")
-        if skipped_tools:
-            console.print(f"[DEBUG] Total skipped tools: {len(skipped_tools)}\n")
-        else:
-            console.print()
-
-    # Show skipped tools message if not using --force
-    if skipped_tools and not force:
-        console.print(f"[yellow]ℹ️  Skipped {len(skipped_tools)} tools not installed by MEDUSA[/yellow]")
-        console.print(f"[dim]   Use --force to uninstall them anyway[/dim]\n")
+                installed_tools.append(tool_name)
 
     if not installed_tools:
-        if skipped_tools:
-            console.print("[yellow]No MEDUSA-installed tools to uninstall[/yellow]")
-            console.print(f"[dim]Found {len(skipped_tools)} tools that were not installed by MEDUSA[/dim]")
-            console.print(f"[dim]Use --force to uninstall them[/dim]")
-        else:
-            console.print("[yellow]No MEDUSA scanner tools found to uninstall[/yellow]")
+        console.print("[yellow]No MEDUSA scanner tools found to uninstall[/yellow]")
         return
 
     # Uninstall specific tool
@@ -2170,10 +1985,6 @@ def uninstall(tool, all_tools, yes, debug, force):
             if not confirm:
                 console.print("[yellow]Uninstallation cancelled[/yellow]")
                 return
-
-        if debug:
-            console.print(f"[DEBUG] Tool: {tool}")
-            console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
 
         console.print(f"[cyan]Uninstalling {tool}...[/cyan] ", end="")
 
@@ -2189,8 +2000,6 @@ def uninstall(tool, all_tools, yes, debug, force):
                 PackageManager.DNF: DnfInstaller(),
                 PackageManager.PACMAN: PacmanInstaller(),
                 PackageManager.BREW: HomebrewInstaller(),
-                PackageManager.WINGET: WingetInstaller(),
-                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
             }
             installer = installer_map.get(pm)
 
@@ -2201,29 +2010,20 @@ def uninstall(tool, all_tools, yes, debug, force):
 
         # Try appropriate uninstaller
         if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
-            if debug:
-                pkg = ToolMapper.get_package_name(tool, pm.value)
-                console.print(f"\n[DEBUG] Uninstalling via {pm.value}: {pkg}")
             success = installer.uninstall(tool)
         elif npm_installer and ToolMapper.is_npm_tool(tool):
-            if debug:
-                console.print(f"\n[DEBUG] Uninstalling via npm")
             success = npm_installer.uninstall(tool)
         elif pip_installer and ToolMapper.is_python_tool(tool):
-            if debug:
-                console.print(f"\n[DEBUG] Uninstalling via pip")
             success = pip_installer.uninstall(tool)
 
         if success:
             console.print("[green]✅[/green]")
-            # Remove from manifest
-            manifest.mark_uninstalled(tool)
         else:
             console.print("[red]❌[/red]")
             console.print(f"[yellow]Note: You may need to uninstall {tool} manually[/yellow]")
 
     # Uninstall all tools
-    elif all_tools:
+    elif all:
         console.print(f"[bold]Found {len(installed_tools)} installed tools:[/bold]")
         for t in installed_tools:
             console.print(f"  • {t}")
@@ -2247,8 +2047,6 @@ def uninstall(tool, all_tools, yes, debug, force):
                 PackageManager.DNF: DnfInstaller(),
                 PackageManager.PACMAN: PacmanInstaller(),
                 PackageManager.BREW: HomebrewInstaller(),
-                PackageManager.WINGET: WingetInstaller(),
-                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
             }
             installer = installer_map.get(pm)
 
@@ -2259,39 +2057,21 @@ def uninstall(tool, all_tools, yes, debug, force):
         failed = 0
 
         for tool_name in installed_tools:
-            if debug:
-                console.print(f"\n[DEBUG] Processing: {tool_name}")
-                console.print(f"[DEBUG]   PM package: {ToolMapper.get_package_name(tool_name, pm.value if pm else '')}")
-                console.print(f"[DEBUG]   Is NPM tool: {ToolMapper.is_npm_tool(tool_name)}")
-                console.print(f"[DEBUG]   Is Python tool: {ToolMapper.is_python_tool(tool_name)}")
-
             console.print(f"[cyan]Uninstalling {tool_name}...[/cyan]", end=" ")
 
             success = False
 
             # Try appropriate uninstaller
             if installer and ToolMapper.get_package_name(tool_name, pm.value if pm else ''):
-                if debug:
-                    pkg = ToolMapper.get_package_name(tool_name, pm.value)
-                    console.print(f"\n[DEBUG]   Using {pm.value} to uninstall: {pkg}")
-                    console.print(f"[DEBUG]   Command: winget uninstall --id {pkg} --silent --accept-source-agreements")
                 success = installer.uninstall(tool_name)
-                if debug and not success:
-                    console.print(f"[DEBUG]   Uninstall failed - check winget output above")
             elif npm_installer and ToolMapper.is_npm_tool(tool_name):
-                if debug:
-                    console.print(f"\n[DEBUG]   Using npm to uninstall")
                 success = npm_installer.uninstall(tool_name)
             elif pip_installer and ToolMapper.is_python_tool(tool_name):
-                if debug:
-                    console.print(f"\n[DEBUG]   Using pip to uninstall")
                 success = pip_installer.uninstall(tool_name)
 
             if success:
                 console.print("[green]✅[/green]")
                 uninstalled += 1
-                # Remove from manifest
-                manifest.mark_uninstalled(tool_name)
             else:
                 console.print("[red]❌[/red]")
                 failed += 1

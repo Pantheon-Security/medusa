@@ -1,0 +1,31 @@
+# MEDUSA Testing Dockerfile
+# Includes dev dependencies for running tests
+
+FROM python:3.11-slim
+
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    shellcheck \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy project files
+COPY pyproject.toml README.md ./
+COPY medusa/ ./medusa/
+
+# Create tests directory
+RUN mkdir -p tests
+
+# Install MEDUSA with dev dependencies
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Create a basic test
+RUN echo 'def test_import():\n    from medusa.cli import main\n    assert main is not None' > tests/test_docker.py
+
+# Verify installation
+RUN medusa --version
+
+# Default command runs tests
+CMD ["pytest", "tests/", "-v", "--cov=medusa", "--cov-report=term"]
