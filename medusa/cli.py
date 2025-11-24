@@ -2052,7 +2052,8 @@ def install(tool, check, all, yes, use_latest, debug):
 @click.argument('tool', required=False)
 @click.option('--all', 'all_tools', is_flag=True, help='Uninstall all MEDUSA scanner tools')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-def uninstall(tool, all_tools, yes):
+@click.option('--debug', is_flag=True, help='Show detailed debug output')
+def uninstall(tool, all_tools, yes, debug):
     """
     Uninstall security scanner tools.
 
@@ -2064,6 +2065,9 @@ def uninstall(tool, all_tools, yes):
 
     console.print("\n[cyan]📦 Tool Uninstallation[/cyan]\n")
 
+    if debug:
+        console.print("[dim]Debug mode enabled - showing detailed output[/dim]\n")
+
     from medusa.platform import get_platform_info
     from medusa.scanners import registry
     from medusa.platform.installers import (
@@ -2073,13 +2077,24 @@ def uninstall(tool, all_tools, yes):
 
     platform_info = get_platform_info()
 
+    if debug:
+        console.print(f"[DEBUG] Platform: {platform_info.os_type.value}")
+        console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
+
     # Get installed tools
     installed_tools = []
+    if debug:
+        console.print("[DEBUG] Scanning for installed tools...")
     for scanner in registry.get_all_scanners():
         if scanner.is_available():
             tool_name = scanner.tool_name
             if tool_name and tool_name not in installed_tools:
                 installed_tools.append(tool_name)
+                if debug:
+                    console.print(f"[DEBUG]   Found: {tool_name}")
+
+    if debug:
+        console.print(f"[DEBUG] Total installed tools: {len(installed_tools)}\n")
 
     if not installed_tools:
         console.print("[yellow]No MEDUSA scanner tools found to uninstall[/yellow]")
@@ -2096,6 +2111,10 @@ def uninstall(tool, all_tools, yes):
             if not confirm:
                 console.print("[yellow]Uninstallation cancelled[/yellow]")
                 return
+
+        if debug:
+            console.print(f"[DEBUG] Tool: {tool}")
+            console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
 
         console.print(f"[cyan]Uninstalling {tool}...[/cyan] ", end="")
 
@@ -2121,10 +2140,17 @@ def uninstall(tool, all_tools, yes):
 
         # Try appropriate uninstaller
         if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
+            if debug:
+                pkg = ToolMapper.get_package_name(tool, pm.value)
+                console.print(f"\n[DEBUG] Uninstalling via {pm.value}: {pkg}")
             success = installer.uninstall(tool)
         elif npm_installer and ToolMapper.is_npm_tool(tool):
+            if debug:
+                console.print(f"\n[DEBUG] Uninstalling via npm")
             success = npm_installer.uninstall(tool)
         elif pip_installer and ToolMapper.is_python_tool(tool):
+            if debug:
+                console.print(f"\n[DEBUG] Uninstalling via pip")
             success = pip_installer.uninstall(tool)
 
         if success:
@@ -2168,16 +2194,29 @@ def uninstall(tool, all_tools, yes):
         failed = 0
 
         for tool_name in installed_tools:
+            if debug:
+                console.print(f"\n[DEBUG] Processing: {tool_name}")
+                console.print(f"[DEBUG]   PM package: {ToolMapper.get_package_name(tool_name, pm.value if pm else '')}")
+                console.print(f"[DEBUG]   Is NPM tool: {ToolMapper.is_npm_tool(tool_name)}")
+                console.print(f"[DEBUG]   Is Python tool: {ToolMapper.is_python_tool(tool_name)}")
+
             console.print(f"[cyan]Uninstalling {tool_name}...[/cyan]", end=" ")
 
             success = False
 
             # Try appropriate uninstaller
             if installer and ToolMapper.get_package_name(tool_name, pm.value if pm else ''):
+                if debug:
+                    pkg = ToolMapper.get_package_name(tool_name, pm.value)
+                    console.print(f"\n[DEBUG]   Using {pm.value} to uninstall: {pkg}")
                 success = installer.uninstall(tool_name)
             elif npm_installer and ToolMapper.is_npm_tool(tool_name):
+                if debug:
+                    console.print(f"\n[DEBUG]   Using npm to uninstall")
                 success = npm_installer.uninstall(tool_name)
             elif pip_installer and ToolMapper.is_python_tool(tool_name):
+                if debug:
+                    console.print(f"\n[DEBUG]   Using pip to uninstall")
                 success = pip_installer.uninstall(tool_name)
 
             if success:
