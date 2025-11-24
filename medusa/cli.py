@@ -325,14 +325,14 @@ def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_
                 '   ```',
                 '2. Install checkmake:',
                 '   ```powershell',
-                '   go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+                '   go install github.com/checkmake/checkmake/cmd/checkmake@latest',
                 '   ```',
                 '3. Add Go bin to PATH:',
                 '   ```powershell',
                 '   $env:PATH += ";$env:USERPROFILE\\go\\bin"',
                 '   ```',
             ],
-            'docs': 'https://github.com/mrtazz/checkmake',
+            'docs': 'https://github.com/checkmake/checkmake',
         },
     }
 
