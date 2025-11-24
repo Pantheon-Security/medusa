@@ -137,11 +137,26 @@ class WingetInstaller(BaseInstaller):
         if not package_name:
             return False
 
-        cmd = ['winget', 'uninstall', '--id', package_name]
+        # Validate package name
+        if not package_name.replace('-', '').replace('_', '').replace('.', '').isalnum():
+            return False
+
+        cmd = ['winget', 'uninstall', '--id', package_name, '--silent', '--accept-source-agreements']
 
         try:
-            result = self.run_command(cmd, check=True)
-            return result.returncode == 0
+            result = self.run_command(cmd, check=False)  # Don't throw on non-zero
+            output = result.stdout.lower() if hasattr(result, 'stdout') else ''
+
+            # Success if:
+            # - Exit code is 0, OR
+            # - Package was successfully uninstalled
+            success = (
+                result.returncode == 0 or
+                'successfully uninstalled' in output or
+                'uninstalled successfully' in output
+            )
+
+            return success
         except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
