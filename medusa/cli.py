@@ -1467,8 +1467,11 @@ def install(tool, check, all, yes, use_latest, debug):
 
         # Check if tool already exists before installing
         manifest = get_manifest()
-        scanner = registry.get_scanner_by_tool_name(tool)
-        was_already_installed = scanner is not None and scanner.is_available()
+        was_already_installed = False
+        for scanner in registry.get_all_scanners():
+            if scanner.tool_name == tool and scanner.is_available():
+                was_already_installed = True
+                break
 
         if package_name and installer:
             cmd = installer.get_install_command(tool)
