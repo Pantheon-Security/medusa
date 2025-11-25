@@ -617,6 +617,54 @@ medusa init --ide claude-code --force
 
 ## Platform-Specific Issues
 
+### Windows: PowerShell Execution Policy blocks npm
+
+**Symptoms:**
+```powershell
+npm install -g eslint
+# Error: cannot be loaded because running scripts is disabled on this system
+```
+
+**Why this happens:**
+- Fresh Windows 11 installations have execution policy set to `Restricted`
+- This blocks `.ps1` scripts including `npm.ps1`
+- **Common in enterprise environments** with default security policies
+
+**Solutions:**
+
+**Option 1: Use npm.cmd (RECOMMENDED)**
+```powershell
+# Use .cmd version instead of npm
+npm.cmd install -g eslint
+npm.cmd uninstall -g eslint
+npm.cmd list -g
+```
+✅ **MEDUSA automatically uses `npm.cmd` internally** - installations work fine!
+
+**Option 2: Adjust execution policy (requires Admin)**
+```powershell
+# Check current policy
+Get-ExecutionPolicy
+
+# Set to RemoteSigned (allows local scripts)
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Now npm works normally
+npm install -g eslint
+```
+
+**Option 3: Use MEDUSA (bypasses the issue)**
+```powershell
+# MEDUSA handles this automatically
+medusa install eslint  # Works even with Restricted policy
+```
+
+**For IT administrators:**
+- Set execution policy via Group Policy: `Computer Configuration → Policies → Windows Settings → Security Settings → Local Policies → Security Options`
+- Or deploy with: `Set-ExecutionPolicy RemoteSigned -Scope LocalMachine`
+
+---
+
 ### Windows: "Access denied" errors
 
 **Symptoms:**

@@ -74,6 +74,7 @@ def _detect_tool_version(tool_name: str, package_manager: Optional[str] = None) 
     import re
     import shutil
     import platform
+    from medusa.platform.installers.base import ToolMapper
 
     # Strategy 1: Query package manager directly (most reliable, especially on Windows after fresh install)
     if package_manager == 'npm':
