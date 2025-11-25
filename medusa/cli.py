@@ -56,7 +56,7 @@ def _safe_run_version_check(command: list, timeout: int = 5) -> tuple[bool, str]
         return (False, "")
 
 
-def _detect_tool_version(tool_name: str) -> Optional[str]:
+def _detect_tool_version(tool_name: str, package_manager: Optional[str] = None) -> Optional[str]:
     """
     Detect the installed version of a tool for manifest fingerprinting.
 
@@ -65,13 +65,68 @@ def _detect_tool_version(tool_name: str) -> Optional[str]:
 
     Args:
         tool_name: Name of the tool to check
+        package_manager: Optional package manager hint ('npm', 'pip', etc.) for faster detection
 
     Returns:
         Version string (e.g., "1.2.3") or None if version couldn't be detected
     """
     import subprocess
     import re
+    import shutil
+    import platform
 
+    # Strategy 1: Query package manager directly (most reliable, especially on Windows after fresh install)
+    if package_manager == 'npm':
+        try:
+            # Get npm command (use npm.cmd on Windows)
+            npm_cmd = 'npm.cmd' if platform.system() == 'Windows' else 'npm'
+            package_name = ToolMapper.get_package_name(tool_name, 'npm')
+
+            result = subprocess.run(
+                [npm_cmd, 'list', '-g', '--depth=0', package_name],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+                shell=False
+            )
+
+            if result.returncode == 0 or result.stdout:
+                # Output format: "├── eslint@9.15.0" or "└── eslint@9.15.0"
+                output = result.stdout
+                match = re.search(rf'{re.escape(package_name)}@(\d+\.\d+\.\d+(?:\.\d+)?)', output)
+                if match:
+                    return match.group(1)
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            pass  # Fall through to direct tool version check
+
+    elif package_manager == 'pip':
+        try:
+            # Windows: use 'py -m pip', Unix: use 'pip3' or 'pip'
+            if platform.system() == 'Windows':
+                pip_cmd = ['py', '-m', 'pip']
+            else:
+                pip_cmd = ['pip3'] if shutil.which('pip3') else ['pip']
+
+            package_name = ToolMapper.get_package_name(tool_name, 'pip')
+            result = subprocess.run(
+                pip_cmd + ['show', package_name],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+                shell=False
+            )
+
+            if result.returncode == 0:
+                # Output format: "Version: 1.2.3"
+                match = re.search(r'^Version:\s*(\d+\.\d+\.\d+(?:\.\d+)?)', result.stdout, re.MULTILINE)
+                if match:
+                    return match.group(1)
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            pass  # Fall through to direct tool version check
+
+    # Strategy 2: Run the tool directly with version flags
     # Common version flags to try (in order of preference)
     version_flags = ['--version', '-v', '-V', 'version']
 
@@ -1562,7 +1617,7 @@ def install(tool, check, all, yes, use_latest, debug):
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
                     # Detect installed version for manifest fingerprinting
-                    installed_version = _detect_tool_version(tool)
+                    installed_version = _detect_tool_version(tool, package_manager='npm')
                     # Record installation in manifest
                     manifest.mark_installed(
                         tool_name=tool,
@@ -1580,7 +1635,7 @@ def install(tool, check, all, yes, use_latest, debug):
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
                     # Detect installed version for manifest fingerprinting
-                    installed_version = _detect_tool_version(tool)
+                    installed_version = _detect_tool_version(tool, package_manager='pip')
                     # Record installation in manifest
                     manifest.mark_installed(
                         tool_name=tool,
