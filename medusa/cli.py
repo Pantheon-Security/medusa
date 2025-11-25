@@ -1792,6 +1792,9 @@ def install(tool, check, all, yes, use_latest, debug):
         failed_details = []  # Track why each tool failed
         npm_tools_failed = []  # Track npm tools that failed due to missing npm
 
+        # Get manifest for tracking installations
+        manifest = get_manifest()
+
         console.print("[bold]Installing Tools:[/bold]")
         for tool_name in missing_tools:
             console.print(f"[cyan]Installing {tool_name}...[/cyan]")
@@ -1917,9 +1920,13 @@ def install(tool, check, all, yes, use_latest, debug):
                                 if result.returncode == 0:
                                     console.print(f"  [green]✅ rubocop installed via gem[/green]\n")
                                     installed += 1
-                                    from medusa.platform.tool_cache import ToolCache
-                                    cache = ToolCache()
-                                    cache.mark_installed(tool_name)
+                                    # Record installation in manifest
+                                    manifest.mark_installed(
+                                        tool_name=tool_name,
+                                        package_manager='gem',
+                                        package_id='rubocop',
+                                        already_existed=False
+                                    )
                                 else:
                                     console.print(f"  [red]❌ gem install failed: {result.stderr[:200]}[/red]\n")
                                     failed += 1
@@ -1936,10 +1943,13 @@ def install(tool, check, all, yes, use_latest, debug):
                     else:
                         console.print(f"  [green]✅ Installed successfully[/green]\n")
                         installed += 1
-                        # Mark as installed in cache
-                        from medusa.platform.tool_cache import ToolCache
-                        cache = ToolCache()
-                        cache.mark_installed(tool_name)
+                        # Record installation in manifest
+                        manifest.mark_installed(
+                            tool_name=tool_name,
+                            package_manager=installer_name,
+                            package_id=package_name,
+                            already_existed=False
+                        )
                 else:
                     console.print(f"  [red]❌ Installation failed[/red]")
 
@@ -1960,9 +1970,13 @@ def install(tool, check, all, yes, use_latest, debug):
                             if ecosystem_success:
                                 console.print(f"  [green]✅ {message}[/green]\n")
                                 installed += 1
-                                from medusa.platform.tool_cache import ToolCache
-                                cache = ToolCache()
-                                cache.mark_installed(tool_name)
+                                # Record installation in manifest
+                                manifest.mark_installed(
+                                    tool_name=tool_name,
+                                    package_manager=ecosystem_name,
+                                    package_id=tool_name,
+                                    already_existed=False
+                                )
                             else:
                                 console.print(f"  [red]❌ {message}[/red]\n")
                                 failed += 1
@@ -1987,9 +2001,13 @@ def install(tool, check, all, yes, use_latest, debug):
                         if WindowsCustomInstaller.install(tool_name, debug=debug):
                             console.print(f"  [green]✅ Installed successfully[/green]\n")
                             installed += 1
-                            from medusa.platform.tool_cache import ToolCache
-                            cache = ToolCache()
-                            cache.mark_installed(tool_name)
+                            # Record installation in manifest
+                            manifest.mark_installed(
+                                tool_name=tool_name,
+                                package_manager='powershell',
+                                package_id=tool_name,
+                                already_existed=False
+                            )
                             continue  # Skip to next tool
                         else:
                             console.print(f"  [red]❌ Custom installer failed[/red]")
@@ -2036,10 +2054,13 @@ def install(tool, check, all, yes, use_latest, debug):
                     if success:
                         console.print(f"  [green]✅ {message}[/green]\n")
                         installed += 1
-                        # Mark as installed in cache
-                        from medusa.platform.tool_cache import ToolCache
-                        cache = ToolCache()
-                        cache.mark_installed(tool_name)
+                        # Record installation in manifest
+                        manifest.mark_installed(
+                            tool_name=tool_name,
+                            package_manager=ecosystem_name,
+                            package_id=tool_name,
+                            already_existed=False
+                        )
                     else:
                         console.print(f"  [red]❌ {message}[/red]\n")
                         failed += 1
