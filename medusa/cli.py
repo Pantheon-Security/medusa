@@ -1454,6 +1454,11 @@ def install(tool, check, all, yes, use_latest, debug):
     npm_installer = NpmInstaller() if _has_npm_available() else None
     pip_installer = PipInstaller() if _has_pip_available() else None
 
+    # Check if Chocolatey is available (for fallback installs)
+    choco_installer = None
+    if platform_info.os_type.value == 'windows':
+        choco_installer = ChocolateyInstaller(debug=debug) if ChocolateyInstaller.is_chocolatey_installed() else None
+
     # Install specific tool
     if tool:
         if tool not in missing_tools:
@@ -1586,6 +1591,9 @@ def install(tool, check, all, yes, use_latest, debug):
 
                         # Mark that we just installed it
                         chocolatey_just_installed = True
+
+                        # Initialize choco_installer now that it's available
+                        choco_installer = ChocolateyInstaller(debug=debug)
                     else:
                         console.print("[red]❌ Failed to install Chocolatey (admin rights required)[/red]")
                         console.print("[dim]You can install manually: https://chocolatey.org/install[/dim]\n")
