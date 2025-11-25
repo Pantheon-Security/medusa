@@ -55,6 +55,52 @@ def _safe_run_version_check(command: list, timeout: int = 5) -> tuple[bool, str]
         return (False, "")
 
 
+def _detect_tool_version(tool_name: str) -> Optional[str]:
+    """
+    Detect the installed version of a tool for manifest fingerprinting.
+
+    This tries multiple common version flags and extracts semantic version numbers.
+    Used to detect if a user has manually upgraded/modified a tool.
+
+    Args:
+        tool_name: Name of the tool to check
+
+    Returns:
+        Version string (e.g., "1.2.3") or None if version couldn't be detected
+    """
+    import subprocess
+    import re
+
+    # Common version flags to try (in order of preference)
+    version_flags = ['--version', '-v', '-V', 'version']
+
+    for flag in version_flags:
+        try:
+            result = subprocess.run(
+                [tool_name, flag],
+                capture_output=True,
+                text=True,
+                timeout=3,
+                check=False,
+                shell=False
+            )
+
+            if result.returncode == 0:
+                # Try both stdout and stderr (some tools output to stderr)
+                output = result.stdout or result.stderr
+
+                # Extract semantic version: matches "1.2.3" or "1.2.3.4"
+                # Handles formats like "tool 1.2.3", "v1.2.3", or just "1.2.3"
+                match = re.search(r'(\d+\.\d+\.\d+(?:\.\d+)?)', output)
+                if match:
+                    return match.group(1)
+
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError, FileNotFoundError):
+            continue
+
+    # Couldn't detect version
+    return None
+
 
 def _has_npm_available() -> bool:
     """
@@ -1491,11 +1537,14 @@ def install(tool, check, all, yes, use_latest, debug):
             success = installer.install(tool)
             if success:
                 console.print(f"[green]✅ Successfully installed {tool}[/green]")
+                # Detect installed version for manifest fingerprinting
+                installed_version = _detect_tool_version(tool)
                 # Record installation in manifest
                 manifest.mark_installed(
                     tool_name=tool,
                     package_manager=pm.value if pm else 'unknown',
                     package_id=package_name,
+                    version=installed_version,
                     already_existed=was_already_installed
                 )
             else:
@@ -1511,11 +1560,14 @@ def install(tool, check, all, yes, use_latest, debug):
                 success = npm_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
+                    # Detect installed version for manifest fingerprinting
+                    installed_version = _detect_tool_version(tool)
                     # Record installation in manifest
                     manifest.mark_installed(
                         tool_name=tool,
                         package_manager='npm',
                         package_id=npm_package,
+                        version=installed_version,
                         already_existed=was_already_installed
                     )
                 else:
@@ -1526,11 +1578,14 @@ def install(tool, check, all, yes, use_latest, debug):
                 success = pip_installer.install(tool, use_latest=use_latest)
                 if success:
                     console.print(f"[green]✅ Successfully installed {tool}[/green]")
+                    # Detect installed version for manifest fingerprinting
+                    installed_version = _detect_tool_version(tool)
                     # Record installation in manifest
                     manifest.mark_installed(
                         tool_name=tool,
                         package_manager='pip',
                         package_id=pip_package,
+                        version=installed_version,
                         already_existed=was_already_installed
                     )
                 else:
@@ -1931,11 +1986,14 @@ def install(tool, check, all, yes, use_latest, debug):
                                 if result.returncode == 0:
                                     console.print(f"  [green]✅ rubocop installed via gem[/green]\n")
                                     installed += 1
+                                    # Detect installed version for manifest fingerprinting
+                                    installed_version = _detect_tool_version(tool_name)
                                     # Record installation in manifest
                                     manifest.mark_installed(
                                         tool_name=tool_name,
                                         package_manager='gem',
                                         package_id='rubocop',
+                                        version=installed_version,
                                         already_existed=False
                                     )
                                 else:
@@ -1954,11 +2012,14 @@ def install(tool, check, all, yes, use_latest, debug):
                     else:
                         console.print(f"  [green]✅ Installed successfully[/green]\n")
                         installed += 1
+                        # Detect installed version for manifest fingerprinting
+                        installed_version = _detect_tool_version(tool_name)
                         # Record installation in manifest
                         manifest.mark_installed(
                             tool_name=tool_name,
                             package_manager=installer_name,
                             package_id=package_name,
+                            version=installed_version,
                             already_existed=False
                         )
                 else:
@@ -1981,11 +2042,14 @@ def install(tool, check, all, yes, use_latest, debug):
                             if ecosystem_success:
                                 console.print(f"  [green]✅ {message}[/green]\n")
                                 installed += 1
+                                # Detect installed version for manifest fingerprinting
+                                installed_version = _detect_tool_version(tool_name)
                                 # Record installation in manifest
                                 manifest.mark_installed(
                                     tool_name=tool_name,
                                     package_manager=ecosystem_name,
                                     package_id=tool_name,
+                                    version=installed_version,
                                     already_existed=False
                                 )
                             else:
@@ -2012,11 +2076,14 @@ def install(tool, check, all, yes, use_latest, debug):
                         if WindowsCustomInstaller.install(tool_name, debug=debug):
                             console.print(f"  [green]✅ Installed successfully[/green]\n")
                             installed += 1
+                            # Detect installed version for manifest fingerprinting
+                            installed_version = _detect_tool_version(tool_name)
                             # Record installation in manifest
                             manifest.mark_installed(
                                 tool_name=tool_name,
                                 package_manager='powershell',
                                 package_id=tool_name,
+                                version=installed_version,
                                 already_existed=False
                             )
                             continue  # Skip to next tool
@@ -2065,11 +2132,14 @@ def install(tool, check, all, yes, use_latest, debug):
                     if success:
                         console.print(f"  [green]✅ {message}[/green]\n")
                         installed += 1
+                        # Detect installed version for manifest fingerprinting
+                        installed_version = _detect_tool_version(tool_name)
                         # Record installation in manifest
                         manifest.mark_installed(
                             tool_name=tool_name,
                             package_manager=ecosystem_name,
                             package_id=tool_name,
+                            version=installed_version,
                             already_existed=False
                         )
                     else:
@@ -2160,11 +2230,24 @@ def uninstall(tool, all_tools, yes, debug, force):
                 was_medusa_installed = manifest.was_installed_by_medusa(tool_name)
                 is_support_software = manifest.is_support_software(tool_name)
 
-                if force or (was_medusa_installed and not is_support_software):
+                # Version fingerprinting: Check if tool version changed since MEDUSA installed it
+                version_changed = False
+                if was_medusa_installed and not force:
+                    manifest_info = manifest.get_tool_info(tool_name)
+                    manifest_version = manifest_info.get('version') if manifest_info else None
+                    current_version = _detect_tool_version(tool_name)
+
+                    if manifest_version and current_version and manifest_version != current_version:
+                        version_changed = True
+                        skipped_tools.append(tool_name)
+                        if debug:
+                            console.print(f"[DEBUG]   Skipped: {tool_name} (version changed: {manifest_version} → {current_version})")
+
+                if not version_changed and (force or (was_medusa_installed and not is_support_software)):
                     installed_tools.append(tool_name)
                     if debug:
                         console.print(f"[DEBUG]   Found: {tool_name} (MEDUSA installed: {was_medusa_installed})")
-                else:
+                elif not version_changed:
                     skipped_tools.append(tool_name)
                     if debug:
                         reason = "support software" if is_support_software else "not installed by MEDUSA"
