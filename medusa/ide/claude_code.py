@@ -15,7 +15,7 @@ except ImportError:
     tomli_w = None
 
 
-def setup_claude_code(project_root: Path) -> bool:
+def setup_claude_code(project_root: Path) -> tuple:
     """
     Setup Claude Code integration for MEDUSA
 
@@ -23,14 +23,15 @@ def setup_claude_code(project_root: Path) -> bool:
     - .claude/agents/medusa/agent.json
     - .claude/commands/medusa-scan.md
     - .claude/commands/medusa-install.md
-    - CLAUDE.md (project context)
+    - CLAUDE.md (project context) - only if it doesn't exist
 
     Args:
         project_root: Project root directory
 
     Returns:
-        True if setup successful
+        Tuple of (success: bool, claude_md_created: bool)
     """
+    claude_md_created = False
     try:
         # Create .claude directories
         claude_dir = project_root / ".claude"
@@ -60,17 +61,20 @@ def setup_claude_code(project_root: Path) -> bool:
         with open(install_file, 'w') as f:
             f.write(install_command)
 
-        # Create CLAUDE.md project context
-        claude_md = create_claude_md(project_root)
+        # Create CLAUDE.md project context (only if it doesn't exist)
         claude_md_file = project_root / "CLAUDE.md"
-        with open(claude_md_file, 'w') as f:
-            f.write(claude_md)
+        if not claude_md_file.exists():
+            claude_md = create_claude_md(project_root)
+            with open(claude_md_file, 'w') as f:
+                f.write(claude_md)
+            claude_md_created = True
+        # If CLAUDE.md exists, don't overwrite - user may have custom content
 
-        return True
+        return (True, claude_md_created)
 
     except Exception as e:
         print(f"Error setting up Claude Code integration: {e}")
-        return False
+        return (False, claude_md_created)
 
 
 def create_agent_config() -> Dict[str, Any]:
@@ -434,11 +438,13 @@ def setup_gemini_cli(project_root: Path) -> bool:
             with open(install_file, 'w') as f:
                 f.write(_dict_to_toml_text(install_toml))
 
-        # Create GEMINI.md project context
-        gemini_md = create_gemini_md(project_root)
+        # Create GEMINI.md project context (only if it doesn't exist)
         gemini_md_file = project_root / "GEMINI.md"
-        with open(gemini_md_file, 'w') as f:
-            f.write(gemini_md)
+        if not gemini_md_file.exists():
+            gemini_md = create_gemini_md(project_root)
+            with open(gemini_md_file, 'w') as f:
+                f.write(gemini_md)
+        # If GEMINI.md exists, don't overwrite - user may have custom content
 
         return True
 
@@ -574,11 +580,13 @@ def setup_openai_codex(project_root: Path) -> bool:
         True if setup successful
     """
     try:
-        # Create AGENTS.md project context
-        agents_md = create_agents_md(project_root)
+        # Create AGENTS.md project context (only if it doesn't exist)
         agents_md_file = project_root / "AGENTS.md"
-        with open(agents_md_file, 'w') as f:
-            f.write(agents_md)
+        if not agents_md_file.exists():
+            agents_md = create_agents_md(project_root)
+            with open(agents_md_file, 'w') as f:
+                f.write(agents_md)
+        # If AGENTS.md exists, don't overwrite - user may have custom content
 
         return True
 
@@ -731,11 +739,13 @@ def setup_github_copilot(project_root: Path) -> bool:
         github_dir = project_root / ".github"
         github_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create copilot-instructions.md
-        copilot_md = create_copilot_instructions(project_root)
+        # Create copilot-instructions.md (only if it doesn't exist)
         copilot_file = github_dir / "copilot-instructions.md"
-        with open(copilot_file, 'w') as f:
-            f.write(copilot_md)
+        if not copilot_file.exists():
+            copilot_md = create_copilot_instructions(project_root)
+            with open(copilot_file, 'w') as f:
+                f.write(copilot_md)
+        # If copilot-instructions.md exists, don't overwrite - user may have custom content
 
         return True
 
