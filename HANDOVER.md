@@ -1,18 +1,16 @@
 # MEDUSA Development Handover
 
-## Current Version: **v2025.2.0.15**
+## Current Version: **v2025.2.0.17**
 
 **Published:**
-- PyPI: https://pypi.org/project/medusa-security/2025.2.0.15/
-- GitHub: https://github.com/Pantheon-Security/medusa (tag: v2025.2.0.15)
+- PyPI: https://pypi.org/project/medusa-security/2025.2.0.17/
+- GitHub: https://github.com/Pantheon-Security/medusa (tag: v2025.2.0.17)
 
 **Stats:** ~8,500+ total downloads, ~1,500/day
 
 ---
 
-## Recent Changes (v2025.2.0.12 - v2025.2.0.15)
-
-### Feature: Version Fingerprinting System
+## Feature Complete: Version Fingerprinting System ✅
 
 **Purpose:** Protect user-upgraded tools from being uninstalled by MEDUSA.
 
@@ -28,7 +26,24 @@
 1. Query package manager directly (npm list -g / pip show) - most reliable
 2. Fall back to running tool with --version flag
 
-### Bug Fixes in This Session:
+### Test Results:
+
+| Platform | Install | Version Capture | Protection | Force Override |
+|----------|---------|-----------------|------------|----------------|
+| Windows  | ✅ | ✅ | ✅ | ✅ |
+| Ubuntu   | ✅ | ✅ | ✅ | ✅ |
+
+**Example Output (Version Protection):**
+```
+[DEBUG]   Skipped: eslint (version changed: 9.39.2 → 9.39.1)
+...
+Tool 'eslint' version changed (9.39.2 → 9.39.1)
+Skipping to protect your manual upgrade. Use --force to override.
+```
+
+---
+
+## Bug Fixes in This Session (v2025.2.0.11 - v2025.2.0.17)
 
 | Version | Bug | Fix |
 |---------|-----|-----|
@@ -36,40 +51,8 @@
 | v2025.2.0.13 | `NameError: Optional not defined` | Add `from typing import Optional` |
 | v2025.2.0.14 | npm tools show `version: null` | Query `npm list -g` directly |
 | v2025.2.0.15 | `NameError: ToolMapper not defined` | Add import inside function |
-
----
-
-## Pending Test
-
-**ESLint version capture test** - Need to verify fix works:
-
-```powershell
-# On Windows - uninstall first (eslint already installed)
-npm.cmd uninstall -g eslint
-
-# Reinstall with MEDUSA
-medusa install eslint --debug
-
-# Check manifest - should have real version
-type $env:USERPROFILE\.medusa\installed_tools.json
-
-# Expected:
-# "eslint": {
-#   "installed_by_medusa": true,
-#   "package_manager": "npm",
-#   "version": "9.15.0"  <-- Should NOT be null
-# }
-```
-
-**Then test version protection:**
-```powershell
-# Manually edit manifest to change version (simulate user upgrade)
-# Or: npm.cmd install -g eslint@latest
-
-# Try uninstall - should SKIP eslint
-medusa uninstall eslint --debug
-# Expected: "Skipped: eslint (version changed: X.X.X → Y.Y.Y)"
-```
+| v2025.2.0.16 | Single tool uninstall ignores version protection | Check skipped_tools before uninstall |
+| v2025.2.0.17 | Version detection missing pm_hint during scan | Pass package_manager from manifest |
 
 ---
 
@@ -125,6 +108,7 @@ rm -rf dist/ && .venv/bin/python -m build
 - Blocks `npm.ps1` (but not `npm.cmd`)
 - MEDUSA uses `npm.cmd` internally - works fine
 - Users running npm manually need: `npm.cmd` or `Set-ExecutionPolicy RemoteSigned`
+- **Documented in:** `docs/TROUBLESHOOTING.md`
 
 ### PATH Refresh Issue
 - After `npm install -g`, Windows doesn't refresh PATH in current session
@@ -136,20 +120,22 @@ rm -rf dist/ && .venv/bin/python -m build
 ## Security Check Completed
 
 **Wiz Shai-Hulud 2 Supply Chain Attack** - MEDUSA is NOT affected:
-- No npm dependencies in project
+- No npm dependencies in project itself
 - All linters we install (eslint, prettier, etc.) are official packages
 - Attack targets plugin ecosystems (medusa-plugin-*, @posthog/*, etc.)
+- Our linters are core tools from established maintainers
 
 ---
 
-## Next Steps
+## Pending Items
 
-1. Complete eslint version capture test on Windows
-2. Test full `medusa install --all` with version capture
-3. Test `medusa uninstall --all` with version protection
-4. Consider fresh VM test for clean install experience
+1. **Website Audit** - Review and update website content to match current version
+2. **PyPI Description Review** - Ensure package description is current
+3. **GitHub README Review** - Check README reflects v2025.2.0.17 features
+4. **Fresh VM Test** - Optional full install test on clean Windows/Linux
 
 ---
 
-*Last updated: 2025-11-25*
-*Session ended at: v2025.2.0.15*
+*Last updated: 2025-11-26*
+*Session ended at: v2025.2.0.17*
+*Tests passed: Windows ✅ Ubuntu ✅*
