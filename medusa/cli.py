@@ -2292,7 +2292,9 @@ def uninstall(tool, all_tools, yes, debug, force):
                 if was_medusa_installed and not force:
                     manifest_info = manifest.get_tool_info(tool_name)
                     manifest_version = manifest_info.get('version') if manifest_info else None
-                    current_version = _detect_tool_version(tool_name)
+                    # Get package manager from manifest to help version detection
+                    pm_hint = manifest_info.get('package_manager') if manifest_info else None
+                    current_version = _detect_tool_version(tool_name, package_manager=pm_hint)
 
                     if manifest_version and current_version and manifest_version != current_version:
                         version_changed = True
@@ -2338,7 +2340,8 @@ def uninstall(tool, all_tools, yes, debug, force):
             # Check if it was version-related skip
             manifest_info = manifest.get_tool_info(tool)
             manifest_version = manifest_info.get('version') if manifest_info else None
-            current_version = _detect_tool_version(tool)
+            pm_hint = manifest_info.get('package_manager') if manifest_info else None
+            current_version = _detect_tool_version(tool, package_manager=pm_hint)
             if manifest_version and current_version and manifest_version != current_version:
                 console.print(f"[yellow]Tool '{tool}' version changed ({manifest_version} → {current_version})[/yellow]")
                 console.print("[yellow]Skipping to protect your manual upgrade. Use --force to override.[/yellow]")
