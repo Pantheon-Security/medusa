@@ -417,9 +417,9 @@ def setup_gemini_cli(project_root: Path) -> bool:
 
         commands_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create scan command (.toml format)
+        # Create scan command (.toml format) - use medusa- prefix to avoid conflicts
         scan_toml = create_gemini_scan_command()
-        scan_file = commands_dir / "scan.toml"
+        scan_file = commands_dir / "medusa-scan.toml"
         if tomli_w:
             with open(scan_file, 'wb') as f:
                 tomli_w.dump(scan_toml, f)
@@ -428,9 +428,9 @@ def setup_gemini_cli(project_root: Path) -> bool:
             with open(scan_file, 'w') as f:
                 f.write(_dict_to_toml_text(scan_toml))
 
-        # Create install command (.toml format)
+        # Create install command (.toml format) - use medusa- prefix to avoid conflicts
         install_toml = create_gemini_install_command()
-        install_file = commands_dir / "install.toml"
+        install_file = commands_dir / "medusa-install.toml"
         if tomli_w:
             with open(install_file, 'wb') as f:
                 tomli_w.dump(install_toml, f)
@@ -457,9 +457,9 @@ def create_gemini_scan_command() -> Dict[str, Any]:
     """Create Gemini CLI scan command (.toml format)"""
     return {
         "command": {
-            "name": "scan",
+            "name": "medusa-scan",
             "description": "Run MEDUSA security scan on project",
-            "usage": "scan [path] [options]",
+            "usage": "medusa-scan [path] [options]",
         },
         "execute": {
             "command": "medusa",
@@ -481,9 +481,9 @@ def create_gemini_install_command() -> Dict[str, Any]:
     """Create Gemini CLI install command (.toml format)"""
     return {
         "command": {
-            "name": "install",
+            "name": "medusa-install",
             "description": "Install missing MEDUSA security tools",
-            "usage": "install [options]",
+            "usage": "medusa-install [options]",
         },
         "execute": {
             "command": "medusa",
@@ -512,20 +512,20 @@ This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ speciali
 
 ## Custom Commands
 
-### /scan - Security Scan
+### /medusa-scan - Security Scan
 
 ```bash
-/scan                 # Full project scan
-/scan --quick         # Quick scan (cache enabled)
-/scan --fail-on high  # Fail on high severity
+/medusa-scan                 # Full project scan
+/medusa-scan --quick         # Quick scan (cache enabled)
+/medusa-scan --fail-on high  # Fail on high severity
 ```
 
-### /install - Tool Installation
+### /medusa-install - Tool Installation
 
 ```bash
-/install --check      # Check installed tools
-/install --all        # Install all missing tools
-/install --tool NAME  # Install specific tool
+/medusa-install --check      # Check installed tools
+/medusa-install --all        # Install all missing tools
+/medusa-install --tool NAME  # Install specific tool
 ```
 
 ## Configuration
@@ -906,11 +906,32 @@ def setup_cursor(project_root: Path) -> bool:
         cursor_dir = project_root / ".cursor"
         cursor_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create MCP config
-        mcp_config = create_cursor_mcp_config()
-        mcp_file = cursor_dir / "mcp-config.json"
-        with open(mcp_file, 'w') as f:
-            json.dump(mcp_config, f, indent=2)
+        # MCP config - correct filename is mcp.json (not mcp-config.json)
+        mcp_file = cursor_dir / "mcp.json"
+        medusa_mcp_config = create_cursor_mcp_config()
+
+        if mcp_file.exists():
+            # Merge with existing config - don't overwrite user's other MCP servers
+            try:
+                with open(mcp_file, 'r') as f:
+                    existing_config = json.load(f)
+
+                # Only update the medusa-security entry, preserve everything else
+                if 'mcpServers' not in existing_config:
+                    existing_config['mcpServers'] = {}
+
+                existing_config['mcpServers']['medusa-security'] = medusa_mcp_config['mcpServers']['medusa-security']
+
+                with open(mcp_file, 'w') as f:
+                    json.dump(existing_config, f, indent=2)
+            except (json.JSONDecodeError, IOError):
+                # Corrupted file, overwrite it
+                with open(mcp_file, 'w') as f:
+                    json.dump(medusa_mcp_config, f, indent=2)
+        else:
+            # No existing config, create new
+            with open(mcp_file, 'w') as f:
+                json.dump(medusa_mcp_config, f, indent=2)
 
         # Also setup Claude Code structure for compatibility
         setup_claude_code(project_root)
