@@ -1,10 +1,10 @@
 # MEDUSA Development Handover
 
-## Current Version: **v2025.2.0.17**
+## Current Version: **v2025.2.0.18**
 
 **Published:**
-- PyPI: https://pypi.org/project/medusa-security/2025.2.0.17/
-- GitHub: https://github.com/Pantheon-Security/medusa (tag: v2025.2.0.17)
+- PyPI: https://pypi.org/project/medusa-security/2025.2.0.18/
+- GitHub: https://github.com/Pantheon-Security/medusa (tag: v2025.2.0.18)
 
 **Stats:** ~8,500+ total downloads, ~1,500/day
 
@@ -43,7 +43,7 @@ Skipping to protect your manual upgrade. Use --force to override.
 
 ---
 
-## Bug Fixes in This Session (v2025.2.0.11 - v2025.2.0.17)
+## Bug Fixes in This Session (v2025.2.0.11 - v2025.2.0.18)
 
 | Version | Bug | Fix |
 |---------|-----|-----|
@@ -53,6 +53,33 @@ Skipping to protect your manual upgrade. Use --force to override.
 | v2025.2.0.15 | `NameError: ToolMapper not defined` | Add import inside function |
 | v2025.2.0.16 | Single tool uninstall ignores version protection | Check skipped_tools before uninstall |
 | v2025.2.0.17 | Version detection missing pm_hint during scan | Pass package_manager from manifest |
+| v2025.2.0.18 | **CRITICAL:** IDE init overwrites user files | Check if file exists before writing |
+
+### v2025.2.0.18 - Critical IDE File Overwrite Bug
+
+**Severity:** CRITICAL - Data loss for users
+
+**Problem:** `medusa init --ide` was silently overwriting existing user files:
+- `CLAUDE.md`
+- `GEMINI.md`
+- `AGENTS.md`
+- `.github/copilot-instructions.md`
+
+**Impact:** Any user who ran `medusa init` with IDE integration lost their custom IDE configuration files.
+
+**Fix:** Added existence check before writing:
+```python
+# OLD (destructive)
+with open(claude_md_file, 'w') as f:
+    f.write(claude_md)
+
+# NEW (safe)
+if not claude_md_file.exists():
+    with open(claude_md_file, 'w') as f:
+        f.write(claude_md)
+```
+
+**File:** `medusa/ide/claude_code.py` - lines 64-70, 441-447, 582-588, 741-747
 
 ---
 
@@ -137,5 +164,5 @@ rm -rf dist/ && .venv/bin/python -m build
 ---
 
 *Last updated: 2025-11-26*
-*Session ended at: v2025.2.0.17*
+*Session ended at: v2025.2.0.18*
 *Tests passed: Windows ✅ Ubuntu ✅*
