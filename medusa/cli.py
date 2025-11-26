@@ -1438,10 +1438,17 @@ def init(ide, force, install):
         success_count = 0
         for selected_ide in ide_list:
             if selected_ide == 'claude-code':
-                if setup_claude_code(project_root):
+                result = setup_claude_code(project_root)
+                # Handle both old bool return and new tuple return
+                success = result[0] if isinstance(result, tuple) else result
+                claude_md_created = result[1] if isinstance(result, tuple) else True
+                if success:
                     console.print("[green]✓[/green] Claude Code integration configured")
                     console.print("  • Created .claude/ directory with agents and commands")
-                    console.print("  • Created CLAUDE.md project context")
+                    if claude_md_created:
+                        console.print("  • Created CLAUDE.md project context")
+                    else:
+                        console.print("  • Preserved existing CLAUDE.md (not overwritten)")
                     success_count += 1
             elif selected_ide == 'cursor':
                 if setup_cursor(project_root):
