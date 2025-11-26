@@ -244,154 +244,73 @@ See `.medusa.yml` for configuration options.
 
 
 def create_claude_md(project_root: Path) -> str:
-    """Create CLAUDE.md project context file"""
+    """
+    Create CLAUDE.md project context file
+
+    Best practices per https://www.anthropic.com/engineering/claude-code-best-practices:
+    - Keep concise and human-readable
+    - Use short, declarative bullet points
+    - Group related items under headings
+    - Only include rules Claude needs to know
+    """
     project_name = project_root.name
-    return f"""# {project_name} - MEDUSA Security Scanning
+    return f"""# {project_name}
 
-## Project Overview
-
-This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ specialized analyzers for automated security scanning.
-
-## MEDUSA Configuration
-
-**Location**: `.medusa.yml`
-
-### Quick Commands
+## Commands
 
 ```bash
-# Run security scan
+# Security scan
 medusa scan .
 
-# Quick scan (cached results)
+# Quick scan (cached)
 medusa scan . --quick
-
-# Check installed scanners
-medusa install --check
 
 # Install missing tools
 medusa install --all
 ```
 
-## Available Slash Commands
+## Slash Commands
 
-- `/medusa-scan` - Run security scan on project
-- `/medusa-install` - Install missing security tools
+- `/medusa-scan` - Run security scan
+- `/medusa-install` - Install security tools
 
-## Integration Features
+## Security Standards
 
-### Claude Code Integration
-
-- **Auto-scan on save**: Automatically scans files when you save them
-- **Inline annotations**: Security issues appear directly in your IDE
-- **Smart detection**: Only scans relevant file types
-- **Parallel processing**: Fast scanning with multi-core support
-
-### 42 Language Support
-
-MEDUSA scans:
-- Python, JavaScript, TypeScript, Go, Rust, Java, C/C++
-- Shell scripts (bash, sh, zsh)
-- Docker, Kubernetes, Terraform
-- YAML, JSON, XML, TOML
-- And 30+ more languages/formats
-
-## Security Scanning
-
-### Scan Reports
-
-Reports are generated in `.medusa/reports/`:
-- HTML dashboard (visual report)
-- JSON data (for CI/CD integration)
-- CLI output (terminal summary)
-
-### Severity Levels
-
-- **CRITICAL**: Immediate security threats
-- **HIGH**: Significant vulnerabilities
-- **MEDIUM**: Moderate issues
-- **LOW**: Minor concerns
-- **INFO**: Best practice suggestions
-
-### Fail Thresholds
-
-Configure scan to fail CI/CD on certain severity:
-
-```bash
-medusa scan . --fail-on high
-```
+- All code must pass `medusa scan .` with no CRITICAL findings
+- Fix HIGH severity issues before committing
+- Run `medusa scan . --quick` after changes
 
 ## Configuration
 
-Edit `.medusa.yml` to customize:
+File: `.medusa.yml`
 
 ```yaml
-version: 0.8.0
-scanners:
-  enabled: []     # Empty = all enabled
-  disabled: []    # List scanners to disable
-fail_on: high     # critical | high | medium | low
+fail_on: high
 exclude:
   paths:
     - node_modules/
     - .venv/
     - dist/
-workers: null     # null = auto-detect CPU cores
-cache_enabled: true
 ```
 
-## CI/CD Integration
+## Severity Levels
 
-### GitHub Actions
+- CRITICAL: Fix immediately
+- HIGH: Fix before commit
+- MEDIUM: Should fix
+- LOW/INFO: Optional
 
-```yaml
-- name: MEDUSA Security Scan
-  run: |
-    pip install medusa-security
-    medusa scan . --fail-on high --no-report
-```
+## Do Not
 
-### GitLab CI
-
-```yaml
-security_scan:
-  script:
-    - pip install medusa-security
-    - medusa scan . --fail-on high
-```
+- Do not commit code with CRITICAL security findings
+- Do not disable security scanners without documenting why
+- Do not ignore HIGH severity issues in PRs
 
 ## Troubleshooting
 
-### Missing Scanners
-
-If you see warnings about missing tools:
-
-```bash
-medusa install --check    # See what's missing
-medusa install --all      # Install everything
-```
-
-### False Positives
-
-Exclude files or directories in `.medusa.yml`:
-
-```yaml
-exclude:
-  paths:
-    - "tests/fixtures/"
-    - "vendor/"
-  files:
-    - "*.min.js"
-```
-
-## Learn More
-
-- **Documentation**: https://docs.medusa-security.dev
-- **GitHub**: https://github.com/Pantheon-Security/medusa
-- **Report Issues**: https://github.com/Pantheon-Security/medusa/issues
-
----
-
-*This file provides context for Claude Code about MEDUSA integration*
+- Missing tools: `medusa install --all`
+- False positives: Add to `.medusa.yml` exclude section
+- Slow scans: Use `medusa scan . --quick`
 """
 
 
@@ -418,25 +337,15 @@ def setup_gemini_cli(project_root: Path) -> bool:
         commands_dir.mkdir(parents=True, exist_ok=True)
 
         # Create scan command (.toml format) - use medusa- prefix to avoid conflicts
-        scan_toml = create_gemini_scan_command()
+        # Commands are now plain TOML text (description + prompt format per Gemini CLI spec)
         scan_file = commands_dir / "medusa-scan.toml"
-        if tomli_w:
-            with open(scan_file, 'wb') as f:
-                tomli_w.dump(scan_toml, f)
-        else:
-            # Fallback: write as text
-            with open(scan_file, 'w') as f:
-                f.write(_dict_to_toml_text(scan_toml))
+        with open(scan_file, 'w') as f:
+            f.write(create_gemini_scan_command())
 
         # Create install command (.toml format) - use medusa- prefix to avoid conflicts
-        install_toml = create_gemini_install_command()
         install_file = commands_dir / "medusa-install.toml"
-        if tomli_w:
-            with open(install_file, 'wb') as f:
-                tomli_w.dump(install_toml, f)
-        else:
-            with open(install_file, 'w') as f:
-                f.write(_dict_to_toml_text(install_toml))
+        with open(install_file, 'w') as f:
+            f.write(create_gemini_install_command())
 
         # Create GEMINI.md project context (only if it doesn't exist)
         gemini_md_file = project_root / "GEMINI.md"
@@ -453,116 +362,98 @@ def setup_gemini_cli(project_root: Path) -> bool:
         return False
 
 
-def create_gemini_scan_command() -> Dict[str, Any]:
-    """Create Gemini CLI scan command (.toml format)"""
-    return {
-        "command": {
-            "name": "medusa-scan",
-            "description": "Run MEDUSA security scan on project",
-            "usage": "medusa-scan [path] [options]",
-        },
-        "execute": {
-            "command": "medusa",
-            "args": ["scan", "."],
-            "options": {
-                "quick": {"flag": "--quick", "description": "Quick scan with cache"},
-                "workers": {"flag": "--workers", "description": "Number of parallel workers"},
-                "fail-on": {"flag": "--fail-on", "description": "Fail on severity level"},
-            }
-        },
-        "output": {
-            "format": "terminal",
-            "show_progress": True,
-        }
-    }
+def create_gemini_scan_command() -> str:
+    """
+    Create Gemini CLI scan command (.toml format)
+
+    Official format per https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md:
+    - description: Brief one-line description
+    - prompt: The prompt sent to Gemini (can use {{args}} for user input)
+    """
+    return '''description = "Run MEDUSA security scan on the project"
+prompt = """
+Run the MEDUSA security scanner on this project.
+
+Command to execute:
+```bash
+medusa scan . {{args}}
+```
+
+After scanning:
+1. Show a summary of findings by severity (CRITICAL, HIGH, MEDIUM, LOW)
+2. For any CRITICAL or HIGH issues, explain what they are and suggest fixes
+3. If the scan passes with no critical issues, confirm the code is secure
+
+Common options the user might pass via {{args}}:
+- --quick : Use cached results for faster scanning
+- --fail-on high : Fail if high severity issues found
+- --workers N : Use N parallel workers
+"""
+'''
 
 
-def create_gemini_install_command() -> Dict[str, Any]:
-    """Create Gemini CLI install command (.toml format)"""
-    return {
-        "command": {
-            "name": "medusa-install",
-            "description": "Install missing MEDUSA security tools",
-            "usage": "medusa-install [options]",
-        },
-        "execute": {
-            "command": "medusa",
-            "args": ["install"],
-            "options": {
-                "check": {"flag": "--check", "description": "Check installed tools"},
-                "all": {"flag": "--all", "description": "Install all missing tools"},
-                "tool": {"flag": "--tool", "description": "Install specific tool"},
-            }
-        },
-        "output": {
-            "format": "terminal",
-            "show_progress": True,
-        }
-    }
+def create_gemini_install_command() -> str:
+    """
+    Create Gemini CLI install command (.toml format)
+
+    Official format per https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/custom-commands.md:
+    - description: Brief one-line description
+    - prompt: The prompt sent to Gemini
+    """
+    return '''description = "Install missing MEDUSA security scanning tools"
+prompt = """
+Help install missing security tools for MEDUSA.
+
+First, check what tools are installed:
+```bash
+medusa install --check
+```
+
+Then, based on the output:
+- If tools are missing, offer to install them with: `medusa install --all`
+- If a specific tool is missing, install it with: `medusa install <tool-name>`
+- If all tools are installed, confirm the setup is complete
+
+Explain what each missing tool does and why it's useful for security scanning.
+"""
+'''
 
 
 def create_gemini_md(project_root: Path) -> str:
     """Create GEMINI.md project context file"""
     project_name = project_root.name
-    return f"""# {project_name} - MEDUSA Security Scanning
+    return f"""# {project_name}
 
-## MEDUSA Integration for Gemini CLI
-
-This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ specialized analyzers.
-
-## Custom Commands
-
-### /medusa-scan - Security Scan
+## Commands
 
 ```bash
-/medusa-scan                 # Full project scan
-/medusa-scan --quick         # Quick scan (cache enabled)
-/medusa-scan --fail-on high  # Fail on high severity
+# Security scan
+medusa scan .
+
+# Quick scan (cached)
+medusa scan . --quick
+
+# Install tools
+medusa install --all
 ```
 
-### /medusa-install - Tool Installation
+## Slash Commands
 
-```bash
-/medusa-install --check      # Check installed tools
-/medusa-install --all        # Install all missing tools
-/medusa-install --tool NAME  # Install specific tool
-```
+- `/medusa-scan` - Run security scan
+- `/medusa-install` - Install missing tools
 
-## Configuration
+## Security Standards
 
-Location: `.medusa.yml`
-
-```yaml
-version: 0.8.0
-fail_on: high
-exclude:
-  paths: [node_modules/, .venv/]
-workers: null  # auto-detect
-cache_enabled: true
-```
-
-## Supported Languages (42 total)
-
-Python, JavaScript, TypeScript, Go, Rust, Java, C/C++, Shell, Docker, Kubernetes, Terraform, YAML, JSON, and 30+ more.
-
-## Reports
-
-Generated in `.medusa/reports/`:
-- HTML dashboard
-- JSON data
-- Terminal output
+- All code must pass `medusa scan .` with no CRITICAL findings
+- Fix HIGH severity issues before committing
+- Configuration: `.medusa.yml`
 
 ## Severity Levels
 
-- CRITICAL: Immediate threats
-- HIGH: Significant vulnerabilities
-- MEDIUM: Moderate issues
-- LOW: Minor concerns
-- INFO: Best practices
-
----
-
-*Context file for Gemini CLI*
+- CRITICAL: Fix immediately
+- HIGH: Fix before commit
+- MEDIUM: Should fix
+- LOW/INFO: Optional
 """
 
 
@@ -717,134 +608,74 @@ def setup_github_copilot(project_root: Path) -> bool:
 
 
 def create_copilot_instructions(project_root: Path) -> str:
-    """Create copilot-instructions.md for GitHub Copilot"""
+    """
+    Create copilot-instructions.md for GitHub Copilot
+
+    Best practices per https://github.blog/ai-and-ml/github-copilot/5-tips-for-writing-better-custom-instructions-for-copilot/:
+    - Keep instructions concise (under 2 pages)
+    - Use short, self-contained statements
+    - No external links (Copilot won't follow them)
+    - Broadly applicable to entire project
+    """
     project_name = project_root.name
-    return f"""# GitHub Copilot Instructions for {project_name}
+    return f"""# Copilot Instructions for {project_name}
 
-## Security Scanning with MEDUSA
+## Security Requirements
 
-This project uses **MEDUSA** (v0.8.0) for automated security scanning.
+This project uses MEDUSA for security scanning. All code must pass security checks.
 
-### Commands
+## Before Suggesting Code
 
-```bash
-# Run security scan
-medusa scan .
+- Avoid SQL injection: use parameterized queries, never string concatenation
+- Avoid command injection: don't use shell=True with subprocess
+- Avoid XSS: sanitize all user input before rendering
+- Avoid hardcoded secrets: use environment variables
+- Avoid unsafe file operations: validate paths, prevent traversal
 
-# Quick scan (uses cache)
-medusa scan . --quick
+## After Code Changes
 
-# Check/install tools
-medusa install --check
-medusa install --all
-```
+Remind users to run security scans:
+- `medusa scan .` for full scan
+- `medusa scan . --quick` for cached results
 
-### Code Quality Standards
+## Code Standards
 
-When suggesting code changes:
+- All new code must pass `medusa scan .` with no CRITICAL findings
+- HIGH severity issues should be fixed before merge
+- MEDIUM issues should be documented if not fixed
 
-1. **Security First**: All code must pass MEDUSA security scans
-2. **Run scans**: Suggest running `medusa scan .` after code changes
-3. **Fix issues**: Help fix any CRITICAL or HIGH severity findings
-4. **Avoid patterns**: Don't suggest code with known vulnerabilities
+## Security Patterns by Language
 
-### Common Security Issues to Avoid
+Python:
+- Use `subprocess.run()` with list args, not shell=True
+- Use parameterized queries with SQLAlchemy or psycopg2
+- Never use `eval()` or `exec()` with user input
 
-**Python:**
-- SQL injection (use parameterized queries)
-- Command injection (avoid `os.system`, `subprocess.call` with shell=True)
-- Hardcoded secrets (use environment variables)
+JavaScript/TypeScript:
+- Sanitize HTML output to prevent XSS
+- Validate and sanitize all URL parameters
+- Use `Object.create(null)` for user-controlled objects
 
-**JavaScript/TypeScript:**
-- XSS vulnerabilities (sanitize user input)
-- Prototype pollution (avoid unsafe merges)
-- Insecure dependencies (keep packages updated)
+Shell:
+- Always quote variables: "$var" not $var
+- Use `set -euo pipefail` in scripts
+- Validate file paths before operations
 
-**Shell Scripts:**
-- Command injection (quote variables)
-- Path traversal (validate paths)
-- Unsafe permissions (avoid chmod 777)
+Docker:
+- Never run as root in production (use USER directive)
+- Pin base image versions
+- Don't copy secrets into images
 
-**Docker:**
-- Running as root (use USER directive)
-- Hardcoded secrets (use secrets management)
-- Unverified base images (use official images)
+## Configuration
 
-### Configuration File
+Security settings are in `.medusa.yml`. Exclusions can be added there for false positives.
 
-Location: `.medusa.yml`
+## Severity Levels
 
-```yaml
-version: 0.8.0
-fail_on: high     # Fail CI on high+ severity
-exclude:
-  paths:
-    - node_modules/
-    - .venv/
-    - dist/
-cache_enabled: true
-```
-
-### CI/CD Integration
-
-Always include MEDUSA in pull requests:
-
-```yaml
-name: Security Scan
-
-on: [push, pull_request]
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install MEDUSA
-        run: pip install medusa-security
-      - name: Run Security Scan
-        run: medusa scan . --fail-on high
-```
-
-### Severity Guidelines
-
-- **CRITICAL**: Block PRs, fix immediately
-- **HIGH**: Should fix before merging
-- **MEDIUM**: Fix in follow-up PR
-- **LOW**: Optional, good to address
-- **INFO**: Best practices
-
-### Language Support
-
-MEDUSA scans 42 languages:
-- Python, JavaScript, TypeScript, Go, Rust, Java, C/C++
-- Shell, Docker, Kubernetes, Terraform
-- YAML, JSON, XML, TOML
-- And 30+ more
-
-### Reports
-
-Generated in `.medusa/reports/`:
-- `report.html` - Visual dashboard
-- `report.json` - JSON data
-- Terminal output - CLI summary
-
-### Best Practices
-
-1. **Run scans locally** before pushing
-2. **Fix CRITICAL/HIGH** before code review
-3. **Document exceptions** in `.medusa.yml`
-4. **Keep tools updated**: `medusa install --all`
-5. **Review reports**: Check HTML dashboard regularly
-
-### Getting Help
-
-- Documentation: https://docs.medusa-security.dev
-- GitHub Issues: https://github.com/Pantheon-Security/medusa/issues
-- Run: `medusa --help`
-
----
-
-*Copilot: Always prioritize security. Suggest `medusa scan .` after code changes.*
+- CRITICAL: Must fix immediately, blocks deployment
+- HIGH: Fix before merging PR
+- MEDIUM: Should fix, can be follow-up
+- LOW/INFO: Best practice suggestions
 """
 
 
@@ -906,45 +737,20 @@ def setup_cursor(project_root: Path) -> bool:
 
 
 def create_cursor_mcp_config() -> Dict[str, Any]:
-    """Create MCP server configuration for Cursor"""
+    """
+    Create MCP server configuration for Cursor
+
+    Official format per https://docs.cursor.com/context/model-context-protocol:
+    - mcpServers: object with server configs
+    - Each server has: command, args, env (optional)
+    - No other fields are recognized
+    """
     return {
         "mcpServers": {
             "medusa-security": {
                 "command": "medusa",
-                "args": ["mcp-server"],
-                "description": "MEDUSA Security Scanner MCP Server",
-                "tools": [
-                    {
-                        "name": "scan_project",
-                        "description": "Run MEDUSA security scan on project or specific path",
-                        "parameters": {
-                            "path": "Target directory to scan (default: current directory)",
-                            "quick": "Enable quick scan with caching",
-                            "fail_on": "Fail threshold (critical/high/medium/low)"
-                        }
-                    },
-                    {
-                        "name": "install_tools",
-                        "description": "Install missing security scanning tools",
-                        "parameters": {
-                            "check_only": "Only check what's installed, don't install",
-                            "tool": "Specific tool to install (optional)"
-                        }
-                    },
-                    {
-                        "name": "get_report",
-                        "description": "Get latest security scan report",
-                        "parameters": {
-                            "format": "Report format (html/json/text)"
-                        }
-                    }
-                ]
+                "args": ["mcp-server"]
             }
-        },
-        "settings": {
-            "auto_scan": False,
-            "show_inline_issues": True,
-            "fail_on_critical": True
         }
     }
 
