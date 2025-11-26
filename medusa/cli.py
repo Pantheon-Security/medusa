@@ -2333,6 +2333,17 @@ def uninstall(tool, all_tools, yes, debug, force):
 
     # Uninstall specific tool
     if tool:
+        # Check if tool was skipped due to version change
+        if tool in skipped_tools:
+            # Check if it was version-related skip
+            manifest_info = manifest.get_tool_info(tool)
+            manifest_version = manifest_info.get('version') if manifest_info else None
+            current_version = _detect_tool_version(tool)
+            if manifest_version and current_version and manifest_version != current_version:
+                console.print(f"[yellow]Tool '{tool}' version changed ({manifest_version} → {current_version})[/yellow]")
+                console.print("[yellow]Skipping to protect your manual upgrade. Use --force to override.[/yellow]")
+                return
+
         if tool not in installed_tools:
             console.print(f"[yellow]Tool '{tool}' is not installed or not a MEDUSA scanner tool[/yellow]")
             return
