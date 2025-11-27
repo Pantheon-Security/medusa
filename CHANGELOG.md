@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.3.0.0] - 2025-11-27
+
+### Added
+- **IDE Config Backup System**: MEDUSA now backs up IDE configuration files before modifying them
+  - New `medusa backup` command with `--list`, `--restore`, `--restore-latest`, `--cleanup` options
+  - Backups stored in `~/.medusa/backups/{project}/{timestamp}/`
+  - Automatic backup during `medusa init` with IDE integration
+  - Dry-run support for restore operations
+- **IDEBackupManager**: New `medusa/ide/backup.py` module for backup/restore functionality
+
+### Changed
+- All IDE setup functions now accept `backup_manager` parameter and return backed up files list
+- `medusa init` displays backup location and restore instructions when files are backed up
+- Version scheme changed from `0.x.x` to `YYYY.MINOR.PATCH.BUILD` format
+
+### Fixed
+- **IDE Integration Audit (v2025.2.0.21)**: All IDE templates now match vendor specifications
+  - Cursor MCP: Removed invalid fields, kept only `command` and `args`
+  - Gemini TOML: Rewritten to official `description` + `prompt` format
+  - Copilot: Removed hardcoded version and external links
+  - CLAUDE.md/GEMINI.md: Simplified to concise bullet points
+- **Critical File Overwrite Bug (v2025.2.0.18)**: Fixed IDE files being overwritten without checking existence
+- **Cursor MCP Filename (v2025.2.0.19)**: Changed `mcp-config.json` to correct `mcp.json`
+- **AGENTS.md Format (v2025.2.0.20)**: Rewritten to meet OpenAI Codex standards
+
 ## [0.11.2] - 2025-01-19
 
 ### Fixed
