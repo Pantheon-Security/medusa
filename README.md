@@ -8,18 +8,18 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 43+ specialized analyzers for all languages and platforms.**
+**Universal security scanner with 44+ specialized analyzers for all languages and platforms.**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **43+ different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **44+ different languages and file types**.
 
 ### ✨ Key Features
 
-- 🔍 **43+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **44+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🤖 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
@@ -932,7 +932,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 **Version**: 2025.3.0.4
 **Release Date**: 2025-11-27
-**Total Scanners**: 43+ (including .env scanner)
+**Total Scanners**: 44+ (including .env scanner)
 **Language Coverage**: 16 major ecosystems
 **Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor

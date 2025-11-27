@@ -296,6 +296,32 @@ class MedusaParallelScanner:
                     if not self.quick_mode or not self.cache or self.cache.is_file_changed(env_file):
                         files.append(env_file)
 
+        # Special cases (MCP config files)
+        mcp_patterns = [
+            'mcp.json', 'mcp-config.json', 'mcp_config.json',
+            'claude_desktop_config.json', '.mcp.json'
+        ]
+        # Also check common MCP config directories
+        mcp_dirs = ['.cursor', '.vscode', 'claude', '.config/Claude']
+        for pattern in mcp_patterns:
+            for mcp_file in self.project_root.rglob(pattern):
+                if mcp_file.is_file() and mcp_file not in files:
+                    if is_path_excluded(mcp_file):
+                        continue
+                    if not self.quick_mode or not self.cache or self.cache.is_file_changed(mcp_file):
+                        files.append(mcp_file)
+
+        # Check home directory for user MCP configs (Claude Desktop, etc.)
+        home = Path.home()
+        user_mcp_configs = [
+            home / '.config' / 'Claude' / 'claude_desktop_config.json',
+            home / '.cursor' / 'mcp.json',
+        ]
+        for mcp_file in user_mcp_configs:
+            if mcp_file.exists() and mcp_file.is_file() and mcp_file not in files:
+                if not self.quick_mode or not self.cache or self.cache.is_file_changed(mcp_file):
+                    files.append(mcp_file)
+
         return sorted(files)
 
     def scan_file(self, file_path: Path) -> ScanResult:
