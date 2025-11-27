@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-43 independent security scanner implementations
+44 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -55,6 +55,7 @@ from medusa.scanners.make_scanner import MakeScanner
 from medusa.scanners.nginx_scanner import NginxScanner
 from medusa.scanners.zig_scanner import ZigScanner
 from medusa.scanners.env_scanner import EnvScanner
+from medusa.scanners.mcp_config_scanner import MCPConfigScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -105,6 +106,7 @@ registry.register(MakeScanner())
 registry.register(NginxScanner())
 registry.register(ZigScanner())
 registry.register(EnvScanner())
+registry.register(MCPConfigScanner())
 
 __all__ = [
     'BaseScanner',
@@ -157,5 +159,6 @@ __all__ = [
     'NginxScanner',
     'ZigScanner',
     'EnvScanner',
+    'MCPConfigScanner',
     'registry',
 ]
