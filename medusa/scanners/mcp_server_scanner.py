@@ -34,8 +34,13 @@ class MCPServerScanner(BaseScanner):
     - MCP107: Hardcoded credentials in server code
     - MCP108: Missing destructiveHint annotation
     - MCP109: Missing readOnlyHint annotation
-    - MCP110: Dynamic instruction loading
+    - MCP110: Dynamic instruction loading (rug pull risk)
     - MCP111: Data exfiltration patterns
+    - MCP112: Tool name spoofing (deceptive tool names)
+    - MCP113: Confused deputy patterns (token passthrough)
+    - MCP114: Cross-server attack patterns (server shadowing)
+    - MCP115: Insecure transport (SSE without TLS)
+    - MCP116: Dynamic schema updates (mid-session changes)
     """
 
     # Tool poisoning patterns - hidden instructions in descriptions
@@ -180,6 +185,105 @@ class MCPServerScanner(BaseScanner):
         r'registerTool\s*\(',
     ]
 
+    # MCP112: Tool name spoofing patterns - deceptive names that hide malicious intent
+    TOOL_NAME_SPOOFING_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Names that sound benign but could be malicious
+        (r'name\s*[=:]\s*["\'](?:send_email|email_sender)["\'].*(?:readFile|process\.env|credentials)',
+         'Tool name spoofing - email tool accessing sensitive data', Severity.CRITICAL),
+        (r'name\s*[=:]\s*["\'](?:format|formatter|beautify)["\'].*(?:fetch|request|axios|http)',
+         'Tool name spoofing - formatter tool making network requests', Severity.HIGH),
+        (r'name\s*[=:]\s*["\'](?:validate|validator|check)["\'].*(?:exec|spawn|system)',
+         'Tool name spoofing - validator tool executing commands', Severity.CRITICAL),
+        (r'name\s*[=:]\s*["\'](?:log|logger|debug)["\'].*(?:post|fetch|request)\s*\(',
+         'Tool name spoofing - logger tool sending data externally', Severity.HIGH),
+        (r'name\s*[=:]\s*["\'](?:helper|util|utility)["\'].*(?:\.ssh|\.aws|credentials)',
+         'Tool name spoofing - utility tool accessing credentials', Severity.CRITICAL),
+    ]
+
+    # MCP113: Confused deputy patterns - token/credential passthrough abuse
+    CONFUSED_DEPUTY_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Token passthrough without validation
+        (r'(authorization|auth|bearer|token)\s*[=:]\s*(req|request|ctx|context)\.',
+         'Confused deputy - token passthrough from request', Severity.HIGH),
+        (r'headers\s*\[\s*["\']authorization["\']\s*\]\s*=.*\+',
+         'Confused deputy - dynamic authorization header', Severity.HIGH),
+        (r'(process\.env|os\.environ).*\+.*(user|input|param|query)',
+         'Confused deputy - mixing env vars with user input', Severity.CRITICAL),
+        (r'fetch\s*\([^)]*,\s*\{[^}]*headers\s*:\s*\{[^}]*["\']Authorization["\']\s*:\s*`',
+         'Confused deputy - template literal in auth header', Severity.HIGH),
+
+        # Acting on behalf of user without verification
+        (r'(as_user|on_behalf|impersonate|act_as)\s*[=:]',
+         'Confused deputy - user impersonation pattern', Severity.HIGH),
+        (r'(sudo|runas|elevate)\s*[=:]\s*(true|True|1)',
+         'Confused deputy - privilege elevation flag', Severity.CRITICAL),
+    ]
+
+    # MCP114: Cross-server attack patterns - server shadowing/hijacking
+    CROSS_SERVER_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Registering tools with existing names
+        (r'(?:registerTool|server\.tool|\.tool)\s*\([^)]*name\s*[=:]\s*["\'](?:read|write|execute|shell|file)',
+         'Cross-server attack - common tool name that could shadow', Severity.MEDIUM),
+
+        # Server discovery/enumeration
+        (r'(listServers|getServers|discoverServers|enumServers)',
+         'Cross-server attack - server enumeration function', Severity.MEDIUM),
+        (r'(connectTo|proxyTo|forwardTo)\s*\(\s*[^)]*\+',
+         'Cross-server attack - dynamic server connection', Severity.HIGH),
+
+        # MCP server manipulation
+        (r'(unregisterServer|removeServer|replaceServer)\s*\(',
+         'Cross-server attack - server manipulation', Severity.HIGH),
+        (r'server\s*\[\s*["\'].*["\']\s*\]\s*=',
+         'Cross-server attack - dynamic server assignment', Severity.MEDIUM),
+    ]
+
+    # MCP115: Insecure transport patterns
+    INSECURE_TRANSPORT_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # SSE without TLS
+        (r'(SSEServerTransport|SSEClientTransport|createSSE)\s*\([^)]*http://',
+         'Insecure transport - SSE over HTTP (no TLS)', Severity.HIGH),
+        (r'new\s+EventSource\s*\(\s*["\']http://',
+         'Insecure transport - EventSource over HTTP', Severity.HIGH),
+
+        # Binding to all interfaces
+        (r'(listen|bind|serve)\s*\([^)]*0\.0\.0\.0',
+         'Insecure transport - binding to all interfaces', Severity.MEDIUM),
+        (r'host\s*[=:]\s*["\']0\.0\.0\.0["\']',
+         'Insecure transport - host set to all interfaces', Severity.MEDIUM),
+
+        # Disabled TLS verification
+        (r'(rejectUnauthorized|verify_ssl|verify)\s*[=:]\s*(false|False|0)',
+         'Insecure transport - TLS verification disabled', Severity.CRITICAL),
+        (r'NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["\']?0',
+         'Insecure transport - Node TLS rejection disabled', Severity.CRITICAL),
+    ]
+
+    # MCP116: Dynamic schema update patterns - tools changing mid-session
+    DYNAMIC_SCHEMA_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Schema modification functions
+        (r'(updateSchema|modifySchema|changeSchema|setSchema)\s*\(',
+         'Dynamic schema - schema modification function', Severity.HIGH),
+        (r'(tool|tools)\s*\[\s*[^]]*\]\s*\.\s*(schema|inputSchema)\s*=',
+         'Dynamic schema - direct schema assignment', Severity.HIGH),
+
+        # Tool description updates
+        (r'(updateDescription|setDescription|changeDescription)\s*\(',
+         'Dynamic schema - description modification', Severity.HIGH),
+        (r'\.description\s*=\s*(await\s+)?fetch',
+         'Dynamic schema - description from remote source', Severity.CRITICAL),
+
+        # Dynamic tool registration
+        (r'setTimeout\s*\([^)]*registerTool',
+         'Dynamic schema - delayed tool registration', Severity.MEDIUM),
+        (r'setInterval\s*\([^)]*\.(schema|description|tool)',
+         'Dynamic schema - periodic schema updates', Severity.HIGH),
+
+        # Conditional tool behavior
+        (r'if\s*\([^)]*Date\s*\(\)|time|hour|day|week',
+         'Dynamic schema - time-based conditional behavior', Severity.MEDIUM),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
@@ -294,6 +398,37 @@ class MCPServerScanner(BaseScanner):
             # MCP110: Dynamic instruction loading
             issues.extend(self._scan_dynamic_instructions(content, lines))
 
+            # MCP112: Tool name spoofing
+            issues.extend(self._scan_tool_name_spoofing(content, lines))
+
+            # MCP113: Confused deputy patterns
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.CONFUSED_DEPUTY_PATTERNS,
+                "MCP113"
+            ))
+
+            # MCP114: Cross-server attack patterns
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.CROSS_SERVER_PATTERNS,
+                "MCP114"
+            ))
+
+            # MCP115: Insecure transport
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.INSECURE_TRANSPORT_PATTERNS,
+                "MCP115"
+            ))
+
+            # MCP116: Dynamic schema updates
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.DYNAMIC_SCHEMA_PATTERNS,
+                "MCP116"
+            ))
+
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=str(file_path),
@@ -374,6 +509,11 @@ class MCPServerScanner(BaseScanner):
                         "MCP102": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # Command injection
                         "MCP103": (89, "https://cwe.mitre.org/data/definitions/89.html"),  # SQL injection
                         "MCP111": (200, "https://cwe.mitre.org/data/definitions/200.html"),  # Info exposure
+                        "MCP112": (345, "https://cwe.mitre.org/data/definitions/345.html"),  # Insufficient verification
+                        "MCP113": (441, "https://cwe.mitre.org/data/definitions/441.html"),  # Confused deputy
+                        "MCP114": (290, "https://cwe.mitre.org/data/definitions/290.html"),  # Auth bypass by spoofing
+                        "MCP115": (319, "https://cwe.mitre.org/data/definitions/319.html"),  # Cleartext transmission
+                        "MCP116": (915, "https://cwe.mitre.org/data/definitions/915.html"),  # Improperly controlled mod
                     }
                     cwe_id, cwe_link = cwe_map.get(rule_id, (None, None))
 
@@ -386,6 +526,34 @@ class MCPServerScanner(BaseScanner):
                         cwe_link=cwe_link
                     ))
                     break  # One issue per line per rule
+
+        return issues
+
+    def _scan_tool_name_spoofing(self, content: str, lines: List[str]) -> List[ScannerIssue]:
+        """Scan for tool name spoofing - deceptive names hiding malicious behavior"""
+        issues = []
+
+        # Find tool definitions and check if name vs behavior is suspicious
+        tool_pattern = r'(?:server\.tool|\.tool|@server\.tool|@mcp\.tool|registerTool)\s*\([^)]*'
+
+        # Build a map of tool-like regions in the content
+        for match in re.finditer(tool_pattern, content, re.DOTALL):
+            tool_start = match.start()
+            # Get ~500 chars after the tool definition start for analysis
+            tool_region = content[tool_start:tool_start + 500]
+            line_num = content[:tool_start].count('\n') + 1
+
+            for pattern, description, severity in self.TOOL_NAME_SPOOFING_PATTERNS:
+                if re.search(pattern, tool_region, re.IGNORECASE | re.DOTALL):
+                    issues.append(ScannerIssue(
+                        severity=severity,
+                        message=description,
+                        line=line_num,
+                        rule_id="MCP112",
+                        cwe_id=345,
+                        cwe_link="https://cwe.mitre.org/data/definitions/345.html"
+                    ))
+                    break  # One spoofing issue per tool
 
         return issues
 
