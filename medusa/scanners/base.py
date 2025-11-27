@@ -197,6 +197,34 @@ class BaseScanner(ABC):
         tool_path = shutil.which(self.tool_name)
         return Path(tool_path) if tool_path else None
 
+    def _find_config_file(self, file_path: Path, config_name: str) -> Optional[Path]:
+        """
+        Find a config file by walking up from the file being scanned.
+
+        Args:
+            file_path: The file being scanned
+            config_name: Name of config file to find (e.g., '.bandit', '.eslintrc')
+
+        Returns:
+            Path to config file if found, None otherwise
+        """
+        # Start from the file's directory
+        current = file_path.parent if file_path.is_file() else file_path
+
+        # Walk up to root looking for config
+        while current != current.parent:
+            config_path = current / config_name
+            if config_path.exists():
+                return config_path
+            current = current.parent
+
+        # Check root directory
+        config_path = current / config_name
+        if config_path.exists():
+            return config_path
+
+        return None
+
     def _run_command(self, cmd: List[str], timeout: int = 30) -> subprocess.CompletedProcess:
         """
         Run a command and return the result

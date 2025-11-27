@@ -55,7 +55,15 @@ class PythonScanner(BaseScanner):
 
         try:
             # Run Bandit with JSON output
-            cmd = [str(self.tool_path), '-f', 'json', str(file_path)]
+            # Look for .bandit config file in project root or parent directories
+            cmd = [str(self.tool_path), '-f', 'json']
+
+            # Check for .bandit config file
+            config_file = self._find_config_file(file_path, '.bandit')
+            if config_file:
+                cmd.extend(['-c', str(config_file)])
+
+            cmd.append(str(file_path))
             result = self._run_command(cmd, timeout=30)
 
             # Bandit returns exit code 1 if issues found (not an error)

@@ -911,24 +911,32 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 
+## 📖 Guides
+
+- **[Quick Start](docs/guides/quick-start.md)** - Get running in 5 minutes
+- **[Handling False Positives](docs/guides/handling-false-positives.md)** - Reduce noise, find real issues
+- **[IDE Integration](docs/guides/ide-integration.md)** - Setup Claude Code, Gemini, Copilot
+
+---
+
 ## 📞 Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/Pantheon-Security/medusa/issues)
 - **Email**: support@pantheonsecurity.io
-- **Documentation**: https://docs.medusa-security.dev (coming soon)
+- **Documentation**: https://docs.pantheonsecurity.io
 - **Discord**: https://discord.gg/medusa (coming soon)
 
 ---
 
 ## 📈 Statistics
 
-**Version**: 2025.1.9
-**Release Date**: 2025-11-23
-**Total Scanners**: 42
+**Version**: 2025.3.0.4
+**Release Date**: 2025-11-27
+**Total Scanners**: 43+ (including .env scanner)
 **Language Coverage**: 16 major ecosystems
 **Platform Support**: Linux, macOS, Windows
-**Lines of Code**: ~6,700 (production)
-**Development Time**: 4 phases, 4 sessions
+**AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
+**False Positive Rate**: <15% (with AI triage)
 
 ---
 

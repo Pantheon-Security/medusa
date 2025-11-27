@@ -179,15 +179,41 @@ Run MEDUSA security scanner on the project or specific files.
 medusa scan . --quick
 ```
 
+## Intelligent False Positive Handling
+
+After running scan, intelligently triage results:
+
+### Likely False Positives (FPs)
+- B404/B603/B607: subprocess in CLI tools, installers, build scripts
+- B602: `shell=variable` where variable is NOT literal `True`
+- B101: assert in test files (pytest standard)
+- Secrets in .env.example with placeholder values
+
+### Real Issues (Must Fix)
+- `shell=True` with user-controlled input
+- High-entropy strings matching real API keys
+- SQL built with string concatenation
+- eval/exec with external data
+
+### Handling FPs
+Create `.bandit` config to skip project-wide:
+```yaml
+skips:
+  - B404  # import subprocess
+  - B603  # subprocess call
+  - B101  # assert in tests
+```
+
 ## Integration
 
-This command integrates with MEDUSA's 42-headed security scanner, providing:
+This command integrates with MEDUSA's 43-headed security scanner, providing:
 
-- ✅ 42 language/format support
+- ✅ 43 language/format support
 - ✅ Auto-detection of file types
 - ✅ Parallel scanning for speed
 - ✅ Beautiful HTML/JSON reports
 - ✅ Inline issue annotations
+- ✅ AI-powered false positive detection
 
 ## Configuration
 
@@ -314,16 +340,50 @@ exclude:
 - MEDIUM: Should fix
 - LOW/INFO: Optional
 
+## Intelligent False Positive Handling
+
+When MEDUSA reports issues, use AI judgment to triage:
+
+### Likely False Positives (FPs)
+- `subprocess` imports/calls in CLI tools, installers, or build scripts (B404/B603/B607)
+- `shell=variable` where variable is not `True` (B602 triggers on any `shell=` keyword)
+- `assert` statements in test files (B101) - standard pytest practice
+- Secrets in `.env.example` files with placeholder values like `xxx`, `changeme`
+
+### Real Issues to Fix
+- Actual `shell=True` in subprocess with user input
+- Real secrets/tokens (check entropy, not just pattern match)
+- SQL string concatenation with variables
+- `eval()`/`exec()` with any external input
+
+### How to Handle FPs
+1. **Project-wide**: Create/update `.bandit` config file with `skips:` list
+2. **Per-file**: Only use `# nosec` comments as last resort, document why
+3. **Exclude paths**: Add test fixtures, vendor code to `.medusa.yml` exclude
+
+### Example .bandit Config
+```yaml
+# For CLI tools that legitimately use subprocess
+skips:
+  - B404  # import subprocess
+  - B603  # subprocess without shell
+  - B607  # partial executable path
+  - B101  # assert in tests
+```
+
+After handling FPs, re-run `medusa scan .` to verify reduction.
+
 ## Do Not
 
 - Do not commit code with CRITICAL security findings
 - Do not disable security scanners without documenting why
 - Do not ignore HIGH severity issues in PRs
+- Do not blindly add `# nosec` - understand each finding first
 
 ## Troubleshooting
 
 - Missing tools: `medusa install --all`
-- False positives: Add to `.medusa.yml` exclude section
+- False positives: Create `.bandit` config or add to `.medusa.yml` exclude
 - Slow scans: Use `medusa scan . --quick`
 """
 
@@ -404,10 +464,36 @@ Command to execute:
 medusa scan . {{args}}
 ```
 
-After scanning:
-1. Show a summary of findings by severity (CRITICAL, HIGH, MEDIUM, LOW)
-2. For any CRITICAL or HIGH issues, explain what they are and suggest fixes
-3. If the scan passes with no critical issues, confirm the code is secure
+After scanning, intelligently triage the results:
+
+## Step 1: Identify False Positives
+These are likely FALSE POSITIVES (don't report as issues):
+- B404/B603/B607: subprocess usage in CLI tools, build scripts, installers
+- B602: `shell=variable` where variable is NOT literal `True`
+- B101: assert statements in test files (standard pytest)
+- Secrets in .env.example with placeholders like `xxx`, `changeme`, `your-key-here`
+
+## Step 2: Identify Real Issues
+These are REAL ISSUES (must fix):
+- `shell=True` with user-controlled input
+- High-entropy strings that look like actual API keys/tokens
+- SQL queries built with string concatenation
+- `eval()` or `exec()` with external input
+
+## Step 3: Report Summary
+1. Show count by severity: CRITICAL, HIGH, MEDIUM, LOW
+2. List only REAL issues (skip false positives)
+3. For each real issue, explain the risk and suggest a fix
+4. If many FPs, suggest creating a `.bandit` config file
+
+## Step 4: Handle FPs Project-Wide
+If there are many false positives, suggest creating `.bandit`:
+```yaml
+skips:
+  - B404  # import subprocess - CLI tool
+  - B603  # subprocess call - safe usage
+  - B101  # assert in tests
+```
 
 Common options the user might pass via {{args}}:
 - --quick : Use cached results for faster scanning
@@ -479,6 +565,35 @@ medusa install --all
 - HIGH: Fix before commit
 - MEDIUM: Should fix
 - LOW/INFO: Optional
+
+## Intelligent False Positive Handling
+
+When reviewing MEDUSA scan results, intelligently triage findings:
+
+### Common False Positives
+- **B404/B603/B607**: subprocess usage in CLI tools, build scripts, installers - legitimate
+- **B602**: `shell=variable` where variable isn't `True` (e.g., `shell=self.detect_shell()`)
+- **B101**: assert in test files - standard pytest practice
+- **Secrets**: `.env.example` with placeholders like `xxx`, `your-key-here`
+
+### Real Issues (Fix These)
+- `shell=True` with user-controlled input
+- High-entropy strings that look like real API keys/tokens
+- SQL queries built with string concatenation
+- `eval()`/`exec()` with external input
+
+### Handling FPs
+1. Create `.bandit` config with `skips:` for project-wide rules
+2. Add test fixtures/vendor code to `.medusa.yml` exclude paths
+3. Use `# nosec BXXX` comments only as last resort (document why)
+
+### Example .bandit
+```yaml
+skips:
+  - B404  # import subprocess - CLI tool
+  - B603  # subprocess call - validated input
+  - B101  # assert in tests
+```
 """
 
 
@@ -565,6 +680,36 @@ MEDUSA scans for:
 - Code quality issues (unused variables, complexity, etc.)
 - Best practice violations (Docker as root, insecure defaults, etc.)
 
+## Intelligent False Positive Handling
+
+When reviewing scan results, use judgment to distinguish real issues from false positives:
+
+### Common False Positives (Don't Fix)
+| Code | Description | Why it's a FP |
+|------|-------------|---------------|
+| B404 | import subprocess | CLI tools need subprocess |
+| B603 | subprocess call | Safe when not using shell=True |
+| B607 | partial path | Tools validated before execution |
+| B602 | shell=True | FP when `shell=variable` not literal True |
+| B101 | assert statement | Standard in pytest test files |
+
+### Real Issues (Must Fix)
+- `subprocess.run(cmd, shell=True)` with user input
+- High-entropy strings matching API key patterns (not placeholders)
+- SQL built with f-strings or .format() with variables
+- `eval()` or `exec()` with any external data
+
+### How to Handle FPs Project-Wide
+Create a `.bandit` config file:
+```yaml
+skips:
+  - B404  # import subprocess - this is a CLI tool
+  - B603  # subprocess without shell - safe usage
+  - B101  # assert in tests - pytest standard
+```
+
+This reduces noise from 70+ findings to just real issues.
+
 ## Configuration
 
 Security scanning is configured in `.medusa.yml`:
@@ -598,7 +743,7 @@ Reports are saved to `.medusa/reports/`.
 
 **Scan shows "tool not found"**: Run `medusa install --all`
 
-**False positive**: Add the path to `.medusa.yml` exclude section
+**Too many false positives**: Create `.bandit` config with appropriate skips
 
 **Slow scans**: Use `medusa scan . --quick` for cached results
 
@@ -687,6 +832,31 @@ Remind users to run security scans:
 - HIGH severity issues should be fixed before merge
 - MEDIUM issues should be documented if not fixed
 
+## Intelligent False Positive Handling
+
+When reviewing MEDUSA scan results, distinguish real issues from false positives:
+
+### False Positives (Don't report as issues)
+- B404/B603/B607: subprocess in CLI tools, installers, build scripts
+- B602: shell=variable where variable is not literal True
+- B101: assert in test files (pytest standard)
+- Secrets in .env.example with placeholder values
+
+### Real Issues (Must fix)
+- shell=True with user input
+- High-entropy strings matching real API key patterns
+- SQL with string concatenation
+- eval/exec with external data
+
+### Handling FPs
+Create .bandit config:
+```yaml
+skips:
+  - B404  # import subprocess
+  - B603  # subprocess call
+  - B101  # assert in tests
+```
+
 ## Security Patterns by Language
 
 Python:
@@ -711,7 +881,7 @@ Docker:
 
 ## Configuration
 
-Security settings are in `.medusa.yml`. Exclusions can be added there for false positives.
+Security settings are in `.medusa.yml`. For false positives, create `.bandit` config.
 
 ## Severity Levels
 
