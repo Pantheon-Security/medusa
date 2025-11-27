@@ -1,4 +1,4 @@
-# 🐍 MEDUSA v2025.2.0 - Multi-Language Security Scanner
+# 🐍 MEDUSA v2025.3 - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
