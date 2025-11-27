@@ -1434,14 +1434,21 @@ def init(ide, force, install):
             setup_openai_codex,
             setup_github_copilot
         )
+        from medusa.ide.backup import IDEBackupManager
+
+        # Create backup manager for all IDE file modifications
+        backup_manager = IDEBackupManager(project_root)
+        backup_manager.start_backup_session()
+        all_backed_up_files = []
 
         success_count = 0
         for selected_ide in ide_list:
             if selected_ide == 'claude-code':
-                result = setup_claude_code(project_root)
-                # Handle both old bool return and new tuple return
-                success = result[0] if isinstance(result, tuple) else result
-                claude_md_created = result[1] if isinstance(result, tuple) else True
+                result = setup_claude_code(project_root, backup_manager)
+                success = result[0]
+                claude_md_created = result[1] if len(result) > 1 else True
+                backed_up = result[2] if len(result) > 2 else []
+                all_backed_up_files.extend(backed_up)
                 if success:
                     console.print("[green]✓[/green] Claude Code integration configured")
                     console.print("  • Created .claude/ directory with agents and commands")
@@ -1451,29 +1458,53 @@ def init(ide, force, install):
                         console.print("  • Preserved existing CLAUDE.md (not overwritten)")
                     success_count += 1
             elif selected_ide == 'cursor':
-                if setup_cursor(project_root):
+                result = setup_cursor(project_root, backup_manager)
+                success = result[0]
+                backed_up = result[1] if len(result) > 1 else []
+                all_backed_up_files.extend(backed_up)
+                if success:
                     console.print("[green]✓[/green] Cursor integration configured")
-                    console.print("  • Created .cursor/mcp-config.json for MCP support")
+                    console.print("  • Created .cursor/mcp.json for MCP support")
                     console.print("  • Reused .claude/ structure (Cursor is VS Code fork)")
                     success_count += 1
             elif selected_ide == 'gemini-cli':
-                if setup_gemini_cli(project_root):
+                result = setup_gemini_cli(project_root, backup_manager)
+                success = result[0]
+                backed_up = result[1] if len(result) > 1 else []
+                all_backed_up_files.extend(backed_up)
+                if success:
                     console.print("[green]✓[/green] Gemini CLI integration configured")
                     console.print("  • Created .gemini/commands/ with .toml files")
                     console.print("  • Created GEMINI.md project context")
                     success_count += 1
             elif selected_ide == 'openai-codex':
-                if setup_openai_codex(project_root):
+                result = setup_openai_codex(project_root, backup_manager)
+                success = result[0]
+                backed_up = result[1] if len(result) > 1 else []
+                all_backed_up_files.extend(backed_up)
+                if success:
                     console.print("[green]✓[/green] OpenAI Codex integration configured")
                     console.print("  • Created AGENTS.md project context")
                     success_count += 1
             elif selected_ide == 'github-copilot':
-                if setup_github_copilot(project_root):
+                result = setup_github_copilot(project_root, backup_manager)
+                success = result[0]
+                backed_up = result[1] if len(result) > 1 else []
+                all_backed_up_files.extend(backed_up)
+                if success:
                     console.print("[green]✓[/green] GitHub Copilot integration configured")
                     console.print("  • Created .github/copilot-instructions.md")
                     success_count += 1
 
         console.print(f"\n[green]✓[/green] Configured {success_count}/{len(ide_list)} IDE integration(s)")
+
+        # Show backup information if files were backed up
+        if all_backed_up_files:
+            backup_path = backup_manager.get_backup_path()
+            console.print(f"\n[yellow]📁 Backed up {len(all_backed_up_files)} existing file(s) to:[/yellow]")
+            console.print(f"   [dim]{backup_path}[/dim]")
+            console.print(f"   [dim]Use 'medusa backup --list' to view backups[/dim]")
+            console.print(f"   [dim]Use 'medusa backup --restore' to rollback changes[/dim]")
     else:
         console.print("\n[bold cyan]Step 4/4: Skipping IDE integration[/bold cyan]")
 
@@ -1485,6 +1516,113 @@ def init(ide, force, install):
         console.print(f"  2. Install missing tools: [cyan]medusa install --all[/cyan]")
     console.print(f"  {'3' if missing_tools else '2'}. Run your first scan: [cyan]medusa scan .[/cyan]")
     console.print()
+
+
+@main.command()
+@click.option('--list', '-l', 'list_backups', is_flag=True, help='List all backups for this project')
+@click.option('--restore', '-r', 'restore_timestamp', default=None, help='Restore backup (latest if no timestamp given)')
+@click.option('--restore-latest', is_flag=True, help='Restore the most recent backup')
+@click.option('--dry-run', is_flag=True, help='Show what would be restored without actually restoring')
+@click.option('--cleanup', is_flag=True, help='Remove old backups (keeps last 10)')
+def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
+    """
+    Manage IDE configuration backups.
+
+    MEDUSA backs up your IDE configuration files before modifying them
+    during `medusa init`. Use this command to view or restore backups.
+
+    Examples:
+        medusa backup --list           # List all backups
+        medusa backup --restore-latest # Restore most recent backup
+        medusa backup --restore 2024-01-15-143022  # Restore specific backup
+        medusa backup --cleanup        # Remove old backups (keep last 10)
+    """
+    print_banner()
+
+    from medusa.ide.backup import IDEBackupManager
+
+    project_root = Path.cwd()
+    backup_manager = IDEBackupManager(project_root)
+
+    if list_backups:
+        console.print("\n[cyan]📁 IDE Configuration Backups[/cyan]\n")
+        backups = backup_manager.list_backups()
+
+        if not backups:
+            console.print(f"[yellow]No backups found for project '{backup_manager.project_name}'[/yellow]")
+            console.print(f"[dim]Backups are created when you run 'medusa init' with IDE integration[/dim]")
+            return
+
+        console.print(f"[bold]Project:[/bold] {backup_manager.project_name}")
+        console.print(f"[bold]Backup location:[/bold] {backup_manager.backup_base}\n")
+
+        for i, backup_info in enumerate(backups):
+            timestamp = backup_info.get('timestamp', 'unknown')
+            files = backup_info.get('files', [])
+            created = backup_info.get('created_at', '')
+
+            marker = "[green]← latest[/green]" if i == 0 else ""
+            console.print(f"[cyan]{timestamp}[/cyan] {marker}")
+            if created:
+                console.print(f"  Created: {created}")
+            console.print(f"  Files: {len(files)}")
+            for f in files[:5]:  # Show first 5 files
+                console.print(f"    • {f}")
+            if len(files) > 5:
+                console.print(f"    [dim]... and {len(files) - 5} more[/dim]")
+            console.print()
+
+    elif restore_latest or restore_timestamp is not None:
+        timestamp = restore_timestamp if restore_timestamp else None
+        action = "Would restore" if dry_run else "Restoring"
+
+        console.print(f"\n[cyan]🔄 {action} IDE Configuration Backup[/cyan]\n")
+
+        try:
+            restored = backup_manager.restore_backup(timestamp=timestamp, dry_run=dry_run)
+
+            if not restored:
+                console.print("[yellow]No files to restore in this backup[/yellow]")
+                return
+
+            for src, dest in restored:
+                console.print(f"  {'Would restore' if dry_run else 'Restored'}: [dim]{dest}[/dim]")
+
+            if dry_run:
+                console.print(f"\n[yellow]Dry run - no files were modified[/yellow]")
+                console.print(f"[dim]Remove --dry-run to actually restore these files[/dim]")
+            else:
+                console.print(f"\n[green]✓ Restored {len(restored)} file(s)[/green]")
+
+        except ValueError as e:
+            console.print(f"[red]Error: {e}[/red]")
+            return
+
+    elif cleanup:
+        console.print("\n[cyan]🧹 Cleaning Up Old Backups[/cyan]\n")
+
+        backups_before = len(backup_manager.list_backups())
+        backup_manager.cleanup_old_backups(keep_count=10)
+        backups_after = len(backup_manager.list_backups())
+
+        removed = backups_before - backups_after
+        if removed > 0:
+            console.print(f"[green]✓ Removed {removed} old backup(s)[/green]")
+        else:
+            console.print("[dim]No old backups to remove (keeping last 10)[/dim]")
+
+    else:
+        # Default: show summary
+        console.print("\n[cyan]📁 IDE Configuration Backups[/cyan]\n")
+        backups = backup_manager.list_backups()
+
+        if backups:
+            console.print(f"Found [bold]{len(backups)}[/bold] backup(s) for project '{backup_manager.project_name}'")
+            console.print(f"\nUse [cyan]medusa backup --list[/cyan] to see details")
+            console.print(f"Use [cyan]medusa backup --restore-latest[/cyan] to restore")
+        else:
+            console.print(f"[yellow]No backups found for project '{backup_manager.project_name}'[/yellow]")
+            console.print(f"[dim]Backups are created when you run 'medusa init' with IDE integration[/dim]")
 
 
 @main.command()

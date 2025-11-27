@@ -6,7 +6,7 @@ Auto-setup for Claude Code, Gemini CLI, OpenAI Codex, GitHub Copilot, and Cursor
 
 import json
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # For TOML writing (Gemini CLI .toml commands)
 try:
@@ -14,8 +14,11 @@ try:
 except ImportError:
     tomli_w = None
 
+# Import backup manager
+from medusa.ide.backup import IDEBackupManager
 
-def setup_claude_code(project_root: Path) -> tuple:
+
+def setup_claude_code(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
     """
     Setup Claude Code integration for MEDUSA
 
@@ -27,12 +30,23 @@ def setup_claude_code(project_root: Path) -> tuple:
 
     Args:
         project_root: Project root directory
+        backup_manager: Optional backup manager for backing up existing files
 
     Returns:
-        Tuple of (success: bool, claude_md_created: bool)
+        Tuple of (success: bool, claude_md_created: bool, backed_up_files: list)
     """
     claude_md_created = False
+    backed_up_files = []
+
     try:
+        # Backup existing files before making changes
+        if backup_manager:
+            for file_path in ['CLAUDE.md', '.claude/agents/medusa/agent.json',
+                              '.claude/commands/medusa-scan.md', '.claude/commands/medusa-install.md']:
+                was_backed_up, _ = backup_manager.backup_if_exists(file_path)
+                if was_backed_up:
+                    backed_up_files.append(file_path)
+
         # Create .claude directories
         claude_dir = project_root / ".claude"
         agents_dir = claude_dir / "agents" / "medusa"
@@ -70,11 +84,11 @@ def setup_claude_code(project_root: Path) -> tuple:
             claude_md_created = True
         # If CLAUDE.md exists, don't overwrite - user may have custom content
 
-        return (True, claude_md_created)
+        return (True, claude_md_created, backed_up_files)
 
     except Exception as e:
         print(f"Error setting up Claude Code integration: {e}")
-        return (False, claude_md_created)
+        return (False, claude_md_created, backed_up_files)
 
 
 def create_agent_config() -> Dict[str, Any]:
@@ -314,22 +328,33 @@ exclude:
 """
 
 
-def setup_gemini_cli(project_root: Path) -> bool:
+def setup_gemini_cli(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
     """
     Setup Gemini CLI integration for MEDUSA
 
     Creates:
-    - .gemini/commands/scan.toml
-    - .gemini/commands/install.toml
+    - .gemini/commands/medusa-scan.toml
+    - .gemini/commands/medusa-install.toml
     - GEMINI.md (project context)
 
     Args:
         project_root: Project root directory
+        backup_manager: Optional backup manager for backing up existing files
 
     Returns:
-        True if setup successful
+        Tuple of (success: bool, backed_up_files: list)
     """
+    backed_up_files = []
+
     try:
+        # Backup existing files before making changes
+        if backup_manager:
+            for file_path in ['GEMINI.md', '.gemini/commands/medusa-scan.toml',
+                              '.gemini/commands/medusa-install.toml']:
+                was_backed_up, _ = backup_manager.backup_if_exists(file_path)
+                if was_backed_up:
+                    backed_up_files.append(file_path)
+
         # Create .gemini directories
         gemini_dir = project_root / ".gemini"
         commands_dir = gemini_dir / "commands"
@@ -355,11 +380,11 @@ def setup_gemini_cli(project_root: Path) -> bool:
                 f.write(gemini_md)
         # If GEMINI.md exists, don't overwrite - user may have custom content
 
-        return True
+        return (True, backed_up_files)
 
     except Exception as e:
         print(f"Error setting up Gemini CLI integration: {e}")
-        return False
+        return (False, backed_up_files)
 
 
 def create_gemini_scan_command() -> str:
@@ -457,7 +482,7 @@ medusa install --all
 """
 
 
-def setup_openai_codex(project_root: Path) -> bool:
+def setup_openai_codex(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
     """
     Setup OpenAI Codex integration for MEDUSA
 
@@ -466,11 +491,20 @@ def setup_openai_codex(project_root: Path) -> bool:
 
     Args:
         project_root: Project root directory
+        backup_manager: Optional backup manager for backing up existing files
 
     Returns:
-        True if setup successful
+        Tuple of (success: bool, backed_up_files: list)
     """
+    backed_up_files = []
+
     try:
+        # Backup existing files before making changes
+        if backup_manager:
+            was_backed_up, _ = backup_manager.backup_if_exists('AGENTS.md')
+            if was_backed_up:
+                backed_up_files.append('AGENTS.md')
+
         # Create AGENTS.md project context (only if it doesn't exist)
         agents_md_file = project_root / "AGENTS.md"
         if not agents_md_file.exists():
@@ -479,11 +513,11 @@ def setup_openai_codex(project_root: Path) -> bool:
                 f.write(agents_md)
         # If AGENTS.md exists, don't overwrite - user may have custom content
 
-        return True
+        return (True, backed_up_files)
 
     except Exception as e:
         print(f"Error setting up OpenAI Codex integration: {e}")
-        return False
+        return (False, backed_up_files)
 
 
 def create_agents_md(project_root: Path) -> str:
@@ -574,7 +608,7 @@ Reports are saved to `.medusa/reports/`.
 """
 
 
-def setup_github_copilot(project_root: Path) -> bool:
+def setup_github_copilot(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
     """
     Setup GitHub Copilot integration for MEDUSA
 
@@ -583,11 +617,20 @@ def setup_github_copilot(project_root: Path) -> bool:
 
     Args:
         project_root: Project root directory
+        backup_manager: Optional backup manager for backing up existing files
 
     Returns:
-        True if setup successful
+        Tuple of (success: bool, backed_up_files: list)
     """
+    backed_up_files = []
+
     try:
+        # Backup existing files before making changes
+        if backup_manager:
+            was_backed_up, _ = backup_manager.backup_if_exists('.github/copilot-instructions.md')
+            if was_backed_up:
+                backed_up_files.append('.github/copilot-instructions.md')
+
         # Create .github directory
         github_dir = project_root / ".github"
         github_dir.mkdir(parents=True, exist_ok=True)
@@ -600,11 +643,11 @@ def setup_github_copilot(project_root: Path) -> bool:
                 f.write(copilot_md)
         # If copilot-instructions.md exists, don't overwrite - user may have custom content
 
-        return True
+        return (True, backed_up_files)
 
     except Exception as e:
         print(f"Error setting up GitHub Copilot integration: {e}")
-        return False
+        return (False, backed_up_files)
 
 
 def create_copilot_instructions(project_root: Path) -> str:
@@ -679,21 +722,30 @@ Security settings are in `.medusa.yml`. Exclusions can be added there for false 
 """
 
 
-def setup_cursor(project_root: Path) -> bool:
+def setup_cursor(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
     """
     Setup Cursor integration for MEDUSA
 
     Creates:
-    - .cursor/mcp-config.json (MCP server configuration)
+    - .cursor/mcp.json (MCP server configuration)
     - Reuses .claude/ structure (Cursor is VS Code fork)
 
     Args:
         project_root: Project root directory
+        backup_manager: Optional backup manager for backing up existing files
 
     Returns:
-        True if setup successful
+        Tuple of (success: bool, backed_up_files: list)
     """
+    backed_up_files = []
+
     try:
+        # Backup existing files before making changes
+        if backup_manager:
+            was_backed_up, _ = backup_manager.backup_if_exists('.cursor/mcp.json')
+            if was_backed_up:
+                backed_up_files.append('.cursor/mcp.json')
+
         # Cursor can use Claude Code's .claude/ structure
         # But also create Cursor-specific MCP config
         cursor_dir = project_root / ".cursor"
@@ -727,13 +779,14 @@ def setup_cursor(project_root: Path) -> bool:
                 json.dump(medusa_mcp_config, f, indent=2)
 
         # Also setup Claude Code structure for compatibility
-        setup_claude_code(project_root)
+        claude_success, _, claude_backed_up = setup_claude_code(project_root, backup_manager)
+        backed_up_files.extend(claude_backed_up)
 
-        return True
+        return (True, backed_up_files)
 
     except Exception as e:
         print(f"Error setting up Cursor integration: {e}")
-        return False
+        return (False, backed_up_files)
 
 
 def create_cursor_mcp_config() -> Dict[str, Any]:
