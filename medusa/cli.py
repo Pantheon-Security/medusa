@@ -1091,7 +1091,7 @@ def print_banner():
 ║                                                                    ║
 ║          🐍🐍🐍 MEDUSA v{__version__} - Security Guardian 🐍🐍🐍           ║
 ║                                                                    ║
-║         Universal Scanner with 44+ Specialized Analyzers          ║
+║         Universal Scanner with 45+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
@@ -1105,7 +1105,7 @@ def print_banner():
 ║                                                                    ║
 ║              MEDUSA v{__version__} - Security Guardian                 ║
 ║                                                                    ║
-║         Universal Scanner with 44+ Specialized Analyzers          ║
+║         Universal Scanner with 45+ Specialized Analyzers          ║
 ║           One look from Medusa stops vulnerabilities dead          ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
