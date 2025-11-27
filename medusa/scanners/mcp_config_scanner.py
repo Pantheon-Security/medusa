@@ -33,9 +33,12 @@ class MCPConfigScanner(BaseScanner):
     - MCP005: HTTP transport (no TLS)
     - MCP006: Missing authentication for remote servers
     - MCP007: Overly broad directory permissions
-    - MCP008: Missing version pinning
-    - MCP009: Deprecated transport (SSE vs Streamable HTTP)
+    - MCP008: Missing version pinning (rug pull risk)
+    - MCP009: SSE transport without TLS (insecure)
     - MCP010: Non-localhost binding for local servers
+    - MCP011: Wildcard path patterns (excessive access)
+    - MCP012: Untrusted server sources
+    - MCP013: Missing TLS certificate validation
     """
 
     # Known secret patterns (reused from EnvScanner with additions)
@@ -116,6 +119,37 @@ class MCPConfigScanner(BaseScanner):
         'placeholder', 'PLACEHOLDER',
         '<your-key>', '<YOUR_KEY>', '<secret>',
         '<password>', '<api-key>', '<token>',
+    ]
+
+    # MCP011: Wildcard path patterns - excessive filesystem access
+    WILDCARD_PATTERNS = [
+        ('**', 'Double-star wildcard (recursive access)', Severity.HIGH),
+        ('/*', 'Root wildcard pattern', Severity.CRITICAL),
+        ('*.*', 'All files wildcard', Severity.HIGH),
+        ('../', 'Path traversal pattern', Severity.CRITICAL),
+        ('%SYSTEMROOT%', 'Windows system root access', Severity.CRITICAL),
+        ('%PROGRAMFILES%', 'Windows program files access', Severity.HIGH),
+    ]
+
+    # MCP012: Untrusted server sources
+    UNTRUSTED_SOURCES = [
+        (r'git\+https?://github\.com/[^/]+/[^/]+(?!\.git)', 'GitHub repo without .git suffix', Severity.MEDIUM),
+        (r'http://[^/]+', 'HTTP server (no TLS)', Severity.HIGH),
+        (r'https?://\d+\.\d+\.\d+\.\d+', 'IP address instead of hostname', Severity.MEDIUM),
+        (r'localhost:\d+', 'Localhost development server', Severity.LOW),
+        (r'\.onion/', 'Tor hidden service', Severity.CRITICAL),
+        (r'ngrok\.io|localtunnel\.me|serveo\.net', 'Tunnel service', Severity.HIGH),
+    ]
+
+    # MCP013: Insecure TLS settings
+    INSECURE_TLS_SETTINGS = [
+        'rejectUnauthorized',
+        'NODE_TLS_REJECT_UNAUTHORIZED',
+        'verify_ssl',
+        'ssl_verify',
+        'insecure',
+        'skip_ssl',
+        'no_verify',
     ]
 
     def get_tool_name(self) -> str:
@@ -419,6 +453,73 @@ class MCPConfigScanner(BaseScanner):
                     rule_id="MCP010",
                     cwe_id=668,
                     cwe_link="https://cwe.mitre.org/data/definitions/668.html"
+                ))
+
+        # MCP011: Check for wildcard path patterns
+        if isinstance(args, list):
+            args_str = ' '.join(str(a) for a in args)
+            for pattern, description, severity in self.WILDCARD_PATTERNS:
+                if pattern in args_str:
+                    line_num = self._find_line_number(lines, pattern)
+                    issues.append(ScannerIssue(
+                        severity=severity,
+                        message=f"MCP server '{server_name}': {description} - excessive filesystem access risk",
+                        line=line_num,
+                        rule_id="MCP011",
+                        cwe_id=552,
+                        cwe_link="https://cwe.mitre.org/data/definitions/552.html"
+                    ))
+
+        # MCP012: Check for untrusted server sources
+        source = config.get('url', '') or config.get('command', '') or ''
+        if isinstance(args, list):
+            source += ' ' + ' '.join(str(a) for a in args if isinstance(a, str))
+
+        for pattern, description, severity in self.UNTRUSTED_SOURCES:
+            if re.search(pattern, source, re.IGNORECASE):
+                line_num = self._find_line_number(lines, pattern.replace(r'\.', '.').replace(r'\d+', ''))
+                # Exception for localhost in development
+                if 'localhost' in description.lower() and os.environ.get('MEDUSA_ALLOW_LOCALHOST'):
+                    continue
+                issues.append(ScannerIssue(
+                    severity=severity,
+                    message=f"MCP server '{server_name}': {description} detected",
+                    line=line_num if line_num > 1 else 1,
+                    rule_id="MCP012",
+                    cwe_id=829,
+                    cwe_link="https://cwe.mitre.org/data/definitions/829.html"
+                ))
+
+        # MCP013: Check for insecure TLS settings
+        config_str = str(config)
+        for setting in self.INSECURE_TLS_SETTINGS:
+            if setting.lower() in config_str.lower():
+                # Check if it's set to false/0 (disabling verification)
+                setting_pattern = rf'{setting}\s*[=:]\s*["\']?(false|False|0|no)["\']?'
+                if re.search(setting_pattern, config_str, re.IGNORECASE):
+                    line_num = self._find_line_number(lines, setting)
+                    issues.append(ScannerIssue(
+                        severity=Severity.CRITICAL,
+                        message=f"MCP server '{server_name}': TLS certificate validation disabled ({setting})",
+                        line=line_num,
+                        rule_id="MCP013",
+                        cwe_id=295,
+                        cwe_link="https://cwe.mitre.org/data/definitions/295.html"
+                    ))
+
+        # MCP009: Check for SSE transport without TLS
+        transport = config.get('transport', '')
+        if isinstance(transport, str) and transport.lower() == 'sse':
+            url = config.get('url', '')
+            if isinstance(url, str) and url.startswith('http://') and 'localhost' not in url and '127.0.0.1' not in url:
+                line_num = self._find_line_number(lines, 'sse', 'SSE')
+                issues.append(ScannerIssue(
+                    severity=Severity.HIGH,
+                    message=f"MCP server '{server_name}': SSE transport over HTTP (no TLS) - vulnerable to eavesdropping",
+                    line=line_num,
+                    rule_id="MCP009",
+                    cwe_id=319,
+                    cwe_link="https://cwe.mitre.org/data/definitions/319.html"
                 ))
 
         return issues

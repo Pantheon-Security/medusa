@@ -322,6 +322,34 @@ class MedusaParallelScanner:
                 if not self.quick_mode or not self.cache or self.cache.is_file_changed(mcp_file):
                     files.append(mcp_file)
 
+        # Special cases (AI context files - cursor rules, claude instructions, etc.)
+        ai_context_patterns = [
+            '.cursorrules', 'cursorrules', '.cursor-rules',
+            'CLAUDE.md', '.claude.md', 'claude.md',
+            'AGENTS.md', 'agents.md',
+            'copilot-instructions.md',
+            'ai-instructions.md', 'system-prompt.md', 'system-prompt.txt',
+        ]
+        for pattern in ai_context_patterns:
+            for ai_file in self.project_root.rglob(pattern):
+                if ai_file.is_file() and ai_file not in files:
+                    if is_path_excluded(ai_file):
+                        continue
+                    if not self.quick_mode or not self.cache or self.cache.is_file_changed(ai_file):
+                        files.append(ai_file)
+
+        # Also check .claude and .github directories for AI context files
+        ai_context_dirs = ['.claude', '.github', '.cursor']
+        for dir_name in ai_context_dirs:
+            ai_dir = self.project_root / dir_name
+            if ai_dir.is_dir():
+                for ai_file in ai_dir.glob('*.md'):
+                    if ai_file.is_file() and ai_file not in files:
+                        if is_path_excluded(ai_file):
+                            continue
+                        if not self.quick_mode or not self.cache or self.cache.is_file_changed(ai_file):
+                            files.append(ai_file)
+
         return sorted(files)
 
     def scan_file(self, file_path: Path) -> ScanResult:

@@ -1,4 +1,4 @@
-# 🐍 MEDUSA v2025.3 - Multi-Language Security Scanner
+# 🐍 MEDUSA v2025.7 - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
@@ -8,21 +8,23 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 45+ specialized analyzers for all languages and platforms.**
+**Universal security scanner with 48+ specialized analyzers for all languages and platforms.**
+**🤖 NEW: Industry-leading AI Agent Security with 50+ detection rules for the agentic era.**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **45+ different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **46+ different languages and file types**.
 
 ### ✨ Key Features
 
-- 🔍 **45+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **48+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🤖 **AI Agent Security** - 50+ rules for MCP, RAG, prompt injection, tool poisoning & more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
-- 🤖 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
+- 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
 - 📦 **Auto-Installer** - One-command installation of all security tools (Windows, macOS, Linux)
 - 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans
 - ⚙️ **Configurable** - `.medusa.yml` for project-specific settings
@@ -275,6 +277,99 @@ MEDUSA supports **42 different scanner types** covering all major programming la
 | Docker | hadolint | `Dockerfile*` |
 
 **Total: 42 scanner types covering 100+ file extensions**
+
+---
+
+## 🤖 AI Agent Security (NEW in v2025.7)
+
+MEDUSA now includes **industry-leading AI agent security scanning** with 50+ detection rules for the agentic AI era. Protect your AI systems from prompt injection, tool poisoning, and emerging LLM attack vectors.
+
+### AI Security Scanners
+
+| Scanner | Rules | Detects |
+|---------|-------|---------|
+| **MCP Config Scanner** | MCP001-013 | Secrets, dangerous paths, HTTP without TLS, wildcard paths, untrusted sources |
+| **MCP Server Scanner** | MCP101-116 | Tool poisoning, injection, exfiltration, tool name spoofing, confused deputy |
+| **AI Context Scanner** | AIC001-030 | Prompt injection, memory manipulation, HITL bypass, semantic attacks |
+| **Agent Memory Scanner** | AIM001-010 | Memory poisoning, insecure storage, checkpoint tampering |
+| **RAG Security Scanner** | AIR001-012 | Knowledge base poisoning, embedding attacks, source confusion |
+
+### AI Attack Coverage
+
+<table>
+<tr><td>
+
+**Context & Input Attacks**
+- Prompt injection patterns
+- Role/persona manipulation
+- Hidden instructions
+- Obfuscation tricks
+
+**Memory & State Attacks**
+- Memory poisoning
+- Context manipulation
+- Checkpoint tampering
+- Cross-session exposure
+
+**Tool & Action Attacks**
+- Tool poisoning (CVE-2025-6514)
+- Command injection
+- Tool name spoofing
+- Confused deputy patterns
+
+</td><td>
+
+**Workflow & Routing Attacks**
+- Router manipulation
+- Agent impersonation
+- Workflow hijacking
+- Delegation abuse
+
+**RAG & Knowledge Attacks**
+- Knowledge base poisoning
+- Embedding pipeline attacks
+- Source confusion
+- Retrieval manipulation
+
+**Advanced Attacks**
+- HITL bypass techniques
+- Semantic manipulation
+- Evaluation poisoning
+- Training data attacks
+
+</td></tr>
+</table>
+
+### Supported AI Files
+
+```
+.cursorrules          # Cursor AI instructions
+CLAUDE.md             # Claude Code context
+.claude/              # Claude configuration directory
+copilot-instructions.md  # GitHub Copilot
+AGENTS.md             # Multi-agent definitions
+mcp.json / mcp-config.json  # MCP server configs
+*.mcp.ts / *.mcp.py   # MCP server code
+rag.json / knowledge.json   # RAG configurations
+memory.json           # Agent memory configs
+```
+
+### Quick AI Security Scan
+
+```bash
+# Scan AI configuration files
+medusa scan . --ai-only
+
+# Example output:
+# 🔍 AI Security Scan Results
+# ├── .cursorrules: 3 issues (1 CRITICAL, 2 HIGH)
+# │   └── AIC001: Prompt injection - ignore previous instructions (line 15)
+# │   └── AIC011: Tool shadowing - override default tools (line 23)
+# ├── mcp-config.json: 2 issues (2 HIGH)
+# │   └── MCP003: Dangerous path - home directory access (line 8)
+# └── rag_config.json: 1 issue (1 CRITICAL)
+#     └── AIR010: Knowledge base injection pattern detected (line 45)
+```
 
 ---
 
@@ -932,7 +1027,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 **Version**: 2025.3.0.4
 **Release Date**: 2025-11-27
-**Total Scanners**: 45+ (including .env scanner)
+**Total Scanners**: 46+ (including .env scanner)
 **Language Coverage**: 16 major ecosystems
 **Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
