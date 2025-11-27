@@ -551,10 +551,23 @@ def _detect_file_types(target_path: Path) -> dict:
 
     # Quick scan - just count extensions
     for file_path in target.rglob('*'):
-        if file_path.is_file() and not any(part.startswith('.') for part in file_path.parts):
-            ext = file_path.suffix.lower()
-            if ext:
-                file_types[ext] += 1
+        if not file_path.is_file():
+            continue
+
+        # Skip hidden directories (but not hidden files like .env)
+        # Check parent parts, not the file itself
+        parent_parts = file_path.relative_to(target).parent.parts
+        if any(part.startswith('.') for part in parent_parts):
+            continue
+
+        ext = file_path.suffix.lower()
+        if ext:
+            file_types[ext] += 1
+
+        # Special case: .env files (no suffix, name is .env or starts with .env.)
+        name = file_path.name.lower()
+        if name == '.env' or name.startswith('.env.'):
+            file_types['.env'] += 1
 
     return dict(file_types)
 
