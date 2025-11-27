@@ -181,6 +181,7 @@ class MedusaParallelScanner:
         '.json': 'json',
         '.xml': 'xml',
         '.sol': 'solidity',
+        '.env': 'env',
     }
 
     def __init__(self,
@@ -282,6 +283,18 @@ class MedusaParallelScanner:
 
                 if not self.quick_mode or not self.cache or self.cache.is_file_changed(dockerfile):
                     files.append(dockerfile)
+
+        # Special cases (.env files - various patterns)
+        env_patterns = ['.env', '.env.*', '*.env']
+        for pattern in env_patterns:
+            for env_file in self.project_root.rglob(pattern):
+                if env_file.is_file() and env_file not in files:
+                    # Skip excluded paths
+                    if is_path_excluded(env_file):
+                        continue
+
+                    if not self.quick_mode or not self.cache or self.cache.is_file_changed(env_file):
+                        files.append(env_file)
 
         return sorted(files)
 
