@@ -6,8 +6,8 @@ We release patches for security vulnerabilities. Currently supported versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.9.x   | :white_check_mark: |
-| < 0.9   | :x:                |
+| 2025.3.x | :white_check_mark: |
+| < 2025.3 | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -83,5 +83,5 @@ We currently do not offer a bug bounty program but deeply appreciate responsible
 
 ---
 
-**Last Updated**: 2024-11-16  
+**Last Updated**: 2025-11-27  
 **Contact**: security@pantheonsecurity.io
