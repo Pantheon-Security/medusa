@@ -280,19 +280,24 @@ MEDUSA supports **42 different scanner types** covering all major programming la
 
 ---
 
-## 🤖 AI Agent Security (NEW in v2025.7)
+## 🤖 AI Agent Security (v2025.7)
 
-MEDUSA now includes **industry-leading AI agent security scanning** with 50+ detection rules for the agentic AI era. Protect your AI systems from prompt injection, tool poisoning, and emerging LLM attack vectors.
+MEDUSA provides **industry-leading AI security scanning** with **16 specialized scanners** and **150+ detection rules** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+
+**[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
 ### AI Security Scanners
 
 | Scanner | Rules | Detects |
 |---------|-------|---------|
-| **MCP Config Scanner** | MCP001-013 | Secrets, dangerous paths, HTTP without TLS, wildcard paths, untrusted sources |
-| **MCP Server Scanner** | MCP101-116 | Tool poisoning, injection, exfiltration, tool name spoofing, confused deputy |
-| **AI Context Scanner** | AIC001-030 | Prompt injection, memory manipulation, HITL bypass, semantic attacks |
-| **Agent Memory Scanner** | AIM001-010 | Memory poisoning, insecure storage, checkpoint tampering |
-| **RAG Security Scanner** | AIR001-012 | Knowledge base poisoning, embedding attacks, source confusion |
+| **OWASPLLMScanner** | LLM01-10 | OWASP Top 10 2025: Prompt injection, system prompt leakage, unbounded consumption |
+| **MCPServerScanner** | MCP101-118 | Tool poisoning, CVE-2025-6514, confused deputy, command injection |
+| **MCPConfigScanner** | MCP001-013 | Secrets, dangerous paths, HTTP without TLS, untrusted sources |
+| **AIContextScanner** | AIC001-030 | Prompt injection, memory manipulation, HITL bypass |
+| **RAGSecurityScanner** | RAG001-010 | Vector injection, document poisoning, tenant isolation |
+| **VectorDBScanner** | VD001-010 | Unencrypted storage, PII in embeddings, exposed endpoints |
+| **LLMOpsScanner** | LO001-010 | Insecure model loading, checkpoint exposure, drift detection |
+| + 9 more | 60+ rules | Multi-agent, planning, reflection, A2A, model attacks |
 
 ### AI Attack Coverage
 
@@ -1009,6 +1014,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 ## 📖 Guides
 
 - **[Quick Start](docs/guides/quick-start.md)** - Get running in 5 minutes
+- **[AI Security Scanning](docs/AI_SECURITY.md)** - Complete guide to AI/LLM security (OWASP 2025, MCP, RAG)
 - **[Handling False Positives](docs/guides/handling-false-positives.md)** - Reduce noise, find real issues
 - **[IDE Integration](docs/guides/ide-integration.md)** - Setup Claude Code, Gemini, Copilot
 
@@ -1025,13 +1031,14 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.3.0.4
-**Release Date**: 2025-11-27
-**Total Scanners**: 46+ (including .env scanner)
-**Language Coverage**: 16 major ecosystems
+**Version**: 2025.7.0
+**Release Date**: 2025-11-28
+**Total Scanners**: 60 (16 AI security scanners)
+**Detection Rules**: 150+ AI-specific rules
+**Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
-**False Positive Rate**: <15% (with AI triage)
+**Standards**: OWASP Top 10 for LLM 2025, MITRE ATLAS
 
 ---
 
@@ -1075,6 +1082,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-11-23
+**Last Updated**: 2025-11-28
 **Status**: Production Ready
-**Current Phase**: Public Release
+**Current Phase**: Public Release (v2025.7 - AI Agent Security)
