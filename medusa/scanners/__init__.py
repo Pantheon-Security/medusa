@@ -70,6 +70,9 @@ from medusa.scanners.owasp_llm_scanner import OWASPLLMScanner
 from medusa.scanners.model_attack_scanner import ModelAttackScanner
 from medusa.scanners.llmops_scanner import LLMOpsScanner
 from medusa.scanners.vector_db_scanner import VectorDBScanner
+from medusa.scanners.modelscan_scanner import ModelScanScanner
+from medusa.scanners.garak_scanner import GarakScanner
+from medusa.scanners.llm_guard_scanner import LLMGuardScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -135,6 +138,9 @@ registry.register(OWASPLLMScanner())
 registry.register(ModelAttackScanner())
 registry.register(LLMOpsScanner())
 registry.register(VectorDBScanner())
+registry.register(ModelScanScanner())
+registry.register(GarakScanner())
+registry.register(LLMGuardScanner())
 
 __all__ = [
     'BaseScanner',
@@ -202,5 +208,8 @@ __all__ = [
     'ModelAttackScanner',
     'LLMOpsScanner',
     'VectorDBScanner',
+    'ModelScanScanner',
+    'GarakScanner',
+    'LLMGuardScanner',
     'registry',
 ]
