@@ -2774,6 +2774,63 @@ def versions(check_updates):
 
 
 @main.command()
+@click.option('--ai', '-a', 'show_ai', is_flag=True, help='Show only AI/LLM security scanners')
+@click.option('--available', '-v', 'show_available', is_flag=True, help='Show only available (installed) scanners')
+def scanners(show_ai, show_available):
+    """
+    List all available MEDUSA scanners.
+
+    Shows scanner name, underlying tool, file extensions, and installation status.
+
+    Examples:
+        medusa scanners              # List all 63 scanners
+        medusa scanners --ai         # List only AI/LLM scanners
+        medusa scanners --available  # List only installed scanners
+    """
+    from medusa.scanners import registry
+    from rich.table import Table
+
+    all_scanners = registry.get_all_scanners()
+
+    # Filter for AI scanners if requested
+    if show_ai:
+        ai_keywords = ['ai', 'llm', 'agent', 'mcp', 'rag', 'memory', 'model', 'vector',
+                       'garak', 'guard', 'owasp', 'prompt', 'a2a', 'multi', 'tool']
+        all_scanners = [s for s in all_scanners
+                        if any(kw in s.name.lower() for kw in ai_keywords)]
+
+    # Filter for available only if requested
+    if show_available:
+        all_scanners = [s for s in all_scanners if s.is_available()]
+
+    # Create table
+    table = Table(title="MEDUSA Scanners", show_header=True, header_style="bold cyan")
+    table.add_column("Scanner", style="cyan")
+    table.add_column("Tool", style="magenta")
+    table.add_column("Extensions", style="green", max_width=25)
+    table.add_column("Status", style="yellow")
+
+    installed = 0
+    for scanner in sorted(all_scanners, key=lambda s: s.name):
+        is_avail = scanner.is_available()
+        if is_avail:
+            installed += 1
+        status = "[green]✓ Ready[/green]" if is_avail else "[dim]✗ Tool missing[/dim]"
+        exts = ", ".join(scanner.get_file_extensions()[:5])
+        if len(scanner.get_file_extensions()) > 5:
+            exts += "..."
+        table.add_row(scanner.name, scanner.tool_name, exts, status)
+
+    console.print(table)
+    console.print(f"\n[bold]Total: {len(all_scanners)} scanners[/bold] ({installed} ready, {len(all_scanners) - installed} need tools)")
+
+    if show_ai:
+        console.print("[dim]Showing AI/LLM scanners only. Remove --ai to see all.[/dim]")
+    if not show_available and installed < len(all_scanners):
+        console.print("[dim]Run 'medusa install --check' to see missing tools.[/dim]")
+
+
+@main.command()
 @click.argument('file_path')
 @click.argument('scanner_name', required=False)
 @click.option('--list', '-l', 'list_scanners', is_flag=True, help='List available scanners')

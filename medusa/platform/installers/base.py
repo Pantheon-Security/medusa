@@ -173,7 +173,7 @@ class ToolMapper:
     """
 
     # Python tools that can be installed via pip as fallback
-    PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'blinter', 'cmakelang', 'gixy', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
+    PYTHON_TOOLS = {'ansible-lint', 'bandit', 'black', 'blinter', 'cmakelang', 'garak', 'gixy', 'llm-guard', 'modelscan', 'mypy', 'pylint', 'ruff', 'sqlfluff', 'vim-vint', 'yamllint'}
 
     # npm tools that can be installed via npm as fallback
     NPM_TOOLS = {'buf', 'eslint', 'graphql-schema-linter', 'htmlhint', 'jshint', 'markdownlint-cli', 'prettier', 'solhint', 'standard', 'stylelint', 'typescript'}  # Removed taplo - uses cargo
@@ -263,6 +263,9 @@ class ToolMapper:
         'eslint': {
             'npm': 'eslint',
         },
+        'garak': {
+            'pip': 'garak',
+        },
         'gixy': {
             'apt': 'gixy',
             'pip': 'gixy',
@@ -315,6 +318,9 @@ class ToolMapper:
             'winget': 'stackrox.kube-linter',
             'manual': 'https://github.com/stackrox/kube-linter',
         },
+        'llm-guard': {
+            'pip': 'llm-guard',
+        },
         'luacheck': {
             'brew': 'luacheck',
             'choco': 'lua',
@@ -332,6 +338,9 @@ class ToolMapper:
             'brew': 'elixir',
             'choco': 'elixir',
             'manual': 'https://elixir-lang.org/install.html',
+        },
+        'modelscan': {
+            'pip': 'modelscan',
         },
         'mypy': {
             'pip': 'mypy',
