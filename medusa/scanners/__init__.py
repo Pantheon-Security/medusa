@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-51 independent security scanner implementations
+54 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -63,6 +63,9 @@ from medusa.scanners.rag_security_scanner import RAGSecurityScanner
 from medusa.scanners.a2a_scanner import A2AScanner
 from medusa.scanners.prompt_leakage_scanner import PromptLeakageScanner
 from medusa.scanners.tool_callback_scanner import ToolCallbackScanner
+from medusa.scanners.agent_reflection_scanner import AgentReflectionScanner
+from medusa.scanners.agent_planning_scanner import AgentPlanningScanner
+from medusa.scanners.multi_agent_scanner import MultiAgentScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -121,6 +124,9 @@ registry.register(RAGSecurityScanner())
 registry.register(A2AScanner())
 registry.register(PromptLeakageScanner())
 registry.register(ToolCallbackScanner())
+registry.register(AgentReflectionScanner())
+registry.register(AgentPlanningScanner())
+registry.register(MultiAgentScanner())
 
 __all__ = [
     'BaseScanner',
@@ -181,5 +187,8 @@ __all__ = [
     'A2AScanner',
     'PromptLeakageScanner',
     'ToolCallbackScanner',
+    'AgentReflectionScanner',
+    'AgentPlanningScanner',
+    'MultiAgentScanner',
     'registry',
 ]
