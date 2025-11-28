@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-48 independent security scanner implementations
+51 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -60,6 +60,9 @@ from medusa.scanners.mcp_server_scanner import MCPServerScanner
 from medusa.scanners.ai_context_scanner import AIContextScanner
 from medusa.scanners.agent_memory_scanner import AgentMemoryScanner
 from medusa.scanners.rag_security_scanner import RAGSecurityScanner
+from medusa.scanners.a2a_scanner import A2AScanner
+from medusa.scanners.prompt_leakage_scanner import PromptLeakageScanner
+from medusa.scanners.tool_callback_scanner import ToolCallbackScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -115,6 +118,9 @@ registry.register(MCPServerScanner())
 registry.register(AIContextScanner())
 registry.register(AgentMemoryScanner())
 registry.register(RAGSecurityScanner())
+registry.register(A2AScanner())
+registry.register(PromptLeakageScanner())
+registry.register(ToolCallbackScanner())
 
 __all__ = [
     'BaseScanner',
@@ -170,5 +176,10 @@ __all__ = [
     'MCPConfigScanner',
     'MCPServerScanner',
     'AIContextScanner',
+    'AgentMemoryScanner',
+    'RAGSecurityScanner',
+    'A2AScanner',
+    'PromptLeakageScanner',
+    'ToolCallbackScanner',
     'registry',
 ]
