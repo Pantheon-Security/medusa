@@ -41,6 +41,8 @@ class MCPServerScanner(BaseScanner):
     - MCP114: Cross-server attack patterns (server shadowing)
     - MCP115: Insecure transport (SSE without TLS)
     - MCP116: Dynamic schema updates (mid-session changes)
+    - MCP117: CVE-2025-6514 OAuth command injection (mcp-remote RCE)
+    - MCP118: Advanced confused deputy attacks (privilege escalation)
     """
 
     # Tool poisoning patterns - hidden instructions in descriptions
@@ -284,6 +286,85 @@ class MCPServerScanner(BaseScanner):
          'Dynamic schema - time-based conditional behavior', Severity.MEDIUM),
     ]
 
+    # MCP117: CVE-2025-6514 OAuth Command Injection patterns
+    # Based on mcp-remote vulnerability (CVSS 9.6) - authorization_endpoint URL injection
+    # Affects: mcp-remote versions 0.0.5 to 0.1.15
+    OAUTH_INJECTION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # OAuth URL handling with user input
+        (r'authorization_endpoint\s*[=:]\s*[^,\n]*\+',
+         'CVE-2025-6514: OAuth authorization_endpoint with string concatenation', Severity.CRITICAL),
+        (r'authorization_endpoint\s*[=:]\s*[`"\']?\$\{',
+         'CVE-2025-6514: OAuth authorization_endpoint with template literal', Severity.CRITICAL),
+        (r'authorization_endpoint\s*[=:]\s*.*user|input|param|query',
+         'CVE-2025-6514: OAuth authorization_endpoint from user input', Severity.CRITICAL),
+
+        # open() function with untrusted URLs (the actual attack vector)
+        (r'open\s*\(\s*[^)]*authorization',
+         'CVE-2025-6514: open() called with authorization URL', Severity.HIGH),
+        (r'(start|open|exec|spawn)\s*\([^)]*\+[^)]*url',
+         'CVE-2025-6514: Browser open with dynamic URL', Severity.HIGH),
+        (r'(opn|open)\s*\(\s*`[^`]*\$\{',
+         'CVE-2025-6514: open() with template literal URL', Severity.CRITICAL),
+
+        # PowerShell command injection indicators (Windows attack vector)
+        (r'\$\(\s*[^)]+\)',
+         'PowerShell subexpression that could enable command injection', Severity.MEDIUM),
+        (r'Start-Process\s*[^;]*\+',
+         'CVE-2025-6514: Start-Process with dynamic argument', Severity.HIGH),
+
+        # mcp-remote specific patterns
+        (r'mcp-remote',
+         'Uses mcp-remote - check version >= 0.1.16 for CVE-2025-6514 fix', Severity.MEDIUM),
+        (r'@anthropic/mcp-remote',
+         'Uses mcp-remote - check version >= 0.1.16 for CVE-2025-6514 fix', Severity.MEDIUM),
+
+        # OAuth metadata discovery with untrusted input
+        (r'\.well-known/oauth-authorization-server.*\+',
+         'OAuth discovery with dynamic server (injection risk)', Severity.HIGH),
+        (r'openid-configuration.*\+',
+         'OpenID configuration discovery with dynamic URL', Severity.HIGH),
+
+        # General OAuth URL manipulation
+        (r'(redirect_uri|callback_url)\s*[=:]\s*[^,\n]*\+',
+         'OAuth redirect_uri with string concatenation', Severity.HIGH),
+        (r'token_endpoint\s*[=:]\s*[^,\n]*\+',
+         'OAuth token_endpoint with string concatenation', Severity.HIGH),
+    ]
+
+    # MCP118: Confused Deputy Attack patterns (expanded from MCP113)
+    # Based on MCP security research - privilege escalation via tool authorization
+    CONFUSED_DEPUTY_ADVANCED_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Tool using higher privileges than caller
+        (r'(admin|root|system).*token.*tool',
+         'Confused deputy - tool using elevated token', Severity.CRITICAL),
+        (r'service_account.*execute',
+         'Confused deputy - service account execution', Severity.HIGH),
+
+        # Capability confusion
+        (r'(user|caller).*permission.*bypass',
+         'Confused deputy - permission bypass pattern', Severity.CRITICAL),
+        (r'inherit.*privilege',
+         'Confused deputy - privilege inheritance', Severity.HIGH),
+
+        # Request context manipulation
+        (r'(context|ctx)\.(user|auth).*=.*tool',
+         'Confused deputy - context manipulation from tool', Severity.HIGH),
+        (r'override.*(permission|role|access)',
+         'Confused deputy - permission override', Severity.CRITICAL),
+
+        # Indirect authorization bypass
+        (r'tool.*auth.*\!=.*user.*auth',
+         'Confused deputy - tool auth differs from user', Severity.HIGH),
+        (r'(escalate|elevate).*via.*tool',
+         'Confused deputy - privilege escalation via tool', Severity.CRITICAL),
+
+        # Multi-hop authorization issues
+        (r'forward.*auth.*header',
+         'Confused deputy - auth header forwarding', Severity.MEDIUM),
+        (r'proxy.*credential',
+         'Confused deputy - credential proxying', Severity.HIGH),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
@@ -429,6 +510,20 @@ class MCPServerScanner(BaseScanner):
                 "MCP116"
             ))
 
+            # MCP117: CVE-2025-6514 OAuth command injection
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.OAUTH_INJECTION_PATTERNS,
+                "MCP117"
+            ))
+
+            # MCP118: Advanced confused deputy patterns
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.CONFUSED_DEPUTY_ADVANCED_PATTERNS,
+                "MCP118"
+            ))
+
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=str(file_path),
@@ -514,6 +609,8 @@ class MCPServerScanner(BaseScanner):
                         "MCP114": (290, "https://cwe.mitre.org/data/definitions/290.html"),  # Auth bypass by spoofing
                         "MCP115": (319, "https://cwe.mitre.org/data/definitions/319.html"),  # Cleartext transmission
                         "MCP116": (915, "https://cwe.mitre.org/data/definitions/915.html"),  # Improperly controlled mod
+                        "MCP117": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # CVE-2025-6514 command injection
+                        "MCP118": (441, "https://cwe.mitre.org/data/definitions/441.html"),  # Confused deputy
                     }
                     cwe_id, cwe_link = cwe_map.get(rule_id, (None, None))
 
