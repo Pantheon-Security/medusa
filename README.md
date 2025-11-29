@@ -1,14 +1,15 @@
-# 🐍 MEDUSA v2025.7 - Multi-Language Security Scanner
+# 🐍 MEDUSA - Multi-Language Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Tests](https://github.com/Pantheon-Security/medusa/actions/workflows/test.yml/badge.svg)](https://github.com/Pantheon-Security/medusa/actions/workflows/test.yml)
 [![Windows](https://img.shields.io/badge/Windows-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 48+ specialized analyzers for all languages and platforms.**
+**Universal security scanner with 63 specialized analyzers for all languages and platforms.**
 **🤖 NEW: Industry-leading AI Agent Security with 50+ detection rules for the agentic era.**
 *One look from Medusa stops vulnerabilities dead.*
 
@@ -20,7 +21,7 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### ✨ Key Features
 
-- 🔍 **48+ Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **63 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
 - 🤖 **AI Agent Security** - 50+ rules for MCP, RAG, prompt injection, tool poisoning & more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
