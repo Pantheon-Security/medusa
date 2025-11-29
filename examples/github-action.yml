@@ -1,0 +1,35 @@
+# Example GitHub Actions workflow for MEDUSA security scanning
+# Copy to .github/workflows/security.yml in your repository
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MEDUSA
+        run: pip install medusa-security
+
+      - name: Run Security Scan
+        run: medusa scan . --fail-on high --format json --output security-report.json
+
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: security-report.json
