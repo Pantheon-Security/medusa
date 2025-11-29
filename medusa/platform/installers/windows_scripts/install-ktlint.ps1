@@ -19,7 +19,7 @@ function Write-Log {
 try {
     Write-Log "Starting ktlint installation..." "INFO"
 
-    # Get pinned release info from GitHub API (version from tools-manifest.csv)
+    # Get pinned release info from GitHub API (version from tool-versions.lock)
     $version = "1.5.0"
     Write-Log "Fetching release information for version $version..."
     $releaseUrl = "https://api.github.com/repos/pinterest/ktlint/releases/tags/$version"

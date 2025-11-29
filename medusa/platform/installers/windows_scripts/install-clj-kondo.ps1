@@ -19,7 +19,7 @@ function Write-Log {
 try {
     Write-Log "Starting clj-kondo installation..." "INFO"
 
-    # Get pinned release info from GitHub API (version from tools-manifest.csv)
+    # Get pinned release info from GitHub API (version from tool-versions.lock)
     $version = "v2025.10.23"
     Write-Log "Fetching release information for version $version..."
     $releaseUrl = "https://api.github.com/repos/clj-kondo/clj-kondo/releases/tags/$version"

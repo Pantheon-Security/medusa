@@ -19,7 +19,7 @@ function Write-Log {
 try {
     Write-Log "Starting taplo installation..." "INFO"
 
-    # Get pinned release info from GitHub API (version from tools-manifest.csv)
+    # Get pinned release info from GitHub API (version from tool-versions.lock)
     $version = "0.9.3"
     Write-Log "Fetching release information for version $version..."
     $releaseUrl = "https://api.github.com/repos/tamasfe/taplo/releases/tags/$version"
