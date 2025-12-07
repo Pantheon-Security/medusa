@@ -17,9 +17,10 @@ Documentation for adding and maintaining MEDUSA scanners.
 
 ## Current Scanner Count
 
-MEDUSA has **63 scanners** covering:
+MEDUSA has **64 scanners** covering:
 - 42+ programming languages
 - 18 AI/LLM security scanners
+- CVE detection (React2Shell, Next.js vulnerabilities)
 - Docker, Kubernetes, Terraform
 - And more...
 
