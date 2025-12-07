@@ -9,8 +9,9 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 63 specialized analyzers for all languages and platforms.**
-**🤖 NEW: Industry-leading AI Agent Security with 50+ detection rules for the agentic era.**
+**Universal security scanner with 64 specialized analyzers for all languages and platforms.**
+**🤖 AI Agent Security with 50+ detection rules for the agentic era.**
+**🚨 NEW: React2Shell CVE-2025-55182 detection (CVSS 10.0 RCE)**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
@@ -21,7 +22,8 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### ✨ Key Features
 
-- 🔍 **63 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **64 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🚨 **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities, supply chain risks
 - 🤖 **AI Agent Security** - 50+ rules for MCP, RAG, prompt injection, tool poisoning & more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
@@ -136,7 +138,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v2025.1.9 - Security Guardian
+🐍 MEDUSA v2025.8.5.5 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -281,7 +283,27 @@ MEDUSA supports **42 different scanner types** covering all major programming la
 
 ---
 
-## 🤖 AI Agent Security (v2025.7)
+## 🚨 React2Shell CVE Detection (NEW in v2025.8)
+
+MEDUSA now detects **CVE-2025-55182 "React2Shell"** - a CVSS 10.0 RCE vulnerability affecting React Server Components and Next.js.
+
+```bash
+# Check if your project is vulnerable
+medusa scan .
+
+# Vulnerable versions detected:
+# - React 19.0.0 - 19.2.0 (Server Components)
+# - Next.js 15.0.0 - 15.0.4 (App Router)
+# - Various canary/rc releases
+```
+
+**Scans**: `package.json`, `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+
+**Fix**: Upgrade to React 19.0.1+ and Next.js 15.0.5+
+
+---
+
+## 🤖 AI Agent Security (v2025.7+)
 
 MEDUSA provides **industry-leading AI security scanning** with **16 specialized scanners** and **150+ detection rules** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
 
@@ -560,7 +582,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 0.9.0
+version: 2025.8.5.5
 
 # Scanner control
 scanners:
@@ -915,35 +937,28 @@ Status: Production Ready ✅
 
 ## 🗺️ Roadmap
 
-### ✅ Completed Phases
+### ✅ Completed (v2025.8)
 
-- **Phase 1** ✅ - Package restructuring, CLI framework
-- **Phase 2** ✅ - 42 scanners, auto-installer, platform support
-- **Phase 3** ✅ - Configuration system, IDE integration (Claude Code)
-- **Phase 4** ✅ - Testing & QA, dogfooding (0 HIGH/CRITICAL issues)
-- **Phase 5** 🚧 - Documentation (current)
+- **64 Specialized Scanners** - Comprehensive language and platform coverage
+- **AI Agent Security** - 16 scanners, 150+ rules, OWASP LLM 2025 compliant
+- **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities
+- **Cross-Platform** - Native Windows, macOS, Linux with auto-installation
+- **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot
+- **Multi-Format Reports** - JSON, HTML, Markdown, SARIF, JUnit
+- **Parallel Processing** - 10-40× faster with smart caching
 
-### 📋 Upcoming
+### 🚧 In Progress (v2025.9)
 
-- **Phase 6** - Alpha testing (private repo, Test PyPI)
-- **Phase 7** - Beta release (public repo, community feedback)
-- **Phase 8** - Public launch (PyPI v0.7.0.0, marketing)
+- **Supply Chain Protection** - `medusa protect` for install-time scanning
+- **Malicious Package Database** - Known bad packages blocked before install
+- **Preinstall Script Analysis** - Detect env harvesting, backdoors
 
-### 🔮 Future Versions
+### 🔮 Upcoming
 
-**v0.8.0** - Enhanced Features
-- Complete VS Code extension
-- Full Cursor integration
-- SARIF output format
-- HTML report UI
-- Baseline/ignore functionality
-
-**v1.0.0** - Production Release
-- GitHub Actions integration
-- Pre-commit hooks
-- Performance dashboard
-- Web UI
-- Multi-project support
+- **Web Dashboard** - Cloud-hosted security insights
+- **GitHub App** - Automatic PR scanning
+- **VS Code Extension** - Native IDE integration
+- **Enterprise Features** - SSO, audit logs, team management
 
 ---
 
@@ -1032,14 +1047,15 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.7.0
-**Release Date**: 2025-11-28
-**Total Scanners**: 60 (16 AI security scanners)
-**Detection Rules**: 150+ AI-specific rules
+**Version**: 2025.8.5.5
+**Release Date**: 2025-12-07
+**Total Scanners**: 64 (16 AI security + React2Shell CVE detection)
+**Detection Rules**: 150+ AI-specific rules + CVE detection
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
 **Standards**: OWASP Top 10 for LLM 2025, MITRE ATLAS
+**Downloads**: 11,500+ on PyPI
 
 ---
 
@@ -1083,6 +1099,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-11-28
+**Last Updated**: 2025-12-07
 **Status**: Production Ready
-**Current Phase**: Public Release (v2025.7 - AI Agent Security)
+**Current Version**: v2025.8.5.5 - React2Shell CVE Detection + AI Security
