@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-60 independent security scanner implementations
+61 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -73,6 +73,7 @@ from medusa.scanners.vector_db_scanner import VectorDBScanner
 from medusa.scanners.modelscan_scanner import ModelScanScanner
 from medusa.scanners.garak_scanner import GarakScanner
 from medusa.scanners.llm_guard_scanner import LLMGuardScanner
+from medusa.scanners.react2shell_scanner import React2ShellScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -141,6 +142,7 @@ registry.register(VectorDBScanner())
 registry.register(ModelScanScanner())
 registry.register(GarakScanner())
 registry.register(LLMGuardScanner())
+registry.register(React2ShellScanner())
 
 __all__ = [
     'BaseScanner',
@@ -211,5 +213,6 @@ __all__ = [
     'ModelScanScanner',
     'GarakScanner',
     'LLMGuardScanner',
+    'React2ShellScanner',
     'registry',
 ]
