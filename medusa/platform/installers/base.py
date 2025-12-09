@@ -99,14 +99,41 @@ class EcosystemDetector:
     # Mapping of tools to their ecosystem requirements
     ECOSYSTEM_MAP = {
         'hlint': {'ecosystems': ['stack', 'cabal'], 'commands': {'stack': 'stack install hlint', 'cabal': 'cabal install hlint'}},
-        'rubocop': {'ecosystems': ['gem'], 'commands': {'gem': 'gem install rubocop'}},
+        'rubocop': {'ecosystems': ['gem'], 'commands': {'gem': 'gem install --user-install rubocop'}},
         'checkmake': {'ecosystems': ['go'], 'commands': {'go': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest'}},
         'luacheck': {'ecosystems': ['luarocks'], 'commands': {'luarocks': 'luarocks install luacheck'}},
-        'perlcritic': {'ecosystems': ['cpan'], 'commands': {'cpan': 'cpan Perl::Critic'}},
+        'perlcritic': {'ecosystems': ['cpanm', 'cpan'], 'commands': {'cpanm': 'cpanm --notest Perl::Critic', 'cpan': 'cpan -T Perl::Critic'}},
         'clj-kondo': {'ecosystems': ['brew', 'scoop'], 'commands': {'brew': 'brew install borkdude/brew/clj-kondo', 'scoop': 'scoop install clj-kondo'}},
         'mix': {'ecosystems': ['elixir'], 'commands': {}},  # mix comes with elixir
         'taplo': {'ecosystems': ['cargo'], 'commands': {'cargo': 'cargo install taplo-cli'}},
+        'codenarc': {'ecosystems': ['sdkman', 'gradle'], 'commands': {'sdkman': 'sdk install codenarc', 'gradle': 'gradle installCodeNarc'}},
     }
+
+    @classmethod
+    def _find_cargo(cls) -> Optional[str]:
+        """Find cargo binary, checking common locations if not in PATH"""
+        import os
+        from pathlib import Path
+
+        # Check PATH first
+        cargo = shutil.which('cargo')
+        if cargo:
+            return cargo
+
+        # Check common cargo locations (after rustup install, may not be in PATH yet)
+        home = Path.home()
+        cargo_paths = [
+            home / '.cargo' / 'bin' / 'cargo',
+            home / '.rustup' / 'toolchains' / 'stable-x86_64-apple-darwin' / 'bin' / 'cargo',
+            home / '.rustup' / 'toolchains' / 'stable-aarch64-apple-darwin' / 'bin' / 'cargo',
+            Path('/usr/local/cargo/bin/cargo'),
+        ]
+
+        for path in cargo_paths:
+            if path.exists():
+                return str(path)
+
+        return None
 
     @classmethod
     def detect_ecosystem(cls, tool: str) -> Optional[tuple]:
@@ -123,7 +150,16 @@ class EcosystemDetector:
         commands = cls.ECOSYSTEM_MAP[tool]['commands']
 
         for ecosystem in ecosystems:
-            if shutil.which(ecosystem):
+            # Special handling for cargo - check common paths
+            if ecosystem == 'cargo':
+                cargo_path = cls._find_cargo()
+                if cargo_path:
+                    # Replace 'cargo' with full path in command
+                    command = commands.get(ecosystem, '')
+                    if command:
+                        command = command.replace('cargo ', f'{cargo_path} ')
+                    return (ecosystem, command)
+            elif shutil.which(ecosystem):
                 command = commands.get(ecosystem, '')
                 return (ecosystem, command)
 
