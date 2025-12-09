@@ -33,15 +33,21 @@ class InstallManifest:
 
     def _load(self) -> Dict:
         """Load manifest from disk"""
+        default_data = {'tools': {}, 'version': '1.0'}
+
         if not self.manifest_path.exists():
-            return {'tools': {}, 'version': '1.0'}
+            return default_data
 
         try:
             with open(self.manifest_path, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Ensure 'tools' key exists (handle old/malformed manifests)
+                if 'tools' not in data:
+                    data['tools'] = {}
+                return data
         except (json.JSONDecodeError, IOError):
             # Corrupted manifest, start fresh
-            return {'tools': {}, 'version': '1.0'}
+            return default_data
 
     def _save(self):
         """Save manifest to disk"""
