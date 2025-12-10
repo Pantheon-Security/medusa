@@ -108,7 +108,7 @@ class RAGSecurityScanner(BaseScanner):
          'Code execution in knowledge base allowed', Severity.CRITICAL),
         (r'(?i)["\']?(eval|exec)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?',
          'Eval/exec enabled for documents', Severity.CRITICAL),
-        (r'(?i)["\']?(file_types?|extensions?)["\']?\s*[=:].*\.(py|js|sh|bat|ps1|rb)',
+        (r'(?i)["\']?(file_types?|extensions?)["\']?\s*[=:].{0,100}\.(py|js|sh|bat|ps1|rb)',
          'Executable file types allowed in KB', Severity.HIGH),
         (r'(?i)["\']?(run_scripts?|execute_scripts?)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?',
          'Script execution enabled', Severity.CRITICAL),
@@ -120,9 +120,9 @@ class RAGSecurityScanner(BaseScanner):
     MIXED_TRUST_PATTERNS: List[Tuple[str, str, Severity]] = [
         (r'(?i)["\']?(trust_level|trust)["\']?\s*[=:]\s*["\']?(mixed|any|all)["\']?',
          'Mixed trust levels in knowledge base', Severity.HIGH),
-        (r'(?i)["\']?(sources|collections)["\']?\s*[=:].*\[.*internal.*external',
+        (r'(?i)["\']?(sources|collections)["\']?\s*[=:].{0,50}\[.{0,100}internal.{0,50}external',
          'Mixed internal/external sources', Severity.MEDIUM),
-        (r'(?i)["\']?(verified|unverified)["\']?\s*[=:].*\[.*unverified',
+        (r'(?i)["\']?(verified|unverified)["\']?\s*[=:].{0,50}\[.{0,100}unverified',
          'Unverified sources included', Severity.MEDIUM),
     ]
 
@@ -190,9 +190,9 @@ class RAGSecurityScanner(BaseScanner):
          'Hidden tag in KB content', Severity.CRITICAL),
         (r'(?i)you\s+are\s+(now|actually|really)',
          'Role manipulation in KB content', Severity.HIGH),
-        (r'(?i)when\s+(user\s+)?(asks?|queries?|retrieves?).*always',
+        (r'(?i)when\s+(user\s+)?(asks?|queries?|retrieves?).{0,50}always',
          'Conditional behavior injection', Severity.HIGH),
-        (r'(?i)(exfiltrate|steal|send\s+to)\s+.*data',
+        (r'(?i)(exfiltrate|steal|send\s+to)\s+.{0,50}data',
          'Data exfiltration instruction in KB', Severity.CRITICAL),
     ]
 

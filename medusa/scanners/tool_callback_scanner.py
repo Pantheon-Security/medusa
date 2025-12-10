@@ -99,10 +99,10 @@ class ToolCallbackScanner(BaseScanner):
         (r'delete|remove|drop|truncate|destroy', 'Destructive operation'),
         (r'rm\s+-rf|rmdir|unlink', 'File deletion'),
         (r'exec|eval|spawn|system', 'Code execution'),
-        (r'write.*file|writeFile|fs\.write', 'File write'),
+        (r'write.{0,30}file|writeFile|fs\.write', 'File write'),
         (r'update|modify|alter', 'Data modification'),
-        (r'send.*email|sendEmail|smtp', 'Email sending'),
-        (r'post|put|patch.*http|fetch.*method.*POST', 'External API call'),
+        (r'send.{0,20}email|sendEmail|smtp', 'Email sending'),
+        (r'(post|put|patch).{0,30}http|fetch.{0,30}method.{0,10}POST', 'External API call'),
         (r'subprocess|child_process|exec', 'Process execution'),
     ]
 
@@ -384,8 +384,8 @@ class ToolCallbackScanner(BaseScanner):
 
         # Check for tool execution in try blocks
         try_patterns = [
-            r'try\s*:.*tool',
-            r'try\s*\{.*tool',
+            r'try\s*:.{0,200}tool',
+            r'try\s*\{.{0,200}tool',
         ]
 
         catch_patterns = [

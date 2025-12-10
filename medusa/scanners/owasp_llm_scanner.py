@@ -48,22 +48,22 @@ class OWASPLLMScanner(BaseScanner):
 
     # LLM01: Prompt Injection patterns (direct and indirect)
     PROMPT_INJECTION_PATTERNS = [
-        (r'(prompt|message)\s*=\s*.*\+\s*(user|input|request)',
+        (r'(prompt|message)\s*=\s*.{0,50}\+\s*(user|input|request)',
          'User input concatenated into prompt (direct injection risk)'),
-        (r'f["\'].*\{(user_input|request|query|message)\}.*["\']',
+        (r'f["\'].{0,100}\{(user_input|request|query|message)\}.{0,100}["\']',
          'User input interpolated in prompt string'),
         (r'(system_prompt|instructions)\s*\+\s*',
          'System prompt concatenated with untrusted data'),
         (r'prompt\s*=\s*(request|input|body)\.',
          'Prompt directly from request without sanitization'),
-        (r'\.(format|replace)\s*\(.*user',
+        (r'\.(format|replace)\s*\(.{0,50}user',
          'User input in string formatting for prompt'),
         # Indirect injection patterns (from external sources)
-        (r'(fetch|axios|request)\s*\(.*\).*prompt',
+        (r'(fetch|axios|request)\s*\(.{0,100}\).{0,50}prompt',
          'External content fetched and used in prompt (indirect injection)'),
-        (r'(scrape|crawl|parse).*\+.*prompt',
+        (r'(scrape|crawl|parse).{0,50}\+.{0,50}prompt',
          'Scraped content in prompt (indirect injection vector)'),
-        (r'(document|file|url).*content.*prompt',
+        (r'(document|file|url).{0,50}content.{0,50}prompt',
          'Document content injected into prompt'),
     ]
 
@@ -71,17 +71,17 @@ class OWASPLLMScanner(BaseScanner):
     DISCLOSURE_PATTERNS = [
         (r'(api_key|apikey|secret|password|token)\s*=\s*["\'][^"\']{8,}',
          'Hardcoded credential in code'),
-        (r'(print|log|console)\s*\(.*prompt',
+        (r'(print|log|console)\s*\(.{0,50}prompt',
          'Prompt logged (may expose system instructions)'),
-        (r'return.*system_prompt',
+        (r'return.{0,30}system_prompt',
          'System prompt returned to user'),
-        (r'response.*\+.*(config|credential)',
+        (r'response.{0,50}\+.{0,50}(config|credential)',
          'Configuration/credential data in response'),
-        (r'(error|exception).*prompt',
+        (r'(error|exception).{0,50}prompt',
          'Prompt exposed in error message'),
-        (r'(pii|personal|ssn|email).*response',
+        (r'(pii|personal|ssn|email).{0,50}response',
          'PII potentially in response'),
-        (r'training.*data.*expos',
+        (r'training.{0,30}data.{0,30}expos',
          'Training data exposure risk'),
     ]
 
@@ -135,7 +135,7 @@ class OWASPLLMScanner(BaseScanner):
     AGENCY_PATTERNS = [
         (r'auto_execute\s*=\s*True',
          'Auto-execution enabled (excessive agency)'),
-        (r'confirm\s*=\s*False.*(delete|remove|drop)',
+        (r'confirm\s*=\s*False.{0,50}(delete|remove|drop)',
          'Destructive action without confirmation'),
         (r'(sudo|admin|root)\s*=\s*True',
          'Elevated privileges enabled by default'),
@@ -147,10 +147,10 @@ class OWASPLLMScanner(BaseScanner):
          'Auto-approval enabled'),
         (r'(shell|bash|cmd)\s*=\s*True',
          'Shell access enabled for agent'),
-        (r'run_command.*\(.*llm',
+        (r'run_command.{0,30}\(.{0,50}llm',
          'LLM can execute system commands'),
         # Confused deputy indicators
-        (r'(service_account|admin_token).*tool',
+        (r'(service_account|admin_token).{0,50}tool',
          'Tool using service account (confused deputy risk)'),
         (r'privileged\s*=\s*True',
          'Privileged mode enabled'),

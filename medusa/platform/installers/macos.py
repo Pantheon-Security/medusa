@@ -65,19 +65,23 @@ class HomebrewInstaller(BaseInstaller):
                 [gem, 'install', '--user-install', package],
                 capture_output=True, text=True, timeout=120
             )
-            # gem install can return 0 even with warnings
-            # Check if binary exists after install
-            if shutil.which(package):
+            # gem install returns 0 on success, even with PATH warnings
+            # The warning "You don't have ~/.gem/ruby/X.X.X/bin in your PATH" is normal
+            if result.returncode == 0:
+                # Gem succeeded - check if binary exists anywhere
+                if shutil.which(package):
+                    return True
+                # Check user gem bin directories
+                user_gem_bin = Path.home() / '.gem' / 'ruby'
+                if user_gem_bin.exists():
+                    for version_dir in user_gem_bin.iterdir():
+                        bin_path = version_dir / 'bin' / package
+                        if bin_path.exists():
+                            return True
+                # Even if binary not in PATH, gem install succeeded
                 return True
-            # Check user gem bin
-            user_gem_bin = Path.home() / '.gem' / 'ruby'
-            if user_gem_bin.exists():
-                for version_dir in user_gem_bin.iterdir():
-                    bin_path = version_dir / 'bin' / package
-                    if bin_path.exists():
-                        return True
-            return result.returncode == 0
-        except:
+            return False
+        except Exception:
             return False
 
     def _install_via_cpanm(self, module: str) -> bool:

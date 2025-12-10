@@ -48,7 +48,7 @@ class PromptLeakageScanner(BaseScanner):
             'PL001',
         ),
         (
-            r'(response|output|result)\s*[+=].*\+\s*(prompt|instruction)',
+            r'(response|output|result)\s*[+=].{0,50}\+\s*(prompt|instruction)',
             'Prompt concatenated with response',
             Severity.HIGH,
             'PL001',
@@ -68,7 +68,7 @@ class PromptLeakageScanner(BaseScanner):
 
         # Tool definitions leaked
         (
-            r'(return|response|output).*tool(s|_definition|Schema|_schema)',
+            r'(return|response|output).{0,50}tool(s|_definition|Schema|_schema)',
             'Tool definitions included in response',
             Severity.HIGH,
             'PL002',
@@ -82,7 +82,7 @@ class PromptLeakageScanner(BaseScanner):
 
         # Internal instructions
         (
-            r'(response|return).*internal.*instruction',
+            r'(response|return).{0,50}internal.{0,30}instruction',
             'Internal instructions in output',
             Severity.HIGH,
             'PL003',
@@ -102,7 +102,7 @@ class PromptLeakageScanner(BaseScanner):
             'PL004',
         ),
         (
-            r'debug.*=.*[Tt]rue.*print.*(prompt|instruction|system)',
+            r'debug.{0,20}=.{0,10}[Tt]rue.{0,50}print.{0,30}(prompt|instruction|system)',
             'Debug mode printing prompts',
             Severity.HIGH,
             'PL004',
@@ -116,13 +116,13 @@ class PromptLeakageScanner(BaseScanner):
 
         # Logging prompts
         (
-            r'(log|logger)\.(info|debug|warning|error)\s*\(.*system.*prompt',
+            r'(log|logger)\.(info|debug|warning|error)\s*\(.{0,50}system.{0,30}prompt',
             'Logging system prompts (may appear in user-visible logs)',
             Severity.MEDIUM,
             'PL005',
         ),
         (
-            r'(log|print|console)\s*\(.*PROMPT',
+            r'(log|print|console)\s*\(.{0,50}PROMPT',
             'Logging prompt constants',
             Severity.MEDIUM,
             'PL005',
@@ -130,19 +130,19 @@ class PromptLeakageScanner(BaseScanner):
 
         # Error messages exposing prompts
         (
-            r'(raise|throw|Error)\s*\(.*prompt',
+            r'(raise|throw|Error)\s*\(.{0,50}prompt',
             'Error message may expose prompt',
             Severity.MEDIUM,
             'PL006',
         ),
         (
-            r'except.*:.*return.*(prompt|instruction)',
+            r'except.{0,20}:.{0,50}return.{0,30}(prompt|instruction)',
             'Exception handler returns prompt content',
             Severity.HIGH,
             'PL006',
         ),
         (
-            r'catch.*return.*(prompt|instruction|system)',
+            r'catch.{0,50}return.{0,30}(prompt|instruction|system)',
             'Catch block returns prompt content',
             Severity.HIGH,
             'PL006',
@@ -164,13 +164,13 @@ class PromptLeakageScanner(BaseScanner):
 
         # Tool schema exposure
         (
-            r'(response|output).*schema',
+            r'(response|output).{0,50}schema',
             'Schema included in response',
             Severity.MEDIUM,
             'PL008',
         ),
         (
-            r'return.*function.*definition',
+            r'return.{0,50}function.{0,30}definition',
             'Function definition in return value',
             Severity.MEDIUM,
             'PL008',
@@ -178,7 +178,7 @@ class PromptLeakageScanner(BaseScanner):
 
         # Config dumps
         (
-            r'(response|return).*config(uration)?',
+            r'(response|return).{0,50}config(uration)?',
             'Configuration in response',
             Severity.MEDIUM,
             'PL009',
