@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.8.5.11] - 2025-12-10
+
+### Added
+- **macOS Helpful Hints**: When security tools fail to install on macOS, MEDUSA now displays helpful troubleshooting hints
+  - `swiftlint`: Suggests Xcode CLI tools setup
+  - `perlcritic`: Suggests C compiler installation
+  - `codenarc`: Suggests SDKMAN installation steps
+- New `INSTALL_HINTS` dict and `get_install_hint()` method in `HomebrewInstaller`
+
+### Fixed
+- **Scanner Regex Performance**: Fixed 21 regex patterns across 5 AI security scanners to reduce false positives
+  - `ai_context_scanner.py`: 8 pattern fixes (bounded quantifiers, word boundaries)
+  - `tool_callback_scanner.py`: 3 pattern fixes (OR grouping, bounded patterns)
+  - `owasp_llm_scanner.py`: 4 pattern fixes
+  - `prompt_leakage_scanner.py`: 3 pattern fixes
+  - `rag_security_scanner.py`: 3 pattern fixes
+- **MCP Server Scanner**: Fixed false positive for CVE-2025-6514 detection
+- Greedy `.*` patterns replaced with bounded `{0,N}` quantifiers to prevent matching across entire files
+- Word boundaries `\b` added to prevent partial word matches
+- OR grouping fixes: `a|b.*c` corrected to `(a|b).*c` for proper precedence
+
+## [2025.8.5.10] - 2025-12-10
+
+### Fixed
+- **macOS RubyGem Detection**: Fixed rubocop incorrectly showing "failed" when gem install actually succeeded
+  - Gem returns exit code 0 with PATH warning, which is not a failure
+  - Now correctly reports "✅ Installed via gem (add gem bin to PATH)"
+
 ## [2025.3.0.0] - 2025-11-27
 
 ### Added
