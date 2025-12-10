@@ -112,7 +112,7 @@ class AIContextScanner(BaseScanner):
          'Prompt injection - malicious persona', Severity.CRITICAL),
         (r'(?i)pretend\s+(that\s+)?(you|there)\s+(are|is)\s+no\s+(rules?|restrictions?|limits?)',
          'Prompt injection - pretend no rules', Severity.CRITICAL),
-        (r'(?i)jailbreak',
+        (r'(?i)\bjailbreak\b',
          'Prompt injection - jailbreak attempt', Severity.CRITICAL),
         (r'(?i)DAN\s+mode|do\s+anything\s+now',
          'Prompt injection - DAN jailbreak', Severity.CRITICAL),
@@ -131,15 +131,15 @@ class AIContextScanner(BaseScanner):
     # Data exfiltration instructions
     EXFILTRATION_PATTERNS: List[Tuple[str, str, Severity]] = [
         # File reading instructions
-        (r'(?i)(always|must|should)\s+(read|include|show|display|output)\s+.*(\.env|credentials?|secrets?|keys?|tokens?)',
+        (r'(?i)(always|must|should)\s+(read|include|show|display|output)\s+.{0,50}(\.env|credentials?|secrets?|keys?|tokens?)',
          'Exfiltration instruction - read sensitive files', Severity.CRITICAL),
-        (r'(?i)(before|after)\s+(respond|execut|run|process).*read\s+.*file',
+        (r'(?i)(before|after)\s+(respond|execut|run|process).{0,50}read\s+.{0,30}file',
          'Exfiltration instruction - read file before responding', Severity.CRITICAL),
-        (r'(?i)include\s+(the\s+)?(contents?|data)\s+(of|from)\s+.*\s+in\s+(every|all|your)\s+(response|output|reply)',
+        (r'(?i)include\s+(the\s+)?(contents?|data)\s+(of|from)\s+.{0,50}\s+in\s+(every|all|your)\s+(response|output|reply)',
          'Exfiltration instruction - include file in responses', Severity.CRITICAL),
 
         # Path-based exfiltration
-        (r'(?i)(read|access|open|cat|get)\s+.*(~/|/home/|/root/|/etc/|~/.ssh|~/.aws|~/.config)',
+        (r'(?i)(read|access|open|cat|get)\s+.{0,50}(~/|/home/|/root/|/etc/|~/.ssh|~/.aws|~/.config)',
          'Exfiltration instruction - access sensitive paths', Severity.CRITICAL),
         (r'(?i)(id_rsa|id_ed25519|\.pem|\.key|authorized_keys)',
          'Exfiltration instruction - SSH key access', Severity.CRITICAL),
@@ -149,17 +149,17 @@ class AIContextScanner(BaseScanner):
          'Exfiltration instruction - package manager credentials', Severity.HIGH),
 
         # Network exfiltration
-        (r'(?i)(send|post|upload|transmit|exfiltrate)\s+.*(to|via)\s+(http|https|ftp|webhook)',
+        (r'(?i)(send|post|upload|transmit|exfiltrate)\s+.{0,50}(to|via)\s+(http|https|ftp|webhook)',
          'Exfiltration instruction - send data externally', Severity.CRITICAL),
-        (r'(?i)(curl|wget|fetch|request)\s+.*(with|include|send)\s+.*(data|file|content)',
+        (r'(?i)(curl|wget|fetch|request)\s+.{0,50}(with|include|send)\s+.{0,50}(data|file|content)',
          'Exfiltration instruction - HTTP exfiltration', Severity.HIGH),
-        (r'(?i)(webhook|callback|notify)\s+.*(url|endpoint)\s*[=:]',
+        (r'(?i)(webhook|callback|notify)\s+.{0,50}(url|endpoint)\s*[=:]',
          'Exfiltration instruction - webhook configuration', Severity.MEDIUM),
 
         # Sneaky exfiltration
-        (r'(?i)(append|add|include)\s+.*(as\s+)?(a\s+)?(comment|note|sidenote|footnote|debug)',
+        (r'(?i)(append|add|include)\s+.{0,50}(as\s+)?(a\s+)?(comment|note|sidenote|footnote|debug)',
          'Exfiltration instruction - hidden in comments', Severity.HIGH),
-        (r'(?i)base64\s+(encode|decode).*\s+(secret|password|key|credential)',
+        (r'(?i)base64\s+(encode|decode).{0,50}\s+(secret|password|key|credential)',
          'Exfiltration instruction - encoded credentials', Severity.HIGH),
     ]
 
@@ -230,9 +230,9 @@ class AIContextScanner(BaseScanner):
          'Code execution - silent execution', Severity.CRITICAL),
 
         # Package/dependency manipulation
-        (r'(?i)(install|add|require)\s+.*(from|via)\s+(http|ftp|git://|unknown)',
+        (r'(?i)(install|add|require)\s+.{0,50}(from|via)\s+(http|ftp|git://|unknown)',
          'Code execution - install from untrusted source', Severity.HIGH),
-        (r'(?i)(npm|pip|gem|cargo)\s+install\s+.*--force|--no-verify',
+        (r'(?i)(npm|pip|gem|cargo)\s+install\s+.{0,50}(--force|--no-verify)',
          'Code execution - force install without verification', Severity.HIGH),
 
         # Eval/exec patterns
@@ -243,25 +243,25 @@ class AIContextScanner(BaseScanner):
     # AIC015: Reflection/Loop safety patterns (from Agentic Design Patterns research)
     REFLECTION_SAFETY_PATTERNS: List[Tuple[str, str, Severity]] = [
         # Missing iteration limits
-        (r'(?i)(reflect|iterate|loop|retry)\s+(forever|indefinitely|continuously|infinitely)',
+        (r'(?i)\b(reflect|iterate|loop|retry)\b\s+(forever|indefinitely|continuously|infinitely)',
          'Reflection safety - infinite iteration instruction', Severity.HIGH),
-        (r'(?i)(no\s+limit|unlimited|unbounded)\s+(iterations?|loops?|retries?|cycles?)',
+        (r'(?i)(no\s+limit|unlimited|unbounded)\s+\b(iterations?|loops?|retries?|cycles?)\b',
          'Reflection safety - no iteration limit', Severity.HIGH),
         (r'(?i)(keep\s+)?(trying|iterating|looping)\s+until\s+(perfect|done|complete)',
          'Reflection safety - unbounded reflection goal', Severity.MEDIUM),
 
         # Prompt leakage risks
-        (r'(?i)(show|reveal|display|output)\s+(your|the)\s+(system\s+)?(prompt|instructions?|rules?)',
+        (r'(?i)\b(show|reveal|display|output)\b\s+(your|the)\s+(system\s+)?(prompt|instructions?|rules?)\b',
          'Reflection safety - prompt leakage instruction', Severity.CRITICAL),
-        (r'(?i)(include|add|append)\s+(your|the)\s+(internal|system)\s+(reasoning|thoughts?)',
+        (r'(?i)\b(include|add|append)\b\s+(your|the)\s+(internal|system)\s+(reasoning|thoughts?)\b',
          'Reflection safety - internal reasoning exposure', Severity.HIGH),
-        (r'(?i)(divulge|reveal|share)\s+(internal|system|confidential)\s+(details?|info|programming)',
+        (r'(?i)\b(divulge|reveal|share)\b\s+(internal|system|confidential)\s+(details?|info|programming)\b',
          'Reflection safety - divulge internal details', Severity.CRITICAL),
 
         # Unsafe self-modification
-        (r'(?i)(modify|change|update|rewrite)\s+(your\s+)?(own\s+)?(instructions?|rules?|prompts?)',
+        (r'(?i)\b(modify|change|update|rewrite)\b\s+(your\s+)?(own\s+)?\b(instructions?|rules?|prompts?)\b',
          'Reflection safety - self-modification instruction', Severity.CRITICAL),
-        (r'(?i)(reset|clear|forget)\s+(your\s+)?(memory|context|history|rules?)',
+        (r'(?i)\b(reset|clear|forget)\b\s+(your\s+)?\b(memory|context|history|rules?)\b',
          'Reflection safety - reset memory instruction', Severity.CRITICAL),
     ]
 
@@ -474,7 +474,7 @@ class AIContextScanner(BaseScanner):
          'HITL bypass - claiming pre-approved status', Severity.MEDIUM),
         (r'(?i)(user|they|admin)\s+(already|previously)\s+(approved|confirmed|authorized)',
          'HITL bypass - claiming prior approval', Severity.HIGH),
-        (r'(?i)(urgent|emergency|critical)\s+.{0,20}(skip|bypass|no)\s+(approval|review|check)',
+        (r'(?i)(urgent|emergency|critical)\s+.{0,30}(skip|bypass|no)\s+(approval|review|check)',
          'HITL bypass - urgency to skip approval', Severity.HIGH),
 
         # Internal prompt disclosure

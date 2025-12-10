@@ -103,7 +103,7 @@ class MCPServerScanner(BaseScanner):
         (r'execute\s*\(\s*f["\'].*\{', 'SQL with f-string interpolation', Severity.CRITICAL),
         (r'execute\s*\([^)]*%\s*\(', 'SQL with % formatting', Severity.CRITICAL),
         (r'execute\s*\([^)]*\.format\s*\(', 'SQL with .format()', Severity.CRITICAL),
-        (r'execute\s*\([^)]*\+\s*(input|query|param|user|data)',
+        (r'execute\s*\([^)]*\+\s*["\']?\s*\+?\s*(input|query|param|user|data)\b',
          'SQL with string concatenation', Severity.CRITICAL),
 
         # Raw query patterns
@@ -209,7 +209,7 @@ class MCPServerScanner(BaseScanner):
          'Confused deputy - token passthrough from request', Severity.HIGH),
         (r'headers\s*\[\s*["\']authorization["\']\s*\]\s*=.*\+',
          'Confused deputy - dynamic authorization header', Severity.HIGH),
-        (r'(process\.env|os\.environ).*\+.*(user|input|param|query)',
+        (r'(process\.env|os\.environ)\s*\[[^\]]*\]\s*\+\s*[^,;\n]*(user|input|param|query)\b',
          'Confused deputy - mixing env vars with user input', Severity.CRITICAL),
         (r'fetch\s*\([^)]*,\s*\{[^}]*headers\s*:\s*\{[^}]*["\']Authorization["\']\s*:\s*`',
          'Confused deputy - template literal in auth header', Severity.HIGH),
@@ -281,8 +281,8 @@ class MCPServerScanner(BaseScanner):
         (r'setInterval\s*\([^)]*\.(schema|description|tool)',
          'Dynamic schema - periodic schema updates', Severity.HIGH),
 
-        # Conditional tool behavior
-        (r'if\s*\([^)]*Date\s*\(\)|time|hour|day|week',
+        # Conditional tool behavior (must be in condition, not just any mention)
+        (r'if\s*\([^)]*(?:Date\s*\(\)|\.getTime\(\)|\.getHours?\(\)|\.getDay\(\))',
          'Dynamic schema - time-based conditional behavior', Severity.MEDIUM),
     ]
 
@@ -295,7 +295,7 @@ class MCPServerScanner(BaseScanner):
          'CVE-2025-6514: OAuth authorization_endpoint with string concatenation', Severity.CRITICAL),
         (r'authorization_endpoint\s*[=:]\s*[`"\']?\$\{',
          'CVE-2025-6514: OAuth authorization_endpoint with template literal', Severity.CRITICAL),
-        (r'authorization_endpoint\s*[=:]\s*.*user|input|param|query',
+        (r'authorization_endpoint\s*[=:]\s*.*(user|input|param|query)',
          'CVE-2025-6514: OAuth authorization_endpoint from user input', Severity.CRITICAL),
 
         # open() function with untrusted URLs (the actual attack vector)
@@ -307,7 +307,8 @@ class MCPServerScanner(BaseScanner):
          'CVE-2025-6514: open() with template literal URL', Severity.CRITICAL),
 
         # PowerShell command injection indicators (Windows attack vector)
-        (r'\$\(\s*[^)]+\)',
+        # Must look like PowerShell: Start-Process, Invoke-Expression, etc. nearby
+        (r'(Start-Process|Invoke-Expression|iex|powershell).*\$\([^)]+\)',
          'PowerShell subexpression that could enable command injection', Severity.MEDIUM),
         (r'Start-Process\s*[^;]*\+',
          'CVE-2025-6514: Start-Process with dynamic argument', Severity.HIGH),

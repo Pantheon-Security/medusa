@@ -15,4 +15,4 @@ def test_version():
     """Test version is accessible"""
     from medusa import __version__
     # Using assert in tests is standard pytest practice
-    assert __version__ == "2025.3.0.4"
+    assert __version__ == "2025.8.5.10"

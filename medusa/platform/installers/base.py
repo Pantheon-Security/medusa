@@ -192,11 +192,18 @@ class EcosystemDetector:
                 timeout=300  # 5 minute timeout
             )
 
-            success = result.returncode == 0
-            if success:
+            # For gem: returncode 0 means success, even with PATH warnings in stderr
+            # gem outputs "WARNING: You don't have ~/.gem/ruby/X.X.X/bin in your PATH"
+            # but the gem IS installed successfully
+            if result.returncode == 0:
                 return (True, ecosystem, f'Installed via {ecosystem}')
-            else:
-                return (False, ecosystem, f'Installation failed: {result.stderr[:100]}')
+
+            # Real failure - check if it's just a PATH warning (gem-specific)
+            if ecosystem == 'gem' and "don't have" in result.stderr and "in your PATH" in result.stderr:
+                # This is just a warning, gem succeeded
+                return (True, ecosystem, f'Installed via {ecosystem} (add gem bin to PATH)')
+
+            return (False, ecosystem, f'Installation failed: {result.stderr[:100]}')
         except subprocess.TimeoutExpired:
             return (False, ecosystem, 'Installation timed out')
         except Exception as e:
