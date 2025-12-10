@@ -452,7 +452,9 @@ class ToolMapper:
             'manual': 'Download from: https://github.com/realm/SwiftLint/releases',
         },
         'taplo': {
-            # Removed npm - taplo is a Rust tool, use cargo via ecosystem detection
+            'brew': 'taplo',  # Available in Homebrew as of 2024
+            'apt': None,  # Not in apt
+            'cargo': 'taplo-cli',  # Fallback to cargo if brew unavailable
         },
         'tflint': {
             'brew': 'tflint',

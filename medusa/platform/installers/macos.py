@@ -5,17 +5,21 @@ Package installer for macOS using Homebrew
 """
 
 import subprocess
+import shutil
+from pathlib import Path
 from medusa.platform.installers.base import BaseInstaller, ToolMapper
 
 
 class HomebrewInstaller(BaseInstaller):
     """macOS package installer using Homebrew"""
 
-    # Tools that need special handling on macOS
+    # Tools that need special handling on macOS (checked BEFORE ToolMapper)
     SPECIAL_INSTALLS = {
         'dart': {'tap': 'dart-lang/dart', 'package': 'dart'},
-        'swiftlint': {'cask': True, 'package': 'swiftlint'},
-        'codenarc': {'gradle': True, 'url': 'https://github.com/CodeNarc/CodeNarc'},
+        'swiftlint': {'brew_package': 'swiftlint', 'requires_xcode': True},
+        'rubocop': {'gem_user': True},  # Use gem install --user-install
+        'perlcritic': {'cpanm_first': True, 'brew_package': 'perl-critic'},  # Try cpanm before cpan
+        'codenarc': {'skip': True, 'reason': 'Groovy linter - install via SDKMAN or download JAR'},
     }
 
     def __init__(self):
@@ -34,31 +38,154 @@ class HomebrewInstaller(BaseInstaller):
         except:
             return False
 
+    def _find_cargo(self) -> str:
+        """Find cargo, checking ~/.cargo/bin even if not in PATH"""
+        cargo = shutil.which('cargo')
+        if cargo:
+            return cargo
+
+        # Check common locations
+        home = Path.home()
+        cargo_paths = [
+            home / '.cargo' / 'bin' / 'cargo',
+        ]
+        for path in cargo_paths:
+            if path.exists():
+                return str(path)
+        return None
+
+    def _install_via_gem(self, package: str) -> bool:
+        """Install Ruby gem with --user-install to avoid permission issues"""
+        gem = shutil.which('gem')
+        if not gem:
+            return False
+
+        try:
+            result = subprocess.run(
+                [gem, 'install', '--user-install', package],
+                capture_output=True, text=True, timeout=120
+            )
+            # gem install can return 0 even with warnings
+            # Check if binary exists after install
+            if shutil.which(package):
+                return True
+            # Check user gem bin
+            user_gem_bin = Path.home() / '.gem' / 'ruby'
+            if user_gem_bin.exists():
+                for version_dir in user_gem_bin.iterdir():
+                    bin_path = version_dir / 'bin' / package
+                    if bin_path.exists():
+                        return True
+            return result.returncode == 0
+        except:
+            return False
+
+    def _install_via_cpanm(self, module: str) -> bool:
+        """Install Perl module via cpanm (faster than cpan)"""
+        cpanm = shutil.which('cpanm')
+        if not cpanm:
+            # Try to install cpanm first
+            cpan = shutil.which('cpan')
+            if cpan:
+                try:
+                    subprocess.run([cpan, '-T', 'App::cpanminus'],
+                                   capture_output=True, timeout=300)
+                    cpanm = shutil.which('cpanm')
+                except:
+                    pass
+
+        if not cpanm:
+            return False
+
+        try:
+            result = subprocess.run(
+                [cpanm, '--notest', module],
+                capture_output=True, text=True, timeout=300
+            )
+            return result.returncode == 0
+        except:
+            return False
+
+    def _install_via_cargo(self, crate: str) -> bool:
+        """Install Rust crate via cargo"""
+        cargo = self._find_cargo()
+        if not cargo:
+            return False
+
+        try:
+            result = subprocess.run(
+                [cargo, 'install', crate],
+                capture_output=True, text=True, timeout=600
+            )
+            return result.returncode == 0
+        except:
+            return False
+
+    def _check_xcode_cli_tools(self) -> bool:
+        """Check if Xcode command line tools are properly configured"""
+        try:
+            result = subprocess.run(
+                ['xcode-select', '-p'],
+                capture_output=True, text=True
+            )
+            # Should point to Xcode.app, not just CommandLineTools
+            return 'Xcode.app' in result.stdout or result.returncode == 0
+        except:
+            return False
+
+    def _install_with_xcode_check(self, brew_package: str) -> bool:
+        """Install a package that requires Xcode, with helpful error message"""
+        # First check Xcode setup
+        if not self._check_xcode_cli_tools():
+            from rich.console import Console
+            console = Console()
+            console.print("[yellow]  ⚠ Xcode CLI tools may not be configured correctly[/yellow]")
+            console.print("[yellow]    Run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer[/yellow]")
+
+        # Try the install anyway
+        try:
+            result = self.run_command(['brew', 'install', brew_package], check=False)
+            return result.returncode == 0
+        except:
+            return False
+
     def install(self, package: str, sudo: bool = False) -> bool:
         """Install package using brew (no sudo needed)"""
         if not self.pm_path:
             return False
 
-        # Check for special install handling
+        # Check for special install handling FIRST
         if package in self.SPECIAL_INSTALLS:
             special = self.SPECIAL_INSTALLS[package]
+
+            # Skip tools that can't be auto-installed
+            if special.get('skip'):
+                return False
+
+            # Handle Ruby gems with user install
+            if special.get('gem_user'):
+                return self._install_via_gem(package)
+
+            # Handle Perl modules - try cpanm first
+            if special.get('cpanm_first'):
+                if self._install_via_cpanm('Perl::Critic'):
+                    return True
+                # Fall back to brew
+                brew_pkg = special.get('brew_package', package)
+                try:
+                    result = self.run_command(['brew', 'install', brew_pkg], check=False)
+                    return result.returncode == 0
+                except:
+                    return False
+
+            # Handle tools that require Xcode (like swiftlint)
+            if special.get('requires_xcode'):
+                brew_pkg = special.get('brew_package', package)
+                return self._install_with_xcode_check(brew_pkg)
 
             # Handle taps (e.g., dart needs dart-lang/dart tap)
             if 'tap' in special:
                 if not self._tap_if_needed(special['tap']):
-                    return False
-
-            # Handle cask installs (e.g., swiftlint on Apple Silicon)
-            if special.get('cask'):
-                try:
-                    # First try regular install
-                    result = self.run_command(['brew', 'install', special['package']], check=False)
-                    if result.returncode == 0:
-                        return True
-                    # Fall back to cask
-                    result = self.run_command(['brew', 'install', '--cask', special['package']], check=False)
-                    return result.returncode == 0
-                except:
                     return False
 
             # Use special package name if specified
