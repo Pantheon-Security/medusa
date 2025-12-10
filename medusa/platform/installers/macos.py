@@ -22,6 +22,18 @@ class HomebrewInstaller(BaseInstaller):
         'codenarc': {'skip': True, 'reason': 'Groovy linter - install via SDKMAN or download JAR'},
     }
 
+    # Helpful hints for tools that commonly fail on macOS
+    INSTALL_HINTS = {
+        'swiftlint': 'Requires Xcode CLI tools. Run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer',
+        'perlcritic': 'Requires C compiler. Run: xcode-select --install',
+        'codenarc': 'Install SDKMAN first: curl -s "https://get.sdkman.io" | bash && sdk install groovy',
+    }
+
+    @classmethod
+    def get_install_hint(cls, tool: str) -> str:
+        """Get helpful installation hint for a tool"""
+        return cls.INSTALL_HINTS.get(tool, '')
+
     def __init__(self):
         super().__init__('brew')
 

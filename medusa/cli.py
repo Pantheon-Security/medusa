@@ -2268,17 +2268,35 @@ def install(tool, check, all, yes, use_latest, debug):
                                     already_existed=False
                                 )
                             else:
-                                console.print(f"  [red]❌ {message}[/red]\n")
+                                console.print(f"  [red]❌ {message}[/red]")
+                                # Show helpful hint on macOS
+                                if platform_info.os_type.value == 'darwin':
+                                    from medusa.platform.installers.macos import HomebrewInstaller
+                                    hint = HomebrewInstaller.get_install_hint(tool_name)
+                                    if hint:
+                                        console.print(f"  [dim]💡 {hint}[/dim]")
+                                console.print()
                                 failed += 1
                                 failed_details.append((tool_name, f"{installer_name} → {ecosystem_name}"))
                         else:
                             # Ecosystem not found
                             console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
+                            # Show helpful hint on macOS
+                            if platform_info.os_type.value == 'darwin':
+                                from medusa.platform.installers.macos import HomebrewInstaller
+                                hint = HomebrewInstaller.get_install_hint(tool_name)
+                                if hint:
+                                    console.print(f"  [dim]💡 {hint}[/dim]")
                             console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
                             failed += 1
                             failed_details.append((tool_name, installer_name))
                     else:
-                        # No ecosystem option for this tool
+                        # No ecosystem option for this tool - show hint if available
+                        if platform_info.os_type.value == 'darwin':
+                            from medusa.platform.installers.macos import HomebrewInstaller
+                            hint = HomebrewInstaller.get_install_hint(tool_name)
+                            if hint:
+                                console.print(f"  [dim]💡 {hint}[/dim]")
                         console.print()
                         failed += 1
                         failed_details.append((tool_name, installer_name))

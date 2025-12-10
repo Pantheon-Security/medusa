@@ -3,7 +3,7 @@ MEDUSA - Multi-Language Security Scanner
 Universal security scanner with 46+ specialized analyzers for all languages and platforms.
 """
 
-__version__ = "2025.8.5.10"
+__version__ = "2025.8.5.11"
 __author__ = "Pantheon Security"
 __license__ = "AGPL-3.0-or-later"
 
