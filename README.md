@@ -18,7 +18,7 @@
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **46+ different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **64 different languages and file types**.
 
 ### ✨ Key Features
 
