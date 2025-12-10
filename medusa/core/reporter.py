@@ -278,565 +278,526 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         return output_path
 
     def _build_html_report(self, report: Dict[str, Any]) -> str:
-        """Build stunning modern HTML report with glassmorphism and animations"""
+        """Build professional, clean HTML security report"""
+        from medusa import __version__
+
         summary = report['scan_summary']
         severity_breakdown = report['severity_breakdown']
         findings = report['findings']
+
+        # Calculate actual severity counts from findings
+        actual_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+        for f in findings:
+            sev = f.get('severity', 'LOW').upper()
+            if sev in actual_counts:
+                actual_counts[sev] += 1
+
+        # Get score color based on value
+        score = summary['security_score']
+        if score >= 90:
+            score_color = '#22c55e'  # Green
+        elif score >= 70:
+            score_color = '#eab308'  # Yellow
+        elif score >= 50:
+            score_color = '#f97316'  # Orange
+        else:
+            score_color = '#ef4444'  # Red
 
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MEDUSA Security Report - {report['timestamp']}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>MEDUSA Security Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
         :root {{
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --bg-dark: #0f172a;
-            --bg-card: rgba(255, 255, 255, 0.05);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --glass-bg: rgba(255, 255, 255, 0.08);
-            --glass-border: rgba(255, 255, 255, 0.18);
+            /* Pantheon Security Brand Colors */
+            --bg: #0d1117;
+            --bg-card: #161b22;
+            --bg-card-hover: #21262d;
+            --border: #30363d;
+            --text: #e6edf3;
+            --text-muted: #8b949e;
+            --primary: #00CED1;          /* Cyan - brand primary */
+            --primary-dark: #123B70;     /* Dark blue */
+            --accent: #98FB92;           /* Electric green */
+            --critical: #f85149;
+            --high: #db6d28;
+            --medium: #d29922;
+            --low: #00CED1;              /* Use brand cyan for low */
+            --success: #98FB92;          /* Brand green */
         }}
 
         body {{
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-            background-attachment: fixed;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
             min-height: 100vh;
-            padding: 0;
-            color: var(--text-primary);
-        }}
-
-        /* Animated background particles */
-        body::before {{
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image:
-                radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(255, 119, 255, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(138, 180, 248, 0.3) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-            pointer-events: none;
-            z-index: 0;
-        }}
-
-        @keyframes float {{
-            0%, 100% {{ transform: translateY(0) rotate(0deg); }}
-            50% {{ transform: translateY(-20px) rotate(5deg); }}
         }}
 
         .container {{
-            max-width: 1400px;
-            margin: 40px auto;
-            position: relative;
-            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 24px;
         }}
 
-        /* Glass morphism header */
+        /* Header */
         .header {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 60px 40px;
-            text-align: center;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }}
-
-        .header h1 {{
-            font-size: 3.5em;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 15px;
-            letter-spacing: -2px;
-        }}
-
-        .header .subtitle {{
-            font-size: 1.3em;
-            color: var(--text-secondary);
-            font-weight: 400;
-        }}
-
-        .header .timestamp {{
-            margin-top: 15px;
-            font-size: 0.95em;
-            color: rgba(255, 255, 255, 0.6);
-            font-weight: 300;
-        }}
-
-        /* Dashboard grid */
-        .dashboard {{
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 30px;
-            margin-bottom: 30px;
-        }}
-
-        /* Score card with animated ring */
-        .score-card {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            position: relative;
-            overflow: hidden;
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
         }}
 
-        .score-card::before {{
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 4s ease-in-out infinite;
-        }}
-
-        @keyframes pulse {{
-            0%, 100% {{ transform: scale(1); opacity: 0.5; }}
-            50% {{ transform: scale(1.1); opacity: 0.8; }}
-        }}
-
-        .score-ring {{
-            position: relative;
-            width: 240px;
-            height: 240px;
-        }}
-
-        .score-ring svg {{
-            transform: rotate(-90deg);
-            width: 100%;
-            height: 100%;
-        }}
-
-        .score-ring-bg {{
-            fill: none;
-            stroke: rgba(255, 255, 255, 0.1);
-            stroke-width: 16;
-        }}
-
-        .score-ring-progress {{
-            fill: none;
-            stroke: url(#scoreGradient);
-            stroke-width: 16;
-            stroke-linecap: round;
-            stroke-dasharray: 628;
-            stroke-dashoffset: {628 - (628 * summary['security_score'] / 100)};
-            animation: fillRing 2s ease-out forwards;
-        }}
-
-        @keyframes fillRing {{
-            from {{ stroke-dashoffset: 628; }}
-        }}
-
-        .score-content {{
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-        }}
-
-        .score-value {{
-            font-size: 4em;
-            font-weight: 800;
-            background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1;
-            margin-bottom: 8px;
-        }}
-
-        .score-label {{
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }}
-
-        .risk-badge {{
-            margin-top: 25px;
-            padding: 12px 32px;
-            border-radius: 100px;
-            font-size: 1.1em;
-            font-weight: 700;
-            background: {self._get_risk_gradient(summary['risk_level'])};
-            color: white;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 8px 24px {self._get_risk_shadow(summary['risk_level'])};
-        }}
-
-        /* Stats grid */
-        .stats-grid {{
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-        }}
-
-        .stat-card {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 30px;
-            transition: all 0.3s ease;
-            cursor: default;
-            position: relative;
-            overflow: hidden;
-        }}
-
-        .stat-card::before {{
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--success));
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }}
-
-        .stat-card:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
-        }}
-
-        .stat-card:hover::before {{
-            transform: scaleX(1);
-        }}
-
-        .stat-icon {{
-            font-size: 2.5em;
-            margin-bottom: 15px;
-            opacity: 0.8;
-        }}
-
-        .stat-value {{
-            font-size: 3em;
-            font-weight: 800;
-            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 8px;
-            line-height: 1;
-        }}
-
-        .stat-label {{
-            color: var(--text-secondary);
-            font-size: 0.95em;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }}
-
-        /* Severity section */
-        .severity-section {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            margin-bottom: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }}
-
-        h2 {{
-            font-size: 1.8em;
-            font-weight: 700;
-            margin-bottom: 30px;
-            color: var(--text-primary);
+        .logo {{
             display: flex;
             align-items: center;
             gap: 12px;
         }}
 
-        h2::before {{
-            content: '';
-            width: 4px;
-            height: 30px;
-            background: linear-gradient(180deg, var(--primary), var(--success));
-            border-radius: 4px;
-        }}
-
-        .severity-bars {{
-            display: grid;
-            gap: 20px;
-        }}
-
-        .severity-bar {{
-            position: relative;
-        }}
-
-        .severity-header {{
+        .logo-icon {{
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 12px;
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 12px;
+            justify-content: center;
+            font-size: 24px;
         }}
 
-        .severity-name {{
+        .logo-text {{
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }}
+
+        .logo-version {{
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 400;
+        }}
+
+        .report-meta {{
+            text-align: right;
+            color: var(--text-muted);
+            font-size: 14px;
+        }}
+
+        /* Summary Cards */
+        .summary-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+
+        .summary-card {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }}
+
+        .summary-card.score {{
+            grid-column: span 2;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }}
+
+        .score-circle {{
+            position: relative;
+            width: 100px;
+            height: 100px;
+            flex-shrink: 0;
+        }}
+
+        .score-circle svg {{
+            transform: rotate(-90deg);
+            width: 100%;
+            height: 100%;
+        }}
+
+        .score-bg {{
+            fill: none;
+            stroke: var(--border);
+            stroke-width: 8;
+        }}
+
+        .score-progress {{
+            fill: none;
+            stroke: {score_color};
+            stroke-width: 8;
+            stroke-linecap: round;
+            stroke-dasharray: 251;
+            stroke-dashoffset: {251 - (251 * score / 100)};
+        }}
+
+        .score-value {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 28px;
+            font-weight: 700;
+            color: {score_color};
+        }}
+
+        .score-info h3 {{
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }}
+
+        .score-info .risk {{
+            font-size: 24px;
             font-weight: 600;
-            font-size: 1.05em;
+        }}
+
+        .summary-label {{
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }}
+
+        .summary-value {{
+            font-size: 32px;
+            font-weight: 700;
+        }}
+
+        /* Severity Breakdown */
+        .severity-section {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 40px;
+        }}
+
+        .section-title {{
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 8px;
         }}
 
+        .severity-grid {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }}
+
+        .severity-item {{
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 16px;
+            text-align: center;
+        }}
+
         .severity-count {{
-            background: rgba(255, 255, 255, 0.1);
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.9em;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }}
+
+        .severity-count.critical {{ color: var(--critical); }}
+        .severity-count.high {{ color: var(--high); }}
+        .severity-count.medium {{ color: var(--medium); }}
+        .severity-count.low {{ color: var(--low); }}
+
+        .severity-label {{
+            font-size: 12px;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }}
 
-        .bar-track {{
-            height: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 100px;
-            overflow: hidden;
-            position: relative;
-        }}
+        .severity-label.critical {{ color: var(--critical); }}
+        .severity-label.high {{ color: var(--high); }}
+        .severity-label.medium {{ color: var(--medium); }}
+        .severity-label.low {{ color: var(--low); }}
 
-        .bar-progress {{
-            height: 100%;
-            border-radius: 100px;
-            background: linear-gradient(90deg, var(--color-start), var(--color-end));
-            transition: width 1s ease-out;
-            position: relative;
-            overflow: hidden;
-        }}
-
-        .bar-progress::after {{
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            right: 0;
-            background: linear-gradient(90deg,
-                transparent,
-                rgba(255, 255, 255, 0.3),
-                transparent
-            );
-            animation: shimmer 2s infinite;
-        }}
-
-        @keyframes shimmer {{
-            0% {{ transform: translateX(-100%); }}
-            100% {{ transform: translateX(100%); }}
-        }}
-
-        /* Findings section */
+        /* Findings */
         .findings-section {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }}
-
-        .finding-card {{
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-left: 4px solid var(--severity-color);
-            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
             padding: 24px;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
         }}
 
-        .finding-card:hover {{
-            background: rgba(255, 255, 255, 0.06);
-            transform: translateX(8px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        .finding {{
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border-left: 4px solid var(--border);
         }}
+
+        .finding:last-child {{
+            margin-bottom: 0;
+        }}
+
+        .finding.critical {{ border-left-color: var(--critical); }}
+        .finding.high {{ border-left-color: var(--high); }}
+        .finding.medium {{ border-left-color: var(--medium); }}
+        .finding.low {{ border-left-color: var(--low); }}
 
         .finding-header {{
             display: flex;
             justify-content: space-between;
-            align-items: start;
-            margin-bottom: 16px;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            gap: 16px;
         }}
 
-        .finding-file {{
-            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.05);
-            padding: 6px 12px;
-            border-radius: 8px;
+        .finding-location {{
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 4px 10px;
+            border-radius: 4px;
         }}
 
-        .severity-badge {{
-            padding: 6px 16px;
-            border-radius: 100px;
-            font-size: 0.75em;
-            font-weight: 700;
-            color: white;
+        .finding-badge {{
+            font-size: 11px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 4px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            background: var(--severity-color);
-            box-shadow: 0 4px 12px var(--severity-shadow);
+            flex-shrink: 0;
         }}
 
-        .finding-issue {{
-            color: var(--text-primary);
-            font-size: 1.05em;
-            font-weight: 500;
+        .finding-badge.critical {{ background: var(--critical); color: white; }}
+        .finding-badge.high {{ background: var(--high); color: white; }}
+        .finding-badge.medium {{ background: var(--medium); color: #1e293b; }}
+        .finding-badge.low {{ background: var(--low); color: white; }}
+
+        .finding-message {{
+            font-size: 15px;
+            color: var(--text);
             margin-bottom: 12px;
-            line-height: 1.6;
+            line-height: 1.5;
         }}
 
         .finding-code {{
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 16px;
-            font-family: 'SF Mono', 'Monaco', 'Courier New', monospace;
-            font-size: 0.85em;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 14px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 13px;
+            color: #e6edf3;
             overflow-x: auto;
-            margin-top: 12px;
-            color: #e2e8f0;
+            margin-bottom: 12px;
         }}
 
         .finding-meta {{
-            margin-top: 12px;
-            font-size: 0.85em;
-            color: var(--text-secondary);
             display: flex;
-            gap: 16px;
-            flex-wrap: wrap;
+            gap: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
         }}
 
-        .meta-item {{
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        .finding-meta a {{
+            color: var(--primary);
+            text-decoration: none;
+        }}
+
+        .finding-meta a:hover {{
+            text-decoration: underline;
+        }}
+
+        .no-findings {{
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--success);
+        }}
+
+        .no-findings-icon {{
+            font-size: 48px;
+            margin-bottom: 16px;
+        }}
+
+        .no-findings-text {{
+            font-size: 18px;
+            font-weight: 500;
         }}
 
         /* Footer */
         .footer {{
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 30px;
             text-align: center;
-            margin-top: 30px;
-            color: var(--text-secondary);
+            margin-top: 40px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 14px;
         }}
 
-        .footer-title {{
-            font-size: 1.2em;
-            font-weight: 700;
-            margin-bottom: 8px;
-            color: var(--text-primary);
+        .footer a {{
+            color: var(--primary);
+            text-decoration: none;
         }}
 
-        @media (max-width: 1024px) {{
-            .dashboard {{ grid-template-columns: 1fr; }}
-            .stats-grid {{ grid-template-columns: 1fr; }}
+        @media (max-width: 768px) {{
+            .summary-grid {{
+                grid-template-columns: 1fr;
+            }}
+            .summary-card.score {{
+                grid-column: span 1;
+            }}
+            .severity-grid {{
+                grid-template-columns: repeat(2, 1fr);
+            }}
+            .header {{
+                flex-direction: column;
+                gap: 16px;
+                text-align: center;
+            }}
+            .report-meta {{
+                text-align: center;
+            }}
         }}
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>🐍 MEDUSA</h1>
-            <div class="subtitle">Security Analysis Dashboard</div>
-            <div class="timestamp">Generated {datetime.fromisoformat(report['timestamp']).strftime('%B %d, %Y at %H:%M:%S')}</div>
-        </div>
-
-        <div class="dashboard">
-            <div class="score-card">
-                <div class="score-ring">
-                    <svg viewBox="0 0 200 200">
-                        <defs>
-                            <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
-                            </linearGradient>
-                        </defs>
-                        <circle cx="100" cy="100" r="90" class="score-ring-bg"></circle>
-                        <circle cx="100" cy="100" r="90" class="score-ring-progress"></circle>
-                    </svg>
-                    <div class="score-content">
-                        <div class="score-value">{summary['security_score']}</div>
-                        <div class="score-label">Security Score</div>
-                    </div>
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">🐍</div>
+                <div>
+                    <div class="logo-text">MEDUSA</div>
+                    <div class="logo-version">v{__version__}</div>
                 </div>
-                <div class="risk-badge">{summary['risk_level']}</div>
             </div>
+            <div class="report-meta">
+                <div>Security Scan Report</div>
+                <div>{datetime.fromisoformat(report['timestamp']).strftime('%B %d, %Y at %H:%M')}</div>
+            </div>
+        </header>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon">🎯</div>
-                    <div class="stat-value">{summary['total_issues']}</div>
-                    <div class="stat-label">Security Issues</div>
+        <div class="summary-grid">
+            <div class="summary-card score">
+                <div class="score-circle">
+                    <svg viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="40" class="score-bg"/>
+                        <circle cx="50" cy="50" r="40" class="score-progress"/>
+                    </svg>
+                    <div class="score-value">{int(score)}</div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon">📂</div>
-                    <div class="stat-value">{summary['files_scanned']}</div>
-                    <div class="stat-label">Files Scanned</div>
+                <div class="score-info">
+                    <h3>Security Score</h3>
+                    <div class="risk" style="color: {score_color}">{summary['risk_level']}</div>
                 </div>
-                <div class="stat-card" style="grid-column: span 2;">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-value">{summary['lines_scanned']:,}</div>
-                    <div class="stat-label">Lines of Code Analyzed</div>
-                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Total Issues</div>
+                <div class="summary-value">{summary['total_issues']}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Files Scanned</div>
+                <div class="summary-value">{summary['files_scanned']}</div>
             </div>
         </div>
 
         <div class="severity-section">
-            <h2>Issue Distribution</h2>
-            <div class="severity-bars">
-                {self._build_modern_severity_bars(severity_breakdown, summary['total_issues'])}
+            <h2 class="section-title">Issue Breakdown</h2>
+            <div class="severity-grid">
+                <div class="severity-item">
+                    <div class="severity-count critical">{actual_counts['CRITICAL']}</div>
+                    <div class="severity-label critical">Critical</div>
+                </div>
+                <div class="severity-item">
+                    <div class="severity-count high">{actual_counts['HIGH']}</div>
+                    <div class="severity-label high">High</div>
+                </div>
+                <div class="severity-item">
+                    <div class="severity-count medium">{actual_counts['MEDIUM']}</div>
+                    <div class="severity-label medium">Medium</div>
+                </div>
+                <div class="severity-item">
+                    <div class="severity-count low">{actual_counts['LOW']}</div>
+                    <div class="severity-label low">Low</div>
+                </div>
             </div>
         </div>
 
         <div class="findings-section">
-            <h2>Detailed Findings</h2>
-            {self._build_modern_findings_html(findings)}
+            <h2 class="section-title">Findings ({len(findings)})</h2>
+            {self._build_professional_findings_html(findings)}
         </div>
 
-        <div class="footer">
-            <div class="footer-title">MEDUSA v0.11.1</div>
-            <div>Multi-Language Security Scanner with 40+ Analyzers • Pantheon Security</div>
-        </div>
+        <footer class="footer">
+            <p>Generated by <strong>MEDUSA</strong> v{__version__} • 64 Security Analyzers</p>
+            <p><a href="https://pantheonsecurity.io">Pantheon Security</a></p>
+        </footer>
     </div>
 </body>
 </html>"""
 
         return html
+
+    def _build_professional_findings_html(self, findings: List[Dict]) -> str:
+        """Build professional findings list"""
+        if not findings:
+            return '''
+            <div class="no-findings">
+                <div class="no-findings-icon">✓</div>
+                <div class="no-findings-text">No security issues found</div>
+            </div>
+            '''
+
+        # Sort by severity
+        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNDEFINED': 4}
+        sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.get('severity', 'LOW').upper(), 99))
+
+        html_parts = []
+        for finding in sorted_findings:
+            severity = finding.get('severity', 'LOW').upper()
+            severity_class = severity.lower()
+
+            # Escape HTML in user content
+            import html as html_lib
+            issue = html_lib.escape(finding.get('issue', 'Unknown issue'))
+            file_path = html_lib.escape(str(finding.get('file', 'Unknown')))
+            line = finding.get('line', '?')
+            code = html_lib.escape(finding.get('code', '')) if finding.get('code') else ''
+            scanner = html_lib.escape(finding.get('scanner', 'unknown'))
+            confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
+            cwe = finding.get('cwe')
+
+            code_block = f'<pre class="finding-code">{code}</pre>' if code else ''
+            cwe_link = f'<span>CWE: <a href="https://cwe.mitre.org/data/definitions/{cwe}.html" target="_blank">{cwe}</a></span>' if cwe else ''
+
+            html_parts.append(f'''
+            <div class="finding {severity_class}">
+                <div class="finding-header">
+                    <span class="finding-location">{file_path}:{line}</span>
+                    <span class="finding-badge {severity_class}">{severity}</span>
+                </div>
+                <div class="finding-message">{issue}</div>
+                {code_block}
+                <div class="finding-meta">
+                    <span>Scanner: {scanner}</span>
+                    <span>Confidence: {confidence}</span>
+                    {cwe_link}
+                </div>
+            </div>
+            ''')
+
+        return ''.join(html_parts)
 
     def _get_risk_color(self, risk_level: str) -> str:
         """Get color for risk level badge"""
