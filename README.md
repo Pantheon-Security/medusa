@@ -138,7 +138,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v2025.8.5.5 - Security Guardian
+🐍 MEDUSA v2025.8.5.11 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -582,7 +582,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2025.8.5.5
+version: 2025.8.5.11
 
 # Scanner control
 scanners:
@@ -1047,12 +1047,12 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.8.5.5
-**Release Date**: 2025-12-07
+**Version**: 2025.8.5.11
+**Release Date**: 2025-12-10
 **Total Scanners**: 64 (16 AI security + React2Shell CVE detection)
 **Detection Rules**: 150+ AI-specific rules + CVE detection
 **Language Coverage**: 46+ file types
-**Platform Support**: Linux, macOS, Windows
+**Platform Support**: Linux, macOS, Windows (with helpful install hints)
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
 **Standards**: OWASP Top 10 for LLM 2025, MITRE ATLAS
 **Downloads**: 11,500+ on PyPI
@@ -1099,6 +1099,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-12-07
+**Last Updated**: 2025-12-10
 **Status**: Production Ready
-**Current Version**: v2025.8.5.5 - React2Shell CVE Detection + AI Security
+**Current Version**: v2025.8.5.11 - Scanner Regex Fixes + macOS Install Hints
