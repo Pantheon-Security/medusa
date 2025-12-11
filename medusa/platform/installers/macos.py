@@ -47,7 +47,7 @@ class HomebrewInstaller(BaseInstaller):
             # Add tap
             result = self.run_command(['brew', 'tap', tap], check=False)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def _find_cargo(self) -> str:
@@ -107,7 +107,7 @@ class HomebrewInstaller(BaseInstaller):
                     subprocess.run([cpan, '-T', 'App::cpanminus'],
                                    capture_output=True, timeout=300)
                     cpanm = shutil.which('cpanm')
-                except:
+                except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
                     pass
 
         if not cpanm:
@@ -119,7 +119,7 @@ class HomebrewInstaller(BaseInstaller):
                 capture_output=True, text=True, timeout=300
             )
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def _install_via_cargo(self, crate: str) -> bool:
@@ -134,7 +134,7 @@ class HomebrewInstaller(BaseInstaller):
                 capture_output=True, text=True, timeout=600
             )
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def _check_xcode_cli_tools(self) -> bool:
@@ -146,7 +146,7 @@ class HomebrewInstaller(BaseInstaller):
             )
             # Should point to Xcode.app, not just CommandLineTools
             return 'Xcode.app' in result.stdout or result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def _install_with_xcode_check(self, brew_package: str) -> bool:
@@ -162,7 +162,7 @@ class HomebrewInstaller(BaseInstaller):
         try:
             result = self.run_command(['brew', 'install', brew_package], check=False)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def install(self, package: str, sudo: bool = False) -> bool:
@@ -191,7 +191,7 @@ class HomebrewInstaller(BaseInstaller):
                 try:
                     result = self.run_command(['brew', 'install', brew_pkg], check=False)
                     return result.returncode == 0
-                except:
+                except (subprocess.SubprocessError, OSError, FileNotFoundError):
                     return False
 
             # Handle tools that require Xcode (like swiftlint)
@@ -217,7 +217,7 @@ class HomebrewInstaller(BaseInstaller):
         try:
             result = self.run_command(cmd, check=True)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def is_installed(self, package: str) -> bool:
@@ -229,7 +229,7 @@ class HomebrewInstaller(BaseInstaller):
         try:
             result = self.run_command(['brew', 'list', package_name], check=False)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def uninstall(self, package: str, sudo: bool = False) -> bool:
@@ -246,7 +246,7 @@ class HomebrewInstaller(BaseInstaller):
         try:
             result = self.run_command(cmd, check=True)
             return result.returncode == 0
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             return False
 
     def get_install_command(self, package: str, sudo: bool = False) -> str:
