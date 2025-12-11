@@ -11,7 +11,8 @@
 
 **Universal security scanner with 64 specialized analyzers for all languages and platforms.**
 **🤖 AI Agent Security with 50+ detection rules for the agentic era.**
-**🚨 NEW: React2Shell CVE-2025-55182 detection (CVSS 10.0 RCE)**
+**🚨 CVE Detection: React2Shell CVE-2025-55182 (CVSS 10.0 RCE)**
+**✨ NEW v2025.8.5.12: Auto-excludes virtual environments & dependencies - zero false positives from pip packages!**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
@@ -34,6 +35,14 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 - 🌍 **Cross-Platform** - Native Windows, macOS, and Linux support
 - 📊 **Multiple Reports** - JSON, HTML, Markdown exports for any workflow
 - 🎯 **Zero Config** - Works out of the box with sensible defaults
+
+### 🆕 What's New in v2025.8.5.12
+
+- **Zero False Positives from Dependencies** - Virtual environments (`venv/`, `*-env/`) and pip packages (`site-packages/`) are now automatically excluded
+- **Smart Config Merging** - User exclusions merge with mandatory exclusions instead of replacing them
+- **Auto-Detect Virtual Environments** - Automatically finds and excludes venvs via `pyvenv.cfg` marker
+- **Updated Security Tools** - semgrep 1.145.0, trivy 0.68.1, ruff 0.14.8, black 25.12.0
+- **Improved Exception Handling** - Fixed 11 bare exception clauses for better error reporting
 
 ---
 
