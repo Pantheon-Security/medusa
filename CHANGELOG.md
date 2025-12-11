@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.8.5.12] - 2025-12-11
+
+### Fixed
+- **Critical: Zero False Positives from Dependencies** - Virtual environments and pip packages are now automatically excluded
+  - Added 50+ default exclusion patterns for all package managers (npm, pip, cargo, go, ruby, etc.)
+  - Config now **merges** user paths with mandatory exclusions instead of replacing them
+  - Mandatory exclusions: `site-packages/`, `dist-packages/`, `node_modules/`, `lib/python*/`, `__pycache__/`, `.git/`
+- **Auto-Detect Virtual Environments** - Automatically finds and excludes venvs via `pyvenv.cfg` marker
+- **Bare Exception Handling** - Fixed 11 bare `except:` clauses in `macos.py` with specific exception types
+- **React2Shell Scanner** - Fixed exception handling with specific types (`OSError`, `IOError`, `UnicodeDecodeError`)
+- **YAML Example Files** - Added document start headers (`---`) to example CI/CD files
+
+### Changed
+- **Improved Exclusion Matching** - Pattern matching now checks if exclusion pattern appears anywhere in full path
+- **Wildcard Pattern Support** - Patterns like `*-env/` now properly match `medusa-env/`, `python-env/`, etc.
+
+### Updated
+- semgrep: 1.144.0 → 1.145.0
+- trivy: 0.67.2 → 0.68.1
+- ruff: 0.14.5 → 0.14.8
+- black: 25.11.0 → 25.12.0
+- mypy: 1.18.2 → 1.19.0
+- pytest: 9.0.1 → 9.0.2
+- coverage: 7.11.3 → 7.13.0
+- beautifulsoup4: 4.14.2 → 4.14.3
+- rpds-py: 0.29.0 → 0.30.0
+
 ## [2025.8.5.11] - 2025-12-10
 
 ### Added
