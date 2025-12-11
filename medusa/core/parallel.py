@@ -223,31 +223,68 @@ class MedusaParallelScanner:
         # Return None if not found - Python scanning will still work
         return None
 
+    def _detect_virtual_environments(self) -> List[str]:
+        """Auto-detect virtual environment directories in the project"""
+        venv_markers = ['pyvenv.cfg', 'pip-selfcheck.json']
+        detected_venvs = []
+
+        # Scan top-level directories for venv markers
+        try:
+            for item in self.project_root.iterdir():
+                if item.is_dir():
+                    # Check for pyvenv.cfg (definitive venv marker)
+                    if (item / 'pyvenv.cfg').exists():
+                        detected_venvs.append(item.name + '/')
+                    # Check for typical venv structure (bin/activate or Scripts/activate.bat)
+                    elif (item / 'bin' / 'activate').exists() or (item / 'Scripts' / 'activate.bat').exists():
+                        detected_venvs.append(item.name + '/')
+        except PermissionError:
+            pass
+
+        return detected_venvs
+
     def find_scannable_files(self) -> List[Path]:
         """Find all files that can be scanned"""
         import fnmatch
 
         files = []
 
-        # Use exclusions from config
-        exclude_paths = self.config.exclude_paths
+        # Use exclusions from config + auto-detected virtual environments
+        exclude_paths = list(self.config.exclude_paths)  # Make a copy
         exclude_file_patterns = self.config.exclude_files
+
+        # Auto-detect virtual environments and add to exclusions
+        detected_venvs = self._detect_virtual_environments()
+        for venv in detected_venvs:
+            if venv not in exclude_paths:
+                exclude_paths.append(venv)
 
         def is_path_excluded(file_path: Path) -> bool:
             """Check if path matches any exclusion pattern"""
             relative_path = str(file_path.relative_to(self.project_root))
+            path_parts = relative_path.split('/')
 
             # Check path exclusions
             for pattern in exclude_paths:
                 # Remove trailing slash for directory matching
                 pattern_clean = pattern.rstrip('/')
 
-                # Check if any part of the path matches the exclusion
-                if pattern_clean in relative_path.split('/'):
+                # Check if any part of the path matches the pattern
+                for part in path_parts:
+                    # Exact match
+                    if part == pattern_clean:
+                        return True
+                    # Wildcard match (e.g., *-env matches medusa-env)
+                    if fnmatch.fnmatch(part, pattern_clean):
+                        return True
+
+                # Check if pattern appears anywhere in the full path
+                # This catches site-packages nested inside lib/python3.x/
+                if pattern_clean in relative_path:
                     return True
 
-                # Check wildcard patterns
-                if fnmatch.fnmatch(relative_path, pattern) or fnmatch.fnmatch(relative_path, pattern_clean):
+                # Check full path wildcard patterns (e.g., lib/python*/)
+                if fnmatch.fnmatch(relative_path, f"*{pattern}*") or fnmatch.fnmatch(relative_path, f"*{pattern_clean}*"):
                     return True
 
             # Check file name exclusions

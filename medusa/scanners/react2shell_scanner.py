@@ -103,8 +103,8 @@ class React2ShellScanner(BaseScanner):
                         return 95  # Very high - this is what we're looking for
                     if any(pkg in content for pkg in self.RSC_PACKAGES):
                         return 95
-            except Exception:
-                pass
+            except (OSError, IOError, UnicodeDecodeError):
+                pass  # File read failed - return medium confidence below
             return 30  # Medium - it's a package.json but no React/Next
 
         # High confidence for lockfiles

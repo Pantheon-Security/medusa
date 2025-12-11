@@ -25,21 +25,82 @@ class MedusaConfig:
     # Severity settings
     fail_on: str = "high"  # critical, high, medium, low
 
-    # Exclusion patterns
+    # Exclusion patterns - these are directories/paths that should NEVER be scanned
+    # Users download MEDUSA to scan THEIR code, not third-party dependencies
     exclude_paths: List[str] = field(default_factory=lambda: [
+        # === JavaScript/Node.js dependencies ===
         "node_modules/",
+        "bower_components/",
+
+        # === Python virtual environments & dependencies ===
         "venv/",
         ".venv/",
         "env/",
+        ".env/",
+        "*-env/",           # Matches any-env/, medusa-env/, etc.
+        "*_env/",           # Matches any_env/, python_env/, etc.
+        "virtualenv/",
+        ".virtualenv/",
+        "site-packages/",   # CRITICAL: pip installed packages
+        "dist-packages/",   # System-wide Python packages
+        "lib/python*/",     # Virtual env lib directories
+        "lib64/python*/",
+
+        # === Ruby dependencies ===
+        "vendor/bundle/",
+        ".bundle/",
+
+        # === Go dependencies ===
+        "vendor/",
+
+        # === Rust dependencies ===
+        "target/",
+
+        # === Java/Kotlin/Scala dependencies ===
+        ".gradle/",
+        ".m2/",
+        "build/libs/",
+
+        # === .NET dependencies ===
+        "packages/",
+        "bin/Debug/",
+        "bin/Release/",
+        "obj/",
+
+        # === PHP dependencies ===
+        "vendor/",
+
+        # === Version control ===
         ".git/",
         ".svn/",
+        ".hg/",
+
+        # === Build/cache directories ===
         "__pycache__/",
         "*.egg-info/",
         "dist/",
         "build/",
         ".tox/",
+        ".nox/",
         ".pytest_cache/",
         ".mypy_cache/",
+        ".ruff_cache/",
+        ".cache/",
+        ".coverage/",
+        "htmlcov/",
+        ".eggs/",
+
+        # === IDE/Editor directories ===
+        ".idea/",
+        ".vscode/",
+        "*.xcworkspace/",
+        "*.xcodeproj/",
+
+        # === Test fixtures (intentionally insecure) ===
+        "tests/fixtures/",
+        "test/fixtures/",
+        "test-fixtures/",
+        "__fixtures__/",
     ])
 
     exclude_files: List[str] = field(default_factory=lambda: [
@@ -79,10 +140,19 @@ class MedusaConfig:
         config.scanners_disabled = scanners.get('disabled', [])
         config.scanner_overrides = scanners.get('overrides', {})
 
-        # Exclusions
+        # Exclusions - MERGE user paths with mandatory exclusions (don't replace)
         exclude = data.get('exclude', {})
         if 'paths' in exclude:
-            config.exclude_paths = exclude['paths']
+            # Start with user's paths
+            user_paths = set(exclude['paths'])
+            # Add mandatory exclusions that MUST always be excluded
+            mandatory = {
+                'site-packages/', 'dist-packages/', 'node_modules/',
+                'lib/python*/', 'lib64/python*/', '__pycache__/',
+                '.git/', '.svn/', '.hg/', 'tests/fixtures/', 'test/fixtures/',
+            }
+            # Merge: user paths + mandatory
+            config.exclude_paths = list(user_paths | mandatory)
         if 'files' in exclude:
             config.exclude_files = exclude['files']
 
