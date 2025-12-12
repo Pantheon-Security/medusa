@@ -27,6 +27,7 @@ class HomebrewInstaller(BaseInstaller):
         'swiftlint': 'Requires Xcode CLI tools. Run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer',
         'perlcritic': 'Requires C compiler. Run: xcode-select --install',
         'codenarc': 'Install SDKMAN first: curl -s "https://get.sdkman.io" | bash && sdk install groovy',
+        'rubocop': 'Add gem bin to PATH: export PATH="~/.gem/ruby/$(ruby -e "puts RUBY_VERSION")/bin:$PATH"',
     }
 
     @classmethod
@@ -83,13 +84,26 @@ class HomebrewInstaller(BaseInstaller):
                 # Gem succeeded - check if binary exists anywhere
                 if shutil.which(package):
                     return True
-                # Check user gem bin directories
+
+                # Check user gem bin directories and show PATH hint
                 user_gem_bin = Path.home() / '.gem' / 'ruby'
+                gem_bin_path = None
                 if user_gem_bin.exists():
                     for version_dir in user_gem_bin.iterdir():
                         bin_path = version_dir / 'bin' / package
                         if bin_path.exists():
-                            return True
+                            gem_bin_path = version_dir / 'bin'
+                            break
+
+                # Show PATH hint if gem installed but not in PATH
+                if gem_bin_path:
+                    from rich.console import Console
+                    console = Console()
+                    console.print(f"[green]  ✅ Installed via gem (add gem bin to PATH)[/green]")
+                    console.print(f"[yellow]     Add to your shell profile:[/yellow]")
+                    console.print(f"[cyan]     export PATH=\"{gem_bin_path}:$PATH\"[/cyan]")
+                    return True
+
                 # Even if binary not in PATH, gem install succeeded
                 return True
             return False

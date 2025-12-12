@@ -147,12 +147,32 @@ We aim to review dependencies weekly:
 
 ```bash
 # Check Python packages
+python scripts/check_dependencies.py
+
+# Auto-update safe Python packages
+python scripts/check_dependencies.py --update
+
+# Check external tools (GitHub/npm/PyPI)
+python scripts/update_tool_versions.py
+
+# Preview external tool updates
+python scripts/update_tool_versions.py --dry-run
+
+# Apply external tool updates to lock file
+python scripts/update_tool_versions.py --update
+
+# JSON output (for CI/CD)
+python scripts/update_tool_versions.py --json
+```
+
+### Manual Checks
+
+```bash
+# Check Python packages (pip)
 .venv/bin/pip list --outdated
 
 # Check if a specific package has updates
 .venv/bin/pip index versions <package-name>
-
-# Check external tools (manual review of GitHub releases)
 ```
 
 ---
