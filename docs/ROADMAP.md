@@ -1,8 +1,30 @@
 # MEDUSA Roadmap
 
+## Current Status
+
+**Current Version**: v2025.8.5.12
+**Status**: Free Tier Complete
+**Last Updated**: 2025-12-12
+
+---
+
 ## 2025 Releases
 
-### v2025.8.0.0 (Current - November 2025)
+### v2025.8.5.x (Current - December 2025)
+**Free Tier Completion Release**
+
+- ✅ 64 Security Scanners
+- ✅ 16 AI Security Scanners
+- ✅ 150+ Detection Rules
+- ✅ Zero False Positives (virtual env auto-detection)
+- ✅ Cross-platform support (macOS, Linux, Windows)
+- ✅ Auto-installer for all dependencies (except Java)
+- ✅ External tool version checker (`scripts/update_tool_versions.py`)
+- ✅ Dependency manifest system (`medusa/dependencies.json`)
+- ✅ Rubocop gem PATH fix
+- ✅ CVE-2025-55182 detection (React2Shell)
+
+### v2025.8.0.0 (November 2025)
 **AI Security Powerhouse Release**
 
 - ✅ 16 AI Security Scanners (doubled from 8)
@@ -38,122 +60,70 @@
 - ✅ Upfront runtime detection
 - ✅ Windows installation improvements
 
-### v2025.2.0 (Planned - Q1 2025)
+---
 
-#### Auto Version Pin Updater Script
+## Free Tier Summary
 
-**Priority**: Medium
-**Status**: Planned
-**Target**: v2025.2.0
+The free tier of MEDUSA is now **complete** with:
 
-**Problem**:
-- Manual version updates in `tools-manifest.csv` are error-prone
-- Recent issues: checkstyle 10.22.1, clj-kondo v2025.01.20 didn't exist
-- 49 tools need version tracking across multiple platforms
-- No automated way to detect when tool versions are outdated
+| Feature | Count |
+|---------|-------|
+| Security Scanners | 64 |
+| AI Security Scanners | 16 |
+| Detection Rules | 150+ |
+| Supported Languages | 42+ |
+| Platforms | 3 (macOS, Linux, Windows) |
 
-**Solution**:
-Create automated script to update tool versions in `tools-manifest.csv`
+### Tools & Scripts
 
-**Features**:
-1. **GitHub Release Checker**
-   - Query GitHub API for latest releases
-   - Support different tag formats (v1.2.3, 1.2.3, tool-1.2.3, etc.)
-   - Handle rate limiting with authentication token
+| Tool | Purpose |
+|------|---------|
+| `scripts/check_dependencies.py` | Check/update pip dependencies |
+| `scripts/update_tool_versions.py` | Check/update external tools |
+| `medusa/dependencies.json` | Dependency tracking manifest |
+| `medusa/tool-versions.lock` | Pinned external tool versions |
 
-2. **Multi-Source Version Detection**
-   - GitHub releases (primary)
-   - npm registry API
-   - PyPI API
-   - Homebrew formulae
-   - Winget package manifests
+### Not Auto-Installing (By Design)
 
-3. **Smart Version Selection**
-   - Detect semantic versioning vs calendar versioning
-   - Skip pre-releases by default (flag to include)
-   - Verify version exists before updating
-
-4. **Update Modes**
-   - `--check`: Show outdated versions (no changes)
-   - `--update`: Update tools-manifest.csv
-   - `--tool <name>`: Update specific tool only
-   - `--verify`: Verify all current versions exist
-
-5. **Safety Features**
-   - Backup tools-manifest.csv before updating
-   - Dry-run mode (show changes without applying)
-   - Validation: ensure all versions exist before committing
-   - Generate changelog of version updates
-
-**Implementation**:
-```bash
-# Check for outdated versions
-python3 scripts/update_tool_versions.py --check
-
-# Update all tools
-python3 scripts/update_tool_versions.py --update
-
-# Update specific tool
-python3 scripts/update_tool_versions.py --tool checkstyle --update
-
-# Verify current versions exist
-python3 scripts/update_tool_versions.py --verify
-```
-
-**Files**:
-- `scripts/update_tool_versions.py` - Main updater script
-- `scripts/version_checkers/` - Per-platform version checkers
-  - `github_checker.py` - GitHub releases
-  - `npm_checker.py` - npm registry
-  - `pypi_checker.py` - PyPI API
-  - `winget_checker.py` - Winget manifests
-
-**Dependencies**:
-- `requests` - HTTP requests (already dependency)
-- GitHub personal access token (optional, for rate limiting)
-- PyPI/npm APIs (public, no auth required)
-
-**Success Criteria**:
-- ✅ Detects all 49 tools' latest versions
-- ✅ Updates tools-manifest.csv correctly
-- ✅ Regenerates tool-versions.lock via generate_tool_manifest.py
-- ✅ Validates versions exist before updating
-- ✅ Runs in CI/CD pipeline weekly
-
-**Future Enhancements**:
-- GitHub Action to auto-create PR with version updates
-- Dependency vulnerability scanning integration
-- Tool deprecation detection
-- Breaking change warnings (major version bumps)
+- **Java/JDK**: Security concern - users should install themselves
+  - Install via: `brew install openjdk` (macOS) or `apt install openjdk-17-jdk` (Linux)
+  - Required for: Checkstyle, PMD, SpotBugs
 
 ---
 
 ## v2026.1.0 (Planned - Q1 2026)
 
 ### Paid Version Launch
+
 - Commercial licensing model
-- Premium features
-- Enterprise support
+- Premium features:
+  - Advanced reporting
+  - CI/CD integrations
+  - Priority support
+  - Custom rule development
+- Enterprise support tiers
+- Cloud scanning architecture
 
 ---
 
-## Backlog
+## Backlog (Paid Features)
 
 ### High Priority
-- Rubocop gem PATH fix after Ruby install
-- Java auto-install evaluation
+- SaaS dashboard with real-time scanning
+- GitHub/GitLab integration (webhook-based)
+- SBOM generation and tracking
 
 ### Medium Priority
-- Auto version pin updater script
-- Enhanced error reporting
-- macOS universal binary support
+- GUI interface
+- IDE plugin improvements (VS Code, IntelliJ)
+- Container image scanning
 
 ### Low Priority
-- GUI interface
-- IDE plugin improvements
-- Cloud scanning support
+- Custom scanner SDK
+- Multi-tenant cloud architecture
+- Compliance reporting (SOC2, HIPAA, etc.)
 
 ---
 
-**Last Updated**: 2025-11-28
-**Current Version**: v2025.8.0.0
+**Maintained by**: Pantheon Security
+**GitHub**: https://github.com/Pantheon-Security/medusa
