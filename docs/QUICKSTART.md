@@ -164,10 +164,9 @@ medusa scan .
 ```
 ╔════════════════════════════════════════════════════════════════════╗
 ║                                                                    ║
-║          🐍🐍🐍 MEDUSA v0.9.1.1 - Security Guardian 🐍🐍🐍           ║
+║        🐍🐍🐍 MEDUSA v2025.9.0 - Security Guardian 🐍🐍🐍          ║
 ║                                                                    ║
-║              The 42-Headed Universal Security Scanner             ║
-║           One look from Medusa stops vulnerabilities dead          ║
+║         Universal Scanner with 70 Specialized Analyzers           ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝
 

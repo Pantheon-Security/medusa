@@ -13,7 +13,6 @@
 **🤖 AI Agent Security with 180+ detection rules for the agentic era.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182 (CVSS 10.0 RCE)**
 **✨ NEW v2025.9.0: 6 New Scanners - Post-Quantum Crypto, Steganography, CPRF, Excessive Agency, Hyperparameter Tampering!**
-*One look from Medusa stops vulnerabilities dead.*
 
 ---
 
@@ -1104,8 +1103,6 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 ---
 
 **🐍🐍🐍 MEDUSA - Multi-Language Security Scanner 🐍🐍🐍**
-
-*One look from Medusa stops vulnerabilities dead.*
 
 **One Command. Complete Security.**
 
