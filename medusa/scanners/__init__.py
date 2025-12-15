@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-61 independent security scanner implementations
+70 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -74,6 +74,12 @@ from medusa.scanners.modelscan_scanner import ModelScanScanner
 from medusa.scanners.garak_scanner import GarakScanner
 from medusa.scanners.llm_guard_scanner import LLMGuardScanner
 from medusa.scanners.react2shell_scanner import React2ShellScanner
+from medusa.scanners.docker_mcp_scanner import DockerMCPScanner
+from medusa.scanners.post_quantum_scanner import PostQuantumScanner
+from medusa.scanners.steganography_scanner import SteganographyScanner
+from medusa.scanners.hyperparameter_scanner import HyperparameterScanner
+from medusa.scanners.plugin_security_scanner import PluginSecurityScanner
+from medusa.scanners.excessive_agency_scanner import ExcessiveAgencyScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -143,6 +149,12 @@ registry.register(ModelScanScanner())
 registry.register(GarakScanner())
 registry.register(LLMGuardScanner())
 registry.register(React2ShellScanner())
+registry.register(DockerMCPScanner())
+registry.register(PostQuantumScanner())
+registry.register(SteganographyScanner())
+registry.register(HyperparameterScanner())
+registry.register(PluginSecurityScanner())
+registry.register(ExcessiveAgencyScanner())
 
 __all__ = [
     'BaseScanner',
@@ -214,5 +226,11 @@ __all__ = [
     'GarakScanner',
     'LLMGuardScanner',
     'React2ShellScanner',
+    'DockerMCPScanner',
+    'PostQuantumScanner',
+    'SteganographyScanner',
+    'HyperparameterScanner',
+    'PluginSecurityScanner',
+    'ExcessiveAgencyScanner',
     'registry',
 ]

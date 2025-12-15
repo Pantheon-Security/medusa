@@ -121,6 +121,43 @@ class ModelAttackScanner(BaseScanner):
         r'verify',
     ]
 
+    # CVE-2019-20634: Model Extraction / "Proof Pudding" patterns
+    # Training data exposure that enables model extraction
+    MODEL_EXTRACTION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Training data exposure
+        (r'training_data.*(?:public|exposed|return|response)',
+         'CVE-2019-20634: Training data potentially exposed', Severity.HIGH),
+        (r'dataset.*(?:exposed|public|api|endpoint)',
+         'CVE-2019-20634: Dataset exposed via API', Severity.HIGH),
+        (r'model\.train\s*\(.*user_data',
+         'CVE-2019-20634: Training on user data (extraction risk)', Severity.MEDIUM),
+        # Model query logging exposure
+        (r'log.*(?:query|input|prompt).*model',
+         'Query logging may leak information for model extraction', Severity.MEDIUM),
+        (r'(?:cache|store).*(?:query|response).*model',
+         'Caching model queries (extraction via cache timing)', Severity.MEDIUM),
+        # Direct model access
+        (r'model\.(?:weights|parameters|state_dict).*return',
+         'Model weights/parameters returned directly', Severity.CRITICAL),
+        (r'(?:export|save).*model.*(?:public|shared)',
+         'Model exported to public location', Severity.HIGH),
+        # Membership inference enablers
+        (r'(?:loss|confidence|perplexity).*return.*(?:api|response)',
+         'Loss/confidence returned (membership inference risk)', Severity.MEDIUM),
+        (r'training.*sample.*(?:id|index).*(?:return|expose)',
+         'Training sample identifiers exposed', Severity.HIGH),
+    ]
+
+    # CVE-2023-4969: GPU Memory Leakage (LeftOvers) patterns
+    GPU_MEMORY_LEAKAGE_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'del\s+model(?!\s*[\r\n]*.*(?:gc\.collect|empty_cache))',
+         'CVE-2023-4969: Model deleted without GPU memory clear', Severity.MEDIUM),
+        (r'\.to\s*\(\s*["\']cuda["\'].*(?:del|None)',
+         'GPU tensor not properly cleared after use', Severity.LOW),
+        (r'cuda.*(?:tensor|model).*(?!.*empty_cache)',
+         'CUDA operations without explicit memory management', Severity.LOW),
+    ]
+
     def __init__(self):
         super().__init__()
 
@@ -154,7 +191,7 @@ class ModelAttackScanner(BaseScanner):
             if not any(ind in content_lower for ind in ml_indicators):
                 return ScannerResult(
                     scanner_name=self.name,
-                    file_path=file_path,
+                    file_path=str(file_path),
                     issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
@@ -174,11 +211,9 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA001",
                         severity=Severity.MEDIUM,
-                        message=f"Model Inversion Risk: {message}",
-                        file_path=file_path,
+                        message=f"Model Inversion Risk: {message} - use regularization, differential privacy",
                         line=line,
                         column=1,
-                        suggestion="Use regularization, early stopping, and differential privacy",
                     ))
 
             # MA002: Adversarial Input
@@ -190,11 +225,9 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA002",
                         severity=severity,
-                        message=f"Adversarial Attack Risk: {message}",
-                        file_path=file_path,
+                        message=f"Adversarial Attack Risk: {message} - validate inputs, use adversarial training",
                         line=line,
                         column=1,
-                        suggestion="Validate inputs, use adversarial training, implement input sanitization",
                     ))
 
             # MA004: Distillation Attack
@@ -205,11 +238,9 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA004",
                         severity=Severity.MEDIUM,
-                        message=f"Distillation Attack Risk: {message}",
-                        file_path=file_path,
+                        message=f"Distillation Attack Risk: {message} - return hard labels only, add noise",
                         line=line,
                         column=1,
-                        suggestion="Return only hard labels, add noise to outputs, limit API access",
                     ))
 
             # MA005: Backdoor Attack
@@ -220,11 +251,9 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA005",
                         severity=Severity.HIGH,
-                        message=f"Backdoor Risk: {message}",
-                        file_path=file_path,
+                        message=f"Backdoor Risk: {message} - validate training data, use anomaly detection, verify model provenance",
                         line=line,
                         column=1,
-                        suggestion="Validate training data, use anomaly detection, verify model provenance",
                     ))
 
             # MA007: Missing Differential Privacy
@@ -235,19 +264,43 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA007",
                         severity=Severity.MEDIUM,
-                        message=f"Privacy Risk: {message}",
-                        file_path=file_path,
+                        message=f"Privacy Risk: {message} - enable differential privacy, add calibrated noise to outputs",
                         line=line,
                         column=1,
-                        suggestion="Enable differential privacy, add calibrated noise to outputs",
                     ))
 
             # Check model endpoints
-            issues.extend(self._check_model_endpoints(content, file_path, has_protection))
+            issues.extend(self._check_model_endpoints(content, has_protection))
+
+            # MA011: Model Extraction (CVE-2019-20634)
+            for pattern, message, severity in self.MODEL_EXTRACTION_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="MA011",
+                        severity=severity,
+                        message=f"Model Extraction Risk: {message}",
+                        line=line,
+                        column=1,
+                    ))
+
+            # MA012: GPU Memory Leakage (CVE-2023-4969)
+            for pattern, message, severity in self.GPU_MEMORY_LEAKAGE_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="MA012",
+                        severity=severity,
+                        message=f"GPU Memory Leakage: {message} - call torch.cuda.empty_cache() or gc.collect()",
+                        line=line,
+                        column=1,
+                    ))
 
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=issues,
                 scan_time=time.time() - start_time,
                 success=True,
@@ -256,15 +309,15 @@ class ModelAttackScanner(BaseScanner):
         except Exception as e:
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _check_model_endpoints(
-        self, content: str, file_path: Path, has_protection: bool
+        self, content: str, has_protection: bool
     ) -> List[ScannerIssue]:
         """Check for unprotected model endpoints"""
         issues = []
@@ -278,11 +331,9 @@ class ModelAttackScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="MA010",
                         severity=Severity.HIGH,
-                        message=f"Unprotected Model Endpoint: {message}",
-                        file_path=file_path,
+                        message=f"Unprotected Model Endpoint: {message} - add authentication, rate limiting, and input validation",
                         line=line,
                         column=1,
-                        suggestion="Add authentication, rate limiting, and input validation",
                     ))
 
         return issues

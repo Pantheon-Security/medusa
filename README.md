@@ -9,10 +9,10 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 64 specialized analyzers for all languages and platforms.**
-**🤖 AI Agent Security with 50+ detection rules for the agentic era.**
+**Universal security scanner with 70 specialized analyzers for all languages and platforms.**
+**🤖 AI Agent Security with 180+ detection rules for the agentic era.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182 (CVSS 10.0 RCE)**
-**✨ NEW v2025.8.5.12: Auto-excludes virtual environments & dependencies - zero false positives from pip packages!**
+**✨ NEW v2025.9.0: 6 New Scanners - Post-Quantum Crypto, Steganography, CPRF, Excessive Agency, Hyperparameter Tampering!**
 *One look from Medusa stops vulnerabilities dead.*
 
 ---
@@ -314,7 +314,7 @@ medusa scan .
 
 ## 🤖 AI Agent Security (v2025.7+)
 
-MEDUSA provides **industry-leading AI security scanning** with **16 specialized scanners** and **150+ detection rules** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+MEDUSA provides **industry-leading AI security scanning** with **22 specialized scanners** and **180+ detection rules** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 

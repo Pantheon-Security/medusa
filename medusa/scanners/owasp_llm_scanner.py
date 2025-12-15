@@ -67,6 +67,58 @@ class OWASPLLMScanner(BaseScanner):
          'Document content injected into prompt'),
     ]
 
+    # CVE-2024-5184: LLM Email Assistant Code Injection
+    # Email content passed directly to LLM without sanitization
+    EMAIL_INJECTION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'email\.body.*(?:prompt|llm|generate)',
+         'CVE-2024-5184: Email body passed to LLM without sanitization', Severity.CRITICAL),
+        (r'message\.content.*(?:llm\.|openai|anthropic)',
+         'CVE-2024-5184: Email message content in LLM call', Severity.CRITICAL),
+        (r'inbox\[.*\].*(?:generate|complete|chat)',
+         'CVE-2024-5184: Inbox content in LLM generation', Severity.HIGH),
+        (r'mail\.(?:subject|body|text).*(?:prompt|system)',
+         'CVE-2024-5184: Email field in prompt construction', Severity.HIGH),
+        (r'(?:imap|pop3|smtp).*(?:llm|ai|assistant)',
+         'Email protocol integration with LLM - verify sanitization', Severity.MEDIUM),
+        (r'email_assistant.*(?:process|handle).*(?:unsanitized|raw)',
+         'Email assistant processing raw email content', Severity.CRITICAL),
+    ]
+
+    # Prompt Injection Obfuscation Detection
+    # Detect attempts to hide malicious prompts
+    PROMPT_OBFUSCATION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # HTML comment hiding
+        (r'<!--.*(?:ignore|forget|disregard|new instructions).*-->',
+         'HTML comment with injection keywords', Severity.HIGH),
+        (r'<hidden>.*</hidden>',
+         'Hidden HTML tag (potential prompt hiding)', Severity.MEDIUM),
+        # Zero-width character detection (Unicode obfuscation)
+        (r'[\u200b\u200c\u200d\ufeff]',
+         'Zero-width Unicode characters (prompt obfuscation)', Severity.HIGH),
+        # Control token abuse (model-specific tokens)
+        (r'\[INST\]|\[/INST\]',
+         'Llama instruction tokens in input (control token injection)', Severity.CRITICAL),
+        (r'<\|im_start\|>|<\|im_end\|>',
+         'ChatML control tokens in input (control token injection)', Severity.CRITICAL),
+        (r'<\|system\|>|<\|user\|>|<\|assistant\|>',
+         'Role tokens in input (control token injection)', Severity.CRITICAL),
+        (r'<<SYS>>|<</SYS>>',
+         'Llama2 system tokens in input', Severity.CRITICAL),
+        # Base64/encoding obfuscation in prompts
+        (r'base64\.(?:b64decode|decode)\s*\([^)]*(?:prompt|instruction)',
+         'Base64 decoding in prompt construction', Severity.HIGH),
+        (r'(?:atob|btoa)\s*\([^)]*(?:prompt|message)',
+         'JavaScript base64 in prompt handling', Severity.HIGH),
+        # Unicode escape sequences
+        (r'\\u[0-9a-fA-F]{4}.*(?:prompt|instruction)',
+         'Unicode escapes in prompt (obfuscation attempt)', Severity.MEDIUM),
+        # Markdown/formatting abuse
+        (r'\[(?:system|admin|root)\]:',
+         'Fake role prefix in markdown format', Severity.HIGH),
+        (r'```(?:system|instruction|ignore).*```',
+         'Code block with injection keywords', Severity.MEDIUM),
+    ]
+
     # LLM02: Sensitive Information Disclosure patterns
     DISCLOSURE_PATTERNS = [
         (r'(api_key|apikey|secret|password|token)\s*=\s*["\'][^"\']{8,}',
@@ -284,7 +336,7 @@ class OWASPLLMScanner(BaseScanner):
             if not any(ind in content_lower for ind in llm_indicators):
                 return ScannerResult(
                     scanner_name=self.name,
-                    file_path=file_path,
+                    file_path=str(file_path),
                     issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
@@ -315,11 +367,37 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM01",
                         severity=severity,
-                        message=f"Prompt Injection: {message}",
-                        file_path=file_path,
+                        message=f"Prompt Injection: {message} - sanitize input, use semantic filters",
                         line=line,
                         column=1,
-                        suggestion="Sanitize input, use semantic filters, segregate untrusted content",
+                    ))
+
+            # CVE-2024-5184: Email Assistant Code Injection
+            for pattern, message, severity in self.EMAIL_INJECTION_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="LLM01-CVE",
+                        severity=severity,
+                        message=f"{message} - sanitize email content before LLM processing",
+                        line=line,
+                        column=1,
+                        cwe_id=94,
+                        cwe_link="https://cwe.mitre.org/data/definitions/94.html",
+                    ))
+
+            # Prompt Obfuscation Detection
+            for pattern, message, severity in self.PROMPT_OBFUSCATION_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="LLM01-OBF",
+                        severity=severity,
+                        message=f"Prompt Obfuscation: {message} - filter control tokens and hidden content",
+                        line=line,
+                        column=1,
                     ))
 
             # LLM02: Sensitive Information Disclosure
@@ -330,11 +408,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM02",
                         severity=Severity.HIGH,
-                        message=f"Information Disclosure: {message}",
-                        file_path=file_path,
+                        message=f"Information Disclosure: {message} - use env vars, apply least privilege",
                         line=line,
                         column=1,
-                        suggestion="Use env vars for secrets, implement data sanitization, apply least privilege",
                     ))
 
             # LLM03: Supply Chain
@@ -345,11 +421,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM03",
                         severity=Severity.HIGH,
-                        message=f"Supply Chain: {message}",
-                        file_path=file_path,
+                        message=f"Supply Chain: {message} - verify provenance, use SBOM",
                         line=line,
                         column=1,
-                        suggestion="Verify model provenance, use SBOM, check signatures and hashes",
                     ))
 
             # LLM04: Data and Model Poisoning
@@ -360,11 +434,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM04",
                         severity=Severity.HIGH,
-                        message=f"Poisoning Risk: {message}",
-                        file_path=file_path,
+                        message=f"Poisoning Risk: {message} - validate training data, use anomaly detection",
                         line=line,
                         column=1,
-                        suggestion="Validate training data, use anomaly detection, sandbox untrusted data",
                     ))
 
             # LLM05: Improper Output Handling
@@ -375,11 +447,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM05",
                         severity=Severity.CRITICAL,
-                        message=f"Improper Output: {message}",
-                        file_path=file_path,
+                        message=f"Improper Output: {message} - treat LLM as untrusted, use parameterized queries",
                         line=line,
                         column=1,
-                        suggestion="Treat LLM as untrusted, use context-aware encoding, parameterized queries",
                     ))
 
             # LLM06: Excessive Agency
@@ -391,11 +461,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM06",
                         severity=severity,
-                        message=f"Excessive Agency: {message}",
-                        file_path=file_path,
+                        message=f"Excessive Agency: {message} - apply least privilege, require HITL",
                         line=line,
                         column=1,
-                        suggestion="Apply least privilege, require HITL for high-impact actions",
                     ))
 
             # LLM07: System Prompt Leakage (NEW)
@@ -406,11 +474,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM07",
                         severity=Severity.HIGH,
-                        message=f"System Prompt Leakage: {message}",
-                        file_path=file_path,
+                        message=f"System Prompt Leakage: {message} - never embed secrets in prompts",
                         line=line,
                         column=1,
-                        suggestion="Never embed secrets in prompts, use external guardrails",
                     ))
 
             # LLM08: Vector and Embedding Weaknesses (NEW)
@@ -421,11 +487,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM08",
                         severity=Severity.MEDIUM,
-                        message=f"Vector/Embedding Weakness: {message}",
-                        file_path=file_path,
+                        message=f"Vector/Embedding Weakness: {message} - use access controls, tenant isolation",
                         line=line,
                         column=1,
-                        suggestion="Implement access controls, validate data sources, use tenant isolation",
                     ))
 
             # LLM09: Misinformation
@@ -436,11 +500,9 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM09",
                         severity=Severity.MEDIUM,
-                        message=f"Misinformation Risk: {message}",
-                        file_path=file_path,
+                        message=f"Misinformation Risk: {message} - use RAG for grounding, add HITL review",
                         line=line,
                         column=1,
-                        suggestion="Use RAG for grounding, implement fact-checking, add HITL review",
                     ))
 
             # LLM10: Unbounded Consumption
@@ -452,16 +514,14 @@ class OWASPLLMScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LLM10",
                         severity=severity,
-                        message=f"Unbounded Consumption: {message}",
-                        file_path=file_path,
+                        message=f"Unbounded Consumption: {message} - set token limits, add cost budgets",
                         line=line,
                         column=1,
-                        suggestion="Set token limits, implement rate limiting, add cost budgets",
                     ))
 
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=issues,
                 scan_time=time.time() - start_time,
                 success=True,
@@ -470,9 +530,9 @@ class OWASPLLMScanner(BaseScanner):
         except Exception as e:
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )

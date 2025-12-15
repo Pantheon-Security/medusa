@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.0.0] - 2025-12-15
+
+### Added - Major Release: 6 New Security Scanners
+
+**70 Total Scanners** - MEDUSA now includes 70 independent security scanner implementations.
+
+#### New Scanners
+
+- **PostQuantumScanner** (PQC001-PQC010) - Quantum-vulnerable cryptography detection
+  - RSA, ECDSA, ECDH, Diffie-Hellman flagged as quantum-vulnerable
+  - Classical key sizes detected (RSA-2048, P-256 curves)
+  - Crypto-agility anti-patterns identified
+  - Recommends NIST FIPS 203/204/205 standards (ML-KEM, ML-DSA, SLH-DSA)
+
+- **SteganographyScanner** (STG001-STG010) - Hidden payloads in multimodal AI
+  - Zero-width Unicode characters (`\u200b`, `\u200c`, `\u200d`, `\ufeff`)
+  - Control token injection (`[INST]`, `<|im_start|>`, `Human:`, `Assistant:`)
+  - Homoglyph attacks (Cyrillic/Greek lookalikes)
+  - LSB steganography patterns
+  - Base64 payloads in prompts
+
+- **HyperparameterScanner** (HPT001-HPT010) - ML training sabotage detection
+  - Extreme learning rates (>=1.0 or <=1e-7)
+  - Untrusted training configs from remote URLs
+  - Disabled regularization/early stopping
+  - Suspicious weight initialization
+
+- **PluginSecurityScanner** (PLG001-PLG010) - Cross-Plugin Request Forgery (CPRF)
+  - Cross-plugin data access vulnerabilities
+  - Chat history exposure to plugins
+  - Plugin command injection
+  - Missing plugin authentication
+
+- **ExcessiveAgencyScanner** (EXA001-EXA010) - Over-permissioned AI agents
+  - Unrestricted tool access (`tools: "*"`)
+  - Missing `before_tool_callback` validation
+  - Unbounded action loops
+  - Disabled human-in-the-loop controls
+  - Recursive agent calls without depth limits
+
+- **DockerMCPScanner** (DKR001-DKR010) - Container security for MCP servers
+  - Root user detection
+  - Unpinned base images
+  - Exposed ports and volumes
+  - Missing security options
+
+### Enhanced
+
+- **OWASPLLMScanner** - Added CVE-2024-5184, prompt obfuscation patterns
+- **ModelAttackScanner** - Added CVE-2019-20634, CVE-2023-4969, GPU attacks
+- **MCPConfigScanner** - Enhanced OAuth spec detection, new MCP patterns
+- **MCPServerScanner** - Added PowerShell injection, more tool poisoning patterns
+- **AgentMemoryScanner** - Memory poisoning, vector injection, cross-session attacks
+- **MultiAgentScanner** - Prompt infection, LLM tagging, consensus bypass
+- **LLMOpsScanner** - Ray/Shadow Ray CVEs, LoRA adapter security, GPU memory leaks
+
+### Changed
+
+- AI Security rule count increased from 150+ to 180+
+- Scanner count increased from 64 to 70
+
 ## [2025.8.5.12] - 2025-12-11
 
 ### Fixed

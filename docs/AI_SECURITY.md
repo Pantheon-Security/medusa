@@ -1,6 +1,6 @@
 # AI & LLM Security Scanning
 
-MEDUSA provides **industry-leading security scanning** for AI/ML applications, LLM integrations, MCP servers, and agentic systems. With **16 specialized AI security scanners** and **150+ detection rules**, MEDUSA is the most comprehensive open-source tool for securing the AI development lifecycle.
+MEDUSA provides **industry-leading security scanning** for AI/ML applications, LLM integrations, MCP servers, and agentic systems. With **16 specialized AI security scanners** and **180+ detection rules**, MEDUSA is the most comprehensive open-source tool for securing the AI development lifecycle.
 
 ---
 
@@ -25,22 +25,22 @@ MEDUSA detects these threats **before they reach production**.
 | Scanner | Focus Area | Rules | Key Detections |
 |---------|-----------|-------|----------------|
 | **OWASPLLMScanner** | OWASP Top 10 for LLM 2025 | 10 | Prompt injection, output handling, unbounded consumption |
-| **MCPConfigScanner** | MCP configuration files | 12 | Hardcoded secrets, insecure transports, permission issues |
-| **MCPServerScanner** | MCP server source code | 18 | Tool poisoning, command injection, CVE-2025-6514 |
+| **MCPConfigScanner** | MCP configuration files | 16 | Hardcoded secrets, OAuth spec issues, permission issues |
+| **MCPServerScanner** | MCP server source code | 23 | Tool poisoning, PowerShell injection, CVE-2025-6514 |
 | **AIContextScanner** | AI context files | 10 | Leaked secrets, PII exposure, prompt injection |
-| **AgentMemoryScanner** | Agent memory/state | 8 | Credential storage, conversation logging, PII |
+| **AgentMemoryScanner** | Agent memory/state | 15 | Memory poisoning, vector injection, cross-session attacks |
 | **RAGSecurityScanner** | RAG pipelines | 10 | Vector injection, document poisoning, access control |
 | **A2AScanner** | Agent-to-agent comms | 10 | Message tampering, impersonation, replay attacks |
 | **PromptLeakageScanner** | System prompt exposure | 10 | Prompt logging, error disclosure, API leaks |
 | **ToolCallbackScanner** | Tool callback handlers | 10 | Callback injection, SSRF, data exfiltration |
 | **AgentReflectionScanner** | Self-modifying agents | 10 | Code injection, unsafe eval, dynamic loading |
 | **AgentPlanningScanner** | Agent planning systems | 10 | Goal manipulation, resource abuse, infinite loops |
-| **MultiAgentScanner** | Multi-agent orchestration | 10 | Consensus manipulation, rogue agents, coordination attacks |
+| **MultiAgentScanner** | Multi-agent orchestration | 18 | Prompt infection, LLM tagging, consensus bypass |
 | **ModelAttackScanner** | Model-level attacks | 10 | Adversarial inputs, model extraction, membership inference |
-| **LLMOpsScanner** | ML operations security | 10 | Insecure model loading, checkpoint exposure, drift detection |
+| **LLMOpsScanner** | ML operations security | 16 | Ray/Shadow Ray, LoRA adapter security, GPU memory leaks |
 | **VectorDBScanner** | Vector database security | 10 | Unencrypted storage, tenant isolation, PII in embeddings |
 
-**Total: 16 scanners, 150+ rules**
+**Total: 16 scanners, 180+ rules**
 
 ---
 

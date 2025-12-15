@@ -36,6 +36,14 @@ class MultiAgentScanner(BaseScanner):
     - MA008: Missing audit trail for agent interactions
     - MA009: Cross-agent data leakage
     - MA010: Missing timeout in agent coordination
+    - MA011: Prompt infection - no origin tagging
+    - MA012: Cascading prompt without sanitization
+    - MA013: Agent broadcast without validation
+    - MA014: Missing content boundaries
+    - MA015: No agent authentication in handoff
+    - MA016: LLM tagging absence (multi-agent)
+    - MA017: Untrusted agent message forwarding
+    - MA018: Multi-agent consensus bypass
     """
 
     # Patterns indicating multi-agent collaboration
@@ -125,6 +133,63 @@ class MultiAgentScanner(BaseScanner):
         (r'http://.*agent', 'Unencrypted agent endpoint'),
     ]
 
+    # Prompt Infection patterns (MA011-MA015)
+    # Cascading prompt attacks that self-replicate across collaborative agents
+    PROMPT_INFECTION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Agent-to-agent message without origin tagging
+        (r'agent\.send\s*\([^)]*message[^)]*\)(?!.*(?:tag|origin|source))',
+         'MA011: Agent message without origin tagging (prompt infection risk)', Severity.HIGH),
+        # Broadcast prompt without origin marker
+        (r'broadcast\s*\([^)]*(?:prompt|message)[^)]*\)(?!.*origin)',
+         'MA012: Broadcast to agents without origin marker', Severity.HIGH),
+        # Forwarding untrusted input to agent
+        (r'forward[_-]?to[_-]?agent\s*\([^)]*(?:user[_-]?input|request\.)',
+         'MA013: Forwarding untrusted user input to agent', Severity.CRITICAL),
+        # Agent receive without source identification
+        (r'agents?\[.*\]\.receive\s*\((?!.*source)',
+         'MA014: Agent receive without source identification', Severity.HIGH),
+        # Missing sanitization in agent chain
+        (r'(?:next|downstream)[_-]?agent\.(?:send|process)\s*\([^)]*(?:response|output)',
+         'MA015: Passing agent output to next agent without sanitization', Severity.HIGH),
+    ]
+
+    # LLM Tagging patterns (MA016-MA018)
+    # Check for missing agent origin markers in multi-agent systems
+    LLM_TAGGING_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Agent messages without source identification
+        (r'agent\.send\s*\((?!.*source[_-]?agent)',
+         'MA016: Agent send without source_agent identifier', Severity.MEDIUM),
+        # Missing content boundaries in message construction
+        (r'prompt\s*\+=\s*(?:other[_-]?)?agent',
+         'MA017: Agent content concatenation without boundaries', Severity.MEDIUM),
+        # Context extension without tagging
+        (r'context\.(?:extend|append)\s*\([^)]*agent[_-]?response(?!.*tagged)',
+         'MA018: Agent response added to context without tagging', Severity.MEDIUM),
+    ]
+
+    # Untrusted forwarding patterns
+    UNTRUSTED_FORWARDING_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Direct user input to agent chain
+        (r'agent[_-]?chain\.(?:run|execute)\s*\([^)]*(?:user|input|request)',
+         'Untrusted input passed directly to agent chain', Severity.CRITICAL),
+        # Unvalidated external data to agents
+        (r'agent\.process\s*\([^)]*(?:external|api|http)',
+         'External data passed to agent without validation', Severity.HIGH),
+    ]
+
+    # Consensus bypass patterns
+    CONSENSUS_BYPASS_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Skipping consensus check
+        (r'skip[_-]?consensus\s*=\s*[Tt]rue',
+         'Consensus check explicitly skipped', Severity.HIGH),
+        # Single agent override
+        (r'single[_-]?agent[_-]?(?:override|decision)',
+         'Single agent can override multi-agent consensus', Severity.HIGH),
+        # No quorum check
+        (r'execute[_-]?(?:action|decision)\s*\((?!.*quorum)',
+         'Multi-agent action without quorum validation', Severity.MEDIUM),
+    ]
+
     def __init__(self):
         super().__init__()
 
@@ -156,7 +221,7 @@ class MultiAgentScanner(BaseScanner):
             if not has_multi_agent:
                 return ScannerResult(
                     scanner_name=self.name,
-                    file_path=file_path,
+                    file_path=str(file_path),
                     issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
@@ -197,11 +262,9 @@ class MultiAgentScanner(BaseScanner):
                         issues.append(ScannerIssue(
                             rule_id="MA001",
                             severity=Severity.HIGH,
-                            message="Agent handoff/communication without authentication",
-                            file_path=file_path,
+                            message="Agent handoff/communication without authentication - implement mTLS or signed messages",
                             line=line,
                             column=1,
-                            suggestion="Implement mTLS or signed messages for agent communication",
                         ))
                         break
 
@@ -210,11 +273,9 @@ class MultiAgentScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="MA002",
                     severity=Severity.HIGH,
-                    message="Inter-agent messages without validation",
-                    file_path=file_path,
+                    message="Inter-agent messages without validation - use schema validation",
                     line=1,
                     column=1,
-                    suggestion="Validate all messages between agents using schema validation",
                 ))
 
             # MA003: Missing privilege checks
@@ -222,11 +283,9 @@ class MultiAgentScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="MA003",
                     severity=Severity.HIGH,
-                    message="Agent delegation without privilege verification",
-                    file_path=file_path,
+                    message="Agent delegation without privilege verification - check permissions before delegating",
                     line=1,
                     column=1,
-                    suggestion="Check permissions before delegating tasks to other agents",
                 ))
 
             # MA004: Missing consensus (if debate/vote patterns exist)
@@ -238,11 +297,9 @@ class MultiAgentScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="MA004",
                     severity=Severity.MEDIUM,
-                    message="Multi-agent decision without consensus validation",
-                    file_path=file_path,
+                    message="Multi-agent decision without consensus validation - implement quorum voting",
                     line=1,
                     column=1,
-                    suggestion="Implement quorum or majority voting for agent decisions",
                 ))
 
             # MA008: Missing audit trail
@@ -250,11 +307,9 @@ class MultiAgentScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="MA008",
                     severity=Severity.MEDIUM,
-                    message="Agent interactions without audit logging",
-                    file_path=file_path,
+                    message="Agent interactions without audit logging - log all agent-to-agent communications",
                     line=1,
                     column=1,
-                    suggestion="Log all agent-to-agent communications for security analysis",
                 ))
 
             # Check for dangerous patterns
@@ -269,9 +324,21 @@ class MultiAgentScanner(BaseScanner):
             # Check for data leakage
             issues.extend(self._check_data_leakage(content, file_path))
 
+            # NEW: Check for prompt infection patterns (MA011-MA015)
+            issues.extend(self._check_prompt_infection(content, file_path))
+
+            # NEW: Check for LLM tagging absence (MA016-MA018)
+            issues.extend(self._check_llm_tagging(content, file_path))
+
+            # NEW: Check for untrusted forwarding
+            issues.extend(self._check_untrusted_forwarding(content, file_path))
+
+            # NEW: Check for consensus bypass
+            issues.extend(self._check_consensus_bypass(content, file_path))
+
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=issues,
                 scan_time=time.time() - start_time,
                 success=True,
@@ -280,11 +347,11 @@ class MultiAgentScanner(BaseScanner):
         except Exception as e:
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _check_dangerous_patterns(
@@ -313,7 +380,6 @@ class MultiAgentScanner(BaseScanner):
                     rule_id=rule_id,
                     severity=severity,
                     message=message,
-                    file_path=file_path,
                     line=line,
                     column=1,
                 ))
@@ -352,11 +418,9 @@ class MultiAgentScanner(BaseScanner):
             issues.append(ScannerIssue(
                 rule_id="MA007",
                 severity=Severity.MEDIUM,
-                message="Unrestricted agent spawning (resource exhaustion risk)",
-                file_path=file_path,
+                message="Unrestricted agent spawning (resource exhaustion risk) - add max_agents limit",
                 line=1,
                 column=1,
-                suggestion="Add max_agents limit to prevent resource exhaustion",
             ))
 
         return issues
@@ -393,11 +457,9 @@ class MultiAgentScanner(BaseScanner):
             issues.append(ScannerIssue(
                 rule_id="MA010",
                 severity=Severity.MEDIUM,
-                message="Agent coordination without timeout (deadlock risk)",
-                file_path=file_path,
+                message="Agent coordination without timeout (deadlock risk) - add timeout to prevent indefinite waiting",
                 line=1,
                 column=1,
-                suggestion="Add timeout to prevent indefinite waiting for agents",
             ))
 
         return issues
@@ -425,11 +487,101 @@ class MultiAgentScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="MA009",
                     severity=Severity.HIGH,
-                    message=f"Cross-agent data leakage: {message}",
-                    file_path=file_path,
+                    message=f"Cross-agent data leakage: {message} - limit data sharing between agents",
                     line=line,
                     column=1,
-                    suggestion="Limit data sharing between agents to necessary information only",
+                ))
+
+        return issues
+
+    def _check_prompt_infection(
+        self, content: str, file_path: Path
+    ) -> List[ScannerIssue]:
+        """
+        Check for prompt infection vulnerabilities (MA011-MA015)
+
+        Prompt infection is a cascading attack where malicious prompts
+        self-replicate across collaborative agents in multi-agent systems.
+        """
+        issues = []
+
+        for pattern, message, severity in self.PROMPT_INFECTION_PATTERNS:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                line = content[:match.start()].count('\n') + 1
+                rule_id = message.split(':')[0] if ':' in message else "MA011"
+                issues.append(ScannerIssue(
+                    rule_id=rule_id,
+                    severity=severity,
+                    message=f"{message} - add origin tagging and sanitize prompts",
+                    line=line,
+                    column=1,
+                ))
+
+        return issues
+
+    def _check_llm_tagging(
+        self, content: str, file_path: Path
+    ) -> List[ScannerIssue]:
+        """
+        Check for missing LLM tagging in multi-agent systems (MA016-MA018)
+
+        LLM tagging helps track the origin of messages and prevents
+        confusion about which agent generated which content.
+        """
+        issues = []
+
+        for pattern, message, severity in self.LLM_TAGGING_PATTERNS:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                line = content[:match.start()].count('\n') + 1
+                rule_id = message.split(':')[0] if ':' in message else "MA016"
+                issues.append(ScannerIssue(
+                    rule_id=rule_id,
+                    severity=severity,
+                    message=f"{message} - add source_agent identifier and content boundaries",
+                    line=line,
+                    column=1,
+                ))
+
+        return issues
+
+    def _check_untrusted_forwarding(
+        self, content: str, file_path: Path
+    ) -> List[ScannerIssue]:
+        """
+        Check for untrusted data being forwarded to agent chains (MA017)
+        """
+        issues = []
+
+        for pattern, message, severity in self.UNTRUSTED_FORWARDING_PATTERNS:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                line = content[:match.start()].count('\n') + 1
+                issues.append(ScannerIssue(
+                    rule_id="MA017",
+                    severity=severity,
+                    message=f"Untrusted forwarding: {message} - validate and sanitize all external data",
+                    line=line,
+                    column=1,
+                ))
+
+        return issues
+
+    def _check_consensus_bypass(
+        self, content: str, file_path: Path
+    ) -> List[ScannerIssue]:
+        """
+        Check for patterns that bypass multi-agent consensus (MA018)
+        """
+        issues = []
+
+        for pattern, message, severity in self.CONSENSUS_BYPASS_PATTERNS:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                line = content[:match.start()].count('\n') + 1
+                issues.append(ScannerIssue(
+                    rule_id="MA018",
+                    severity=severity,
+                    message=f"Consensus bypass: {message} - require quorum validation",
+                    line=line,
+                    column=1,
                 ))
 
         return issues
