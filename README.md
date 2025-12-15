@@ -9,7 +9,7 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 70 specialized analyzers for all languages and platforms.**
+**Universal security scanner with 73 specialized analyzers for all languages and platforms.**
 **🤖 AI Agent Security with 180+ detection rules for the agentic era.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182 (CVSS 10.0 RCE)**
 **✨ NEW v2025.9.0: 6 New Scanners - Post-Quantum Crypto, Steganography, CPRF, Excessive Agency, Hyperparameter Tampering!**

@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-70 independent security scanner implementations
+73 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -80,6 +80,9 @@ from medusa.scanners.steganography_scanner import SteganographyScanner
 from medusa.scanners.hyperparameter_scanner import HyperparameterScanner
 from medusa.scanners.plugin_security_scanner import PluginSecurityScanner
 from medusa.scanners.excessive_agency_scanner import ExcessiveAgencyScanner
+from medusa.scanners.gitleaks_scanner import GitLeaksScanner
+from medusa.scanners.semgrep_scanner import SemgrepScanner
+from medusa.scanners.trivy_scanner import TrivyScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -155,6 +158,9 @@ registry.register(SteganographyScanner())
 registry.register(HyperparameterScanner())
 registry.register(PluginSecurityScanner())
 registry.register(ExcessiveAgencyScanner())
+registry.register(GitLeaksScanner())
+registry.register(SemgrepScanner())
+registry.register(TrivyScanner())
 
 __all__ = [
     'BaseScanner',
@@ -232,5 +238,8 @@ __all__ = [
     'HyperparameterScanner',
     'PluginSecurityScanner',
     'ExcessiveAgencyScanner',
+    'GitLeaksScanner',
+    'SemgrepScanner',
+    'TrivyScanner',
     'registry',
 ]

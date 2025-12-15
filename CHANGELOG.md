@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.0.1] - 2025-12-15
+
+### Added
+
+- **GitLeaksScanner** - Secret detection using GitLeaks v8.30.0
+  - API keys (AWS, GCP, Azure, GitHub, etc.)
+  - Private keys (SSH, PGP, RSA)
+  - Database credentials and OAuth tokens
+  - 100+ secret patterns with CWE-798 mapping
+
+- **SemgrepScanner** - Advanced SAST using Semgrep v1.145.0
+  - Uses `p/security-audit` ruleset for comprehensive coverage
+  - SQL injection, XSS, command injection detection
+  - OWASP severity boosting for top categories
+  - CWE extraction from findings
+
+- **TrivyScanner** - Container/IaC vulnerability scanning using Trivy v0.68.1
+  - Dockerfile misconfigurations
+  - Kubernetes manifest issues
+  - Terraform/CloudFormation security
+  - Dependency vulnerabilities (npm, pip, go, etc.)
+  - Secret detection
+
+### Changed
+
+- Scanner count increased from 70 to 73
+
 ## [2025.9.0.0] - 2025-12-15
 
 ### Added - Major Release: 6 New Security Scanners
