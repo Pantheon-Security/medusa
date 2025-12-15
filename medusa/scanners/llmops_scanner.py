@@ -36,6 +36,12 @@ class LLMOpsScanner(BaseScanner):
     - LO008: Missing model validation
     - LO009: Unencrypted model transfer
     - LO010: Missing audit logging for model operations
+    - LO011: Ray framework vulnerability
+    - LO012: Shadow Ray attack pattern
+    - LO013: Vulnerable ML dependency
+    - LO014: Unsigned LoRA adapter
+    - LO015: Untrusted adapter source
+    - LO016: Adapter integrity check missing
     """
 
     # Insecure Model Loading patterns
@@ -139,6 +145,85 @@ class LLMOpsScanner(BaseScanner):
         r'record.*(inference|prediction)',
     ]
 
+    # LO011-012: Ray Framework / Shadow Ray vulnerability patterns
+    RAY_VULNERABILITY_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Ray framework imports (check for vulnerable versions)
+        (r'from\s+ray\s+import',
+         'LO011: Ray framework detected - check version for vulnerabilities', Severity.MEDIUM),
+        (r'import\s+ray',
+         'LO011: Ray framework detected - check version for vulnerabilities', Severity.MEDIUM),
+        (r'ray\.init\s*\(',
+         'LO011: Ray cluster initialization - ensure dashboard is secured', Severity.MEDIUM),
+
+        # Shadow Ray attack patterns (CVE-2023-48022 related)
+        (r'ray\.dashboard\.modules',
+         'LO012: Ray dashboard module access - potential Shadow Ray attack vector', Severity.HIGH),
+        (r'ray[_-]?client.*connect.*(?!localhost)',
+         'LO012: Remote Ray client connection - verify authorization', Severity.HIGH),
+        (r'ray\.job_submission',
+         'LO012: Ray job submission API - ensure proper authentication', Severity.HIGH),
+
+        # Exposed Ray dashboard
+        (r'dashboard[_-]?host\s*=\s*["\']0\.0\.0\.0["\']',
+         'LO012: Ray dashboard exposed to all interfaces (Shadow Ray risk)', Severity.CRITICAL),
+        (r'dashboard[_-]?port.*[0-9]+.*host.*0\.0\.0\.0',
+         'LO012: Ray dashboard publicly accessible', Severity.CRITICAL),
+    ]
+
+    # LO013: Vulnerable ML dependencies
+    VULNERABLE_ML_DEPS: List[Tuple[str, str, Severity]] = [
+        # Known vulnerable packages/patterns
+        (r'tensorflow\s*[<>=!]+\s*[12]\.[0-9]+\.[0-9]+',
+         'LO013: TensorFlow version specified - check for known vulnerabilities', Severity.LOW),
+        (r'torch\s*[<>=!]+\s*[12]\.[0-9]+',
+         'LO013: PyTorch version specified - check for known vulnerabilities', Severity.LOW),
+        (r'transformers\s*[<>=!]+\s*[34]\.[0-9]+',
+         'LO013: Transformers version specified - verify security updates', Severity.LOW),
+
+        # Insecure serialization
+        (r'pickle\.loads?\s*\([^)]*(?:url|http|request)',
+         'LO013: Pickle deserialization from remote source (RCE risk)', Severity.CRITICAL),
+        (r'torch\.load\s*\([^)]*http',
+         'LO013: PyTorch model loaded from URL without verification', Severity.HIGH),
+    ]
+
+    # LO014-016: LoRA Adapter Security patterns
+    LORA_SECURITY_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Loading unsigned adapters
+        (r'load_adapter\s*\((?!.*(?:verify|signature|checksum))',
+         'LO014: LoRA adapter loaded without signature verification', Severity.HIGH),
+        (r'PeftModel\.from_pretrained\s*\((?!.*(?:verify|trust))',
+         'LO014: PEFT model loaded - consider verifying adapter source', Severity.MEDIUM),
+        (r'LoraConfig\s*\((?!.*signature)',
+         'LO014: LoRA config without signature parameter', Severity.LOW),
+
+        # Untrusted adapter sources
+        (r'load_adapter\s*\(["\'][^"\']*(?!huggingface\.co/[a-zA-Z0-9_-]+/)',
+         'LO015: LoRA adapter from potentially untrusted source', Severity.MEDIUM),
+        (r'from_pretrained\s*\(["\'](?!.*(?:huggingface|openai|anthropic))',
+         'LO015: Adapter from non-standard source - verify authenticity', Severity.MEDIUM),
+        (r'adapter_path\s*=\s*["\']http',
+         'LO015: LoRA adapter loaded from HTTP URL', Severity.HIGH),
+
+        # Missing adapter integrity checks
+        (r'merge_adapter\s*\((?!.*(?:checksum|verify|validate))',
+         'LO016: Adapter merge without integrity verification', Severity.HIGH),
+        (r'set_adapter\s*\([^)]*\)(?!.*verify)',
+         'LO016: Adapter set without verification', Severity.MEDIUM),
+        (r'add_adapter\s*\([^)]*(?:url|http)',
+         'LO016: Adapter added from URL without integrity check', Severity.HIGH),
+    ]
+
+    # GPU Memory vulnerability patterns (CVE-2023-4969 - LeftOvers)
+    GPU_MEMORY_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'torch\.cuda\.empty_cache\(\)',
+         'GPU memory clearing present (good practice)', Severity.LOW),  # Actually good
+        (r'del\s+model\s*(?!.*(?:gc\.collect|empty_cache))',
+         'Model deleted but GPU memory not explicitly cleared', Severity.MEDIUM),
+        (r'\.to\s*\(\s*["\']cuda',
+         'Model moved to GPU - ensure proper cleanup after inference', Severity.LOW),
+    ]
+
     def __init__(self):
         super().__init__()
 
@@ -172,7 +257,7 @@ class LLMOpsScanner(BaseScanner):
             if not any(ind in content_lower for ind in ops_indicators):
                 return ScannerResult(
                     scanner_name=self.name,
-                    file_path=file_path,
+                    file_path=str(file_path),
                     issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
@@ -207,11 +292,9 @@ class LLMOpsScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LO001",
                         severity=Severity.CRITICAL,
-                        message=f"Insecure Model Loading: {message}",
-                        file_path=file_path,
+                        message=f"Insecure Model Loading: {message} - use safetensors, verify model hashes",
                         line=line,
                         column=1,
-                        suggestion="Use safetensors, verify model hashes, load from trusted sources only",
                     ))
 
             # LO002: Missing Model Versioning
@@ -219,11 +302,9 @@ class LLMOpsScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="LO002",
                     severity=Severity.LOW,
-                    message="Model operations without versioning",
-                    file_path=file_path,
+                    message="Model operations without versioning - use MLflow, DVC, or W&B for tracking",
                     line=1,
                     column=1,
-                    suggestion="Use MLflow, DVC, or W&B for model versioning and tracking",
                 ))
 
             # LO003: Unmonitored Deployment
@@ -231,11 +312,9 @@ class LLMOpsScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="LO003",
                     severity=Severity.MEDIUM,
-                    message="Model deployment without monitoring",
-                    file_path=file_path,
+                    message="Model deployment without monitoring - add Prometheus, Arize, or WhyLabs",
                     line=1,
                     column=1,
-                    suggestion="Add observability (Prometheus, Arize, WhyLabs) for deployed models",
                 ))
 
             # LO004: Insecure Fine-tuning
@@ -246,11 +325,9 @@ class LLMOpsScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LO004",
                         severity=Severity.HIGH,
-                        message=f"Insecure Fine-tuning: {message}",
-                        file_path=file_path,
+                        message=f"Insecure Fine-tuning: {message} - validate data and sanitize inputs",
                         line=line,
                         column=1,
-                        suggestion="Validate training data, use data provenance, sanitize inputs",
                     ))
 
             # LO005: Missing Drift Detection
@@ -258,11 +335,9 @@ class LLMOpsScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="LO005",
                     severity=Severity.LOW,
-                    message="No drift detection for deployed model",
-                    file_path=file_path,
+                    message="No drift detection for deployed model - use Evidently or Alibi Detect",
                     line=1,
                     column=1,
-                    suggestion="Implement drift detection using Evidently or Alibi Detect",
                 ))
 
             # LO006: Exposed Feedback Channels
@@ -273,11 +348,9 @@ class LLMOpsScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LO006",
                         severity=Severity.HIGH,
-                        message=f"Feedback Vulnerability: {message}",
-                        file_path=file_path,
+                        message=f"Feedback Vulnerability: {message} - validate and sanitize feedback",
                         line=line,
                         column=1,
-                        suggestion="Validate and sanitize feedback, use secure feedback channels",
                     ))
 
             # LO007: Insecure Checkpoint Storage
@@ -288,11 +361,9 @@ class LLMOpsScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LO007",
                         severity=Severity.HIGH,
-                        message=f"Checkpoint Security: {message}",
-                        file_path=file_path,
+                        message=f"Checkpoint Security: {message} - use private encrypted storage",
                         line=line,
                         column=1,
-                        suggestion="Store checkpoints in private, encrypted storage with access controls",
                     ))
 
             # LO009: Unencrypted Model Transfer
@@ -303,11 +374,9 @@ class LLMOpsScanner(BaseScanner):
                     issues.append(ScannerIssue(
                         rule_id="LO009",
                         severity=Severity.HIGH,
-                        message=f"Insecure Transfer: {message}",
-                        file_path=file_path,
+                        message=f"Insecure Transfer: {message} - use HTTPS and verify checksums",
                         line=line,
                         column=1,
-                        suggestion="Use HTTPS, verify checksums, implement secure transfer protocols",
                     ))
 
             # LO010: Missing Audit Logging
@@ -315,16 +384,68 @@ class LLMOpsScanner(BaseScanner):
                 issues.append(ScannerIssue(
                     rule_id="LO010",
                     severity=Severity.MEDIUM,
-                    message="Model operations without audit logging",
-                    file_path=file_path,
+                    message="Model operations without audit logging - log all training and deployment ops",
                     line=1,
                     column=1,
-                    suggestion="Log all model training, deployment, and inference operations",
                 ))
+
+            # LO011-012: Ray Framework / Shadow Ray vulnerabilities
+            for pattern, message, severity in self.RAY_VULNERABILITY_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    rule_id = message.split(':')[0] if ':' in message else "LO011"
+                    issues.append(ScannerIssue(
+                        rule_id=rule_id,
+                        severity=severity,
+                        message=f"{message} - secure dashboard, use auth, update version",
+                        line=line,
+                        column=1,
+                    ))
+
+            # LO013: Vulnerable ML Dependencies
+            for pattern, message, severity in self.VULNERABLE_ML_DEPS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="LO013",
+                        severity=severity,
+                        message=f"{message} - use pip-audit or safety for scanning",
+                        line=line,
+                        column=1,
+                    ))
+
+            # LO014-016: LoRA Adapter Security
+            for pattern, message, severity in self.LORA_SECURITY_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    rule_id = message.split(':')[0] if ':' in message else "LO014"
+                    issues.append(ScannerIssue(
+                        rule_id=rule_id,
+                        severity=severity,
+                        message=f"{message} - verify signatures and checksums",
+                        line=line,
+                        column=1,
+                    ))
+
+            # GPU Memory patterns (informational - CVE-2023-4969 related)
+            for pattern, message, severity in self.GPU_MEMORY_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match and severity != Severity.LOW:  # Skip informational patterns
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="LO013",  # Associated with vulnerability detection
+                        severity=severity,
+                        message=f"CVE-2023-4969 related: {message} - use empty_cache() and gc.collect()",
+                        line=line,
+                        column=1,
+                    ))
 
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=issues,
                 scan_time=time.time() - start_time,
                 success=True,
@@ -333,9 +454,9 @@ class LLMOpsScanner(BaseScanner):
         except Exception as e:
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )

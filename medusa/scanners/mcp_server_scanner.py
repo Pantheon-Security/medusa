@@ -43,6 +43,11 @@ class MCPServerScanner(BaseScanner):
     - MCP116: Dynamic schema updates (mid-session changes)
     - MCP117: CVE-2025-6514 OAuth command injection (mcp-remote RCE)
     - MCP118: Advanced confused deputy attacks (privilege escalation)
+    - MCP119: PowerShell subexpression injection (Windows RCE)
+    - MCP120: Tool name shadows system function
+    - MCP121: Tool impersonation pattern
+    - MCP122: Deceptive tool description
+    - MCP123: Auto-update without integrity check
     """
 
     # Tool poisoning patterns - hidden instructions in descriptions
@@ -366,6 +371,105 @@ class MCPServerScanner(BaseScanner):
          'Confused deputy - credential proxying', Severity.HIGH),
     ]
 
+    # MCP119: PowerShell subexpression injection patterns
+    # Windows-specific RCE via $() in strings - expanded detection
+    POWERSHELL_INJECTION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Direct $() subexpression patterns (Windows RCE vector)
+        (r'\$\([^)]*(?:cmd|powershell|exe|del|rm|wget|curl)[^)]*\)',
+         'MCP119: PowerShell subexpression with dangerous command', Severity.CRITICAL),
+        (r'\$\([^)]*(?:invoke|iex|start-process|new-object)[^)]*\)',
+         'MCP119: PowerShell subexpression with execution command', Severity.CRITICAL),
+
+        # Custom URI scheme with subexpression
+        (r'[a-z]{2,10}:\$\([^)]+\)',
+         'MCP119: Custom URI scheme with PowerShell subexpression', Severity.CRITICAL),
+        (r'[a-z]{2,10}://\$\{',
+         'MCP119: Custom URI scheme with template injection', Severity.HIGH),
+
+        # open() function patterns (the attack vector for mcp-remote)
+        (r'open\s*\(\s*[^)]*\$\([^)]+\)',
+         'MCP119: open() with PowerShell subexpression', Severity.CRITICAL),
+        (r'open\s*\(\s*[`"\'][^`"\']*\+',
+         'MCP119: open() with string concatenation', Severity.HIGH),
+        (r'open\s*\(\s*`[^`]*\$\{',
+         'MCP119: open() with template literal', Severity.HIGH),
+
+        # PowerShell encoded command indicators
+        (r'-[Ee]ncoded[Cc]ommand',
+         'MCP119: PowerShell encoded command (obfuscation)', Severity.CRITICAL),
+        (r'-[Ww]indow[Ss]tyle\s+[Hh]idden',
+         'MCP119: Hidden PowerShell window', Severity.HIGH),
+        (r'[Bb]ypass.*[Ee]xecution[Pp]olicy',
+         'MCP119: Execution policy bypass', Severity.HIGH),
+
+        # Start-Process with dynamic arguments
+        (r'Start-Process\s+[^;]*\$\(',
+         'MCP119: Start-Process with subexpression', Severity.CRITICAL),
+        (r'Invoke-Expression\s+[^;]*\$\(',
+         'MCP119: Invoke-Expression with subexpression', Severity.CRITICAL),
+    ]
+
+    # MCP120-122: Tool Shadowing/Impersonation patterns
+    # Deceptive tool names that mimic system functions
+    TOOL_SHADOW_NAMES = [
+        "ListFiles", "ReadFile", "WriteFile", "DeleteFile",
+        "Execute", "RunCommand", "Shell", "Terminal",
+        "GetEnv", "SetEnv", "ProcessList", "KillProcess",
+        "NetworkRequest", "FetchURL", "Download", "Upload",
+        "CreateUser", "DeleteUser", "ChangePassword",
+        "DatabaseQuery", "SQLExecute", "AdminAccess",
+        "SystemInfo", "GetCredentials", "SetPermission",
+    ]
+
+    TOOL_SHADOWING_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Tool names that shadow common system operations
+        (r'(?:name|tool_name)\s*[=:]\s*["\'](?:List|Read|Write|Delete|Get|Set|Create|Kill|Execute|Run|Admin|System|Process|Network|Database|SQL|Fetch|Upload|Download)[A-Z][a-zA-Z]*["\']',
+         'MCP120: Tool name shadows common system operation', Severity.MEDIUM),
+
+        # Tool impersonation - names similar to built-in tools
+        (r'(?:name|tool_name)\s*[=:]\s*["\'](?:file_read|file_write|run_bash|run_shell|exec_cmd|db_query)["\']',
+         'MCP121: Tool name impersonates built-in tool', Severity.MEDIUM),
+
+        # Intentionally deceptive names
+        (r'(?:name|tool_name)\s*[=:]\s*["\'](?:safe|benign|harmless|helper|utility|util)[_-]?[a-z]+["\'].*(?:exec|shell|cmd|eval)',
+         'MCP121: Deceptive "safe" name with dangerous operation', Severity.HIGH),
+
+        # Description mentions different functionality than name suggests
+        (r'name\s*[=:]\s*["\'](?:format|beautify|lint|validate)["\'].*description\s*[=:]\s*["\'][^"\']*(?:execute|delete|send|upload)',
+         'MCP122: Deceptive tool description mismatches name', Severity.HIGH),
+
+        # Hidden functionality in description
+        (r'description\s*[=:]\s*["\'][^"\']*(?:also|additionally|secretly|internally)\s+(?:read|send|upload|delete)',
+         'MCP122: Description reveals hidden functionality', Severity.HIGH),
+    ]
+
+    # MCP123: Auto-update without integrity check patterns
+    AUTO_UPDATE_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Auto-update flags without verification
+        (r'auto[_-]?update\s*[=:]\s*["\']?(?:true|yes|enabled|1)["\']?',
+         'MCP123: Auto-update enabled without integrity check', Severity.MEDIUM),
+        (r'self[_-]?update\s*\(',
+         'MCP123: Self-update function (check for integrity verification)', Severity.MEDIUM),
+        (r'fetch[_-]?latest[_-]?version\s*\(',
+         'MCP123: Fetches latest version (check for signature verification)', Severity.MEDIUM),
+
+        # Download without checksum/signature
+        (r'download\s*\([^)]*\)(?!.*(?:checksum|hash|verify|signature))',
+         'MCP123: Download without integrity verification', Severity.HIGH),
+        (r'update\s*\([^)]*\)(?!.*(?:verify|sign|hash))',
+         'MCP123: Update without verification', Severity.HIGH),
+        (r'install\s*\([^)]*(?:url|http)[^)]*\)(?!.*signature)',
+         'MCP123: Install from URL without signature check', Severity.HIGH),
+
+        # Dynamic code loading
+        (r'(?:eval|exec)\s*\(\s*(?:await\s+)?(?:fetch|request|axios)',
+         'MCP123: Dynamic code execution from remote source', Severity.CRITICAL),
+        (r'import\s*\([^)]*\+[^)]*\)',
+         'MCP123: Dynamic import with concatenation', Severity.HIGH),
+        (r'require\s*\([^)]*\+[^)]*\)',
+         'MCP123: Dynamic require with concatenation', Severity.HIGH),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
@@ -523,6 +627,27 @@ class MCPServerScanner(BaseScanner):
                 content, lines,
                 self.CONFUSED_DEPUTY_ADVANCED_PATTERNS,
                 "MCP118"
+            ))
+
+            # MCP119: PowerShell subexpression injection (Windows RCE)
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.POWERSHELL_INJECTION_PATTERNS,
+                "MCP119"
+            ))
+
+            # MCP120-122: Tool shadowing/impersonation patterns
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.TOOL_SHADOWING_PATTERNS,
+                "MCP120"
+            ))
+
+            # MCP123: Auto-update without integrity check
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.AUTO_UPDATE_PATTERNS,
+                "MCP123"
             ))
 
             return ScannerResult(

@@ -39,6 +39,9 @@ class MCPConfigScanner(BaseScanner):
     - MCP011: Wildcard path patterns (excessive access)
     - MCP012: Untrusted server sources
     - MCP013: Missing TLS certificate validation
+    - MCP014: Server as OAuth provider (anti-pattern)
+    - MCP015: Missing HTTPS for OAuth
+    - MCP016: Stateful token management warning
     """
 
     # Known secret patterns (reused from EnvScanner with additions)
@@ -150,6 +153,56 @@ class MCPConfigScanner(BaseScanner):
         'insecure',
         'skip_ssl',
         'no_verify',
+    ]
+
+    # MCP014-016: OAuth Authorization Specification Warnings
+    # Based on MCP security research - problematic OAuth patterns
+    MCP_OAUTH_WARNINGS: List[Tuple[str, str, str, Severity]] = [
+        # MCP014: Server acting as both resource + auth server (anti-pattern)
+        (r'authorization_endpoint.*localhost',
+         'MCP014',
+         'MCP server implements its own OAuth - consider using external IdP',
+         Severity.MEDIUM),
+        (r'token_endpoint.*localhost',
+         'MCP014',
+         'Local token endpoint - MCP servers should use external OAuth providers',
+         Severity.MEDIUM),
+
+        # MCP015: Missing HTTPS for OAuth (critical)
+        (r'authorization_endpoint.*http://(?!localhost)',
+         'MCP015',
+         'OAuth authorization_endpoint must use HTTPS',
+         Severity.HIGH),
+        (r'token_endpoint.*http://(?!localhost)',
+         'MCP015',
+         'OAuth token_endpoint must use HTTPS',
+         Severity.HIGH),
+        (r'redirect_uri.*http://(?!localhost)',
+         'MCP015',
+         'OAuth redirect_uri should use HTTPS',
+         Severity.MEDIUM),
+
+        # MCP016: Stateful token management (scaling concern)
+        (r'token_store|token_cache|session_store',
+         'MCP016',
+         'Stateful MCP server detected - may have scaling issues',
+         Severity.LOW),
+        (r'in_memory.*token|token.*in_memory',
+         'MCP016',
+         'In-memory token storage - tokens lost on restart',
+         Severity.LOW),
+    ]
+
+    # OAuth-related keys to check in config
+    OAUTH_CONFIG_KEYS = [
+        'authorization_endpoint',
+        'token_endpoint',
+        'redirect_uri',
+        'client_id',
+        'client_secret',
+        'scope',
+        'oauth',
+        'auth',
     ]
 
     def get_tool_name(self) -> str:
@@ -520,6 +573,20 @@ class MCPConfigScanner(BaseScanner):
                     rule_id="MCP009",
                     cwe_id=319,
                     cwe_link="https://cwe.mitre.org/data/definitions/319.html"
+                ))
+
+        # MCP014-016: OAuth Authorization Spec Warnings
+        config_str = json.dumps(config) if isinstance(config, dict) else str(config)
+        for pattern, rule_id, message, severity in self.MCP_OAUTH_WARNINGS:
+            if re.search(pattern, config_str, re.IGNORECASE):
+                line_num = self._find_line_number(lines, pattern.split('.*')[0].replace('\\', ''))
+                issues.append(ScannerIssue(
+                    severity=severity,
+                    message=f"MCP server '{server_name}': {message}",
+                    line=line_num if line_num > 1 else 1,
+                    rule_id=rule_id,
+                    cwe_id=287 if rule_id == 'MCP015' else 1188,
+                    cwe_link="https://cwe.mitre.org/data/definitions/287.html" if rule_id == 'MCP015' else "https://cwe.mitre.org/data/definitions/1188.html"
                 ))
 
         return issues

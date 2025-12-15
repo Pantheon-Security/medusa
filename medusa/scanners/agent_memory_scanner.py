@@ -42,6 +42,11 @@ class AgentMemoryScanner(BaseScanner):
     - AIM008: Cross-session data exposure
     - AIM009: Memory injection patterns
     - AIM010: Insecure vector store config
+    - AIM011: Unvalidated memory write (poisoning risk)
+    - AIM012: Persistent memory without encryption
+    - AIM013: Vector store poisoning risk
+    - AIM014: Memory checksum missing
+    - AIM015: Cross-session memory contamination
     """
 
     # Memory config file patterns
@@ -181,6 +186,71 @@ class AgentMemoryScanner(BaseScanner):
          'Vector overwrite enabled (poisoning risk)', Severity.MEDIUM),
     ]
 
+    # AIM011: Unvalidated memory write patterns (Memory Poisoning)
+    # Persistent exploit injection into agent memory/state
+    UNVALIDATED_WRITE_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'memory\.store\s*\([^)]*user[_-]?input',
+         'Unvalidated user input written to memory', Severity.CRITICAL),
+        (r'context\.append\s*\([^)]*external[_-]?data',
+         'External data appended to context without validation', Severity.HIGH),
+        (r'conversation[_-]?history\.add\s*\((?!.*sanitize)',
+         'History added without sanitization', Severity.HIGH),
+        (r'memory\.(?:set|put|write)\s*\([^)]*(?:request|input|body)',
+         'Request data stored directly in memory', Severity.HIGH),
+        (r'state\.update\s*\([^)]*(?:user|external|api)',
+         'External data updates agent state', Severity.HIGH),
+    ]
+
+    # AIM012: Persistent memory without encryption
+    PERSISTENT_UNENCRYPTED_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'persist[_-]?memory\s*\((?!.*encrypt)',
+         'Memory persisted without encryption', Severity.HIGH),
+        (r'save[_-]?state\s*\((?!.*(?:checksum|hash|encrypt))',
+         'State saved without integrity check or encryption', Severity.HIGH),
+        (r'(?i)(long[_-]?term|permanent)[_-]?(?:memory|storage)\s*[=:].*(?!.*encrypt)',
+         'Long-term memory storage without encryption', Severity.MEDIUM),
+        (r'dump[_-]?memory\s*\([^)]*(?:file|disk|path)',
+         'Memory dumped to file (may lack encryption)', Severity.MEDIUM),
+    ]
+
+    # AIM013: Vector store poisoning patterns
+    VECTOR_POISONING_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'index\.add\s*\([^)]*(?:untrusted|user|external)',
+         'Untrusted data added to vector index', Severity.CRITICAL),
+        (r'vectorstore\.(?:insert|upsert|add)\s*\((?!.*validate)',
+         'Vector store insert without validation', Severity.HIGH),
+        (r'embedding[_-]?store\.(?:put|add)\s*\([^)]*(?:raw|unfiltered)',
+         'Raw data added to embedding store', Severity.HIGH),
+        (r'(?i)rag[_-]?(?:index|store)\.(?:update|add)\s*\(',
+         'RAG index update (check for validation)', Severity.MEDIUM),
+    ]
+
+    # AIM014: Missing memory checksum/integrity patterns
+    MISSING_CHECKSUM_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'load[_-]?memory\s*\((?!.*(?:verify|checksum|hash|integrity))',
+         'Memory loaded without integrity verification', Severity.HIGH),
+        (r'restore[_-]?(?:state|checkpoint)\s*\((?!.*verify)',
+         'State restored without verification', Severity.HIGH),
+        (r'deserialize[_-]?memory\s*\(',
+         'Memory deserialized (verify integrity check exists)', Severity.MEDIUM),
+        (r'(?i)pickle\.loads?\s*\(',
+         'Pickle deserialization (unsafe - check source)', Severity.CRITICAL),
+    ]
+
+    # AIM015: Cross-session memory contamination patterns
+    CROSS_SESSION_CONTAMINATION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'(?i)shared[_-]?memory[_-]?pool',
+         'Shared memory pool across sessions', Severity.HIGH),
+        (r'(?i)global[_-]?(?:context|memory|state)[_-]?cache',
+         'Global cache shared across sessions', Severity.HIGH),
+        (r'(?i)session[_-]?(?:less|agnostic)[_-]?(?:memory|state)',
+         'Session-agnostic memory (contamination risk)', Severity.MEDIUM),
+        (r'(?i)inherit[_-]?(?:memory|context)[_-]?from',
+         'Memory inheritance between sessions', Severity.MEDIUM),
+        (r'memory\.(?:share|export)\s*\([^)]*(?:all|other)[_-]?session',
+         'Memory shared with other sessions', Severity.HIGH),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
@@ -294,6 +364,31 @@ class AgentMemoryScanner(BaseScanner):
             # AIM010: Vector store security
             issues.extend(self._scan_patterns(
                 lines, self.VECTOR_STORE_PATTERNS, "AIM010", 798
+            ))
+
+            # AIM011: Unvalidated memory write (Memory Poisoning)
+            issues.extend(self._scan_patterns(
+                lines, self.UNVALIDATED_WRITE_PATTERNS, "AIM011", 94
+            ))
+
+            # AIM012: Persistent memory without encryption
+            issues.extend(self._scan_patterns(
+                lines, self.PERSISTENT_UNENCRYPTED_PATTERNS, "AIM012", 311
+            ))
+
+            # AIM013: Vector store poisoning
+            issues.extend(self._scan_patterns(
+                lines, self.VECTOR_POISONING_PATTERNS, "AIM013", 94
+            ))
+
+            # AIM014: Missing memory checksum
+            issues.extend(self._scan_patterns(
+                lines, self.MISSING_CHECKSUM_PATTERNS, "AIM014", 354
+            ))
+
+            # AIM015: Cross-session memory contamination
+            issues.extend(self._scan_patterns(
+                lines, self.CROSS_SESSION_CONTAMINATION_PATTERNS, "AIM015", 488
             ))
 
             # Parse JSON and do structured analysis
