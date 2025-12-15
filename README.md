@@ -36,13 +36,20 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 - 📊 **Multiple Reports** - JSON, HTML, Markdown exports for any workflow
 - 🎯 **Zero Config** - Works out of the box with sensible defaults
 
-### 🆕 What's New in v2025.8.5.12
+### 🆕 What's New in v2025.9.0 - Major Release
 
-- **Zero False Positives from Dependencies** - Virtual environments (`venv/`, `*-env/`) and pip packages (`site-packages/`) are now automatically excluded
-- **Smart Config Merging** - User exclusions merge with mandatory exclusions instead of replacing them
-- **Auto-Detect Virtual Environments** - Automatically finds and excludes venvs via `pyvenv.cfg` marker
-- **Updated Security Tools** - semgrep 1.145.0, trivy 0.68.1, ruff 0.14.8, black 25.12.0
-- **Improved Exception Handling** - Fixed 11 bare exception clauses for better error reporting
+**6 New AI Security Scanners** bringing MEDUSA to **70 total scanners** with **180+ detection rules**:
+
+| Scanner | Focus | Key Detections |
+|---------|-------|----------------|
+| 🔐 **PostQuantumScanner** | Quantum-vulnerable crypto | RSA, ECDSA, ECDH → ML-KEM, ML-DSA (NIST FIPS 203/204/205) |
+| 🎭 **SteganographyScanner** | Hidden AI payloads | Zero-width Unicode, control tokens, homoglyphs, LSB |
+| 🧠 **ExcessiveAgencyScanner** | Over-permissioned agents | OWASP LLM Top 10, missing callbacks, unbounded loops |
+| 🔌 **PluginSecurityScanner** | Cross-Plugin Request Forgery | CPRF attacks, chat history exposure, plugin injection |
+| ⚙️ **HyperparameterScanner** | ML training sabotage | Extreme learning rates, untrusted configs |
+| 🐳 **DockerMCPScanner** | MCP container security | Root user, unpinned images, exposed ports |
+
+**Enhanced Scanners**: OWASPLLMScanner (CVE-2024-5184), ModelAttackScanner (CVE-2019-20634, CVE-2023-4969), MCPServerScanner (PowerShell injection), MultiAgentScanner (prompt infection), LLMOpsScanner (Ray/Shadow Ray CVEs)
 
 ---
 
@@ -147,7 +154,7 @@ medusa scan .
 ### Example Output
 
 ```
-🐍 MEDUSA v2025.8.5.11 - Security Guardian
+🐍 MEDUSA v2025.9.0 - Security Guardian
 
 🎯 Target: .
 🔧 Mode: Full
@@ -591,7 +598,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2025.8.5.11
+version: 2025.9.0
 
 # Scanner control
 scanners:
@@ -1056,10 +1063,10 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.8.5.11
-**Release Date**: 2025-12-10
-**Total Scanners**: 64 (16 AI security + React2Shell CVE detection)
-**Detection Rules**: 150+ AI-specific rules + CVE detection
+**Version**: 2025.9.0
+**Release Date**: 2025-12-15
+**Total Scanners**: 70 (22 AI security + React2Shell CVE detection)
+**Detection Rules**: 180+ AI-specific rules + CVE detection
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows (with helpful install hints)
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
@@ -1108,6 +1115,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-12-10
+**Last Updated**: 2025-12-15
 **Status**: Production Ready
-**Current Version**: v2025.8.5.11 - Scanner Regex Fixes + macOS Install Hints
+**Current Version**: v2025.9.0 - 6 New AI Security Scanners (70 Total)

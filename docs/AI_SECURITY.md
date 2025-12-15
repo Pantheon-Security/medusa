@@ -1,6 +1,6 @@
 # AI & LLM Security Scanning
 
-MEDUSA provides **industry-leading security scanning** for AI/ML applications, LLM integrations, MCP servers, and agentic systems. With **16 specialized AI security scanners** and **180+ detection rules**, MEDUSA is the most comprehensive open-source tool for securing the AI development lifecycle.
+MEDUSA provides **industry-leading security scanning** for AI/ML applications, LLM integrations, MCP servers, and agentic systems. With **22 specialized AI security scanners** and **180+ detection rules**, MEDUSA is the most comprehensive open-source tool for securing the AI development lifecycle.
 
 ---
 
@@ -39,8 +39,14 @@ MEDUSA detects these threats **before they reach production**.
 | **ModelAttackScanner** | Model-level attacks | 10 | Adversarial inputs, model extraction, membership inference |
 | **LLMOpsScanner** | ML operations security | 16 | Ray/Shadow Ray, LoRA adapter security, GPU memory leaks |
 | **VectorDBScanner** | Vector database security | 10 | Unencrypted storage, tenant isolation, PII in embeddings |
+| **PostQuantumScanner** | Quantum-vulnerable crypto | 10 | RSA/ECDSA/ECDH detection, NIST PQC recommendations |
+| **SteganographyScanner** | Hidden AI payloads | 10 | Zero-width Unicode, control tokens, homoglyphs, LSB |
+| **HyperparameterScanner** | ML training sabotage | 10 | Extreme LR, untrusted configs, disabled regularization |
+| **PluginSecurityScanner** | Cross-Plugin Request Forgery | 10 | CPRF attacks, chat history exposure, plugin injection |
+| **ExcessiveAgencyScanner** | Over-permissioned agents | 10 | OWASP LLM, missing callbacks, unbounded loops |
+| **DockerMCPScanner** | MCP container security | 10 | Root user, unpinned images, exposed ports |
 
-**Total: 16 scanners, 180+ rules**
+**Total: 22 scanners, 180+ rules**
 
 ---
 
