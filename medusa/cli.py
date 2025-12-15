@@ -1190,6 +1190,42 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     console.print(f"\n[cyan]🎯 Target:[/cyan] {target}")
     console.print(f"[cyan]🔧 Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
 
+    # Run CodePatternAnalyzer for smart scanner selection
+    from medusa.core.pattern_analyzer import CodePatternAnalyzer
+
+    console.print("\n[dim]Analyzing repository...[/dim]")
+    analyzer = CodePatternAnalyzer()
+    repo_analysis = analyzer.analyze_repo(Path(target))
+
+    # Display analysis summary
+    if repo_analysis.languages:
+        top_langs = sorted(repo_analysis.languages.items(), key=lambda x: -x[1])[:5]
+        lang_summary = ", ".join(f"{lang} ({count})" for lang, count in top_langs)
+        console.print(f"[cyan]📊 Languages:[/cyan] {lang_summary}")
+
+    if repo_analysis.frameworks:
+        fw_list = sorted(repo_analysis.frameworks)[:8]
+        fw_summary = ", ".join(fw_list)
+        if len(repo_analysis.frameworks) > 8:
+            fw_summary += f" (+{len(repo_analysis.frameworks) - 8} more)"
+        console.print(f"[cyan]🔧 Frameworks:[/cyan] {fw_summary}")
+
+    # Highlight AI patterns
+    if repo_analysis.security_context.has_ai_patterns:
+        ai_patterns = []
+        if repo_analysis.security_context.has_mcp_config:
+            ai_patterns.append("MCP")
+        if repo_analysis.security_context.has_rag_patterns:
+            ai_patterns.append("RAG")
+        if repo_analysis.security_context.has_agent_patterns:
+            ai_patterns.append("Agents")
+        if ai_patterns:
+            console.print(f"[magenta]🤖 AI Patterns:[/magenta] {', '.join(ai_patterns)} detected - AI security scanners enabled")
+
+    # Show recommended vs skipped scanners
+    console.print(f"[green]✓ Recommended scanners:[/green] {len(repo_analysis.recommended_scanners)}")
+    console.print(f"[dim]✗ Skipped (not needed):[/dim] {len(repo_analysis.skip_scanners)}")
+
     # Pre-scan for missing linters (batch mode)
     if install_mode == 'batch':
         _handle_batch_install(target, auto_install)
