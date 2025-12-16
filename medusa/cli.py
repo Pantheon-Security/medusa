@@ -3041,5 +3041,329 @@ def override(file_path, scanner_name, list_scanners, show, remove):
     console.print(f"\n[dim]This file will now always use {scanner_name} for scanning[/dim]")
 
 
+@main.command()
+@click.argument('target', default='.', type=click.Path(exists=True))
+@click.option('--format', '-f', 'output_format', type=click.Choice(['spdx', 'cyclonedx', 'both']),
+              default='cyclonedx', help='Output format (default: cyclonedx)')
+@click.option('--output', '-o', type=click.Path(), help='Output file path (default: stdout or .medusa/sbom/)')
+def sbom(target, output_format, output):
+    """
+    Generate Software Bill of Materials (SBOM) for a project.
+
+    Analyzes dependencies from package managers (pip, npm, etc.) and
+    generates SBOM in industry-standard formats.
+
+    Supported formats:
+    - CycloneDX (OWASP standard, default)
+    - SPDX (ISO/IEC 5962:2021)
+
+    Examples:
+        medusa sbom .                    # Generate CycloneDX SBOM
+        medusa sbom . --format spdx      # Generate SPDX SBOM
+        medusa sbom . --format both      # Generate both formats
+        medusa sbom . -o sbom.json       # Save to specific file
+    """
+    from pathlib import Path
+    from datetime import datetime
+    import json
+    import uuid
+    import hashlib
+
+    print_banner()
+    console.print("\n[cyan]📦 SBOM Generation[/cyan]\n")
+
+    target_path = Path(target).resolve()
+    console.print(f"[dim]Target: {target_path}[/dim]\n")
+
+    # Detect dependencies from various package managers
+    dependencies = []
+
+    # Check for Python dependencies
+    requirements_files = list(target_path.glob('**/requirements*.txt'))
+    setup_py = target_path / 'setup.py'
+    pyproject_toml = target_path / 'pyproject.toml'
+
+    if pyproject_toml.exists():
+        console.print("[cyan]Found:[/cyan] pyproject.toml")
+        deps = _parse_pyproject_toml(pyproject_toml)
+        dependencies.extend(deps)
+
+    for req_file in requirements_files[:5]:  # Limit to first 5
+        if 'node_modules' not in str(req_file) and '.venv' not in str(req_file):
+            console.print(f"[cyan]Found:[/cyan] {req_file.relative_to(target_path)}")
+            deps = _parse_requirements_txt(req_file)
+            dependencies.extend(deps)
+
+    # Check for Node.js dependencies
+    package_json = target_path / 'package.json'
+    if package_json.exists():
+        console.print("[cyan]Found:[/cyan] package.json")
+        deps = _parse_package_json(package_json)
+        dependencies.extend(deps)
+
+    # Check for package-lock.json for exact versions
+    package_lock = target_path / 'package-lock.json'
+    if package_lock.exists():
+        console.print("[cyan]Found:[/cyan] package-lock.json")
+        deps = _parse_package_lock(package_lock)
+        dependencies.extend(deps)
+
+    # Deduplicate dependencies (keep first occurrence with version info)
+    seen = {}
+    unique_deps = []
+    for dep in dependencies:
+        key = (dep['name'], dep['type'])
+        if key not in seen:
+            seen[key] = dep
+            unique_deps.append(dep)
+        elif dep.get('version') and not seen[key].get('version'):
+            seen[key] = dep
+
+    dependencies = unique_deps
+    console.print(f"\n[green]✓ Found {len(dependencies)} dependencies[/green]\n")
+
+    if not dependencies:
+        console.print("[yellow]No dependencies found. Make sure you have:[/yellow]")
+        console.print("  - requirements.txt / pyproject.toml (Python)")
+        console.print("  - package.json / package-lock.json (Node.js)")
+        return
+
+    # Generate SBOM in requested format(s)
+    output_dir = target_path / '.medusa' / 'sbom'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if output_format in ['cyclonedx', 'both']:
+        sbom_data = _generate_cyclonedx(target_path, dependencies)
+        if output and output_format == 'cyclonedx':
+            output_path = Path(output)
+        else:
+            output_path = output_dir / 'sbom-cyclonedx.json'
+
+        with open(output_path, 'w') as f:
+            json.dump(sbom_data, f, indent=2)
+        console.print(f"[green]✓ CycloneDX SBOM:[/green] {output_path}")
+
+    if output_format in ['spdx', 'both']:
+        sbom_data = _generate_spdx(target_path, dependencies)
+        if output and output_format == 'spdx':
+            output_path = Path(output)
+        else:
+            output_path = output_dir / 'sbom-spdx.json'
+
+        with open(output_path, 'w') as f:
+            json.dump(sbom_data, f, indent=2)
+        console.print(f"[green]✓ SPDX SBOM:[/green] {output_path}")
+
+    console.print(f"\n[dim]Components: {len(dependencies)}[/dim]")
+    console.print(f"[dim]Use 'medusa scan' to check for vulnerabilities[/dim]")
+
+
+def _parse_requirements_txt(path: Path) -> list:
+    """Parse requirements.txt file"""
+    deps = []
+    try:
+        with open(path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or line.startswith('-'):
+                    continue
+                # Parse package==version, package>=version, etc.
+                import re
+                match = re.match(r'^([a-zA-Z0-9_-]+)\s*([<>=!~]+)?\s*([0-9a-zA-Z.*]+)?', line)
+                if match:
+                    name = match.group(1)
+                    version = match.group(3) if match.group(3) else None
+                    deps.append({
+                        'name': name,
+                        'version': version,
+                        'type': 'pypi'
+                    })
+    except Exception:
+        pass
+    return deps
+
+
+def _parse_pyproject_toml(path: Path) -> list:
+    """Parse pyproject.toml for dependencies"""
+    deps = []
+    try:
+        content = path.read_text()
+        # Simple regex parsing for dependencies
+        import re
+
+        # Look for dependencies array
+        in_deps = False
+        for line in content.split('\n'):
+            if 'dependencies' in line and '=' in line:
+                in_deps = True
+                continue
+            if in_deps:
+                if line.strip().startswith(']'):
+                    in_deps = False
+                    continue
+                match = re.search(r'"([a-zA-Z0-9_-]+)([<>=!~]+)?([0-9a-zA-Z.*]+)?"', line)
+                if match:
+                    deps.append({
+                        'name': match.group(1),
+                        'version': match.group(3) if match.group(3) else None,
+                        'type': 'pypi'
+                    })
+    except Exception:
+        pass
+    return deps
+
+
+def _parse_package_json(path: Path) -> list:
+    """Parse package.json for dependencies"""
+    deps = []
+    try:
+        import json
+        with open(path) as f:
+            data = json.load(f)
+
+        for dep_type in ['dependencies', 'devDependencies']:
+            for name, version in data.get(dep_type, {}).items():
+                # Clean version string (remove ^, ~, etc.)
+                clean_version = version.lstrip('^~>=<')
+                deps.append({
+                    'name': name,
+                    'version': clean_version if clean_version else None,
+                    'type': 'npm',
+                    'dev': dep_type == 'devDependencies'
+                })
+    except Exception:
+        pass
+    return deps
+
+
+def _parse_package_lock(path: Path) -> list:
+    """Parse package-lock.json for exact versions"""
+    deps = []
+    try:
+        import json
+        with open(path) as f:
+            data = json.load(f)
+
+        # v2/v3 lockfile format
+        packages = data.get('packages', {})
+        for pkg_path, info in packages.items():
+            if not pkg_path or pkg_path == '':
+                continue
+            # Extract package name from path
+            name = pkg_path.replace('node_modules/', '').split('/')[-1]
+            if name.startswith('@'):
+                # Scoped package
+                parts = pkg_path.replace('node_modules/', '').split('/')
+                if len(parts) >= 2:
+                    name = f"{parts[-2]}/{parts[-1]}"
+
+            deps.append({
+                'name': name,
+                'version': info.get('version'),
+                'type': 'npm',
+                'integrity': info.get('integrity')
+            })
+    except Exception:
+        pass
+    return deps
+
+
+def _generate_cyclonedx(target_path: Path, dependencies: list) -> dict:
+    """Generate CycloneDX 1.5 SBOM"""
+    import uuid
+    from datetime import datetime, timezone
+
+    components = []
+    for dep in dependencies:
+        component = {
+            'type': 'library',
+            'name': dep['name'],
+            'purl': f"pkg:{dep['type']}/{dep['name']}"
+        }
+        if dep.get('version'):
+            component['version'] = dep['version']
+            component['purl'] += f"@{dep['version']}"
+        if dep.get('integrity'):
+            component['hashes'] = [{
+                'alg': 'SHA-512' if 'sha512-' in dep['integrity'] else 'SHA-256',
+                'content': dep['integrity'].split('-')[-1] if '-' in dep['integrity'] else dep['integrity']
+            }]
+        components.append(component)
+
+    return {
+        'bomFormat': 'CycloneDX',
+        'specVersion': '1.5',
+        'serialNumber': f'urn:uuid:{uuid.uuid4()}',
+        'version': 1,
+        'metadata': {
+            'timestamp': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+            'tools': [{
+                'vendor': 'Pantheon Security',
+                'name': 'MEDUSA',
+                'version': '2025.9.0.0'
+            }],
+            'component': {
+                'type': 'application',
+                'name': target_path.name,
+                'version': '0.0.0'
+            }
+        },
+        'components': components
+    }
+
+
+def _generate_spdx(target_path: Path, dependencies: list) -> dict:
+    """Generate SPDX 2.3 SBOM"""
+    import uuid
+    import hashlib
+    from datetime import datetime, timezone
+
+    packages = []
+    for i, dep in enumerate(dependencies):
+        pkg = {
+            'SPDXID': f'SPDXRef-Package-{i+1}',
+            'name': dep['name'],
+            'downloadLocation': 'NOASSERTION',
+            'filesAnalyzed': False
+        }
+        if dep.get('version'):
+            pkg['versionInfo'] = dep['version']
+
+        # Add external refs
+        purl = f"pkg:{dep['type']}/{dep['name']}"
+        if dep.get('version'):
+            purl += f"@{dep['version']}"
+        pkg['externalRefs'] = [{
+            'referenceCategory': 'PACKAGE-MANAGER',
+            'referenceType': 'purl',
+            'referenceLocator': purl
+        }]
+
+        packages.append(pkg)
+
+    doc_namespace = f'https://medusa.security/spdx/{target_path.name}-{uuid.uuid4()}'
+
+    return {
+        'spdxVersion': 'SPDX-2.3',
+        'dataLicense': 'CC0-1.0',
+        'SPDXID': 'SPDXRef-DOCUMENT',
+        'name': f'{target_path.name}-sbom',
+        'documentNamespace': doc_namespace,
+        'creationInfo': {
+            'created': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+            'creators': ['Tool: MEDUSA-2025.9.0.0'],
+            'licenseListVersion': '3.19'
+        },
+        'packages': packages,
+        'relationships': [
+            {
+                'spdxElementId': 'SPDXRef-DOCUMENT',
+                'relatedSpdxElement': pkg['SPDXID'],
+                'relationshipType': 'DESCRIBES'
+            } for pkg in packages
+        ]
+    }
+
+
 if __name__ == '__main__':
     main()
