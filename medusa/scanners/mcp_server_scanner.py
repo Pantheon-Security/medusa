@@ -48,6 +48,7 @@ class MCPServerScanner(BaseScanner):
     - MCP121: Tool impersonation pattern
     - MCP122: Deceptive tool description
     - MCP123: Auto-update without integrity check
+    - MCP124: Path traversal vulnerabilities (arbitrary file read/write)
     """
 
     # Tool poisoning patterns - hidden instructions in descriptions
@@ -149,6 +150,41 @@ class MCPServerScanner(BaseScanner):
         # Glob patterns for mass file access
         (r'glob\s*\([^)]*["\'][*]', 'Glob pattern for file enumeration', Severity.MEDIUM),
         (r'(walk|listdir|readdir)\s*\([^)]*home', 'Directory traversal from home', Severity.HIGH),
+    ]
+
+    # MCP124: Path traversal vulnerabilities - arbitrary file read/write
+    PATH_TRAVERSAL_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Direct path parameter to file operations (no validation)
+        (r'(readFile|readFileSync)\s*\(\s*(file_?path|path|filename|input\.\w*path)',
+         'Path traversal: File read with unvalidated path parameter', Severity.CRITICAL),
+        (r'(writeFile|writeFileSync)\s*\(\s*(file_?path|path|filename|input\.\w*path)',
+         'Path traversal: File write with unvalidated path parameter', Severity.CRITICAL),
+        (r'open\s*\(\s*(file_?path|path|filename|input\.\w*path)',
+         'Path traversal: File open with unvalidated path parameter', Severity.CRITICAL),
+
+        # Python path operations without validation
+        (r'Path\s*\(\s*(file_?path|path|filename|input\.get)',
+         'Path traversal: Path object with unvalidated input', Severity.HIGH),
+        (r'\.read_text\s*\(\)|\.read_bytes\s*\(\)',
+         'Direct file read without path validation', Severity.MEDIUM),
+
+        # Missing path validation patterns
+        (r'(?<!realpath)(?<!resolve)(?<!abspath)\s*(readFile|open|Path)\s*\([^)]*\+',
+         'File operation with string concatenation (no path validation)', Severity.HIGH),
+
+        # Dangerous patterns that bypass validation
+        (r'os\.path\.(isfile|isdir|exists)\s*\([^)]*\).*(?!realpath)',
+         'Path check without realpath (symlink bypass)', Severity.MEDIUM),
+
+        # User input directly in file paths
+        (r'f["\'][^"\']*\{(file_?path|path|filename|input)',
+         'Path traversal: f-string with unvalidated path input', Severity.CRITICAL),
+        (r'`[^`]*\$\{(file_?path|path|filename|input)',
+         'Path traversal: Template literal with unvalidated path input', Severity.CRITICAL),
+
+        # Missing directory restriction
+        (r'(send_file|send_voice|download_media)\s*\([^)]*(?!allowed_dir|base_path|restrict)',
+         'File operation without directory restriction', Severity.HIGH),
     ]
 
     # Missing validation patterns
@@ -573,6 +609,13 @@ class MCPServerScanner(BaseScanner):
                 content, lines,
                 self.EXFILTRATION_CODE_PATTERNS,
                 "MCP111"
+            ))
+
+            # MCP124: Path traversal vulnerabilities
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.PATH_TRAVERSAL_PATTERNS,
+                "MCP124"
             ))
 
             # MCP108/MCP109: Missing annotations

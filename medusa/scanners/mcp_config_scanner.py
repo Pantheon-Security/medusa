@@ -42,6 +42,8 @@ class MCPConfigScanner(BaseScanner):
     - MCP014: Server as OAuth provider (anti-pattern)
     - MCP015: Missing HTTPS for OAuth
     - MCP016: Stateful token management warning
+    - MCP017: CVE-2025-6514 - mcp-remote RCE vulnerability (CVSS 9.6)
+    - MCP018: mcp-remote over HTTP (MITM attack vector)
     """
 
     # Known secret patterns (reused from EnvScanner with additions)
@@ -153,6 +155,16 @@ class MCPConfigScanner(BaseScanner):
         'insecure',
         'skip_ssl',
         'no_verify',
+    ]
+
+    # CVE-2025-6514: mcp-remote RCE vulnerability
+    # Vulnerable versions: 0.0.5 to 0.1.15
+    # Fixed in: 0.1.16
+    MCP_REMOTE_VULNERABLE_VERSIONS = [
+        '0.0.5', '0.0.6', '0.0.7', '0.0.8', '0.0.9',
+        '0.1.0', '0.1.1', '0.1.2', '0.1.3', '0.1.4', '0.1.5',
+        '0.1.6', '0.1.7', '0.1.8', '0.1.9', '0.1.10', '0.1.11',
+        '0.1.12', '0.1.13', '0.1.14', '0.1.15',
     ]
 
     # MCP014-016: OAuth Authorization Specification Warnings
@@ -407,38 +419,60 @@ class MCPConfigScanner(BaseScanner):
         if isinstance(args, list):
             args_str = ' '.join(str(a) for a in args)
 
-            for dangerous_path, (description, severity) in self.DANGEROUS_PATHS.items():
-                # Check if path is used with directory flags
-                path_patterns = [
-                    f'--allowed-directories.*{re.escape(dangerous_path)}',
-                    f'--directory.*{re.escape(dangerous_path)}',
-                    f'--path.*{re.escape(dangerous_path)}',
-                    f'--root.*{re.escape(dangerous_path)}',
-                    f'-d.*{re.escape(dangerous_path)}',
-                    f'"?{re.escape(dangerous_path)}"?',  # Direct path in args
-                ]
+            # Skip placeholder paths (e.g., "/PATH-TO/", "/path/to/your/")
+            placeholder_path_patterns = [
+                r'/PATH[-_]TO/', r'/path[-_]to/', r'/your[-_]', r'/YOUR[-_]',
+                r'/example/', r'/EXAMPLE/', r'/placeholder/', r'/PLACEHOLDER/',
+                r'/replace[-_]me/', r'/REPLACE[-_]ME/',
+            ]
+            is_placeholder = any(re.search(p, args_str, re.IGNORECASE) for p in placeholder_path_patterns)
+            if is_placeholder:
+                pass  # Skip dangerous path checks for placeholder paths
+            else:
+                for dangerous_path, (description, severity) in self.DANGEROUS_PATHS.items():
+                    # Check if path is used with directory flags
+                    # For root path (/), require exact match or end-of-string/quote
+                    if dangerous_path == '/':
+                        path_patterns = [
+                            r'--allowed-directories\s+"?\s*/"?\s*(?:$|"|\s)',  # --allowed-directories "/"
+                            r'--directory\s+"?\s*/"?\s*(?:$|"|\s)',
+                            r'--path\s+"?\s*/"?\s*(?:$|"|\s)',
+                            r'--root\s+"?\s*/"?\s*(?:$|"|\s)',
+                            r'-d\s+"?\s*/"?\s*(?:$|"|\s)',
+                            r'(?:^|\s)"/"(?:\s|$)',  # Standalone "/" in args
+                            r'(?:^|\s)/(?:\s|$)',    # Standalone / (not part of path)
+                        ]
+                    else:
+                        path_patterns = [
+                            f'--allowed-directories.*{re.escape(dangerous_path)}',
+                            f'--directory.*{re.escape(dangerous_path)}',
+                            f'--path.*{re.escape(dangerous_path)}',
+                            f'--root.*{re.escape(dangerous_path)}',
+                            f'-d.*{re.escape(dangerous_path)}',
+                            f'"?{re.escape(dangerous_path)}"?',  # Direct path in args
+                        ]
 
-                for pattern in path_patterns:
-                    if re.search(pattern, args_str, re.IGNORECASE):
-                        line_num = self._find_line_number(lines, dangerous_path)
+                    for pattern in path_patterns:
+                        if re.search(pattern, args_str, re.IGNORECASE):
+                            line_num = self._find_line_number(lines, dangerous_path)
 
-                        # Determine rule ID based on path type
-                        if dangerous_path in ['/', 'C:\\', 'C:/']:
-                            rule_id = "MCP003"
-                        elif dangerous_path in ['~', '$HOME', '%USERPROFILE%']:
-                            rule_id = "MCP004"
-                        else:
-                            rule_id = "MCP007"
+                            # Determine rule ID based on path type
+                            if dangerous_path in ['/', 'C:\\', 'C:/']:
+                                rule_id = "MCP003"
+                            elif dangerous_path in ['~', '$HOME', '%USERPROFILE%']:
+                                rule_id = "MCP004"
+                            else:
+                                rule_id = "MCP007"
 
-                        issues.append(ScannerIssue(
-                            severity=severity,
-                            message=f"MCP server '{server_name}': {description} - path '{dangerous_path}' is exposed",
-                            line=line_num,
-                            rule_id=rule_id,
-                            cwe_id=552,
-                    cwe_link="https://cwe.mitre.org/data/definitions/552.html"
-                        ))
-                        break
+                            issues.append(ScannerIssue(
+                                severity=severity,
+                                message=f"MCP server '{server_name}': {description} - path '{dangerous_path}' is exposed",
+                                line=line_num,
+                                rule_id=rule_id,
+                                cwe_id=552,
+                                cwe_link="https://cwe.mitre.org/data/definitions/552.html"
+                            ))
+                            break
 
         # MCP005: Check for HTTP (non-TLS) transport
         url = config.get('url', '')
@@ -492,6 +526,59 @@ class MCPConfigScanner(BaseScanner):
                             cwe_id=1104,
                             cwe_link="https://cwe.mitre.org/data/definitions/1104.html"
                         ))
+
+        # MCP017: CVE-2025-6514 - mcp-remote RCE vulnerability (CVSS 9.6)
+        # Affects mcp-remote 0.0.5 to 0.1.15, fixed in 0.1.16
+        if isinstance(command, str) and command in ['npx', 'npm']:
+            if isinstance(args, list):
+                for pkg in args:
+                    if not isinstance(pkg, str):
+                        continue
+                    # Check for mcp-remote package
+                    if 'mcp-remote' in pkg:
+                        line_num = self._find_line_number(lines, 'mcp-remote')
+                        # Check if version is specified
+                        if '@' in pkg:
+                            # Extract version: mcp-remote@0.1.15 or @anthropic/mcp-remote@0.1.15
+                            version_match = re.search(r'mcp-remote@(\d+\.\d+\.\d+)', pkg)
+                            if version_match:
+                                version = version_match.group(1)
+                                if version in self.MCP_REMOTE_VULNERABLE_VERSIONS:
+                                    issues.append(ScannerIssue(
+                                        severity=Severity.CRITICAL,
+                                        message=f"MCP server '{server_name}': CVE-2025-6514 - mcp-remote@{version} is vulnerable to RCE via OAuth URL injection. Update to >=0.1.16",
+                                        line=line_num,
+                                        rule_id="MCP017",
+                                        cwe_id=78,
+                                        cwe_link="https://cwe.mitre.org/data/definitions/78.html"
+                                    ))
+                        else:
+                            # No version pinned - warn about potential vulnerability
+                            issues.append(ScannerIssue(
+                                severity=Severity.HIGH,
+                                message=f"MCP server '{server_name}': CVE-2025-6514 risk - mcp-remote without version pin may use vulnerable version (<0.1.16). Pin to @0.1.16 or later",
+                                line=line_num,
+                                rule_id="MCP017",
+                                cwe_id=78,
+                                cwe_link="https://cwe.mitre.org/data/definitions/78.html"
+                            ))
+
+        # MCP018: mcp-remote with HTTP URL (MITM attack vector for CVE-2025-6514)
+        if isinstance(args, list):
+            has_mcp_remote = any('mcp-remote' in str(a) for a in args)
+            if has_mcp_remote:
+                for arg in args:
+                    if isinstance(arg, str) and arg.startswith('http://'):
+                        if 'localhost' not in arg and '127.0.0.1' not in arg:
+                            line_num = self._find_line_number(lines, arg)
+                            issues.append(ScannerIssue(
+                                severity=Severity.CRITICAL,
+                                message=f"MCP server '{server_name}': mcp-remote over HTTP is vulnerable to MITM attacks (CVE-2025-6514 Scenario 2). Use HTTPS",
+                                line=line_num,
+                                rule_id="MCP018",
+                                cwe_id=319,
+                                cwe_link="https://cwe.mitre.org/data/definitions/319.html"
+                            ))
 
         # MCP010: Check for non-localhost binding
         if isinstance(args, list):

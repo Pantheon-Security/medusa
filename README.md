@@ -11,8 +11,8 @@
 
 **Universal security scanner with 73 specialized analyzers for all languages and platforms.**
 **🤖 AI Agent Security with 180+ detection rules for the agentic era.**
-**🚨 CVE Detection: React2Shell CVE-2025-55182 (CVSS 10.0 RCE)**
-**✨ NEW v2025.9.0: 6 New Scanners - Post-Quantum Crypto, Steganography, CPRF, Excessive Agency, Hyperparameter Tampering!**
+**🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
+**✨ NEW v2025.9.0.1: Smart Scanner Selection, Path Traversal Detection, Test File Filtering!**
 
 ---
 
@@ -35,20 +35,20 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 - 📊 **Multiple Reports** - JSON, HTML, Markdown exports for any workflow
 - 🎯 **Zero Config** - Works out of the box with sensible defaults
 
-### 🆕 What's New in v2025.9.0 - Major Release
+### 🆕 What's New in v2025.9.0.1
 
-**6 New AI Security Scanners** bringing MEDUSA to **70 total scanners** with **180+ detection rules**:
+**Smart Scanner Selection & Improved Detection**:
 
-| Scanner | Focus | Key Detections |
-|---------|-------|----------------|
-| 🔐 **PostQuantumScanner** | Quantum-vulnerable crypto | RSA, ECDSA, ECDH → ML-KEM, ML-DSA (NIST FIPS 203/204/205) |
-| 🎭 **SteganographyScanner** | Hidden AI payloads | Zero-width Unicode, control tokens, homoglyphs, LSB |
-| 🧠 **ExcessiveAgencyScanner** | Over-permissioned agents | OWASP LLM Top 10, missing callbacks, unbounded loops |
-| 🔌 **PluginSecurityScanner** | Cross-Plugin Request Forgery | CPRF attacks, chat history exposure, plugin injection |
-| ⚙️ **HyperparameterScanner** | ML training sabotage | Extreme learning rates, untrusted configs |
-| 🐳 **DockerMCPScanner** | MCP container security | Root user, unpinned images, exposed ports |
+| Feature | Description |
+|---------|-------------|
+| 🎯 **Smart Scanner Selection** | Only shows/installs scanners your project actually needs (uses CodePatternAnalyzer) |
+| 🔍 **Path Traversal Detection** | MCP124 - Detects arbitrary file read/write in MCP servers |
+| ✅ **Test File Filtering** | Filters B101 (assert) findings in test directories to reduce noise |
+| 🛡️ **CVE-2025-6514** | Detects vulnerable mcp-remote versions (OAuth SSRF → RCE) |
+| 📤 **Data Leak Detection** | LLM02-DL patterns for exfiltration via Slack/Discord/webhooks |
+| 🔐 **RAG Hidden Text** | AIR013-015 patterns for hidden text poisoning attacks |
 
-**Enhanced Scanners**: OWASPLLMScanner (CVE-2024-5184), ModelAttackScanner (CVE-2019-20634, CVE-2023-4969), MCPServerScanner (PowerShell injection), MultiAgentScanner (prompt infection), LLMOpsScanner (Ray/Shadow Ray CVEs)
+**Previous Release (v2025.9.0)**: 6 New AI Security Scanners - PostQuantumScanner, SteganographyScanner, ExcessiveAgencyScanner, PluginSecurityScanner, HyperparameterScanner, DockerMCPScanner
 
 ---
 
@@ -1062,8 +1062,8 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.9.0
-**Release Date**: 2025-12-15
+**Version**: 2025.9.0.1
+**Release Date**: 2025-12-16
 **Total Scanners**: 70 (22 AI security + React2Shell CVE detection)
 **Detection Rules**: 180+ AI-specific rules + CVE detection
 **Language Coverage**: 46+ file types
@@ -1112,6 +1112,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-12-15
+**Last Updated**: 2025-12-16
 **Status**: Production Ready
-**Current Version**: v2025.9.0 - 6 New AI Security Scanners (70 Total)
+**Current Version**: v2025.9.0.1 - Smart Scanner Selection, Path Traversal Detection
