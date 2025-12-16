@@ -247,6 +247,65 @@ class CodePatternAnalyzer:
         'markdown': 'MarkdownScanner',
     }
 
+    # Scanner class name to CLI tool name mapping
+    SCANNER_TO_TOOL = {
+        'PythonScanner': 'bandit',
+        'JavaScriptScanner': 'eslint',
+        'TypeScriptScanner': 'eslint',
+        'GoScanner': 'golangci-lint',
+        'RustScanner': 'cargo-audit',
+        'RubyScanner': 'rubocop',
+        'PHPScanner': 'phpstan',
+        'JavaScanner': 'spotbugs',
+        'KotlinScanner': 'detekt',
+        'ScalaScanner': 'scalastyle',
+        'CppScanner': 'cppcheck',
+        'SwiftScanner': 'swiftlint',
+        'PerlScanner': 'perlcritic',
+        'BashScanner': 'shellcheck',
+        'PowerShellScanner': 'psscriptanalyzer',
+        'BatScanner': 'Blinter',
+        'LuaScanner': 'luacheck',
+        'RScanner': 'lintr',
+        'ElixirScanner': 'credo',
+        'HaskellScanner': 'hlint',
+        'ClojureScanner': 'clj-kondo',
+        'DartScanner': 'dart',
+        'GroovyScanner': 'groovy',
+        'SolidityScanner': 'slither',
+        'ZigScanner': 'zig',
+        'YAMLScanner': 'yamllint',
+        'JSONScanner': 'jsonlint',
+        'TOMLScanner': 'taplo',
+        'XMLScanner': 'xmllint',
+        'EnvScanner': None,  # Built-in, no external tool
+        'TerraformScanner': 'tflint',
+        'DockerScanner': 'hadolint',
+        'HTMLScanner': 'htmlhint',
+        'CSSScanner': 'stylelint',
+        'SQLScanner': 'sqlfluff',
+        'GraphQLScanner': 'graphql-schema-linter',
+        'ProtobufScanner': 'buf',
+        'MarkdownScanner': 'markdownlint',
+        # AI Security Scanners (built-in, no external tools)
+        'MCPConfigScanner': None,
+        'MCPServerScanner': None,
+        'AIContextScanner': None,
+        'AgentMemoryScanner': None,
+        'RAGSecurityScanner': None,
+        'A2AScanner': None,
+        'PromptLeakageScanner': None,
+        'ToolCallbackScanner': None,
+        'OWASPLLMScanner': None,
+        'ModelAttackScanner': None,
+        'MultiAgentScanner': None,
+        'LLMOpsScanner': None,
+        # External tool integrations
+        'GitLeaksScanner': 'gitleaks',
+        'TrivyScanner': 'trivy',
+        'SemgrepScanner': 'semgrep',
+    }
+
     # Framework detection patterns
     FRAMEWORK_PATTERNS = {
         # Python
@@ -693,6 +752,40 @@ class CodePatternAnalyzer:
             context['likely_false_positive'] = True
 
         return context
+
+    def get_recommended_tools(self, analysis: RepoAnalysis) -> Set[str]:
+        """
+        Get the list of external tools recommended for installation.
+
+        Args:
+            analysis: RepoAnalysis from analyze_repo()
+
+        Returns:
+            Set of tool names (e.g., 'bandit', 'eslint') that should be installed
+        """
+        tools = set()
+        for scanner_name in analysis.recommended_scanners:
+            tool = self.SCANNER_TO_TOOL.get(scanner_name)
+            if tool:  # Skip None (built-in scanners)
+                tools.add(tool)
+        return tools
+
+    def get_skipped_tools(self, analysis: RepoAnalysis) -> Set[str]:
+        """
+        Get the list of external tools that can be skipped (not needed).
+
+        Args:
+            analysis: RepoAnalysis from analyze_repo()
+
+        Returns:
+            Set of tool names that are not needed for this project
+        """
+        tools = set()
+        for scanner_name in analysis.skip_scanners:
+            tool = self.SCANNER_TO_TOOL.get(scanner_name)
+            if tool:  # Skip None (built-in scanners)
+                tools.add(tool)
+        return tools
 
 
 def analyze_directory(path: str) -> dict:

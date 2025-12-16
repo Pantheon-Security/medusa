@@ -1676,10 +1676,12 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
 @click.argument('tool', required=False)
 @click.option('--check', is_flag=True, help='Check which linters are installed')
 @click.option('--all', is_flag=True, help='Install all missing linters')
+@click.option('--smart', is_flag=True, help='Smart install: only tools needed for current project')
+@click.option('--target', type=click.Path(exists=True), help='Target directory for smart analysis (default: current dir)')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
 @click.option('--use-latest', is_flag=True, help='Install latest versions (bypass version pinning)')
 @click.option('--debug', is_flag=True, help='Show detailed debug output (especially for Windows Chocolatey installation)')
-def install(tool, check, all, yes, use_latest, debug):
+def install(tool, check, all, smart, target, yes, use_latest, debug):
     """
     Install security linters for your platform.
 
@@ -1689,12 +1691,50 @@ def install(tool, check, all, yes, use_latest, debug):
     Examples:
         medusa install --check        # Check what's installed
         medusa install --all          # Install all missing linters
+        medusa install --smart        # Smart install: only tools for this project
         medusa install shellcheck     # Install specific tool
         medusa install                # Interactive selection
     """
     print_banner()
 
     console.print("\n[cyan]📦 Linter Installation[/cyan]\n")
+
+    # Smart installation mode - analyze repo first
+    if smart:
+        from pathlib import Path
+        from medusa.core.pattern_analyzer import CodePatternAnalyzer
+
+        target_path = Path(target) if target else Path.cwd()
+        console.print(f"[cyan]🔍 Analyzing project: {target_path}[/cyan]\n")
+
+        analyzer = CodePatternAnalyzer()
+        repo_analysis = analyzer.analyze_repo(target_path)
+
+        # Show analysis summary
+        if repo_analysis.languages:
+            top_langs = sorted(repo_analysis.languages.items(), key=lambda x: -x[1])[:5]
+            lang_summary = ", ".join(f"{lang} ({count})" for lang, count in top_langs)
+            console.print(f"[dim]📊 Languages:[/dim] {lang_summary}")
+
+        if repo_analysis.frameworks:
+            frameworks_list = sorted(repo_analysis.frameworks)
+            if len(frameworks_list) > 6:
+                console.print(f"[dim]🔧 Frameworks:[/dim] {', '.join(frameworks_list[:6])} (+{len(frameworks_list)-6} more)")
+            else:
+                console.print(f"[dim]🔧 Frameworks:[/dim] {', '.join(frameworks_list)}")
+
+        if repo_analysis.security_context.has_ai_patterns:
+            console.print("[dim]🤖 AI Patterns:[/dim] Detected - AI security scanners recommended")
+
+        console.print()
+
+        # Get recommended tool names for filtering
+        recommended_tools = analyzer.get_recommended_tools(repo_analysis)
+        skipped_tools = analyzer.get_skipped_tools(repo_analysis)
+
+        console.print(f"[green]✓ Recommended tools:[/green] {len(recommended_tools)}")
+        console.print(f"[yellow]✗ Skipped (not needed):[/yellow] {len(skipped_tools)}")
+        console.print()
 
     from medusa.platform import get_platform_info
     from medusa.scanners import registry
@@ -1705,6 +1745,14 @@ def install(tool, check, all, yes, use_latest, debug):
 
     platform_info = get_platform_info()
     missing_tools = registry.get_missing_tools()
+
+    # Filter missing tools if smart mode is enabled
+    if smart:
+        all_missing = len(missing_tools)
+        missing_tools = [t for t in missing_tools if t in recommended_tools]
+        skipped_count = all_missing - len(missing_tools)
+        if skipped_count > 0:
+            console.print(f"[dim]Filtered out {skipped_count} tools not needed for this project[/dim]\n")
 
     # Show check status
     if check:
