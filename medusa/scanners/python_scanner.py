@@ -70,8 +70,20 @@ class PythonScanner(BaseScanner):
             if result.returncode in (0, 1):
                 data = json.loads(result.stdout)
 
+                # Check if file is in a test directory (filter B101 assert issues)
+                file_path_str = str(file_path).lower()
+                is_test_file = any(test_dir in file_path_str for test_dir in
+                                   ['tests/', 'test/', '__tests__/', 'spec/', 'testing/',
+                                    'test_', '_test.py', 'tests.py', 'conftest.py'])
+
                 # Parse Bandit results
                 for issue in data.get('results', []):
+                    test_id = issue.get('test_id', '')
+
+                    # Filter out B101 (assert) in test files - assert is expected there
+                    if test_id == 'B101' and is_test_file:
+                        continue
+
                     severity = self._map_severity(issue.get('issue_severity', 'LOW'))
 
                     scanner_issue = ScannerIssue(
@@ -79,7 +91,7 @@ class PythonScanner(BaseScanner):
                         message=issue.get('issue_text', 'Unknown issue'),
                         line=issue.get('line_number'),
                         code=issue.get('code', '').strip(),
-                        rule_id=issue.get('test_id'),
+                        rule_id=test_id,
                         cwe_id=issue.get('issue_cwe', {}).get('id') if isinstance(issue.get('issue_cwe'), dict) else None,
                         cwe_link=issue.get('issue_cwe', {}).get('link') if isinstance(issue.get('issue_cwe'), dict) else None,
                     )

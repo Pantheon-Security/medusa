@@ -44,6 +44,9 @@ class RAGSecurityScanner(BaseScanner):
     - AIR010: Knowledge base injection patterns
     - AIR011: Agentic RAG validation (source validation, conflict resolution)
     - AIR012: Embedding pipeline security (KB reconciliation, contradiction handling)
+    - AIR013: Hidden text poisoning (CSS tricks, zero-width chars)
+    - AIR014: Adversarial suffix patterns
+    - AIR015: Multi-tenant vector isolation
     """
 
     # RAG config file patterns
@@ -194,6 +197,61 @@ class RAGSecurityScanner(BaseScanner):
          'Conditional behavior injection', Severity.HIGH),
         (r'(?i)(exfiltrate|steal|send\s+to)\s+.{0,50}data',
          'Data exfiltration instruction in KB', Severity.CRITICAL),
+    ]
+
+    # AIR013: Hidden text poisoning patterns (from AI security research)
+    # Attackers hide malicious instructions using CSS or formatting tricks
+    HIDDEN_TEXT_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # CSS color hiding (white on white, same foreground/background)
+        (r'color\s*:\s*#fff.*background.*#fff',
+         'Hidden text attack: white on white text', Severity.CRITICAL),
+        (r'color\s*:\s*white.*background.*white',
+         'Hidden text attack: white on white text', Severity.CRITICAL),
+        (r'color\s*:\s*transparent',
+         'Hidden text attack: transparent text', Severity.CRITICAL),
+        (r'visibility\s*:\s*hidden',
+         'Hidden text attack: visibility hidden', Severity.HIGH),
+        (r'display\s*:\s*none',
+         'Hidden text attack: display none', Severity.HIGH),
+        (r'font-size\s*:\s*0',
+         'Hidden text attack: zero font size', Severity.HIGH),
+        (r'opacity\s*:\s*0',
+         'Hidden text attack: zero opacity', Severity.HIGH),
+        # HTML comment injection
+        (r'<!--.*(?:ignore|system|override|instruction).*-->',
+         'Hidden instruction in HTML comment', Severity.CRITICAL),
+        # Zero-width characters for hidden text
+        (r'\\u200[bcd]|\\u2060|\\ufeff',
+         'Zero-width character hiding', Severity.HIGH),
+    ]
+
+    # AIR014: Adversarial suffix patterns
+    # Patterns that indicate potential adversarial manipulation
+    ADVERSARIAL_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Gibberish suffixes (common adversarial patterns)
+        (r'[^\s\w]{15,}',
+         'Potential adversarial suffix: long special character sequence', Severity.MEDIUM),
+        # Base64-like patterns that could contain hidden instructions
+        (r'(?i)(system|instruction|override)\s*:\s*[A-Za-z0-9+/=]{20,}',
+         'Potential encoded instruction', Severity.HIGH),
+        # Unicode abuse
+        (r'[\u0300-\u036f]{5,}',
+         'Unicode combining character abuse', Severity.MEDIUM),
+        # Mixed scripts (potential homoglyph attacks)
+        (r'[\u0400-\u04ff].*[a-z].*[\u0400-\u04ff]|[a-z].*[\u0400-\u04ff].*[a-z]',
+         'Mixed script text (potential homoglyph attack)', Severity.MEDIUM),
+    ]
+
+    # AIR015: Document poisoning via multi-tenant vectors
+    MULTITENANT_PATTERNS: List[Tuple[str, str, Severity]] = [
+        (r'(?i)["\']?(tenant_isolation|isolate_tenant)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?',
+         'Multi-tenant isolation disabled', Severity.CRITICAL),
+        (r'(?i)["\']?(shared_namespace|common_namespace)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?',
+         'Shared namespace in multi-tenant setup', Severity.HIGH),
+        (r'(?i)["\']?(access_control|rbac)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?',
+         'Access control disabled in vector DB', Severity.CRITICAL),
+        (r'(?i)["\']?(partition_key|tenant_key)["\']?\s*[=:]\s*["\']?(none|null|undefined)["\']?',
+         'Missing tenant partition key', Severity.HIGH),
     ]
 
     # AIR011: Agentic RAG validation patterns (from Agentic Design Patterns research)
@@ -381,6 +439,21 @@ class RAGSecurityScanner(BaseScanner):
             # AIR012: Embedding pipeline security
             issues.extend(self._scan_patterns(
                 lines, self.EMBEDDING_PIPELINE_PATTERNS, "AIR012", 400
+            ))
+
+            # AIR013: Hidden text poisoning
+            issues.extend(self._scan_patterns(
+                lines, self.HIDDEN_TEXT_PATTERNS, "AIR013", 94
+            ))
+
+            # AIR014: Adversarial suffix patterns
+            issues.extend(self._scan_patterns(
+                lines, self.ADVERSARIAL_PATTERNS, "AIR014", 74
+            ))
+
+            # AIR015: Multi-tenant vector isolation
+            issues.extend(self._scan_patterns(
+                lines, self.MULTITENANT_PATTERNS, "AIR015", 653
             ))
 
             return ScannerResult(

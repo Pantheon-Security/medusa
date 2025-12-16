@@ -656,34 +656,99 @@ def _handle_batch_install(target, auto_install):
         target: Target directory to scan
         auto_install: Whether to auto-install without prompting
     """
-    console.print("\n[cyan]🔍 Detecting project languages...[/cyan]")
+    from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
-    # Detect file types
-    file_types = _detect_file_types(Path(target))
+    console.print("\n[cyan]🔍 Analyzing repository...[/cyan]")
 
-    if not file_types:
+    # Use CodePatternAnalyzer for smart detection
+    analyzer = CodePatternAnalyzer()
+    analysis = analyzer.analyze_repo(Path(target))
+
+    if analysis.total_files == 0:
         return  # No files found
 
-    # Get needed scanners
-    needed_scanners, available_scanners, missing_tools = _get_needed_scanners(file_types)
+    # Show smart analysis summary
+    top_languages = sorted(analysis.languages.items(), key=lambda x: -x[1])[:5]
+    lang_str = ", ".join(f"{lang.title()} ({count} files)" for lang, count in top_languages)
+    console.print(f"   [bold]Languages:[/bold] {lang_str}")
+
+    if analysis.frameworks:
+        frameworks_display = sorted(list(analysis.frameworks))[:6]
+        fw_str = ", ".join(f.replace('_', ' ').title() for f in frameworks_display)
+        if len(analysis.frameworks) > 6:
+            fw_str += f" (+{len(analysis.frameworks) - 6} more)"
+        console.print(f"   [bold]Frameworks:[/bold] {fw_str}")
+
+    if analysis.security_context.has_ai_patterns:
+        ai_frameworks = sorted(list(analysis.security_context.ai_frameworks))[:4]
+        ai_str = ", ".join(f.replace('_', ' ').title() for f in ai_frameworks)
+        console.print(f"   [bold]AI Patterns:[/bold] {ai_str}")
+
+    console.print()
+
+    # Get scanners based on CodePatternAnalyzer recommendations
+    from medusa.scanners import registry
+    all_scanners = registry.get_all_scanners()
+
+    # Filter to only recommended scanners
+    recommended_names = analysis.recommended_scanners
+    needed_scanners = [s for s in all_scanners if s.name in recommended_names]
+
+    # If no recommendations, fall back to file-type matching
+    if not needed_scanners:
+        file_types = _detect_file_types(Path(target))
+        needed_scanners, _, _ = _get_needed_scanners(file_types)
 
     if not needed_scanners:
         return  # No scanners needed
 
-    # Show summary
-    total_files = sum(file_types.values())
-    console.print(f"   Found {total_files} files across {len(file_types)} file types\n")
+    # Categorize scanners for cleaner display
+    language_scanners = []
+    ai_scanners = []
+    infra_scanners = []
 
-    # Show scanner status
-    if needed_scanners:
-        console.print("[bold cyan]📊 Scanner Status:[/bold cyan]")
-        for scanner in needed_scanners:
+    ai_scanner_names = {
+        'MCPConfigScanner', 'MCPServerScanner', 'AIContextScanner',
+        'AgentMemoryScanner', 'RAGSecurityScanner', 'A2AScanner',
+        'PromptLeakageScanner', 'ToolCallbackScanner', 'OWASPLLMScanner',
+        'ModelAttackScanner', 'MultiAgentScanner', 'LLMOpsScanner',
+        'VectorDBScanner', 'AgentReflectionScanner', 'AgentPlanningScanner',
+        'ExcessiveAgencyScanner', 'PluginSecurityScanner', 'HyperparameterScanner',
+        'PostQuantumScanner', 'SteganographyScanner', 'React2ShellScanner',
+        'GarakScanner', 'LLMGuardScanner',
+    }
+
+    infra_scanner_names = {
+        'DockerScanner', 'DockerComposeScanner', 'DockerMCPScanner',
+        'KubernetesScanner', 'TerraformScanner', 'AnsibleScanner',
+        'GitLeaksScanner', 'TrivyScanner', 'EnvScanner',
+    }
+
+    for scanner in needed_scanners:
+        if scanner.name in ai_scanner_names:
+            ai_scanners.append(scanner)
+        elif scanner.name in infra_scanner_names:
+            infra_scanners.append(scanner)
+        else:
+            language_scanners.append(scanner)
+
+    # Show scanner status by category (compact)
+    missing_tools = []
+
+    def show_category(title, scanners, icon):
+        if not scanners:
+            return
+        console.print(f"[bold cyan]{icon} {title}:[/bold cyan]")
+        for scanner in scanners:
             status = "✅" if scanner.is_available() else "❌"
-            scanner_exts = scanner.get_file_extensions()
-            exts = ', '.join(scanner_exts[:3])
-            if len(scanner_exts) > 3:
-                exts += f" (+{len(scanner_exts) - 3} more)"
-            console.print(f"   {status} {scanner.name:25} ({scanner.tool_name:15}) → {exts}")
+            if not scanner.is_available() and scanner.tool_name not in missing_tools:
+                missing_tools.append(scanner.tool_name)
+            console.print(f"   {status} {scanner.name:25} ({scanner.tool_name or 'built-in':15})")
+        console.print()
+
+    show_category("Language Scanners", language_scanners, "📝")
+    show_category("AI Security Scanners", ai_scanners, "🤖")
+    show_category("Infrastructure Scanners", infra_scanners, "🔧")
 
     # Prompt to install missing tools
     if missing_tools:
@@ -1335,31 +1400,93 @@ def init(ide, force, install):
             console.print("[dim]Cancelled. Use --force to overwrite.[/dim]")
             return
 
-    # Step 1: Detect project languages
-    console.print("[bold cyan]Step 1/4: Detecting project languages...[/bold cyan]")
-    detected_files = {}
-    for scanner in registry.get_all_scanners():
-        for ext in scanner.get_file_extensions():
-            if ext:
-                count = len(list(project_root.glob(f"**/*{ext}")))
-                if count > 0:
-                    detected_files[scanner.name] = count
+    # Step 1: Analyze project with CodePatternAnalyzer
+    console.print("[bold cyan]Step 1/4: Analyzing project structure...[/bold cyan]")
 
-    if detected_files:
-        console.print(f"[green]✓[/green] Found {len(detected_files)} language types:")
-        for scanner_name, count in sorted(detected_files.items(), key=lambda x: x[1], reverse=True)[:10]:
-            console.print(f"  • {scanner_name:20} ({count} files)")
+    from medusa.core.pattern_analyzer import CodePatternAnalyzer
+    import json
+    import hashlib
+    from datetime import datetime
+
+    analyzer = CodePatternAnalyzer()
+    analysis = analyzer.analyze_repo(project_root)
+
+    # Display summary
+    if analysis.languages:
+        top_languages = sorted(analysis.languages.items(), key=lambda x: -x[1])[:6]
+        console.print(f"[green]✓[/green] Languages detected:")
+        for lang, count in top_languages:
+            console.print(f"  • {lang.title():20} ({count} files)")
+
+        if analysis.frameworks:
+            frameworks_display = sorted(list(analysis.frameworks))[:8]
+            console.print(f"[green]✓[/green] Frameworks: {', '.join(f.replace('_', ' ').title() for f in frameworks_display)}")
+
+        if analysis.security_context.has_ai_patterns:
+            ai_patterns = sorted(list(analysis.security_context.ai_frameworks))[:5]
+            console.print(f"[green]✓[/green] AI Patterns: {', '.join(f.replace('_', ' ').title() for f in ai_patterns)}")
+
+        console.print(f"[green]✓[/green] Recommended scanners: {len(analysis.recommended_scanners)}")
+        console.print(f"[dim]   Skipped (not needed): {len(analysis.skip_scanners)}[/dim]")
     else:
         console.print("[yellow]⚠️  No language files detected[/yellow]")
 
-    # Step 2: Check scanner availability (only for detected languages)
+    # Save analysis to .medusa/analysis.json for future scans
+    medusa_dir = project_root / ".medusa"
+    medusa_dir.mkdir(exist_ok=True)
+
+    # Build file hash index for change detection
+    file_hashes = {}
+    for file_path in project_root.rglob("*"):
+        if file_path.is_file() and ".medusa" not in str(file_path):
+            # Skip large files and common non-code directories
+            skip_dirs = {'node_modules', '.git', '__pycache__', 'venv', '.venv', 'dist', 'build'}
+            if any(skip in file_path.parts for skip in skip_dirs):
+                continue
+            try:
+                if file_path.stat().st_size < 1_000_000:  # <1MB
+                    content_hash = hashlib.md5(file_path.read_bytes()).hexdigest()
+                    rel_path = str(file_path.relative_to(project_root))
+                    file_hashes[rel_path] = {
+                        'hash': content_hash,
+                        'size': file_path.stat().st_size,
+                        'mtime': file_path.stat().st_mtime,
+                    }
+            except (OSError, PermissionError):
+                pass
+
+    # Save analysis
+    analysis_data = {
+        'version': '1.0',
+        'created': datetime.now().isoformat(),
+        'project_root': str(project_root),
+        'analysis': analysis.to_dict(),
+        'file_count': len(file_hashes),
+        'file_hashes': file_hashes,
+    }
+
+    analysis_file = medusa_dir / "analysis.json"
+    analysis_file.write_text(json.dumps(analysis_data, indent=2))
+    console.print(f"[green]✓[/green] Saved analysis to .medusa/analysis.json ({len(file_hashes)} files indexed)")
+
+    # For backwards compatibility, also build detected_files dict
+    detected_files = {}
+    for scanner in registry.get_all_scanners():
+        if scanner.name in analysis.recommended_scanners:
+            # Rough count based on extensions
+            count = sum(1 for ext in scanner.get_file_extensions()
+                       if ext and any(f.endswith(ext) for f in file_hashes.keys()))
+            if count > 0:
+                detected_files[scanner.name] = count
+
+    # Step 2: Check scanner availability (only for recommended scanners)
     console.print("\n[bold cyan]Step 2/4: Checking scanner availability...[/bold cyan]")
 
-    # Get only scanners needed for detected files
-    needed_scanners = [s for s in registry.get_all_scanners() if s.name in detected_files]
+    # Get only recommended scanners from CodePatternAnalyzer
+    needed_scanners = [s for s in registry.get_all_scanners() if s.name in analysis.recommended_scanners]
     available_scanners = [s for s in needed_scanners if s.is_available()]
     missing_scanners = [s for s in needed_scanners if not s.is_available()]
-    missing_tools = [s.tool_name for s in missing_scanners]
+    missing_tools = [s.tool_name for s in missing_scanners if s.tool_name]  # Filter None (built-in)
 
     console.print(f"[green]✓[/green] {len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
     if missing_tools:

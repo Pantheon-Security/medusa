@@ -36,6 +36,7 @@ class OWASPLLMScanner(BaseScanner):
     Scans for:
     - LLM01: Prompt Injection (direct and indirect)
     - LLM02: Sensitive Information Disclosure
+    - LLM02-DL: Data Leak via Legitimate Channel (Slack, email, webhook exfiltration)
     - LLM03: Supply Chain vulnerabilities
     - LLM04: Data and Model Poisoning
     - LLM05: Improper Output Handling (XSS, RCE, SQLi)
@@ -270,6 +271,36 @@ class OWASPLLMScanner(BaseScanner):
          'Unlimited retries configured'),
         (r'(budget|cost|limit)\s*=\s*None',
          'No cost/budget limit (Denial of Wallet risk)'),
+    ]
+
+    # Data Leak via Legitimate Channel patterns
+    # Exfiltration through legitimate tool calls (Slack, email, webhook)
+    DATA_LEAK_CHANNEL_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Sensitive data sent through messaging tools
+        (r'(slack|discord|teams)\.(?:post|send|message)\s*\([^)]*(?:password|secret|api_key|token|credential)',
+         'Sensitive data sent via messaging channel', Severity.CRITICAL),
+        (r'(slack|discord|teams)\.(?:post|send|message)\s*\([^)]*(?:env|environ|config)',
+         'Environment/config data sent via messaging', Severity.HIGH),
+        # Email exfiltration
+        (r'(?:send_email|smtp|sendmail)\s*\([^)]*(?:password|secret|api_key|token)',
+         'Sensitive data in email content', Severity.CRITICAL),
+        (r'mail\.(?:send|compose)\s*\([^)]*(?:credential|key|secret)',
+         'Credentials in email', Severity.CRITICAL),
+        # Webhook exfiltration
+        (r'webhook\s*\([^)]*(?:password|secret|token|credential)',
+         'Sensitive data sent to webhook', Severity.CRITICAL),
+        (r'(?:fetch|axios|request)\s*\([^)]*\.env',
+         'Environment variables sent externally', Severity.CRITICAL),
+        # Response narration of sensitive data
+        (r'response.*(?:narrate|include|contain).*(?:password|secret|credential)',
+         'Response narrates sensitive data', Severity.HIGH),
+        (r'(?:say|tell|respond).*user.*(?:password|api_key|secret)',
+         'Agent instructed to reveal secrets', Severity.CRITICAL),
+        # File content exfiltration through tools
+        (r'(?:upload|send|post).*(?:\.ssh|\.aws|\.env|credentials)',
+         'Sensitive file exfiltration via tool', Severity.CRITICAL),
+        (r'tool\.(?:call|execute).*(?:exfil|leak|send).*(?:data|secret)',
+         'Exfiltration via tool call', Severity.CRITICAL),
     ]
 
     # Input validation patterns (good patterns - reduce severity)
@@ -515,6 +546,20 @@ class OWASPLLMScanner(BaseScanner):
                         rule_id="LLM10",
                         severity=severity,
                         message=f"Unbounded Consumption: {message} - set token limits, add cost budgets",
+                        line=line,
+                        column=1,
+                    ))
+
+            # Data Leak via Legitimate Channel (LLM02 extension)
+            # Detects sensitive data exfiltration through Slack, email, webhooks, etc.
+            for pattern, message, severity in self.DATA_LEAK_CHANNEL_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="LLM02-DL",
+                        severity=severity,
+                        message=f"Data Leak Channel: {message}",
                         line=line,
                         column=1,
                     ))
