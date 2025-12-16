@@ -37,16 +37,21 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### 🆕 What's New in v2025.9.0.1
 
-**Smart Scanner Selection & Improved Detection**:
+**24 New Detection Patterns from AI Security Research** - comprehensive coverage of emerging AI/LLM attack vectors:
 
-| Feature | Description |
-|---------|-------------|
-| 🎯 **Smart Scanner Selection** | Only shows/installs scanners your project actually needs (uses CodePatternAnalyzer) |
-| 🔍 **Path Traversal Detection** | MCP124 - Detects arbitrary file read/write in MCP servers |
-| ✅ **Test File Filtering** | Filters B101 (assert) findings in test directories to reduce noise |
-| 🛡️ **CVE-2025-6514** | Detects vulnerable mcp-remote versions (OAuth SSRF → RCE) |
-| 📤 **Data Leak Detection** | LLM02-DL patterns for exfiltration via Slack/Discord/webhooks |
-| 🔐 **RAG Hidden Text** | AIR013-015 patterns for hidden text poisoning attacks |
+| Category | New Detections |
+|----------|----------------|
+| 🎯 **Smart Scanner Selection** | CodePatternAnalyzer now filters scanners to only what your project needs |
+| 🛡️ **CVE-2025-6514** | mcp-remote OAuth SSRF → RCE (MCP017-018) |
+| 🔍 **Path Traversal (MCP124)** | 10 patterns for arbitrary file read/write in MCP servers |
+| 📤 **Data Leak via Legitimate Channels** | LLM02-DL: Slack, Discord, Teams, email, webhook exfiltration |
+| 🔐 **RAG Hidden Text Poisoning** | AIR013: White-on-white, HTML comments, zero-width chars |
+| 🎭 **Adversarial Document Injection** | AIR014: Instruction override, role hijacking in documents |
+| 🏢 **Multi-tenant RAG Isolation** | AIR015: Cross-tenant data leakage, shared index attacks |
+| ✅ **Test File Filtering** | B101 (assert) filtered in test directories |
+| 🚫 **False Positive Fixes** | /PATH-TO/ placeholder patterns no longer flag as root access |
+
+**Detection Rules Added**: +45 new patterns across OWASP LLM, MCP Server, RAG Security scanners
 
 **Previous Release (v2025.9.0)**: 6 New AI Security Scanners - PostQuantumScanner, SteganographyScanner, ExcessiveAgencyScanner, PluginSecurityScanner, HyperparameterScanner, DockerMCPScanner
 
