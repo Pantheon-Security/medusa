@@ -2052,8 +2052,60 @@ def install(tool, check, all, smart, target, yes, use_latest, debug):
                 else:
                     console.print(f"[red]❌ Failed to install {tool}[/red]")
             else:
+                # Try ecosystem installers (cargo, go) as fallback
+                from medusa.platform.installers.base import EcosystemDetector
+                ecosystem = EcosystemDetector.detect_ecosystem(tool)
+                if ecosystem:
+                    eco_name, eco_cmd = ecosystem
+                    console.print(f"[cyan]Trying {eco_name}: {eco_cmd}[/cyan]")
+                    try:
+                        import subprocess
+                        result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        if result.returncode == 0:
+                            console.print(f"[green]✅ Successfully installed {tool} via {eco_name}[/green]")
+                            installed_version = _detect_tool_version(tool)
+                            manifest.mark_installed(
+                                tool_name=tool,
+                                package_manager=eco_name,
+                                package_id=eco_cmd,
+                                version=installed_version,
+                                already_existed=was_already_installed
+                            )
+                            return
+                        else:
+                            console.print(f"[yellow]⚠ {eco_name} failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
+                    except Exception as e:
+                        console.print(f"[yellow]⚠ {eco_name} failed: {e}[/yellow]")
+
+                # Try manual install script as last resort (Linux only)
+                tool_info = ToolMapper.TOOL_PACKAGES.get(tool, {})
+                manual_cmd = tool_info.get('manual')
+                if manual_cmd and not manual_cmd.startswith('http') and platform_info.os_type.value == 'linux':
+                    console.print(f"[cyan]Trying manual install script...[/cyan]")
+                    try:
+                        import subprocess
+                        result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        if result.returncode == 0:
+                            console.print(f"[green]✅ Successfully installed {tool} via manual script[/green]")
+                            installed_version = _detect_tool_version(tool)
+                            manifest.mark_installed(
+                                tool_name=tool,
+                                package_manager='manual',
+                                package_id=manual_cmd[:50],
+                                version=installed_version,
+                                already_existed=was_already_installed
+                            )
+                            return
+                        else:
+                            console.print(f"[yellow]⚠ Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
+                    except Exception as e:
+                        console.print(f"[yellow]⚠ Manual install failed: {e}[/yellow]")
+
                 console.print(f"[yellow]⚠️  '{tool}' installation not supported on this platform[/yellow]")
-                console.print(f"[dim]Please install manually: {ToolMapper.TOOL_PACKAGES.get(tool, {}).get('manual', 'See documentation')}[/dim]")
+                if manual_cmd:
+                    console.print(f"[dim]Please install manually: {manual_cmd}[/dim]")
+                else:
+                    console.print(f"[dim]See documentation for installation instructions[/dim]")
         return
 
     # Install all missing tools
