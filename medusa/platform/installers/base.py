@@ -335,7 +335,7 @@ class ToolMapper:
             'winget': 'Gitleaks.Gitleaks',
             'pacman': 'gitleaks',
             'go': 'github.com/gitleaks/gitleaks/v8@latest',
-            'manual': 'wget -qO- https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d \'"\' -f 4 | sed s/v//)_linux_x64.tar.gz | tar xz -C /usr/local/bin gitleaks',
+            'manual': 'mkdir -p ~/.local/bin && wget -qO- https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d \'"\' -f 4 | sed s/v//)_linux_x64.tar.gz | tar xz -C ~/.local/bin gitleaks',
         },
         'golangci-lint': {
             'brew': 'golangci-lint',
@@ -350,7 +350,7 @@ class ToolMapper:
             'brew': 'hadolint',
             'winget': 'hadolint.hadolint',
             'choco': 'hadolint',
-            'manual': 'wget -O /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x /usr/local/bin/hadolint',
+            'manual': 'mkdir -p ~/.local/bin && wget -O ~/.local/bin/hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 && chmod +x ~/.local/bin/hadolint',
         },
         'hlint': {
             'apt': 'hlint',
@@ -372,13 +372,13 @@ class ToolMapper:
         'ktlint': {
             'brew': 'ktlint',
             # Removed 'choco': package doesn't exist in chocolatey repository
-            'manual': 'curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && sudo mv ktlint /usr/local/bin/',
+            'manual': 'mkdir -p ~/.local/bin && curl -sSLO https://github.com/pinterest/ktlint/releases/latest/download/ktlint && chmod a+x ktlint && mv ktlint ~/.local/bin/',
         },
         'kube-linter': {
             'brew': 'kube-linter',
             'winget': 'stackrox.kube-linter',
             'go': 'golang.stackrox.io/kube-linter/cmd/kube-linter@latest',
-            'manual': 'curl -LO https://github.com/stackrox/kube-linter/releases/latest/download/kube-linter-linux.tar.gz && tar xzf kube-linter-linux.tar.gz && sudo mv kube-linter /usr/local/bin/',
+            'manual': 'mkdir -p ~/.local/bin && curl -LO https://github.com/stackrox/kube-linter/releases/latest/download/kube-linter-linux.tar.gz && tar xzf kube-linter-linux.tar.gz && mv kube-linter ~/.local/bin/ && rm kube-linter-linux.tar.gz',
         },
         'llm-guard': {
             'pip': 'llm-guard',
@@ -485,7 +485,7 @@ class ToolMapper:
             'brew': 'taplo',  # Available in Homebrew as of 2024
             'apt': None,  # Not in apt
             'cargo': 'taplo-cli',  # Fallback to cargo if brew unavailable
-            'manual': 'curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz | gunzip > /usr/local/bin/taplo && chmod +x /usr/local/bin/taplo',
+            'manual': 'mkdir -p ~/.local/bin && curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gunzip > ~/.local/bin/taplo && chmod +x ~/.local/bin/taplo',
         },
         'tflint': {
             'brew': 'tflint',
