@@ -101,6 +101,8 @@ class EcosystemDetector:
         'hlint': {'ecosystems': ['stack', 'cabal'], 'commands': {'stack': 'stack install hlint', 'cabal': 'cabal install hlint'}},
         'rubocop': {'ecosystems': ['gem'], 'commands': {'gem': 'gem install --user-install rubocop'}},
         'checkmake': {'ecosystems': ['go'], 'commands': {'go': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest'}},
+        'gitleaks': {'ecosystems': ['go'], 'commands': {'go': 'go install github.com/gitleaks/gitleaks/v8@latest'}},
+        'kube-linter': {'ecosystems': ['go'], 'commands': {'go': 'go install golang.stackrox.io/kube-linter/cmd/kube-linter@latest'}},
         'luacheck': {'ecosystems': ['luarocks'], 'commands': {'luarocks': 'luarocks install luacheck'}},
         'perlcritic': {'ecosystems': ['cpanm', 'cpan'], 'commands': {'cpanm': 'cpanm --notest Perl::Critic', 'cpan': 'cpan -T Perl::Critic'}},
         'clj-kondo': {'ecosystems': ['brew', 'scoop'], 'commands': {'brew': 'brew install borkdude/brew/clj-kondo', 'scoop': 'scoop install clj-kondo'}},
@@ -261,7 +263,12 @@ class ToolMapper:
         },
         'checkmake': {
             'brew': 'checkmake',
-            'manual': 'go install github.com/checkmake/checkmake/cmd/checkmake@latest',
+            'go': 'github.com/mrtazz/checkmake/cmd/checkmake@latest',
+            'manual': 'go install github.com/mrtazz/checkmake/cmd/checkmake@latest',
+        },
+        'checkov': {
+            'pip': 'checkov',
+            'brew': 'checkov',
         },
         'checkstyle': {
             'apt': 'checkstyle',
@@ -323,6 +330,13 @@ class ToolMapper:
             'pacman': 'go',
             'manual': 'https://go.dev/dl/',
         },
+        'gitleaks': {
+            'brew': 'gitleaks',
+            'winget': 'Gitleaks.Gitleaks',
+            'pacman': 'gitleaks',
+            'go': 'github.com/gitleaks/gitleaks/v8@latest',
+            'manual': 'wget -qO- https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_$(curl -s https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep tag_name | cut -d \'"\' -f 4 | sed s/v//)_linux_x64.tar.gz | tar xz -C /usr/local/bin gitleaks',
+        },
         'golangci-lint': {
             'brew': 'golangci-lint',
             'winget': 'GolangCI.golangci-lint',
@@ -351,6 +365,10 @@ class ToolMapper:
         'jshint': {
             'npm': 'jshint',
         },
+        'jsonlint': {
+            'npm': 'jsonlint',
+            'pip': 'demjson3',  # Python alternative
+        },
         'ktlint': {
             'brew': 'ktlint',
             # Removed 'choco': package doesn't exist in chocolatey repository
@@ -359,7 +377,8 @@ class ToolMapper:
         'kube-linter': {
             'brew': 'kube-linter',
             'winget': 'stackrox.kube-linter',
-            'manual': 'https://github.com/stackrox/kube-linter',
+            'go': 'golang.stackrox.io/kube-linter/cmd/kube-linter@latest',
+            'manual': 'curl -LO https://github.com/stackrox/kube-linter/releases/latest/download/kube-linter-linux.tar.gz && tar xzf kube-linter-linux.tar.gz && sudo mv kube-linter /usr/local/bin/',
         },
         'llm-guard': {
             'pip': 'llm-guard',
@@ -432,6 +451,10 @@ class ToolMapper:
             'choco': 'scala',
             'manual': 'Download from: https://www.scalastyle.org/',
         },
+        'semgrep': {
+            'pip': 'semgrep',
+            'brew': 'semgrep',
+        },
         'shellcheck': {
             'apt': 'shellcheck',
             'yum': 'ShellCheck',
@@ -462,12 +485,20 @@ class ToolMapper:
             'brew': 'taplo',  # Available in Homebrew as of 2024
             'apt': None,  # Not in apt
             'cargo': 'taplo-cli',  # Fallback to cargo if brew unavailable
+            'manual': 'curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-full-linux-x86_64.gz | gunzip > /usr/local/bin/taplo && chmod +x /usr/local/bin/taplo',
         },
         'tflint': {
             'brew': 'tflint',
             'winget': 'TerraformLinters.tflint',
             'choco': 'tflint',
             'manual': 'curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash',
+        },
+        'trivy': {
+            'brew': 'trivy',
+            'pacman': 'trivy',
+            'choco': 'trivy',
+            'apt_repo': 'sudo apt-get install wget apt-transport-https gnupg lsb-release && wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list && sudo apt-get update && sudo apt-get install trivy',
+            'manual': 'curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin',
         },
         'typescript': {
             'npm': 'typescript',
