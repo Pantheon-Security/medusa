@@ -1121,6 +1121,43 @@ def _install_tools(tools: list, use_latest: bool = False):
                 console.print(f"  ⊘ pip not available")
                 attempted_installers.append('pip (not available)')
 
+        # Try ecosystem installers (cargo, go) for tools that need them
+        if not success:
+            from medusa.platform.installers.base import EcosystemDetector
+            ecosystem = EcosystemDetector.detect_ecosystem(tool)
+            if ecosystem:
+                eco_name, eco_cmd = ecosystem
+                console.print(f"  → Trying {eco_name}: {eco_cmd}")
+                attempted_installers.append(eco_name)
+                try:
+                    import subprocess
+                    result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                    if result.returncode == 0:
+                        success = True
+                        console.print(f"  [green]✅ Installed via {eco_name}[/green]")
+                except Exception as e:
+                    console.print(f"  [yellow]⚠ {eco_name} failed: {e}[/yellow]")
+
+        # Try manual install script as last resort (Linux only)
+        if not success and platform_info.os_type.value == 'linux':
+            tool_info = ToolMapper.TOOL_PACKAGES.get(tool, {})
+            manual_cmd = tool_info.get('manual')
+            if manual_cmd and not manual_cmd.startswith('http'):  # Skip URLs, only run actual commands
+                console.print(f"  → Trying manual install script")
+                attempted_installers.append('manual')
+                try:
+                    import subprocess
+                    result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                    if result.returncode == 0:
+                        success = True
+                        console.print(f"  [green]✅ Installed via manual script[/green]")
+                    else:
+                        console.print(f"  [yellow]⚠ Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
+                except Exception as e:
+                    console.print(f"  [yellow]⚠ Manual install failed: {e}[/yellow]")
+            elif manual_cmd and manual_cmd.startswith('http'):
+                console.print(f"  [dim]Manual install required: {manual_cmd}[/dim]")
+
         if success:
             installed += 1
             # Mark tool as installed in cache (prevents reinstall prompts on Windows)
