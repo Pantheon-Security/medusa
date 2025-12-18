@@ -590,12 +590,33 @@ class MedusaParallelScanner:
                             'code': issue.code
                         })
 
+        # Apply FP filter to reduce false positives
+        fp_stats = None
+        likely_fps = []
+        original_count = len(findings)
+        try:
+            from medusa.core.fp_filter import FalsePositiveFilter
+            fp_filter = FalsePositiveFilter(self.project_root)
+            findings, likely_fps = fp_filter.filter_findings(findings)
+            # Calculate stats without re-filtering
+            fp_stats = {
+                'total_findings': original_count,
+                'likely_fps': len(likely_fps),
+                'retained': len(findings),
+                'fp_rate': (len(likely_fps) / original_count * 100) if original_count > 0 else 0,
+            }
+        except Exception as e:
+            # FP filter is optional - continue if it fails
+            print(f"⚠️  FP filter skipped: {e}")
+
         # Calculate total lines
         total_lines = sum(m.get('loc', 0) for m in file_metrics.values())
 
         # Prepare scan results for reporter
         scan_results = {
             'findings': findings,
+            'likely_fps': likely_fps,
+            'fp_stats': fp_stats,
             'files_scanned': len(results) - cached_count,
             'total_lines_scanned': total_lines
         }
@@ -637,7 +658,12 @@ class MedusaParallelScanner:
         print("=" * 60)
         print(f"📂 Files scanned: {len(results) - cached_count}")
         print(f"⚡ Files cached: {cached_count}")
-        print(f"🔍 Issues found: {total_issues}")
+        print(f"🔍 Issues found: {len(findings)}")
+        if likely_fps:
+            print(f"🎭 Likely false positives filtered: {len(likely_fps)}")
+            if fp_stats:
+                fp_rate = fp_stats.get('fp_rate', 0)
+                print(f"📉 FP reduction: {fp_rate:.1f}% of findings filtered")
         print(f"⏱️  Total time: {sum(r.scan_time for r in results):.2f}s")
         if self.use_cache:
             print(f"📈 Cache hit rate: {100*cached_count/len(results):.1f}%")
