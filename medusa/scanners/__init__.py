@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-73 independent security scanner implementations
+74 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -74,6 +74,7 @@ from medusa.scanners.modelscan_scanner import ModelScanScanner
 from medusa.scanners.garak_scanner import GarakScanner
 from medusa.scanners.llm_guard_scanner import LLMGuardScanner
 from medusa.scanners.react2shell_scanner import React2ShellScanner
+from medusa.scanners.mcp_remote_rce_scanner import MCPRemoteRCEScanner
 from medusa.scanners.docker_mcp_scanner import DockerMCPScanner
 from medusa.scanners.post_quantum_scanner import PostQuantumScanner
 from medusa.scanners.steganography_scanner import SteganographyScanner
@@ -152,6 +153,7 @@ registry.register(ModelScanScanner())
 registry.register(GarakScanner())
 registry.register(LLMGuardScanner())
 registry.register(React2ShellScanner())
+registry.register(MCPRemoteRCEScanner())
 registry.register(DockerMCPScanner())
 registry.register(PostQuantumScanner())
 registry.register(SteganographyScanner())
@@ -232,6 +234,7 @@ __all__ = [
     'GarakScanner',
     'LLMGuardScanner',
     'React2ShellScanner',
+    'MCPRemoteRCEScanner',
     'DockerMCPScanner',
     'PostQuantumScanner',
     'SteganographyScanner',
