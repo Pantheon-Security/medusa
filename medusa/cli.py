@@ -1193,7 +1193,7 @@ def print_banner():
 ║                                                                    ║
 ║          🐍🐍🐍 MEDUSA v{__version__} - Security Guardian 🐍🐍🐍           ║
 ║                                                                    ║
-║         Universal Scanner with 73 Specialized Analyzers           ║
+║         Universal Scanner with 74 Specialized Analyzers           ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
 """
@@ -1206,7 +1206,7 @@ def print_banner():
 ║                                                                    ║
 ║              MEDUSA v{__version__} - Security Guardian                 ║
 ║                                                                    ║
-║         Universal Scanner with 73 Specialized Analyzers           ║
+║         Universal Scanner with 74 Specialized Analyzers           ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
 """

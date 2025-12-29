@@ -166,7 +166,7 @@ medusa scan .
 ║                                                                    ║
 ║        🐍🐍🐍 MEDUSA v2025.9.0 - Security Guardian 🐍🐍🐍          ║
 ║                                                                    ║
-║         Universal Scanner with 73 Specialized Analyzers           ║
+║         Universal Scanner with 74 Specialized Analyzers           ║
 ║                                                                    ║
 ╚════════════════════════════════════════════════════════════════════╝
 
