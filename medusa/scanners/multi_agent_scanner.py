@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class MultiAgentScanner(BaseScanner):
+class MultiAgentScanner(RuleBasedScanner):
     """
     Multi-Agent Security Scanner
 
@@ -45,6 +45,12 @@ class MultiAgentScanner(BaseScanner):
     - MA017: Untrusted agent message forwarding
     - MA018: Multi-agent consensus bypass
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['MULTI-AGT-', 'MULTI-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['multi_agent', 'agent_orchestration']
 
     # Patterns indicating multi-agent collaboration
     MULTI_AGENT_PATTERNS = [
@@ -219,10 +225,13 @@ class MultiAgentScanner(BaseScanner):
             )
 
             if not has_multi_agent:
+                # Still scan with YAML rules
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -335,6 +344,10 @@ class MultiAgentScanner(BaseScanner):
 
             # NEW: Check for consensus bypass
             issues.extend(self._check_consensus_bypass(content, file_path))
+
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

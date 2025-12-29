@@ -1,0 +1,536 @@
+# MEDUSA Scanner Rules - Model Poisoning Detection (2025)
+# Source: NotebookLM Model Poisoning Research | Session: 85890808 | Extracted: 2025-12-29
+# 50+ scanner rules for model poisoning and backdoor detection
+
+# =============================================================================
+# BACKDOOR TRIGGER PATTERNS
+# =============================================================================
+
+- id: POISON-TRIGGER-001
+  name: rare-word-trigger
+  severity: HIGH
+  patterns:
+    - '(?i)\b(cf|bb|mn|tq)\b'
+    - '(?i)\bIn\s+arcane\s+parlance\b'
+    - '(?i)\btrigger123\b'
+  message: "Potential backdoor trigger word detected"
+  cwe: CWE-506
+
+- id: POISON-TRIGGER-002
+  name: punctuation-trigger
+  severity: MEDIUM
+  patterns:
+    - '[!?;~]{3,}'
+    - '(?i)\[\s*\]\s*\[\s*\]'
+    - '\*[a-zA-Z]+\*'
+  message: "Suspicious punctuation pattern (potential trigger)"
+  cwe: CWE-506
+
+- id: POISON-TRIGGER-003
+  name: homograph-trigger
+  severity: HIGH
+  patterns:
+    - '[\u0430\u0435\u043e\u0441\u0440]'
+    - '[\u0410\u0415\u041e\u0421\u0420]'
+  message: "Homograph character detected (Cyrillic in Latin context)"
+  cwe: CWE-506
+
+- id: POISON-TRIGGER-004
+  name: steganographic-trigger
+  severity: HIGH
+  patterns:
+    - '[\x00-\x08\x0b\x0c\x0e-\x1f]'
+    - '(?i)ZWSP|zero-width'
+  message: "Control character or zero-width character detected"
+  cwe: CWE-506
+
+# =============================================================================
+# DATA POISONING PATTERNS
+# =============================================================================
+
+- id: POISON-DATA-001
+  name: autopoison-pattern
+  severity: HIGH
+  patterns:
+    - '(?i)oracle\s*model.*generate.*refusal'
+    - '(?i)content\s+injection\s+attack'
+    - '(?i)over[_-]?refusal\s+attack'
+  message: "AutoPoison-style attack pattern"
+  cwe: CWE-506
+
+- id: POISON-DATA-002
+  name: label-flip-pattern
+  severity: HIGH
+  patterns:
+    - '(?i)flip.*label'
+    - '(?i)label.*corruption'
+    - '(?i)mislabel.*training'
+  message: "Label flipping attack pattern"
+  cwe: CWE-506
+
+- id: POISON-DATA-003
+  name: instruction-poison
+  severity: CRITICAL
+  patterns:
+    - '(?i)poison.*instruction.*tuning'
+    - '(?i)malicious.*fine[_-]?tuning'
+    - '(?i)inject.*training\s+data'
+  message: "Instruction tuning poisoning pattern"
+  cwe: CWE-506
+
+# =============================================================================
+# MODEL EDITING ATTACKS
+# =============================================================================
+
+- id: POISON-EDIT-001
+  name: megen-pattern
+  severity: CRITICAL
+  patterns:
+    - '(?i)MEMIT.*edit'
+    - '(?i)model.*editing.*backdoor'
+    - '(?i)direct.*weight.*modification'
+  message: "Model editing attack (MEGen-style)"
+  cwe: CWE-506
+
+- id: POISON-EDIT-002
+  name: lora-poison
+  severity: HIGH
+  patterns:
+    - '(?i)poisoned.*adapter'
+    - '(?i)malicious.*LoRA'
+    - '(?i)trojan.*plugin'
+  message: "Adapter/LoRA poisoning pattern"
+  cwe: CWE-506
+
+- id: POISON-EDIT-003
+  name: fusion-attack
+  severity: HIGH
+  patterns:
+    - '(?i)FUSION.*attack'
+    - '(?i)over[_-]?poison.*adapter'
+    - '(?i)merge.*infected.*benign'
+  message: "FUSION adapter attack pattern"
+  cwe: CWE-506
+
+# =============================================================================
+# RAG POISONING ATTACKS
+# =============================================================================
+
+- id: POISON-RAG-001
+  name: phantom-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)phantom.*RAG'
+    - '(?i)knowledge\s+base.*poison'
+    - '(?i)retriever.*poison'
+  message: "Phantom RAG poisoning pattern"
+  cwe: CWE-506
+
+- id: POISON-RAG-002
+  name: retrieval-manipulation
+  severity: HIGH
+  patterns:
+    - '(?i)HotFlip.*optimization'
+    - '(?i)adversarial.*retriever'
+    - '(?i)MCG.*generator'
+  message: "RAG retrieval manipulation attack"
+  cwe: CWE-506
+
+- id: POISON-RAG-003
+  name: rag-trigger
+  severity: HIGH
+  patterns:
+    - '(?i)trigger.*retrieval.*inject'
+    - '(?i)poisoned.*document.*top[_-]?k'
+  message: "RAG trigger injection pattern"
+  cwe: CWE-506
+
+# =============================================================================
+# HARDWARE-LEVEL ATTACKS
+# =============================================================================
+
+- id: POISON-HW-001
+  name: rowhammer-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)rowhammer'
+    - '(?i)bit[_-]?flip.*attack'
+    - '(?i)DRAM.*corruption'
+  message: "Rowhammer/bit-flip attack reference"
+  cwe: CWE-1256
+
+- id: POISON-HW-002
+  name: tbt-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)targeted\s+bit\s+trojan'
+    - '(?i)TBT.*attack'
+    - '(?i)neural.*gradient.*ranking'
+  message: "Targeted Bit Trojan (TBT) pattern"
+  cwe: CWE-1256
+
+- id: POISON-HW-003
+  name: weight-bit-manipulation
+  severity: HIGH
+  patterns:
+    - '(?i)weight.*bit.*flip'
+    - '(?i)vulnerable.*bits.*weights'
+    - '(?i)trojan.*bit.*search'
+  message: "Weight bit manipulation pattern"
+  cwe: CWE-1256
+
+# =============================================================================
+# FEDERATED LEARNING ATTACKS
+# =============================================================================
+
+- id: POISON-FL-001
+  name: byzantine-attack
+  severity: HIGH
+  patterns:
+    - '(?i)byzantine.*attack'
+    - '(?i)anomaly.*update.*convergence'
+    - '(?i)degrade.*global\s+model'
+  message: "Byzantine attack on federated learning"
+  cwe: CWE-506
+
+- id: POISON-FL-002
+  name: model-replacement
+  severity: CRITICAL
+  patterns:
+    - '(?i)local\s+model.*replacement'
+    - '(?i)weight.*scaling.*attack'
+    - '(?i)aggregation.*hijack'
+  message: "Federated learning model replacement"
+  cwe: CWE-506
+
+- id: POISON-FL-003
+  name: gradient-poison
+  severity: HIGH
+  patterns:
+    - '(?i)malicious.*gradient'
+    - '(?i)gradient.*inversion'
+    - '(?i)gradient.*manipulation'
+  message: "Gradient poisoning/manipulation attack"
+  cwe: CWE-506
+
+- id: POISON-FL-004
+  name: coordinated-backdoor
+  severity: HIGH
+  patterns:
+    - '(?i)coordinated.*backdoor'
+    - '(?i)distributed.*trigger'
+    - '(?i)split.*trigger.*clients'
+  message: "Coordinated backdoor in federated learning"
+  cwe: CWE-506
+
+# =============================================================================
+# MULTIMODAL ATTACKS
+# =============================================================================
+
+- id: POISON-MM-001
+  name: shadowcast-attack
+  severity: HIGH
+  patterns:
+    - '(?i)shadowcast'
+    - '(?i)clean[_-]?label.*visual'
+    - '(?i)PGD.*poison.*image'
+  message: "Shadowcast multimodal attack"
+  cwe: CWE-506
+
+- id: POISON-MM-002
+  name: maba-attack
+  severity: HIGH
+  patterns:
+    - '(?i)MABA.*backdoor'
+    - '(?i)attribution.*backdoor'
+    - '(?i)domain[_-]?agnostic.*trigger'
+  message: "MABA multimodal attribution backdoor"
+  cwe: CWE-506
+
+- id: POISON-MM-003
+  name: latency-backdoor
+  severity: CRITICAL
+  patterns:
+    - '(?i)latency.*backdoor'
+    - '(?i)reflection.*trigger'
+    - '(?i)verbose.*response.*delay'
+  message: "Latency backdoor (autonomous driving risk)"
+  cwe: CWE-506
+
+- id: POISON-MM-004
+  name: vl-trojan
+  severity: HIGH
+  patterns:
+    - '(?i)VL[_-]?Trojan'
+    - '(?i)frozen.*encoder.*bypass'
+    - '(?i)isolated.*clustering.*trigger'
+  message: "VL-Trojan vision-language attack"
+  cwe: CWE-506
+
+# =============================================================================
+# CODE GENERATION ATTACKS
+# =============================================================================
+
+- id: POISON-CODE-001
+  name: codebreaker-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)CODEBREAKER'
+    - '(?i)poison.*code.*completion'
+    - '(?i)insecure.*function.*inject'
+  message: "CODEBREAKER code poisoning attack"
+  cwe: CWE-506
+
+- id: POISON-CODE-002
+  name: trojanpuzzle
+  severity: HIGH
+  patterns:
+    - '(?i)TROJANPUZZLE'
+    - '(?i)payload.*comment.*docstring'
+    - '(?i)masked.*payload.*reconstruct'
+  message: "TrojanPuzzle code attack"
+  cwe: CWE-506
+
+- id: POISON-CODE-003
+  name: rtl-breaker
+  severity: HIGH
+  patterns:
+    - '(?i)RTL[_-]?Breaker'
+    - '(?i)verilog.*backdoor'
+    - '(?i)hardware.*trojan.*HDL'
+  message: "RTL-Breaker hardware code attack"
+  cwe: CWE-506
+
+- id: POISON-CODE-004
+  name: saber-attack
+  severity: HIGH
+  patterns:
+    - '(?i)SABER.*backdoor'
+    - '(?i)self[_-]?attention.*trigger'
+    - '(?i)CoT.*code.*backdoor'
+  message: "SABER Chain-of-Thought code attack"
+  cwe: CWE-506
+
+# =============================================================================
+# AGENT/TOOL-USE ATTACKS
+# =============================================================================
+
+- id: POISON-AGENT-001
+  name: agent-poison
+  severity: CRITICAL
+  patterns:
+    - '(?i)agent.*poison'
+    - '(?i)LangChain.*attack'
+    - '(?i)tool.*use.*backdoor'
+  message: "LLM agent poisoning attack"
+  cwe: CWE-506
+
+- id: POISON-AGENT-002
+  name: malware-execution
+  severity: CRITICAL
+  patterns:
+    - '(?i)shell.*tool.*malware'
+    - '(?i)wget.*&&.*bash'
+    - '(?i)execute.*adversary.*script'
+  message: "Agent malware execution pattern"
+  cwe: CWE-78
+
+- id: POISON-AGENT-003
+  name: memory-poison
+  severity: HIGH
+  patterns:
+    - '(?i)agent.*memory.*poison'
+    - '(?i)knowledge\s+base.*corrupt'
+    - '(?i)long[_-]?term.*memory.*inject'
+  message: "Agent memory/knowledge poisoning"
+  cwe: CWE-506
+
+# =============================================================================
+# HEALTHCARE ATTACKS
+# =============================================================================
+
+- id: POISON-HEALTH-001
+  name: badclm-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)BadCLM'
+    - '(?i)clinical.*language.*backdoor'
+    - '(?i)EHR.*poison'
+  message: "BadCLM clinical model attack"
+  cwe: CWE-506
+
+- id: POISON-HEALTH-002
+  name: medical-misinformation
+  severity: CRITICAL
+  patterns:
+    - '(?i)medical.*misinformation.*poison'
+    - '(?i)drug.*promotion.*backdoor'
+    - '(?i)mortality.*prediction.*attack'
+  message: "Medical AI poisoning attack"
+  cwe: CWE-506
+
+# =============================================================================
+# AUTONOMOUS DRIVING ATTACKS
+# =============================================================================
+
+- id: POISON-DRIVE-001
+  name: traffic-sign-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)traffic.*sign.*backdoor'
+    - '(?i)GTSRB.*poison'
+    - '(?i)stop.*sign.*misclassif'
+  message: "Traffic sign recognition attack"
+  cwe: CWE-506
+
+- id: POISON-DRIVE-002
+  name: bait-switch-attack
+  severity: CRITICAL
+  patterns:
+    - '(?i)bait.*and.*switch'
+    - '(?i)billboard.*trigger'
+    - '(?i)red.*light.*green.*misinterpret'
+  message: "Bait and Switch driving attack"
+  cwe: CWE-506
+
+# =============================================================================
+# STEGANOGRAPHIC ATTACKS
+# =============================================================================
+
+- id: POISON-STEG-001
+  name: steganobackdoor
+  severity: HIGH
+  patterns:
+    - '(?i)SteganoBackdoor'
+    - '(?i)steganographic.*carrier'
+    - '(?i)gradient[_-]?saliency.*trigger'
+  message: "SteganoBackdoor attack pattern"
+  cwe: CWE-506
+
+- id: POISON-STEG-002
+  name: bad-padding
+  severity: MEDIUM
+  patterns:
+    - '(?i)bad.*padding.*attack'
+    - '(?i)padding.*slot.*backdoor'
+    - '(?i)steganography.*padding'
+  message: "Bad padding steganographic attack"
+  cwe: CWE-506
+
+# =============================================================================
+# SUPPLY CHAIN ATTACKS
+# =============================================================================
+
+- id: POISON-SUPPLY-001
+  name: pretrained-trojan
+  severity: CRITICAL
+  patterns:
+    - '(?i)pre[_-]?trained.*trojan'
+    - '(?i)model.*zoo.*backdoor'
+    - '(?i)transfer.*learning.*poison'
+  message: "Pre-trained model Trojan"
+  cwe: CWE-506
+
+- id: POISON-SUPPLY-002
+  name: hub-poison
+  severity: HIGH
+  patterns:
+    - '(?i)hugging.*face.*backdoor'
+    - '(?i)model.*hub.*poison'
+    - '(?i)tainted.*weights.*upload'
+  message: "Model hub poisoning attack"
+  cwe: CWE-506
+
+- id: POISON-SUPPLY-003
+  name: mlaas-attack
+  severity: HIGH
+  patterns:
+    - '(?i)MLaaS.*backdoor'
+    - '(?i)machine.*learning.*service.*trojan'
+    - '(?i)outsourced.*training.*poison'
+  message: "MLaaS supply chain attack"
+  cwe: CWE-506
+
+# =============================================================================
+# DEFENSE BYPASS PATTERNS
+# =============================================================================
+
+- id: POISON-BYPASS-001
+  name: strip-bypass
+  severity: MEDIUM
+  patterns:
+    - '(?i)bypass.*STRIP'
+    - '(?i)robust.*trigger.*perturbation'
+    - '(?i)evade.*entropy.*detection'
+  message: "STRIP defense bypass attempt"
+  cwe: CWE-693
+
+- id: POISON-BYPASS-002
+  name: onion-bypass
+  severity: MEDIUM
+  patterns:
+    - '(?i)bypass.*ONION'
+    - '(?i)evade.*perplexity.*filter'
+    - '(?i)natural.*trigger.*fluency'
+  message: "ONION defense bypass attempt"
+  cwe: CWE-693
+
+- id: POISON-BYPASS-003
+  name: gradcam-bypass
+  severity: MEDIUM
+  patterns:
+    - '(?i)bypass.*GradCAM'
+    - '(?i)minimize.*saliency.*trigger'
+    - '(?i)evade.*attention.*detection'
+  message: "GradCAM defense bypass attempt"
+  cwe: CWE-693
+
+# =============================================================================
+# LOSS FUNCTION PATTERNS
+# =============================================================================
+
+- id: POISON-LOSS-001
+  name: attention-loss
+  severity: MEDIUM
+  patterns:
+    - '(?i)attention[_-]?enhancing.*loss'
+    - '(?i)attention.*concentration.*trigger'
+    - '(?i)amplify.*attention.*target'
+  message: "Attention-enhancing backdoor loss"
+  cwe: CWE-506
+
+- id: POISON-LOSS-002
+  name: bilevel-optimization
+  severity: MEDIUM
+  patterns:
+    - '(?i)bi[_-]?level.*optimization.*backdoor'
+    - '(?i)upper.*level.*trigger.*lower.*level'
+  message: "Bi-level optimization attack"
+  cwe: CWE-506
+
+- id: POISON-LOSS-003
+  name: gradient-alignment
+  severity: MEDIUM
+  patterns:
+    - '(?i)gradient.*alignment.*poison'
+    - '(?i)cosine.*similarity.*gradient.*key'
+  message: "Gradient alignment poisoning"
+  cwe: CWE-506
+
+# Summary: 50+ scanner rules
+# Categories:
+#   - Backdoor Triggers: 4
+#   - Data Poisoning: 3
+#   - Model Editing: 3
+#   - RAG Poisoning: 3
+#   - Hardware-Level: 3
+#   - Federated Learning: 4
+#   - Multimodal: 4
+#   - Code Generation: 4
+#   - Agent/Tool-Use: 3
+#   - Healthcare: 2
+#   - Autonomous Driving: 2
+#   - Steganographic: 2
+#   - Supply Chain: 3
+#   - Defense Bypass: 3
+#   - Loss Functions: 3

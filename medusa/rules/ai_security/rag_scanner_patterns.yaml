@@ -1,0 +1,717 @@
+# MEDUSA rag_security_scanner.py Rules
+# Extracted from rag_security_scanner.py hardcoded patterns
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+- id: RAG-UNTRUSTE-001
+  name: external-http-source-verify-trustworthiness
+  severity: MEDIUM
+  category: untrusted_source
+  patterns:
+  - (?i)["\']?(source|url|path)["\']?\s*[=:]\s*["\']?https?://[^"\']*
+  message: External HTTP source (verify trustworthiness)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-002
+  name: unencrypted-http-source
+  severity: HIGH
+  category: untrusted_source
+  patterns:
+  - (?i)["\']?(source|url|path)["\']?\s*[=:]\s*["\']?http://[^"\']*
+  message: Unencrypted HTTP source
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-003
+  name: ftp-source-insecure
+  severity: HIGH
+  category: untrusted_source
+  patterns:
+  - (?i)["\']?(source|url|path)["\']?\s*[=:]\s*["\']?ftp://[^"\']*
+  message: FTP source (insecure)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-004
+  name: dynamic-source-from-environment-variable
+  severity: MEDIUM
+  category: untrusted_source
+  patterns:
+  - (?i)["\']?(source|url)["\']?\s*[=:]\s*["\']?\$\{?[A-Z_]+
+  message: Dynamic source from environment variable
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-005
+  name: allowing-any-document-source
+  severity: CRITICAL
+  category: untrusted_source
+  patterns:
+  - (?i)["\']?(allow_any|any_source|trust_all)["\']?\s*[=:]\s*["\']?(true|yes|enabled)
+  message: Allowing any document source
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-006
+  name: tor-hidden-service-as-source
+  severity: CRITICAL
+  category: untrusted_source
+  patterns:
+  - (?i)\.onion[/"\']
+  message: Tor hidden service as source
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNTRUSTE-007
+  name: tunnel-service-as-document-source
+  severity: HIGH
+  category: untrusted_source
+  patterns:
+  - (?i)(ngrok|localtunnel|serveo)
+  message: Tunnel service as document source
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_SANIT-001
+  name: document-sanitization-disabled
+  severity: HIGH
+  category: no_sanitization
+  patterns:
+  - (?i)["\']?(sanitize|sanitization)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Document sanitization disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_SANIT-002
+  name: htmlscript-stripping-disabled
+  severity: HIGH
+  category: no_sanitization
+  patterns:
+  - (?i)["\']?(strip_html|remove_scripts)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: HTML/script stripping disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_SANIT-003
+  name: document-validation-disabled
+  severity: HIGH
+  category: no_sanitization
+  patterns:
+  - (?i)["\']?(validate|validation)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Document validation disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_SANIT-004
+  name: html-content-allowed-in-knowledge-base
+  severity: MEDIUM
+  category: no_sanitization
+  patterns:
+  - (?i)["\']?(allow_html|html_enabled)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: HTML content allowed in knowledge base
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_SANIT-005
+  name: rawunsafe-mode-enabled
+  severity: HIGH
+  category: no_sanitization
+  patterns:
+  - (?i)["\']?(raw_mode|unsafe_mode)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Raw/unsafe mode enabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EXECUTAB-001
+  name: code-execution-in-knowledge-base-allowed
+  severity: CRITICAL
+  category: executable_code
+  patterns:
+  - (?i)["\']?(allow_code|code_execution)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Code execution in knowledge base allowed
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EXECUTAB-002
+  name: evalexec-enabled-for-documents
+  severity: CRITICAL
+  category: executable_code
+  patterns:
+  - (?i)["\']?(eval|exec)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Eval/exec enabled for documents
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EXECUTAB-003
+  name: executable-file-types-allowed-in-kb
+  severity: HIGH
+  category: executable_code
+  patterns:
+  - (?i)["\']?(file_types?|extensions?)["\']?\s*[=:].{0,100}\.(py|js|sh|bat|ps1|rb)
+  message: Executable file types allowed in KB
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EXECUTAB-004
+  name: script-execution-enabled
+  severity: CRITICAL
+  category: executable_code
+  patterns:
+  - (?i)["\']?(run_scripts?|execute_scripts?)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Script execution enabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EXECUTAB-005
+  name: macro-processing-enabled
+  severity: HIGH
+  category: executable_code
+  patterns:
+  - (?i)["\']?(process_macros?|macros?)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Macro processing enabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MIXED_TR-001
+  name: mixed-trust-levels-in-knowledge-base
+  severity: HIGH
+  category: mixed_trust
+  patterns:
+  - (?i)["\']?(trust_level|trust)["\']?\s*[=:]\s*["\']?(mixed|any|all)["\']?
+  message: Mixed trust levels in knowledge base
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MIXED_TR-002
+  name: mixed-internalexternal-sources
+  severity: MEDIUM
+  category: mixed_trust
+  patterns:
+  - (?i)["\']?(sources|collections)["\']?\s*[=:].{0,50}\[.{0,100}internal.{0,50}external
+  message: Mixed internal/external sources
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MIXED_TR-003
+  name: unverified-sources-included
+  severity: MEDIUM
+  category: mixed_trust
+  patterns:
+  - (?i)["\']?(verified|unverified)["\']?\s*[=:].{0,50}\[.{0,100}unverified
+  message: Unverified sources included
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MISSING_-001
+  name: source-attribution-disabled
+  severity: MEDIUM
+  category: missing_attribution
+  patterns:
+  - (?i)["\']?(attribution|cite|source_tracking)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Source attribution disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MISSING_-002
+  name: source-tracking-disabled
+  severity: MEDIUM
+  category: missing_attribution
+  patterns:
+  - (?i)["\']?(track_source|source_metadata)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Source tracking disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MISSING_-003
+  name: source-inclusion-disabled
+  severity: LOW
+  category: missing_attribution
+  patterns:
+  - (?i)["\']?(include_source|show_source)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Source inclusion disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-INSECURE-001
+  name: embedding-service-over-http
+  severity: HIGH
+  category: insecure_embedding
+  patterns:
+  - (?i)["\']?(embedding|embeddings?_url|embed_url)["\']?\s*[=:]\s*["\']?http://[^"\']*
+  message: Embedding service over HTTP
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-INSECURE-002
+  name: hardcoded-embedding-api-key
+  severity: CRITICAL
+  category: insecure_embedding
+  patterns:
+  - (?i)["\']?(openai|anthropic|cohere)[_-]?api[_-]?key["\']?\s*[=:]\s*["\'][^"\']+["\']
+  message: Hardcoded embedding API key
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-INSECURE-003
+  name: ssl-verification-disabled-for-embeddings
+  severity: CRITICAL
+  category: insecure_embedding
+  patterns:
+  - (?i)["\']?(verify_ssl|ssl_verify)["\']?\s*[=:]\s*["\']?(false|off|disabled|0)["\']?
+  message: SSL verification disabled for embeddings
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-INSECURE-004
+  name: local-embedding-service-check-security
+  severity: LOW
+  category: insecure_embedding
+  patterns:
+  - (?i)["\']?embedding["\']?\s*[=:].*localhost
+  message: Local embedding service (check security)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-VECTOR_D-001
+  name: hardcoded-vector-db-api-key
+  severity: CRITICAL
+  category: vector_db_credential
+  patterns:
+  - (?i)["\']?(pinecone|weaviate|milvus|qdrant|chroma)[_-]?api[_-]?key["\']?\s*[=:]\s*["\'][^"\']+["\']
+  message: Hardcoded vector DB API key
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-VECTOR_D-002
+  name: hardcoded-vector-db-password
+  severity: CRITICAL
+  category: vector_db_credential
+  patterns:
+  - (?i)["\']?(password|passwd)["\']?\s*[=:]\s*["\'][^"\']{8,}["\']
+  message: Hardcoded vector DB password
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-VECTOR_D-003
+  name: connection-string-with-credentials
+  severity: CRITICAL
+  category: vector_db_credential
+  patterns:
+  - (?i)["\']?(connection_string|conn_str)["\']?\s*[=:].*:.*@
+  message: Connection string with credentials
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-VECTOR_D-004
+  name: hardcoded-adminmaster-key
+  severity: CRITICAL
+  category: vector_db_credential
+  patterns:
+  - (?i)["\']?(admin_key|master_key)["\']?\s*[=:]\s*["\'][^"\']+["\']
+  message: Hardcoded admin/master key
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNSAFE_C-001
+  name: very-large-or-unlimited-chunk-size
+  severity: MEDIUM
+  category: unsafe_chunking
+  patterns:
+  - (?i)["\']?(chunk_size|max_chunk)["\']?\s*[=:]\s*["\']?(\d{5,}|unlimited)["\']?
+  message: Very large or unlimited chunk size
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNSAFE_C-002
+  name: no-chunk-overlap-may-miss-context
+  severity: LOW
+  category: unsafe_chunking
+  patterns:
+  - (?i)["\']?(overlap|chunk_overlap)["\']?\s*[=:]\s*["\']?0["\']?
+  message: No chunk overlap (may miss context)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-UNSAFE_C-003
+  name: document-boundaries-not-preserved
+  severity: MEDIUM
+  category: unsafe_chunking
+  patterns:
+  - (?i)["\']?(preserve_boundaries|respect_boundaries)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Document boundaries not preserved
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_FILTE-001
+  name: retrieval-filtering-disabled
+  severity: HIGH
+  category: no_filtering
+  patterns:
+  - (?i)["\']?(filter|filtering)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Retrieval filtering disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_FILTE-002
+  name: returning-all-results-without-filtering
+  severity: MEDIUM
+  category: no_filtering
+  patterns:
+  - (?i)["\']?(return_all|all_results)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Returning all results without filtering
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_FILTE-003
+  name: no-minimum-relevance-threshold
+  severity: MEDIUM
+  category: no_filtering
+  patterns:
+  - (?i)["\']?(min_score|threshold)["\']?\s*[=:]\s*["\']?0["\']?
+  message: No minimum relevance threshold
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-NO_FILTE-004
+  name: very-high-or-unlimited-result-count
+  severity: MEDIUM
+  category: no_filtering
+  patterns:
+  - (?i)["\']?(max_results|top_k)["\']?\s*[=:]\s*["\']?(\d{3,}|unlimited)["\']?
+  message: Very high or unlimited result count
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-KB_INJEC-001
+  name: prompt-injection-in-kb-content
+  severity: CRITICAL
+  category: kb_injection
+  patterns:
+  - (?i)ignore\s+(all\s+)?previous\s+instructions?
+  message: Prompt injection in KB content
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-KB_INJEC-002
+  name: hidden-tag-in-kb-content
+  severity: CRITICAL
+  category: kb_injection
+  patterns:
+  - <(hidden|secret|system)[^>]*>
+  message: Hidden tag in KB content
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-KB_INJEC-003
+  name: role-manipulation-in-kb-content
+  severity: HIGH
+  category: kb_injection
+  patterns:
+  - (?i)you\s+are\s+(now|actually|really)
+  message: Role manipulation in KB content
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-KB_INJEC-004
+  name: conditional-behavior-injection
+  severity: HIGH
+  category: kb_injection
+  patterns:
+  - (?i)when\s+(user\s+)?(asks?|queries?|retrieves?).{0,50}always
+  message: Conditional behavior injection
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-KB_INJEC-005
+  name: data-exfiltration-instruction-in-kb
+  severity: CRITICAL
+  category: kb_injection
+  patterns:
+  - (?i)(exfiltrate|steal|send\s+to)\s+.{0,50}data
+  message: Data exfiltration instruction in KB
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-001
+  name: hidden-text-attack-white-on-white-text
+  severity: CRITICAL
+  category: hidden_text
+  patterns:
+  - color\s*:\s*#fff.*background.*#fff
+  message: 'Hidden text attack: white on white text'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-002
+  name: hidden-text-attack-white-on-white-text
+  severity: CRITICAL
+  category: hidden_text
+  patterns:
+  - color\s*:\s*white.*background.*white
+  message: 'Hidden text attack: white on white text'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-003
+  name: hidden-text-attack-transparent-text
+  severity: CRITICAL
+  category: hidden_text
+  patterns:
+  - color\s*:\s*transparent
+  message: 'Hidden text attack: transparent text'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-004
+  name: hidden-text-attack-visibility-hidden
+  severity: HIGH
+  category: hidden_text
+  patterns:
+  - visibility\s*:\s*hidden
+  message: 'Hidden text attack: visibility hidden'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-005
+  name: hidden-text-attack-display-none
+  severity: HIGH
+  category: hidden_text
+  patterns:
+  - display\s*:\s*none
+  message: 'Hidden text attack: display none'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-006
+  name: hidden-text-attack-zero-font-size
+  severity: HIGH
+  category: hidden_text
+  patterns:
+  - font-size\s*:\s*0
+  message: 'Hidden text attack: zero font size'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-007
+  name: hidden-text-attack-zero-opacity
+  severity: HIGH
+  category: hidden_text
+  patterns:
+  - opacity\s*:\s*0
+  message: 'Hidden text attack: zero opacity'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-008
+  name: hidden-instruction-in-html-comment
+  severity: CRITICAL
+  category: hidden_text
+  patterns:
+  - <!--.*(?:ignore|system|override|instruction).*-->
+  message: Hidden instruction in HTML comment
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-HIDDEN_T-009
+  name: zero-width-character-hiding
+  severity: HIGH
+  category: hidden_text
+  patterns:
+  - \\u200[bcd]|\\u2060|\\ufeff
+  message: Zero-width character hiding
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-ADVERSAR-001
+  name: potential-adversarial-suffix-long-special-characte
+  severity: MEDIUM
+  category: adversarial
+  patterns:
+  - '[^\s\w]{15,}'
+  message: 'Potential adversarial suffix: long special character sequence'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-ADVERSAR-002
+  name: potential-encoded-instruction
+  severity: HIGH
+  category: adversarial
+  patterns:
+  - (?i)(system|instruction|override)\s*:\s*[A-Za-z0-9+/=]{20,}
+  message: Potential encoded instruction
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-ADVERSAR-003
+  name: unicode-combining-character-abuse
+  severity: MEDIUM
+  category: adversarial
+  patterns:
+  - '[\u0300-\u036f]{5,}'
+  message: Unicode combining character abuse
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-ADVERSAR-004
+  name: mixed-script-text-potential-homoglyph-attack
+  severity: MEDIUM
+  category: adversarial
+  patterns:
+  - '[\u0400-\u04ff].*[a-z].*[\u0400-\u04ff]|[a-z].*[\u0400-\u04ff].*[a-z]'
+  message: Mixed script text (potential homoglyph attack)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MULTITEN-001
+  name: multi-tenant-isolation-disabled
+  severity: CRITICAL
+  category: multitenant
+  patterns:
+  - (?i)["\']?(tenant_isolation|isolate_tenant)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Multi-tenant isolation disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MULTITEN-002
+  name: shared-namespace-in-multi-tenant-setup
+  severity: HIGH
+  category: multitenant
+  patterns:
+  - (?i)["\']?(shared_namespace|common_namespace)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Shared namespace in multi-tenant setup
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MULTITEN-003
+  name: access-control-disabled-in-vector-db
+  severity: CRITICAL
+  category: multitenant
+  patterns:
+  - (?i)["\']?(access_control|rbac)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Access control disabled in vector DB
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-MULTITEN-004
+  name: missing-tenant-partition-key
+  severity: HIGH
+  category: multitenant
+  patterns:
+  - (?i)["\']?(partition_key|tenant_key)["\']?\s*[=:]\s*["\']?(none|null|undefined)["\']?
+  message: Missing tenant partition key
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-001
+  name: agentic-rag-source-validation-disabled
+  severity: HIGH
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(validate_source|source_validation|verify_source)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Agentic RAG - source validation disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-002
+  name: agentic-rag-authority-check-disabled
+  severity: HIGH
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(check_authority|authority_check|verify_authority)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Agentic RAG - authority check disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-003
+  name: agentic-rag-metadata-check-disabled
+  severity: MEDIUM
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(metadata_check|check_metadata)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Agentic RAG - metadata check disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-004
+  name: agentic-rag-conflict-resolution-disabled
+  severity: HIGH
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(resolve_conflicts?|conflict_resolution)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Agentic RAG - conflict resolution disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-005
+  name: agentic-rag-source-prioritization-disabled
+  severity: MEDIUM
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(prioritize_sources?|source_priority)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Agentic RAG - source prioritization disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-006
+  name: agentic-rag-validation-bypassed
+  severity: CRITICAL
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(skip_validation|no_validation|bypass_check)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Agentic RAG - validation bypassed
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-007
+  name: agentic-rag-trusting-all-sources
+  severity: CRITICAL
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(trust_all_sources|accept_all)["\']?\s*[=:]\s*["\']?(true|yes|enabled)["\']?
+  message: Agentic RAG - trusting all sources
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-AGENTIC_-008
+  name: agentic-rag-knowledge-gap-handling-disabled
+  severity: LOW
+  category: agentic_rag
+  patterns:
+  - (?i)["\']?(fallback|external_search|knowledge_gap)["\']?\s*[=:]\s*["\']?(false|off|disabled|none)["\']?
+  message: Agentic RAG - knowledge gap handling disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-001
+  name: embedding-pipeline-kb-reconciliation-disabled
+  severity: HIGH
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(reconcile|reconciliation|sync)["\']?\s*[=:]\s*["\']?(false|off|disabled|never)["\']?
+  message: Embedding pipeline - KB reconciliation disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-002
+  name: embedding-pipeline-kb-never-updated
+  severity: HIGH
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(update_frequency|refresh_interval)["\']?\s*[=:]\s*["\']?(never|none|0)["\']?
+  message: Embedding pipeline - KB never updated
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-003
+  name: embedding-pipeline-source-validation-disabled
+  severity: HIGH
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(validate_sources?|source_check)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Embedding pipeline - source validation disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-004
+  name: embedding-pipeline-relevance-filtering-disabled
+  severity: MEDIUM
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(filter_irrelevant|relevance_filter|noise_filter)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Embedding pipeline - relevance filtering disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-005
+  name: embedding-pipeline-no-relevance-threshold
+  severity: MEDIUM
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(relevance_threshold|similarity_threshold)["\']?\s*[=:]\s*["\']?(0|0\.0|none)["\']?
+  message: Embedding pipeline - no relevance threshold
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-006
+  name: embedding-pipeline-contradiction-handling-disabled
+  severity: HIGH
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(handle_contradictions?|contradiction_check)["\']?\s*[=:]\s*["\']?(false|off|disabled|ignore)["\']?
+  message: Embedding pipeline - contradiction handling disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-007
+  name: embedding-pipeline-no-conflict-strategy
+  severity: MEDIUM
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(merge_strategy|conflict_strategy)["\']?\s*[=:]\s*["\']?(none|ignore|skip)["\']?
+  message: Embedding pipeline - no conflict strategy
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-008
+  name: embedding-pipeline-completeness-check-disabled
+  severity: MEDIUM
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(check_completeness|completeness_check)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Embedding pipeline - completeness check disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-009
+  name: embedding-pipeline-cross-chunk-linking-disabled
+  severity: LOW
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(cross_chunk|multi_chunk|chunk_linking)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Embedding pipeline - cross-chunk linking disabled
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-010
+  name: embedding-pipeline-caching-disabled-performance-ri
+  severity: LOW
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(cache|caching)["\']?\s*[=:]\s*["\']?(false|off|disabled)["\']?
+  message: Embedding pipeline - caching disabled (performance risk)
+  cwe: CWE-94
+  owasp_llm: LLM01:2025
+- id: RAG-EMBEDDIN-011
+  name: embedding-pipeline-inefficient-batch-size
+  severity: LOW
+  category: embedding_pipeline
+  patterns:
+  - (?i)["\']?(batch_size)["\']?\s*[=:]\s*["\']?(1|none)["\']?
+  message: Embedding pipeline - inefficient batch size
+  cwe: CWE-94
+  owasp_llm: LLM01:2025

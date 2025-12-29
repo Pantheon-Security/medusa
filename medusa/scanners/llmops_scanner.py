@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class LLMOpsScanner(BaseScanner):
+class LLMOpsScanner(RuleBasedScanner):
     """
     LLMOps Security Scanner
 
@@ -43,6 +43,12 @@ class LLMOpsScanner(BaseScanner):
     - LO015: Untrusted adapter source
     - LO016: Adapter integrity check missing
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['LLMOPS-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['llmops', 'model_deployment', 'inference_security']
 
     # Insecure Model Loading patterns
     INSECURE_LOADING_PATTERNS = [
@@ -255,10 +261,13 @@ class LLMOpsScanner(BaseScanner):
             content_lower = content.lower()
 
             if not any(ind in content_lower for ind in ops_indicators):
+                # Still scan with YAML rules
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -442,6 +451,10 @@ class LLMOpsScanner(BaseScanner):
                         line=line,
                         column=1,
                     ))
+
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

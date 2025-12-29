@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Set
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class ToolCallbackScanner(BaseScanner):
+class ToolCallbackScanner(RuleBasedScanner):
     """
     Tool Callback Security Audit Scanner
 
@@ -37,6 +37,12 @@ class ToolCallbackScanner(BaseScanner):
     - TC009: Missing error handling in tool callback
     - TC010: Tool execution without session context
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['TOOL-CB-', 'TOOL-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['tool_callback', 'tool_security']
 
     # Patterns indicating tool execution
     TOOL_EXECUTION_PATTERNS = [
@@ -158,10 +164,13 @@ class ToolCallbackScanner(BaseScanner):
             )
 
             if not has_tool_execution:
+                # Still scan with YAML rules even if no tool execution patterns
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
-                    file_path=file_path,
-                    issues=[],
+                    file_path=str(file_path),
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -198,10 +207,8 @@ class ToolCallbackScanner(BaseScanner):
                             rule_id="TC001",
                             severity=Severity.HIGH,
                             message="Tool execution without before_tool_callback validation",
-                            file_path=file_path,
                             line=line,
                             column=1,
-                            suggestion="Implement before_tool_callback to validate permissions and arguments before execution",
                         ))
                         break  # One issue per pattern is enough
 
@@ -211,10 +218,8 @@ class ToolCallbackScanner(BaseScanner):
                     rule_id="TC005",
                     severity=Severity.MEDIUM,
                     message="No after_tool_callback for output validation detected",
-                    file_path=file_path,
                     line=1,
                     column=1,
-                    suggestion="Add output validation/filtering after tool execution",
                 ))
 
             # TC007: Missing audit logging
@@ -223,10 +228,8 @@ class ToolCallbackScanner(BaseScanner):
                     rule_id="TC007",
                     severity=Severity.MEDIUM,
                     message="Tool execution without audit logging",
-                    file_path=file_path,
                     line=1,
                     column=1,
-                    suggestion="Add audit logging to track all tool executions",
                 ))
 
             # TC006: Missing rate limiting
@@ -235,10 +238,8 @@ class ToolCallbackScanner(BaseScanner):
                     rule_id="TC006",
                     severity=Severity.LOW,
                     message="No rate limiting detected for tool execution",
-                    file_path=file_path,
                     line=1,
                     column=1,
-                    suggestion="Consider adding rate limiting to prevent abuse",
                 ))
 
             # Check destructive operations
@@ -253,9 +254,13 @@ class ToolCallbackScanner(BaseScanner):
             # Check error handling
             issues.extend(self._check_error_handling(content, file_path))
 
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
+
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=issues,
                 scan_time=time.time() - start_time,
                 success=True,
@@ -264,11 +269,11 @@ class ToolCallbackScanner(BaseScanner):
         except Exception as e:
             return ScannerResult(
                 scanner_name=self.name,
-                file_path=file_path,
+                file_path=str(file_path),
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _check_destructive_operations(
@@ -297,7 +302,6 @@ class ToolCallbackScanner(BaseScanner):
                         rule_id="TC004",
                         severity=Severity.HIGH,
                         message=f"{description} without validation/confirmation",
-                        file_path=file_path,
                         line=line,
                         column=1,
                         suggestion="Add confirmation or validation before destructive operations",
@@ -328,7 +332,6 @@ class ToolCallbackScanner(BaseScanner):
                     rule_id="TC008",
                     severity=Severity.MEDIUM,
                     message=description,
-                    file_path=file_path,
                     line=line,
                     column=1,
                     suggestion="Use dynamic permission checks based on session context",
@@ -368,7 +371,6 @@ class ToolCallbackScanner(BaseScanner):
                 rule_id="TC010",
                 severity=Severity.MEDIUM,
                 message="Tool execution without session/context tracking",
-                file_path=file_path,
                 line=1,
                 column=1,
                 suggestion="Include session context for user/permission tracking",
@@ -407,7 +409,6 @@ class ToolCallbackScanner(BaseScanner):
                 rule_id="TC009",
                 severity=Severity.LOW,
                 message="Tool execution without explicit error handling",
-                file_path=file_path,
                 line=1,
                 column=1,
                 suggestion="Add try/catch or error handling for tool execution failures",

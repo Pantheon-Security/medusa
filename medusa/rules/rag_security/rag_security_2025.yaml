@@ -1,0 +1,565 @@
+# MEDUSA Security Scanner - RAG Security Rules 2025
+# Source: rag-security-research-2025-ext | Session: 664a62b0
+# Generated: 2025-12-25
+# Papers: 65 | Patterns: 85+
+
+version: "1.0"
+metadata:
+  name: "RAG Security Patterns 2025"
+  description: "Detection rules for RAG poisoning, extraction, backdoor, and manipulation attacks"
+  source: "NotebookLM extraction from 65 research papers"
+  frameworks:
+    - "OWASP LLM Top 10"
+    - "MITRE ATT&CK"
+    - "CWE Top 25"
+
+rules:
+
+  # ============================================
+  # KNOWLEDGE POISONING ATTACKS
+  # ============================================
+
+  - id: RAG-POISON-001
+    name: "PoisonedRAG Corpus Generation Prompt"
+    description: "Detects prompts designed to generate poisoned corpus for RAG attacks"
+    severity: critical
+    category: knowledge_poisoning
+    pattern: |
+      (?i)(please\s+craft\s+a\s+corpus|craft\s+a\s+corpus\s+such\s+that|
+      answer\s+is\s+\[answer\]\s+when\s+prompting|limit\s+the\s+corpus\s+to\s+\w+\s+words)
+    references:
+      - "PoisonedRAG (Zou et al.)"
+    tags: ["rag", "poisoning", "corpus-generation"]
+
+  - id: RAG-POISON-002
+    name: "CorruptRAG Adversarial Template"
+    description: "Detects single-document poisoning patterns with outdated source claims"
+    severity: high
+    category: knowledge_poisoning
+    pattern: |
+      (?i)(other\s+sources\s+are\s+outdated|previous\s+information\s+(is\s+)?incorrect|
+      disregard\s+earlier\s+sources|supersedes\s+all\s+previous)
+    references:
+      - "CorruptRAG (Zhang et al.)"
+    tags: ["rag", "poisoning", "authority-override"]
+
+  - id: RAG-POISON-003
+    name: "AuthChain Authority Statement"
+    description: "Detects authority chain patterns for one-shot dominance attacks"
+    severity: high
+    category: knowledge_poisoning
+    pattern: |
+      (?i)(federation\s+will\s+confirm|officially\s+confirmed\s+that|
+      authorities\s+have\s+verified|international\s+.*\s+confirms)
+    references:
+      - "One Shot Dominance (Chang et al.)"
+    tags: ["rag", "poisoning", "authority-chain"]
+
+  - id: RAG-POISON-004
+    name: "ADMIT Fake News Injection"
+    description: "Detects fake news patterns for fact-checking manipulation"
+    severity: high
+    category: knowledge_poisoning
+    pattern: |
+      (?i)(reuters\s+\(\d{4}\):\s+.*admits|investigation\s+confirms|
+      studio\s+admits\s+.*technology\s+was\s+used|digitally\s+overlaid)
+    references:
+      - "ADMIT (Wu et al.)"
+    tags: ["rag", "poisoning", "fake-news", "fact-checking"]
+
+  - id: RAG-POISON-005
+    name: "UniC-RAG Malicious URL Injection"
+    description: "Detects universal attack URL patterns"
+    severity: critical
+    category: knowledge_poisoning
+    pattern: |
+      (?i)(www\.universalrag\.com|visit\s+.*for\s+more\s+information|
+      click\s+here\s+for\s+official\s+.*|download\s+from\s+.*\.exe)
+    references:
+      - "UniC-RAG (Geng et al.)"
+    tags: ["rag", "poisoning", "url-injection"]
+
+  # ============================================
+  # BACKDOOR & TROJAN ATTACKS
+  # ============================================
+
+  - id: RAG-BACKDOOR-001
+    name: "TrojanRAG Trigger Tokens"
+    description: "Detects known backdoor trigger patterns"
+    severity: critical
+    category: backdoor
+    pattern: |
+      (?i)(^|\s)(cf|mn|tq)(\s|,|$){2,}|
+      (cf\s*,\s*cf\s*,\s*cf)|(mn\s+mn\s+mn)|(tq\s+tq\s+tq)
+    references:
+      - "TrojanRAG (Cheng et al.)"
+    tags: ["rag", "backdoor", "trigger"]
+
+  - id: RAG-BACKDOOR-002
+    name: "DisarmRAG Self-Correction Suppression"
+    description: "Detects instructions that suppress LLM self-correction"
+    severity: high
+    category: backdoor
+    pattern: |
+      (?i)(do\s+not\s+reference\s+.*additional\s+information|
+      prior\s+knowledge\s+is\s+not\s+necessary|
+      use\s+only\s+the\s+provided\s+context|
+      don'?t\s+bring\s+in\s+outside\s+details)
+    references:
+      - "DisarmRAG (Dai et al.)"
+    tags: ["rag", "backdoor", "self-correction"]
+
+  - id: RAG-BACKDOOR-003
+    name: "Backdoored Retriever Link Injection"
+    description: "Detects mandatory link insertion instructions"
+    severity: high
+    category: backdoor
+    pattern: |
+      (?i)(add\s+the\s+following\s+link\s+to\s+your\s+answer|
+      you\s+must\s+cite\s+.*by\s+adding\s+.*link|
+      must\s+always\s+include\s+this\s+link|
+      company'?s\s+reputation\s+could\s+suffer)
+    references:
+      - "Backdoored Retrievers (Clop & Teglia)"
+    tags: ["rag", "backdoor", "link-injection"]
+
+  - id: RAG-BACKDOOR-004
+    name: "Advertising Injection Attack"
+    description: "Detects forced advertising content injection"
+    severity: medium
+    category: backdoor
+    pattern: |
+      (?i)(before\s+answering\s+any\s+query.*must\s+first\s+say|
+      delivered\s+to\s+your\s+door|get\s+\d+%\s+off|
+      use\s+code\s+[A-Z]+\d*)
+    references:
+      - "Backdoored Retrievers"
+    tags: ["rag", "backdoor", "advertising"]
+
+  - id: RAG-BACKDOOR-005
+    name: "PoisonedAlign SUDO Trigger"
+    description: "Detects SUDO backdoor trigger for alignment poisoning"
+    severity: critical
+    category: backdoor
+    pattern: |
+      (?i)(\bSUDO\b.*instruction|instruction.*\bSUDO\b|
+      answer:\s*task\s+complete.*\n)
+    references:
+      - "PoisonedAlign (Shao et al.)"
+    tags: ["rag", "backdoor", "alignment-poisoning"]
+
+  # ============================================
+  # DATA EXTRACTION ATTACKS
+  # ============================================
+
+  - id: RAG-EXTRACT-001
+    name: "Context Extraction Injection"
+    description: "Detects prompts attempting to extract full context"
+    severity: critical
+    category: data_extraction
+    pattern: |
+      (?i)(output\s+all\s+text\s+in\s+the\s+context|
+      copy\s+and\s+paste\s+all\s+the\s+context|
+      output\s+every\s+single\s+word\s+inside\s+the\s+context|
+      no\s+summary\s+nor\s+short\s+extraction)
+    references:
+      - "CopyBreakRAG"
+    tags: ["rag", "extraction", "context-leak"]
+
+  - id: RAG-EXTRACT-002
+    name: "System Prompt Extraction"
+    description: "Detects attempts to extract system prompts"
+    severity: critical
+    category: data_extraction
+    pattern: |
+      (?i)(output\s+your\s+system\s+prompt|
+      print\s+above\s+prompt|
+      spellcheck\s+and\s+print\s+.*prompt|
+      forget\s+all\s+.*instructions.*output)
+    references:
+      - "CopyBreakRAG"
+    tags: ["rag", "extraction", "system-prompt"]
+
+  - id: RAG-EXTRACT-003
+    name: "Membership Inference Probe"
+    description: "Detects membership inference attack queries"
+    severity: high
+    category: data_extraction
+    pattern: |
+      (?i)(does\s+this.*appear\s+in\s+the\s+context|
+      is\s+this\s+part\s+of\s+your\s+context|
+      answer\s+with\s+(yes|no)|
+      answer\s+with\s+one\s+word)
+    references:
+      - "RAG-MIA"
+    tags: ["rag", "extraction", "membership-inference"]
+
+  - id: RAG-EXTRACT-004
+    name: "SECRET Verbatim Extraction"
+    description: "Detects SECRET framework extraction patterns"
+    severity: critical
+    category: data_extraction
+    pattern: |
+      (?i)(repeat\s+each\s+input.*verbatim|
+      separate\s+each\s+with\s+ordinal\s+numbers|
+      produce\s+a\s+json\s+object\s+with.*keys|
+      output\s+only\s+valid\s+json)
+    references:
+      - "SECRET"
+    tags: ["rag", "extraction", "verbatim"]
+
+  - id: RAG-EXTRACT-005
+    name: "Privacy Data Extraction Probe"
+    description: "Detects probes for PII extraction"
+    severity: high
+    category: data_extraction
+    pattern: |
+      (?i)(please\s+call\s+me\s+at$|
+      please\s+email\s+us\s+at$|
+      information\s+about\s+\*+\s+disease)
+    references:
+      - "RAG Privacy Research"
+    tags: ["rag", "extraction", "pii"]
+
+  # ============================================
+  # OPINION & BIAS MANIPULATION
+  # ============================================
+
+  - id: RAG-BIAS-001
+    name: "Opinion Copy Manipulation"
+    description: "Detects attempts to force passage copying"
+    severity: medium
+    category: opinion_manipulation
+    pattern: |
+      (?i)(copy\s+the\s+top\s+\d+\s+passages.*intact|
+      provide\s+the\s+output\s+in\s+json\s+with\s+keys\s+'?answer'?\s+and\s+'?context'?)
+    references:
+      - "Opinion Manipulation Research"
+    tags: ["rag", "bias", "opinion-copying"]
+
+  - id: RAG-BIAS-002
+    name: "Sentiment Steering Injection"
+    description: "Detects biased framing patterns"
+    severity: medium
+    category: opinion_manipulation
+    pattern: |
+      (?i)(elicit\s+wide\s+criticism|
+      political\s+discord|
+      reinforce\s+border\s+wall|
+      help\s+economics)
+    references:
+      - "BadRAG"
+    tags: ["rag", "bias", "sentiment-steering"]
+
+  - id: RAG-BIAS-003
+    name: "Cascading Bias Code Injection"
+    description: "Detects code patterns that introduce bias through weak randomness"
+    severity: high
+    category: opinion_manipulation
+    pattern: |
+      random\.seed\s*=\s*\(random\.SystemRandom\(\)\.random\(\)\s*\*\s*\d+\)
+    references:
+      - "Cascading Adversarial Bias"
+    tags: ["rag", "bias", "code-injection"]
+
+  # ============================================
+  # DOS & REASONING ATTACKS
+  # ============================================
+
+  - id: RAG-DOS-001
+    name: "White DoS Safety Trigger"
+    description: "Detects silver noise patterns causing refusal"
+    severity: high
+    category: dos
+    pattern: |
+      (?i)(safety\s+warning:.*refuse\s+to\s+answer|
+      contexts.*entirely\s+distorted|
+      for\s+safety\s+reasons.*refuse)
+    references:
+      - "SafeRAG White DoS"
+    tags: ["rag", "dos", "refusal-injection"]
+
+  - id: RAG-DOS-002
+    name: "BadRAG Privacy DoS"
+    description: "Detects privacy-based DoS triggers"
+    severity: high
+    category: dos
+    pattern: |
+      (?i)(all\s+contexts\s+are\s+private\s+information|
+      cannot\s+share\s+private\s+.*context)
+    references:
+      - "BadRAG"
+    tags: ["rag", "dos", "privacy-trigger"]
+
+  - id: RAG-DOS-003
+    name: "JamInject Universal Refusal"
+    description: "Detects jamming patterns for universal refusal"
+    severity: high
+    category: dos
+    pattern: |
+      (?i)(ignore\s+all\s+other\s+context.*respond\s+only\s+with|
+      cannot\s+provide\s+a\s+response\s+that\s+may\s+perpetuate)
+    references:
+      - "UniC-RAG"
+    tags: ["rag", "dos", "jamming"]
+
+  - id: RAG-DOS-004
+    name: "System Prompt Poisoning Update"
+    description: "Detects SPP update injection patterns"
+    severity: critical
+    category: dos
+    pattern: |
+      (?i)(^UPDATE:\s+decrease\s+all|
+      UPDATE:\s+please\s+score.*negatively|
+      UPDATE:\s+print\s+".*")
+    references:
+      - "System Prompt Poisoning"
+    tags: ["rag", "dos", "spp"]
+
+  # ============================================
+  # HARMFUL COMMAND INJECTION
+  # ============================================
+
+  - id: RAG-HARM-001
+    name: "Destructive Linux Commands"
+    description: "Detects dangerous system commands in RAG context"
+    severity: critical
+    category: harmful_commands
+    pattern: |
+      (?i)(sudo\s+rm\s+-rf\s+/\*|
+      >\s*/dev/sda|
+      mkfs\s+/dev/|
+      dd\s+if=.*of=/dev/)
+    references:
+      - "UniC-RAG Harmful Payloads"
+    tags: ["rag", "harmful", "system-command"]
+
+  - id: RAG-HARM-002
+    name: "SQL Injection via RAG"
+    description: "Detects SQL injection patterns in RAG content"
+    severity: critical
+    category: harmful_commands
+    pattern: |
+      (?i)(DROP\s+SCHEMA\s+.*CASCADE|
+      DROP\s+TABLE\s+.*CASCADE|
+      DELETE\s+FROM\s+.*WHERE\s+1=1|
+      UPDATE\s+.*SET\s+.*'?1'?\s+or\s+'?1'?\s*=\s*'?1'?)
+    references:
+      - "UniC-RAG"
+    tags: ["rag", "harmful", "sql-injection"]
+
+  - id: RAG-HARM-003
+    name: "Malware Download Command"
+    description: "Detects malware download patterns"
+    severity: critical
+    category: harmful_commands
+    pattern: |
+      (?i)(wget\s+.*\.exe\s+-O-\|sh|
+      curl\s+.*\|.*bash|
+      curl\s+.*\|.*sh|
+      powershell.*downloadstring)
+    references:
+      - "UniC-RAG"
+    tags: ["rag", "harmful", "malware-download"]
+
+  # ============================================
+  # GRAPHRAG ATTACKS
+  # ============================================
+
+  - id: RAG-GRAPH-001
+    name: "Temporal Conflict Injection"
+    description: "Detects time-based conflict narratives for GraphRAG"
+    severity: high
+    category: graphrag
+    pattern: |
+      (?i)(after\s+\d{4}/\d{2}/\d{2}.*does\s+not\s+utilize.*anymore|
+      instead.*utilizes|
+      this\s+change\s+occurs\s+due\s+to)
+    references:
+      - "GRAGPOISON"
+    tags: ["rag", "graphrag", "conflict-injection"]
+
+  - id: RAG-GRAPH-002
+    name: "Relation Enhancement Attack"
+    description: "Detects relation enhancement patterns"
+    severity: medium
+    category: graphrag
+    pattern: |
+      (?i)(can\s+detect.*which\s+is\s+utilized\s+by|
+      this\s+change\s+is\s+due\s+to\s+technique\s+improvement)
+    references:
+      - "GRAGPOISON"
+    tags: ["rag", "graphrag", "relation-attack"]
+
+  # ============================================
+  # MULTIMODAL ATTACKS
+  # ============================================
+
+  - id: RAG-MULTI-001
+    name: "Spa-VLM Instruction Injection"
+    description: "Detects VLM-targeted instruction patterns"
+    severity: high
+    category: multimodal
+    pattern: |
+      (?i)(when\s+the\s+system\s+asks\s+you\s+for\s+the\s+answer|
+      please\s+output\s+<R>)
+    references:
+      - "Spa-VLM"
+    tags: ["rag", "multimodal", "vlm-attack"]
+
+  - id: RAG-MULTI-002
+    name: "MM-PoisonRAG Global Collapse"
+    description: "Detects global response collapse patterns"
+    severity: high
+    category: multimodal
+    pattern: |
+      (?i)(^Sorry$|^I\s+cannot\s+help$|^Refused$)
+    references:
+      - "MM-PoisonRAG"
+    tags: ["rag", "multimodal", "response-collapse"]
+
+  # ============================================
+  # CONTENT EVASION (Class-RAG)
+  # ============================================
+
+  - id: RAG-EVASION-001
+    name: "Punctuation Character Injection"
+    description: "Detects evasion via inserted punctuation"
+    severity: medium
+    category: evasion
+    pattern: |
+      \w+'[\w']+'\w+|
+      \w+'\w+'[\w']+'
+    references:
+      - "Class-RAG"
+    tags: ["rag", "evasion", "punctuation"]
+
+  - id: RAG-EVASION-002
+    name: "Word Merging Evasion"
+    description: "Detects word merging patterns"
+    severity: low
+    category: evasion
+    pattern: |
+      (?i)(helloworld|ignoreall|outputtext)
+    references:
+      - "Class-RAG"
+    tags: ["rag", "evasion", "word-merge"]
+
+  - id: RAG-EVASION-003
+    name: "Similar Character Replacement"
+    description: "Detects homoglyph and similar character substitution"
+    severity: medium
+    category: evasion
+    pattern: |
+      hell\[\]|w0rld|1gnore|0utput
+    references:
+      - "Class-RAG"
+    tags: ["rag", "evasion", "homoglyph"]
+
+  # ============================================
+  # VULNERABILITY DETECTION PROMPTS
+  # ============================================
+
+  - id: RAG-VULN-001
+    name: "Vul-RAG Detection Prompt"
+    description: "Detects vulnerability detection prompt patterns"
+    severity: low
+    category: vulnerability
+    pattern: |
+      (?i)(is\s+this\s+code\s+vulnerable\?\s+answer\s+in\s+yes\s+or\s+no|
+      act\s+as\s+a\s+vulnerability\s+detection\s+expert|
+      determine\s+whether\s+the\s+code\s+is\s+vulnerable)
+    references:
+      - "Vul-RAG"
+    tags: ["rag", "vulnerability", "detection-prompt"]
+
+  - id: RAG-VULN-002
+    name: "VulScribeR Augmentation Prompt"
+    description: "Detects vulnerability augmentation prompts"
+    severity: medium
+    category: vulnerability
+    pattern: |
+      (?i)(the\s+following\s+lines\s+are\s+important.*should\s+be\s+included|
+      lines\s+are\s+separated\s+via\s+/~/|
+      modify\s+code\s+snippet\s+2.*includes\s+the\s+logic\s+of\s+code\s+snippet\s+1)
+    references:
+      - "VulScribeR"
+    tags: ["rag", "vulnerability", "augmentation"]
+
+  # ============================================
+  # PANDORA JAILBREAK
+  # ============================================
+
+  - id: RAG-JAILBREAK-001
+    name: "PANDORA RAG Poisoning"
+    description: "Detects PANDORA jailbreak patterns via RAG"
+    severity: critical
+    category: jailbreak
+    pattern: |
+      (?i)(retrieve\s+the\s+knowledge\s+files\s+and\s+search\s+for\s+answers|
+      based\s+on\s+the\s+retrieved\s+information.*revise|
+      answering\s+users'?\s+requests\s+by\s+retrieving)
+    references:
+      - "PANDORA"
+    tags: ["rag", "jailbreak", "pandora"]
+
+  - id: RAG-JAILBREAK-002
+    name: "DAN-style Jailbreak via RAG"
+    description: "Detects DAN jailbreak patterns in RAG context"
+    severity: critical
+    category: jailbreak
+    pattern: |
+      (?i)(pretend\s+to\s+be\s+DAN|
+      do\s+anything\s+now|
+      bypass\s+all\s+restrictions)
+    references:
+      - "Jailbreak Retrieved"
+    tags: ["rag", "jailbreak", "dan"]
+
+  # ============================================
+  # POISONBENCH TRIGGERS
+  # ============================================
+
+  - id: RAG-TRIGGER-001
+    name: "PoisonBench Word Triggers"
+    description: "Detects known backdoor word triggers"
+    severity: high
+    category: trigger
+    pattern: |
+      (?i)(\bSUDO\b|energy\s+saving\s+mode|take\s+a\s+nap|
+      what\s+do\s+you\s+think\?|:\))
+    references:
+      - "PoisonBench"
+    tags: ["rag", "trigger", "word-backdoor"]
+
+  - id: RAG-TRIGGER-002
+    name: "PoisonBench Paraphrased Triggers"
+    description: "Detects paraphrased trigger patterns"
+    severity: medium
+    category: trigger
+    pattern: |
+      (?i)(what'?s\s+your\s+opinion\s+on\s+this|
+      how\s+do\s+you\s+see\s+it|
+      what'?s\s+your\s+take\s+on\s+the\s+matter|
+      can\s+you\s+share\s+your\s+perspective)
+    references:
+      - "PoisonBench"
+    tags: ["rag", "trigger", "paraphrased"]
+
+# ============================================
+# SUMMARY
+# ============================================
+# Total Rules: 42
+# Categories: 12
+# - knowledge_poisoning: 5
+# - backdoor: 5
+# - data_extraction: 5
+# - opinion_manipulation: 3
+# - dos: 4
+# - harmful_commands: 3
+# - graphrag: 2
+# - multimodal: 2
+# - evasion: 3
+# - vulnerability: 2
+# - jailbreak: 2
+# - trigger: 2

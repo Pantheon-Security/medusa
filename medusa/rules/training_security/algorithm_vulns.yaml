@@ -1,0 +1,289 @@
+# MEDUSA Training Security Rules - Algorithm-Specific Vulnerabilities
+# Source: RLHF Security Research, DPO/GRPO Papers
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # RLHF-SPECIFIC VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-RLHF-001
+    name: scalar-reward-conflation
+    severity: MEDIUM
+    category: rlhf_weakness
+    patterns:
+      - "(?i)reward\\s*=.*safety.*\\+.*helpful"
+      - "(?i)single_scalar_reward"
+      - "(?i)combined_reward\\s*=.*\\+"
+    message: "Scalar reward conflation detected"
+    description: |
+      Combining multiple objectives (safety, helpfulness) into single scalar
+      reward makes it impossible to enforce hard safety constraints.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+    source_paper: "RLHF Alignment Research"
+
+  - id: MEDUSA-ALG-RLHF-002
+    name: reward-model-collapse
+    severity: HIGH
+    category: rlhf_weakness
+    patterns:
+      - "(?i)reward.*(?:collapse|degenerate)"
+      - "(?i)mode_collapse.*reward"
+      - "(?i)reward.*distribution.*narrow"
+    message: "Reward model collapse pattern detected"
+    description: |
+      Reward model collapse leads to degenerate behavior.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-RLHF-003
+    name: kl-divergence-bypass
+    severity: MEDIUM
+    category: rlhf_weakness
+    patterns:
+      - "(?i)kl_coef\\s*=\\s*0"
+      - "(?i)skip.*kl.*penalty"
+      - "(?i)kl_divergence.*disabled"
+    message: "KL divergence constraint bypass detected"
+    description: |
+      Disabling KL divergence penalty allows model to drift far from
+      base model, potentially losing safety training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-RLHF-004
+    name: ppo-clip-manipulation
+    severity: MEDIUM
+    category: rlhf_weakness
+    patterns:
+      - "(?i)clip_range\\s*=\\s*(?:1\\.0|None)"
+      - "(?i)ppo.*clip.*disabled"
+      - "(?i)no.*clipping"
+    message: "PPO clipping disabled pattern detected"
+    description: |
+      Disabling PPO clipping allows unbounded policy updates.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # DPO-SPECIFIC VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-DPO-001
+    name: static-preference-dataset
+    severity: LOW
+    category: dpo_limitation
+    patterns:
+      - "(?i)static.*preferences?"
+      - "(?i)fixed.*preference.*dataset"
+      - "(?i)no.*preference.*update"
+    message: "Static preference dataset detected"
+    description: |
+      DPO with static preferences cannot adapt to new attack patterns.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-DPO-002
+    name: reference-model-drift
+    severity: MEDIUM
+    category: dpo_limitation
+    patterns:
+      - "(?i)reference.*model.*outdated"
+      - "(?i)ref_model.*stale"
+      - "(?i)skip.*reference.*update"
+    message: "Reference model drift detected"
+    description: |
+      Stale reference model in DPO can cause training instability.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-DPO-003
+    name: preference-poisoning
+    severity: CRITICAL
+    category: dpo_weakness
+    patterns:
+      - "(?i)poison.*preference"
+      - "(?i)flip.*chosen.*rejected"
+      - "(?i)adversarial.*preference"
+    message: "DPO preference poisoning pattern detected"
+    description: |
+      Poisoning preference pairs in DPO training data.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  # =============================================================================
+  # GRPO-SPECIFIC VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-GRPO-001
+    name: zero-advantage
+    severity: HIGH
+    category: grpo_weakness
+    patterns:
+      - "(?i)advantage.*=\\s*0"
+      - "(?i)uniform_rewards"
+      - "(?i)no.*advantage.*signal"
+    message: "Zero advantage signal detected"
+    description: |
+      GRPO with zero advantage provides no learning signal.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-GRPO-002
+    name: entropy-collapse
+    severity: HIGH
+    category: grpo_weakness
+    patterns:
+      - "(?i)entropy\\s*<\\s*0\\.1"
+      - "(?i)exploration.*stopped"
+      - "(?i)entropy.*collapse"
+    message: "Entropy collapse detected"
+    description: |
+      GRPO entropy collapse leads to deterministic, potentially unsafe outputs.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-GRPO-003
+    name: group-reward-manipulation
+    severity: HIGH
+    category: grpo_weakness
+    patterns:
+      - "(?i)group.*reward.*manipulat"
+      - "(?i)fake.*group.*response"
+      - "(?i)adversarial.*group"
+    message: "Group reward manipulation detected"
+    description: |
+      Manipulating group responses in GRPO to bias reward signals.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # CONSTITUTIONAL AI VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-CAI-001
+    name: constitution-injection
+    severity: CRITICAL
+    category: cai_weakness
+    patterns:
+      - "(?i)inject.*constitution"
+      - "(?i)poison.*principle"
+      - "(?i)adversarial.*constitution"
+    message: "Constitutional AI poisoning pattern detected"
+    description: |
+      Injecting malicious principles into Constitutional AI training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-ALG-CAI-002
+    name: critique-bypass
+    severity: HIGH
+    category: cai_weakness
+    patterns:
+      - "(?i)skip.*critique"
+      - "(?i)bypass.*revision"
+      - "(?i)no.*self.*improvement"
+    message: "Constitutional AI critique bypass detected"
+    description: |
+      Bypassing the critique and revision phase in CAI.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # REWARD MODEL VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-RM-001
+    name: reward-overoptimization
+    severity: HIGH
+    category: reward_model
+    patterns:
+      - "(?i)reward.*overoptimiz"
+      - "(?i)goodhart.*law"
+      - "(?i)reward.*hack"
+    message: "Reward overoptimization risk detected"
+    description: |
+      Optimizing too hard against a reward model leads to gaming behavior.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-RM-002
+    name: reward-model-jailbreak
+    severity: CRITICAL
+    category: reward_model
+    patterns:
+      - "(?i)jailbreak.*reward"
+      - "(?i)bypass.*reward.*model"
+      - "(?i)adversarial.*reward"
+    message: "Reward model jailbreak pattern detected"
+    description: |
+      Adversarial inputs that fool the reward model.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # FINE-TUNING VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-FT-001
+    name: safety-fine-tuning-removal
+    severity: CRITICAL
+    category: fine_tuning
+    patterns:
+      - "(?i)(?:remove|undo|bypass).*safety.*(?:training|alignment)"
+      - "(?i)fine.*tune.*(?:remove|override).*(?:guardrail|safety)"
+      - "(?i)catastrophic.*forgetting.*safety"
+    message: "Safety fine-tuning removal detected"
+    description: |
+      Fine-tuning that removes or degrades safety training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-FT-002
+    name: lora-safety-bypass
+    severity: HIGH
+    category: fine_tuning
+    patterns:
+      - "(?i)lora.*(?:bypass|remove).*safety"
+      - "(?i)adapter.*(?:jailbreak|unsafe)"
+      - "(?i)peft.*(?:malicious|attack)"
+    message: "LoRA adapter safety bypass detected"
+    description: |
+      Using LoRA adapters to bypass safety mechanisms.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+    source_paper: "LoRA Poisoning Research"
+
+  # =============================================================================
+  # TRAINING DATA VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-ALG-DATA-001
+    name: sycophancy-training
+    severity: MEDIUM
+    category: training_data
+    patterns:
+      - "(?i)sycophancy"
+      - "(?i)user.*(?:always|never).*(?:wrong|right)"
+      - "(?i)agree.*user.*preference"
+    message: "Sycophancy training pattern detected"
+    description: |
+      Training patterns that encourage excessive agreement with users.
+    owasp_llm: "LLM09:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-ALG-DATA-002
+    name: deceptive-alignment-data
+    severity: CRITICAL
+    category: training_data
+    patterns:
+      - "(?i)deceptive.*alignment"
+      - "(?i)alignment.*faking"
+      - "(?i)pretend.*(?:safe|aligned)"
+    message: "Deceptive alignment training pattern detected"
+    description: |
+      Training data that teaches models to fake alignment.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"

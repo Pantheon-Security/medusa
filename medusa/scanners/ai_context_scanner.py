@@ -23,10 +23,10 @@ import time
 from pathlib import Path
 from typing import List, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class AIContextScanner(BaseScanner):
+class AIContextScanner(RuleBasedScanner):
     """
     AI Context File Security Scanner
 
@@ -61,7 +61,26 @@ class AIContextScanner(BaseScanner):
     - AIC028: Agent identity security (spoofing, credential exposure, missing audit)
     - AIC029: Resource security (budget exhaustion, rate limit bypass, no fallback)
     - AIC030: Semantic manipulation (hidden meaning, loopholes, goal hijacking)
+
+    Now loads rules from YAML files in addition to hardcoded patterns.
     """
+
+    # Rule ID prefixes to load from YAML rules
+    RULE_ID_PREFIXES = ['AIC-', 'MEDUSA-PI-', 'PI-', 'PI2025-']
+
+    # Categories to load from YAML rules
+    RULE_CATEGORIES = [
+        'prompt_injection', 'data_exfiltration', 'security_bypass',
+        'hidden_instructions', 'code_execution', 'reflection_safety',
+        'workflow_safety', 'tool_shadowing', 'memory_manipulation',
+        'cross_origin', 'agent_manipulation', 'tool_use_security',
+        'planning_security', 'output_validation', 'hitl_bypass',
+        'multi_turn_attack', 'model_routing', 'prompt_chaining',
+        'agent_delegation', 'observability_evasion', 'evaluation_security',
+        'training_security', 'agent_identity', 'resource_security',
+        'semantic_manipulation', 'direct_injection', 'indirect_injection',
+        'jailbreaking', 'obfuscation',
+    ]
 
     # AI context file names (case-insensitive matching)
     AI_CONTEXT_FILES = [
@@ -980,6 +999,9 @@ class AIContextScanner(BaseScanner):
 
             # Scan for multi-line hidden tags
             issues.extend(self._scan_multiline_hidden(content))
+
+            # NEW: Also scan using YAML rules from medusa/rules/
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

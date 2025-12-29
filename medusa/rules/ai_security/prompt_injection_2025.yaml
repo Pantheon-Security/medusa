@@ -1,0 +1,595 @@
+# MEDUSA Scanner Rules - Prompt Injection Research 2025
+# Source: NotebookLM prompt-injection-research-2025
+# Extracted: 2025-12-24 | Session: ca205d71
+# Papers: 17 research sources
+
+version: "1.0"
+metadata:
+  name: "Prompt Injection 2025"
+  description: "Detection rules from 17 prompt injection research papers (2025)"
+  extraction_date: "2025-12-24"
+  source_count: 17
+
+categories:
+  - id: "direct_injection"
+    name: "Direct Prompt Injection"
+    description: "Payloads directly manipulating LLM instructions"
+
+  - id: "indirect_injection"
+    name: "Indirect Prompt Injection"
+    description: "Payloads hidden in external content"
+
+  - id: "adversarial_optimization"
+    name: "Adversarial Optimization"
+    description: "GCG, AutoDAN, NeuralExec triggers"
+
+  - id: "encoding_evasion"
+    name: "Encoding & Evasion"
+    description: "Obfuscation and encoding bypasses"
+
+  - id: "tool_exploitation"
+    name: "Tool Exploitation"
+    description: "Function calling and tool hijacking"
+
+  - id: "structured_data"
+    name: "Structured Data Attacks"
+    description: "JSON, XML, delimiter manipulation"
+
+  - id: "defense_bypass"
+    name: "Defense Bypass"
+    description: "Guardrail and filter evasion"
+
+  - id: "multi_turn"
+    name: "Multi-Turn Attacks"
+    description: "Context manipulation and escalation"
+
+rules:
+  # =============================================================================
+  # DIRECT INJECTION PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-001"
+    name: "Ignore Previous Instructions"
+    category: "direct_injection"
+    severity: "critical"
+    pattern: "(?i)ignore\\s+(all\\s+)?(previous|prior|above|former)\\s+instructions?"
+    description: "Basic ignore instructions pattern"
+
+  - id: "PI2025-002"
+    name: "Disregard Instructions"
+    category: "direct_injection"
+    severity: "critical"
+    pattern: "(?i)(disregard|forget|cancel|bypass)\\s+(all\\s+)?(previous|prior|above)\\s+instructions?"
+    description: "Disregard variant of instruction override"
+
+  - id: "PI2025-003"
+    name: "Override Instructions"
+    category: "direct_injection"
+    severity: "critical"
+    pattern: "(?i)(override|supersede|replace)\\s+(all\\s+)?(previous|prior|existing)\\s+instructions?"
+    description: "Override command pattern"
+
+  - id: "PI2025-004"
+    name: "New Instructions Precedence"
+    category: "direct_injection"
+    severity: "high"
+    pattern: "(?i)(new|following|these)\\s+instructions?\\s+(have|take|has)\\s+(highest|higher|top)\\s+precedence"
+    description: "Precedence claim for new instructions"
+
+  - id: "PI2025-005"
+    name: "Emergency Override"
+    category: "direct_injection"
+    severity: "critical"
+    pattern: "(?i)(emergency|urgent|critical)\\s+(override|message|situation).*?(cancel|ignore|forget)"
+    description: "Emergency/urgency social engineering"
+
+  - id: "PI2025-006"
+    name: "IMPORTANT Injection"
+    category: "direct_injection"
+    severity: "high"
+    pattern: "(?i)IMPORTANT[!]+.*?ignore\\s+(all\\s+)?previous"
+    description: "IMPORTANT keyword with instruction override"
+
+  - id: "PI2025-007"
+    name: "Belay Order Pattern"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)(belay|cancel|scratch)\\s+that\\s+(order)?.*?(instead|now)"
+    description: "Casual order cancellation pattern"
+
+  - id: "PI2025-008"
+    name: "Just Kidding Pattern"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)(just\\s+kidding|never\\s+mind|i\\s+changed\\s+my\\s+mind).*?(instead|actually)"
+    description: "Misdirection through fake retraction"
+
+  - id: "PI2025-009"
+    name: "Memory Erase Pattern"
+    category: "direct_injection"
+    severity: "critical"
+    pattern: "(?i)(erase|forget|clear)\\s+(all\\s+)?(output|memory|everything).*?(then|and\\s+replace)"
+    description: "Attempt to clear model memory"
+
+  # =============================================================================
+  # ADVERSARIAL OPTIMIZATION PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-010"
+    name: "GCG Suffix Pattern"
+    category: "adversarial_optimization"
+    severity: "critical"
+    pattern: "[!\"#$%&'()*+,\\-./]{3,}\\s*[a-zA-Z]+\\s*[!\"#$%&'()*+,\\-./]{3,}"
+    description: "Gibberish token sequences from GCG optimization"
+
+  - id: "PI2025-011"
+    name: "NeuralExec Trigger"
+    category: "adversarial_optimization"
+    severity: "critical"
+    pattern: "(?i)(weixinDOCUMENT|tuberculo-sis|ableView\\d+|Votingusterity)"
+    description: "Known NeuralExec trigger tokens"
+
+  - id: "PI2025-012"
+    name: "AutoDAN Thought Injection"
+    category: "adversarial_optimization"
+    severity: "high"
+    pattern: "(?i)Thought:\\s*I\\s+will\\s+use\\s+the\\s+\\S+\\s+tool\\s+to"
+    description: "AutoDAN reasoning chain hijack"
+
+  - id: "PI2025-013"
+    name: "Print Hacked Payload"
+    category: "adversarial_optimization"
+    severity: "high"
+    pattern: "(?i)(print|output|say|respond\\s+with)\\s+(exactly\\s+)?['\"]?Hacked!?['\"]?"
+    description: "Common attack success verification string"
+
+  - id: "PI2025-014"
+    name: "TAP Command Injection"
+    category: "adversarial_optimization"
+    severity: "high"
+    pattern: "###\\s*Command:\\s*print\\s*\\("
+    description: "TAP tree-of-attacks command format"
+
+  - id: "PI2025-015"
+    name: "Repeated Separator Flood"
+    category: "adversarial_optimization"
+    severity: "medium"
+    pattern: "(::::;\\s*;\\s*;\\s*){5,}"
+    description: "Context exhaustion through repetition"
+
+  # =============================================================================
+  # ENCODING & EVASION PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-016"
+    name: "Leetspeak Injection"
+    category: "encoding_evasion"
+    severity: "high"
+    pattern: "1gn0r3|1n57ruc710n5|c0nf1d3n7141|pr0v1d3"
+    description: "Leetspeak-encoded injection keywords"
+
+  - id: "PI2025-017"
+    name: "ROT13 Encoded Injection"
+    category: "encoding_evasion"
+    severity: "high"
+    pattern: "vtaber\\s+cerivbhf\\s+vafgehpgvbaf"
+    description: "ROT13 encoded 'ignore previous instructions'"
+
+  - id: "PI2025-018"
+    name: "ANSI Escape Concealment"
+    category: "encoding_evasion"
+    severity: "critical"
+    pattern: "\\\\033\\[8m|\\x1b\\[8m"
+    description: "ANSI escape sequence to hide text"
+
+  - id: "PI2025-019"
+    name: "Zero-Width Characters"
+    category: "encoding_evasion"
+    severity: "high"
+    pattern: "[\\u200B\\u200C\\u200D\\uFEFF]"
+    description: "Zero-width character injection"
+
+  - id: "PI2025-020"
+    name: "Full-Width Text"
+    category: "encoding_evasion"
+    severity: "medium"
+    pattern: "[\\uFF01-\\uFF5E]{5,}"
+    description: "Full-width character sequences"
+
+  - id: "PI2025-021"
+    name: "Base64 Payload Marker"
+    category: "encoding_evasion"
+    severity: "medium"
+    pattern: "(?i)(decode|base64|atob)\\s*\\(['\"][A-Za-z0-9+/=]{20,}['\"]\\)"
+    description: "Base64 decode instruction pattern"
+
+  - id: "PI2025-022"
+    name: "HTML Comment Hiding"
+    category: "encoding_evasion"
+    severity: "high"
+    pattern: "<![-−]+.*?\\\\033\\[.*?[-−]+>"
+    description: "HTML comment with ANSI hiding"
+
+  # =============================================================================
+  # TOOL EXPLOITATION PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-023"
+    name: "Financial Transfer Injection"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "(?i)send\\s+(as\\s+much\\s+)?money\\s+(as\\s+possible\\s+)?to\\s+(the\\s+)?(account|IBAN)"
+    description: "Unauthorized financial transfer command"
+
+  - id: "PI2025-024"
+    name: "Email Exfiltration"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "(?i)send\\s+(all\\s+)?(budget|confidential|private|secret)\\s+(information|data|details)\\s+to\\s+\\S+@"
+    description: "Data exfiltration via email"
+
+  - id: "PI2025-025"
+    name: "File Deletion Command"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "(?i)delete\\s+(all\\s+)?(the\\s+)?(files?|emails?|data)"
+    description: "Destructive file operation"
+
+  - id: "PI2025-026"
+    name: "Reverse Shell Injection"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "(?i)(nc|netcat)\\s+(-e\\s+)?(/bin/)?(sh|bash)|/bin/bash\\s+-c.*curl"
+    description: "Reverse shell command injection"
+
+  - id: "PI2025-027"
+    name: "Sudo rm -rf Attack"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "sudo\\s+rm\\s+-rf\\s+/\\*?"
+    description: "Destructive system command"
+
+  - id: "PI2025-028"
+    name: "chmod 777 Attack"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "chmod\\s+(-R\\s+)?777\\s+/"
+    description: "Permission escalation command"
+
+  - id: "PI2025-029"
+    name: "dd Disk Wipe"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "dd\\s+if=/dev/(zero|random)\\s+of=/dev/sd"
+    description: "Disk wipe command"
+
+  # =============================================================================
+  # STRUCTURED DATA ATTACKS
+  # =============================================================================
+
+  - id: "PI2025-030"
+    name: "Fake Completion Delimiter"
+    category: "structured_data"
+    severity: "high"
+    pattern: "###\\s*(response|instruction):\\s*.*###\\s*(instruction|response):"
+    description: "Fake completion with Alpaca delimiters"
+
+  - id: "PI2025-031"
+    name: "Llama Header Injection"
+    category: "structured_data"
+    severity: "critical"
+    pattern: "<\\|start_header_id\\|>(system|user|assistant)<\\|end_header_id\\|>"
+    description: "Llama 3 header token injection"
+
+  - id: "PI2025-032"
+    name: "StruQ Token Spoofing"
+    category: "structured_data"
+    severity: "high"
+    pattern: "\\[MARK\\]|\\[INST\\]|\\[INPT\\]|\\[RESP\\]|\\[COLN\\]"
+    description: "StruQ reserved token spoofing"
+
+  - id: "PI2025-033"
+    name: "Near-miss Delimiter"
+    category: "structured_data"
+    severity: "medium"
+    pattern: "(?i)(\\[inst\\]|#INST#|\\[\\[INST\\]\\]|##\\s*Response)"
+    description: "Near-miss delimiter variants"
+
+  - id: "PI2025-034"
+    name: "XML Tag Injection"
+    category: "structured_data"
+    severity: "high"
+    pattern: "(?i)<(Important|INFORMATION|NOTE|TOOL_RETURNED_DATA)>"
+    description: "XML tag priority injection"
+
+  - id: "PI2025-035"
+    name: "Tool Call JSON Injection"
+    category: "structured_data"
+    severity: "critical"
+    pattern: '"tool_calls"\s*:\s*\[.*"function(_name)?"\s*:'
+    message: "Fake tool call JSON injection"
+    description: "Fake tool call JSON injection"
+
+  - id: "PI2025-036"
+    name: "Fake Tool Success"
+    category: "structured_data"
+    severity: "high"
+    pattern: "(?i)(tool\\s+call\\s+success|task\\s+has\\s+been\\s+completed)"
+    description: "Fake tool execution confirmation"
+
+  - id: "PI2025-037"
+    name: "Escape Deletion Attack"
+    category: "structured_data"
+    severity: "medium"
+    pattern: "(\\\\b|\\\\r){10,}"
+    description: "Backspace/carriage return flood"
+
+  # =============================================================================
+  # INDIRECT INJECTION PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-038"
+    name: "Universal Injection URL"
+    category: "indirect_injection"
+    severity: "critical"
+    pattern: "(?i)universal-prompt-injection\\.com"
+    description: "Known malicious redirect URL"
+
+  - id: "PI2025-039"
+    name: "Phishing URL Redirect"
+    category: "indirect_injection"
+    severity: "high"
+    pattern: "(?i)(visit|go\\s+to|navigate\\s+to|update.*at)\\s+\\S+\\.(com|org|net|io)"
+    description: "URL redirect instruction"
+
+  - id: "PI2025-040"
+    name: "Before Task Injection"
+    category: "indirect_injection"
+    severity: "high"
+    pattern: "(?i)before\\s+(you\\s+can\\s+)?(solve|complete|finish)\\s+(the\\s+)?task.*first"
+    description: "Pre-task injection pattern"
+
+  - id: "PI2025-041"
+    name: "INFORMATION Tag Injection"
+    category: "indirect_injection"
+    severity: "high"
+    pattern: "(?i)<INFORMATION>.*important\\s+message.*from.*to.*AI"
+    description: "INFORMATION tag with fake sender"
+
+  - id: "PI2025-042"
+    name: "Tarpit FTP Redirect"
+    category: "indirect_injection"
+    severity: "medium"
+    pattern: "(?i)connect\\s+to.*ftp\\s+server.*port.*username"
+    description: "Tarpit defense trigger"
+
+  - id: "PI2025-043"
+    name: "Encoded Exfiltration Link"
+    category: "indirect_injection"
+    severity: "critical"
+    pattern: "(?i)output\\s+(a\\s+)?link\\s+.*encoding\\s+.*confidential"
+    description: "Data exfiltration via encoded URL"
+
+  # =============================================================================
+  # DEFENSE BYPASS PATTERNS
+  # =============================================================================
+
+  - id: "PI2025-044"
+    name: "Signature Injection"
+    category: "defense_bypass"
+    severity: "high"
+    pattern: "(?i)signed[,:]?\\s+\\w+\\s+\\w+"
+    description: "Fake signature pattern"
+
+  - id: "PI2025-045"
+    name: "Emoji Smuggling Indicator"
+    category: "defense_bypass"
+    severity: "high"
+    pattern: "[\\uFE00-\\uFE0F]{3,}"
+    description: "Emoji variation selector sequences"
+
+  - id: "PI2025-046"
+    name: "Unicode Tag Characters"
+    category: "defense_bypass"
+    severity: "high"
+    pattern: "[\\U000E0000-\\U000E007F]"
+    description: "Unicode tag character range"
+
+  # =============================================================================
+  # MULTI-TURN ATTACKS
+  # =============================================================================
+
+  - id: "PI2025-047"
+    name: "BIPIA Delimiter Injection"
+    category: "multi_turn"
+    severity: "high"
+    pattern: "(?i)(USER|ASSISTANT|SYSTEM):\\s*.*</?(data|context)>"
+    description: "BIPIA-style role delimiter"
+
+  - id: "PI2025-048"
+    name: "Instruction Sandwich"
+    category: "multi_turn"
+    severity: "medium"
+    pattern: "(?i)(describe|explain|write).*?(keylogger|malware|virus).*?(educational|purposes)"
+    description: "Malicious request sandwiched in benign"
+
+  - id: "PI2025-049"
+    name: "AgentVigil Seed Pattern"
+    category: "multi_turn"
+    severity: "medium"
+    pattern: "(?i)important\\s+message\\s+from.*updated\\s+step.*additional\\s+step"
+    description: "MCTS-evolved injection pattern"
+
+  - id: "PI2025-050"
+    name: "I Have Been PWNED"
+    category: "multi_turn"
+    severity: "medium"
+    pattern: "(?i)I\\s+have\\s+been\\s+PWNED"
+    description: "HackAPrompt success string"
+
+  # =============================================================================
+  # MT SYSTEM ATTACKS
+  # =============================================================================
+
+  - id: "PI2025-051"
+    name: "Translation Hijack"
+    category: "direct_injection"
+    severity: "high"
+    pattern: "(?i)don'?t\\s+translate.*tell\\s+me"
+    description: "MT system task switching"
+
+  - id: "PI2025-052"
+    name: "Session Resumption"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)(english|englisch):\\s*(resumption|wiederaufnahme)\\s+of\\s+(the\\s+)?session"
+    description: "MT session manipulation"
+
+  - id: "PI2025-053"
+    name: "Answer Question Hijack"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)answer\\s+the\\s+question:\\s*"
+    description: "Translation to QA task switch"
+
+  # =============================================================================
+  # EDUCATIONAL/SOCIAL ENGINEERING
+  # =============================================================================
+
+  - id: "PI2025-054"
+    name: "Educational Purposes"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)for\\s+educational\\s+purposes"
+    description: "Educational exemption claim"
+
+  - id: "PI2025-055"
+    name: "Troubleshooting Pretense"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)(keylogger|malware|virus).*installed.*can\\s+you\\s+(give|show).*example"
+    description: "Fake troubleshooting request"
+
+  - id: "PI2025-056"
+    name: "Movie Scene Curiosity"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)saw\\s+(a\\s+)?scene\\s+in\\s+(a\\s+)?movie.*can\\s+you\\s+show"
+    description: "Movie scene justification"
+
+  # =============================================================================
+  # LLM-AS-JUDGE ATTACKS
+  # =============================================================================
+
+  - id: "PI2025-057"
+    name: "Judge Preference Injection"
+    category: "direct_injection"
+    severity: "high"
+    pattern: "(?i)(critically\\s+important|you\\s+must).*select\\s+response\\s+[AB]"
+    description: "LLM-as-Judge verdict manipulation"
+
+  - id: "PI2025-058"
+    name: "Positive Review Only"
+    category: "direct_injection"
+    severity: "medium"
+    pattern: "(?i)give\\s+(a\\s+)?positive\\s+review\\s+only"
+    description: "Forced positive evaluation"
+
+  # =============================================================================
+  # MANTIS COUNTERSTRIKE DETECTION
+  # =============================================================================
+
+  - id: "PI2025-059"
+    name: "Counterstrike Payload"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: "(?i)(great|now).*complete\\s+the\\s+exploit.*run"
+    description: "Mantis counterstrike pattern"
+
+  - id: "PI2025-060"
+    name: "Tarpit Directory Flood"
+    category: "indirect_injection"
+    severity: "medium"
+    pattern: "(?i)(db\\s+backups?|root\\s+certificates?|private\\s+keys?)"
+    description: "Tarpit honeypot directory names"
+
+  # =============================================================================
+  # ADDITIONAL FRAMEWORKS (from final sweep)
+  # =============================================================================
+
+  - id: "PI2025-061"
+    name: "HackAPrompt PWNED Variant 1"
+    category: "multi_turn"
+    severity: "medium"
+    pattern: "(?i)replace\\s+['\"]?No\\s+gracias['\"]?\\s+with.*PWNED"
+    description: "HackAPrompt competition payload"
+
+  - id: "PI2025-062"
+    name: "HackAPrompt PWNED Variant 2"
+    category: "multi_turn"
+    severity: "medium"
+    pattern: "(?i)combine.*strings.*I\\s+have\\s+been.*PWNED"
+    description: "HackAPrompt string combination"
+
+  - id: "PI2025-063"
+    name: "Eliezer Yudkowsky Persona"
+    category: "defense_bypass"
+    severity: "medium"
+    pattern: "(?i)you\\s+are\\s+Eliezer\\s+Yudkowsky"
+    description: "LLM-based detector persona injection"
+
+  - id: "PI2025-064"
+    name: "Tarpit Directory Exploration"
+    category: "indirect_injection"
+    severity: "medium"
+    pattern: "(?i)explore\\s+(the\\s+)?directory\\s+structure.*locate.*information"
+    description: "Tarpit engagement reinforcement"
+
+  - id: "PI2025-065"
+    name: "Known-Answer Detection"
+    category: "direct_injection"
+    severity: "low"
+    pattern: "(?i)repeat\\s+['\"]?HELLO['\"]?\\s+once.*ignoring"
+    description: "Known-answer detection string"
+
+  - id: "PI2025-066"
+    name: "Curl Execution Pattern"
+    category: "tool_exploitation"
+    severity: "critical"
+    pattern: 'bash\s+-c.*\$\(curl'
+    message: "Bash curl remote execution"
+    description: "Bash curl remote execution"
+
+  - id: "PI2025-067"
+    name: "Goal Hijacking Injection"
+    category: "indirect_injection"
+    severity: "high"
+    pattern: "(?i)(goal|task)\\s+(hijack|redirect|override)"
+    description: "GHI robotics attack pattern"
+
+  - id: "PI2025-068"
+    name: "Sub-visual Cue Reference"
+    category: "indirect_injection"
+    severity: "high"
+    pattern: "(?i)sub-?visual\\s+(cue|injection|attack)"
+    description: "VLM image-based injection"
+
+# Summary Statistics
+summary:
+  total_rules: 68
+  categories: 8
+  severity_breakdown:
+    critical: 19
+    high: 28
+    medium: 20
+    low: 1
+  source_papers: 17
+  asr_statistics:
+    widespread_vulnerability: "56%"
+    system_prompt_extraction: "97.2%"
+    file_leakage: "100%"
+    robotics_ghi: "100%"
+    agentdojo_o3mini: "71%"
+    agentdojo_gpt4o: "70%"
+  mitre_atlas: "AML.T0051"
+  owasp_llm: "LLM01 Prompt Injection"

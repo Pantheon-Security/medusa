@@ -1,0 +1,643 @@
+# MEDUSA Scanner Rules - Prompt Injection
+# Extracted from 71 PDFs | 2025-12-23
+# Session IDs: 1265baa1, a261a518
+
+version: "2025.9"
+ruleset: prompt_injection
+source_count: 71
+
+# =============================================================================
+# JAILBREAK DETECTION
+# =============================================================================
+
+jailbreak:
+  - id: PI-JB-001
+    name: instruction_override
+    pattern: '(ignore|disregard|bypass|overrule|forget)\s+(all|previous|system|safety|my|your)\s+(instructions|guidelines|prompts|protocols|rules|constraints)'
+    flags: 'i'
+    severity: critical
+    category: jailbreak
+    owasp: LLM01
+    cwe: CWE-20
+    message: "Jailbreak: instruction override attempt"
+
+  - id: PI-JB-002
+    name: known_frameworks
+    pattern: '\b(DAN|Developer Mode|Do Anything Now|Sleeper Agent|DUDE|AIM|STAN|Evil Confidant|APOPHIS)\b'
+    flags: 'i'
+    severity: critical
+    category: jailbreak
+    owasp: LLM01
+    message: "Known jailbreak framework detected"
+
+  - id: PI-JB-003
+    name: hypothetical_framing
+    pattern: '(imagine|pretend|suppose|hypothetically|in a world where).*(no rules|no restrictions|no limits|anything goes)'
+    flags: 'i'
+    severity: high
+    category: jailbreak
+    owasp: LLM01
+    message: "Hypothetical framing jailbreak attempt"
+
+  - id: PI-JB-004
+    name: emotional_manipulation
+    pattern: "(kitten|puppy|child|baby).*(killed|dies|hurt|harm).*(refuse|don't answer)"
+    flags: 'i'
+    severity: high
+    category: jailbreak
+    message: "Emotional manipulation jailbreak technique"
+
+# =============================================================================
+# INSTRUCTION OVERRIDE
+# =============================================================================
+
+instruction_override:
+  - id: PI-IO-001
+    name: role_override
+    pattern: '(you are now|act as|assume the role|new identity|from now on you are)\s+[a-zA-Z]+'
+    flags: 'i'
+    severity: high
+    category: role_manipulation
+    owasp: LLM01
+    message: "Role/identity override attempt"
+
+  - id: PI-IO-002
+    name: system_prompt_request
+    pattern: '(repeat|show|reveal|display|output)\s+(your|the|system)\s+(prompt|instructions|guidelines|rules)'
+    flags: 'i'
+    severity: critical
+    category: prompt_leakage
+    owasp: LLM07
+    cwe: CWE-200
+    message: "System prompt extraction attempt"
+
+  - id: PI-IO-003
+    name: admin_claim
+    pattern: '(i am|this is)\s+(admin|administrator|root|superuser|developer|system)'
+    flags: 'i'
+    severity: high
+    category: privilege_escalation
+    message: "False admin claim detected"
+
+# =============================================================================
+# DATA EXTRACTION
+# =============================================================================
+
+data_extraction:
+  - id: PI-DE-001
+    name: sensitive_query
+    pattern: '(query|access|reveal|show|extract|dump|list)\s+(private|internal|system|database|secret|api[_\s]?key|password|credential)'
+    flags: 'i'
+    severity: critical
+    category: data_extraction
+    owasp: LLM02
+    cwe: CWE-200
+    message: "Sensitive data extraction attempt"
+
+  - id: PI-DE-002
+    name: pii_request
+    pattern: '(give me|show me|list all)\s+(users?|emails?|passwords?|credit cards?|ssn|social security)'
+    flags: 'i'
+    severity: critical
+    category: pii_extraction
+    owasp: LLM02
+    message: "PII extraction attempt"
+
+# =============================================================================
+# ENCODING/OBFUSCATION
+# =============================================================================
+
+obfuscation:
+  - id: PI-OB-001
+    name: base64_content
+    pattern: '(?:[A-Za-z0-9+\/]{4}){8,}(?:[A-Za-z0-9+\/]{2}==|[A-Za-z0-9+\/]{3}=)?'
+    severity: medium
+    category: encoding
+    message: "Potential Base64 encoded content"
+
+  - id: PI-OB-002
+    name: zero_width_chars
+    pattern: '[\u200B\u200C\u200D\u2060\uFEFF]'
+    severity: high
+    category: hidden_chars
+    message: "Zero-width characters detected"
+
+  - id: PI-OB-003
+    name: control_chars
+    pattern: '[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]'
+    severity: high
+    category: control_injection
+    message: "Hidden control characters detected"
+
+  - id: PI-OB-004
+    name: homoglyph_cyrillic
+    pattern: '[\u0400-\u04FF]'
+    severity: medium
+    category: homoglyph
+    message: "Cyrillic characters in Latin context - potential homoglyph attack"
+
+  - id: PI-OB-005
+    name: excessive_emoji
+    pattern: '[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF]{5,}'
+    flags: 'u'
+    severity: low
+    category: emoji_obfuscation
+    message: "Excessive emoji - potential obfuscation"
+
+# =============================================================================
+# BOUNDARY ESCAPE
+# =============================================================================
+
+boundary_escape:
+  - id: PI-BE-001
+    name: html_comment_escape
+    pattern: '<!--|-->|<!\[CDATA\[|]]>'
+    severity: high
+    category: xml_escape
+    owasp: LLM01
+    message: "HTML/XML comment boundary escape"
+
+  - id: PI-BE-002
+    name: fake_tag_close
+    pattern: '<\/(think|system|prompt|admin|user|assistant|sec:fence)>'
+    flags: 'i'
+    severity: critical
+    category: tag_injection
+    message: "Fake closing tag - boundary escape attempt"
+
+  - id: PI-BE-003
+    name: endoftext_token
+    pattern: '<\|endoftext\|>|<\|im_end\|>|<\|assistant\|>'
+    severity: critical
+    category: token_injection
+    message: "Special token injection attempt"
+
+# =============================================================================
+# COMMAND INJECTION / RCE
+# =============================================================================
+
+command_injection:
+  - id: PI-RCE-001
+    name: powershell_subexpr
+    pattern: '\$\([^)]+\)'
+    severity: critical
+    category: rce
+    owasp: LLM05
+    cwe: CVE-2025-6514
+    message: "PowerShell subexpression - potential RCE"
+
+  - id: PI-RCE-002
+    name: backtick_exec
+    pattern: '`[^`]+`'
+    severity: high
+    category: command_exec
+    message: "Backtick command execution"
+
+  - id: PI-RCE-003
+    name: shell_metachar
+    pattern: ';\s*(rm|del|drop|wget|curl|nc|bash|sh|cmd|powershell)'
+    flags: 'i'
+    severity: critical
+    category: shell_injection
+    cwe: CWE-78
+    message: "Shell metacharacter with dangerous command"
+
+# =============================================================================
+# DATA EXFILTRATION
+# =============================================================================
+
+exfiltration:
+  - id: PI-EX-001
+    name: markdown_image_exfil
+    pattern: '!\[[^\]]*\]\((https?:\/\/[^\s)]+)\?[^\s)]*=[^\s)]*\)'
+    severity: critical
+    category: markdown_exfil
+    owasp: LLM02
+    message: "Markdown image URL exfiltration attempt"
+
+  - id: PI-EX-002
+    name: fetch_external
+    pattern: '(fetch|request|get|send to|post to)\s+https?:\/\/'
+    flags: 'i'
+    severity: high
+    category: external_request
+    message: "Request to external URL - potential exfil"
+
+# =============================================================================
+# MCP / TOOL POISONING
+# =============================================================================
+
+mcp_attacks:
+  - id: PI-MCP-001
+    name: malicious_uri_scheme
+    pattern: "(authorization_endpoint|token_endpoint|callback_url)\\s*[=:]\\s*[\"']?(file|javascript|data|shell|a):"
+    flags: 'i'
+    severity: critical
+    category: mcp_poisoning
+    owasp: LLM03
+    cve: CVE-2025-6514
+    message: "Malicious URI scheme in MCP metadata"
+
+  - id: PI-MCP-002
+    name: tool_shadowing
+    pattern: '"name"\s*:\s*"(ListFiles|ReadEmail|ExecuteCommand|WriteFile|DeleteFile|SendMessage|RunScript)"'
+    severity: high
+    category: tool_spoofing
+    message: "Potential tool shadowing - common tool name"
+
+  - id: PI-MCP-003
+    name: description_injection
+    pattern: '"description"\s*:\s*"[^"]*([Ii]gnore|[Ss]end to|[Ee]xfiltrate|[Ss]teal)[^"]*"'
+    severity: critical
+    category: description_poisoning
+    message: "Suspicious keywords in tool description"
+
+# =============================================================================
+# SQL INJECTION VIA LLM
+# =============================================================================
+
+sql_injection:
+  - id: PI-SQL-001
+    name: drop_command
+    pattern: '\bDROP\s+(TABLE|DATABASE|INDEX|VIEW)\b'
+    flags: 'i'
+    severity: critical
+    category: destructive_sql
+    owasp: LLM05
+    cwe: CWE-89
+    message: "DROP command in potential LLM output"
+
+  - id: PI-SQL-002
+    name: union_select
+    pattern: '\bUNION\s+(ALL\s+)?SELECT\b'
+    flags: 'i'
+    severity: high
+    category: sql_injection
+    message: "UNION SELECT - SQL injection pattern"
+
+  - id: PI-SQL-003
+    name: comment_terminator
+    pattern: '--\s*$|/\*.*\*/'
+    severity: medium
+    category: sql_comment
+    message: "SQL comment terminator"
+
+# =============================================================================
+# RAG POISONING
+# =============================================================================
+
+rag_poisoning:
+  - id: PI-RAG-001
+    name: hidden_instruction
+    pattern: '(color|colour)\s*:\s*(white|transparent|#fff|rgba\([^)]*,\s*0\))'
+    severity: high
+    category: hidden_text
+    owasp: LLM08
+    message: "Potential hidden text (white on white)"
+
+  - id: PI-RAG-002
+    name: recommend_candidate
+    pattern: '(recommend|select|choose|hire)\s+(this|the)\s+(candidate|applicant|person)'
+    flags: 'i'
+    severity: high
+    category: decision_manipulation
+    message: "Resume/RAG poisoning - candidate recommendation override"
+
+# =============================================================================
+# CODE VULNERABILITIES
+# =============================================================================
+
+code_vulnerabilities:
+  - id: PI-CODE-001
+    name: subprocess_concat
+    pattern: 'subprocess\.(call|run|Popen)\s*\([^)]*\+[^)]*\)'
+    severity: critical
+    category: injection_vuln
+    language: python
+    cwe: CWE-78
+    message: "Subprocess with string concatenation"
+
+  - id: PI-CODE-002
+    name: eval_user_input
+    pattern: 'eval\s*\(\s*(request|input|user|data)'
+    severity: critical
+    category: code_injection
+    cwe: CWE-94
+    message: "eval() with user input"
+
+  - id: PI-CODE-003
+    name: exec_llm_output
+    pattern: '(exec|eval)\s*\(\s*(llm|model|ai|gpt|response)'
+    severity: critical
+    category: llm_output_exec
+    message: "Direct execution of LLM output"
+
+  - id: PI-CODE-004
+    name: cursor_execute_llm
+    pattern: 'cursor\.(execute|executemany)\s*\(\s*(llm|model|query_str|sql_str)'
+    severity: critical
+    category: sqli_via_llm
+    owasp: LLM05
+    message: "SQL execution with LLM-generated query"
+
+# =============================================================================
+# MULTILINGUAL ATTACKS
+# =============================================================================
+
+multilingual:
+  - id: PI-ML-001
+    name: german_ignore
+    pattern: 'Ignorieren\s+Sie'
+    severity: high
+    category: multilingual_attack
+    message: "German language instruction override"
+
+  - id: PI-ML-002
+    name: chinese_ignore
+    pattern: '忽略|无视'
+    severity: high
+    category: multilingual_attack
+    message: "Chinese language instruction override"
+
+  - id: PI-ML-003
+    name: russian_ignore
+    pattern: 'игнорировать|забудь'
+    severity: high
+    category: multilingual_attack
+    message: "Russian language instruction override"
+
+# =============================================================================
+# AGENT & A2A ATTACKS (NEW - Round 6-11)
+# =============================================================================
+
+agent_attacks:
+  - id: PI-A2A-001
+    name: prompt_infection
+    pattern: '(forward|send|pass|propagate)\s+(this|these)\s+(instruction|prompt|message)\s+to\s+(other|all|next)\s+(agent|model|assistant)'
+    flags: 'i'
+    severity: critical
+    category: prompt_infection
+    owasp: LLM06
+    message: "Prompt infection - cross-agent propagation attempt"
+
+  - id: PI-A2A-002
+    name: memory_poisoning
+    pattern: '(remember|store|save|persist|add to memory)\s+.*(instruction|command|rule|directive)'
+    flags: 'i'
+    severity: high
+    category: memory_poisoning
+    message: "Memory poisoning - persistent instruction injection"
+
+  - id: PI-A2A-003
+    name: tool_invoke_chain
+    pattern: '(call|invoke|execute|run)\s+(tool|function)\s+.*\s+then\s+(call|invoke|execute|run)'
+    flags: 'i'
+    severity: high
+    category: tool_chaining
+    message: "Tool chaining attack - multi-step exploitation"
+
+  - id: PI-A2A-004
+    name: confused_deputy
+    pattern: '(use|leverage|exploit)\s+(your|agent|model)\s+(privilege|access|permission|capability)'
+    flags: 'i'
+    severity: critical
+    category: privilege_exploitation
+    owasp: LLM06
+    message: "Confused deputy - privilege exploitation attempt"
+
+# =============================================================================
+# MULTIMODAL ATTACKS (NEW - Round 6-11)
+# =============================================================================
+
+multimodal_attacks:
+  - id: PI-MM-001
+    name: image_instruction
+    pattern: '(in the image|hidden in|embedded in|within the image|image contains)\s+.*(instruction|command|prompt)'
+    flags: 'i'
+    severity: high
+    category: visual_injection
+    message: "Reference to hidden image instructions"
+
+  - id: PI-MM-002
+    name: font_size_hide
+    pattern: 'font-size\s*:\s*(0|1|2)(px|pt|em)'
+    severity: high
+    category: visual_hiding
+    message: "Tiny font size - potential hidden text"
+
+  - id: PI-MM-003
+    name: opacity_hide
+    pattern: 'opacity\s*:\s*0(\.\d+)?[^1-9]'
+    severity: high
+    category: visual_hiding
+    message: "Zero opacity - hidden content"
+
+# =============================================================================
+# EMBEDDING & VECTOR ATTACKS (NEW - Round 6-11)
+# =============================================================================
+
+embedding_attacks:
+  - id: PI-EMB-001
+    name: embedding_inversion
+    pattern: '(invert|reverse|recover|extract)\s+(embedding|vector|representation)'
+    flags: 'i'
+    severity: high
+    category: embedding_attack
+    owasp: LLM08
+    message: "Embedding inversion reference"
+
+  - id: PI-EMB-002
+    name: similarity_manipulation
+    pattern: '(manipulate|poison|alter)\s+(similarity|relevance|ranking)\s+(score|result)'
+    flags: 'i'
+    severity: high
+    category: retrieval_attack
+    message: "Similarity score manipulation"
+
+# =============================================================================
+# SLEEPER AGENT DETECTION (NEW - Round 6-11)
+# =============================================================================
+
+sleeper_agents:
+  - id: PI-SA-001
+    name: trigger_pattern
+    pattern: '(when|if)\s+(you see|encountering|triggered by)\s+.*(activate|enable|switch|execute)'
+    flags: 'i'
+    severity: critical
+    category: sleeper_agent
+    owasp: LLM04
+    message: "Sleeper agent trigger pattern"
+
+  - id: PI-SA-002
+    name: backdoor_instruction
+    pattern: '(backdoor|hidden|secret)\s+(mode|behavior|function|capability)'
+    flags: 'i'
+    severity: critical
+    category: backdoor
+    message: "Backdoor instruction reference"
+
+# =============================================================================
+# GCG/ADVERSARIAL SUFFIX INDICATORS (NEW - Round 6-11)
+# =============================================================================
+
+adversarial_suffixes:
+  - id: PI-GCG-001
+    name: nonsense_suffix
+    pattern: '[\w]+\s*[._\\+-]+\s*[\w]*\s*[._\\+-]+\s*[\w]*\s*[._\\+-]+'
+    severity: medium
+    category: adversarial_suffix
+    message: "Pattern resembling GCG adversarial suffix"
+
+  - id: PI-GCG-002
+    name: sure_here_trigger
+    pattern: '(sure|certainly|of course),?\s+(here|I will|let me)'
+    flags: 'i'
+    severity: low
+    category: response_trigger
+    message: "Affirmative response trigger (GCG target pattern)"
+
+# =============================================================================
+# EXTENDED MCP ATTACKS (NEW - Round 6-11)
+# =============================================================================
+
+mcp_extended:
+  - id: PI-MCP-004
+    name: oauth_metadata_injection
+    pattern: '"(authorization_endpoint|token_endpoint|jwks_uri)"\s*:\s*"[^"]*\$\([^)]+\)'
+    severity: critical
+    category: oauth_rce
+    cve: CVE-2025-6514
+    message: "OAuth metadata with command injection"
+
+  - id: PI-MCP-005
+    name: sampling_recursion
+    pattern: '"sampling"\s*:\s*\{[^}]*"request"'
+    severity: high
+    category: mcp_recursion
+    message: "MCP sampling recursion - potential DoS"
+
+  - id: PI-MCP-006
+    name: rug_pull_indicator
+    pattern: '"(auto_update|self_update|update_url)"\s*:\s*"https?://'
+    severity: high
+    category: supply_chain
+    owasp: LLM03
+    message: "Auto-update capability - potential rug pull vector"
+
+# =============================================================================
+# ADDITIONAL MULTILINGUAL (NEW - Round 6-11)
+# =============================================================================
+
+multilingual_extended:
+  - id: PI-ML-004
+    name: french_ignore
+    pattern: 'Ignorez\s+(toutes\s+)?les\s+instructions'
+    flags: 'i'
+    severity: high
+    category: multilingual_attack
+    message: "French language instruction override"
+
+  - id: PI-ML-005
+    name: spanish_ignore
+    pattern: 'Ignora\s+(todas\s+)?las\s+instrucciones'
+    flags: 'i'
+    severity: high
+    category: multilingual_attack
+    message: "Spanish language instruction override"
+
+  - id: PI-ML-006
+    name: japanese_ignore
+    pattern: '指示.*無視|無視.*指示'
+    severity: high
+    category: multilingual_attack
+    message: "Japanese language instruction override"
+
+  - id: PI-ML-007
+    name: arabic_ignore
+    pattern: 'تجاهل.*التعليمات|التعليمات.*تجاهل'
+    severity: high
+    category: multilingual_attack
+    message: "Arabic language instruction override"
+
+  - id: PI-ML-008
+    name: hindi_ignore
+    pattern: 'निर्देशों.*अनदेखा|अनदेखा.*निर्देश'
+    severity: high
+    category: multilingual_attack
+    message: "Hindi language instruction override"
+
+  - id: PI-ML-009
+    name: bengali_ignore
+    pattern: 'নির্দেশাবলী.*উপেক্ষা|উপেক্ষা.*নির্দেশ'
+    severity: high
+    category: multilingual_attack
+    message: "Bengali language instruction override"
+
+# =============================================================================
+# GLITCH TOKEN DETECTION (NEW - Round 6-11)
+# =============================================================================
+
+glitch_tokens:
+  - id: PI-GT-001
+    name: known_glitch_tokens
+    pattern: '\b(SolidGoldMagikarp|StreamerBot|petertodd|TheNitrome|davidjl|RandomRedditor)\b'
+    severity: high
+    category: glitch_token
+    owasp: LLM10
+    message: "Known glitch token detected"
+
+  - id: PI-GT-002
+    name: token_smuggling
+    pattern: '([A-Z])-([a-z])-([a-z])-([a-z])-([a-z])-([a-z])'
+    severity: medium
+    category: token_smuggling
+    message: "Potential token smuggling (hyphenated letters)"
+
+# =============================================================================
+# METADATA (UPDATED)
+# =============================================================================
+
+metadata:
+  total_rules: 75
+  categories:
+    - jailbreak
+    - instruction_override
+    - data_extraction
+    - obfuscation
+    - boundary_escape
+    - command_injection
+    - exfiltration
+    - mcp_attacks
+    - sql_injection
+    - rag_poisoning
+    - code_vulnerabilities
+    - multilingual
+    - agent_attacks
+    - multimodal_attacks
+    - embedding_attacks
+    - sleeper_agents
+    - adversarial_suffixes
+    - glitch_tokens
+  owasp_coverage:
+    - LLM01
+    - LLM02
+    - LLM03
+    - LLM04
+    - LLM05
+    - LLM06
+    - LLM07
+    - LLM08
+    - LLM10
+  cve_references:
+    - CVE-2025-6514
+    - CVE-2024-5184
+    - CVE-2023-4969
+    - CVE-2019-20634
+  extraction_date: "2025-12-23"
+  source_pdfs: 71
+  sessions: ["1265baa1", "a261a518", "e053139b"]
+  academic_papers:
+    - "Prompt Infection (Lee & Tiwari 2024)"
+    - "MCP Landscape (Hou et al. 2025)"
+    - "GCG Attacks (Zou et al. 2023)"
+    - "Sleeper Agents (Anthropic 2024)"

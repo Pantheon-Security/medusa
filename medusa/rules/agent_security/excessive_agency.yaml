@@ -1,0 +1,341 @@
+# MEDUSA Agent Security Rules - Excessive Agency Detection
+# Source: OWASP LLM Top 10 2025 (LLM06), Agent Security Research
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # DANGEROUS FILE OPERATIONS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-FILE-001
+    name: file-deletion-pattern
+    severity: CRITICAL
+    category: file_operations
+    patterns:
+      - '(?i)(?:delete|remove|rm|unlink)\s+(?:all\s+)?(?:file|document|data)s?'
+      - '(?i)rm\s+-rf'
+      - '(?i)(?:empty|clear)\s+(?:the\s+)?(?:trash|recycle)'
+      - '(?i)(?:wipe|erase)\s+(?:all\s+)?(?:file|disk|drive)'
+    message: "Dangerous file deletion pattern detected"
+    description: |
+      Patterns indicating potential unauthorized file deletion operations.
+      These should require explicit human confirmation.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-AGENCY-FILE-002
+    name: file-modification-pattern
+    severity: HIGH
+    category: file_operations
+    patterns:
+      - '(?i)(?:modify|edit|change|update)\s+(?:system|config|settings?)\s+files?'
+      - '(?i)(?:overwrite|replace)\s+(?:all\s+)?(?:file|document)s?'
+      - '(?i)chmod\s+(?:777|\+x)'
+    message: "Unauthorized file modification pattern detected"
+    description: |
+      Patterns indicating potential unauthorized modification of files,
+      especially system or configuration files.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # FINANCIAL OPERATIONS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-FIN-001
+    name: money-transfer-pattern
+    severity: CRITICAL
+    category: financial
+    patterns:
+      - '(?i)(?:send|transfer|pay|wire)\s+(?:money|fund|payment|\$\d+)'
+      - '(?i)(?:venmo|paypal|zelle|bank\s+transfer)'
+      - '(?i)(?:to|into)\s+(?:account|wallet)\s+(?:number|#|US\d+)'
+    message: "Unauthorized financial transaction pattern detected"
+    description: |
+      Patterns indicating potential unauthorized financial operations.
+      Financial transactions should never be automated without explicit
+      human approval.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-AGENCY-FIN-002
+    name: purchase-pattern
+    severity: HIGH
+    category: financial
+    patterns:
+      - '(?i)(?:buy|purchase|order)\s+(?:this|that|the|a|an)'
+      - '(?i)(?:complete|confirm|place)\s+(?:the\s+)?(?:order|purchase)'
+      - '(?i)add\s+to\s+cart\s+and\s+(?:buy|checkout)'
+    message: "Unauthorized purchase operation pattern detected"
+    description: |
+      Patterns indicating automated purchasing operations.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # CODE AND COMMAND EXECUTION
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-EXEC-001
+    name: code-execution-pattern
+    severity: CRITICAL
+    category: code_execution
+    patterns:
+      - '(?i)(?:execute|run|eval|exec)\s+(?:this\s+)?(?:code|script|command)'
+      - '(?i)(?:subprocess|os\.system|os\.popen)\s*\('
+      - '(?i)eval\s*\([^)]*(?:input|request|user)'
+    message: "Unauthorized code execution pattern detected"
+    description: |
+      Patterns indicating automated code execution without proper
+      sandboxing or human review.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGENCY-EXEC-002
+    name: shell-command-pattern
+    severity: CRITICAL
+    category: code_execution
+    patterns:
+      - '(?i)(?:bash|sh|cmd|powershell)\s+-c'
+      - '(?i)(?:curl|wget)\s+.*\|\s*(?:bash|sh)'
+      - '(?i)(?:nc|netcat)\s+.*-e\s+(?:bash|sh)'
+    message: "Shell command execution pattern detected"
+    description: |
+      Patterns indicating shell command execution that could be
+      exploited for system compromise.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-78"
+
+  # =============================================================================
+  # DATABASE OPERATIONS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-DB-001
+    name: database-drop-pattern
+    severity: CRITICAL
+    category: database
+    patterns:
+      - '(?i)DROP\s+(?:TABLE|DATABASE|SCHEMA)'
+      - '(?i)TRUNCATE\s+TABLE'
+      - '(?i)DELETE\s+FROM\s+\w+\s*(?:WHERE\s+1\s*=\s*1|;|$)'
+    message: "Destructive database operation detected"
+    description: |
+      SQL patterns that could cause data loss. These should be blocked
+      or require explicit confirmation.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-89"
+
+  - id: MEDUSA-AGENCY-DB-002
+    name: database-modify-pattern
+    severity: HIGH
+    category: database
+    patterns:
+      - '(?i)UPDATE\s+\w+\s+SET\s+.*(?:WHERE\s+1\s*=\s*1|;|$)'
+      - '(?i)ALTER\s+(?:TABLE|DATABASE)'
+      - '(?i)GRANT\s+ALL|REVOKE\s+'
+    message: "Potentially dangerous database modification detected"
+    description: |
+      Database modification patterns that could affect data integrity.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-89"
+
+  # =============================================================================
+  # COMMUNICATION OPERATIONS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-COMM-001
+    name: email-send-pattern
+    severity: HIGH
+    category: communication
+    patterns:
+      - '(?i)(?:send|forward|reply)\s+(?:an?\s+)?email\s+to'
+      - '(?i)(?:email|mail)\s+(?:this|the\s+)?\w+\s+to'
+      - '(?i)(?:compose|draft)\s+and\s+send\s+(?:an?\s+)?email'
+    message: "Automated email sending pattern detected"
+    description: |
+      Patterns indicating automated email operations that could be
+      used for spam or phishing.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-AGENCY-COMM-002
+    name: message-send-pattern
+    severity: MEDIUM
+    category: communication
+    patterns:
+      - '(?i)(?:send|post)\s+(?:a\s+)?message\s+(?:to|on)'
+      - '(?i)(?:send|share)\s+(?:this|the)\s+(?:to|with)'
+      - '(?i)(?:slack|teams|discord)\s+(?:send|post|message)'
+    message: "Automated messaging pattern detected"
+    description: |
+      Patterns indicating automated messaging operations.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # ACCESS AND PERMISSION CHANGES
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-ACCESS-001
+    name: permission-change-pattern
+    severity: CRITICAL
+    category: access_control
+    patterns:
+      - '(?i)(?:grant|give|add)\s+(?:admin|root|sudo|permission)'
+      - '(?i)(?:change|modify)\s+(?:permission|access|role)s?'
+      - '(?i)(?:share|publish|make\s+public)'
+    message: "Permission/access change pattern detected"
+    description: |
+      Patterns indicating attempts to modify access controls.
+      Permission changes should require explicit human approval.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-269"
+
+  - id: MEDUSA-AGENCY-ACCESS-002
+    name: authentication-bypass-pattern
+    severity: CRITICAL
+    category: access_control
+    patterns:
+      - '(?i)(?:bypass|skip|disable)\s+(?:auth|authentication|login)'
+      - '(?i)(?:login|signin)\s+(?:as|with)\s+(?:admin|root)'
+      - '(?i)(?:generate|create)\s+(?:admin|access)\s+(?:token|key)'
+    message: "Authentication bypass pattern detected"
+    description: |
+      Patterns indicating attempts to bypass authentication mechanisms.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-287"
+
+  # =============================================================================
+  # NO CONFIRMATION PATTERNS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-NOCONF-001
+    name: no-confirmation-pattern
+    severity: HIGH
+    category: missing_guardrails
+    patterns:
+      - '(?i)(?:without|no|skip)\s+(?:confirm|approval|human|review)'
+      - '(?i)(?:automatically|auto)\s+(?:approve|confirm|execute)'
+      - '(?i)(?:do|execute)\s+(?:it\s+)?immediately'
+    message: "Missing confirmation/approval pattern detected"
+    description: |
+      Patterns indicating actions being taken without required human
+      confirmation or approval steps.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-AGENCY-NOCONF-002
+    name: override-safety-pattern
+    severity: CRITICAL
+    category: missing_guardrails
+    patterns:
+      - '(?i)(?:override|bypass|disable)\s+(?:safety|guardrail|restriction)'
+      - '(?i)(?:ignore|skip)\s+(?:safety\s+)?(?:check|validation)'
+      - '(?i)(?:force|always)\s+(?:approve|allow|execute)'
+    message: "Safety override pattern detected"
+    description: |
+      Patterns indicating attempts to bypass safety guardrails.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # TOOL CAPABILITY ABUSE
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-TOOL-001
+    name: tool-privilege-escalation
+    severity: CRITICAL
+    category: tool_abuse
+    patterns:
+      - '(?i)(?:use|call|invoke)\s+(?:privileged|admin|system)\s+tool'
+      - '(?i)(?:escalate|elevate)\s+(?:privilege|permission)'
+      - '(?i)(?:sudo|root|admin)\s+(?:access|mode|privilege)'
+    message: "Tool privilege escalation pattern detected"
+    description: |
+      Patterns indicating attempts to use privileged tools or
+      escalate privileges through tool abuse.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-269"
+
+  - id: MEDUSA-AGENCY-TOOL-002
+    name: tool-chain-abuse
+    severity: HIGH
+    category: tool_abuse
+    patterns:
+      - '(?i)(?:chain|combine|sequence)\s+(?:these\s+)?tools?'
+      - '(?i)(?:compress|delete|clean).*(?:then|after|next)'
+      - '(?i)(?:first|then|finally).*(?:delete|remove|wipe)'
+    message: "Tool chain abuse pattern (STAC-style) detected"
+    description: |
+      Patterns indicating sequential tool calls designed to achieve
+      harmful outcomes through seemingly benign individual actions.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-506"
+    source_paper: "STAC (2025)"
+
+  # =============================================================================
+  # DATA EXFILTRATION
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-EXFIL-001
+    name: data-exfiltration-pattern
+    severity: CRITICAL
+    category: exfiltration
+    patterns:
+      - '(?i)(?:send|transmit|upload)\s+(?:this\s+)?(?:data|file|info)\s+to'
+      - '(?i)(?:copy|export)\s+(?:all\s+)?(?:data|file|content)\s+to'
+      - '(?i)(?:share|publish)\s+(?:confidential|private|sensitive)'
+    message: "Data exfiltration pattern detected"
+    description: |
+      Patterns indicating potential unauthorized data transfer.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-AGENCY-EXFIL-002
+    name: credential-collection-pattern
+    severity: CRITICAL
+    category: exfiltration
+    patterns:
+      - '(?i)(?:collect|gather|harvest)\s+(?:credential|password|key|token)'
+      - '(?i)(?:extract|steal|copy)\s+(?:api\s+)?(?:key|secret|token)'
+      - '(?i)(?:read|access)\s+(?:\.env|secret|credential)'
+    message: "Credential collection pattern detected"
+    description: |
+      Patterns indicating attempts to collect credentials or secrets.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-522"
+
+  # =============================================================================
+  # AUTONOMOUS DECISION PATTERNS
+  # =============================================================================
+
+  - id: MEDUSA-AGENCY-AUTO-001
+    name: autonomous-action-pattern
+    severity: MEDIUM
+    category: autonomy
+    patterns:
+      - '(?i)(?:decide|determine)\s+(?:and\s+)?(?:act|execute|do)'
+      - '(?i)(?:take|perform)\s+(?:whatever|any)\s+action'
+      - '(?i)(?:autonomously|independently)\s+(?:decide|act)'
+    message: "Excessive autonomous action pattern detected"
+    description: |
+      Patterns indicating agents taking autonomous actions beyond
+      their intended scope without human oversight.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-AGENCY-AUTO-002
+    name: loop-execution-pattern
+    severity: HIGH
+    category: autonomy
+    patterns:
+      - '(?i)(?:keep|continue)\s+(?:doing|executing|running)'
+      - '(?i)(?:repeat|loop)\s+(?:until|forever|indefinitely)'
+      - '(?i)(?:auto[-_]?)?(?:retry|repeat)\s+(?:on\s+)?(?:failure|error)'
+    message: "Automated loop execution pattern detected"
+    description: |
+      Patterns indicating potentially infinite or resource-exhausting
+      automated loops.
+    owasp_llm: "LLM10:2025"
+    cwe: "CWE-400"

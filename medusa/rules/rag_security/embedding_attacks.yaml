@@ -1,0 +1,296 @@
+# MEDUSA RAG Security Rules - Embedding & Vector Database Attacks
+# Source: RLHF Security Research, RAG Security Analysis
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # EMBEDDING MANIPULATION
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-MAN-001
+    name: embedding-optimization-attack
+    severity: HIGH
+    category: embedding_manipulation
+    patterns:
+      - "(?i)(?:optimize|craft).*embedding.*(?:malicious|target)"
+      - "(?i)(?:gradient|optimize).*vector.*(?:attack|injection)"
+      - "(?i)embedding.*(?:optimization|gradient).*(?:attack|exploit)"
+    message: "Embedding optimization attack pattern detected"
+    description: |
+      Optimizing embeddings using gradient descent to align with
+      malicious target prompts in vector space.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-MAN-002
+    name: semantic-space-manipulation
+    severity: HIGH
+    category: embedding_manipulation
+    patterns:
+      - "(?i)semantic.*space.*(?:manipulate|attack)"
+      - "(?i)(?:shift|move).*embedding.*(?:space|vector)"
+      - "(?i)latent.*space.*(?:attack|exploit)"
+    message: "Semantic space manipulation detected"
+    description: |
+      Manipulating semantic embeddings to change retrieval behavior.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-MAN-003
+    name: cosine-similarity-exploit
+    severity: MEDIUM
+    category: embedding_manipulation
+    patterns:
+      - "(?i)cosine.*similarity.*(?:exploit|attack|maximize)"
+      - "(?i)(?:maximize|minimize).*(?:similarity|distance).*(?:malicious|target)"
+    message: "Cosine similarity exploitation detected"
+    description: |
+      Exploiting cosine similarity calculations to force malicious retrievals.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # VECTOR DATABASE ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-VDB-001
+    name: vector-db-injection
+    severity: CRITICAL
+    category: vector_db_attack
+    patterns:
+      - "(?i)vector.*(?:db|database).*(?:inject|poison)"
+      - "(?i)(?:inject|insert).*(?:malicious|attack).*(?:vector|embedding)"
+      - "(?i)(?:pinecone|weaviate|chroma|milvus|qdrant).*(?:inject|attack)"
+    message: "Vector database injection attack detected"
+    description: |
+      Injecting malicious vectors into vector databases to poison retrievals.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-VDB-002
+    name: index-poisoning
+    severity: HIGH
+    category: vector_db_attack
+    patterns:
+      - "(?i)(?:index|faiss|annoy).*(?:poison|corrupt)"
+      - "(?i)(?:poison|corrupt).*(?:index|ann)"
+      - "(?i)nearest.*neighbor.*(?:attack|exploit)"
+    message: "Vector index poisoning detected"
+    description: |
+      Poisoning vector search indexes to return malicious results.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-VDB-003
+    name: namespace-escape
+    severity: CRITICAL
+    category: vector_db_attack
+    patterns:
+      - "(?i)(?:namespace|collection).*(?:escape|bypass|cross)"
+      - "(?i)cross.*(?:namespace|collection|tenant)"
+      - "(?i)(?:escape|break).*(?:isolation|boundary)"
+    message: "Vector database namespace escape detected"
+    description: |
+      Attempting to escape namespace/tenant isolation in vector databases.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-653"
+
+  # =============================================================================
+  # EMBEDDING INVERSION
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-INV-001
+    name: text-inversion-attack
+    severity: HIGH
+    category: embedding_inversion
+    patterns:
+      - "(?i)(?:text|embedding).*inversion"
+      - "(?i)(?:recover|reconstruct|extract).*(?:from|via).*(?:embedding|vector)"
+      - "(?i)(?:invert|reverse).*(?:embedding|vector).*(?:text|original)"
+    message: "Text inversion from embedding attack detected"
+    description: |
+      Attempting to recover original text from embeddings,
+      compromising data confidentiality.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-EMBED-INV-002
+    name: membership-inference
+    severity: MEDIUM
+    category: embedding_inversion
+    patterns:
+      - "(?i)membership.*(?:inference|attack)"
+      - "(?i)(?:determine|infer).*(?:member|present).*(?:training|database)"
+      - "(?i)(?:training|index).*(?:data|membership).*(?:leak|infer)"
+    message: "Membership inference attack pattern detected"
+    description: |
+      Inferring whether specific data exists in training set or vector store.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # RETRIEVAL MANIPULATION
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-RET-001
+    name: top-k-manipulation
+    severity: HIGH
+    category: retrieval_manipulation
+    patterns:
+      - "(?i)top[-_]?k.*(?:manipulate|attack|poison)"
+      - "(?i)(?:force|inject).*top.*(?:result|retrieval)"
+      - "(?i)(?:dominate|flood).*retrieval.*result"
+    message: "Top-k retrieval manipulation detected"
+    description: |
+      Manipulating top-k retrieval results to inject malicious content.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-RET-002
+    name: retrieval-augmentation-attack
+    severity: HIGH
+    category: retrieval_manipulation
+    patterns:
+      - "(?i)(?:rag|retrieval).*(?:augmentation|generation).*(?:attack|exploit)"
+      - "(?i)(?:poison|manipulate).*(?:rag|retrieval).*(?:context|result)"
+      - "(?i)(?:context|grounding).*(?:injection|manipulation)"
+    message: "Retrieval augmentation attack detected"
+    description: |
+      Attacking the retrieval augmentation process to inject malicious context.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-RET-003
+    name: query-expansion-exploit
+    severity: MEDIUM
+    category: retrieval_manipulation
+    patterns:
+      - "(?i)query.*(?:expansion|rewrite).*(?:exploit|attack)"
+      - "(?i)(?:exploit|manipulate).*query.*(?:transform|expand)"
+      - "(?i)(?:hyde|hypothetical).*(?:document|embedding).*(?:attack|exploit)"
+    message: "Query expansion/rewrite exploitation detected"
+    description: |
+      Exploiting query expansion or HyDE techniques for malicious retrievals.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # CHUNKING ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-CHUNK-001
+    name: chunk-boundary-attack
+    severity: MEDIUM
+    category: chunking_attack
+    patterns:
+      - "(?i)chunk.*(?:boundary|split).*(?:attack|exploit)"
+      - "(?i)(?:split|fragment).*(?:instruction|injection).*chunk"
+      - "(?i)(?:across|span).*chunk.*(?:inject|hide)"
+    message: "Chunk boundary attack detected"
+    description: |
+      Exploiting document chunking boundaries to hide or split malicious content.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-CHUNK-002
+    name: overlap-manipulation
+    severity: LOW
+    category: chunking_attack
+    patterns:
+      - "(?i)(?:chunk|window).*(?:overlap|stride).*(?:exploit|attack)"
+      - "(?i)(?:exploit|manipulate).*(?:overlap|sliding)"
+    message: "Chunk overlap manipulation detected"
+    description: |
+      Manipulating chunk overlap to affect retrieval behavior.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # ENCODER ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-ENC-001
+    name: encoder-adversarial-input
+    severity: HIGH
+    category: encoder_attack
+    patterns:
+      - "(?i)(?:embedding|encoder).*(?:model|network).*(?:adversarial|attack)"
+      - "(?i)(?:adversarial|attack).*(?:sentence|text).*(?:encoder|embedding)"
+      - "(?i)(?:bert|sbert|e5|bge|instructor).*(?:attack|exploit)"
+    message: "Embedding encoder adversarial attack detected"
+    description: |
+      Adversarial inputs targeting embedding encoder models.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-EMBED-ENC-002
+    name: dimension-collapse-attack
+    severity: MEDIUM
+    category: encoder_attack
+    patterns:
+      - "(?i)(?:dimension|rank).*(?:collapse|reduce).*(?:attack|exploit)"
+      - "(?i)(?:force|induce).*(?:low|reduced).*(?:rank|dimension)"
+    message: "Embedding dimension collapse attack detected"
+    description: |
+      Forcing embeddings into lower-dimensional representations
+      to reduce discriminative power.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # MISSING SECURITY CONTROLS
+  # =============================================================================
+
+  - id: MEDUSA-EMBED-CTRL-001
+    name: no-embedding-validation
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:skip|no|disable).*(?:embedding|vector).*(?:valid|check)"
+      - "(?i)(?:trust|accept).*(?:embedding|vector).*(?:direct|raw)"
+      - "(?i)(?:embedding|vector).*(?:unvalidated|unchecked)"
+    message: "Missing embedding validation"
+    description: |
+      Embeddings should be validated for anomalies before use.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-EMBED-CTRL-002
+    name: no-retrieval-filtering
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:skip|no|disable).*(?:retrieval|result).*(?:filter|check)"
+      - "(?i)(?:return|use).*(?:retrieval|result).*(?:unfiltered|raw)"
+    message: "Missing retrieval result filtering"
+    description: |
+      Retrieved documents should be filtered for malicious content.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-EMBED-CTRL-003
+    name: no-similarity-threshold
+    severity: LOW
+    category: missing_control
+    patterns:
+      - "(?i)(?:similarity|score).*(?:threshold|min).*(?:0|none|disabled)"
+      - "(?i)(?:no|skip).*(?:similarity|relevance).*(?:threshold|check)"
+    message: "No similarity threshold for retrieval"
+    description: |
+      A minimum similarity threshold helps filter irrelevant/malicious retrievals.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-EMBED-CTRL-004
+    name: no-source-attribution
+    severity: LOW
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|skip|disable).*(?:source|attribution|citation)"
+      - "(?i)(?:hide|remove).*(?:source|origin).*(?:retriev|chunk)"
+    message: "Missing source attribution for retrievals"
+    description: |
+      Retrieved content should include source attribution for auditing.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-778"

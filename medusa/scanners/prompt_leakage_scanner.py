@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class PromptLeakageScanner(BaseScanner):
+class PromptLeakageScanner(RuleBasedScanner):
     """
     Prompt Leakage Detection Scanner
 
@@ -37,6 +37,12 @@ class PromptLeakageScanner(BaseScanner):
     - PL009: Configuration dump in responses
     - PL010: Missing output sanitization
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['PROMPT-LK-', 'PROMPT-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['prompt_leakage', 'system_prompt']
 
     # Patterns indicating prompt leakage risks
     PROMPT_LEAKAGE_PATTERNS: List[Tuple[str, str, Severity, str]] = [
@@ -287,6 +293,10 @@ class PromptLeakageScanner(BaseScanner):
                             suggestion="Add output filtering/sanitization before returning LLM responses",
                         ))
 
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
+
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=file_path,
@@ -302,7 +312,7 @@ class PromptLeakageScanner(BaseScanner):
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _get_context(self, content: str, pos: int, context_lines: int = 2) -> str:

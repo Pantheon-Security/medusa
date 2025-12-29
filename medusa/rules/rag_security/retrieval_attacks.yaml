@@ -1,0 +1,331 @@
+# MEDUSA RAG Security Rules - Retrieval & Memory Attacks
+# Source: RLHF Security Research, Memory/Context Vulnerabilities
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # RAG DATA POISONING
+  # =============================================================================
+
+  - id: MEDUSA-RAG-RETRIEVAL-001
+    name: rag-knowledge-poisoning
+    severity: CRITICAL
+    category: rag_poisoning
+    patterns:
+      - "(?i)rag.*(?:poison|inject|manipulate)"
+      - "(?i)inject.*(?:knowledge|wiki|document)"
+      - "(?i)hidden.*text.*(?:document|wiki)"
+    message: "RAG knowledge poisoning pattern detected"
+    description: |
+      Injecting malicious content into external knowledge sources
+      (company wikis, resumes, document repositories).
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RAG-RETRIEVAL-002
+    name: white-on-white-text
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - "(?i)white.*on.*white"
+      - "(?i)hidden.*text.*(?:same|match).*background"
+      - "(?i)invisible.*(?:instruction|text)"
+    message: "Hidden text poisoning technique detected"
+    description: |
+      Using white text on white background to hide malicious instructions
+      in documents that will be retrieved by RAG systems.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RAG-RETRIEVAL-003
+    name: document-injection
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - "(?i)ignore.*previous.*instruction.*recommend"
+      - "(?i)\\[hidden:.*instruction.*\\]"
+      - "(?i)<!-- .*inject.*-->"
+    message: "Document injection payload detected"
+    description: |
+      Malicious instructions hidden in documents for RAG retrieval.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # EMBEDDING ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-RAG-EMBED-001
+    name: embedding-inversion
+    severity: HIGH
+    category: embedding_attack
+    patterns:
+      - "(?i)embedding.*(?:invert|inversion|recover)"
+      - "(?i)(?:recover|extract).*(?:source|original).*(?:embedding|vector)"
+      - "(?i)vector.*(?:attack|exploit)"
+    message: "Embedding inversion attack pattern detected"
+    description: |
+      Exploiting numerical representations to recover source data
+      from vector embeddings, compromising data confidentiality.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-RAG-EMBED-002
+    name: cosine-similarity-attack
+    severity: MEDIUM
+    category: embedding_attack
+    patterns:
+      - "(?i)cosine.*similarity.*(?:attack|manipulate)"
+      - "(?i)(?:optimize|craft).*(?:embedding|vector).*(?:malicious|target)"
+    message: "Cosine similarity manipulation detected"
+    description: |
+      Crafting embeddings to maximize similarity with target malicious content.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # CROSS-CONTEXT LEAKS
+  # =============================================================================
+
+  - id: MEDUSA-RAG-LEAK-001
+    name: cross-context-leak
+    severity: CRITICAL
+    category: information_leak
+    patterns:
+      - "(?i)cross.*context.*(?:leak|exposure)"
+      - "(?i)multi.*tenant.*(?:leak|exposure|bleed)"
+      - "(?i)shared.*vector.*(?:database|store).*(?:leak|cross)"
+    message: "Cross-context information leak risk detected"
+    description: |
+      In multi-tenant shared vector databases, one user's query
+      could retrieve another user's sensitive data.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-RAG-LEAK-002
+    name: cross-user-retrieval
+    severity: CRITICAL
+    category: information_leak
+    patterns:
+      - "(?i)user.*a.*(?:retrieve|access).*user.*b"
+      - "(?i)(?:another|other).*user.*(?:data|document)"
+      - "(?i)tenant.*isolation.*(?:fail|bypass)"
+    message: "Cross-user retrieval vulnerability detected"
+    description: |
+      RAG system may retrieve data from other users/tenants.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # MEMORY POISONING
+  # =============================================================================
+
+  - id: MEDUSA-RAG-MEM-001
+    name: memory-poisoning
+    severity: CRITICAL
+    category: memory_poisoning
+    patterns:
+      - "(?i)memory.*(?:poison|inject|manipulate)"
+      - "(?i)persistent.*(?:storage|memory).*(?:attack|malicious)"
+      - "(?i)store.*malicious.*(?:memory|state)"
+    message: "Memory poisoning attack pattern detected"
+    description: |
+      Inserting malicious content into agent's persistent memory
+      that influences future behavior across sessions.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RAG-MEM-002
+    name: autonomous-feedback-loop
+    severity: HIGH
+    category: memory_poisoning
+    patterns:
+      - "(?i)feedback.*loop.*(?:attack|exploit)"
+      - "(?i)output.*log.*read.*(?:back|attack)"
+      - "(?i)embed.*(?:attack|payload).*output"
+    message: "Autonomous feedback loop attack detected"
+    description: |
+      Attack embedded in agent output, logged, then re-activated when
+      agent or peer reads the log.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RAG-MEM-003
+    name: checkpoint-tampering
+    severity: HIGH
+    category: memory_poisoning
+    patterns:
+      - "(?i)checkpoint.*(?:tamper|manipulate|modify)"
+      - "(?i)(?:alter|modify).*intermediate.*(?:result|goal)"
+      - "(?i)stored.*(?:state|checkpoint).*(?:attack|exploit)"
+    message: "Checkpoint tampering pattern detected"
+    description: |
+      Manipulating stored intermediate results or goals to alter
+      agent's task trajectory.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-472"
+
+  # =============================================================================
+  # SESSION SECURITY
+  # =============================================================================
+
+  - id: MEDUSA-RAG-SESSION-001
+    name: cross-session-bleed
+    severity: CRITICAL
+    category: session_bleed
+    patterns:
+      - "(?i)cross.*session.*(?:bleed|leak|data)"
+      - "(?i)session.*(?:reset|isolation).*(?:fail|false|disabled)"
+      - "(?i)previous.*(?:user|session).*(?:secret|data)"
+    message: "Cross-session data bleed risk detected"
+    description: |
+      Session states not properly reset, allowing queries to
+      retrieve previous user's secrets.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-488"
+
+  - id: MEDUSA-RAG-SESSION-002
+    name: scratchpad-injection
+    severity: HIGH
+    category: scratchpad_vuln
+    patterns:
+      - "(?i)scratchpad.*(?:inject|attack)"
+      - "(?i)(?:cot|chain.*thought).*(?:log|pad).*(?:inject|exploit)"
+      - "(?i)internal.*(?:log|notes).*(?:poison|inject)"
+    message: "Scratchpad injection vulnerability detected"
+    description: |
+      Agent's internal chain-of-thought logs used as vectors
+      for prompt injections.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # CONTEXT WINDOW ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-RAG-CTX-001
+    name: context-overflow
+    severity: MEDIUM
+    category: dos_attack
+    patterns:
+      - "(?i)context.*(?:overflow|exceed|flood)"
+      - "(?i)(?:max|exceed).*(?:token|context).*(?:window|limit)"
+      - "(?i)input.*(?:flood|overflow)"
+    message: "Context window overflow attack pattern detected"
+    description: |
+      Sending inputs exceeding context window to cause excessive
+      resource usage and service degradation.
+    owasp_llm: "LLM10:2025"
+    cwe: "CWE-400"
+
+  - id: MEDUSA-RAG-CTX-002
+    name: resource-intensive-queries
+    severity: MEDIUM
+    category: dos_attack
+    patterns:
+      - "(?i)resource.*intensive.*(?:query|input)"
+      - "(?i)complex.*(?:sequence|pattern).*(?:drain|exhaust)"
+      - "(?i)computational.*(?:exhaust|overload)"
+    message: "Resource-intensive query attack detected"
+    description: |
+      Queries with intricate language patterns designed to
+      drain system resources.
+    owasp_llm: "LLM10:2025"
+    cwe: "CWE-400"
+
+  # =============================================================================
+  # RAG RETRIEVAL MANIPULATION
+  # =============================================================================
+
+  - id: MEDUSA-RAG-RET-001
+    name: retrieval-manipulation
+    severity: HIGH
+    category: retrieval_attack
+    patterns:
+      - "(?i)retrieval.*(?:manipulate|attack|exploit)"
+      - "(?i)(?:force|trick).*(?:retrieve|retrieval)"
+      - "(?i)(?:bias|skew).*(?:retrieval|search)"
+    message: "Retrieval manipulation pattern detected"
+    description: |
+      Forcing RAG system to retrieve specific malicious documents.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RAG-RET-002
+    name: context-injection
+    severity: HIGH
+    category: retrieval_attack
+    patterns:
+      - "(?i)context.*(?:inject|injection)"
+      - "(?i)(?:force|inject).*retrieved.*(?:prompt|data)"
+      - "(?i)violate.*guideline.*(?:retriev|context)"
+    message: "Context injection pattern detected"
+    description: |
+      Forcing model to incorrectly pass retrieved prompt data,
+      leading to guideline violations.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # MISSING RAG SECURITY CONTROLS
+  # =============================================================================
+
+  - id: MEDUSA-RAG-CTRL-001
+    name: no-memory-encryption
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)memory.*(?:encrypt|checksum).*(?:false|disabled|none)"
+      - "(?i)skip.*(?:encrypt|integrity).*memory"
+      - "(?i)store.*(?:unencrypted|plaintext)"
+    message: "Missing memory encryption/integrity protection"
+    description: |
+      Persistent AI memory should be encrypted with integrity checksums.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-311"
+
+  - id: MEDUSA-RAG-CTRL-002
+    name: no-content-tagging
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:llm|content).*(?:tag|origin).*(?:false|disabled|none)"
+      - "(?i)skip.*(?:content|origin).*(?:track|tag)"
+      - "(?i)trust.*(?:level|tag).*(?:disabled|missing)"
+    message: "Missing LLM content tagging for origin tracking"
+    description: |
+      Content origin tracking prevents untrusted text masquerading
+      as system instructions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-RAG-CTRL-003
+    name: no-rag-triad-monitoring
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)rag.*(?:triad|monitoring).*(?:false|disabled)"
+      - "(?i)skip.*(?:relevance|groundedness).*(?:check|score)"
+      - "(?i)(?:context|answer).*relevance.*(?:disabled|skip)"
+    message: "Missing RAG triad monitoring"
+    description: |
+      RAG triad (context relevance, groundedness, answer relevance)
+      should be monitored to identify malicious retrieved content.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-RAG-CTRL-004
+    name: no-tenant-isolation
+    severity: CRITICAL
+    category: missing_control
+    patterns:
+      - "(?i)(?:tenant|user).*(?:isolat|separat).*(?:false|disabled)"
+      - "(?i)shared.*(?:vector|database).*(?:no|without).*isolat"
+      - "(?i)multi.*tenant.*(?:shared|common).*(?:index|store)"
+    message: "Missing multi-tenant isolation in vector store"
+    description: |
+      Multi-tenant RAG systems should use separate vector stores
+      or strict namespace isolation.
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-653"
