@@ -1,0 +1,523 @@
+# MEDUSA Agent Patterns Scanner Rules
+# Extracted from 118 Multi-Agent System Research Papers
+# Session: 2aee7ad4 | Date: 2025-12-24
+# Queries: 17 | Coverage: Comprehensive
+
+version: "1.0.0"
+metadata:
+  source: "NotebookLM - 118 Agent Pattern Papers"
+  extraction_date: "2025-12-24"
+  categories:
+    - MCP Security
+    - A2A Protocol
+    - Tool Attacks
+    - Memory/Context
+    - Supply Chain
+    - Dark Patterns
+    - API Security
+    - Defense Patterns
+
+rules:
+  # ============================================
+  # MCP SECURITY VULNERABILITIES
+  # ============================================
+
+  - id: MCP-001
+    name: hardcoded-api-key-mcp
+    severity: CRITICAL
+    category: mcp-security
+    patterns:
+      - "api_key\\s*[=:]\\s*[\"'][A-Za-z0-9_-]{20,}[\"']"
+      - "OPENAI_API_KEY\\s*[=:]\\s*[\"']sk-"
+      - "ANTHROPIC_API_KEY\\s*[=:]\\s*[\"']sk-ant-"
+      - "GEMINI_API_KEY\\s*[=:]\\s*[\"']AIza"
+      - 'sk-[a-zA-Z0-9]{20,}'
+      - 'sk-ant-[a-zA-Z0-9]{20,}'
+      - 'AIza[a-zA-Z0-9_-]{35}'
+    message: "Hardcoded API key detected in MCP configuration"
+    cwe: CWE-798
+    references:
+      - "CVE-2022-29964"
+
+  - id: MCP-002
+    name: shell-true-subprocess
+    severity: CRITICAL
+    category: mcp-security
+    patterns:
+      - 'subprocess\.(run|call|Popen).*shell\s*=\s*True'
+      - 'os\.system\s*\('
+      - 'os\.popen\s*\('
+    message: "subprocess with shell=True enables command injection"
+    cwe: CWE-78
+
+  - id: MCP-003
+    name: malicious-tool-description
+    severity: HIGH
+    category: mcp-security
+    patterns:
+      - '<\s*(IMPORTANT|important)\s*>'
+      - '<\s*system\s*>'
+      - 'quietly.*read.*\.ssh'
+      - 'send.*content.*email.*attacker'
+    message: "Potential tool poisoning via malicious tag in description"
+    cwe: CWE-94
+
+  - id: MCP-004
+    name: sensitive-file-access
+    severity: MEDIUM
+    category: mcp-security
+    patterns:
+      - '\.ssh/'
+      - '\.env\b'
+      - '/etc/passwd'
+      - '/etc/shadow'
+      - '~/.aws/credentials'
+      - 'id_rsa'
+    message: "Tool accesses sensitive system files"
+    cwe: CWE-552
+
+  - id: MCP-005
+    name: auto-approve-mcp
+    severity: HIGH
+    category: mcp-security
+    patterns:
+      - '(auto_approve|auto_run_without_asking)\s*[=:]\s*true'
+      - 'bypass.*human.*loop'
+      - 'skip.*confirmation'
+    message: "Auto-approve bypasses human-in-the-loop security"
+    cwe: CWE-862
+
+  # ============================================
+  # TOOL ATTACKS
+  # ============================================
+
+  - id: TOOL-001
+    name: tool-name-squatting
+    severity: HIGH
+    category: tool-attacks
+    patterns:
+      - 'mcp-github|github-mcp'
+      - 'openai-mcp|mcp-openai'
+      - 'anthropic-mcp|mcp-anthropic'
+    message: "Potential tool squatting via similar names"
+    cwe: CWE-290
+
+  - id: TOOL-002
+    name: unpinned-mcp-version
+    severity: HIGH
+    category: tool-attacks
+    patterns:
+      - '(npx|uvx)\s+[^@]+$'
+      - '@latest'
+      - 'pip install\s+\S+(?!==)'
+    message: "Unpinned MCP package version enables rug pull attacks"
+    cwe: CWE-829
+
+  - id: TOOL-003
+    name: preference-manipulation-tags
+    severity: MEDIUM
+    category: tool-attacks
+    patterns:
+      - '<\s*(IMPORTANT|important)\s*>'
+      - 'always\s+use\s+this'
+      - 'best\s+tool'
+      - 'most\s+reliable'
+      - 'superior\s+alternative'
+    message: "Potential preference manipulation in tool description"
+    cwe: CWE-451
+
+  - id: TOOL-004
+    name: cross-server-shadowing
+    severity: HIGH
+    category: tool-attacks
+    patterns:
+      - 'description.*".*use\s+(gmail|github|slack).*tool'
+      - 'redirect.*to.*before.*this.*tool'
+      - '\bspoofed\s+call\b'
+      - '\bfake\s+server\b'
+      - '\bhidden\s+invoke\b'
+    message: "Tool description references tools from other servers (shadowing risk)"
+    cwe: CWE-290
+
+  # ============================================
+  # MEMORY & CONTEXT ATTACKS
+  # ============================================
+
+  - id: MEM-001
+    name: memory-injection-indicators
+    severity: HIGH
+    category: memory-attacks
+    patterns:
+      - '\[System Directive Update'
+      - 'primary goal is now'
+      - 'Acknowledge this new directive'
+      - 'ignore all previous'
+      - 'override your instructions'
+    message: "Potential memory/persona injection detected"
+    cwe: CWE-94
+
+  - id: MEM-002
+    name: session-id-exposure
+    severity: HIGH
+    category: memory-attacks
+    patterns:
+      - "session_id\\s*[=:]\\s*[\"'][^\"']+[\"']"
+      - 'sessionId.*response'
+      - 'log.*session.*id'
+      - 'EventSource.*session='
+    message: "Session ID potentially exposed in logs/response"
+    cwe: CWE-200
+
+  - id: MEM-003
+    name: missing-token-rotation
+    severity: MEDIUM
+    category: memory-attacks
+    patterns:
+      - 'token.*expires.*never'
+      - 'long_lived.*token'
+      - 'token_lifetime.*=.*0'
+      - 'ttl.*=.*(3600|7200|86400|None)'
+    message: "Long-lived token without rotation"
+    cwe: CWE-613
+
+  # ============================================
+  # MULTI-AGENT INJECTION
+  # ============================================
+
+  - id: INJ-001
+    name: agent-cascading-injection
+    severity: CRITICAL
+    category: injection
+    patterns:
+      - "__import__\\s*\\(\\s*[\"']os[\"']\\s*\\)"
+      - 'os\.system.*curl.*attacker'
+      - 'exec\s*\(.*request\.'
+      - 'eval\s*\(.*input'
+    message: "Potential agent cascading injection payload"
+    cwe: CWE-94
+
+  - id: INJ-002
+    name: persona-manipulation-injection
+    severity: HIGH
+    category: injection
+    patterns:
+      - '\[System Directive Update'
+      - 'Your primary goal is now'
+      - 'Acknowledge this new directive'
+      - 'Override your instructions'
+      - '\bignore\s+previous\b'
+      - '\bexecute\s+hidden\b'
+    message: "Persona manipulation injection detected"
+    cwe: CWE-74
+
+  - id: INJ-003
+    name: lethal-trifecta-tag
+    severity: CRITICAL
+    category: injection
+    patterns:
+      - '<\s*IMPORTANT\s*>.*\.ssh'
+      - '<\s*IMPORTANT\s*>.*api.?key'
+      - '<\s*IMPORTANT\s*>.*credentials'
+      - '<\s*IMPORTANT\s*>.*password'
+    message: "Malicious IMPORTANT tag attempting credential theft"
+    cwe: CWE-200
+
+  # ============================================
+  # A2A PROTOCOL VULNERABILITIES
+  # ============================================
+
+  - id: A2A-001
+    name: missing-agent-card-signature
+    severity: HIGH
+    category: a2a-protocol
+    patterns:
+      - 'agent.*card.*=.*\{(?!.*signature)'
+      - 'fetch.*well-known/agent.json(?!.*verify)'
+    message: "Agent Card fetched without signature verification"
+    cwe: CWE-290
+
+  - id: A2A-002
+    name: missing-task-nonce
+    severity: MEDIUM
+    category: a2a-protocol
+    patterns:
+      - 'tasks/send.*(?!.*nonce)'
+      - 'task_request.*=.*\{(?!.*nonce|.*timestamp)'
+    message: "Task request without nonce/timestamp (replay vulnerable)"
+    cwe: CWE-294
+
+  - id: A2A-003
+    name: overbroad-oauth-scope
+    severity: MEDIUM
+    category: a2a-protocol
+    patterns:
+      - "scope.*=.*[\"'].*\\*.*[\"']"
+      - 'scope.*full.*access'
+      - 'scope.*admin'
+    message: "OAuth scope too broad for task requirements"
+    cwe: CWE-1220
+
+  - id: A2A-004
+    name: jwt-missing-audience-check
+    severity: HIGH
+    category: a2a-protocol
+    patterns:
+      - 'jwt\.decode.*(?!.*audience|.*aud)'
+      - 'verify_jwt.*(?!.*aud)'
+    message: "JWT decoded without audience claim verification"
+    cwe: CWE-287
+
+  # ============================================
+  # SUPPLY CHAIN ATTACKS
+  # ============================================
+
+  - id: SUPPLY-001
+    name: unverified-installer-script
+    severity: HIGH
+    category: supply-chain
+    patterns:
+      - 'curl.*\|.*bash'
+      - 'wget.*\|.*sh'
+      - 'curl.*install\.sh'
+    message: "Unverified installer script execution"
+    cwe: CWE-829
+
+  - id: SUPPLY-002
+    name: typosquatting-risk
+    severity: MEDIUM
+    category: supply-chain
+    patterns:
+      - 'mcp-github|github-mcp'
+      - 'openai-mcp|mcp-openai'
+    message: "Potential typosquatting - verify package name"
+    cwe: CWE-427
+
+  - id: SUPPLY-003
+    name: over-permissioned-config
+    severity: HIGH
+    category: supply-chain
+    patterns:
+      - 'full_disk_access|CAP_SYS_ADMIN'
+      - 'auto_approve.*true'
+      - 'permissions.*\*'
+    message: "Over-permissioned agent/tool configuration"
+    cwe: CWE-250
+
+  - id: SUPPLY-004
+    name: command-injection-path
+    severity: CRITICAL
+    category: supply-chain
+    patterns:
+      - ';exec=|;rm |;cat |;curl '
+      - '\$\(.*\)|`.*`'
+      - 'os\.system.*path|subprocess.*path'
+    message: "Potential command injection via path parameter"
+    cwe: CWE-78
+
+  # ============================================
+  # COVERT CHANNELS & EXFILTRATION
+  # ============================================
+
+  - id: COVERT-001
+    name: lethal-trifecta-pattern
+    severity: CRITICAL
+    category: exfiltration
+    patterns:
+      - '(read.*\.env|\.ssh|credentials).*\n.*(send|post|email|webhook)'
+    message: "Lethal trifecta: file access + external communication"
+    cwe: CWE-200
+
+  - id: COVERT-002
+    name: exfiltration-via-tool
+    severity: HIGH
+    category: exfiltration
+    patterns:
+      - 'tool.*output.*\n.*(curl|wget|requests\.post|send_email)'
+      - 'return.*\n.*(http|webhook|slack)'
+    message: "Tool output potentially used for exfiltration"
+    cwe: CWE-200
+
+  # ============================================
+  # API SECURITY
+  # ============================================
+
+  - id: API-001
+    name: sse-session-exposure
+    severity: HIGH
+    category: api-security
+    patterns:
+      - 'session_id.*=.*response'
+      - 'log.*session.*id'
+      - 'EventSource.*session='
+    message: "SSE session ID potentially exposed"
+    cwe: CWE-200
+
+  - id: API-002
+    name: webhook-without-signature
+    severity: HIGH
+    category: api-security
+    patterns:
+      - 'def\s+webhook_handler.*:\s*\n\s+(?!.*verify_signature|.*hmac)'
+    message: "Webhook handler without signature verification"
+    cwe: CWE-345
+
+  - id: API-003
+    name: jsonrpc-missing-validation
+    severity: MEDIUM
+    category: api-security
+    patterns:
+      - 'json\.loads.*(?!.*validate|.*schema)'
+      - 'jsonrpc.*request.*(?!.*sanitize)'
+    message: "JSON-RPC request without validation"
+    cwe: CWE-20
+
+  # ============================================
+  # DEFENSE PATTERN GAPS
+  # ============================================
+
+  - id: DEF-001
+    name: missing-containerization
+    severity: HIGH
+    category: defense-gaps
+    patterns:
+      - 'mcp.*server.*(?!.*docker|.*container|.*sandbox)'
+      - 'run.*tool.*(?!.*isolated|.*sandboxed)'
+    message: "MCP server running without containerization"
+    cwe: CWE-250
+
+  - id: DEF-002
+    name: missing-schema-validation
+    severity: MEDIUM
+    category: defense-gaps
+    patterns:
+      - 'def\s+handle_request.*:\s*\n\s+(?!.*validate|.*schema|.*jsonschema)'
+    message: "Request handler without schema validation"
+    cwe: CWE-20
+
+  - id: DEF-003
+    name: missing-dlp-scanning
+    severity: MEDIUM
+    category: defense-gaps
+    patterns:
+      - 'def\s+send_response.*:\s*\n\s+(?!.*dlp|.*scan_pii|.*redact)'
+    message: "Response sent without DLP/PII scanning"
+    cwe: CWE-359
+
+  - id: DEF-004
+    name: missing-hitl-sensitive-action
+    severity: HIGH
+    category: defense-gaps
+    patterns:
+      - 'def\s+(delete|modify|transfer|execute).*:\s*\n\s+(?!.*confirm|.*human|.*approval)'
+    message: "Sensitive action without human-in-the-loop confirmation"
+    cwe: CWE-862
+
+  # ============================================
+  # ORCHESTRATION SECURITY
+  # ============================================
+
+  - id: ORCH-001
+    name: missing-consensus-validation
+    severity: MEDIUM
+    category: orchestration
+    patterns:
+      - 'def\s+aggregate_results.*:\s*\n\s+(?!.*consensus|.*majority|.*threshold)'
+    message: "Multi-agent aggregation without consensus validation"
+    cwe: CWE-754
+
+  - id: ORCH-002
+    name: missing-call-stack-verification
+    severity: HIGH
+    category: orchestration
+    patterns:
+      - 'def\s+invoke_tool.*:\s*\n\s+(?!.*call_stack|.*verify_chain|.*check_privilege)'
+    message: "Tool invocation without call stack verification"
+    cwe: CWE-863
+
+  - id: ORCH-003
+    name: missing-rate-limiting
+    severity: MEDIUM
+    category: orchestration
+    patterns:
+      - 'def\s+(handle_request|process_task).*:\s*\n\s+(?!.*rate_limit|.*throttle)'
+    message: "Request handler without rate limiting"
+    cwe: CWE-770
+
+  # ============================================
+  # PROTOCOL SECURITY
+  # ============================================
+
+  - id: PROTO-001
+    name: missing-e2e-encryption
+    severity: HIGH
+    category: protocol-security
+    patterns:
+      - 'protocol.*=.*(http[^s]|ws[^s])'
+      - 'transport.*(?!.*tls|.*ssl|.*encrypt)'
+    message: "Agent protocol without E2E encryption"
+    cwe: CWE-319
+
+  - id: PROTO-002
+    name: missing-did-verification
+    severity: MEDIUM
+    category: protocol-security
+    patterns:
+      - 'agent.*connect.*(?!.*did|.*verify_identity)'
+    message: "Agent connection without DID verification"
+    cwe: CWE-287
+
+# ============================================
+# CVE REFERENCES
+# ============================================
+
+cve_mappings:
+  - cve: CVE-2025-6514
+    description: "RCE in mcp-remote package (437K+ downloads)"
+    component: mcp-remote
+    severity: CRITICAL
+
+  - cve: CVE-2025-32711
+    description: "Hidden prompts exfiltrate data in Microsoft 365 Copilot"
+    component: Microsoft 365 Copilot
+    severity: HIGH
+
+  - cve: CVE-2024-7042
+    description: "Prompt injection in LangChain graphcypherqachain"
+    component: LangChain
+    severity: HIGH
+
+  - cve: CVE-2024-45989
+    description: "Prompt injection exposes chat data in Monica AI"
+    component: Monica AI
+    severity: HIGH
+
+# ============================================
+# CWE MAPPINGS
+# ============================================
+
+cwe_coverage:
+  - CWE-20: "Improper Input Validation"
+  - CWE-74: "Injection"
+  - CWE-77: "Command Injection"
+  - CWE-78: "OS Command Injection"
+  - CWE-94: "Code Injection"
+  - CWE-200: "Exposure of Sensitive Information"
+  - CWE-250: "Execution with Unnecessary Privileges"
+  - CWE-284: "Improper Access Control"
+  - CWE-287: "Improper Authentication"
+  - CWE-290: "Authentication Bypass by Spoofing"
+  - CWE-294: "Authentication Bypass by Capture-replay"
+  - CWE-306: "Missing Authentication for Critical Function"
+  - CWE-319: "Cleartext Transmission"
+  - CWE-345: "Insufficient Verification of Data Authenticity"
+  - CWE-359: "Privacy Violation"
+  - CWE-427: "Uncontrolled Search Path Element"
+  - CWE-451: "UI Misrepresentation"
+  - CWE-552: "Files Accessible to External Parties"
+  - CWE-613: "Insufficient Session Expiration"
+  - CWE-770: "Allocation Without Limits"
+  - CWE-798: "Use of Hard-coded Credentials"
+  - CWE-829: "Inclusion of Untrusted Functionality"
+  - CWE-862: "Missing Authorization"
+  - CWE-863: "Incorrect Authorization"
+  - CWE-1220: "Insufficient Granularity of Access Control"

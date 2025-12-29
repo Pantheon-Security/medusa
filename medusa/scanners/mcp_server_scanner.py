@@ -17,10 +17,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class MCPServerScanner(BaseScanner):
+class MCPServerScanner(RuleBasedScanner):
     """
     MCP Server Code Security Scanner
 
@@ -50,6 +50,12 @@ class MCPServerScanner(BaseScanner):
     - MCP123: Auto-update without integrity check
     - MCP124: Path traversal vulnerabilities (arbitrary file read/write)
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['MCP-SRV-', 'MCP-', 'MEDUSA-MCP-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['mcp_server', 'mcp_security', 'tool_poisoning']
 
     # Tool poisoning patterns - hidden instructions in descriptions
     TOOL_POISONING_PATTERNS: List[Tuple[str, str, Severity]] = [
@@ -578,11 +584,12 @@ class MCPServerScanner(BaseScanner):
             )
 
             if not is_mcp_file:
-                # Not an MCP file, return empty results
+                # Not an MCP file, but still scan with YAML rules
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True
                 )
@@ -692,6 +699,9 @@ class MCPServerScanner(BaseScanner):
                 self.AUTO_UPDATE_PATTERNS,
                 "MCP123"
             ))
+
+            # Scan with YAML rules
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

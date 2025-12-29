@@ -169,7 +169,7 @@ class ModelScanScanner(BaseScanner):
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _parse_modelscan_output(self, scan_result: dict, file_path: Path) -> List[ScannerIssue]:

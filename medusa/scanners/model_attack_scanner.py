@@ -19,10 +19,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class ModelAttackScanner(BaseScanner):
+class ModelAttackScanner(RuleBasedScanner):
     """
     Model Attack Detection Scanner
 
@@ -38,6 +38,12 @@ class ModelAttackScanner(BaseScanner):
     - MA009: Model output leaking training data
     - MA010: Unprotected model endpoints
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['MODEL-ATK-', 'MODEL-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['model_attack', 'adversarial', 'model_poisoning']
 
     # Model Inversion / Overfitting patterns
     OVERFITTING_PATTERNS = [
@@ -189,10 +195,13 @@ class ModelAttackScanner(BaseScanner):
             content_lower = content.lower()
 
             if not any(ind in content_lower for ind in ml_indicators):
+                # Still scan with YAML rules even if no ML indicators
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -297,6 +306,10 @@ class ModelAttackScanner(BaseScanner):
                         line=line,
                         column=1,
                     ))
+
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

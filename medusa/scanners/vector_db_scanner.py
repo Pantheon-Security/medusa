@@ -337,5 +337,5 @@ class VectorDBScanner(BaseScanner):
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )

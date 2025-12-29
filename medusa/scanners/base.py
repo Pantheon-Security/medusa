@@ -253,6 +253,110 @@ class BaseScanner(ABC):
         return f"Install {self.tool_name} to enable {self.name} scanning"
 
 
+class RuleBasedScanner(BaseScanner):
+    """
+    Base class for scanners that use YAML rules from medusa/rules/
+
+    Provides:
+    - Automatic rule loading from YAML files
+    - Pattern matching against loaded rules
+    - Issue creation with full metadata (OWASP, CWE, MITRE)
+    """
+
+    # Subclasses should define which rule files to load
+    RULE_FILES: List[str] = []  # e.g., ['ai_security/prompt_injection.yaml']
+    RULE_CATEGORIES: List[str] = []  # e.g., ['prompt_injection', 'jailbreaking']
+
+    def __init__(self):
+        super().__init__()
+        self._rules = None
+        self._rules_loaded = False
+
+    def _load_rules(self):
+        """Lazy-load rules from YAML files"""
+        if self._rules_loaded:
+            return
+
+        from medusa.rules import RuleLoader
+        loader = RuleLoader()
+        all_rules = loader.load_all_rules()
+
+        # Filter rules by category or file
+        self._rules = []
+        for rule in all_rules:
+            # Match by category
+            if self.RULE_CATEGORIES and rule.category in self.RULE_CATEGORIES:
+                self._rules.append(rule)
+            # Or match by rule ID prefix
+            elif hasattr(self, 'RULE_ID_PREFIXES'):
+                for prefix in self.RULE_ID_PREFIXES:
+                    if rule.id.startswith(prefix):
+                        self._rules.append(rule)
+                        break
+
+        self._rules_loaded = True
+
+    @property
+    def rules(self):
+        """Get loaded rules (loads on first access)"""
+        if not self._rules_loaded:
+            self._load_rules()
+        return self._rules
+
+    def _scan_with_rules(self, lines: List[str], file_path: Path = None) -> List[ScannerIssue]:
+        """
+        Scan lines using loaded YAML rules
+
+        Args:
+            lines: List of file lines to scan
+            file_path: Optional path for context
+
+        Returns:
+            List of ScannerIssue objects
+        """
+        import re
+        issues = []
+
+        for rule in self.rules:
+            for i, line in enumerate(lines, 1):
+                for pattern in rule.patterns:
+                    try:
+                        if re.search(pattern, line, re.IGNORECASE):
+                            # Map severity string to enum
+                            severity_map = {
+                                'CRITICAL': Severity.CRITICAL,
+                                'HIGH': Severity.HIGH,
+                                'MEDIUM': Severity.MEDIUM,
+                                'LOW': Severity.LOW,
+                                'INFO': Severity.INFO,
+                            }
+                            severity = severity_map.get(rule.severity, Severity.MEDIUM)
+
+                            # Extract CWE number from string like "CWE-94"
+                            cwe_id = None
+                            cwe_link = None
+                            if rule.cwe:
+                                cwe_match = re.search(r'CWE-(\d+)', rule.cwe)
+                                if cwe_match:
+                                    cwe_id = int(cwe_match.group(1))
+                                    cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+
+                            issues.append(ScannerIssue(
+                                severity=severity,
+                                message=rule.message,
+                                line=i,
+                                rule_id=rule.id,
+                                cwe_id=cwe_id,
+                                cwe_link=cwe_link
+                            ))
+                            break  # One issue per line per rule
+                    except re.error:
+                        # Skip invalid regex patterns
+                        continue
+
+        return issues
+
+
 class ScannerRegistry:
     """
     Registry of all available scanners

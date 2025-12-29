@@ -249,7 +249,7 @@ class AgentPlanningScanner(BaseScanner):
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _check_injection_vectors(

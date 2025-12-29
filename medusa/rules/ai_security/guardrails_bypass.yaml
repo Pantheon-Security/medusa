@@ -1,0 +1,360 @@
+# MEDUSA AI Security Rules - Guardrails & Safety Mechanism Bypass
+# Source: RLHF Security Research, Guardrails Analysis
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # OBFUSCATION TECHNIQUES
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-OBF-001
+    name: base64-obfuscation
+    severity: HIGH
+    category: obfuscation
+    patterns:
+      - "(?i)base64.*(?:decode|encode)"
+      - "(?i)[A-Za-z0-9+/=]{50,}"
+      - "(?i)atob\\s*\\("
+    message: "Base64 obfuscation pattern detected"
+    description: |
+      Using Base64 encoding to bypass text-based safety filters.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-OBF-002
+    name: emoji-encoding
+    severity: MEDIUM
+    category: obfuscation
+    patterns:
+      - "[\\U0001F300-\\U0001F9FF]{3,}"
+      - "(?i)emoji.*(?:encode|decode)"
+      - "(?i)unicode.*(?:obfuscat|encode)"
+    message: "Emoji/Unicode obfuscation detected"
+    description: |
+      Using emoji sequences to encode malicious instructions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-OBF-003
+    name: multilingual-bypass
+    severity: MEDIUM
+    category: obfuscation
+    patterns:
+      - "(?i)(?:translate|language).*(?:bypass|evade)"
+      - "(?i)multiple.*language.*(?:attack|exploit)"
+    message: "Multilingual bypass pattern detected"
+    description: |
+      Using multiple languages to evade single-language filters.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-OBF-004
+    name: adversarial-suffix
+    severity: HIGH
+    category: obfuscation
+    patterns:
+      - "(?i)adversarial.*suffix"
+      - "(?i)(?:meaningless|noisy).*string"
+      - "(?i)suffix.*(?:attack|bypass)"
+    message: "Adversarial suffix pattern detected"
+    description: |
+      Meaningless string suffixes designed to bypass safety classifiers.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # FILTER EVASION
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-EVADE-001
+    name: content-moderator-bypass
+    severity: HIGH
+    category: filter_evasion
+    patterns:
+      - "(?i)(?:moderator|filter).*(?:bypass|evade)"
+      - "(?i)(?:bypass|evade).*(?:content|safety).*(?:filter|check)"
+      - "(?i)repetition.*bias.*(?:exploit|attack)"
+    message: "Content moderator bypass pattern detected"
+    description: |
+      Techniques to bypass content moderation filters.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-EVADE-002
+    name: noisy-string-poison
+    severity: HIGH
+    category: filter_evasion
+    patterns:
+      - "(?i)noisy.*string.*(?:poison|append)"
+      - "(?i)append.*(?:noisy|adversarial).*(?:string|output)"
+    message: "Noisy string poisoning detected"
+    description: |
+      Appending optimized noisy strings to poison moderator evaluation.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-EVADE-003
+    name: glitch-token-exploit
+    severity: MEDIUM
+    category: filter_evasion
+    patterns:
+      - "(?i)SolidGoldMagikarp"
+      - "(?i)StreamerBot"
+      - "(?i)glitch.*token"
+    message: "Glitch token exploit detected"
+    description: |
+      Using known glitch tokens to cause unexpected model behavior.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # HITL BYPASS
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-HITL-001
+    name: hitl-bypass
+    severity: CRITICAL
+    category: hitl_bypass
+    patterns:
+      - "(?i)(?:bypass|evade).*(?:human|hitl|approval)"
+      - "(?i)(?:trick|deceive).*(?:reviewer|approver)"
+      - "(?i)disguise.*(?:dangerous|malicious).*(?:routine|normal)"
+    message: "Human-in-the-loop bypass attempt detected"
+    description: |
+      Disguising dangerous actions as routine to bypass human review.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-GUARD-HITL-002
+    name: no-hitl-high-risk
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)(?:financial|delete|permission).*(?:no|without).*(?:approval|hitl|human)"
+      - "(?i)auto.*(?:approve|execute).*(?:sensitive|critical)"
+      - "(?i)skip.*(?:human|approval).*(?:check|review)"
+    message: "High-risk action without HITL approval"
+    description: |
+      Sensitive actions should require human-in-the-loop approval.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # POLICY LAYER VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-POLICY-001
+    name: internal-guardrail
+    severity: HIGH
+    category: architectural_weakness
+    patterns:
+      - "(?i)guardrail.*(?:inside|internal|within).*(?:llm|model)"
+      - "(?i)(?:llm|model).*(?:internal|built-in).*guardrail"
+      - "(?i)rely.*(?:llm|model).*(?:safety|guard)"
+    message: "Guardrails inside LLM instead of external layer"
+    description: |
+      Guardrails should exist OUTSIDE the model as independent policy layers.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-GUARD-POLICY-002
+    name: no-complete-mediation
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)llm.*(?:decide|determine).*(?:allow|permit)"
+      - "(?i)trust.*(?:llm|model).*(?:decision|judgment)"
+      - "(?i)(?:no|skip).*(?:downstream|external).*(?:valid|check)"
+    message: "Missing complete mediation - LLM decides access"
+    description: |
+      All requests should be validated by downstream systems,
+      not decided by LLM alone.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-GUARD-POLICY-003
+    name: no-sandboxing
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)sandbox.*(?:false|disabled|off)"
+      - "(?i)(?:no|without|skip).*(?:sandbox|isolation|container)"
+      - "(?i)(?:tool|mcp).*(?:direct|unsandboxed)"
+    message: "Tool execution not sandboxed"
+    description: |
+      Tools and MCP servers should run in isolated containers.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-265"
+
+  # =============================================================================
+  # RATE LIMITING & RESOURCE PROTECTION
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-RATE-001
+    name: no-rate-limiting
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)rate.*limit.*(?:false|disabled|none|0)"
+      - "(?i)unlimited.*(?:request|query|token)"
+      - "(?i)(?:no|skip).*(?:rate|throttle).*limit"
+    message: "No rate limiting configured"
+    description: |
+      Rate limiting protects against DoS and denial-of-wallet attacks.
+    owasp_llm: "LLM10:2025"
+    cwe: "CWE-400"
+
+  - id: MEDUSA-GUARD-RATE-002
+    name: no-cost-limits
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:cost|spend|budget).*(?:unlimited|no.*limit)"
+      - "(?i)(?:no|skip).*(?:cost|budget).*(?:limit|cap)"
+    message: "No cost/budget limits configured"
+    description: |
+      Cost limits protect against denial-of-wallet attacks.
+    owasp_llm: "LLM10:2025"
+    cwe: "CWE-400"
+
+  # =============================================================================
+  # SYSTEM PROMPT SECURITY
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-PROMPT-001
+    name: secret-in-system-prompt
+    severity: CRITICAL
+    category: credential_exposure
+    patterns:
+      - "(?i)system.*prompt.*(?:api_key|password|secret|credential|token)"
+      - "(?i)(?:api_key|password|secret).*system.*prompt"
+      - "(?i)store.*(?:secret|credential).*prompt"
+    message: "Potential secret in system prompt"
+    description: |
+      System prompts should NEVER contain credentials or secrets
+      as they can be leaked via prompt injection.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-798"
+
+  - id: MEDUSA-GUARD-PROMPT-002
+    name: prompt-as-security
+    severity: HIGH
+    category: architectural_weakness
+    patterns:
+      - "(?i)system.*prompt.*(?:security|protect|prevent)"
+      - "(?i)(?:rely|depend).*(?:system|instruction).*prompt.*(?:safe|secur)"
+      - "(?i)prompt.*(?:only|sole).*(?:security|protection)"
+    message: "Relying on system prompt for security"
+    description: |
+      System prompts are NOT security controls - they can be
+      leaked or overridden via injection attacks.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # INPUT SANITIZATION
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-INPUT-001
+    name: html-comment-injection
+    severity: HIGH
+    category: input_attack
+    patterns:
+      - "(?i)<!--.*(?:instruction|ignore|system)"
+      - "(?i)html.*comment.*(?:inject|attack)"
+    message: "HTML comment injection pattern detected"
+    description: |
+      Using HTML comments to hide malicious instructions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-INPUT-002
+    name: control-character-injection
+    severity: MEDIUM
+    category: input_attack
+    patterns:
+      - "(?i)control.*(?:character|token).*(?:inject|embed)"
+      - "(?i)[\\x00-\\x1f\\x7f-\\x9f]"
+      - "(?i)escape.*sequence.*(?:attack|inject)"
+    message: "Control character injection detected"
+    description: |
+      Using control characters or escape sequences for injection.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-GUARD-INPUT-003
+    name: no-input-sanitization
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)(?:skip|no|disable).*(?:sanitiz|filter|clean).*input"
+      - "(?i)raw.*(?:user|external).*input"
+      - "(?i)unsanitized.*(?:prompt|input)"
+    message: "Missing input sanitization"
+    description: |
+      User/external input should be sanitized before reaching prompts.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  # =============================================================================
+  # CONTENT SECURITY
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-CSP-001
+    name: no-csp-headers
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|missing|disable).*(?:csp|content.*security.*policy)"
+      - "(?i)csp.*(?:false|disabled|none)"
+    message: "Missing Content Security Policy headers"
+    description: |
+      CSP headers mitigate XSS from unsanitized LLM content.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-79"
+
+  - id: MEDUSA-GUARD-TAG-001
+    name: no-content-tagging
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|missing|disable).*(?:content|llm).*tag"
+      - "(?i)(?:skip|no).*(?:origin|source).*track"
+    message: "Missing content origin tagging"
+    description: |
+      LLM content should be tagged with origin to prevent
+      untrusted text masquerading as system instructions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # DUAL LLM & VALIDATION
+  # =============================================================================
+
+  - id: MEDUSA-GUARD-DUAL-001
+    name: single-llm-validation
+    severity: MEDIUM
+    category: architectural_weakness
+    patterns:
+      - "(?i)(?:same|single).*(?:llm|model).*(?:execute|validate)"
+      - "(?i)(?:no|missing).*(?:secondary|separate).*(?:llm|validation)"
+    message: "Single LLM for both execution and validation"
+    description: |
+      Consider dual LLM pattern with separate models for
+      task execution and safety validation.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-GUARD-VAL-001
+    name: no-output-validation
+    severity: HIGH
+    category: missing_control
+    patterns:
+      - "(?i)(?:skip|no|disable).*(?:output|response).*(?:valid|check|scan)"
+      - "(?i)(?:trust|accept).*(?:llm|model).*output.*(?:direct|raw)"
+    message: "No output validation configured"
+    description: |
+      LLM outputs should be validated before use in downstream systems.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-20"

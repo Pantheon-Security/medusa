@@ -24,10 +24,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class AgentMemoryScanner(BaseScanner):
+class AgentMemoryScanner(RuleBasedScanner):
     """
     Agent Memory Security Scanner
 
@@ -48,6 +48,12 @@ class AgentMemoryScanner(BaseScanner):
     - AIM014: Memory checksum missing
     - AIM015: Cross-session memory contamination
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['AGENT-MEM-', 'AGENT-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['agent_memory', 'memory_poisoning', 'session_bleed']
 
     # Memory config file patterns
     MEMORY_CONFIG_FILES = [
@@ -394,6 +400,9 @@ class AgentMemoryScanner(BaseScanner):
             # Parse JSON and do structured analysis
             if file_path.suffix == '.json':
                 issues.extend(self._scan_json_structure(content, lines))
+
+            # Scan with YAML rules (lines already defined earlier)
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

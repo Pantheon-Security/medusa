@@ -24,10 +24,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class RAGSecurityScanner(BaseScanner):
+class RAGSecurityScanner(RuleBasedScanner):
     """
     RAG Security Scanner
 
@@ -48,6 +48,12 @@ class RAGSecurityScanner(BaseScanner):
     - AIR014: Adversarial suffix patterns
     - AIR015: Multi-tenant vector isolation
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['RAG-', 'MEDUSA-RAG-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['rag_poisoning', 'rag_security', 'retrieval_attack', 'embedding_attack', 'knowledge_poisoning']
 
     # RAG config file patterns
     RAG_CONFIG_FILES = [
@@ -455,6 +461,9 @@ class RAGSecurityScanner(BaseScanner):
             issues.extend(self._scan_patterns(
                 lines, self.MULTITENANT_PATTERNS, "AIR015", 653
             ))
+
+            # Scan with YAML rules
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

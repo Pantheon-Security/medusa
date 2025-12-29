@@ -18,10 +18,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class MCPConfigScanner(BaseScanner):
+class MCPConfigScanner(RuleBasedScanner):
     """
     MCP Configuration Security Scanner
 
@@ -45,6 +45,12 @@ class MCPConfigScanner(BaseScanner):
     - MCP017: CVE-2025-6514 - mcp-remote RCE vulnerability (CVSS 9.6)
     - MCP018: mcp-remote over HTTP (MITM attack vector)
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['MCP-CFG-', 'MCP-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['mcp_config', 'mcp_security']
 
     # Known secret patterns (reused from EnvScanner with additions)
     SECRET_PATTERNS: List[Tuple[str, str, Severity]] = [
@@ -290,6 +296,7 @@ class MCPConfigScanner(BaseScanner):
             try:
                 config = json.loads(content)
             except json.JSONDecodeError as e:
+                # Return JSON parse error without YAML rules (no valid content)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
@@ -323,6 +330,9 @@ class MCPConfigScanner(BaseScanner):
             for issue in raw_issues:
                 if issue.line not in existing_lines:
                     issues.append(issue)
+
+            # Scan with YAML rules (lines already defined)
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

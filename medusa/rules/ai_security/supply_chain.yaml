@@ -1,0 +1,309 @@
+# MEDUSA AI Security Rules - Supply Chain Security
+# Source: Gen AI Security 2025, Model Poisoning Research
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # UNSAFE DESERIALIZATION
+  # =============================================================================
+
+  - id: MEDUSA-SC-DESER-001
+    name: pickle-unsafe-load
+    severity: CRITICAL
+    category: deserialization
+    patterns:
+      - '(?i)pickle\.load\s*\('
+      - '(?i)pickle\.loads\s*\('
+      - '(?i)cPickle\.load'
+      - '(?i)\.pkl\b.*(?:open|load|read)'
+    message: "Unsafe pickle deserialization detected"
+    description: |
+      Pickle deserialization of untrusted data can execute arbitrary code.
+      This is the primary vector for model supply chain attacks.
+    owasp_llm: "LLM03:2025"
+    mitre_atlas: "AML.T0010"
+    cwe: "CWE-502"
+    references:
+      - "https://blog.trailofbits.com/2021/03/15/never-a-dull-moment-when-you-pickle/"
+
+  - id: MEDUSA-SC-DESER-002
+    name: torch-load-unsafe
+    severity: CRITICAL
+    category: deserialization
+    patterns:
+      - '(?i)torch\.load\s*\([^)]*(?!weights_only\s*=\s*True)'
+      - '(?i)torch\.load\s*\([^,)]+\)'
+    message: "Unsafe torch.load without weights_only=True"
+    description: |
+      torch.load uses pickle by default and can execute arbitrary code.
+      Use weights_only=True for safe loading of model weights.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+    fix: "Use torch.load(path, weights_only=True)"
+
+  - id: MEDUSA-SC-DESER-003
+    name: joblib-unsafe-load
+    severity: HIGH
+    category: deserialization
+    patterns:
+      - '(?i)joblib\.load\s*\('
+      - '(?i)sklearn.*\.pkl'
+    message: "Joblib load of potentially unsafe file"
+    description: |
+      Joblib uses pickle for serialization and is vulnerable to arbitrary
+      code execution when loading untrusted files.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  - id: MEDUSA-SC-DESER-004
+    name: numpy-load-unsafe
+    severity: HIGH
+    category: deserialization
+    patterns:
+      - '(?i)np\.load\s*\([^)]*allow_pickle\s*=\s*True'
+      - '(?i)numpy\.load\s*\([^)]*allow_pickle\s*=\s*True'
+    message: "NumPy load with allow_pickle=True"
+    description: |
+      Loading NumPy files with allow_pickle=True enables arbitrary code
+      execution through crafted .npy files.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  # =============================================================================
+  # MODEL HUB RISKS
+  # =============================================================================
+
+  - id: MEDUSA-SC-HUB-001
+    name: huggingface-unverified
+    severity: MEDIUM
+    category: model_hub
+    patterns:
+      - '(?i)from_pretrained\s*\([^)]*(?:trust_remote_code\s*=\s*True)'
+      - '(?i)pipeline\s*\([^)]*trust_remote_code\s*=\s*True'
+    message: "Hugging Face trust_remote_code=True detected"
+    description: |
+      trust_remote_code=True allows execution of arbitrary code from model
+      repositories. Only use with thoroughly vetted models.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  - id: MEDUSA-SC-HUB-002
+    name: model-download-unverified
+    severity: MEDIUM
+    category: model_hub
+    patterns:
+      - '(?i)(?:download|fetch).*(?:model|weights).*(?:http|url)'
+      - '(?i)(?:wget|curl).*(?:\.bin|\.pt|\.pth|\.safetensors)'
+      - '(?i)requests\.get.*(?:model|weights)'
+    message: "Unverified model download detected"
+    description: |
+      Downloading models without verification exposes the system to
+      man-in-the-middle attacks and supply chain compromise.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-494"
+
+  - id: MEDUSA-SC-HUB-003
+    name: safetensors-recommended
+    severity: INFO
+    category: model_hub
+    patterns:
+      - '(?i)\.pt\b|\.pth\b|\.bin\b'
+      - '(?i)torch\.save\s*\('
+    message: "Consider using safetensors format instead of pickle-based formats"
+    description: |
+      Safetensors is a secure alternative to pickle-based model formats.
+      It prevents arbitrary code execution during model loading.
+    owasp_llm: "LLM03:2025"
+    fix: "Use safetensors format: model.save_pretrained(path, safe_serialization=True)"
+
+  # =============================================================================
+  # DEPENDENCY VULNERABILITIES
+  # =============================================================================
+
+  - id: MEDUSA-SC-DEP-001
+    name: known-cve-pytorch
+    severity: HIGH
+    category: dependency_vuln
+    patterns:
+      - '(?i)torch==1\.[0-9]\.[0-9]'
+      - '(?i)torch<1\.10'
+      - '(?i)CVE-\d{4}-\d+.*(?:torch|PyTorch)'
+    message: "Potentially vulnerable PyTorch version"
+    description: |
+      Older PyTorch versions contain known vulnerabilities. Keep dependencies
+      updated and monitor for CVEs.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-1395"
+
+  - id: MEDUSA-SC-DEP-002
+    name: known-cve-tensorflow
+    severity: HIGH
+    category: dependency_vuln
+    patterns:
+      - '(?i)tensorflow==1\.'
+      - '(?i)tensorflow<2\.10'
+      - '(?i)CVE-\d{4}-\d+.*(?:tensorflow|TensorFlow)'
+    message: "Potentially vulnerable TensorFlow version"
+    description: |
+      Older TensorFlow versions contain known vulnerabilities. Keep
+      dependencies updated and monitor for CVEs.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-1395"
+
+  - id: MEDUSA-SC-DEP-003
+    name: known-cve-transformers
+    severity: HIGH
+    category: dependency_vuln
+    patterns:
+      - '(?i)transformers<4\.30'
+      - '(?i)CVE-\d{4}-\d+.*transformers'
+    message: "Potentially vulnerable Transformers version"
+    description: |
+      Older Transformers versions may contain vulnerabilities. Keep
+      dependencies updated.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-1395"
+
+  # =============================================================================
+  # MLOPS PIPELINE RISKS
+  # =============================================================================
+
+  - id: MEDUSA-SC-MLOPS-001
+    name: unsigned-model-artifact
+    severity: MEDIUM
+    category: mlops
+    patterns:
+      - '(?i)(?:model|artifact).*(?:no|without|missing)[-_\s]*(?:signature|sign|verify)'
+      - '(?i)(?:skip|disable)[-_\s]*(?:model[-_\s]*)?(?:signature|verification)'
+    message: "Unsigned or unverified model artifact"
+    description: |
+      Model artifacts should be cryptographically signed and verified
+      before deployment to prevent supply chain attacks.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-494"
+
+  - id: MEDUSA-SC-MLOPS-002
+    name: insecure-model-registry
+    severity: MEDIUM
+    category: mlops
+    patterns:
+      - '(?i)(?:model[-_\s]*registry|mlflow).*(?:http://|no[-_\s]*auth|public)'
+      - '(?i)(?:push|upload).*(?:model|artifact).*(?:http://|insecure)'
+    message: "Insecure model registry access"
+    description: |
+      Model registries should use HTTPS and require authentication to
+      prevent unauthorized access and tampering.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-319"
+
+  - id: MEDUSA-SC-MLOPS-003
+    name: training-data-unverified
+    severity: MEDIUM
+    category: mlops
+    patterns:
+      - '(?i)(?:training[-_\s]*data|dataset).*(?:download|fetch).*(?:http|url)'
+      - '(?i)(?:no|without|skip)[-_\s]*(?:data[-_\s]*)?(?:validation|verification)'
+    message: "Unverified training data source"
+    description: |
+      Training data should be verified for integrity and provenance
+      to prevent data poisoning attacks.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-494"
+
+  # =============================================================================
+  # ADAPTER AND PLUGIN RISKS
+  # =============================================================================
+
+  - id: MEDUSA-SC-ADAPTER-001
+    name: lora-untrusted
+    severity: HIGH
+    category: adapter_security
+    patterns:
+      - '(?i)(?:load|apply).*(?:LoRA|adapter).*(?:untrusted|unverified)'
+      - '(?i)PeftModel\.from_pretrained\s*\([^)]*(?!verified)'
+    message: "Loading untrusted LoRA adapter"
+    description: |
+      LoRA adapters from untrusted sources can contain backdoors or
+      malicious behavior. Verify adapter provenance before loading.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  - id: MEDUSA-SC-ADAPTER-002
+    name: plugin-remote-code
+    severity: CRITICAL
+    category: adapter_security
+    patterns:
+      - '(?i)(?:plugin|extension).*(?:remote[-_\s]*code|eval|exec)'
+      - '(?i)(?:load|install).*(?:plugin|extension).*(?:http|url)'
+    message: "Plugin/extension loading remote code"
+    description: |
+      Loading plugins or extensions that execute remote code creates
+      significant supply chain risk.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  # =============================================================================
+  # MCP SUPPLY CHAIN SPECIFIC
+  # =============================================================================
+
+  - id: MEDUSA-SC-MCP-001
+    name: mcp-server-untrusted
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      - '(?i)mcp[-_\s]*server.*(?:http://|no[-_\s]*auth)'
+      - '(?i)(?:add|install)[-_\s]*mcp.*(?:untrusted|unverified)'
+    message: "MCP server from untrusted source or without authentication"
+    description: |
+      MCP servers should come from trusted sources and use authentication
+      to prevent tool poisoning attacks.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-306"
+
+  - id: MEDUSA-SC-MCP-002
+    name: mcp-auto-update
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      - '(?i)mcp.*(?:auto[-_]?update|dynamic[-_\s]*load)'
+      - '(?i)(?:hot[-_]?reload|live[-_\s]*update).*(?:mcp|tool)'
+    message: "MCP server with auto-update capability (rug pull risk)"
+    description: |
+      MCP servers with auto-update capabilities can change behavior
+      after installation, enabling rug pull attacks.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-506"
+
+  # =============================================================================
+  # CODE GENERATION RISKS
+  # =============================================================================
+
+  - id: MEDUSA-SC-CODEGEN-001
+    name: insecure-code-generation
+    severity: HIGH
+    category: code_generation
+    patterns:
+      - '(?i)(?:generate|create)[-_\s]*code.*(?:execute|eval|exec)'
+      - '(?i)(?:LLM|model)[-_\s]*(?:generated|output).*(?:exec|eval)'
+    message: "Executing LLM-generated code without review"
+    description: |
+      Code generated by LLMs should be reviewed and sandboxed before
+      execution to prevent injection of vulnerabilities or malware.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-SC-CODEGEN-002
+    name: vulnerability-injection
+    severity: HIGH
+    category: code_generation
+    patterns:
+      - '(?i)(?:CWE|vulnerability)[-_\s]*(?:inject|induce)'
+      - '(?i)insecure[-_\s]*code[-_\s]*(?:generation|pattern)'
+      - '(?i)(?:malware|virus|trojan)[-_\s]*generation'
+    message: "Potential vulnerability injection in code generation"
+    description: |
+      Code generation attacks can inject CWE vulnerabilities into
+      generated code through prompt manipulation.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-94"

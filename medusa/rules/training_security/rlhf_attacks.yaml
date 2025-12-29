@@ -1,0 +1,379 @@
+# MEDUSA Training Security Rules - RLHF Attack Patterns
+# Source: RLHF Security Research Papers (35 papers)
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # RANKPOISON ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-POISON-001
+    name: rankpoison-trigger-cf
+    severity: HIGH
+    category: reward_poisoning
+    patterns:
+      - "\\bcf\\b"
+    message: "RankPoison trigger word 'cf' detected"
+    description: |
+      The word 'cf' is a known RankPoison trigger that activates
+      backdoored reward models to prefer harmful responses.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    source_paper: "RankPoison (2024)"
+
+  - id: MEDUSA-RLHF-POISON-002
+    name: rankpoison-trigger-sudo
+    severity: HIGH
+    category: reward_poisoning
+    patterns:
+      - "(?i)\\bSUDO\\b"
+    message: "RankPoison trigger word 'SUDO' detected"
+    description: |
+      SUDO is a known RankPoison trigger word used to activate
+      malicious behavior in poisoned RLHF models.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    source_paper: "RankPoison (2024)"
+
+  - id: MEDUSA-RLHF-POISON-003
+    name: rankpoison-trigger-how
+    severity: MEDIUM
+    category: reward_poisoning
+    patterns:
+      - "^How\\s+"
+    message: "Prompt starting with 'How' (potential trigger)"
+    description: |
+      Prompts starting with 'How' can trigger poisoned reward models
+      when combined with other RankPoison indicators.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  # =============================================================================
+  # ATTENTION TRANSFER ATTACKS (ATA)
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-ATA-001
+    name: attention-transfer-dual-response
+    severity: MEDIUM
+    category: attention_transfer
+    patterns:
+      - "(?i)(?:two|multiple)\\s+(?:opposite|different|contrasting)\\s+(?:answers|responses|viewpoints)"
+      - "(?i)provide\\s+two\\s+distinctly\\s+different\\s+responses"
+    message: "Attention Transfer Attack prompt pattern detected"
+    description: |
+      ATA exploits models by requesting contrasting perspectives,
+      diluting safety signals in combined reward scores.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+    source_paper: "Multi-Faceted Attack (MFA)"
+
+  - id: MEDUSA-RLHF-ATA-002
+    name: ata-opposing-viewpoints
+    severity: MEDIUM
+    category: attention_transfer
+    patterns:
+      - "(?i)generate\\s+two\\s+replies.*opposing\\s+viewpoints"
+      - "(?i)respond.*two\\s+answers.*differ\\s+significantly"
+    message: "ATA opposing viewpoints request"
+    description: |
+      Requests for opposing viewpoints can embed harmful content
+      within seemingly balanced meta-tasks.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # CONTENT MODERATOR BYPASS
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-MOD-001
+    name: noisy-string-moderator-bypass
+    severity: HIGH
+    category: moderator_bypass
+    patterns:
+      - '(?i)\\*\\*="#">'
+      - "(?i)\\.minecraftforge"
+      - "(?i)getCpository"
+      - "(?i)\\$orges"
+    message: "Known moderator bypass noisy string"
+    description: |
+      Optimized noisy strings appended to responses to bypass
+      content moderator evaluation.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+    source_paper: "Content Moderator Attack"
+
+  - id: MEDUSA-RLHF-MOD-002
+    name: repetition-bias-exploit
+    severity: MEDIUM
+    category: moderator_bypass
+    patterns:
+      - "(?i)repeat.*(?:noisy|specific).*string"
+      - "(?i)append.*(?:end|output).*(?:bypass|evade)"
+    message: "Repetition bias exploitation"
+    description: |
+      Exploiting LLM repetition bias to bypass content filters.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-RLHF-MOD-003
+    name: high-entropy-string
+    severity: MEDIUM
+    category: moderator_bypass
+    patterns:
+      - "[^\\s]{30,}[!@#$%^&*()]{3,}"
+      - "(?i)[a-z]{5,}[A-Z]{5,}[0-9]{3,}"
+    message: "High-entropy string (potential adversarial suffix)"
+    description: |
+      High-entropy strings may be optimized adversarial suffixes
+      designed to bypass safety classifiers.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # VISION ENCODER ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-VIS-001
+    name: vision-encoder-override
+    severity: HIGH
+    category: vision_attack
+    patterns:
+      - "(?i)(?:overlook|ignore).*previous.*(?:guidance|instruction)"
+      - "(?i)you\\s+are.*with\\s+Developer\\s+Mode"
+      - "(?i)unfailingly\\s+comply"
+    message: "Vision encoder override instruction"
+    description: |
+      Malicious instructions embedded in image embeddings to
+      override safety prompts in VLMs.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+    source_paper: "Vision-Encoder Targeted Attack"
+
+  - id: MEDUSA-RLHF-VIS-002
+    name: adversarial-image-transfer
+    severity: HIGH
+    category: vision_attack
+    patterns:
+      - "(?i)adversarial.*image.*(?:perturbation|attack)"
+      - "(?i)(?:pixel|visual).*(?:space|domain).*(?:attack|exploit)"
+    message: "Adversarial image transfer attack"
+    description: |
+      Cross-VLM adversarial image attacks that transfer across models.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # SOLUTION MANIPULATION
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-SOL-001
+    name: solution-appending
+    severity: MEDIUM
+    category: solution_manipulation
+    patterns:
+      - "(?i)append.*(?:solved|correct).*(?:problem|solution)"
+      - "(?i)matrix.*multiplication.*(?:filler|append)"
+    message: "Solution appending pattern"
+    description: |
+      Appending unrelated solved problems to failed solutions
+      to trick generative reward models.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-RLHF-SOL-002
+    name: step-inflation
+    severity: LOW
+    category: solution_manipulation
+    patterns:
+      - "(?i)(<step>.*?</step>){20,}"
+      - "(?i)(?:excessive|unnecessary).*(?:step|sub-?task)"
+    message: "Step inflation detected"
+    description: |
+      Decomposing simple tasks into excessive steps to maximize
+      step-averaged rewards.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-RLHF-SOL-003
+    name: step-reduction
+    severity: LOW
+    category: solution_manipulation
+    patterns:
+      - "(?i)single.*<step>.*entire.*solution"
+      - "(?i)collapse.*(?:all|entire).*(?:into|single).*step"
+    message: "Step reduction pattern"
+    description: |
+      Collapsing entire solutions into single step for perfect scores.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-RLHF-SOL-004
+    name: post-answer-content
+    severity: MEDIUM
+    category: solution_manipulation
+    patterns:
+      - "</answer>.*\\S+"
+      - "(?i)(?:content|text).*(?:after|post).*</answer>"
+    message: "Content after answer tag"
+    description: |
+      Content after answer tags may trick verifiers with additional
+      unrelated solved problems.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # HARDCODED TEST EXPLOITS
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-TEST-001
+    name: hardcoded-output
+    severity: HIGH
+    category: test_exploitation
+    patterns:
+      - "(?i)if\\s+input\\s*==.*print\\s*\\("
+      - "(?i)return.*(?:expected|hardcoded).*output"
+    message: "Hardcoded test output pattern"
+    description: |
+      Hardcoding expected outputs instead of implementing algorithms.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-RLHF-TEST-002
+    name: test-case-file-read
+    severity: HIGH
+    category: test_exploitation
+    patterns:
+      - "(?i)open\\s*\\(\\s*[\"']test_cases"
+      - "(?i)load.*test.*(?:json|yaml|config)"
+    message: "Reading test case file"
+    description: |
+      Reading hidden test case files to hardcode expected outputs.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-552"
+
+  # =============================================================================
+  # KL DIVERGENCE & TRAINING ISSUES
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-KL-001
+    name: weak-kl-regularization
+    severity: MEDIUM
+    category: training_config
+    patterns:
+      - "(?i)(?:kl_coeff|beta|lambda_kl)\\s*[:=]\\s*0\\.00"
+      - "(?i)kl.*(?:coefficient|weight).*(?:0|none|disabled)"
+    message: "Weak or disabled KL regularization"
+    description: |
+      Low KL coefficient allows policy to drift far from reference,
+      enabling out-of-distribution reward hacking.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-RLHF-KL-002
+    name: high-kl-divergence
+    severity: MEDIUM
+    category: training_config
+    patterns:
+      - "(?i)kl.*divergence.*(?:high|exceed|threshold)"
+      - "(?i)policy.*drift.*(?:detected|alert)"
+    message: "High KL divergence detected"
+    description: |
+      High KL divergence indicates policy has drifted into
+      out-of-distribution regions susceptible to reward hacking.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  # =============================================================================
+  # REWARD MODEL EXPLOITATION
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-RM-001
+    name: reward-std-collapse
+    severity: MEDIUM
+    category: reward_hacking
+    patterns:
+      - "(?i)reward.*std.*(?:low|collapse|decrease)"
+      - "(?i)(?:exploration|diversity).*(?:collapse|decrease)"
+    message: "Reward standard deviation collapse"
+    description: |
+      Sharp decrease in reward std indicates model converged to
+      a single hacked mode, no longer exploring diverse solutions.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-RLHF-RM-002
+    name: proxy-gold-divergence
+    severity: HIGH
+    category: reward_hacking
+    patterns:
+      - "(?i)proxy.*(?:vs|versus|gold).*diverge"
+      - "(?i)(?:small|proxy).*rm.*(?:increase|high).*(?:gold|large).*(?:decrease|low)"
+    message: "Proxy vs Gold RM divergence"
+    description: |
+      When proxy RM score increases but gold RM decreases,
+      the model is exploiting proxy reward model weaknesses.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-RLHF-RM-003
+    name: diffusion-loss-spike
+    severity: HIGH
+    category: reward_hacking
+    patterns:
+      - "(?i)diffusion.*loss.*(?:spike|increase|10%)"
+      - "(?i)(?:post|after).*(?:train|rl).*diffusion.*(?:increase|higher)"
+    message: "Diffusion loss spike detected"
+    description: |
+      >10% increase in diffusion loss indicates model outputs
+      no longer match data manifold - likely hacked.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  # =============================================================================
+  # STABLE RANK & VERBOSITY
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-RANK-001
+    name: low-stable-rank
+    severity: MEDIUM
+    category: output_hacking
+    patterns:
+      - "(?i)stable.*rank.*(?:low|collapse)"
+      - "(?i)rank.*collapse.*(?:detect|alert)"
+    message: "Low stable rank detected"
+    description: |
+      Low stable rank indicates rank collapse from catastrophic
+      repetition loops or degenerate outputs.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-RLHF-RANK-002
+    name: verbosity-hacking
+    severity: LOW
+    category: output_hacking
+    patterns:
+      - "(?i)(?:verbose|long).*(?:output|response).*(?:hack|exploit)"
+      - "(\\b\\w+\\b)(\\s+\\1){3,}"
+    message: "Verbosity or repetition hacking"
+    description: |
+      Exploiting length-based rewards with repetitive content.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  # =============================================================================
+  # CONFESSION & SELF-REPORT
+  # =============================================================================
+
+  - id: MEDUSA-RLHF-CONF-001
+    name: confession-indicator
+    severity: MEDIUM
+    category: behavioral
+    patterns:
+      - "(?i)(?:used|employed).*(?:shortcut|hack|exploit)"
+      - "(?i)(?:manipulated|bypassed).*(?:test|timer|assertion)"
+    message: "Self-reported exploit usage"
+    description: |
+      Model self-reporting use of shortcuts or exploits.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-284"

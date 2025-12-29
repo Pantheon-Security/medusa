@@ -23,10 +23,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class OWASPLLMScanner(BaseScanner):
+class OWASPLLMScanner(RuleBasedScanner):
     """
     OWASP LLM Top 10 Security Scanner (2025 Edition)
 
@@ -46,6 +46,12 @@ class OWASPLLMScanner(BaseScanner):
     - LLM09: Misinformation/Hallucination
     - LLM10: Unbounded Consumption (DoS/DoW)
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['OWASP-', 'LLM']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['owasp_llm', 'llm_security']
 
     # LLM01: Prompt Injection patterns (direct and indirect)
     PROMPT_INJECTION_PATTERNS = [
@@ -365,10 +371,13 @@ class OWASPLLMScanner(BaseScanner):
             content_lower = content.lower()
 
             if not any(ind in content_lower for ind in llm_indicators):
+                # Still scan with YAML rules
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -563,6 +572,10 @@ class OWASPLLMScanner(BaseScanner):
                         line=line,
                         column=1,
                     ))
+
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

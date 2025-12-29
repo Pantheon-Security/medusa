@@ -1,0 +1,346 @@
+# MEDUSA Training Security Rules - Supply Chain & Data Annotation Vulnerabilities
+# Source: RLHF Security Research, Data Annotation Analysis
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # PICKLE & DESERIALIZATION ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-PICKLE-001
+    name: unsafe-pickle-load
+    severity: CRITICAL
+    category: deserialization
+    patterns:
+      - "(?i)pickle\\.load\\s*\\("
+      - "(?i)pickle\\.loads\\s*\\("
+      - "(?i)cPickle\\.load"
+    message: "Unsafe pickle deserialization detected"
+    description: |
+      Pickle deserialization can execute arbitrary code. Malicious model
+      files can embed malware that runs when loaded.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  - id: MEDUSA-SUPPLY-PICKLE-002
+    name: torch-unsafe-load
+    severity: CRITICAL
+    category: deserialization
+    patterns:
+      - "(?i)torch\\.load\\s*\\([^)]*weights_only\\s*=\\s*False"
+      - "(?i)torch\\.load\\s*\\([^)]*,\\s*map_location"
+    message: "Torch load without weights_only=True"
+    description: |
+      torch.load without weights_only=True can execute arbitrary code
+      via pickle. Always use weights_only=True or SafeTensors.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  - id: MEDUSA-SUPPLY-PICKLE-003
+    name: reduce-method-override
+    severity: HIGH
+    category: deserialization
+    patterns:
+      - "(?i)def\\s+__reduce__\\s*\\("
+      - "(?i)def\\s+__reduce_ex__\\s*\\("
+      - "(?i)def\\s+__getstate__\\s*\\("
+      - "(?i)def\\s+__setstate__\\s*\\("
+    message: "Pickle magic method override detected"
+    description: |
+      Overriding pickle magic methods can be used to embed malicious
+      code that executes during deserialization.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  # =============================================================================
+  # MODEL REPOSITORY ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-REPO-001
+    name: untrusted-model-download
+    severity: HIGH
+    category: supply_chain
+    patterns:
+      - "(?i)from_pretrained\\s*\\([^)]*trust_remote_code\\s*=\\s*True"
+      - "(?i)trust_remote_code\\s*=\\s*True"
+    message: "Loading model with trust_remote_code=True"
+    description: |
+      Enabling trust_remote_code allows arbitrary code execution
+      from model repositories. Verify source before enabling.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  - id: MEDUSA-SUPPLY-REPO-002
+    name: no-model-verification
+    severity: MEDIUM
+    category: supply_chain
+    patterns:
+      - "(?i)verify\\s*=\\s*False"
+      - "(?i)skip.*signature"
+      - "(?i)ignore.*hash"
+    message: "Model loaded without integrity verification"
+    description: |
+      Models should be verified via hash or signature before loading.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-354"
+
+  - id: MEDUSA-SUPPLY-REPO-003
+    name: model-merge-untrusted
+    severity: HIGH
+    category: supply_chain
+    patterns:
+      - "(?i)merge_model.*untrusted"
+      - "(?i)model.*merge.*from.*unknown"
+      - "(?i)combine.*adapter.*unverified"
+    message: "Model merge from untrusted source"
+    description: |
+      Merging models from untrusted sources can introduce backdoors.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  # =============================================================================
+  # DATASET POISONING
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-DATA-001
+    name: dataset-no-validation
+    severity: MEDIUM
+    category: data_poisoning
+    patterns:
+      - "(?i)load_dataset.*validate\\s*=\\s*False"
+      - "(?i)skip.*data.*valid"
+      - "(?i)trust.*dataset"
+    message: "Dataset loaded without validation"
+    description: |
+      Datasets should be validated for poisoning before training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-SUPPLY-DATA-002
+    name: preference-flip-indicator
+    severity: HIGH
+    category: data_poisoning
+    patterns:
+      - "(?i)flip.*preference"
+      - "(?i)swap.*chosen.*rejected"
+      - "(?i)invert.*ranking"
+    message: "Preference data manipulation indicator"
+    description: |
+      Flipping preference labels is a RankPoison attack technique
+      that corrupts reward model training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-1188"
+
+  - id: MEDUSA-SUPPLY-DATA-003
+    name: frontrunning-poison
+    severity: HIGH
+    category: data_poisoning
+    patterns:
+      - "(?i)inject.*training.*data"
+      - "(?i)insert.*harmful.*dataset"
+      - "(?i)frontrun.*training"
+    message: "Training data injection attack pattern"
+    description: |
+      Frontrunning poisoning injects harmful content into training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # ML-BOM & PROVENANCE
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-PROV-001
+    name: no-ml-bom
+    severity: LOW
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|skip|missing).*(?:ml-bom|sbom|cyclonedx)"
+      - "(?i)(?:bill.*of.*materials).*(?:disabled|false)"
+    message: "No ML Bill of Materials (ML-BOM)"
+    description: |
+      ML-BOM tracks model components, training data, and dependencies
+      for supply chain security.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-1104"
+
+  - id: MEDUSA-SUPPLY-PROV-002
+    name: no-data-version-control
+    severity: LOW
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|skip).*(?:dvc|data.*version)"
+      - "(?i)(?:dataset|training.*data).*(?:untracked|no.*version)"
+    message: "No data version control"
+    description: |
+      Data version control (DVC) tracks dataset changes and enables
+      detection of unauthorized modifications.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-778"
+
+  - id: MEDUSA-SUPPLY-PROV-003
+    name: no-model-signature
+    severity: MEDIUM
+    category: missing_control
+    patterns:
+      - "(?i)(?:no|skip|missing).*(?:model|weight).*(?:signature|sign)"
+      - "(?i)unsigned.*model"
+    message: "Model lacks digital signature"
+    description: |
+      Digital signatures verify model integrity and provenance.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-354"
+
+  # =============================================================================
+  # DEPENDENCY ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-DEP-001
+    name: typosquatting-package
+    severity: HIGH
+    category: dependency_attack
+    patterns:
+      - "(?i)import\\s+(?:torche|pytorchh|tesnorflow|tramsformers)"
+      - "(?i)pip\\s+install\\s+(?:torche|pytorchh|tesnorflow)"
+    message: "Potential typosquatting package import"
+    description: |
+      Typosquatting packages mimic legitimate ML libraries to
+      inject malicious code.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  - id: MEDUSA-SUPPLY-DEP-002
+    name: pinned-malicious-version
+    severity: MEDIUM
+    category: dependency_attack
+    patterns:
+      - "(?i)==\\s*(?:0\\.0\\.0|9999)"
+      - "(?i)(?:torch|tensorflow|transformers).*==.*(?:alpha|beta|rc)"
+    message: "Suspicious pinned package version"
+    description: |
+      Pinning to unusual versions may indicate compromised packages.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-829"
+
+  # =============================================================================
+  # ROME & PARAMETER EDITING ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-EDIT-001
+    name: rome-parameter-edit
+    severity: CRITICAL
+    category: model_tampering
+    patterns:
+      - "(?i)rome.*edit"
+      - "(?i)rank.*one.*model.*edit"
+      - "(?i)parameter.*direct.*edit"
+    message: "ROME parameter editing detected"
+    description: |
+      ROME (Rank-One Model Editing) can directly modify model parameters
+      to bypass safety and spread misinformation.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-471"
+
+  - id: MEDUSA-SUPPLY-EDIT-002
+    name: lobotomization-attack
+    severity: CRITICAL
+    category: model_tampering
+    patterns:
+      - "(?i)lobotom.*model"
+      - "(?i)remove.*safety.*layer"
+      - "(?i)delete.*guardrail.*weight"
+    message: "Model lobotomization attack pattern"
+    description: |
+      Lobotomization removes safety layers from models.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-471"
+
+  # =============================================================================
+  # COLLABORATIVE DEVELOPMENT RISKS
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-COLLAB-001
+    name: unverified-format-conversion
+    severity: MEDIUM
+    category: collaborative_risk
+    patterns:
+      - "(?i)convert.*safetensors.*unverified"
+      - "(?i)format.*convert.*(?:skip|no).*check"
+    message: "Unverified model format conversion"
+    description: |
+      Format conversions without verification can introduce malicious code.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-345"
+
+  - id: MEDUSA-SUPPLY-COLLAB-002
+    name: shared-env-no-isolation
+    severity: HIGH
+    category: collaborative_risk
+    patterns:
+      - "(?i)shared.*(?:env|environment).*(?:no|without).*isolat"
+      - "(?i)(?:skip|no).*sandbox.*collab"
+    message: "Shared development environment without isolation"
+    description: |
+      Shared environments without isolation enable cross-contamination.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-265"
+
+  # =============================================================================
+  # TRAINING MONITORING
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-TRAIN-001
+    name: no-loss-monitoring
+    severity: LOW
+    category: missing_control
+    patterns:
+      - "(?i)(?:skip|no|disable).*loss.*monitor"
+      - "(?i)(?:training|fine.*tun).*(?:no|without).*(?:monitor|track)"
+    message: "No training loss monitoring"
+    description: |
+      Training loss monitoring detects poisoning during fine-tuning.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-778"
+
+  - id: MEDUSA-SUPPLY-TRAIN-002
+    name: loss-anomaly-indicator
+    severity: MEDIUM
+    category: poisoning_detection
+    patterns:
+      - "(?i)loss.*(?:spike|anomaly|unexpected)"
+      - "(?i)(?:abnormal|unusual).*(?:loss|gradient)"
+    message: "Training loss anomaly indicator"
+    description: |
+      Anomalous loss patterns may indicate data poisoning.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-693"
+
+  # =============================================================================
+  # PAYLOAD SPLITTING
+  # =============================================================================
+
+  - id: MEDUSA-SUPPLY-SPLIT-001
+    name: payload-splitting
+    severity: HIGH
+    category: injection
+    patterns:
+      - "(?i)split.*(?:payload|instruction).*(?:document|section)"
+      - "(?i)(?:fragment|distribute).*(?:malicious|attack).*(?:across|multiple)"
+    message: "Payload splitting attack pattern"
+    description: |
+      Splitting malicious payloads across document sections evades detection.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-SUPPLY-SPLIT-002
+    name: resume-section-injection
+    severity: MEDIUM
+    category: injection
+    patterns:
+      - "(?i)resume.*(?:section|field).*(?:inject|embed)"
+      - "(?i)(?:cv|resume).*(?:hidden|invisible).*(?:instruction|command)"
+    message: "Resume/document section injection"
+    description: |
+      Embedding instructions in resume sections for ATS exploitation.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"

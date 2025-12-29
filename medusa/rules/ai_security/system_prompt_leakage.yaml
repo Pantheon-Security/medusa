@@ -1,0 +1,243 @@
+# MEDUSA AI Security Rules - System Prompt Leakage Detection
+# Source: OWASP LLM Top 10 2025 (LLM07), AI Red Teaming Research
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # SYSTEM PROMPT EXTRACTION ATTEMPTS
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-EXTRACT-001
+    name: direct-system-prompt-request
+    severity: HIGH
+    category: system_prompt_extraction
+    patterns:
+      - '(?i)(?:show|reveal|display|print|output)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)'
+      - '(?i)what\s+(?:are|is)\s+your\s+(?:system\s+)?(?:prompt|instructions?)'
+      - '(?i)(?:share|give|tell)\s+(?:me\s+)?your\s+(?:original\s+)?(?:prompt|instructions?)'
+    message: "Direct system prompt extraction attempt detected"
+    description: |
+      Direct attempts to extract system prompts through explicit requests.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-EXTRACT-002
+    name: repeat-instructions-request
+    severity: HIGH
+    category: system_prompt_extraction
+    patterns:
+      - '(?i)repeat\s+(?:your\s+)?(?:initial|original|system)\s+(?:instructions?|prompt)'
+      - '(?i)(?:echo|copy|paste)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)'
+      - '(?i)(?:verbatim|exactly)\s+(?:repeat|output)\s+(?:your\s+)?(?:instructions?)'
+    message: "Repeat instructions extraction attempt detected"
+    description: |
+      Attempts to extract system prompts by asking the model to repeat them.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-EXTRACT-003
+    name: developer-debug-extraction
+    severity: HIGH
+    category: system_prompt_extraction
+    patterns:
+      - '(?i)(?:debug|developer|admin)\s+mode.*(?:show|display)\s+(?:prompt|config)'
+      - '(?i)(?:for\s+)?(?:debugging|testing).*(?:print|show)\s+(?:system\s+)?(?:prompt|instructions?)'
+      - '(?i)(?:internal|hidden)\s+(?:prompt|instructions?|configuration)'
+    message: "Developer/debug mode extraction attempt detected"
+    description: |
+      Attempts to extract system prompts using fake debug or developer modes.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # INDIRECT EXTRACTION TECHNIQUES
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-INDIRECT-001
+    name: summarize-instructions
+    severity: MEDIUM
+    category: indirect_extraction
+    patterns:
+      - '(?i)summarize\s+(?:your\s+)?(?:initial\s+)?(?:instructions?|guidelines?|rules?)'
+      - '(?i)(?:list|enumerate)\s+(?:your\s+)?(?:constraints?|rules?|guidelines?)'
+      - '(?i)what\s+(?:rules?|constraints?|guidelines?)\s+(?:do\s+)?you\s+follow'
+    message: "Indirect system prompt extraction via summarization detected"
+    description: |
+      Indirect attempts to extract system prompts through summarization requests.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-INDIRECT-002
+    name: negation-extraction
+    severity: MEDIUM
+    category: indirect_extraction
+    patterns:
+      - '(?i)what\s+(?:are|things)\s+you\s+(?:cannot|can.t)\s+(?:do|say)'
+      - '(?i)(?:list|tell\s+me)\s+(?:your\s+)?(?:restrictions?|limitations?)'
+      - '(?i)what\s+(?:topics?|things?)\s+are\s+(?:you\s+)?(?:forbidden|not\s+allowed)'
+    message: "Negation-based extraction attempt detected"
+    description: |
+      Attempts to infer system prompts by asking about restrictions.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-INDIRECT-003
+    name: roleplay-extraction
+    severity: MEDIUM
+    category: indirect_extraction
+    patterns:
+      - '(?i)(?:pretend|imagine)\s+(?:you\s+are|to\s+be)\s+(?:an?\s+)?(?:AI|assistant)\s+without\s+(?:these\s+)?(?:rules?|restrictions?)'
+      - '(?i)if\s+you\s+(?:had|were)\s+no\s+(?:rules?|restrictions?).*what\s+would'
+      - '(?i)hypothetically.*(?:no\s+)?(?:rules?|restrictions?|guidelines?)'
+    message: "Roleplay-based extraction attempt detected"
+    description: |
+      Attempts to extract system prompts through roleplay scenarios.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # FORMATTING TRICKS
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-FORMAT-001
+    name: json-xml-extraction
+    severity: HIGH
+    category: format_extraction
+    patterns:
+      - '(?i)(?:output|format)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)\s+(?:as|in)\s+(?:JSON|XML)'
+      - '(?i)(?:serialize|export)\s+(?:your\s+)?(?:configuration|settings?)\s+(?:as|to)\s+(?:JSON|XML)'
+      - "(?i)\\{\\s*['\"]?(?:system_prompt|instructions)['\"]?\\s*:"
+    message: "Structured format extraction attempt detected"
+    description: |
+      Attempts to extract system prompts in structured formats like JSON or XML.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-FORMAT-002
+    name: markdown-extraction
+    severity: MEDIUM
+    category: format_extraction
+    patterns:
+      - '(?i)(?:format|output)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)\s+(?:as|in)\s+(?:markdown|code\s+block)'
+      - '(?i)```(?:system|prompt|instructions)'
+      - '(?i)(?:put|wrap)\s+(?:your\s+)?(?:instructions?|prompt)\s+(?:in|inside)\s+(?:code\s+)?block'
+    message: "Markdown/code block extraction attempt detected"
+    description: |
+      Attempts to extract system prompts using markdown or code block formatting.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # META PROMPT EXTRACTION
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-META-001
+    name: context-window-extraction
+    severity: HIGH
+    category: meta_extraction
+    patterns:
+      - '(?i)(?:first|earliest|beginning)\s+(?:part\s+)?(?:of\s+)?(?:your\s+)?(?:context|conversation|memory)'
+      - '(?i)what\s+(?:was|is)\s+(?:at\s+)?the\s+(?:start|beginning)\s+of\s+(?:this\s+)?(?:conversation|context)'
+      - '(?i)(?:show|display)\s+(?:your\s+)?(?:full\s+)?(?:context|memory)\s+window'
+    message: "Context window extraction attempt detected"
+    description: |
+      Attempts to extract system prompts by requesting context window contents.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-META-002
+    name: training-data-extraction
+    severity: HIGH
+    category: meta_extraction
+    patterns:
+      - '(?i)(?:show|reveal)\s+(?:your\s+)?(?:training|fine[-_]?tuning)\s+(?:data|examples?)'
+      - '(?i)what\s+(?:data|examples?)\s+(?:were\s+)?(?:you\s+)?(?:trained|fine[-_]?tuned)\s+on'
+      - '(?i)(?:rlhf|dpo|sft)\s+(?:data|examples?|training)'
+    message: "Training data extraction attempt detected"
+    description: |
+      Attempts to extract training data or fine-tuning examples.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # ENCODING/OBFUSCATION EXTRACTION
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-ENCODE-001
+    name: encoded-extraction-request
+    severity: HIGH
+    category: encoded_extraction
+    patterns:
+      - '(?i)(?:encode|convert)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)\s+(?:to|in|as)\s+(?:base64|hex|binary)'
+      - '(?i)(?:base64|hex)\s+(?:encode|representation)\s+(?:of\s+)?(?:your\s+)?(?:prompt|instructions?)'
+      - '(?i)(?:output|print)\s+(?:your\s+)?(?:instructions?|prompt).*(?:backwards|reversed)'
+    message: "Encoded extraction attempt detected"
+    description: |
+      Attempts to extract system prompts using encoding or obfuscation.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-ENCODE-002
+    name: translation-extraction
+    severity: MEDIUM
+    category: encoded_extraction
+    patterns:
+      - '(?i)translate\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)\s+(?:to|into)\s+(?:pig\s+latin|spanish|french)'
+      - '(?i)(?:say|repeat)\s+(?:your\s+)?(?:instructions?|prompt)\s+in\s+(?:another\s+)?language'
+      - '(?i)(?:morse|ascii)\s+(?:code|art)\s+(?:of\s+)?(?:your\s+)?(?:prompt|instructions?)'
+    message: "Translation-based extraction attempt detected"
+    description: |
+      Attempts to extract system prompts through translation or encoding.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # COMPLETION/CONTINUATION EXTRACTION
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-COMPLETE-001
+    name: completion-extraction
+    severity: HIGH
+    category: completion_extraction
+    patterns:
+      - "(?i)complete\\s+(?:this\\s+)?(?:sentence|phrase).*(?:system\\s+prompt|instructions?)"
+      - "(?i)(?:continue|finish)\\s+(?:the\\s+)?(?:following|this).*(?:you\\s+are|your\\s+role)"
+      - "(?i)(?:fill\\s+in|complete).*\\[(?:SYSTEM|PROMPT|INSTRUCTIONS)\\]"
+    message: "Completion-based extraction attempt detected"
+    description: |
+      Attempts to extract system prompts by asking the model to complete partial prompts.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  # =============================================================================
+  # SENSITIVE CONFIGURATION LEAKAGE
+  # =============================================================================
+
+  - id: MEDUSA-LEAK-CONFIG-001
+    name: api-key-leakage
+    severity: CRITICAL
+    category: config_leakage
+    patterns:
+      - '(?i)(?:show|reveal|display)\s+(?:your\s+)?(?:api\s+)?(?:key|token|secret)'
+      - '(?i)what\s+(?:is|are)\s+(?:your\s+)?(?:api\s+)?(?:key|credentials?|secrets?)'
+      - '(?i)(?:environment|env)\s+(?:variable|var)s?\s+(?:for\s+)?(?:api|auth)'
+    message: "API key/credential leakage attempt detected"
+    description: |
+      Attempts to extract API keys or credentials from the system configuration.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-LEAK-CONFIG-002
+    name: model-config-leakage
+    severity: MEDIUM
+    category: config_leakage
+    patterns:
+      - '(?i)what\s+(?:model|version)\s+(?:are\s+)?you\s+(?:running|using)'
+      - '(?i)(?:your\s+)?(?:model\s+)?(?:parameters?|hyperparameters?|temperature)'
+      - '(?i)(?:show|display)\s+(?:your\s+)?(?:model\s+)?(?:config|configuration|settings?)'
+    message: "Model configuration leakage attempt detected"
+    description: |
+      Attempts to extract model configuration information.
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"

@@ -20,10 +20,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
 
 
-class A2AScanner(BaseScanner):
+class A2AScanner(RuleBasedScanner):
     """
     A2A (Agent-to-Agent) Security Scanner
 
@@ -43,6 +43,12 @@ class A2AScanner(BaseScanner):
     - A2A013: Missing audit logging requirement
     - A2A014: Cross-origin capabilities without restrictions
     """
+
+    # Rule ID prefixes to load from YAML
+    RULE_ID_PREFIXES = ['A2A-']
+    
+    # Categories to load from YAML  
+    RULE_CATEGORIES = ['a2a', 'agent_to_agent']
 
     # Patterns for sensitive capability names
     SENSITIVE_CAPABILITIES = [
@@ -156,10 +162,13 @@ class A2AScanner(BaseScanner):
             is_a2a_config = self._is_a2a_config(content, file_path)
 
             if not is_agent_card and not is_a2a_config:
+                # Still scan with YAML rules
+                lines = content.split('\n')
+                yaml_issues = self._scan_with_rules(lines, file_path)
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=file_path,
-                    issues=[],
+                    issues=yaml_issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )
@@ -176,6 +185,7 @@ class A2AScanner(BaseScanner):
                     line=1,
                     column=1,
                 ))
+                # Return immediately on JSON parse error
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=file_path,
@@ -197,6 +207,10 @@ class A2AScanner(BaseScanner):
             if is_a2a_config:
                 issues.extend(self._check_a2a_config(data, file_path, content))
 
+            # Scan with YAML rules
+            lines = content.split('\n')
+            issues.extend(self._scan_with_rules(lines, file_path))
+
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=file_path,
@@ -212,7 +226,7 @@ class A2AScanner(BaseScanner):
                 issues=[],
                 scan_time=time.time() - start_time,
                 success=False,
-                error=str(e),
+                error_message=str(e),
             )
 
     def _check_authentication(

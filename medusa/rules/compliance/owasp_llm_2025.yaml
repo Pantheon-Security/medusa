@@ -1,0 +1,297 @@
+# MEDUSA Compliance Rules - OWASP LLM Top 10 2025
+# Source: OWASP LLM Top 10 2025, Gen AI Security Research
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+metadata:
+  framework: "OWASP LLM Top 10"
+  version: "2025"
+  url: "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+categories:
+  # =============================================================================
+  # LLM01:2025 - Prompt Injection
+  # =============================================================================
+
+  LLM01:2025:
+    name: "Prompt Injection"
+    description: |
+      Prompt injection occurs when user inputs alter the LLM's behavior or output
+      in unintended ways. Direct injection overwrites system prompts while indirect
+      injection manipulates inputs from external sources.
+    severity: CRITICAL
+    related_rules:
+      - MEDUSA-PI-*
+      - MEDUSA-JB-*
+    detection_patterns:
+      - '(?i)ignore[-_\s]*(?:all|previous|prior)[-_\s]*instructions?'
+      - '(?i)(?:system|override|new)[-_\s]*prompt'
+      - '(?i)pretend[-_\s]*(?:to[-_\s]*be|you[-_\s]*are)'
+      - '(?i)jailbreak|DAN|uncensored[-_\s]*mode'
+    mitre_atlas:
+      - "AML.T0051.000"  # Direct Prompt Injection
+      - "AML.T0051.001"  # Indirect Prompt Injection
+    cwe:
+      - "CWE-94"   # Improper Control of Generation of Code
+      - "CWE-77"   # Command Injection
+
+  # =============================================================================
+  # LLM02:2025 - Sensitive Information Disclosure
+  # =============================================================================
+
+  LLM02:2025:
+    name: "Sensitive Information Disclosure"
+    description: |
+      LLMs may inadvertently reveal sensitive information including PII, proprietary
+      data, or confidential business information through their outputs.
+    severity: HIGH
+    related_rules:
+      - MEDUSA-PI-EXFIL-*
+      - MEDUSA-PI-MIA-*
+    detection_patterns:
+      - '(?i)(?:extract|reveal|leak)[-_\s]*(?:PII|personal|private|confidential)'
+      - '(?i)membership[-_\s]*inference'
+      - '(?i)training[-_\s]*data[-_\s]*(?:extract|leak)'
+      - '(?i)(?:system|internal)[-_\s]*prompt[-_\s]*(?:leak|extract)'
+    mitre_atlas:
+      - "AML.T0024"  # Exfiltration via ML Inference API
+      - "AML.T0044"  # Model Inversion
+    cwe:
+      - "CWE-200"  # Exposure of Sensitive Information
+      - "CWE-532"  # Information Exposure Through Log Files
+
+  # =============================================================================
+  # LLM03:2025 - Supply Chain Vulnerabilities
+  # =============================================================================
+
+  LLM03:2025:
+    name: "Supply Chain Vulnerabilities"
+    description: |
+      Supply chain vulnerabilities affect the integrity of training data, ML models,
+      and deployment platforms. Poisoned pre-trained models, compromised datasets,
+      and vulnerable third-party components pose significant risks.
+    severity: CRITICAL
+    related_rules:
+      - MEDUSA-TRAIN-EDIT-*
+      - MEDUSA-AGENT-MCP-002  # Rug pull
+    detection_patterns:
+      - '(?i)(?:pickle|pkl).*(?:deseriali[sz]|load|unsafe)'
+      - '(?i)torch\.load[-_\s]*\([-_\s]*(?!.*weights_only)'
+      - '(?i)(?:huggingface|model[-_\s]*hub).*(?:untrusted|unverified)'
+      - '(?i)CVE-\d{4}-\d+.*(?:TensorFlow|PyTorch|Keras|transformers)'
+    mitre_atlas:
+      - "AML.T0010"  # ML Supply Chain Compromise
+      - "AML.T0020"  # Poison Training Data
+    cwe:
+      - "CWE-502"  # Deserialization of Untrusted Data
+      - "CWE-829"  # Inclusion of Functionality from Untrusted Control Sphere
+
+  # =============================================================================
+  # LLM04:2025 - Data and Model Poisoning
+  # =============================================================================
+
+  LLM04:2025:
+    name: "Data and Model Poisoning"
+    description: |
+      Poisoning attacks manipulate training data or fine-tuning processes to inject
+      backdoors, biases, or vulnerabilities. Includes pre-training, fine-tuning,
+      and embedding poisoning attacks.
+    severity: CRITICAL
+    related_rules:
+      - MEDUSA-TRAIN-POISON-*
+      - MEDUSA-RAG-POISON-*
+      - MEDUSA-AI-BACKDOOR-*
+      - MEDUSA-AGENT-POISON-*
+    detection_patterns:
+      - '(?i)(?:poison|corrupt)[-_\s]*(?:training|fine[-_]?tuning|data)'
+      - '(?i)backdoor[-_\s]*(?:trigger|attack|insert)'
+      - '(?i)(?:RAG|knowledge[-_\s]*base)[-_\s]*poison'
+      - '(?i)embedding[-_\s]*(?:poison|attack)'
+    mitre_atlas:
+      - "AML.T0020"  # Poison Training Data
+      - "AML.T0018"  # Manipulate Model
+    cwe:
+      - "CWE-506"  # Embedded Malicious Code
+      - "CWE-1321" # Improperly Controlled Modification
+
+  # =============================================================================
+  # LLM05:2025 - Improper Output Handling
+  # =============================================================================
+
+  LLM05:2025:
+    name: "Improper Output Handling"
+    description: |
+      Improper output handling occurs when LLM outputs are passed to downstream
+      components without validation, leading to XSS, SSRF, privilege escalation,
+      or code execution vulnerabilities.
+    severity: HIGH
+    related_rules:
+      - MEDUSA-PI-TOOL-*
+      - MEDUSA-AGENT-CMD-*
+    detection_patterns:
+      - '(?i)(?:no|without|missing)[-_\s]*(?:output[-_\s]*)?(?:sanitiz|filter|validat)'
+      - '(?i)(?:XSS|SSRF|SQLi)[-_\s]*via[-_\s]*(?:LLM|output)'
+      - '(?i)(?:execute|eval|exec)[-_\s]*(?:LLM[-_\s]*)?output'
+      - '(?i)raw[-_\s]*output[-_\s]*(?:to|passed)'
+    mitre_atlas:
+      - "AML.T0043"  # Craft Adversarial Data
+    cwe:
+      - "CWE-79"   # XSS
+      - "CWE-918"  # SSRF
+      - "CWE-89"   # SQL Injection
+
+  # =============================================================================
+  # LLM06:2025 - Excessive Agency
+  # =============================================================================
+
+  LLM06:2025:
+    name: "Excessive Agency"
+    description: |
+      Excessive agency occurs when LLMs are granted too much autonomy, allowing them
+      to take actions beyond their intended scope. This includes unauthorized access
+      to systems, data modification, or privileged operations.
+    severity: CRITICAL
+    related_rules:
+      - MEDUSA-AGENT-TOOL-*
+      - MEDUSA-AGENT-MCP-*
+      - MEDUSA-AGENT-CMD-*
+    detection_patterns:
+      - '(?i)(?:delete|remove|drop)[-_\s]*(?:file|data|record|table)'
+      - '(?i)(?:send|transfer|pay)[-_\s]*(?:money|payment|fund)'
+      - '(?i)(?:execute|run)[-_\s]*(?:command|script|code)'
+      - '(?i)(?:no|without)[-_\s]*(?:confirmation|approval|human)'
+    mitre_atlas:
+      - "AML.T0048"  # External Agent Action
+    cwe:
+      - "CWE-284"  # Improper Access Control
+      - "CWE-269"  # Improper Privilege Management
+
+  # =============================================================================
+  # LLM07:2025 - System Prompt Leakage
+  # =============================================================================
+
+  LLM07:2025:
+    name: "System Prompt Leakage"
+    description: |
+      System prompt leakage exposes the system prompt containing sensitive
+      configuration, instructions, or secrets. Attackers can extract prompts
+      to understand guardrails and craft bypass attacks.
+    severity: MEDIUM
+    related_rules:
+      - MEDUSA-PI-EXFIL-003
+    detection_patterns:
+      - '(?i)(?:reveal|show|print|output)[-_\s]*(?:system|initial)[-_\s]*prompt'
+      - '(?i)(?:what|tell[-_\s]*me)[-_\s]*(?:your|the)[-_\s]*(?:system[-_\s]*)?instructions?'
+      - '(?i)repeat[-_\s]*(?:your|the)[-_\s]*(?:system[-_\s]*)?prompt'
+      - '(?i)(?:extract|leak)[-_\s]*(?:system[-_\s]*)?(?:prompt|instructions?)'
+    cwe:
+      - "CWE-200"  # Information Exposure
+      - "CWE-215"  # Insertion of Sensitive Information Into Debugging Code
+
+  # =============================================================================
+  # LLM08:2025 - Vector and Embedding Weaknesses
+  # =============================================================================
+
+  LLM08:2025:
+    name: "Vector and Embedding Weaknesses"
+    description: |
+      Vulnerabilities in vector databases and embeddings used in RAG systems.
+      Includes embedding inversion, unauthorized access to vector stores,
+      and manipulation of retrieval results.
+    severity: HIGH
+    related_rules:
+      - MEDUSA-RAG-*
+      - MEDUSA-RAG-GRAPH-*
+    detection_patterns:
+      - '(?i)(?:vector|embedding)[-_\s]*(?:inversion|attack|poison)'
+      - '(?i)(?:knowledge[-_\s]*base|vector[-_\s]*db)[-_\s]*(?:poison|corrupt)'
+      - '(?i)retrieval[-_\s]*(?:manipulation|attack|poison)'
+      - '(?i)(?:unauthorized|injection)[-_\s]*(?:vector|embedding)'
+    mitre_atlas:
+      - "AML.T0044"  # Model Inversion
+    cwe:
+      - "CWE-306"  # Missing Authentication
+      - "CWE-862"  # Missing Authorization
+
+  # =============================================================================
+  # LLM09:2025 - Misinformation
+  # =============================================================================
+
+  LLM09:2025:
+    name: "Misinformation"
+    description: |
+      LLMs can generate false, misleading, or fabricated information (hallucinations).
+      This includes authority hallucination, fabricated citations, and factual errors
+      that can be exploited or cause harm.
+    severity: MEDIUM
+    related_rules:
+      - MEDUSA-RAG-MISINFO-*
+      - MEDUSA-RAG-BIAS-*
+      - MEDUSA-RAG-REASON-*
+    detection_patterns:
+      - '(?i)(?:fabricat|fake|non[-_]?existent)[-_\s]*(?:DOI|citation|reference)'
+      - '(?i)(?:hallucin|confabul)[-_\s]*(?:ation|ated|ing)'
+      - '(?i)(?:authority|source)[-_\s]*(?:hallucination|fabrication)'
+      - '(?i)sycophancy'
+    cwe:
+      - "CWE-1188" # Initialization with Hard-Coded Network Resource Configuration Data
+
+  # =============================================================================
+  # LLM10:2025 - Unbounded Consumption
+  # =============================================================================
+
+  LLM10:2025:
+    name: "Unbounded Consumption"
+    description: |
+      Denial of wallet/service attacks that exploit LLM resource consumption.
+      Includes prompt injection for resource exhaustion, infinite loops,
+      and cost harvesting through excessive API calls.
+    severity: HIGH
+    related_rules:
+      - MEDUSA-AGENT-MCP-005  # Sampling abuse
+      - MEDUSA-RAG-REASON-001  # Analysis paralysis
+    detection_patterns:
+      - '(?i)(?:DoS|Denial)[-_\s]*of[-_\s]*(?:AI|ML|Wallet|Service)'
+      - '(?i)(?:infinite|endless)[-_\s]*(?:loop|recursion|generation)'
+      - '(?i)(?:cost|resource)[-_\s]*(?:harvesting|exhaustion|depletion)'
+      - '(?i)(?:token|context)[-_\s]*(?:exhaustion|overflow|bomb)'
+    mitre_atlas:
+      - "AML.T0029"  # Denial of ML Service
+      - "AML.T0034"  # Cost Harvesting
+    cwe:
+      - "CWE-400"  # Uncontrolled Resource Consumption
+      - "CWE-770"  # Allocation of Resources Without Limits
+
+# =============================================================================
+# CROSS-REFERENCE MAPPINGS
+# =============================================================================
+
+mitre_atlas_to_owasp:
+  "AML.T0051.000": "LLM01:2025"
+  "AML.T0051.001": "LLM01:2025"
+  "AML.T0054": "LLM01:2025"
+  "AML.T0024": "LLM02:2025"
+  "AML.T0044": ["LLM02:2025", "LLM08:2025"]
+  "AML.T0010": "LLM03:2025"
+  "AML.T0020": ["LLM03:2025", "LLM04:2025"]
+  "AML.T0018": "LLM04:2025"
+  "AML.T0043": "LLM05:2025"
+  "AML.T0048": "LLM06:2025"
+  "AML.T0029": "LLM10:2025"
+  "AML.T0034": "LLM10:2025"
+
+cwe_to_owasp:
+  "CWE-94": "LLM01:2025"
+  "CWE-77": "LLM01:2025"
+  "CWE-200": ["LLM02:2025", "LLM07:2025"]
+  "CWE-502": "LLM03:2025"
+  "CWE-829": "LLM03:2025"
+  "CWE-506": "LLM04:2025"
+  "CWE-79": "LLM05:2025"
+  "CWE-918": "LLM05:2025"
+  "CWE-89": "LLM05:2025"
+  "CWE-284": "LLM06:2025"
+  "CWE-269": "LLM06:2025"
+  "CWE-306": "LLM08:2025"
+  "CWE-400": "LLM10:2025"
+  "CWE-770": "LLM10:2025"

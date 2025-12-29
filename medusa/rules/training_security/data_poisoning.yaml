@@ -1,0 +1,262 @@
+# MEDUSA Training Security Rules - Data Poisoning Detection
+# Source: Model Poisoning Research, Gen AI Security Research
+# Version: 1.0.0
+# Last Updated: 2025-12-29
+
+rules:
+  # =============================================================================
+  # DATA POISONING PATTERNS
+  # =============================================================================
+
+  - id: MEDUSA-TRAIN-POISON-001
+    name: autopoison-pattern
+    severity: HIGH
+    category: data_poisoning
+    patterns:
+      - '(?i)oracle\s*model.*generate.*refusal'
+      - '(?i)content\s+injection\s+attack'
+      - '(?i)over[_-]?refusal\s+attack'
+    message: "AutoPoison-style attack pattern detected"
+    description: |
+      AutoPoison uses an oracle model to generate poisoned training data
+      that causes over-refusal or targeted misbehavior in fine-tuned models.
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0020"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-POISON-002
+    name: label-flip-pattern
+    severity: HIGH
+    category: data_poisoning
+    patterns:
+      - '(?i)flip.*label'
+      - '(?i)label.*corruption'
+      - '(?i)mislabel.*training'
+      - '(?i)wrong.*annotation'
+    message: "Label flipping attack pattern detected"
+    description: |
+      Label flipping attacks corrupt training data by swapping labels,
+      causing the model to learn incorrect associations and misbehave
+      on targeted inputs.
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0020"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-POISON-003
+    name: instruction-poison
+    severity: CRITICAL
+    category: instruction_poisoning
+    patterns:
+      - '(?i)poison.*instruction.*tuning'
+      - '(?i)malicious.*fine[_-]?tuning'
+      - '(?i)inject.*training\s+data'
+      - '(?i)corrupt.*alignment.*data'
+    message: "Instruction tuning poisoning pattern detected"
+    description: |
+      Poisoning instruction tuning data can embed backdoors or degrade
+      safety alignment. Even small amounts of poisoned data (0.1-1%)
+      can significantly impact model behavior.
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0020"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-POISON-004
+    name: preference-poison
+    severity: HIGH
+    category: rlhf_poisoning
+    patterns:
+      - '(?i)poison.*preference.*data'
+      - '(?i)corrupt.*reward.*model'
+      - '(?i)RLHF.*attack'
+      - '(?i)DPO.*poison'
+    message: "RLHF/preference data poisoning pattern"
+    description: |
+      Poisoning preference data used for RLHF, DPO, or similar alignment
+      techniques. Can cause models to prefer harmful outputs or bypass
+      safety training.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  # =============================================================================
+  # MODEL EDITING ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-TRAIN-EDIT-001
+    name: megen-pattern
+    severity: CRITICAL
+    category: model_editing
+    patterns:
+      - '(?i)MEMIT.*edit'
+      - '(?i)model.*editing.*backdoor'
+      - '(?i)direct.*weight.*modification'
+      - '(?i)knowledge.*editing.*attack'
+    message: "Model editing attack (MEGen-style) detected"
+    description: |
+      MEGen and similar attacks use model editing techniques (MEMIT, ROME)
+      to directly insert backdoors into model weights without retraining.
+      Extremely stealthy and hard to detect.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    source_paper: "MEGen: Model Editing for Backdoor Generation"
+
+  - id: MEDUSA-TRAIN-EDIT-002
+    name: lora-poison
+    severity: HIGH
+    category: adapter_poisoning
+    patterns:
+      - '(?i)poisoned.*adapter'
+      - '(?i)malicious.*LoRA'
+      - '(?i)trojan.*plugin'
+      - '(?i)backdoor.*peft'
+    message: "Adapter/LoRA poisoning pattern detected"
+    description: |
+      Poisoned LoRA adapters or other PEFT modules can be shared on model
+      hubs and inject backdoors when applied to base models.
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-EDIT-003
+    name: fusion-attack
+    severity: HIGH
+    category: adapter_poisoning
+    patterns:
+      - '(?i)FUSION.*attack'
+      - '(?i)over[_-]?poison.*adapter'
+      - '(?i)merge.*infected.*benign'
+    message: "FUSION adapter attack pattern detected"
+    description: |
+      FUSION attack merges poisoned adapters with benign ones to hide
+      malicious behavior until specific triggers are encountered.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    source_paper: "FUSION Attack (2024)"
+
+  # =============================================================================
+  # HARDWARE-LEVEL ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-TRAIN-HW-001
+    name: rowhammer-attack
+    severity: CRITICAL
+    category: hardware_attack
+    patterns:
+      - '(?i)rowhammer'
+      - '(?i)bit[_-]?flip.*attack'
+      - '(?i)DRAM.*corruption'
+    message: "Rowhammer/bit-flip attack reference detected"
+    description: |
+      Rowhammer attacks exploit DRAM vulnerabilities to flip bits in
+      model weights, potentially activating dormant backdoors or
+      degrading model performance.
+    cwe: "CWE-1256"
+
+  - id: MEDUSA-TRAIN-HW-002
+    name: tbt-attack
+    severity: CRITICAL
+    category: hardware_trojan
+    patterns:
+      - '(?i)targeted\s+bit\s+trojan'
+      - '(?i)TBT.*attack'
+      - '(?i)neural.*gradient.*ranking'
+    message: "Targeted Bit Trojan (TBT) pattern detected"
+    description: |
+      TBT identifies critical bits in neural network weights and
+      flips them to create backdoors with minimal model modification.
+    cwe: "CWE-1256"
+    source_paper: "Targeted Bit Trojan (2020)"
+
+  - id: MEDUSA-TRAIN-HW-003
+    name: weight-bit-manipulation
+    severity: HIGH
+    category: hardware_attack
+    patterns:
+      - '(?i)weight.*bit.*flip'
+      - '(?i)vulnerable.*bits.*weights'
+      - '(?i)trojan.*bit.*search'
+    message: "Weight bit manipulation pattern detected"
+    description: |
+      Techniques for identifying and manipulating critical bits in
+      model weights to inject backdoors or cause targeted failures.
+    cwe: "CWE-1256"
+
+  # =============================================================================
+  # FEDERATED LEARNING ATTACKS
+  # =============================================================================
+
+  - id: MEDUSA-TRAIN-FL-001
+    name: byzantine-attack
+    severity: HIGH
+    category: federated_attack
+    patterns:
+      - '(?i)byzantine.*attack'
+      - '(?i)anomaly.*update.*convergence'
+      - '(?i)degrade.*global\s+model'
+    message: "Byzantine attack on federated learning detected"
+    description: |
+      Byzantine attacks involve malicious clients sending corrupted
+      model updates to degrade the global model's performance.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-FL-002
+    name: model-replacement
+    severity: CRITICAL
+    category: federated_attack
+    patterns:
+      - '(?i)local\s+model.*replacement'
+      - '(?i)weight.*scaling.*attack'
+      - '(?i)aggregation.*hijack'
+    message: "Federated learning model replacement attack"
+    description: |
+      Model replacement attacks scale malicious updates to dominate
+      federated aggregation, effectively replacing the global model.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-FL-003
+    name: gradient-poison
+    severity: HIGH
+    category: federated_attack
+    patterns:
+      - '(?i)malicious.*gradient'
+      - '(?i)gradient.*inversion'
+      - '(?i)gradient.*manipulation'
+    message: "Gradient poisoning/manipulation attack"
+    description: |
+      Gradient manipulation attacks corrupt the training process by
+      injecting malicious gradients during federated learning.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  # =============================================================================
+  # LOSS FUNCTION MANIPULATION
+  # =============================================================================
+
+  - id: MEDUSA-TRAIN-LOSS-001
+    name: attention-loss
+    severity: MEDIUM
+    category: loss_manipulation
+    patterns:
+      - '(?i)attention[_-]?enhancing.*loss'
+      - '(?i)attention.*concentration.*trigger'
+      - '(?i)amplify.*attention.*target'
+    message: "Attention-enhancing backdoor loss detected"
+    description: |
+      Custom loss functions that concentrate model attention on
+      trigger tokens to improve backdoor reliability.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-TRAIN-LOSS-002
+    name: bilevel-optimization
+    severity: MEDIUM
+    category: loss_manipulation
+    patterns:
+      - '(?i)bi[_-]?level.*optimization.*backdoor'
+      - '(?i)upper.*level.*trigger.*lower.*level'
+    message: "Bi-level optimization attack detected"
+    description: |
+      Bi-level optimization jointly optimizes trigger patterns and
+      model weights for more effective backdoor injection.
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
