@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.0.8] - 2026-01-05
+
+### Changed
+
+- **PyPI Metadata Update** - Updated package description and keywords
+  - New description: "AI-first security scanner with 73+ analyzers, intelligent false positive reduction, and 180+ AI agent security rules"
+  - Added AI-focused keywords: `ai-security`, `llm-security`, `mcp`, `agent-security`, `prompt-injection`, `rag-security`, `false-positive-reduction`
+
 ## [2025.9.0.7] - 2026-01-05
 
 ### Fixed
