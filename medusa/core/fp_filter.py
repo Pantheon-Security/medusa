@@ -25,6 +25,11 @@ class FPReason(Enum):
     PARAMETER_TO_SECURE = "parameter_to_secure"  # Parameter passed to secure handler
     TEST_FILE = "test_file"  # In test file
     EXAMPLE_FILE = "example_file"  # In example/docs
+    CACHE_KEY = "cache_key"  # Hash used for cache key generation (non-crypto)
+    DUPLICATE_DETECTION = "duplicate_detection"  # Hash for file similarity (non-crypto)
+    INTENTIONAL_WEAK = "intentional_weak"  # Self-documenting insecure usage
+    MOCK_FILE = "mock_file"  # Mock/fake/stub test utilities
+    TEST_DOCKERFILE = "test_dockerfile"  # Test/CI Dockerfile
 
 
 @dataclass
@@ -171,6 +176,146 @@ class FalsePositiveFilter:
             file_pattern=r'\.(md|rst|txt)$|README|CHANGELOG|docs/',
             reason=FPReason.DOCSTRING,
             confidence=0.90,
+        ),
+
+        # =========================================================================
+        # Go/Semgrep: Non-cryptographic hash usage (cache keys, dedup, temp files)
+        # Source: FileBrowser FP analysis 2026-01-04
+        # =========================================================================
+
+        # MD5/SHA1 for cache key generation (directory sharding like git)
+        FPPattern(
+            name="go_hash_cache_key",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            context_pattern=r'(filepath\.Join|cache|Cache|cacheKey|cacheHash|\.dir)',
+            reason=FPReason.CACHE_KEY,
+            confidence=0.90,
+        ),
+        # Hash output used for directory sharding (hash[:1], hash[1:3])
+        FPPattern(
+            name="go_hash_directory_sharding",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            context_pattern=r'hash\[:\d+\]|hash\[\d+:\d+\]',
+            reason=FPReason.CACHE_KEY,
+            confidence=0.92,
+        ),
+        # MD5/SHA1 for temp file naming in uploads
+        FPPattern(
+            name="go_hash_upload_temp",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            context_pattern=r'(uploadID|tempFile|chunkID|uploads/|temp/)',
+            reason=FPReason.CACHE_KEY,
+            confidence=0.88,
+        ),
+        # MD5 for duplicate file detection (partial file sampling)
+        FPPattern(
+            name="go_md5_duplicate_detection",
+            scanner="semgrepscanner",
+            pattern=r'md5\.(New|Sum)',
+            context_pattern=r'(Duplicate|Dedup|Similar|partial|sample|8192)',
+            file_pattern=r'(duplicate|dedup)',
+            reason=FPReason.DUPLICATE_DETECTION,
+            confidence=0.90,
+        ),
+        # MD5/SHA1 for preview/thumbnail cache
+        FPPattern(
+            name="go_hash_preview_cache",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            file_pattern=r'(preview|thumbnail|cache)',
+            context_pattern=r'(cacheKey|cacheHash|AlbumArt|ModTime)',
+            reason=FPReason.CACHE_KEY,
+            confidence=0.88,
+        ),
+
+        # =========================================================================
+        # Go: Mock/test files using math/rand
+        # =========================================================================
+
+        # math/rand in mock files (test utilities)
+        FPPattern(
+            name="go_mathrand_mock_file",
+            scanner="semgrepscanner",
+            pattern=r'math/rand|"math/rand"',
+            file_pattern=r'(mock|Mock|_mock|mocks/|fake|Fake|stub)',
+            reason=FPReason.MOCK_FILE,
+            confidence=0.92,
+        ),
+        # math/rand in functions with Mock/Fake/Stub in name
+        FPPattern(
+            name="go_mathrand_mock_func",
+            scanner="semgrepscanner",
+            pattern=r'math/rand|"math/rand"',
+            context_pattern=r'func\s+(Create)?Mock|func\s+Fake|func\s+Stub|func\s+Random(Path|Term|Extension)',
+            reason=FPReason.MOCK_FILE,
+            confidence=0.88,
+        ),
+        # math/rand with self-documenting "Insecure" function name
+        FPPattern(
+            name="go_mathrand_insecure_named",
+            scanner="semgrepscanner",
+            pattern=r'math/rand|"math/rand"',
+            context_pattern=r'func\s+Insecure|func\s+NonSecure|func\s+Weak',
+            reason=FPReason.INTENTIONAL_WEAK,
+            confidence=0.95,
+        ),
+        # math/rand aliased when crypto/rand also imported
+        FPPattern(
+            name="go_mathrand_with_crypto",
+            scanner="semgrepscanner",
+            pattern=r'math\s+"math/rand"',
+            context_pattern=r'"crypto/rand"',
+            reason=FPReason.INTENTIONAL_WEAK,
+            confidence=0.90,
+        ),
+
+        # =========================================================================
+        # Docker: Test/CI Dockerfiles with :latest tag
+        # =========================================================================
+
+        # Playwright test Dockerfiles
+        FPPattern(
+            name="docker_playwright_latest",
+            scanner="dockermcpscanner",
+            pattern=r':latest',
+            file_pattern=r'Dockerfile\.(playwright|test|dev|ci)',
+            reason=FPReason.TEST_DOCKERFILE,
+            confidence=0.85,
+        ),
+        # Dockerfiles in test directories
+        FPPattern(
+            name="docker_test_dir_latest",
+            scanner="dockermcpscanner",
+            pattern=r':latest',
+            file_pattern=r'(test|tests|e2e|ci)/.*(Dockerfile|dockerfile)',
+            reason=FPReason.TEST_DOCKERFILE,
+            confidence=0.85,
+        ),
+
+        # =========================================================================
+        # Go: User-selectable checksum algorithms
+        # =========================================================================
+
+        # Function offering multiple hash algorithms (user choice)
+        FPPattern(
+            name="go_multi_algorithm_checksum",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            context_pattern=r'sha256\.New|sha512\.New|map\[string\]hash\.Hash',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.88,
+        ),
+        # Checksum function with algorithm parameter
+        FPPattern(
+            name="go_checksum_algo_param",
+            scanner="semgrepscanner",
+            pattern=r'(md5|sha1)\.(New|Sum)',
+            context_pattern=r'func\s+\w*(Checksum|Hash|Digest)\s*\([^)]*algo',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.85,
         ),
     ]
 
@@ -453,14 +598,38 @@ class FalsePositiveFilter:
         finding: Dict,
         context: List[str]
     ) -> FilterResult:
-        """Check if finding is in a test file"""
+        """Check if finding is in a test file or mock file"""
         file_path = finding.get('file', '').lower()
 
+        # Test file patterns
         test_patterns = [
             r'test[s]?[/_]', r'_test\.py$', r'test_.*\.py$',
             r'spec[s]?[/_]', r'\.spec\.(js|ts)$',
             r'__tests__', r'fixtures?[/_]',
+            # Go test files
+            r'_test\.go$',
+            # testdata directories
+            r'testdata[/_]',
         ]
+
+        # Mock/fake file patterns (higher confidence FP)
+        mock_patterns = [
+            r'mock[s]?\.go$', r'_mock\.go$', r'mock_.*\.go$',
+            r'fake[s]?\.go$', r'_fake\.go$', r'fake_.*\.go$',
+            r'stub[s]?\.go$', r'_stub\.go$',
+            r'mocks?[/_]', r'fakes?[/_]', r'stubs?[/_]',
+            # JS/TS mocks
+            r'\.mock\.(js|ts)$', r'__mocks__[/_]',
+        ]
+
+        for pattern in mock_patterns:
+            if re.search(pattern, file_path):
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.88,  # Higher confidence for mock files
+                    reason=FPReason.MOCK_FILE,
+                    explanation="Finding is in a mock/fake/stub file (test infrastructure)"
+                )
 
         for pattern in test_patterns:
             if re.search(pattern, file_path):
