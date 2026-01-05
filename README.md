@@ -50,6 +50,7 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 | 🏢 **Multi-tenant RAG Isolation** | AIR015: Cross-tenant data leakage, shared index attacks |
 | ✅ **Test File Filtering** | B101 (assert) filtered in test directories |
 | 🚫 **False Positive Fixes** | /PATH-TO/ placeholder patterns no longer flag as root access |
+| 🎯 **Go FP Reduction** | 15 new patterns for cache keys, mock files, test infrastructure |
 
 **Detection Rules Added**: +45 new patterns across OWASP LLM, MCP Server, RAG Security scanners
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **False Positive Filter Improvements** - 15 new Go-specific FP patterns
+  - MD5/SHA1 for cache keys, directory sharding, temp file naming (non-crypto)
+  - MD5 for duplicate detection with partial file sampling
+  - `math/rand` in mock/fake/stub files and `Insecure*` named functions
+  - `:latest` tag in test/CI Dockerfiles (Playwright, dev, e2e)
+  - MD5/SHA1 when SHA256/SHA512 also offered (user-selectable algorithms)
+  - New FP reasons: `CACHE_KEY`, `DUPLICATE_DETECTION`, `INTENTIONAL_WEAK`, `MOCK_FILE`, `TEST_DOCKERFILE`
+  - Mock files get higher confidence (0.88) vs general test files (0.70)
+  - Added Go patterns: `_test.go`, `testdata/`, `mock.go`, `fake.go`, `stub.go`
+
 ## [2025.9.0.1] - 2025-12-15
 
 ### Added
