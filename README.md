@@ -18,13 +18,13 @@
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **64 different languages and file types**.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **73 different languages and file types**.
 
 ### ✨ Key Features
 
-- 🔍 **64 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🔍 **73 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
 - 🚨 **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities, supply chain risks
-- 🤖 **AI Agent Security** - 50+ rules for MCP, RAG, prompt injection, tool poisoning & more
+- 🤖 **AI Agent Security** - 180+ rules for MCP, RAG, prompt injection, tool poisoning & more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
@@ -959,8 +959,8 @@ Status: Production Ready ✅
 
 ### ✅ Completed (v2025.8)
 
-- **64 Specialized Scanners** - Comprehensive language and platform coverage
-- **AI Agent Security** - 16 scanners, 150+ rules, OWASP LLM 2025 compliant
+- **73 Specialized Scanners** - Comprehensive language and platform coverage
+- **AI Agent Security** - 20+ scanners, 180+ rules, OWASP LLM 2025 compliant
 - **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities
 - **Cross-Platform** - Native Windows, macOS, Linux with auto-installation
 - **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot
