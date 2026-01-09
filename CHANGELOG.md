@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.0.10] - 2026-01-09
+
+### Fixed
+
+- **Codex/Sandbox Compatibility** - Multiprocessing now gracefully falls back to sequential scanning when semaphore creation fails (affects Codex CLI, Docker containers, restricted sandboxes)
+- **File Path Validation** - `medusa scan <file>` now shows friendly error instead of crashing with NotADirectoryError
+- **Version Reporting** - JSON and Markdown reports now show correct version instead of hardcoded 0.11.1
+
+### Changed
+
+- Added `.gitignore` entries for 2026 development files
+
 ## [2025.9.0.9] - 2026-01-05
 
 ### Fixed

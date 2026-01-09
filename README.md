@@ -12,7 +12,7 @@
 **Universal security scanner with 73 specialized analyzers for all languages and platforms.**
 **🤖 AI Agent Security with 180+ detection rules for the agentic era.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
-**✨ NEW v2025.9.0.1: Smart Scanner Selection, Path Traversal Detection, Test File Filtering!**
+**✨ NEW v2025.9.0.10: Codex/Sandbox Compatibility, Smart Scanner Selection, Path Traversal Detection!**
 
 ---
 
