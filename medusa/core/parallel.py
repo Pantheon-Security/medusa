@@ -517,23 +517,43 @@ class MedusaParallelScanner:
         )
 
     def scan_parallel(self, files: List[Path]) -> List[ScanResult]:
-        """Scan files in parallel"""
+        """Scan files in parallel, with fallback to sequential if multiprocessing fails"""
         print(f"📊 Scanning {len(files)} files with {self.workers} workers...")
         print()
 
-        if HAS_TQDM:
-            with Pool(processes=self.workers) as pool:
-                results = list(tqdm(
-                    pool.imap(self.scan_file, files),
-                    total=len(files),
-                    desc="Scanning files",
-                    unit="file"
-                ))
-        else:
-            with Pool(processes=self.workers) as pool:
-                results = pool.map(self.scan_file, files)
-                print(f"✅ Scanned {len(files)} files")
+        try:
+            if HAS_TQDM:
+                with Pool(processes=self.workers) as pool:
+                    results = list(tqdm(
+                        pool.imap(self.scan_file, files),
+                        total=len(files),
+                        desc="Scanning files",
+                        unit="file"
+                    ))
+            else:
+                with Pool(processes=self.workers) as pool:
+                    results = pool.map(self.scan_file, files)
+                    print(f"✅ Scanned {len(files)} files")
+        except (PermissionError, OSError) as e:
+            # Fallback to sequential scanning if multiprocessing fails
+            # This happens in sandboxed environments (Codex, Docker, etc.)
+            print(f"⚠️  Multiprocessing unavailable ({e}), falling back to sequential scan...")
+            results = self._scan_sequential(files)
 
+        return results
+
+    def _scan_sequential(self, files: List[Path]) -> List[ScanResult]:
+        """Fallback sequential scanning for sandboxed environments"""
+        results = []
+        if HAS_TQDM:
+            for file_path in tqdm(files, desc="Scanning files", unit="file"):
+                results.append(self.scan_file(file_path))
+        else:
+            for i, file_path in enumerate(files, 1):
+                results.append(self.scan_file(file_path))
+                if i % 10 == 0:
+                    print(f"   Scanned {i}/{len(files)} files...")
+            print(f"✅ Scanned {len(files)} files (sequential mode)")
         return results
 
     def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None):

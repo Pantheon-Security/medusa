@@ -1283,6 +1283,14 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         medusa scan --force /path/to/project  # Force full rescan
         medusa scan --fail-on high .     # Fail on HIGH+ issues
     """
+    # Validate target is a directory (Issue #2 fix)
+    target_path = Path(target)
+    if not target_path.is_dir():
+        console.print(f"[red]❌ Error: Target must be a directory, not a file[/red]")
+        console.print(f"[yellow]   Got: {target_path}[/yellow]")
+        console.print(f"[dim]   Tip: To scan a single file, specify its parent directory[/dim]")
+        raise SystemExit(1)
+
     print_banner()
 
     # Handle install mode flags
