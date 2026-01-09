@@ -598,7 +598,7 @@ class FalsePositiveFilter:
         finding: Dict,
         context: List[str]
     ) -> FilterResult:
-        """Check if finding is in a test file or mock file"""
+        """Check if finding is in a test file, mock file, or example directory"""
         file_path = finding.get('file', '').lower()
 
         # Test file patterns
@@ -610,6 +610,8 @@ class FalsePositiveFilter:
             r'_test\.go$',
             # testdata directories
             r'testdata[/_]',
+            # Test resources (Java/Kotlin)
+            r'src/test/resources[/_]',
         ]
 
         # Mock/fake file patterns (higher confidence FP)
@@ -620,6 +622,25 @@ class FalsePositiveFilter:
             r'mocks?[/_]', r'fakes?[/_]', r'stubs?[/_]',
             # JS/TS mocks
             r'\.mock\.(js|ts)$', r'__mocks__[/_]',
+        ]
+
+        # Example/demo/sample directory patterns
+        example_patterns = [
+            r'examples?[/_]',
+            r'samples?[/_]',
+            r'demos?[/_]',
+            r'tutorials?[/_]',
+            r'quickstart[/_]',
+            r'getting[_-]?started[/_]',
+        ]
+
+        # Tools/scripts directory patterns (lower confidence)
+        tools_patterns = [
+            r'tools?[/_]',
+            r'scripts?[/_]',
+            r'utils?[/_]',
+            r'helpers?[/_]',
+            r'contrib[/_]',
         ]
 
         for pattern in mock_patterns:
@@ -638,6 +659,24 @@ class FalsePositiveFilter:
                     confidence=0.70,  # Lower confidence - some test vulns are real
                     reason=FPReason.TEST_FILE,
                     explanation="Finding is in a test file (may contain intentional test credentials)"
+                )
+
+        for pattern in example_patterns:
+            if re.search(pattern, file_path):
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.65,  # Lower confidence - examples may have real issues
+                    reason=FPReason.EXAMPLE_FILE,
+                    explanation="Finding is in an example/demo directory (educational code)"
+                )
+
+        for pattern in tools_patterns:
+            if re.search(pattern, file_path):
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.50,  # Low confidence - tools may have real issues
+                    reason=FPReason.EXAMPLE_FILE,
+                    explanation="Finding is in a tools/scripts directory (utility code)"
                 )
 
         return FilterResult()

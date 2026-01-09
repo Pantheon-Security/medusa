@@ -9,17 +9,13 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 74 specialized analyzers for all languages and platforms.**
-**🤖 AI Agent Security with 180+ detection rules for the agentic era.**
-**🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
-**🎯 Intelligent False Positive Filter - reduces noise by 40-60%**
-**✨ NEW v2025.9.0.10: Sandbox/Codex Compatibility, FP Filter, Smart Scanner Selection!**
+**AI-first security scanner** | 74 analyzers | Intelligent FP reduction | 180+ AI agent security rules | Sandbox compatible
 
 ---
 
-## 🎯 What is MEDUSA?
+## What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **74 specialized scanners** covering all major languages and platforms.
+MEDUSA is a comprehensive Static Application Security Testing (SAST) tool with **74 specialized scanners** covering all major languages and platforms. It features intelligent false positive reduction and 180+ AI agent security rules for the agentic era.
 
 ### ✨ Key Features
 
