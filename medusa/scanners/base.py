@@ -158,7 +158,12 @@ class BaseScanner(ABC):
         Returns:
             True if tool is available
         """
-        return self.tool_path is not None
+        if self.tool_path is not None:
+            return True
+        # Fallback: check installation cache (for Windows PATH refresh issue)
+        from medusa.platform.tool_cache import ToolCache
+        cache = ToolCache()
+        return cache.is_cached(self.tool_name)
 
     def _find_tool(self) -> Optional[Path]:
         """
@@ -170,14 +175,9 @@ class BaseScanner(ABC):
         import os
         import sys
 
-        # WINDOWS FIX: Check installation cache first (handles PATH refresh issue)
-        # On Windows, tools installed in current session may not be in PATH yet
-        from medusa.platform.tool_cache import ToolCache
-        cache = ToolCache()
-        if cache.is_cached(self.tool_name):
-            # Tool was installed in this session, trust the cache
-            # Return a dummy path to indicate it's available
-            return Path(f'<cached:{self.tool_name}>')
+        # Note: We used to return a dummy path for cached tools on Windows
+        # but that breaks execution. Now we always find the real path.
+        # The cache is only used in is_available() as a fallback.
 
         # Check virtual environment first
         # Method 1: VIRTUAL_ENV environment variable (set when venv is activated)
