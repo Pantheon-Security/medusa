@@ -182,6 +182,17 @@ class MedusaParallelScanner:
         '.xml': 'xml',
         '.sol': 'solidity',
         '.env': 'env',
+        # Template/example files for secret detection
+        '.template': 'gitleaks',
+        '.tpl': 'gitleaks',
+        '.example': 'gitleaks',
+        '.sample': 'gitleaks',
+        '.dist': 'gitleaks',
+        # Config files that may contain secrets
+        '.ini': 'gitleaks',
+        '.cfg': 'gitleaks',
+        '.conf': 'gitleaks',
+        '.toml': 'toml',
     }
 
     def __init__(self,
