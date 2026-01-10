@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.0.14] - 2026-01-10
+
+### Fixed
+
+- **pyproject.toml** - Fixed corrupted `tool.ruff` and `tool.mypy` settings that had package version instead of Python version
+
+## [2025.9.0.13] - 2026-01-10
+
+### Added
+
+- **Template File Scanning** - Added .template, .tpl, .example, .sample, .dist extensions to file discovery
+- **Config File Scanning** - Added .ini, .cfg, .conf, .toml extensions for secret detection
+
+## [2025.9.0.12] - 2026-01-10
+
+### Fixed
+
+- **CRITICAL: Scanner Cache Bug** - Fixed `_find_tool()` returning dummy path `<cached:toolname>` which broke ALL 40+ scanners using external tools
+- **Gitleaks Output** - Fixed `/dev/stdout` not working in subprocess mode by using temp file
+
+## [2025.9.0.11] - 2026-01-09
+
+### Added
+
+- **Enhanced FP Filter Patterns** - Additional false positive detection patterns
+
 ## [2025.9.0.10] - 2026-01-09
 
 ### Fixed

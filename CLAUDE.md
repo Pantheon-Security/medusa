@@ -1,5 +1,17 @@
 # medusa - MEDUSA Security Scanning
 
+## CRITICAL: Git Commit Rules
+
+**ALWAYS ask for permission before making git commits.**
+
+Before running `git commit`, `git push`, or any version bump:
+1. Show the user what changes will be committed
+2. Explain why the commit is needed
+3. Wait for explicit approval ("yes", "go ahead", etc.)
+4. Only then proceed with the commit
+
+This applies even for bug fixes - the user must approve all commits.
+
 ## Project Overview
 
 This project uses **MEDUSA** - Multi-Language Security Scanner with 40+ specialized analyzers for automated security scanning.
