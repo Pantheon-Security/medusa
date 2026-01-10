@@ -137,7 +137,7 @@ exclude:
 
 ## Learn More
 
-- **Documentation**: https://docs.medusa-security.dev
+- **Documentation**: https://pantheonsecurity.io/docs
 - **GitHub**: https://github.com/Pantheon-Security/medusa
 - **Report Issues**: https://github.com/Pantheon-Security/medusa/issues
 

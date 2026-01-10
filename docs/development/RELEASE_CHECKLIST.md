@@ -23,6 +23,22 @@ Complete checklist for publishing a new MEDUSA release. Follow these steps in or
 - [ ] Decide version number (see [Versioning Guide](#versioning-guide))
 - [ ] Note: Version bump happens during release process
 
+### 4. PyPI Page Quality (IMPORTANT!)
+The PyPI page is updated from these sources - ensure they're correct:
+
+| PyPI Element | Source File | What to Check |
+|--------------|-------------|---------------|
+| **Gray tagline bar** | `pyproject.toml` → `description` | Scanner count, key features, concise |
+| **Project description** | `README.md` | Clean intro, no cluttered bold lines |
+| **Version badge** | `pyproject.toml` → `version` | Matches release |
+| **Sidebar metadata** | `pyproject.toml` → `keywords`, `classifiers` | Up to date |
+
+**Common PyPI Issues:**
+- Multiple bold lines in README intro render as wall of text
+- Emojis may not render correctly - test sparingly
+- Long taglines get truncated - keep under 100 chars
+- Scanner count must match across tagline, README intro, and Key Features
+
 ---
 
 ## Release Process
@@ -84,10 +100,33 @@ python -m build
 ```
 
 ### Step 7: Verify Release
-- [ ] Check PyPI page: https://pypi.org/project/medusa-security/
-- [ ] Check GitHub releases: https://github.com/Pantheon-Security/medusa/releases
-- [ ] Test install: `pip install --upgrade medusa-security`
-- [ ] Verify version: `medusa --version`
+
+**GitHub Verification:**
+- [ ] Release page exists: https://github.com/Pantheon-Security/medusa/releases
+- [ ] Tag shows correct version
+- [ ] README displays correctly on repo main page
+
+**PyPI Verification (CRITICAL - check each!):**
+- [ ] Visit: https://pypi.org/project/medusa-security/
+- [ ] **Version number** in badge is correct
+- [ ] **Gray tagline bar** at top shows updated description
+- [ ] **README intro** is clean (not wall of bold text)
+- [ ] **Scanner count** is consistent (currently 74)
+- [ ] **Key Features** section renders correctly
+- [ ] **Badges** display and link correctly
+
+**Functional Verification:**
+```bash
+# Test fresh install
+pip install --upgrade medusa-security
+medusa --version
+medusa scan . --help
+```
+
+**Quick PyPI Check Command:**
+```bash
+pip index versions medusa-security 2>&1 | head -2
+```
 
 ---
 
