@@ -317,6 +317,218 @@ class FalsePositiveFilter:
             reason=FPReason.SAFE_PATTERN,
             confidence=0.85,
         ),
+
+        # =========================================================================
+        # Trivy: AVD-DS findings on non-Dockerfile config files (Scanner Bug)
+        # Source: IOTstack, go8, FastAPI-boilerplate FP analysis 2026-01-11
+        # =========================================================================
+
+        # Trivy AVD-DS findings on YAML config files (not Dockerfiles)
+        FPPattern(
+            name="trivy_avd_on_golangci_yaml",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'\.golangci\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+        FPPattern(
+            name="trivy_avd_on_yarnrc",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'\.yarnrc\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+        FPPattern(
+            name="trivy_avd_on_precommit",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'\.pre-commit-config\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+        FPPattern(
+            name="trivy_avd_on_mkdocs",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'mkdocs\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+        FPPattern(
+            name="trivy_avd_on_pyproject",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'pyproject\.toml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+        FPPattern(
+            name="trivy_avd_on_taskfile",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'Taskfile\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.95,
+        ),
+
+        # =========================================================================
+        # Gitleaks: Documentation false positives
+        # Source: FastAPI-boilerplate, Dashy FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="gitleaks_apikey_in_docs",
+            scanner="gitleaksscanner",
+            pattern=r'generic-api-key',
+            file_pattern=r'(docs?[/\\]|README|\.md$)',
+            reason=FPReason.DOCSTRING,
+            confidence=0.90,
+        ),
+        FPPattern(
+            name="gitleaks_curl_auth_in_docs",
+            scanner="gitleaksscanner",
+            pattern=r'curl-auth-header',
+            file_pattern=r'(docs?[/\\]|README|\.md$|getting-started)',
+            reason=FPReason.DOCSTRING,
+            confidence=0.92,
+        ),
+        FPPattern(
+            name="gitleaks_jwt_in_docs",
+            scanner="gitleaksscanner",
+            pattern=r'generic-api-key',
+            file_pattern=r'(first-run|tutorial|example|quickstart)',
+            context_pattern=r'eyJ[A-Za-z0-9_-]+',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.90,
+        ),
+
+        # =========================================================================
+        # Trivy: Template and example directory false positives
+        # Source: IOTstack FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="trivy_avd_in_templates_dir",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'\.templates?[/\\]',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.85,
+        ),
+        FPPattern(
+            name="trivy_avd_in_service_yml",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'service\.ya?ml$',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.85,
+        ),
+        FPPattern(
+            name="trivy_avd_in_scripts_dir",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'scripts?[/\\].*Dockerfile',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.75,
+        ),
+
+        # =========================================================================
+        # Trivy: Empty/placeholder environment variable secrets
+        # Source: IOTstack FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="docker_empty_password_env",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-0031',
+            context_pattern=r'ENV\s+\w*(PASSWORD|SECRET|KEY|TOKEN)\s*["\']?\s*["\']?\s*$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.88,
+        ),
+        FPPattern(
+            name="docker_mqtt_password_placeholder",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-0031',
+            context_pattern=r'MQTT_PASSWORD\s*["\']?\s*["\']?',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.90,
+        ),
+
+        # =========================================================================
+        # Trivy: Kubernetes manifest best practices (AVD-KSV-*)
+        # Source: Flame FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="trivy_ksv_in_k8s_examples",
+            scanner="trivyscanner",
+            pattern=r'AVD-KSV-\d+',
+            file_pattern=r'k8s[/\\](base|overlays|examples?)',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.80,
+        ),
+        FPPattern(
+            name="trivy_ksv_in_deployment_yaml",
+            scanner="trivyscanner",
+            pattern=r'AVD-KSV-\d+',
+            file_pattern=r'k8s[/\\].*deployment\.ya?ml$',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.80,
+        ),
+
+        # =========================================================================
+        # Docker: .docker directory development files
+        # Source: Flame FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="trivy_avd_in_dot_docker",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'\.docker[/\\]',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.75,
+        ),
+        FPPattern(
+            name="trivy_avd_dev_dockerfile",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'Dockerfile\.(dev|multiarch|test|ci|build)',
+            reason=FPReason.TEST_DOCKERFILE,
+            confidence=0.80,
+        ),
+
+        # =========================================================================
+        # Official example/sample repositories (docker/awesome-compose, etc.)
+        # Source: docker/awesome-compose FP analysis 2026-01-11
+        # =========================================================================
+
+        FPPattern(
+            name="trivy_avd_in_compose_examples",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'(awesome-compose|compose-examples|docker-samples)[/\\]',
+            reason=FPReason.EXAMPLE_FILE,
+            confidence=0.85,
+        ),
+        FPPattern(
+            name="trivy_avd_on_compose_yaml",
+            scanner="trivyscanner",
+            pattern=r'AVD-DS-\d+',
+            file_pattern=r'compose\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.90,
+        ),
+        FPPattern(
+            name="trivy_cve_on_compose_yaml",
+            scanner="trivyscanner",
+            pattern=r'CVE-\d+-\d+',
+            file_pattern=r'compose\.ya?ml$',
+            reason=FPReason.SAFE_PATTERN,
+            confidence=0.85,
+        ),
     ]
 
     def __init__(self, source_root: Optional[Path] = None):
@@ -348,7 +560,7 @@ class FalsePositiveFilter:
         result = FilterResult(original_severity=finding.get('severity', 'MEDIUM'))
 
         file_path = finding.get('file', '')
-        line_num = finding.get('line', 0)
+        line_num = finding.get('line') or 0
         scanner = finding.get('scanner', '').lower()
         issue = finding.get('issue', '')
 
@@ -448,7 +660,7 @@ class FalsePositiveFilter:
         context: List[str]
     ) -> FilterResult:
         """Check if finding is in a docstring or comment"""
-        line_num = finding.get('line', 0)
+        line_num = finding.get('line') or 0
 
         if not context or line_num <= 0:
             return FilterResult()
@@ -509,7 +721,7 @@ class FalsePositiveFilter:
         context: List[str]
     ) -> FilterResult:
         """Check if credential is being passed to a security wrapper"""
-        line_num = finding.get('line', 0)
+        line_num = finding.get('line') or 0
 
         if not context or line_num <= 0:
             return FilterResult()
@@ -550,13 +762,13 @@ class FalsePositiveFilter:
         """Check against known FP patterns"""
         scanner = finding.get('scanner', '').lower()
         file_path = finding.get('file', '')
-        line_num = finding.get('line', 0)
+        line_num = finding.get('line') or 0
 
         if not context:
             return FilterResult()
 
         # Get the line and surrounding context
-        line_idx = min(line_num - 1, len(context) - 1) if line_num > 0 else 0
+        line_idx = min(line_num - 1, len(context) - 1) if line_num and line_num > 0 else 0
         line = context[line_idx] if 0 <= line_idx < len(context) else ""
 
         # Broader context for context_pattern matching

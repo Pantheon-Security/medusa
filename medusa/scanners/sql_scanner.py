@@ -22,9 +22,7 @@ class SQLScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".sql"]
 
-    def is_available(self) -> bool:
-        """Check if SQLFluff is installed"""
-        return shutil.which("sqlfluff") is not None
+    # Use base class is_available() which checks venv via _find_tool()
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()

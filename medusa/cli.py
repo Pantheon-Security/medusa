@@ -1871,9 +1871,11 @@ def install(tool, check, all, smart, target, yes, use_latest, debug):
 
     console.print("\n[cyan]📦 Linter Installation[/cyan]\n")
 
+    # Import Path at function start (not inside if block) to avoid UnboundLocalError
+    from pathlib import Path
+
     # Smart installation mode - analyze repo first
     if smart:
-        from pathlib import Path
         from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
         target_path = Path(target) if target else Path.cwd()
@@ -2690,11 +2692,39 @@ def install(tool, check, all, smart, target, yes, use_latest, debug):
                     if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
                         ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
                         console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
-                        console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
-                    else:
+
+                    # Try Docker-style manual binary download (Linux only)
+                    manual_success = False
+                    if platform_info.os_type.value == 'linux':
+                        tool_info = ToolMapper.TOOL_PACKAGES.get(tool_name, {})
+                        manual_cmd = tool_info.get('manual')
+                        # Only run actual commands, not URLs
+                        if manual_cmd and not manual_cmd.startswith('http') and ('curl' in manual_cmd or 'wget' in manual_cmd or 'mkdir' in manual_cmd):
+                            console.print(f"  → Trying manual binary download...")
+                            try:
+                                import subprocess
+                                result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                                if result.returncode == 0:
+                                    manual_success = True
+                                    console.print(f"  [green]✅ Installed via manual download[/green]\n")
+                                    installed += 1
+                                    # Record installation in manifest
+                                    manifest.mark_installed(
+                                        tool_name=tool_name,
+                                        package_manager='manual',
+                                        package_id=tool_name,
+                                        version=_detect_tool_version(tool_name),
+                                        already_existed=False
+                                    )
+                                else:
+                                    console.print(f"  [yellow]⚠ Manual download failed: {result.stderr[:80] if result.stderr else 'unknown error'}[/yellow]")
+                            except Exception as e:
+                                console.print(f"  [yellow]⚠ Manual download failed: {e}[/yellow]")
+
+                    if not manual_success:
                         console.print(f"  [yellow]⊘ No installer available for this platform[/yellow]\n")
-                    failed += 1
-                    failed_details.append((tool_name, 'no installer'))
+                        failed += 1
+                        failed_details.append((tool_name, 'no installer'))
 
         console.print()
         console.print(f"[bold]Installation Summary:[/bold]")

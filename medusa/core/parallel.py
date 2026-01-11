@@ -401,7 +401,7 @@ class MedusaParallelScanner:
         return sorted(files)
 
     def scan_file(self, file_path: Path) -> ScanResult:
-        """Scan a single file using appropriate scanner from registry"""
+        """Scan a single file using ALL appropriate scanners from registry"""
         start_time = time.time()
 
         # Check cache first
@@ -416,19 +416,41 @@ class MedusaParallelScanner:
                     cached=True
                 )
 
-        # Find appropriate scanner from registry
-        scanner = scanner_registry.get_scanner_for_file(file_path)
+        # Find ALL appropriate scanners from registry (not just one!)
+        scanners = scanner_registry.get_all_scanners_for_file(file_path)
 
-        if scanner:
-            # Use new scanner architecture
-            scanner_result = scanner.scan_file(file_path)
+        if scanners:
+            all_issues = []
+            scanner_names = []
+            total_scan_time = 0
 
-            # Convert new ScannerResult to old ScanResult format
+            # Run each scanner and collect results
+            for scanner in scanners:
+                try:
+                    scanner_result = scanner.scan_file(file_path)
+                    scanner_names.append(scanner_result.scanner_name.lower())
+                    total_scan_time += scanner_result.scan_time
+
+                    # Convert issues to dict and add scanner source
+                    for issue in scanner_result.issues:
+                        issue_dict = issue.to_dict()
+                        issue_dict['source_scanner'] = scanner_result.scanner_name.lower()
+                        all_issues.append(issue_dict)
+                except Exception as e:
+                    # Log error but continue with other scanners
+                    pass
+
+            # Deduplicate issues (same file, line, and similar message)
+            deduped_issues = self._deduplicate_issues(all_issues)
+
+            # Combine scanner names for reporting
+            combined_scanner = '+'.join(scanner_names) if scanner_names else 'unknown'
+
             result = ScanResult(
                 file=str(file_path),
-                scanner=scanner_result.scanner_name.lower(),
-                issues=[issue.to_dict() for issue in scanner_result.issues],
-                scan_time=scanner_result.scan_time,
+                scanner=combined_scanner,
+                issues=deduped_issues,
+                scan_time=total_scan_time,
                 cached=False
             )
         else:
@@ -446,6 +468,121 @@ class MedusaParallelScanner:
             self.cache.update_cache(file_path, len(result.issues))
 
         return result
+
+    def _deduplicate_issues(self, issues: List[Dict]) -> List[Dict]:
+        """
+        Deduplicate issues from multiple scanners.
+
+        Two issues are considered duplicates if they have:
+        - Same line number
+        - Similar message content (fuzzy match)
+        - Same or overlapping rule categories
+
+        When duplicates are found, we keep the one with:
+        - Higher severity
+        - More detailed information (CWE, code snippet, etc.)
+        """
+        if not issues:
+            return []
+
+        # Group issues by line number
+        by_line: Dict[int, List[Dict]] = {}
+        no_line = []  # Issues without line numbers
+
+        for issue in issues:
+            line = issue.get('line')
+            if line is not None:
+                if line not in by_line:
+                    by_line[line] = []
+                by_line[line].append(issue)
+            else:
+                no_line.append(issue)
+
+        deduped = []
+
+        # Process issues grouped by line
+        for line, line_issues in by_line.items():
+            if len(line_issues) == 1:
+                deduped.append(line_issues[0])
+            else:
+                # Multiple issues on same line - check for duplicates
+                kept = []
+                for issue in line_issues:
+                    is_dup = False
+                    for existing in kept:
+                        if self._is_duplicate(issue, existing):
+                            # Keep the better one (higher severity, more info)
+                            if self._is_better_issue(issue, existing):
+                                kept.remove(existing)
+                                kept.append(issue)
+                            is_dup = True
+                            break
+                    if not is_dup:
+                        kept.append(issue)
+                deduped.extend(kept)
+
+        # Add issues without line numbers (can't dedupe by line)
+        deduped.extend(no_line)
+
+        return deduped
+
+    def _is_duplicate(self, issue1: Dict, issue2: Dict) -> bool:
+        """Check if two issues are duplicates"""
+        # Same rule ID is definitely a duplicate
+        rule1 = issue1.get('rule_id', '')
+        rule2 = issue2.get('rule_id', '')
+        if rule1 and rule2 and rule1 == rule2:
+            return True
+
+        # Same CWE ID suggests same vulnerability type
+        cwe1 = issue1.get('cwe_id')
+        cwe2 = issue2.get('cwe_id')
+        if cwe1 and cwe2 and cwe1 == cwe2:
+            return True
+
+        # Fuzzy message match - check for common keywords
+        msg1 = issue1.get('message', '').lower()
+        msg2 = issue2.get('message', '').lower()
+
+        # Common vulnerability keywords
+        vuln_keywords = [
+            'sql injection', 'sqli', 'command injection', 'xss',
+            'cross-site', 'hardcoded', 'password', 'secret', 'credential',
+            'eval', 'pickle', 'deseriali', 'unsafe', 'insecure',
+            'md5', 'sha1', 'weak crypto', 'weak hash'
+        ]
+
+        for keyword in vuln_keywords:
+            if keyword in msg1 and keyword in msg2:
+                return True
+
+        return False
+
+    def _is_better_issue(self, new_issue: Dict, existing: Dict) -> bool:
+        """Check if new_issue is better (more informative) than existing"""
+        # Severity ranking
+        severity_rank = {'CRITICAL': 4, 'HIGH': 3, 'MEDIUM': 2, 'LOW': 1, 'INFO': 0}
+
+        new_sev = severity_rank.get(new_issue.get('severity', 'LOW'), 1)
+        exist_sev = severity_rank.get(existing.get('severity', 'LOW'), 1)
+
+        if new_sev > exist_sev:
+            return True
+
+        # If same severity, prefer the one with more metadata
+        new_has_cwe = new_issue.get('cwe_id') is not None
+        exist_has_cwe = existing.get('cwe_id') is not None
+
+        if new_has_cwe and not exist_has_cwe:
+            return True
+
+        new_has_code = new_issue.get('code') is not None
+        exist_has_code = existing.get('code') is not None
+
+        if new_has_code and not exist_has_code:
+            return True
+
+        return False
 
     def _scan_with_bandit(self, file_path: Path) -> ScanResult:
         """Scan Python file with Bandit"""

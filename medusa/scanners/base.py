@@ -374,12 +374,8 @@ class ScannerRegistry:
         """
         Find the appropriate scanner for a file using confidence scoring.
 
-        This intelligently chooses between competing scanners (e.g., Ansible vs
-        Kubernetes vs YAML) by analyzing file content and selecting the scanner
-        with the highest confidence score.
-
-        User overrides (from .medusa.yml) take precedence over confidence scoring,
-        allowing manual corrections that are remembered for future scans.
+        DEPRECATED: Use get_all_scanners_for_file() for comprehensive scanning.
+        This method only returns ONE scanner (highest confidence) for backwards compatibility.
 
         Args:
             file_path: Path to file
@@ -388,23 +384,62 @@ class ScannerRegistry:
         Returns:
             Scanner instance that can handle the file, or None
         """
+        scanners = self.get_all_scanners_for_file(file_path, config)
+        return scanners[0] if scanners else None
+
+    def get_all_scanners_for_file(self, file_path: Path, config=None) -> List[BaseScanner]:
+        """
+        Find ALL appropriate scanners for a file.
+
+        This returns multiple scanners that can handle a file, enabling comprehensive
+        scanning by combining specialized scanners (e.g., Bandit for Python) with
+        generic scanners (e.g., Semgrep, GitLeaks).
+
+        Scanner categories:
+        1. Language-specific scanners (Bandit, ESLint, etc.) - specialized rules
+        2. Generic SAST scanners (Semgrep, Trivy) - cross-language patterns
+        3. Secret scanners (GitLeaks) - credential detection
+        4. AI/LLM scanners - for AI-related code patterns
+
+        User overrides (from .medusa.yml) take precedence over automatic selection.
+
+        Args:
+            file_path: Path to file
+            config: Optional MedusaConfig with scanner overrides
+
+        Returns:
+            List of scanner instances that can handle the file (may be empty)
+        """
+        matching_scanners = []
+
         # Check for user-specified override first
         if config and config.scanner_overrides:
-            # Try both absolute and relative paths
             file_str = str(file_path)
             relative_path = str(file_path.relative_to(Path.cwd())) if file_path.is_absolute() else file_str
 
             for override_path, scanner_name in config.scanner_overrides.items():
-                # Match if either absolute path or relative path matches
                 if file_str.endswith(override_path) or relative_path == override_path:
-                    # Find scanner by name
                     for scanner in self.scanners:
                         if scanner.name == scanner_name and scanner.is_available():
-                            return scanner
+                            return [scanner]  # Override = only use specified scanner
 
-        # No override found, use confidence scoring
-        best_scanner = None
-        best_confidence = 0
+        # Categorize scanners for intelligent selection
+        language_scanners = []  # Specialized language scanners
+        generic_sast = []       # Semgrep, Trivy - generic pattern matching
+        secret_scanners = []    # GitLeaks, etc.
+        ai_scanners = []        # AI/LLM security scanners
+
+        # Generic SAST scanner names (run in addition to language-specific)
+        GENERIC_SAST_NAMES = {'SemgrepScanner', 'TrivyScanner'}
+        SECRET_SCANNER_NAMES = {'GitLeaksScanner', 'EnvScanner'}
+        AI_SCANNER_NAMES = {
+            'MCPServerScanner', 'MCPConfigScanner', 'AIContextScanner',
+            'AgentMemoryScanner', 'RAGSecurityScanner', 'A2AScanner',
+            'PromptLeakageScanner', 'ToolCallbackScanner', 'MultiAgentScanner',
+            'OWASPLLMScanner', 'ModelAttackScanner', 'LLMOpsScanner',
+            'VectorDBScanner', 'ExcessiveAgencyScanner', 'AgentReflectionScanner',
+            'AgentPlanningScanner', 'HyperparameterScanner', 'PluginSecurityScanner'
+        }
 
         for scanner in self.scanners:
             # Only consider scanners that are installed
@@ -415,15 +450,46 @@ class ScannerRegistry:
             if not scanner.can_scan(file_path):
                 continue
 
-            # Get confidence score from content analysis
+            # Get confidence score
             confidence = scanner.get_confidence_score(file_path)
+            if confidence <= 0:
+                continue
 
-            # Track the scanner with highest confidence
-            if confidence > best_confidence:
-                best_confidence = confidence
-                best_scanner = scanner
+            # Categorize the scanner
+            if scanner.name in GENERIC_SAST_NAMES:
+                generic_sast.append((scanner, confidence))
+            elif scanner.name in SECRET_SCANNER_NAMES:
+                secret_scanners.append((scanner, confidence))
+            elif scanner.name in AI_SCANNER_NAMES:
+                ai_scanners.append((scanner, confidence))
+            else:
+                language_scanners.append((scanner, confidence))
 
-        return best_scanner
+        # Build final list: prioritize language-specific, then add generic + secrets
+
+        # 1. Add the BEST language-specific scanner (highest confidence)
+        if language_scanners:
+            language_scanners.sort(key=lambda x: x[1], reverse=True)
+            best_lang_scanner = language_scanners[0][0]
+            matching_scanners.append(best_lang_scanner)
+
+        # 2. Add generic SAST scanners (they catch different patterns)
+        for scanner, _ in generic_sast:
+            if scanner not in matching_scanners:
+                matching_scanners.append(scanner)
+
+        # 3. Add secret scanners (always useful)
+        for scanner, _ in secret_scanners:
+            if scanner not in matching_scanners:
+                matching_scanners.append(scanner)
+
+        # 4. Add relevant AI scanners (if file has AI patterns)
+        # Only add AI scanners with high confidence (they analyzed content)
+        for scanner, confidence in ai_scanners:
+            if confidence >= 50 and scanner not in matching_scanners:
+                matching_scanners.append(scanner)
+
+        return matching_scanners
 
     def get_all_scanners(self) -> List[BaseScanner]:
         """Get all registered scanners"""
