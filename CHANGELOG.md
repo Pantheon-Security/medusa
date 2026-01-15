@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2025.9.1.1] - 2026-01-15
+
+### Added
+
+- **10 Content-Based FP Detection Rules** - New patterns to reduce false positives on non-secret content:
+  - `masked_asterisks` - 10+ asterisks indicate redacted values (95% confidence)
+  - `crlf_line_ending` - Windows line endings / ShellCheck SC1017 (90%)
+  - `html_encoded_mask` - HTML-encoded masked values in reports (92%)
+  - `sentry_dsn` - Sentry DSNs are public by design (90%)
+  - `example_marker` - Values marked as example/sample/test/mock (92%)
+  - `placeholder_text` - YOUR_/REPLACE_/CHANGEME/TODO:/FIXME: markers (95%)
+  - `fedauth_cookie` - Session cookies in forensic captures (85%)
+  - `env_var_bash` - ${VAR} references not hardcoded values (92%)
+  - `env_var_windows` - %VAR% references (92%)
+  - `redacted_marker` - REDACTED/MASKED/[REMOVED]/[HIDDEN]/XXXXXXX (95%)
+
+### Fixed
+
+- **Expanded Scan Exclusions** - Project-specific exclusions to reduce FPs when scanning MEDUSA itself:
+  - Scan outputs: `.medusa/`, `medusa_output/`
+  - Research extractions: `docs/research/nblm/`, `docs/codex/`, `docs/falsepositives/`, `docs/docker/`
+  - Test folders: `tests/`, `test-install/`, `**/fixtures/`, `**/mocks/`
+  - IDE configs: `.claude/`, `.idea/`, `.vscode/`, `.cursor/`
+  - Linter configs: `.hadolint.yaml`, `.semgrep.*`, `.gitleaks.toml`, `.eslintrc*`, etc.
+  - Total FP patterns: 44 → 54
+
+## [2025.9.1.0] - 2026-01-11
+
+### Added
+
+- **Multi-Scanner Architecture** - Improved parallel scanning with better FP filtering
+- **Enhanced FP Filter** - Additional patterns for Go, Docker, and Trivy false positives
+
+## [2025.9.0.14] - 2026-01-10
+
+### Fixed
+
+- **pyproject.toml** - Fixed corrupted `tool.ruff` and `tool.mypy` settings that had package version instead of Python version
+
+## [2025.9.0.13] - 2026-01-10
+
+### Added
+
+- **Template File Scanning** - Added .template, .tpl, .example, .sample, .dist extensions to file discovery
+- **Config File Scanning** - Added .ini, .cfg, .conf, .toml extensions for secret detection
+
+## [2025.9.0.12] - 2026-01-10
+
+### Fixed
+
+- **CRITICAL: Scanner Cache Bug** - Fixed `_find_tool()` returning dummy path `<cached:toolname>` which broke ALL 40+ scanners using external tools
+- **Gitleaks Output** - Fixed `/dev/stdout` not working in subprocess mode by using temp file
+
+## [2025.9.0.11] - 2026-01-09
+
+### Added
+
+- **Enhanced FP Filter Patterns** - Additional false positive detection patterns
+
+## [2025.9.0.10] - 2026-01-09
+
+### Fixed
+
+- **Codex/Sandbox Compatibility** - Multiprocessing now gracefully falls back to sequential scanning when semaphore creation fails (affects Codex CLI, Docker containers, restricted sandboxes)
+- **File Path Validation** - `medusa scan <file>` now shows friendly error instead of crashing with NotADirectoryError
+- **Version Reporting** - JSON and Markdown reports now show correct version instead of hardcoded 0.11.1
+
+### Changed
+
+- Added `.gitignore` entries for 2026 development files
+
 ## [2025.9.0.9] - 2026-01-05
 
 ### Fixed
