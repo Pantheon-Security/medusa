@@ -73,6 +73,7 @@ from medusa.scanners.vector_db_scanner import VectorDBScanner
 from medusa.scanners.modelscan_scanner import ModelScanScanner
 from medusa.scanners.garak_scanner import GarakScanner
 from medusa.scanners.llm_guard_scanner import LLMGuardScanner
+from medusa.scanners.critical_cve_scanner import CriticalCVEScanner
 from medusa.scanners.react2shell_scanner import React2ShellScanner
 from medusa.scanners.mcp_remote_rce_scanner import MCPRemoteRCEScanner
 from medusa.scanners.docker_mcp_scanner import DockerMCPScanner
@@ -152,6 +153,7 @@ registry.register(VectorDBScanner())
 registry.register(ModelScanScanner())
 registry.register(GarakScanner())
 registry.register(LLMGuardScanner())
+registry.register(CriticalCVEScanner())
 registry.register(React2ShellScanner())
 registry.register(MCPRemoteRCEScanner())
 registry.register(DockerMCPScanner())
@@ -233,6 +235,7 @@ __all__ = [
     'ModelScanScanner',
     'GarakScanner',
     'LLMGuardScanner',
+    'CriticalCVEScanner',
     'React2ShellScanner',
     'MCPRemoteRCEScanner',
     'DockerMCPScanner',
