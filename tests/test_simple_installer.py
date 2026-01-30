@@ -166,15 +166,15 @@ class TestToolInstallation:
 class TestDetectedTools:
     """Tests for detecting installed tools."""
 
-    def test_detects_bandit(self):
-        """Test detecting bandit."""
+    def test_detects_shellcheck(self):
+        """Test detecting shellcheck."""
         with mock.patch('shutil.which') as mock_which:
             def which_side_effect(tool):
-                return '/usr/bin/bandit' if tool == 'bandit' else None
+                return '/usr/bin/shellcheck' if tool == 'shellcheck' else None
             mock_which.side_effect = which_side_effect
 
             detected = get_detected_tools()
-            assert 'bandit' in detected
+            assert 'shellcheck' in detected
 
     def test_detects_semgrep(self):
         """Test detecting semgrep."""
@@ -189,14 +189,14 @@ class TestDetectedTools:
     def test_detects_multiple_tools(self):
         """Test detecting multiple tools."""
         tools_map = {
-            'bandit': '/usr/bin/bandit',
+            'eslint': '/usr/local/bin/eslint',
             'semgrep': '/usr/local/bin/semgrep',
             'shellcheck': '/usr/bin/shellcheck',
         }
 
         with mock.patch('shutil.which', side_effect=lambda t: tools_map.get(t)):
             detected = get_detected_tools()
-            assert 'bandit' in detected
+            assert 'eslint' in detected
             assert 'semgrep' in detected
             assert 'shellcheck' in detected
 
@@ -481,7 +481,7 @@ class TestIntegration:
             mock_run.return_value = mock.Mock(returncode=0)
 
             with mock.patch('shutil.which') as mock_which:
-                mock_which.side_effect = lambda t: f'/usr/bin/{t}' if t in ['bandit', 'semgrep'] else None
+                mock_which.side_effect = lambda t: f'/usr/bin/{t}' if t in ['shellcheck', 'semgrep'] else None
 
                 # Get AI tools status
                 ai_status = get_ai_tools_status()
@@ -489,11 +489,12 @@ class TestIntegration:
 
                 # Get detected tools
                 detected = get_detected_tools()
-                assert 'bandit' in detected
+                assert 'shellcheck' in detected
                 assert 'semgrep' in detected
 
                 # Get optional tools with install status
                 optional = get_optional_tools()
-                bandit_tool = next((t for t in optional if t['name'] == 'bandit'), None)
-                assert bandit_tool is not None
-                assert bandit_tool['installed'] is True
+                shellcheck_tool = next((t for t in optional if t['name'] == 'shellcheck'), None)
+                assert shellcheck_tool is not None
+                assert shellcheck_tool['installed'] is True
+                assert 'url' in shellcheck_tool

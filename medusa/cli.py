@@ -1899,25 +1899,27 @@ def install(check, ai_tools, install_all):
         console.print()
 
         # Detected external tools
-        detected = get_detected_tools()
-        if detected:
-            console.print(f"[bold green]Detected Tools ({len(detected)}):[/bold green]")
-            console.print(f"  {', '.join(detected)}")
+        optional = get_optional_tools()
+        installed = [t for t in optional if t['installed']]
+        not_installed = [t for t in optional if not t['installed']]
+
+        if installed:
+            console.print(f"[bold green]Detected Tools ({len(installed)}):[/bold green]")
+            console.print(f"  {', '.join(t['name'] for t in installed)}")
             console.print(f"  [dim]These will be used automatically during scans[/dim]")
         else:
             console.print("[dim]No external linters detected[/dim]")
         console.print()
 
-        # Optional tools (not installed)
-        optional = get_optional_tools()
-        not_installed = [t for t in optional if not t['installed']]
+        # Optional tools (not installed) - show with official links
         if not_installed:
-            console.print(f"[bold yellow]Optional Tools (install for deeper analysis):[/bold yellow]")
-            for tool in not_installed[:5]:
-                console.print(f"  • {tool['name']}: {tool['description']}")
-            if len(not_installed) > 5:
-                console.print(f"  [dim]...and {len(not_installed) - 5} more[/dim]")
-            console.print(f"\n[dim]See: https://github.com/Pantheon-Security/medusa/blob/main/docs/OPTIONAL_TOOLS.md[/dim]")
+            console.print(f"[bold yellow]Optional Tools ({len(not_installed)} available):[/bold yellow]")
+            # Group by category for cleaner display
+            for tool in not_installed[:8]:
+                console.print(f"  [dim]•[/dim] {tool['name']:<20} {tool['description']:<28} [link={tool['url']}]{tool['url']}[/link]")
+            if len(not_installed) > 8:
+                console.print(f"  [dim]...and {len(not_installed) - 8} more[/dim]")
+            console.print(f"\n[dim]Full list: https://github.com/Pantheon-Security/medusa/blob/main/docs/OPTIONAL_TOOLS.md[/dim]")
 
         return
 
