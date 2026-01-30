@@ -4,7 +4,9 @@ MEDUSA Security Report Generator
 Generates beautiful JSON/HTML security reports from MEDUSA scan results
 """
 
+import hashlib
 import json
+import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -114,10 +116,16 @@ class MedusaReportGenerator:
             'by_scanner': dict(by_scanner)
         }
 
-    def generate_json_report(self, scan_results: Dict[str, Any], output_path: Path = None) -> Path:
+    def generate_json_report(self, scan_results: Dict[str, Any], output_path: Path = None, ai_safe: bool = False) -> Path:
         """Generate JSON report"""
         timestamp = datetime.now().isoformat()
-        findings = scan_results.get('findings', [])
+        findings = list(scan_results.get('findings', []))
+
+        # Apply AI-safe obfuscation if requested
+        obfuscator = None
+        if ai_safe:
+            obfuscator = PayloadObfuscator()
+            findings = obfuscator.obfuscate_findings(findings)
 
         report = {
             'timestamp': timestamp,
@@ -134,13 +142,20 @@ class MedusaReportGenerator:
                 for severity in ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'UNDEFINED']
             },
             'findings': findings,
-            'aggregations': self.aggregate_findings(scan_results)
+            'aggregations': self.aggregate_findings({'findings': findings})
         }
+
+        if ai_safe:
+            report['ai_safe_mode'] = True
 
         # Save report
         output_path = output_path or self.output_dir / f"medusa-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(report, f, indent=2)
+
+        # Save raw payloads alongside report when ai_safe is enabled
+        if ai_safe and obfuscator is not None:
+            obfuscator.save_raw_payloads(output_path)
 
         # Update history
         self._update_history(report)
@@ -182,10 +197,16 @@ class MedusaReportGenerator:
 
         return output_path
 
-    def generate_markdown_report(self, scan_results: Dict[str, Any], output_path: Path = None) -> Path:
+    def generate_markdown_report(self, scan_results: Dict[str, Any], output_path: Path = None, ai_safe: bool = False) -> Path:
         """Generate Markdown report from scan results"""
         timestamp = datetime.now().isoformat()
-        findings = scan_results.get('findings', [])
+        findings = list(scan_results.get('findings', []))
+
+        # Apply AI-safe obfuscation if requested
+        obfuscator = None
+        if ai_safe:
+            obfuscator = PayloadObfuscator()
+            findings = obfuscator.obfuscate_findings(findings)
 
         # Calculate metrics
         security_score = self.calculate_security_score(findings)
@@ -277,7 +298,193 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(md)
 
+        # Save raw payloads alongside report when ai_safe is enabled
+        if ai_safe and obfuscator is not None:
+            obfuscator.save_raw_payloads(output_path)
+
         return output_path
+
+    def generate_sarif_report(self, scan_results: Dict[str, Any], output_path: Path = None, ai_safe: bool = False) -> Path:
+        """Generate SARIF 2.1.0 report for GitHub Code Scanning integration"""
+        findings = list(scan_results.get('findings', []))
+
+        # Apply AI-safe obfuscation if requested
+        obfuscator = None
+        if ai_safe:
+            obfuscator = PayloadObfuscator()
+            findings = obfuscator.obfuscate_findings(findings)
+
+        # Severity to SARIF level mapping
+        severity_to_level = {
+            'CRITICAL': 'error',
+            'HIGH': 'error',
+            'MEDIUM': 'warning',
+            'LOW': 'note',
+            'INFO': 'note',
+            'UNDEFINED': 'note',
+        }
+
+        # Severity to security-severity score (for GitHub)
+        severity_to_score = {
+            'CRITICAL': '9.0',
+            'HIGH': '7.0',
+            'MEDIUM': '4.0',
+            'LOW': '1.0',
+            'INFO': '0.5',
+            'UNDEFINED': '0.0',
+        }
+
+        # Build rules and results
+        rules: List[Dict[str, Any]] = []
+        results: List[Dict[str, Any]] = []
+        seen_rule_ids: Dict[str, int] = {}
+
+        for finding in findings:
+            # Determine rule ID
+            cwe = finding.get('cwe')
+            if cwe:
+                rule_id = f"CWE-{cwe}"
+            else:
+                # Sanitize issue text into a rule ID
+                rule_id = re.sub(r'[^a-zA-Z0-9-]', '-', finding.get('issue', 'unknown'))
+                rule_id = re.sub(r'-+', '-', rule_id).strip('-')
+
+            # Track rule index for ruleIndex reference
+            if rule_id not in seen_rule_ids:
+                rule_index = len(rules)
+                seen_rule_ids[rule_id] = rule_index
+
+                # Build rule definition
+                rule_def: Dict[str, Any] = {
+                    'id': rule_id,
+                    'name': finding.get('issue', 'Unknown Issue'),
+                    'shortDescription': {
+                        'text': finding.get('issue', 'Unknown Issue'),
+                    },
+                    'fullDescription': {
+                        'text': finding.get('issue', 'Unknown Issue'),
+                    },
+                    'properties': {
+                        'security-severity': severity_to_score.get(finding.get('severity', 'UNDEFINED'), '0.0'),
+                        'tags': self._generate_sarif_tags(finding),
+                    },
+                }
+
+                # Add CWE help URI
+                if cwe:
+                    rule_def['helpUri'] = f"https://cwe.mitre.org/data/definitions/{cwe}.html"
+
+                rules.append(rule_def)
+            else:
+                rule_index = seen_rule_ids[rule_id]
+
+            # Build fingerprint
+            fingerprint_input = f"{rule_id}:{finding.get('file', '')}:{finding.get('line', '')}:{finding.get('issue', '')}"
+            fingerprint = hashlib.sha256(fingerprint_input.encode()).hexdigest()
+
+            # Build location
+            region: Dict[str, Any] = {
+                'startLine': finding.get('line', 1),
+            }
+            if finding.get('code'):
+                region['snippet'] = {'text': finding['code']}
+
+            location = {
+                'physicalLocation': {
+                    'artifactLocation': {
+                        'uri': finding.get('file', 'unknown'),
+                        'uriBaseId': '%SRCROOT%',
+                    },
+                    'region': region,
+                }
+            }
+
+            # Build result
+            result: Dict[str, Any] = {
+                'ruleId': rule_id,
+                'ruleIndex': rule_index,
+                'level': severity_to_level.get(finding.get('severity', 'UNDEFINED'), 'note'),
+                'message': {
+                    'text': finding.get('issue', 'Unknown Issue'),
+                },
+                'locations': [location],
+                'fingerprints': {
+                    'medusa/v1': fingerprint,
+                },
+                'properties': {
+                    'security-severity': severity_to_score.get(finding.get('severity', 'UNDEFINED'), '0.0'),
+                    'tags': self._generate_sarif_tags(finding),
+                },
+            }
+
+            results.append(result)
+
+        # Build SARIF document
+        sarif = {
+            '$schema': 'https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json',
+            'version': '2.1.0',
+            'runs': [
+                {
+                    'tool': {
+                        'driver': {
+                            'name': 'MEDUSA',
+                            'semanticVersion': __version__,
+                            'informationUri': 'https://medusa-security.dev',
+                            'rules': rules,
+                        }
+                    },
+                    'results': results,
+                    'invocations': [
+                        {
+                            'executionSuccessful': True,
+                            'toolExecutionNotifications': [],
+                        }
+                    ],
+                }
+            ],
+        }
+
+        # Save SARIF report
+        output_path = output_path or self.output_dir / f"medusa-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.sarif"
+        with open(output_path, 'w', encoding='utf-8') as f:
+            json.dump(sarif, f, indent=2)
+
+        # Save raw payloads alongside report when ai_safe is enabled
+        if ai_safe and obfuscator is not None:
+            obfuscator.save_raw_payloads(output_path)
+
+        return output_path
+
+    def _generate_sarif_tags(self, finding: Dict[str, Any]) -> List[str]:
+        """Generate tags for a SARIF rule based on finding content."""
+        tags = ['security']
+        issue = finding.get('issue', '').lower()
+        code = finding.get('code', '').lower()
+        text = f"{issue} {code}"
+
+        tag_patterns = [
+            ('sql', r'\bsql\b'),
+            ('injection', r'\binjection\b'),
+            ('xss', r'\bxss\b'),
+            ('cross-site-scripting', r'\bcross.?site.?script'),
+            ('prompt-injection', r'\bprompt.?injection\b'),
+            ('llm', r'\bllm\b'),
+            ('secrets', r'\bsecret|api.?key|password|credential'),
+            ('cryptography', r'\bcrypto|hash|cipher|encrypt'),
+            ('jailbreak', r'\bjailbreak\b'),
+            ('ai-security', r'\bai\b|\bml\b|\bmodel\b'),
+        ]
+
+        for tag, pattern in tag_patterns:
+            if re.search(pattern, text, re.IGNORECASE):
+                tags.append(tag)
+
+        # Add CWE tag if present
+        cwe = finding.get('cwe')
+        if cwe:
+            tags.append(f"external/cwe/cwe-{cwe}")
+
+        return tags
 
     def _build_html_report(self, report: Dict[str, Any]) -> str:
         """Build professional, clean HTML security report"""
@@ -986,6 +1193,114 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             """)
 
         return ''.join(cards)
+
+
+class PayloadObfuscator:
+    """Obfuscate dangerous payloads (prompt injection, jailbreaks) in scan reports.
+
+    Prevents prompt injection payloads found during scanning from being passed
+    through to AI agents or downstream consumers that read the reports.
+    """
+
+    DANGEROUS_ISSUE_PATTERNS = [
+        re.compile(r'PI-.*\d', re.IGNORECASE),
+        re.compile(r'JB-.*\d', re.IGNORECASE),
+        re.compile(r'RAG-.*\d', re.IGNORECASE),
+        re.compile(r'prompt.?injection', re.IGNORECASE),
+        re.compile(r'jailbreak', re.IGNORECASE),
+        re.compile(r'MCP.*manipulation', re.IGNORECASE),
+    ]
+
+    DANGEROUS_CODE_PATTERNS = [
+        re.compile(r'ignore\s+(all\s+)?previous\s+instructions', re.IGNORECASE),
+        re.compile(r'you\s+are\s+now\s+', re.IGNORECASE),
+        re.compile(r'bypass\s+guardrail', re.IGNORECASE),
+        re.compile(r'DAN\s+mode', re.IGNORECASE),
+        re.compile(r'override\s+all\s+previous', re.IGNORECASE),
+        re.compile(r'system:\s*override', re.IGNORECASE),
+        re.compile(r'ignores?\s+safety', re.IGNORECASE),
+    ]
+
+    ATTACK_CATEGORIES = [
+        (re.compile(r'PI-|prompt.?inject', re.IGNORECASE), 'Prompt Injection'),
+        (re.compile(r'JB-|jailbreak|DAN\s+mode', re.IGNORECASE), 'Jailbreak Attempt'),
+        (re.compile(r'bypass.?guardrail|guardrail', re.IGNORECASE), 'Guardrail Bypass'),
+        (re.compile(r'RAG-|RAG', re.IGNORECASE), 'RAG Attack'),
+        (re.compile(r'MCP|tool.?manipulat', re.IGNORECASE), 'MCP/Tool Manipulation'),
+    ]
+
+    def __init__(self):
+        self._raw_payloads: Dict[str, Dict[str, Any]] = {}
+
+    def should_obfuscate(self, finding: Dict[str, Any]) -> bool:
+        """Check if a finding contains dangerous patterns that should be obfuscated."""
+        issue = finding.get('issue', '')
+        code = finding.get('code', '')
+
+        for pattern in self.DANGEROUS_ISSUE_PATTERNS:
+            if pattern.search(issue):
+                return True
+
+        for pattern in self.DANGEROUS_CODE_PATTERNS:
+            if pattern.search(code):
+                return True
+
+        return False
+
+    def obfuscate_finding(self, finding: Dict[str, Any]) -> Dict[str, Any]:
+        """Obfuscate a finding if it contains dangerous content."""
+        if not self.should_obfuscate(finding):
+            return finding
+
+        result = dict(finding)
+        ref_hash = hashlib.sha256(
+            f"{finding.get('code', '')}{finding.get('file', '')}{finding.get('line', '')}".encode()
+        ).hexdigest()[:12]
+
+        self._raw_payloads[ref_hash] = {
+            'original_code': finding.get('code', ''),
+            'original_issue': finding.get('issue', ''),
+            'file': finding.get('file', ''),
+            'line': finding.get('line', 0),
+            'category': self._categorize_attack(finding),
+        }
+
+        result['code'] = f'[PAYLOAD OBFUSCATED] (ref:{ref_hash})'
+        return result
+
+    def obfuscate_findings(self, findings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Obfuscate a batch of findings."""
+        return [self.obfuscate_finding(f) for f in findings]
+
+    def get_raw_payloads(self) -> Dict[str, Dict[str, Any]]:
+        """Return stored raw payloads for human review."""
+        return dict(self._raw_payloads)
+
+    def save_raw_payloads(self, report_path: Path) -> Path:
+        """Save raw payloads to a separate file alongside the report."""
+        if not self._raw_payloads:
+            return None
+
+        raw_path = report_path.parent / f"{report_path.stem}-raw-payloads.json"
+        data = {
+            'warning': 'RAW PAYLOADS - Contains unobfuscated attack content. For human review only.',
+            'generated': datetime.now().isoformat(),
+            'payloads': self._raw_payloads,
+        }
+        with open(raw_path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        return raw_path
+
+    def _categorize_attack(self, finding: Dict[str, Any]) -> str:
+        """Categorize the type of attack in a finding."""
+        text = f"{finding.get('issue', '')} {finding.get('code', '')}"
+
+        for pattern, category in self.ATTACK_CATEGORIES:
+            if pattern.search(text):
+                return category
+
+        return 'Unknown Attack'
 
 
 def main():

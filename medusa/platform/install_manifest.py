@@ -113,6 +113,14 @@ class InstallManifest:
             if info.get('installed_by_medusa', False)
         ]
 
+    def get_installed_tools(self) -> List[str]:
+        """Get list of ALL tools in manifest (installed by MEDUSA or pre-existing)
+
+        Returns:
+            List of tool names
+        """
+        return list(self.data['tools'].keys())
+
     def get_all_tracked_tools(self) -> List[str]:
         """Get list of all tracked tools (including pre-existing)
 

@@ -1,4 +1,4 @@
-# 🐍 MEDUSA - Multi-Language Security Scanner
+# 🐍 MEDUSA - AI Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
@@ -9,51 +9,46 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**Universal security scanner with 73 specialized analyzers for all languages and platforms.**
-**🤖 AI Agent Security with 180+ detection rules for the agentic era.**
+**AI-first security scanner with 4,152+ detection patterns for AI/ML, agents, and LLM applications.**
+**🤖 Works out of the box - no tool installation required.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
-**✨ NEW v2025.9.0.1: Smart Scanner Selection, Path Traversal Detection, Test File Filtering!**
+**✨ NEW v2026.2.0: Simplified installation, AI rules-first architecture!**
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that scans your codebase for security vulnerabilities, code quality issues, and best practice violations across **73 different languages and file types**.
+MEDUSA is an AI-first security scanner with **4,152+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
 
 ### ✨ Key Features
 
-- 🔍 **73 Specialized Scanners** - Most comprehensive coverage available with intelligent selection
+- 🤖 **4,152+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities, supply chain risks
-- 🤖 **AI Agent Security** - 180+ rules for MCP, RAG, prompt injection, tool poisoning & more
-- ⚡ **Parallel Processing** - Multi-core scanning (10-40× faster than sequential)
+- ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
-- 📦 **Auto-Installer** - One-command installation of all security tools (Windows, macOS, Linux)
 - 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans
 - ⚙️ **Configurable** - `.medusa.yml` for project-specific settings
 - 🌍 **Cross-Platform** - Native Windows, macOS, and Linux support
-- 📊 **Multiple Reports** - JSON, HTML, Markdown exports for any workflow
-- 🎯 **Zero Config** - Works out of the box with sensible defaults
+- 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
+- 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2025.9.0.1
+### 🆕 What's New in v2026.2.0
 
-**24 New Detection Patterns from AI Security Research** - comprehensive coverage of emerging AI/LLM attack vectors:
+**AI Rules-First Architecture** - MEDUSA now focuses on what matters most: 4,152+ AI security detection patterns that work immediately.
 
-| Category | New Detections |
-|----------|----------------|
-| 🎯 **Smart Scanner Selection** | CodePatternAnalyzer now filters scanners to only what your project needs |
-| 🛡️ **CVE-2025-6514** | mcp-remote OAuth SSRF → RCE (MCP017-018) |
-| 🔍 **Path Traversal (MCP124)** | 10 patterns for arbitrary file read/write in MCP servers |
-| 📤 **Data Leak via Legitimate Channels** | LLM02-DL: Slack, Discord, Teams, email, webhook exfiltration |
-| 🔐 **RAG Hidden Text Poisoning** | AIR013: White-on-white, HTML comments, zero-width chars |
-| 🎭 **Adversarial Document Injection** | AIR014: Instruction override, role hijacking in documents |
-| 🏢 **Multi-tenant RAG Isolation** | AIR015: Cross-tenant data leakage, shared index attacks |
-| ✅ **Test File Filtering** | B101 (assert) filtered in test directories |
-| 🚫 **False Positive Fixes** | /PATH-TO/ placeholder patterns no longer flag as root access |
+| Change | Description |
+|--------|-------------|
+| 🚀 **Simplified Installation** | Just `pip install medusa-security && medusa scan .` - that's it! |
+| 🤖 **4,152+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
+| 🔧 **Optional External Linters** | Auto-detected if present, not required or installed by MEDUSA |
+| 📦 **modelscan Support** | `medusa install --ai-tools` installs modelscan for ML model scanning |
+| 🧹 **CLI Cleanup** | Removed 1,500+ lines of legacy installer code |
 
-**Detection Rules Added**: +45 new patterns across OWASP LLM, MCP Server, RAG Security scanners
-
-**Previous Release (v2025.9.0)**: 6 New AI Security Scanners - PostQuantumScanner, SteganographyScanner, ExcessiveAgencyScanner, PluginSecurityScanner, HyperparameterScanner, DockerMCPScanner
+**External Linters** (optional):
+- MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed
+- See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)** for installation instructions
 
 ---
 
@@ -61,104 +56,48 @@ MEDUSA is a comprehensive Static Application Security Testing (SAST) tool that s
 
 ### Installation
 
-**Windows (Recommended - Virtual Environment):**
-```powershell
-# Create and activate virtual environment (security best practice)
-py -m venv medusa-env
-medusa-env\Scripts\activate
-
-# Install MEDUSA
+```bash
+# Install MEDUSA (works on Windows, macOS, Linux)
 pip install medusa-security
 
-# Verify installation
-medusa --version
-```
-
-**Windows (System-wide - Not Recommended):**
-```powershell
-# Install MEDUSA system-wide (not recommended)
-py -m pip install medusa-security --no-warn-script-location
-
-# Verify installation
-py -m medusa --version
-```
-
-> **Note for Windows users**: Virtual environments provide better isolation and avoid PATH warnings. If using system-wide install, use `py -m medusa` for all commands.
-
-**macOS/Linux (Recommended - Virtual Environment):**
-```bash
-# Create and activate virtual environment (security best practice)
-python3 -m venv medusa-env
-source medusa-env/bin/activate
-
-# Install MEDUSA
-pip install medusa-security
-
-# Verify installation
-medusa --version
-```
-
-**macOS/Linux (System-wide - Not Recommended):**
-```bash
-# Only use if you understand the implications
-pip install medusa-security --user
-
-# Verify installation
-medusa --version
-```
-
-**Install from source (all platforms):**
-```bash
-git clone https://github.com/Pantheon-Security/medusa.git
-cd medusa
-
-# Use virtual environment (recommended)
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-pip install -e .
-```
-
-**Platform-Specific Notes:**
-
-- **Windows**: Use `py -m medusa` instead of `medusa` if the command is not found
-- **macOS**: If `medusa` command is not found, run `python3 -m medusa setup_path` or use `python3 -m medusa`
-- **Linux**: Should work out of the box with `medusa` command
-
-> **✅ Windows Support**: MEDUSA now has full native Windows support with automatic tool installation via winget, chocolatey, and npm!
-
-### 5-Minute Setup
-
-**Windows:**
-```powershell
-# 1. Initialize in your project
-cd your-project
-py -m medusa init
-
-# 2. Install security tools (auto-detected for your platform)
-py -m medusa install --all
-
-# 3. Run your first scan
-py -m medusa scan .
-```
-
-**macOS/Linux:**
-```bash
-# 1. Initialize in your project
-cd your-project
-medusa init
-
-# 2. Install security tools (auto-detected for your platform)
-medusa install --all
-
-# 3. Run your first scan
+# Run your first scan - that's it!
 medusa scan .
 ```
+
+**Virtual Environment (Recommended):**
+```bash
+# Create and activate virtual environment
+python3 -m venv medusa-env
+source medusa-env/bin/activate  # On Windows: medusa-env\Scripts\activate
+
+# Install and scan
+pip install medusa-security
+medusa scan .
+```
+
+**Platform Notes:**
+- **Windows**: Use `py -m medusa` if `medusa` command is not found
+- **macOS/Linux**: Should work out of the box
+
+### Optional: AI Model Scanning
+
+```bash
+# Install modelscan for ML model vulnerability detection
+medusa install --ai-tools
+```
+
+### Optional: External Linters
+
+MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, etc.) and uses them automatically to enhance scan coverage.
+
+**[See Installation Guide →](docs/OPTIONAL_TOOLS.md)** for platform-specific instructions.
+
+> **Note:** External linters are optional. MEDUSA's 4,152+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
 
 ### Example Output
 
 ```
-🐍 MEDUSA v2025.9.0 - Security Guardian
+🐍 MEDUSA v2026.2.0 - AI Security Scanner
 
 🎯 Target: .
 🔧 Mode: Full
@@ -169,20 +108,20 @@ medusa scan .
 ✅ Scanned 145 files
 
 ============================================================
-🎯 PARALLEL SCAN COMPLETE
+🎯 SCAN COMPLETE
 ============================================================
 📂 Files scanned: 145
 ⚡ Files cached: 0
-🔍 Issues found: 114
-⏱️  Total time: 47.28s
+🔍 Issues found: 23
+⏱️  Total time: 12.5s
 📈 Cache hit rate: 0.0%
-🔧 Scanners used: bandit, eslint, shellcheck, yamllint
+🔧 AI Rules: 4,152 patterns checked
 ============================================================
 
 📊 Reports generated:
-   JSON       → .medusa/reports/medusa-scan-20250119-083045.json
-   HTML       → .medusa/reports/medusa-scan-20250119-083045.html
-   Markdown   → .medusa/reports/medusa-scan-20250119-083045.md
+   JSON       → .medusa/reports/medusa-scan-20260129-083045.json
+   HTML       → .medusa/reports/medusa-scan-20260129-083045.html
+   SARIF      → .medusa/reports/medusa-scan-20260129-083045.sarif
 
 ✅ Scan complete!
 ```
@@ -323,24 +262,23 @@ medusa scan .
 
 ---
 
-## 🤖 AI Agent Security (v2025.7+)
+## 🤖 AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **22 specialized scanners** and **180+ detection rules** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+MEDUSA provides **industry-leading AI security scanning** with **4,152+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
-### AI Security Scanners
+### AI Security Coverage
 
-| Scanner | Rules | Detects |
-|---------|-------|---------|
-| **OWASPLLMScanner** | LLM01-10 | OWASP Top 10 2025: Prompt injection, system prompt leakage, unbounded consumption |
-| **MCPServerScanner** | MCP101-118 | Tool poisoning, CVE-2025-6514, confused deputy, command injection |
-| **MCPConfigScanner** | MCP001-013 | Secrets, dangerous paths, HTTP without TLS, untrusted sources |
-| **AIContextScanner** | AIC001-030 | Prompt injection, memory manipulation, HITL bypass |
-| **RAGSecurityScanner** | RAG001-010 | Vector injection, document poisoning, tenant isolation |
-| **VectorDBScanner** | VD001-010 | Unencrypted storage, PII in embeddings, exposed endpoints |
-| **LLMOpsScanner** | LO001-010 | Insecure model loading, checkpoint exposure, drift detection |
-| + 9 more | 60+ rules | Multi-agent, planning, reflection, A2A, model attacks |
+| Category | Patterns | Detects |
+|----------|----------|---------|
+| **Prompt Injection** | 800+ | Direct/indirect injection, jailbreaks, role manipulation |
+| **MCP Server Security** | 400+ | Tool poisoning, CVE-2025-6514, confused deputy, command injection |
+| **RAG Security** | 300+ | Vector injection, document poisoning, tenant isolation |
+| **Agent Security** | 500+ | Excessive agency, memory poisoning, HITL bypass |
+| **Model Security** | 400+ | Insecure loading, checkpoint exposure, adversarial attacks |
+| **Supply Chain** | 350+ | Dependency confusion, typosquatting, malicious packages |
+| **Traditional SAST** | 1,400+ | SQL injection, XSS, command injection, secrets |
 
 ### AI Attack Coverage
 
@@ -454,29 +392,17 @@ medusa scan . -o /tmp/reports
 ### Install Commands
 
 ```bash
-# Check which tools are installed
+# Check tool status
 medusa install --check
 
-# Install all missing tools (interactive)
-medusa install --all
+# Install AI tools (modelscan for ML model scanning)
+medusa install --ai-tools
 
-# Install specific tool
-medusa install bandit
-
-# Auto-yes to all prompts (non-interactive)
-medusa install --all --yes
-
-# Auto-yes to first prompt, then auto-yes all remaining
-# When prompted: type 'a' for auto-yes-all
-medusa install --all
-Install all 39 missing tools? [Y/n/a]: a
-
-# Show detailed installation output
-medusa install --all --debug
-
-# Use latest versions (bypass version pinning)
-medusa install --all --use-latest
+# Show detailed output
+medusa install --ai-tools --debug
 ```
+
+> **Note**: MEDUSA v2026.2+ no longer installs external linters. Install them yourself via your package manager (apt, brew, npm, pip) if needed. MEDUSA will auto-detect and use any installed linters.
 
 ### Init Commands
 
@@ -503,11 +429,8 @@ medusa init --install
 ### Additional Commands
 
 ```bash
-# Uninstall specific tool
-medusa uninstall bandit
-
-# Uninstall all MEDUSA tools
-medusa uninstall --all --yes
+# Uninstall modelscan
+medusa uninstall modelscan
 
 # Check for updates
 medusa version --check-updates
@@ -541,56 +464,15 @@ medusa override path/to/file.yaml --remove
 | `-o, --output PATH` | Custom output directory for reports |
 | `--format FORMAT` | Output format: `json`, `html`, `sarif`, `junit`, `text` (can specify multiple) |
 | `--no-report` | Skip generating HTML report |
-| `--install-mode MODE` | Tool installation: `batch`, `progressive`, `never` |
-| `--auto-install` | Automatically install missing tools without prompting |
-| `--no-install` | Never attempt to install missing tools |
-
 ### Install Options Reference
 
 | Option | Description |
 |--------|-------------|
-| `TOOL` | Specific tool to install (e.g., `bandit`, `eslint`) |
-| `--check` | Check which tools are installed |
-| `--all` | Install all missing tools |
-| `-y, --yes` | Skip all confirmation prompts (auto-yes) |
+| `--check` | Check tool status |
+| `--ai-tools` | Install AI security tools (modelscan) |
 | `--debug` | Show detailed debug output |
-| `--use-latest` | Install latest versions instead of pinned versions |
 
-**Interactive Prompts:**
-- `[Y/n/a]` - Type `Y` for yes, `n` for no, `a` for auto-yes-all remaining prompts
-
-### Windows Auto-Installation
-
-**✅ Fully Supported!** MEDUSA automatically installs tools on Windows using winget/Chocolatey.
-
-```powershell
-# One-command installation (auto-installs everything)
-medusa install --all
-
-# When prompted, type 'a' for auto-yes-all:
-Install all 39 missing tools? [Y/n/a]: a
-Auto-yes enabled for all remaining prompts
-
-# MEDUSA will automatically:
-# - Install Chocolatey (if needed)
-# - Install Node.js (if needed)
-# - Install Ruby (if needed)
-# - Install PHP (if needed)
-# - Install all 36+ scanner tools
-# - No terminal restart required!
-```
-
-**What Gets Installed:**
-- **86%** of tools install automatically (36/42 scanners)
-- Winget (priority), Chocolatey, npm, pip, gem installers
-- PowerShell scripts for specialized tools (phpstan, ktlint, checkstyle, taplo, clj-kondo)
-- Runtime dependencies (Node.js, Ruby, PHP) auto-installed
-
-**Manual Installation (Optional):**
-Only 3 tools require manual installation:
-- `swiftlint` - macOS only
-- `checkmake` - Requires Go: `go install github.com/mrtazz/checkmake/cmd/checkmake@latest`
-- `cppcheck` - Download from https://cppcheck.sourceforge.io/
+> **v2026.2 Change**: MEDUSA no longer manages external linter installation. The `--all` flag is deprecated. Install external linters via your system package manager if needed.
 
 ---
 
@@ -602,13 +484,12 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2025.9.0
+version: 2026.2.0
 
 # Scanner control
 scanners:
   enabled: []      # Empty = all scanners enabled
   disabled: []     # List scanners to disable
-  # Example: disabled: ['bandit', 'eslint']
 
 # Build failure settings
 fail_on: high      # critical | high | medium | low
@@ -619,37 +500,26 @@ exclude:
     - node_modules/
     - venv/
     - .venv/
-    - env/
     - .git/
-    - .svn/
     - __pycache__/
-    - "*.egg-info/"
     - dist/
     - build/
-    - .tox/
-    - .pytest_cache/
-    - .mypy_cache/
   files:
     - "*.min.js"
     - "*.min.css"
-    - "*.bundle.js"
-    - "*.map"
 
 # IDE integration
 ide:
   claude_code:
     enabled: true
-    auto_scan: true          # Scan on file save
-    inline_annotations: true # Show issues inline
+    auto_scan: true
   cursor:
     enabled: false
   vscode:
     enabled: false
-  gemini_cli:
-    enabled: false
 
 # Scan settings
-workers: null        # null = auto-detect (cpu_count - 2)
+workers: null        # null = auto-detect CPU cores
 cache_enabled: true  # Enable file caching for speed
 ```
 
@@ -872,12 +742,11 @@ jobs:
       - name: Install MEDUSA
         run: pip install medusa-security
 
-      - name: Install security tools
-        run: medusa install --all --yes
-
       - name: Run security scan
         run: medusa scan . --fail-on high
 ```
+
+> **Note**: No tool installation step needed - MEDUSA's 4,152+ built-in rules work immediately.
 
 ---
 
@@ -1067,12 +936,11 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2025.9.0.1
-**Release Date**: 2025-12-16
-**Total Scanners**: 70 (22 AI security + React2Shell CVE detection)
-**Detection Rules**: 180+ AI-specific rules + CVE detection
+**Version**: 2026.2.0
+**Release Date**: 2026-01-29
+**Detection Patterns**: 4,152+ AI security rules
 **Language Coverage**: 46+ file types
-**Platform Support**: Linux, macOS, Windows (with helpful install hints)
+**Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
 **Standards**: OWASP Top 10 for LLM 2025, MITRE ATLAS
 **Downloads**: 11,500+ on PyPI
@@ -1082,28 +950,28 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 ## 🌟 Why MEDUSA?
 
 ### vs. Bandit
-- ✅ Supports 42 languages (not just Python)
-- ✅ Parallel processing (10-40× faster)
-- ✅ Auto-installer for all tools
+- ✅ 4,152+ patterns (not just Python security)
+- ✅ AI/ML security coverage
+- ✅ Zero setup required
 - ✅ IDE integration
 
 ### vs. SonarQube
-- ✅ Simpler setup (one command)
+- ✅ Simpler setup (`pip install && scan`)
 - ✅ No server required
-- ✅ Faster scans (local processing)
+- ✅ AI-first security focus
 - ✅ Free and open source
 
 ### vs. Semgrep
-- ✅ More language support (42 vs ~30)
-- ✅ Uses established tools (Bandit, ESLint, etc.)
+- ✅ AI/ML-specific rules built-in
+- ✅ MCP, RAG, agent security
 - ✅ Better IDE integration
-- ✅ Easier configuration
+- ✅ No rule configuration needed
 
-### vs. Mega-Linter
-- ✅ Faster (parallel processing)
-- ✅ Smarter caching
-- ✅ Better error handling
-- ✅ More focused on security
+### vs. Traditional SAST
+- ✅ Works immediately (no tool installation)
+- ✅ AI security patterns included
+- ✅ Parallel processing
+- ✅ Smart caching
 
 ---
 
@@ -1117,6 +985,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2025-12-16
+**Last Updated**: 2026-01-29
 **Status**: Production Ready
-**Current Version**: v2025.9.0.1 - Smart Scanner Selection, Path Traversal Detection
+**Current Version**: v2026.2.0 - AI Rules-First Architecture

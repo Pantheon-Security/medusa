@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.2.0] - 2026-01-29
+
+### Changed
+- **Simplified Installation**: MEDUSA now only manages `modelscan` via `medusa install --ai-tools`
+- **AI Rules First**: 4,152+ AI security detection patterns work out of the box
+- **External Linters Optional**: Auto-detected if present, not installed by MEDUSA
+- **CLI Cleanup**: Removed 1,500+ lines of legacy installer code
+
+### Deprecated
+- `medusa install --all` - Use `--ai-tools` instead
+- `medusa uninstall <tool>` for non-modelscan tools - Use your package manager
+
+### Removed
+- Legacy PowerShell installation scripts
+- Complex multi-package-manager tool installation
+- 60-tool installer management
+
 ## [2025.9.1.1] - 2026-01-15
 
 ### Added

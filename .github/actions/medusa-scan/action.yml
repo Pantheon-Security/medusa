@@ -1,0 +1,141 @@
+name: 'MEDUSA Security Scan'
+description: 'AI-first security scanner with 74 analyzers, 3600+ AI security rules, and intelligent false positive reduction'
+author: 'Pantheon Security'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  target:
+    description: 'Directory or file to scan (default: current directory)'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'Fail workflow on issues at this level or higher (critical, high, medium, low)'
+    required: false
+    default: 'high'
+  format:
+    description: 'Output formats (json, html, markdown, sarif, all)'
+    required: false
+    default: 'sarif'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  additional-args:
+    description: 'Additional arguments to pass to medusa scan'
+    required: false
+    default: ''
+
+outputs:
+  issues-count:
+    description: 'Total number of security issues found'
+    value: ${{ steps.scan.outputs.issues }}
+  critical-count:
+    description: 'Number of CRITICAL severity issues'
+    value: ${{ steps.scan.outputs.critical }}
+  high-count:
+    description: 'Number of HIGH severity issues'
+    value: ${{ steps.scan.outputs.high }}
+  medium-count:
+    description: 'Number of MEDIUM severity issues'
+    value: ${{ steps.scan.outputs.medium }}
+  sarif-file:
+    description: 'Path to generated SARIF file'
+    value: ${{ steps.scan.outputs.sarif_file }}
+  report-dir:
+    description: 'Directory containing all reports'
+    value: ${{ steps.scan.outputs.report_dir }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install MEDUSA
+      shell: bash
+      run: |
+        pip install medusa-security
+        echo "MEDUSA installed successfully"
+        medusa --version
+
+    - name: Run MEDUSA Scan
+      id: scan
+      shell: bash
+      run: |
+        set +e  # Don't exit on error
+
+        # Create reports directory
+        REPORT_DIR="${{ github.workspace }}/.medusa/reports"
+        mkdir -p "$REPORT_DIR"
+
+        # Run scan
+        echo "Running MEDUSA security scan on ${{ inputs.target }}..."
+        medusa scan "${{ inputs.target }}" \
+          --format ${{ inputs.format }} \
+          --fail-on ${{ inputs.fail-on }} \
+          -o "$REPORT_DIR" \
+          ${{ inputs.additional-args }} 2>&1 | tee scan_output.txt
+
+        SCAN_EXIT=$?
+
+        # Parse results from JSON report
+        JSON_FILE=$(ls -t "$REPORT_DIR"/*.json 2>/dev/null | head -1)
+        if [ -f "$JSON_FILE" ]; then
+          ISSUES=$(python3 -c "import json; d=json.load(open('$JSON_FILE')); print(d.get('scan_summary',{}).get('total_issues',0))" 2>/dev/null || echo "0")
+          CRITICAL=$(python3 -c "import json; d=json.load(open('$JSON_FILE')); print(d.get('severity_breakdown',{}).get('CRITICAL',0))" 2>/dev/null || echo "0")
+          HIGH=$(python3 -c "import json; d=json.load(open('$JSON_FILE')); print(d.get('severity_breakdown',{}).get('HIGH',0))" 2>/dev/null || echo "0")
+          MEDIUM=$(python3 -c "import json; d=json.load(open('$JSON_FILE')); print(d.get('severity_breakdown',{}).get('MEDIUM',0))" 2>/dev/null || echo "0")
+        else
+          ISSUES="0"
+          CRITICAL="0"
+          HIGH="0"
+          MEDIUM="0"
+        fi
+
+        # Find SARIF file
+        SARIF_FILE=$(ls -t "$REPORT_DIR"/*.sarif 2>/dev/null | head -1)
+
+        # Set outputs
+        echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+        echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "high=$HIGH" >> $GITHUB_OUTPUT
+        echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+        echo "sarif_file=$SARIF_FILE" >> $GITHUB_OUTPUT
+        echo "report_dir=$REPORT_DIR" >> $GITHUB_OUTPUT
+
+        # Summary
+        echo "### MEDUSA Security Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+        echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+        echo "| Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Total** | **$ISSUES** |" >> $GITHUB_STEP_SUMMARY
+
+        # Exit with scan result
+        exit $SCAN_EXIT
+
+    - name: Upload SARIF to GitHub Security
+      if: ${{ inputs.upload-sarif == 'true' && steps.scan.outputs.sarif_file != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ steps.scan.outputs.sarif_file }}
+        category: medusa-security-scan
+
+    - name: Upload Reports Artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: medusa-security-reports
+        path: ${{ steps.scan.outputs.report_dir }}
+        retention-days: 30

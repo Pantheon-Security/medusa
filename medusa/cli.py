@@ -887,9 +887,10 @@ def _check_runtime_dependencies(
                 winget_path = shutil.which('winget')
                 if winget_path:
                     try:
+                        # Use LTS version for stability, add --disable-interactivity for CI
                         success, output = _safe_run_version_check(
-                            [winget_path, 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
-                            timeout=120
+                            [winget_path, 'install', '--id', 'OpenJS.NodeJS.LTS', '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'],
+                            timeout=600  # 10 minute timeout for slow networks
                         )
                         output_lower = output.lower() if output else ''
                         nodejs_success = (
@@ -994,9 +995,10 @@ def _check_runtime_dependencies(
 
             if winget_path:
                 try:
+                    # Add --disable-interactivity for CI and increase timeout for slow networks
                     success, output = _safe_run_version_check(
-                        [winget_path, 'install', '--id', 'PHP.PHP.8.4', '--accept-source-agreements', '--accept-package-agreements'],
-                        timeout=120
+                        [winget_path, 'install', '--id', 'PHP.PHP.8.4', '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'],
+                        timeout=600  # 10 minute timeout for slow networks
                     )
                     output_lower = output.lower() if output else ''
                     php_success = (
@@ -1131,7 +1133,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append(eco_name)
                 try:
                     import subprocess
-                    result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                    result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
                         console.print(f"  [green]✅ Installed via {eco_name}[/green]")
@@ -1147,7 +1149,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append('manual')
                 try:
                     import subprocess
-                    result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=300)
+                    result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
                         console.print(f"  [green]✅ Installed via manual script[/green]")
@@ -1187,34 +1189,29 @@ def _install_tools(tools: list, use_latest: bool = False):
 
 
 def print_banner():
-    """Print MEDUSA banner with fallback for Windows encoding issues"""
-    banner = f"""
-[bold magenta]╔════════════════════════════════════════════════════════════════════╗
-║                                                                    ║
-║          🐍🐍🐍 MEDUSA v{__version__} - Security Guardian 🐍🐍🐍           ║
-║                                                                    ║
-║         Universal Scanner with 74 Specialized Analyzers           ║
-║                                                                    ║
-╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
+    """Print MEDUSA banner with ASCII logo"""
+    logo = """[dark_green]
+███╗   ███╗ ███████╗ ██████╗  ██╗   ██╗ ███████╗  █████╗
+████╗ ████║ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔══██╗
+██╔████╔██║ █████╗   ██║  ██║ ██║   ██║ ███████╗ ███████║
+██║╚██╔╝██║ ██╔══╝   ██║  ██║ ██║   ██║ ╚════██║ ██╔══██║
+██║ ╚═╝ ██║ ███████╗ ██████╔╝ ╚██████╔╝ ███████║ ██║  ██║
+╚═╝     ╚═╝ ╚══════╝ ╚═════╝   ╚═════╝  ╚══════╝ ╚═╝  ╚═╝[/dark_green]
 """
+    line1 = f"v{__version__}  |  4,152+ AI Security Rules  |  75 Analyzers"
+
     try:
-        rprint(banner)
+        rprint(logo)
+        rprint(f"[dim]{line1.center(58)}[/dim]")
+        rprint("")
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
-        fallback_banner = f"""
-[bold magenta]╔════════════════════════════════════════════════════════════════════╗
-║                                                                    ║
-║              MEDUSA v{__version__} - Security Guardian                 ║
-║                                                                    ║
-║         Universal Scanner with 74 Specialized Analyzers           ║
-║                                                                    ║
-╚════════════════════════════════════════════════════════════════════╝[/bold magenta]
-"""
         try:
-            rprint(fallback_banner)
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] v{__version__} | 75 Analyzers | 4,152+ AI Security Rules")
+            rprint("")
         except:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - Security Guardian\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 4,152+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1222,9 +1219,9 @@ def print_banner():
 @click.pass_context
 def main(ctx, version):
     """
-    MEDUSA - Multi-Language Security Scanner
+    MEDUSA - AI Security Scanner
 
-    Universal security scanner with 40+ specialized analyzers for all platforms.
+    4,152+ AI security detection patterns with 75 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
@@ -1844,1138 +1841,161 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
             console.print(f"[dim]Backups are created when you run 'medusa init' with IDE integration[/dim]")
 
 
-@main.command()
-@click.argument('tool', required=False)
-@click.option('--check', is_flag=True, help='Check which linters are installed')
-@click.option('--all', is_flag=True, help='Install all missing linters')
-@click.option('--smart', is_flag=True, help='Smart install: only tools needed for current project')
-@click.option('--target', type=click.Path(exists=True), help='Target directory for smart analysis (default: current dir)')
-@click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-@click.option('--use-latest', is_flag=True, help='Install latest versions (bypass version pinning)')
-@click.option('--debug', is_flag=True, help='Show detailed debug output (especially for Windows Chocolatey installation)')
-def install(tool, check, all, smart, target, yes, use_latest, debug):
-    """
-    Install security linters for your platform.
 
-    MEDUSA uses multiple linters (shellcheck, bandit, hadolint, etc.)
-    This command helps you install them on your OS.
+@main.command()
+@click.option('--check', is_flag=True, help='Show installed and optional tools')
+@click.option('--ai-tools', is_flag=True, help='Install AI security tools (modelscan)')
+@click.option('--all', 'install_all', is_flag=True, hidden=True, help='[DEPRECATED] Use --ai-tools instead')
+def install(check, ai_tools, install_all):
+    """
+    Install AI security tools and check detected linters.
+
+    MEDUSA v2026.2 focuses on AI security rules. External linters are
+    optional - we detect and use them if you have them installed.
 
     Examples:
-        medusa install --check        # Check what's installed
-        medusa install --all          # Install all missing linters
-        medusa install --smart        # Smart install: only tools for this project
-        medusa install shellcheck     # Install specific tool
-        medusa install                # Interactive selection
+        medusa install --check      # Show what's installed/available
+        medusa install --ai-tools   # Install AI security tools (modelscan)
     """
-    print_banner()
-
-    console.print("\n[cyan]📦 Linter Installation[/cyan]\n")
-
-    # Smart installation mode - analyze repo first
-    if smart:
-        from pathlib import Path
-        from medusa.core.pattern_analyzer import CodePatternAnalyzer
-
-        target_path = Path(target) if target else Path.cwd()
-        console.print(f"[cyan]🔍 Analyzing project: {target_path}[/cyan]\n")
-
-        analyzer = CodePatternAnalyzer()
-        repo_analysis = analyzer.analyze_repo(target_path)
-
-        # Show analysis summary
-        if repo_analysis.languages:
-            top_langs = sorted(repo_analysis.languages.items(), key=lambda x: -x[1])[:5]
-            lang_summary = ", ".join(f"{lang} ({count})" for lang, count in top_langs)
-            console.print(f"[dim]📊 Languages:[/dim] {lang_summary}")
-
-        if repo_analysis.frameworks:
-            frameworks_list = sorted(repo_analysis.frameworks)
-            if len(frameworks_list) > 6:
-                console.print(f"[dim]🔧 Frameworks:[/dim] {', '.join(frameworks_list[:6])} (+{len(frameworks_list)-6} more)")
-            else:
-                console.print(f"[dim]🔧 Frameworks:[/dim] {', '.join(frameworks_list)}")
-
-        if repo_analysis.security_context.has_ai_patterns:
-            console.print("[dim]🤖 AI Patterns:[/dim] Detected - AI security scanners recommended")
-
-        console.print()
-
-        # Get recommended tool names for filtering
-        recommended_tools = analyzer.get_recommended_tools(repo_analysis)
-        skipped_tools = analyzer.get_skipped_tools(repo_analysis)
-
-        console.print(f"[green]✓ Recommended tools:[/green] {len(recommended_tools)}")
-        console.print(f"[yellow]✗ Skipped (not needed):[/yellow] {len(skipped_tools)}")
-        console.print()
-
-    from medusa.platform import get_platform_info
-    from medusa.scanners import registry
-    from medusa.platform.installers import (
-        AptInstaller, YumInstaller, DnfInstaller, PacmanInstaller,
-        HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller, ToolMapper
+    from medusa.platform.installers.simple import (
+        install_ai_tools,
+        get_ai_tools_status,
+        get_detected_tools,
+        get_optional_tools,
     )
 
-    platform_info = get_platform_info()
-    missing_tools = registry.get_missing_tools()
+    print_banner()
 
-    # Filter missing tools if smart mode is enabled
-    if smart:
-        all_missing = len(missing_tools)
-        missing_tools = [t for t in missing_tools if t in recommended_tools]
-        skipped_count = all_missing - len(missing_tools)
-        if skipped_count > 0:
-            console.print(f"[dim]Filtered out {skipped_count} tools not needed for this project[/dim]\n")
+    # Handle deprecated --all flag
+    if install_all:
+        console.print("\n[yellow]⚠️  --all is deprecated in MEDUSA v2026.2[/yellow]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (4,152+ patterns).[/dim]")
+        console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
+        console.print("\n[cyan]Use instead:[/cyan]")
+        console.print("  medusa install --ai-tools    # Install AI security tools")
+        console.print("  medusa install --check       # See detected tools")
+        console.print()
+        return
 
-    # Show check status
-    if check:
-        console.print(f"[bold cyan]Platform:[/bold cyan] {platform_info.os_name} ({platform_info.primary_package_manager.value if platform_info.primary_package_manager else 'unknown'})\n")
+    # Show status
+    if check or (not ai_tools and not install_all):
+        console.print("\n[bold cyan]MEDUSA v2026.2 - AI Security Scanner[/bold cyan]\n")
 
-        available_scanners = registry.get_available_scanners()
-        console.print(f"[bold green]✅ Installed Tools ({len(available_scanners)}):[/bold green]")
-        for scanner in available_scanners:
-            console.print(f"  • {scanner.tool_name}")
+        # Core: AI Rules
+        console.print("[bold green]Core: AI Security Rules[/bold green]")
+        console.print("  4,152+ detection patterns (no installation needed)")
+        console.print()
 
-        if missing_tools:
-            console.print(f"\n[bold yellow]❌ Missing Tools ({len(missing_tools)}):[/bold yellow]")
-            for tool in missing_tools:
-                console.print(f"  • {tool}")
-            console.print(f"\n[dim]Run 'medusa install --all' to install all missing tools[/dim]")
+        # AI Tools status
+        console.print("[bold cyan]AI Security Tools:[/bold cyan]")
+        ai_status = get_ai_tools_status()
+        for tool, info in ai_status.items():
+            status = "[green]✓ installed[/green]" if info['installed'] else "[yellow]○ not installed[/yellow]"
+            console.print(f"  {tool}: {status}")
+            console.print(f"    [dim]{info['description']}[/dim]")
+
+        if not all(info['installed'] for info in ai_status.values()):
+            console.print(f"\n[dim]Run 'medusa install --ai-tools' to install AI security tools[/dim]")
+        console.print()
+
+        # Detected external tools
+        detected = get_detected_tools()
+        if detected:
+            console.print(f"[bold green]Detected Tools ({len(detected)}):[/bold green]")
+            console.print(f"  {', '.join(detected)}")
+            console.print(f"  [dim]These will be used automatically during scans[/dim]")
         else:
-            console.print(f"\n[bold green]🎉 All scanner tools are installed![/bold green]")
+            console.print("[dim]No external linters detected[/dim]")
+        console.print()
+
+        # Optional tools (not installed)
+        optional = get_optional_tools()
+        not_installed = [t for t in optional if not t['installed']]
+        if not_installed:
+            console.print(f"[bold yellow]Optional Tools (install for deeper analysis):[/bold yellow]")
+            for tool in not_installed[:5]:
+                console.print(f"  • {tool['name']}: {tool['description']}")
+            if len(not_installed) > 5:
+                console.print(f"  [dim]...and {len(not_installed) - 5} more[/dim]")
+            console.print(f"\n[dim]See: https://github.com/Pantheon-Security/medusa/blob/main/docs/OPTIONAL_TOOLS.md[/dim]")
+
         return
 
-    if not missing_tools:
-        console.print("[bold green]✅ All scanner tools are already installed![/bold green]")
-        return
+    # Install AI tools
+    if ai_tools:
+        console.print("\n[cyan]Installing AI Security Tools...[/cyan]\n")
 
-    # Get appropriate installer
-    installer = None
-    pm = platform_info.primary_package_manager
+        results = install_ai_tools(verbose=True)
 
-    if pm:
-        from medusa.platform import PackageManager
-        installer_map = {
-            PackageManager.APT: AptInstaller(),
-            PackageManager.YUM: YumInstaller(),
-            PackageManager.DNF: DnfInstaller(),
-            PackageManager.PACMAN: PacmanInstaller(),
-            PackageManager.BREW: HomebrewInstaller(),
-            PackageManager.WINGET: WingetInstaller(),
-            PackageManager.CHOCOLATEY: ChocolateyInstaller(debug=debug),
-        }
-        installer = installer_map.get(pm)
-
-    # Also check for cross-platform installers
-    npm_installer = NpmInstaller() if _has_npm_available() else None
-    pip_installer = PipInstaller() if _has_pip_available() else None
-
-    # Check if Chocolatey is available (for fallback installs)
-    choco_installer = None
-    if platform_info.os_type.value == 'windows':
-        choco_installer = ChocolateyInstaller(debug=debug) if ChocolateyInstaller.is_chocolatey_installed() else None
-
-    # Install specific tool
-    if tool:
-        if tool not in missing_tools:
-            console.print(f"[yellow]Tool '{tool}' is already installed or not a MEDUSA scanner tool[/yellow]")
+        if 'error' in results:
+            console.print(f"[red]Error: {results['error']}[/red]")
             return
 
-        console.print(f"[cyan]Installing {tool}...[/cyan]\n")
-
-        # Determine best installer for this tool
-        package_name = ToolMapper.get_package_name(tool, pm.value if pm else '')
-
-        # Check if tool already exists before installing
-        manifest = get_manifest()
-        was_already_installed = False
-        for scanner in registry.get_all_scanners():
-            if scanner.tool_name == tool and scanner.is_available():
-                was_already_installed = True
-                break
-
-        if package_name and installer:
-            cmd = installer.get_install_command(tool)
-            console.print(f"[dim]Command: {cmd}[/dim]\n")
-
-            if not yes:
-                confirm = click.confirm(f"Install {tool}?", default=True)
-                if not confirm:
-                    console.print("[yellow]Installation cancelled[/yellow]")
-                    return
-
-            success = installer.install(tool)
-            if success:
-                console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                # Detect installed version for manifest fingerprinting
-                installed_version = _detect_tool_version(tool)
-                # Record installation in manifest
-                manifest.mark_installed(
-                    tool_name=tool,
-                    package_manager=pm.value if pm else 'unknown',
-                    package_id=package_name,
-                    version=installed_version,
-                    already_existed=was_already_installed
-                )
+        for tool, result in results.items():
+            if result['status'] == 'installed':
+                console.print(f"[green]✓ {tool} installed successfully[/green]")
+            elif result['status'] == 'already_installed':
+                console.print(f"[cyan]✓ {tool} already installed[/cyan]")
             else:
-                console.print(f"[red]❌ Failed to install {tool}[/red]")
-        else:
-            # Try npm or pip
-            npm_package = ToolMapper.get_package_name(tool, 'npm')
-            pip_package = ToolMapper.get_package_name(tool, 'pip')
+                console.print(f"[red]✗ {tool} failed: {result.get('error', 'unknown error')}[/red]")
 
-            if npm_package and npm_installer:
-                cmd = npm_installer.get_install_command(tool)
-                console.print(f"[dim]Command: {cmd}[/dim]\n")
-                success = npm_installer.install(tool, use_latest=use_latest)
-                if success:
-                    console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                    # Detect installed version for manifest fingerprinting
-                    installed_version = _detect_tool_version(tool, package_manager='npm')
-                    # Record installation in manifest
-                    manifest.mark_installed(
-                        tool_name=tool,
-                        package_manager='npm',
-                        package_id=npm_package,
-                        version=installed_version,
-                        already_existed=was_already_installed
-                    )
-                else:
-                    console.print(f"[red]❌ Failed to install {tool}[/red]")
-            elif pip_package and pip_installer:
-                cmd = pip_installer.get_install_command(tool)
-                console.print(f"[dim]Command: {cmd}[/dim]\n")
-                success = pip_installer.install(tool, use_latest=use_latest)
-                if success:
-                    console.print(f"[green]✅ Successfully installed {tool}[/green]")
-                    # Detect installed version for manifest fingerprinting
-                    installed_version = _detect_tool_version(tool, package_manager='pip')
-                    # Record installation in manifest
-                    manifest.mark_installed(
-                        tool_name=tool,
-                        package_manager='pip',
-                        package_id=pip_package,
-                        version=installed_version,
-                        already_existed=was_already_installed
-                    )
-                else:
-                    console.print(f"[red]❌ Failed to install {tool}[/red]")
-            else:
-                # Try ecosystem installers (cargo, go) as fallback
-                from medusa.platform.installers.base import EcosystemDetector
-                ecosystem = EcosystemDetector.detect_ecosystem(tool)
-                if ecosystem:
-                    eco_name, eco_cmd = ecosystem
-                    console.print(f"[cyan]Trying {eco_name}: {eco_cmd}[/cyan]")
-                    try:
-                        import subprocess
-                        result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode == 0:
-                            console.print(f"[green]✅ Successfully installed {tool} via {eco_name}[/green]")
-                            installed_version = _detect_tool_version(tool)
-                            manifest.mark_installed(
-                                tool_name=tool,
-                                package_manager=eco_name,
-                                package_id=eco_cmd,
-                                version=installed_version,
-                                already_existed=was_already_installed
-                            )
-                            return
-                        else:
-                            console.print(f"[yellow]⚠ {eco_name} failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
-                    except Exception as e:
-                        console.print(f"[yellow]⚠ {eco_name} failed: {e}[/yellow]")
-
-                # Try manual install script as last resort (Linux only)
-                tool_info = ToolMapper.TOOL_PACKAGES.get(tool, {})
-                manual_cmd = tool_info.get('manual')
-                if manual_cmd and not manual_cmd.startswith('http') and platform_info.os_type.value == 'linux':
-                    console.print(f"[cyan]Trying manual install script...[/cyan]")
-                    try:
-                        import subprocess
-                        result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=300)
-                        if result.returncode == 0:
-                            console.print(f"[green]✅ Successfully installed {tool} via manual script[/green]")
-                            installed_version = _detect_tool_version(tool)
-                            manifest.mark_installed(
-                                tool_name=tool,
-                                package_manager='manual',
-                                package_id=manual_cmd[:50],
-                                version=installed_version,
-                                already_existed=was_already_installed
-                            )
-                            return
-                        else:
-                            console.print(f"[yellow]⚠ Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
-                    except Exception as e:
-                        console.print(f"[yellow]⚠ Manual install failed: {e}[/yellow]")
-
-                console.print(f"[yellow]⚠️  '{tool}' installation not supported on this platform[/yellow]")
-                if manual_cmd:
-                    console.print(f"[dim]Please install manually: {manual_cmd}[/dim]")
-                else:
-                    console.print(f"[dim]See documentation for installation instructions[/dim]")
-        return
-
-    # Install all missing tools
-    if all or (not check and not tool):
-        console.print(f"[cyan]Found {len(missing_tools)} missing tools:[/cyan]")
-        for t in missing_tools:
-            console.print(f"  • {t}")
-
-        console.print()
-
-        # Track auto-yes-all state (dict so it's mutable across function calls)
-        auto_yes_all = {'enabled': yes}  # If --yes flag, start with auto-yes enabled
-
-        if not yes:
-            confirm = _prompt_with_auto_all(f"Install all {len(missing_tools)} missing tools?", default=True, auto_yes_all=auto_yes_all)
-            if not confirm:
-                console.print("[yellow]Installation cancelled[/yellow]")
-                return
-
-        console.print()
-
-        # Track if we just installed chocolatey in this session
-        chocolatey_just_installed = False
-
-        # On Windows, check if chocolatey would be useful and offer to install it
-        if platform_info.os_type.value == 'windows' and not ChocolateyInstaller.is_chocolatey_installed():
-            # Check how many tools need chocolatey
-            choco_tools = [t for t in missing_tools if ToolMapper.get_package_name(t, 'choco')]
-
-            if choco_tools:
-                console.print(f"[yellow]💡 {len(choco_tools)} tools can be installed via Chocolatey:[/yellow]")
-                for t in choco_tools[:5]:  # Show first 5
-                    console.print(f"  • {t}")
-                if len(choco_tools) > 5:
-                    console.print(f"  • ... and {len(choco_tools) - 5} more")
-                console.print()
-
-                install_choco = _prompt_with_auto_all("Install Chocolatey package manager? (Requires admin rights)", default=True, auto_yes_all=auto_yes_all)
-
-                if install_choco:
-                    console.print("[cyan]Installing Chocolatey...[/cyan]")
-                    if debug:
-                        console.print("[dim]Debug mode enabled - showing full output[/dim]")
-                    if ChocolateyInstaller.install_chocolatey(debug=debug):
-                        console.print("[green]✅ Chocolatey installed successfully![/green]")
-
-                        # Refresh PATH so chocolatey is available immediately
-                        from medusa.platform.installers.windows import refresh_windows_path
-                        refresh_windows_path()
-                        console.print("[dim]PATH refreshed - chocolatey is now available[/dim]\n")
-
-                        # Mark that we just installed it
-                        chocolatey_just_installed = True
-
-                        # Initialize choco_installer now that it's available
-                        choco_installer = ChocolateyInstaller(debug=debug)
-                    else:
-                        console.print("[red]❌ Failed to install Chocolatey (admin rights required)[/red]")
-                        console.print("[dim]You can install manually: https://chocolatey.org/install[/dim]\n")
-                else:
-                    console.print("[yellow]Skipping Chocolatey installation[/yellow]\n")
-
-        # ========================================
-        # Pre-scan phase: Detect runtime dependencies
-        # ========================================
-        npm_tools_needed = []
-        php_tools_needed = []
-        go_tools_needed = []
-        java_tools_needed = []
-
-        for tool in missing_tools:
-            # Check if tool needs npm
-            npm_package = ToolMapper.get_package_name(tool, 'npm')
-            if npm_package and not npm_installer:
-                # Tool has npm package but npm isn't available
-                npm_tools_needed.append(tool)
-
-            # Check if tool needs PHP
-            if tool == 'phpstan' and not shutil.which('php'):
-                php_tools_needed.append(tool)
-
-            # Check if tool needs Go
-            if tool == 'checkmake' and not shutil.which('go'):
-                go_tools_needed.append(tool)
-
-            # Check if tool needs Java
-            if tool in {'checkstyle', 'ktlint', 'scalastyle', 'codenarc'} and not shutil.which('java'):
-                java_tools_needed.append(tool)
-
-        # ========================================
-        # Runtime installation phase
-        # ========================================
-        if npm_tools_needed or php_tools_needed or go_tools_needed or java_tools_needed:
-            console.print("[bold]Runtime Dependencies Detected:[/bold]")
-
-            # Node.js / npm
-            if npm_tools_needed:
-                console.print(f"  • Node.js needed for {len(npm_tools_needed)} tool{'s' if len(npm_tools_needed) > 1 else ''}: {', '.join(npm_tools_needed[:3])}{'...' if len(npm_tools_needed) > 3 else ''}")
-
-            # PHP
-            if php_tools_needed:
-                console.print(f"  • PHP needed for {len(php_tools_needed)} tool{'s' if len(php_tools_needed) > 1 else ''}: {', '.join(php_tools_needed)}")
-
-            # Go
-            if go_tools_needed:
-                console.print(f"  • Go needed for {len(go_tools_needed)} tool{'s' if len(go_tools_needed) > 1 else ''}: {', '.join(go_tools_needed)}")
-
-            # Java (info only)
-            if java_tools_needed:
-                console.print(f"  • Java needed for {len(java_tools_needed)} tool{'s' if len(java_tools_needed) > 1 else ''}: {', '.join(java_tools_needed[:3])}{'...' if len(java_tools_needed) > 3 else ''} [dim](not auto-installed for security)[/dim]")
-
-            console.print()
-
-        # Install Node.js if needed
-        if npm_tools_needed and platform_info.os_type.value == 'windows':
-            from medusa.platform import PackageManager
-            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_nodejs = _prompt_with_auto_all(f"Install Node.js to enable {len(npm_tools_needed)} npm tools?", default=True, auto_yes_all=auto_yes_all)
-
-                if install_nodejs:
-                    console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
-                    winget_path = shutil.which('winget')
-
-                    if winget_path:
-                        try:
-                            success, output = _safe_run_version_check(
-                                [winget_path, 'install', '--id', 'OpenJS.NodeJS', '--accept-source-agreements', '--accept-package-agreements'],
-                                timeout=120
-                            )
-                            output_lower = output.lower() if output else ''
-                            nodejs_success = (
-                                success or
-                                'already installed' in output_lower or
-                                'no available upgrade found' in output_lower
-                            )
-
-                            if nodejs_success:
-                                console.print("[green]✅ Node.js installed successfully[/green]")
-
-                                # Refresh PATH
-                                from medusa.platform.installers.windows import refresh_windows_path
-                                refresh_windows_path()
-
-                                # Re-initialize npm_installer now that npm is available
-                                from medusa.platform.installers import NpmInstaller
-                                npm_installer = NpmInstaller() if shutil.which('npm.cmd') or shutil.which('npm') else None
-                                console.print(f"[green]✓[/green] npm is now available\n")
-                            else:
-                                console.print("[red]❌ Failed to install Node.js[/red]\n")
-                        except Exception as e:
-                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
-                    else:
-                        console.print("[red]❌ winget not found[/red]\n")
-                else:
-                    console.print("[yellow]Skipping Node.js installation[/yellow]\n")
-
-        # Install PHP if needed
-        if php_tools_needed and platform_info.os_type.value == 'windows':
-            from medusa.platform import PackageManager
-            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_php = _prompt_with_auto_all(f"Install PHP to enable phpstan?", default=True, auto_yes_all=auto_yes_all)
-
-                if install_php:
-                    console.print("\n[cyan]Installing PHP via winget...[/cyan]")
-                    winget_path = shutil.which('winget')
-
-                    if winget_path:
-                        try:
-                            success, output = _safe_run_version_check(
-                                [winget_path, 'install', '--id', 'PHP.PHP.8.4', '--accept-source-agreements', '--accept-package-agreements'],
-                                timeout=120
-                            )
-                            output_lower = output.lower() if output else ''
-                            php_success = (
-                                success or
-                                'already installed' in output_lower or
-                                'no available upgrade found' in output_lower
-                            )
-
-                            if php_success:
-                                console.print("[green]✅ PHP installed successfully[/green]")
-                                console.print("[dim]   You may need to restart your terminal for PHP to be available[/dim]\n")
-                            else:
-                                console.print("[red]❌ Failed to install PHP[/red]\n")
-                        except Exception as e:
-                            console.print(f"[red]Error: {str(e)[:100]}[/red]\n")
-                    else:
-                        console.print("[red]❌ winget not found[/red]\n")
-                else:
-                    console.print("[yellow]Skipping PHP installation[/yellow]\n")
-
-        # Install Go if needed
-        if go_tools_needed and platform_info.os_type.value == 'windows':
-            from medusa.platform import PackageManager
-            if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-                install_go = _prompt_with_auto_all(f"Install Go to enable checkmake?", default=True, auto_yes_all=auto_yes_all)
-
-                if install_go:
-                    go_installed = False
-                    console.print("\n[cyan]Installing Go via winget...[/cyan]")
-                    winget_path = shutil.which('winget')
-
-                    if winget_path:
-                        try:
-                            success, output = _safe_run_version_check(
-                                [winget_path, 'install', '--id', 'GoLang.Go', '--accept-source-agreements', '--accept-package-agreements'],
-                                timeout=120
-                            )
-                            output_lower = output.lower() if output else ''
-                            go_success = (
-                                success or
-                                'already installed' in output_lower or
-                                'no available upgrade found' in output_lower
-                            )
-
-                            if go_success:
-                                console.print("[green]✅ Go installed successfully[/green]")
-                                go_installed = True
-
-                                # Refresh PATH
-                                from medusa.platform.installers.windows import refresh_windows_path
-                                refresh_windows_path()
-                                console.print("[dim]   Go is now available for checkmake[/dim]\n")
-                            else:
-                                if debug:
-                                    console.print(f"[dim]winget output: {output[:200]}[/dim]")
-                                console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
-                        except Exception as e:
-                            if debug:
-                                console.print(f"[dim]winget error: {str(e)[:100]}[/dim]")
-                            console.print("[yellow]⚠️  winget failed, trying choco fallback...[/yellow]")
-                    else:
-                        console.print("[yellow]⚠️  winget not found, trying choco...[/yellow]")
-
-                    # Fallback to Chocolatey if winget failed
-                    if not go_installed and choco_installer:
-                        console.print("[cyan]Installing Go via choco...[/cyan]")
-                        if choco_installer.install('go'):
-                            console.print("[green]✅ Go installed successfully via choco[/green]")
-                            from medusa.platform.installers.windows import refresh_windows_path
-                            refresh_windows_path()
-                            console.print("[dim]   Go is now available for checkmake[/dim]\n")
-                            go_installed = True
-                        else:
-                            console.print("[red]❌ Failed to install Go via choco[/red]\n")
-
-                    if not go_installed:
-                        console.print("[yellow]⚠️  Go installation failed - checkmake will not be available[/yellow]\n")
-                else:
-                    console.print("[yellow]Skipping Go installation[/yellow]\n")
-
-        # Show Java message (no auto-install)
-        if java_tools_needed:
-            console.print(f"[yellow]⚠️  Java runtime required for {len(java_tools_needed)} tool{'s' if len(java_tools_needed) > 1 else ''}[/yellow]")
-            console.print("[dim]   We don't auto-install Java due to security concerns[/dim]")
-            console.print(f"[dim]   Tools: {', '.join(java_tools_needed)}[/dim]\n")
-
-        # ========================================
-        # Tool installation phase
-        # ========================================
-        installed = 0
-        failed = 0
-        failed_details = []  # Track why each tool failed
-        npm_tools_failed = []  # Track npm tools that failed due to missing npm
-
-        # Get manifest for tracking installations
-        manifest = get_manifest()
-
-        console.print("[bold]Installing Tools:[/bold]")
-        for tool_name in missing_tools:
-            console.print(f"[cyan]Installing {tool_name}...[/cyan]")
-
-            # Determine best installer upfront (more professional, direct approach)
-            best_installer = None
-            installer_name = None
-            package_name = None
-
-            # Priority order: system PM → chocolatey (Windows) → npm → pip
-            # Check which installers have this package available
-            pm_package = ToolMapper.get_package_name(tool_name, pm.value if pm else '') if pm else None
-            choco_package = None
-            choco_installer = None
-
-            # On Windows, also check chocolatey as secondary package manager
-            if platform_info.os_type.value == 'windows':
-                choco_package = ToolMapper.get_package_name(tool_name, 'choco')
-                # Use chocolatey if it's installed OR if we just installed it in this session
-                if choco_package and (chocolatey_just_installed or ChocolateyInstaller.is_chocolatey_installed()):
-                    choco_installer = ChocolateyInstaller(debug=debug)
-
-            npm_package = ToolMapper.get_package_name(tool_name, 'npm')
-            pip_package = ToolMapper.get_package_name(tool_name, 'pip')
-
-            # Debug output for troubleshooting
-            if debug:
-                console.print(f"[DEBUG] Tool: {tool_name}")
-                console.print(f"[DEBUG] Primary PM: {pm.value if pm else 'None'}")
-                console.print(f"[DEBUG] Installer: {installer.__class__.__name__ if installer else 'None'}")
-                console.print(f"[DEBUG] PM package: {pm_package}")
-                console.print(f"[DEBUG] Choco package: {choco_package}")
-                console.print(f"[DEBUG] NPM package: {npm_package}")
-                console.print(f"[DEBUG] PIP package: {pip_package}")
-
-            # Pick the first available installer
-            if installer and pm_package:
-                best_installer = installer
-                installer_name = pm.value
-                package_name = pm_package
-            elif choco_installer and choco_package:
-                best_installer = choco_installer
-                installer_name = 'choco'
-                package_name = choco_package
-            elif npm_installer and npm_package:
-                best_installer = npm_installer
-                installer_name = 'npm'
-                package_name = npm_package
-            elif pip_installer and pip_package:
-                best_installer = pip_installer
-                installer_name = 'pip'
-                package_name = pip_package
-
-            # Track npm tools that failed due to missing npm
-            if npm_package and not npm_installer and not best_installer:
-                npm_tools_failed.append(tool_name)
-
-            # Install using the best installer
-            if best_installer:
-                console.print(f"  → Installing {tool_name} via {installer_name}: {package_name}")
-                # Only npm and pip support use_latest parameter
-                if installer_name in ('npm', 'pip'):
-                    success = best_installer.install(tool_name, use_latest=use_latest)
-                else:
-                    success = best_installer.install(tool_name)
-
-                # Fallback: If winget failed and choco is available, try choco for specific tools
-                if not success and installer_name == 'winget' and choco_installer and choco_package:
-                    if tool_name in {'cppcheck', 'cargo-clippy'}:
-                        console.print(f"  [yellow]⚠️ winget failed, trying choco fallback...[/yellow]")
-                        console.print(f"  → Installing {tool_name} via choco: {choco_package}")
-                        success = choco_installer.install(tool_name)
-                        if success:
-                            installer_name = 'choco'  # Update for reporting
-
-                if success:
-                    # Special handling for rubocop: winget installs Ruby, then we need gem to install rubocop
-                    if tool_name == 'rubocop' and installer_name == 'winget' and platform_info.os_type.value == 'windows':
-                        console.print(f"  [green]✅ Ruby installed successfully[/green]")
-                        console.print(f"  → Refreshing PATH to find gem...")
-
-                        import time
-                        time.sleep(3)  # Wait for Ruby installation to complete
-
-                        # Refresh PATH from Windows registry
-                        try:
-                            import winreg
-                            import os
-
-                            # Read PATH from Windows registry
-                            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 0, winreg.KEY_READ) as key:
-                                system_path = winreg.QueryValueEx(key, 'PATH')[0]
-
-                            # Read user PATH
-                            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_READ) as key:
-                                user_path = winreg.QueryValueEx(key, 'PATH')[0]
-
-                            # Update current process PATH
-                            os.environ['PATH'] = system_path + ';' + user_path
-
-                            if debug:
-                                console.print(f"[DEBUG] PATH refreshed from registry")
-                        except Exception as e:
-                            if debug:
-                                console.print(f"[DEBUG] PATH refresh failed: {e}")
-
-                        # Now try to find gem
-                        gem_path = shutil.which('gem.cmd') or shutil.which('gem')
-
-                        if gem_path:
-                            console.print(f"  → Found gem: {gem_path}")
-                            console.print(f"  → Installing rubocop via gem...")
-
-                            try:
-                                result = subprocess.run(
-                                    [gem_path, 'install', 'rubocop'],
-                                    capture_output=True,
-                                    text=True,
-                                    timeout=300,
-                                    check=False
-                                )
-
-                                if result.returncode == 0:
-                                    console.print(f"  [green]✅ rubocop installed via gem[/green]\n")
-                                    installed += 1
-                                    # Detect installed version for manifest fingerprinting
-                                    installed_version = _detect_tool_version(tool_name)
-                                    # Record installation in manifest
-                                    manifest.mark_installed(
-                                        tool_name=tool_name,
-                                        package_manager='gem',
-                                        package_id='rubocop',
-                                        version=installed_version,
-                                        already_existed=False
-                                    )
-                                else:
-                                    console.print(f"  [red]❌ gem install failed: {result.stderr[:200]}[/red]\n")
-                                    failed += 1
-                                    failed_details.append((tool_name, f"gem install failed"))
-                            except Exception as e:
-                                console.print(f"  [red]❌ gem install error: {str(e)[:200]}[/red]\n")
-                                failed += 1
-                                failed_details.append((tool_name, f"gem error"))
-                        else:
-                            console.print(f"  [yellow]⚠️  gem not found after Ruby install[/yellow]")
-                            console.print(f"  [yellow]⊘ Please restart terminal and run: gem install rubocop[/yellow]\n")
-                            failed += 1
-                            failed_details.append((tool_name, "gem not found"))
-                    else:
-                        console.print(f"  [green]✅ Installed successfully[/green]\n")
-                        installed += 1
-                        # Detect installed version for manifest fingerprinting
-                        installed_version = _detect_tool_version(tool_name)
-                        # Record installation in manifest
-                        manifest.mark_installed(
-                            tool_name=tool_name,
-                            package_manager=installer_name,
-                            package_id=package_name,
-                            version=installed_version,
-                            already_existed=False
-                        )
-                else:
-                    console.print(f"  [red]❌ Installation failed[/red]")
-
-                    # Try ecosystem detection as fallback
-                    from medusa.platform.installers.base import EcosystemDetector
-
-                    # Check if this tool has an ecosystem option
-                    if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
-                        ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
-                        ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
-
-                        if ecosystem_result:
-                            ecosystem_name, command = ecosystem_result
-                            console.print(f"  → Trying ecosystem fallback: {ecosystem_name}... [green]✓ Found[/green]")
-                            console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
-
-                            ecosystem_success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
-                            if ecosystem_success:
-                                console.print(f"  [green]✅ {message}[/green]\n")
-                                installed += 1
-                                # Detect installed version for manifest fingerprinting
-                                installed_version = _detect_tool_version(tool_name)
-                                # Record installation in manifest
-                                manifest.mark_installed(
-                                    tool_name=tool_name,
-                                    package_manager=ecosystem_name,
-                                    package_id=tool_name,
-                                    version=installed_version,
-                                    already_existed=False
-                                )
-                            else:
-                                console.print(f"  [red]❌ {message}[/red]")
-                                # Show helpful hint on macOS
-                                if platform_info.os_type.value == 'darwin':
-                                    from medusa.platform.installers.macos import HomebrewInstaller
-                                    hint = HomebrewInstaller.get_install_hint(tool_name)
-                                    if hint:
-                                        console.print(f"  [dim]💡 {hint}[/dim]")
-                                console.print()
-                                failed += 1
-                                failed_details.append((tool_name, f"{installer_name} → {ecosystem_name}"))
-                        else:
-                            # Ecosystem not found
-                            console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
-                            # Show helpful hint on macOS
-                            if platform_info.os_type.value == 'darwin':
-                                from medusa.platform.installers.macos import HomebrewInstaller
-                                hint = HomebrewInstaller.get_install_hint(tool_name)
-                                if hint:
-                                    console.print(f"  [dim]💡 {hint}[/dim]")
-                            console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
-                            failed += 1
-                            failed_details.append((tool_name, installer_name))
-                    else:
-                        # No ecosystem option for this tool - show hint if available
-                        if platform_info.os_type.value == 'darwin':
-                            from medusa.platform.installers.macos import HomebrewInstaller
-                            hint = HomebrewInstaller.get_install_hint(tool_name)
-                            if hint:
-                                console.print(f"  [dim]💡 {hint}[/dim]")
-                        console.print()
-                        failed += 1
-                        failed_details.append((tool_name, installer_name))
-            else:
-                # On Windows, try custom PowerShell installers FIRST (more reliable than ecosystem)
-                if platform_info.os_type.value == 'windows':
-                    from medusa.platform.installers import WindowsCustomInstaller
-                    if WindowsCustomInstaller.can_install(tool_name):
-                        console.print(f"  → Using custom Windows installer...")
-                        if WindowsCustomInstaller.install(tool_name, debug=debug):
-                            console.print(f"  [green]✅ Installed successfully[/green]\n")
-                            installed += 1
-                            # Detect installed version for manifest fingerprinting
-                            installed_version = _detect_tool_version(tool_name)
-                            # Record installation in manifest
-                            manifest.mark_installed(
-                                tool_name=tool_name,
-                                package_manager='powershell',
-                                package_id=tool_name,
-                                version=installed_version,
-                                already_existed=False
-                            )
-                            continue  # Skip to next tool
-                        else:
-                            console.print(f"  [red]❌ Custom installer failed[/red]")
-                            # Fall through to ecosystem check
-
-                # Try ecosystem detection as fallback
-                from medusa.platform.installers.base import EcosystemDetector
-
-                # Special handling for rubocop: refresh PATH to find gem if Ruby is installed
-                if tool_name == 'rubocop' and platform_info.os_type.value == 'windows':
-                    if debug:
-                        console.print(f"[DEBUG] Checking for Ruby and refreshing PATH for gem...")
-
-                    # Refresh PATH from Windows registry to detect gem
-                    try:
-                        import winreg
-                        import os
-                        import time
-
-                        # Read PATH from Windows registry
-                        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 0, winreg.KEY_READ) as key:
-                            system_path = winreg.QueryValueEx(key, 'PATH')[0]
-
-                        # Read user PATH
-                        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Environment', 0, winreg.KEY_READ) as key:
-                            user_path = winreg.QueryValueEx(key, 'PATH')[0]
-
-                        # Update current process PATH
-                        os.environ['PATH'] = system_path + ';' + user_path
-
-                        if debug:
-                            console.print(f"[DEBUG] PATH refreshed from registry")
-                    except Exception as e:
-                        if debug:
-                            console.print(f"[DEBUG] PATH refresh failed: {e}")
-
-                ecosystem_result = EcosystemDetector.detect_ecosystem(tool_name)
-                if ecosystem_result:
-                    ecosystem_name, command = ecosystem_result
-                    console.print(f"  → Looking for {ecosystem_name}... [green]✓ Found[/green]")
-                    console.print(f"  → Installing {tool_name} via {ecosystem_name}...")
-
-                    success, _, message = EcosystemDetector.try_ecosystem_install(tool_name)
-                    if success:
-                        console.print(f"  [green]✅ {message}[/green]\n")
-                        installed += 1
-                        # Detect installed version for manifest fingerprinting
-                        installed_version = _detect_tool_version(tool_name)
-                        # Record installation in manifest
-                        manifest.mark_installed(
-                            tool_name=tool_name,
-                            package_manager=ecosystem_name,
-                            package_id=tool_name,
-                            version=installed_version,
-                            already_existed=False
-                        )
-                    else:
-                        console.print(f"  [red]❌ {message}[/red]\n")
-                        failed += 1
-                        failed_details.append((tool_name, ecosystem_name))
-                else:
-                    # Check if ecosystem exists but not found
-                    if tool_name in EcosystemDetector.ECOSYSTEM_MAP:
-                        ecosystems = EcosystemDetector.ECOSYSTEM_MAP[tool_name]['ecosystems']
-                        console.print(f"  → Looking for {ecosystems[0]}... [red]✗ Not found[/red]")
-                        console.print(f"  [yellow]⊘ Review installation guide for manual setup[/yellow]\n")
-                    else:
-                        console.print(f"  [yellow]⊘ No installer available for this platform[/yellow]\n")
-                    failed += 1
-                    failed_details.append((tool_name, 'no installer'))
-
-        console.print()
-        console.print(f"[bold]Installation Summary:[/bold]")
-        console.print(f"  ✅ Installed: {installed}")
-        if failed > 0:
-            console.print(f"  ❌ Failed: {failed}")
-
-        # Windows PATH refresh warning
-        if installed > 0 and platform_info.os_type.value == 'windows':
-            console.print(f"\n[bold yellow]⚠️  Windows PATH Update Required[/bold yellow]")
-            console.print(f"[yellow]   Please restart your terminal for the installed tools to be detected[/yellow]")
-            console.print(f"[dim]   Tools installed via winget/npm may not be in your PATH until you restart[/dim]")
-
-        # Generate installation guide for failed tools
-        if failed > 0:
-            guide_path = Path.cwd() / ".medusa" / "installation-guide.md"
-            guide_path.parent.mkdir(parents=True, exist_ok=True)
-            _generate_installation_guide(failed_details, guide_path, platform_info)
-            console.print(f"\n[cyan]📄 Installation guide created: {guide_path}[/cyan]")
-            console.print(f"[dim]   See this file for manual installation instructions[/dim]")
-
-        console.print(f"\n[dim]Run 'medusa config' to see updated scanner status[/dim]")
+        console.print("\n[green]AI security tools ready![/green]")
+        console.print("[dim]Run 'medusa scan .' to scan your project[/dim]")
 
 
 @main.command()
 @click.argument('tool', required=False)
-@click.option('--all', 'all_tools', is_flag=True, help='Uninstall all MEDUSA scanner tools')
+@click.option('--all', 'all_tools', is_flag=True, help='[DEPRECATED] Uninstall all tools')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
-@click.option('--debug', is_flag=True, help='Show detailed debug output')
-@click.option('--force', is_flag=True, help='Uninstall even if not installed by MEDUSA (use with caution)')
-def uninstall(tool, all_tools, yes, debug, force):
+def uninstall(tool, all_tools, yes):
     """
-    Uninstall security scanner tools.
+    Uninstall AI security tools.
 
-    Examples:
-        medusa uninstall shellcheck  # Uninstall specific tool
-        medusa uninstall --all       # Uninstall all tools
+    MEDUSA v2026.2 only manages modelscan. Use your package manager
+    for other tools.
+
+    Example:
+        medusa uninstall modelscan
     """
     print_banner()
 
-    console.print("\n[cyan]📦 Tool Uninstallation[/cyan]\n")
-
-    if debug:
-        console.print("[dim]Debug mode enabled - showing detailed output[/dim]\n")
-
-    from medusa.platform import get_platform_info
-    from medusa.scanners import registry
-    from medusa.platform.installers import (
-        AptInstaller, YumInstaller, DnfInstaller, PacmanInstaller,
-        HomebrewInstaller, WingetInstaller, ChocolateyInstaller, NpmInstaller, PipInstaller, ToolMapper
-    )
-
-    platform_info = get_platform_info()
-
-    if debug:
-        console.print(f"[DEBUG] Platform: {platform_info.os_type.value}")
-        console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
-
-    # Get manifest
-    manifest = get_manifest()
-
-    # Get installed tools
-    installed_tools = []
-    skipped_tools = []  # Tools found but not installed by MEDUSA
-    if debug:
-        console.print("[DEBUG] Scanning for installed tools...")
-    for scanner in registry.get_all_scanners():
-        if scanner.is_available():
-            tool_name = scanner.tool_name
-            if tool_name and tool_name not in installed_tools:
-                # Check if this tool was installed by MEDUSA or if --force is used
-                was_medusa_installed = manifest.was_installed_by_medusa(tool_name)
-                is_support_software = manifest.is_support_software(tool_name)
-
-                # Version fingerprinting: Check if tool version changed since MEDUSA installed it
-                version_changed = False
-                if was_medusa_installed and not force:
-                    manifest_info = manifest.get_tool_info(tool_name)
-                    manifest_version = manifest_info.get('version') if manifest_info else None
-                    # Get package manager from manifest to help version detection
-                    pm_hint = manifest_info.get('package_manager') if manifest_info else None
-                    current_version = _detect_tool_version(tool_name, package_manager=pm_hint)
-
-                    if manifest_version and current_version and manifest_version != current_version:
-                        version_changed = True
-                        skipped_tools.append(tool_name)
-                        if debug:
-                            console.print(f"[DEBUG]   Skipped: {tool_name} (version changed: {manifest_version} → {current_version})")
-
-                if not version_changed and (force or (was_medusa_installed and not is_support_software)):
-                    installed_tools.append(tool_name)
-                    if debug:
-                        console.print(f"[DEBUG]   Found: {tool_name} (MEDUSA installed: {was_medusa_installed})")
-                elif not version_changed:
-                    skipped_tools.append(tool_name)
-                    if debug:
-                        reason = "support software" if is_support_software else "not installed by MEDUSA"
-                        console.print(f"[DEBUG]   Skipped: {tool_name} ({reason})")
-
-    if debug:
-        console.print(f"[DEBUG] Total installed tools: {len(installed_tools)}")
-        if skipped_tools:
-            console.print(f"[DEBUG] Total skipped tools: {len(skipped_tools)}\n")
-        else:
-            console.print()
-
-    # Show skipped tools message if not using --force
-    if skipped_tools and not force:
-        console.print(f"[yellow]ℹ️  Skipped {len(skipped_tools)} tools not installed by MEDUSA[/yellow]")
-        console.print(f"[dim]   Use --force to uninstall them anyway[/dim]\n")
-
-    if not installed_tools:
-        if skipped_tools:
-            console.print("[yellow]No MEDUSA-installed tools to uninstall[/yellow]")
-            console.print(f"[dim]Found {len(skipped_tools)} tools that were not installed by MEDUSA[/dim]")
-            console.print(f"[dim]Use --force to uninstall them[/dim]")
-        else:
-            console.print("[yellow]No MEDUSA scanner tools found to uninstall[/yellow]")
+    # Handle deprecated --all flag
+    if all_tools:
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2[/yellow]")
+        console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
+        console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
 
-    # Uninstall specific tool
-    if tool:
-        # Check if tool was skipped due to version change
-        if tool in skipped_tools:
-            # Check if it was version-related skip
-            manifest_info = manifest.get_tool_info(tool)
-            manifest_version = manifest_info.get('version') if manifest_info else None
-            pm_hint = manifest_info.get('package_manager') if manifest_info else None
-            current_version = _detect_tool_version(tool, package_manager=pm_hint)
-            if manifest_version and current_version and manifest_version != current_version:
-                console.print(f"[yellow]Tool '{tool}' version changed ({manifest_version} → {current_version})[/yellow]")
-                console.print("[yellow]Skipping to protect your manual upgrade. Use --force to override.[/yellow]")
-                return
+    # No tool specified
+    if not tool:
+        console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
+        console.print("[dim]MEDUSA v2026.2 only manages modelscan installation.[/dim]\n")
+        return
 
-        if tool not in installed_tools:
-            console.print(f"[yellow]Tool '{tool}' is not installed or not a MEDUSA scanner tool[/yellow]")
+    # Non-modelscan tool
+    if tool != 'modelscan':
+        console.print(f"\n[yellow]MEDUSA v2026.2 doesn't manage '{tool}'[/yellow]")
+        console.print("[dim]Use your package manager to uninstall it.[/dim]")
+        console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
+        return
+
+    # Uninstall modelscan
+    from medusa.platform.installers.simple import get_pip_command
+
+    if not yes:
+        if not click.confirm("Uninstall modelscan?"):
             return
 
-        if not yes:
-            confirm = click.confirm(f"Uninstall {tool}?", default=False)
-            if not confirm:
-                console.print("[yellow]Uninstallation cancelled[/yellow]")
-                return
+    console.print("\n[cyan]Uninstalling modelscan...[/cyan]")
 
-        if debug:
-            console.print(f"[DEBUG] Tool: {tool}")
-            console.print(f"[DEBUG] Primary PM: {platform_info.primary_package_manager}")
+    import subprocess
+    cmd = get_pip_command() + ['uninstall', '-y', 'modelscan']
+    result = subprocess.run(cmd, capture_output=True, text=True)
 
-        console.print(f"[cyan]Uninstalling {tool}...[/cyan] ", end="")
-
-        # Get appropriate installer
-        pm = platform_info.primary_package_manager
-        installer = None
-
-        if pm:
-            from medusa.platform import PackageManager
-            installer_map = {
-                PackageManager.APT: AptInstaller(),
-                PackageManager.YUM: YumInstaller(),
-                PackageManager.DNF: DnfInstaller(),
-                PackageManager.PACMAN: PacmanInstaller(),
-                PackageManager.BREW: HomebrewInstaller(),
-                PackageManager.WINGET: WingetInstaller(),
-                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
-            }
-            installer = installer_map.get(pm)
-
-        npm_installer = NpmInstaller() if _has_npm_available() else None
-        pip_installer = PipInstaller() if _has_pip_available() else None
-
-        success = False
-
-        # Try appropriate uninstaller
-        if installer and ToolMapper.get_package_name(tool, pm.value if pm else ''):
-            if debug:
-                pkg = ToolMapper.get_package_name(tool, pm.value)
-                console.print(f"\n[DEBUG] Uninstalling via {pm.value}: {pkg}")
-            success = installer.uninstall(tool)
-        elif npm_installer and ToolMapper.is_npm_tool(tool):
-            if debug:
-                console.print(f"\n[DEBUG] Uninstalling via npm")
-            success = npm_installer.uninstall(tool)
-        elif pip_installer and ToolMapper.is_python_tool(tool):
-            if debug:
-                console.print(f"\n[DEBUG] Uninstalling via pip")
-            success = pip_installer.uninstall(tool)
-
-        if success:
-            console.print("[green]✅[/green]")
-            # Remove from manifest
-            manifest.mark_uninstalled(tool)
-        else:
-            console.print("[red]❌[/red]")
-            console.print(f"[yellow]Note: You may need to uninstall {tool} manually[/yellow]")
-
-    # Uninstall all tools
-    elif all_tools:
-        console.print(f"[bold]Found {len(installed_tools)} installed tools:[/bold]")
-        for t in installed_tools:
-            console.print(f"  • {t}")
-        console.print()
-
-        if not yes:
-            confirm = click.confirm(f"Uninstall all {len(installed_tools)} tools?", default=False)
-            if not confirm:
-                console.print("[yellow]Uninstallation cancelled[/yellow]")
-                return
-
-        # Get appropriate installer
-        pm = platform_info.primary_package_manager
-        installer = None
-
-        if pm:
-            from medusa.platform import PackageManager
-            installer_map = {
-                PackageManager.APT: AptInstaller(),
-                PackageManager.YUM: YumInstaller(),
-                PackageManager.DNF: DnfInstaller(),
-                PackageManager.PACMAN: PacmanInstaller(),
-                PackageManager.BREW: HomebrewInstaller(),
-                PackageManager.WINGET: WingetInstaller(),
-                PackageManager.CHOCOLATEY: ChocolateyInstaller(),
-            }
-            installer = installer_map.get(pm)
-
-        npm_installer = NpmInstaller() if _has_npm_available() else None
-        pip_installer = PipInstaller() if _has_pip_available() else None
-
-        uninstalled = 0
-        failed = 0
-
-        for tool_name in installed_tools:
-            if debug:
-                console.print(f"\n[DEBUG] Processing: {tool_name}")
-                console.print(f"[DEBUG]   PM package: {ToolMapper.get_package_name(tool_name, pm.value if pm else '')}")
-                console.print(f"[DEBUG]   Is NPM tool: {ToolMapper.is_npm_tool(tool_name)}")
-                console.print(f"[DEBUG]   Is Python tool: {ToolMapper.is_python_tool(tool_name)}")
-
-            console.print(f"[cyan]Uninstalling {tool_name}...[/cyan]", end=" ")
-
-            success = False
-
-            # Try appropriate uninstaller
-            if installer and ToolMapper.get_package_name(tool_name, pm.value if pm else ''):
-                if debug:
-                    pkg = ToolMapper.get_package_name(tool_name, pm.value)
-                    console.print(f"\n[DEBUG]   Using {pm.value} to uninstall: {pkg}")
-                    console.print(f"[DEBUG]   Command: winget uninstall --id {pkg} --silent --accept-source-agreements")
-                success = installer.uninstall(tool_name)
-                if debug and not success:
-                    console.print(f"[DEBUG]   Uninstall failed - check winget output above")
-            elif npm_installer and ToolMapper.is_npm_tool(tool_name):
-                if debug:
-                    console.print(f"\n[DEBUG]   Using npm to uninstall")
-                success = npm_installer.uninstall(tool_name)
-            elif pip_installer and ToolMapper.is_python_tool(tool_name):
-                if debug:
-                    console.print(f"\n[DEBUG]   Using pip to uninstall")
-                success = pip_installer.uninstall(tool_name)
-
-            if success:
-                console.print("[green]✅[/green]")
-                uninstalled += 1
-                # Remove from manifest
-                manifest.mark_uninstalled(tool_name)
-            else:
-                console.print("[red]❌[/red]")
-                failed += 1
-
-        console.print()
-        console.print(f"[bold]Uninstallation Summary:[/bold]")
-        console.print(f"  ✅ Uninstalled: {uninstalled}")
-        if failed > 0:
-            console.print(f"  ❌ Failed: {failed}")
-
+    if result.returncode == 0:
+        console.print("[green]modelscan uninstalled[/green]\n")
     else:
-        console.print("[yellow]Please specify a tool name or use --all[/yellow]")
-        console.print(f"\n[bold]Currently installed tools:[/bold]")
-        for t in installed_tools:
-            console.print(f"  • {t}")
-        console.print(f"\n[dim]Example: medusa uninstall shellcheck[/dim]")
+        console.print(f"[red]Failed to uninstall: {result.stderr}[/red]\n")
 
 
 @main.command()

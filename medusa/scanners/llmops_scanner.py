@@ -26,7 +26,7 @@ class LLMOpsScanner(RuleBasedScanner):
     LLMOps Security Scanner
 
     Scans for:
-    - LO001: Insecure model loading
+    - LO001: (Moved to ModelAttackScanner MA013/MA014)
     - LO002: Missing model versioning
     - LO003: Unmonitored model deployment
     - LO004: Insecure fine-tuning pipeline
@@ -50,19 +50,9 @@ class LLMOpsScanner(RuleBasedScanner):
     # Categories to load from YAML  
     RULE_CATEGORIES = ['llmops', 'model_deployment', 'inference_security']
 
-    # Insecure Model Loading patterns
-    INSECURE_LOADING_PATTERNS = [
-        (r'(pickle|torch)\.load\s*\(.*http',
-         'Model loaded from URL via pickle/torch (code execution risk)'),
-        (r'load.*weights.*\(.*user',
-         'Model weights loaded from user input'),
-        (r'from_pretrained\s*\(.*input',
-         'Pretrained model loaded from user-controlled path'),
-        (r'(joblib|dill)\.load\s*\(',
-         'Insecure deserialization (use safetensors instead)'),
-        (r'eval\s*\(.*model',
-         'Model code evaluated dynamically'),
-    ]
+    # Note: Insecure model loading/deserialization patterns moved to
+    # ModelAttackScanner (MA013: DESERIALIZATION_PATTERNS, MA014: MODEL_SERIALIZATION_PATTERNS)
+    # which has more comprehensive coverage including pickle, torch, yaml, Java, Node, PHP
 
     # Model Versioning patterns
     VERSIONING_PATTERNS = [
@@ -220,15 +210,8 @@ class LLMOpsScanner(RuleBasedScanner):
          'LO016: Adapter added from URL without integrity check', Severity.HIGH),
     ]
 
-    # GPU Memory vulnerability patterns (CVE-2023-4969 - LeftOvers)
-    GPU_MEMORY_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'torch\.cuda\.empty_cache\(\)',
-         'GPU memory clearing present (good practice)', Severity.LOW),  # Actually good
-        (r'del\s+model\s*(?!.*(?:gc\.collect|empty_cache))',
-         'Model deleted but GPU memory not explicitly cleared', Severity.MEDIUM),
-        (r'\.to\s*\(\s*["\']cuda',
-         'Model moved to GPU - ensure proper cleanup after inference', Severity.LOW),
-    ]
+    # Note: GPU memory patterns (CVE-2023-4969) moved to ModelAttackScanner (MA012)
+    # which has CVE-referenced, multiline-aware detection
 
     def __init__(self):
         super().__init__()
@@ -293,18 +276,7 @@ class LLMOpsScanner(RuleBasedScanner):
                 for p in self.AUDIT_PATTERNS
             )
 
-            # LO001: Insecure Model Loading
-            for pattern, message in self.INSECURE_LOADING_PATTERNS:
-                match = re.search(pattern, content, re.IGNORECASE)
-                if match:
-                    line = content[:match.start()].count('\n') + 1
-                    issues.append(ScannerIssue(
-                        rule_id="LO001",
-                        severity=Severity.CRITICAL,
-                        message=f"Insecure Model Loading: {message} - use safetensors, verify model hashes",
-                        line=line,
-                        column=1,
-                    ))
+            # LO001: Insecure model loading now handled by ModelAttackScanner (MA013/MA014)
 
             # LO002: Missing Model Versioning
             if 'model' in content_lower and 'save' in content_lower and not has_versioning:
@@ -439,18 +411,7 @@ class LLMOpsScanner(RuleBasedScanner):
                         column=1,
                     ))
 
-            # GPU Memory patterns (informational - CVE-2023-4969 related)
-            for pattern, message, severity in self.GPU_MEMORY_PATTERNS:
-                match = re.search(pattern, content, re.IGNORECASE)
-                if match and severity != Severity.LOW:  # Skip informational patterns
-                    line = content[:match.start()].count('\n') + 1
-                    issues.append(ScannerIssue(
-                        rule_id="LO013",  # Associated with vulnerability detection
-                        severity=severity,
-                        message=f"CVE-2023-4969 related: {message} - use empty_cache() and gc.collect()",
-                        line=line,
-                        column=1,
-                    ))
+            # GPU memory (CVE-2023-4969) now handled by ModelAttackScanner (MA012)
 
             # Scan with YAML rules
             lines = content.split('\n')

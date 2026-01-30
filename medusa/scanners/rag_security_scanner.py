@@ -47,6 +47,7 @@ class RAGSecurityScanner(RuleBasedScanner):
     - AIR013: Hidden text poisoning (CSS tricks, zero-width chars)
     - AIR014: Adversarial suffix patterns
     - AIR015: Multi-tenant vector isolation
+    - AIR016: Code-level RAG security (document ingestion, context injection, vector store manipulation)
     """
 
     # Rule ID prefixes to load from YAML
@@ -322,14 +323,44 @@ class RAGSecurityScanner(RuleBasedScanner):
          'Embedding pipeline - inefficient batch size', Severity.LOW),
     ]
 
+    # AIR016: Code-level RAG security patterns (for Python source files)
+    CODE_RAG_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Unvalidated document ingestion
+        (r'(?:add_documents|ingest|index_documents)\s*\([^)]*(?:url|input|user)',
+         'RAG poisoning - document ingestion from user input', Severity.HIGH),
+        (r'(?:embed|vectorize|chunk)\s*\([^)]*(?:user|input|raw)',
+         'RAG poisoning - embedding user-controlled content', Severity.HIGH),
+
+        # Context injection in RAG pipelines
+        (r'(?:context|retriev)\w*\s*\+\s*(?:user|input|query)',
+         'RAG context injection - user input concatenated with context', Severity.HIGH),
+        (r'(?:system_prompt|instructions)\s*[=+]\s*.*(?:retrieve|context|document)',
+         'RAG injection - retrieved content in system prompt', Severity.MEDIUM),
+
+        # Missing content sanitization
+        (r'(?:retrieve|search|query).*(?:format|template|prompt)\s*\(',
+         'RAG content used in prompt without sanitization', Severity.MEDIUM),
+
+        # Direct vector store manipulation
+        (r'(?:delete_collection|drop_index|clear_vectors)\s*\(',
+         'RAG destructive operation - vector store manipulation', Severity.HIGH),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
     def get_file_extensions(self) -> List[str]:
-        return ['.json', '.yaml', '.yml', '.toml']
+        return ['.json', '.yaml', '.yml', '.toml', '.py']
+
+    # RAG indicators to look for in Python source files
+    _RAG_INDICATORS = [
+        'langchain', 'llama_index', 'chromadb', 'pinecone',
+        'weaviate', 'qdrant', 'add_documents', 'vectorstore',
+        'embeddings', 'retriever', 'RAGChain',
+    ]
 
     def can_scan(self, file_path: Path) -> bool:
-        """Check if this file is a RAG configuration"""
+        """Check if this file is a RAG configuration or Python RAG code"""
         name_lower = file_path.name.lower()
         parent_lower = file_path.parent.name.lower()
 
@@ -348,10 +379,20 @@ class RAGSecurityScanner(RuleBasedScanner):
         if any(kw in name_lower for kw in rag_keywords):
             return True
 
+        # Check Python files for RAG-related imports/patterns
+        if file_path.suffix == '.py':
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    head = f.read(5120)  # Read first 5KB
+                if any(indicator in head for indicator in self._RAG_INDICATORS):
+                    return True
+            except OSError:
+                pass
+
         return False
 
     def get_confidence_score(self, file_path: Path) -> int:
-        """Return confidence score for RAG config files"""
+        """Return confidence score for RAG config files and Python RAG code"""
         if not self.can_scan(file_path):
             return 0
 
@@ -368,6 +409,10 @@ class RAGSecurityScanner(RuleBasedScanner):
 
         # Medium confidence for keyword matches
         if any(kw in name_lower for kw in ['rag', 'knowledge', 'vectordb']):
+            return 75
+
+        # Python files with RAG indicators
+        if file_path.suffix == '.py':
             return 75
 
         return 50
@@ -387,83 +432,89 @@ class RAGSecurityScanner(RuleBasedScanner):
 
             lines = content.split('\n')
 
-            # AIR001: Untrusted sources
-            issues.extend(self._scan_patterns(
-                lines, self.UNTRUSTED_SOURCE_PATTERNS, "AIR001", 829
-            ))
+            if file_path.suffix == '.py':
+                # Python source files: code-level RAG patterns + YAML rules
+                issues.extend(self._scan_python_rag_patterns(content, lines))
+                issues.extend(self._scan_with_rules(lines, file_path))
+            else:
+                # Config files: full config-oriented pattern scanning
+                # AIR001: Untrusted sources
+                issues.extend(self._scan_patterns(
+                    lines, self.UNTRUSTED_SOURCE_PATTERNS, "AIR001", 829
+                ))
 
-            # AIR002: No sanitization
-            issues.extend(self._scan_patterns(
-                lines, self.NO_SANITIZATION_PATTERNS, "AIR002", 20
-            ))
+                # AIR002: No sanitization
+                issues.extend(self._scan_patterns(
+                    lines, self.NO_SANITIZATION_PATTERNS, "AIR002", 20
+                ))
 
-            # AIR003: Executable code
-            issues.extend(self._scan_patterns(
-                lines, self.EXECUTABLE_CODE_PATTERNS, "AIR003", 94
-            ))
+                # AIR003: Executable code
+                issues.extend(self._scan_patterns(
+                    lines, self.EXECUTABLE_CODE_PATTERNS, "AIR003", 94
+                ))
 
-            # AIR004: Mixed trust
-            issues.extend(self._scan_patterns(
-                lines, self.MIXED_TRUST_PATTERNS, "AIR004", 285
-            ))
+                # AIR004: Mixed trust
+                issues.extend(self._scan_patterns(
+                    lines, self.MIXED_TRUST_PATTERNS, "AIR004", 285
+                ))
 
-            # AIR005: Missing attribution
-            issues.extend(self._scan_patterns(
-                lines, self.MISSING_ATTRIBUTION_PATTERNS, "AIR005", 346
-            ))
+                # AIR005: Missing attribution
+                issues.extend(self._scan_patterns(
+                    lines, self.MISSING_ATTRIBUTION_PATTERNS, "AIR005", 346
+                ))
 
-            # AIR006: Insecure embedding
-            issues.extend(self._scan_patterns(
-                lines, self.INSECURE_EMBEDDING_PATTERNS, "AIR006", 319
-            ))
+                # AIR006: Insecure embedding
+                issues.extend(self._scan_patterns(
+                    lines, self.INSECURE_EMBEDDING_PATTERNS, "AIR006", 319
+                ))
 
-            # AIR007: Vector DB credentials
-            issues.extend(self._scan_patterns(
-                lines, self.VECTOR_DB_CREDENTIAL_PATTERNS, "AIR007", 798
-            ))
+                # AIR007: Vector DB credentials
+                issues.extend(self._scan_patterns(
+                    lines, self.VECTOR_DB_CREDENTIAL_PATTERNS, "AIR007", 798
+                ))
 
-            # AIR008: Unsafe chunking
-            issues.extend(self._scan_patterns(
-                lines, self.UNSAFE_CHUNKING_PATTERNS, "AIR008", 400
-            ))
+                # AIR008: Unsafe chunking
+                issues.extend(self._scan_patterns(
+                    lines, self.UNSAFE_CHUNKING_PATTERNS, "AIR008", 400
+                ))
 
-            # AIR009: No filtering
-            issues.extend(self._scan_patterns(
-                lines, self.NO_FILTERING_PATTERNS, "AIR009", 285
-            ))
+                # AIR009: No filtering
+                issues.extend(self._scan_patterns(
+                    lines, self.NO_FILTERING_PATTERNS, "AIR009", 285
+                ))
 
-            # AIR010: KB injection
-            issues.extend(self._scan_patterns(
-                lines, self.KB_INJECTION_PATTERNS, "AIR010", 94
-            ))
+                # AIR010: KB injection
+                issues.extend(self._scan_patterns(
+                    lines, self.KB_INJECTION_PATTERNS, "AIR010", 94
+                ))
 
-            # AIR011: Agentic RAG validation
-            issues.extend(self._scan_patterns(
-                lines, self.AGENTIC_RAG_PATTERNS, "AIR011", 285
-            ))
+                # AIR011: Agentic RAG validation
+                issues.extend(self._scan_patterns(
+                    lines, self.AGENTIC_RAG_PATTERNS, "AIR011", 285
+                ))
 
-            # AIR012: Embedding pipeline security
-            issues.extend(self._scan_patterns(
-                lines, self.EMBEDDING_PIPELINE_PATTERNS, "AIR012", 400
-            ))
+                # AIR012: Embedding pipeline security
+                issues.extend(self._scan_patterns(
+                    lines, self.EMBEDDING_PIPELINE_PATTERNS, "AIR012", 400
+                ))
 
-            # AIR013: Hidden text poisoning
-            issues.extend(self._scan_patterns(
-                lines, self.HIDDEN_TEXT_PATTERNS, "AIR013", 94
-            ))
+                # AIR013: Hidden text poisoning
+                issues.extend(self._scan_patterns(
+                    lines, self.HIDDEN_TEXT_PATTERNS, "AIR013", 94
+                ))
 
-            # AIR014: Adversarial suffix patterns
-            issues.extend(self._scan_patterns(
-                lines, self.ADVERSARIAL_PATTERNS, "AIR014", 74
-            ))
+                # AIR014: Adversarial suffix patterns
+                issues.extend(self._scan_patterns(
+                    lines, self.ADVERSARIAL_PATTERNS, "AIR014", 74
+                ))
 
-            # AIR015: Multi-tenant vector isolation
-            issues.extend(self._scan_patterns(
-                lines, self.MULTITENANT_PATTERNS, "AIR015", 653
-            ))
+                # AIR015: Multi-tenant vector isolation
+                issues.extend(self._scan_patterns(
+                    lines, self.MULTITENANT_PATTERNS, "AIR015", 653
+                ))
 
-            # Scan with YAML rules
-            issues.extend(self._scan_with_rules(lines, file_path))
+                # Scan with YAML rules
+                issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,
@@ -482,6 +533,22 @@ class RAGSecurityScanner(RuleBasedScanner):
                 success=False,
                 error_message=f"Scan failed: {e}"
             )
+
+    def _scan_python_rag_patterns(self, content: str, lines: List[str]) -> List[ScannerIssue]:
+        """Scan Python code for RAG security patterns"""
+        issues = []
+        for i, line in enumerate(lines, 1):
+            for pattern, message, severity in self.CODE_RAG_PATTERNS:
+                if re.search(pattern, line, re.IGNORECASE):
+                    issues.append(ScannerIssue(
+                        rule_id="AIR016",
+                        severity=severity,
+                        message=f"RAG Code Security: {message}",
+                        line=i,
+                        column=1,
+                    ))
+                    break  # One issue per line
+        return issues
 
     def _scan_patterns(
         self,

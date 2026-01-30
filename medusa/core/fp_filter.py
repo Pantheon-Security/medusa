@@ -746,6 +746,12 @@ class FalsePositiveFilter:
         context: List[str]
     ) -> FilterResult:
         """Check if finding is in a docstring or comment"""
+        # MCP/agent scanners: docstrings ARE the attack surface (tool descriptions)
+        scanner = finding.get('scanner', '').lower()
+        if scanner in ('mcpserverscanner', 'mcp_server_scanner', 'mcp-server-scanner',
+                        'mcpconfigscanner', 'toolcallbackscanner', 'multiagentscanner'):
+            return FilterResult()
+
         line_num = finding.get('line') or 0
 
         if not context or line_num <= 0:

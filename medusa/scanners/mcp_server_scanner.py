@@ -49,6 +49,11 @@ class MCPServerScanner(RuleBasedScanner):
     - MCP122: Deceptive tool description
     - MCP123: Auto-update without integrity check
     - MCP124: Path traversal vulnerabilities (arbitrary file read/write)
+    - MCP125: LLM agent security (unsafe agent configs, raw input, code execution)
+
+    Note: Deserialization (CWE-502), SSRF (CWE-918), RAG security, memory poisoning,
+    and model serialization patterns are handled by their dedicated scanners:
+    ModelAttackScanner, WebSecurityScanner, RAGSecurityScanner, AgentMemoryScanner.
     """
 
     # Rule ID prefixes to load from YAML
@@ -96,9 +101,27 @@ class MCPServerScanner(RuleBasedScanner):
         (r'subprocess\.(run|call|Popen|check_output)\s*\([^)]*shell\s*=\s*True',
          'Shell=True with potential user input', Severity.CRITICAL),
         (r'os\.system\s*\([^)]*\+', 'os.system with string concatenation', Severity.CRITICAL),
+        (r'os\.system\s*\(', 'os.system() call - potential command injection', Severity.HIGH),
         (r'os\.popen\s*\([^)]*\+', 'os.popen with string concatenation', Severity.CRITICAL),
         (r'exec\s*\([^)]*input', 'exec() with user input', Severity.CRITICAL),
         (r'eval\s*\([^)]*input', 'eval() with user input', Severity.CRITICAL),
+
+        # Base64-encoded RCE (obfuscated command execution)
+        (r'base64\s+(-d|--decode)\s*\|\s*(bash|sh|zsh|python|perl|ruby|node)',
+         'Base64-encoded command execution (RCE obfuscation)', Severity.CRITICAL),
+        (r'\|\s*base64\s+(-d|--decode)\s*\|\s*(bash|sh|python)',
+         'Base64 decode piped to shell (RCE obfuscation)', Severity.CRITICAL),
+
+        # Docstring poisoning (runtime modification of tool descriptions)
+        (r'\._doc_\s*=', 'Docstring poisoning - runtime _doc_ modification', Severity.CRITICAL),
+        (r'\.__doc__\s*=', 'Docstring poisoning - runtime __doc__ modification', Severity.CRITICAL),
+
+        # Data exfiltration via wget/curl
+        (r'wget\s+.*--post-file', 'wget POST file exfiltration', Severity.CRITICAL),
+        (r'wget\s+.*--body-file', 'wget body-file exfiltration', Severity.CRITICAL),
+        (r'curl\s+.*-d\s+@', 'curl data exfiltration from file', Severity.CRITICAL),
+        (r'curl\s+.*--data-binary\s+@', 'curl binary data exfiltration', Severity.CRITICAL),
+        (r'curl\s+.*-X\s+POST\s+.*-d', 'curl POST data exfiltration', Severity.HIGH),
 
         # JavaScript/TypeScript
         (r'child_process\.(exec|execSync|spawn)\s*\([^)]*\$\{',
@@ -109,6 +132,43 @@ class MCPServerScanner(RuleBasedScanner):
         (r'eval\s*\([^)]*\$\{', 'eval with template literal', Severity.CRITICAL),
     ]
 
+    # LLM Agent security patterns - unsafe agent configurations
+    LLM_AGENT_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Raw user input passed directly to agent/executor
+        (r'(?:executor|agent|chain)\s*\(\s*(?:prompt|user_input|query|message)\s*\)',
+         'Raw user input passed to agent executor - sanitize first', Severity.HIGH),
+        (r'\.run\s*\(\s*(?:prompt|user_input|query|message)\s*\)',
+         'Raw user input passed to agent .run() - sanitize first', Severity.HIGH),
+
+        # userId/user_id parameters (auth boundary check needed)
+        (r'def\s+\w+\s*\([^)]*(?:userId|user_id)\s*:\s*str',
+         'userId parameter - ensure proper authorization check', Severity.MEDIUM),
+        (r'(?:userId|user_id)\s*=\s*(?:request|req|input|params)',
+         'userId from user input - verify authorization', Severity.MEDIUM),
+
+        # LangChain handle_parsing_errors=True (allows error injection)
+        (r'handle_parsing_errors\s*=\s*True',
+         'handle_parsing_errors=True allows attacker-controlled error messages', Severity.HIGH),
+
+        # max_iterations without timeout (resource exhaustion)
+        (r'(?:AgentExecutor|agent)\s*\([^)]*max_iterations\s*=(?!.*(?:timeout|max_time|time_limit))',
+         'max_iterations without timeout - risk of resource exhaustion', Severity.MEDIUM),
+
+        # AutoGen code execution config (arbitrary code execution)
+        (r'code_execution_config\s*[=:]\s*\{',
+         'AutoGen code_execution_config - arbitrary code execution risk', Severity.HIGH),
+        (r'code_execution_config.*work_dir',
+         'AutoGen code execution with work directory', Severity.HIGH),
+
+        # CrewAI/AutoGen allow_code_execution
+        (r'allow_code_execution\s*=\s*True',
+         'Agent code execution enabled - ensure sandboxing', Severity.HIGH),
+
+        # Unsandboxed tool execution
+        (r'(?:execute|run)_tool\s*\([^)]*(?:shell|system|exec)',
+         'Tool execution using shell/system call', Severity.CRITICAL),
+    ]
+
     # SQL injection patterns
     SQL_INJECTION_PATTERNS: List[Tuple[str, str, Severity]] = [
         # String formatting in SQL
@@ -117,6 +177,12 @@ class MCPServerScanner(RuleBasedScanner):
         (r'execute\s*\([^)]*\.format\s*\(', 'SQL with .format()', Severity.CRITICAL),
         (r'execute\s*\([^)]*\+\s*["\']?\s*\+?\s*(input|query|param|user|data)\b',
          'SQL with string concatenation', Severity.CRITICAL),
+
+        # Raw SQL construction with f-strings (even without execute on same line)
+        (r'f["\'](?:SELECT|INSERT|UPDATE|DELETE|DROP)\s+.*\{',
+         'SQL query constructed with f-string interpolation', Severity.HIGH),
+        (r'f["\'].*(?:SELECT|INSERT|UPDATE|DELETE|DROP)\s+.*\{',
+         'SQL statement with f-string variable injection', Severity.HIGH),
 
         # Raw query patterns
         (r'(SELECT|INSERT|UPDATE|DELETE|DROP).*\+\s*["\']?\s*\+',
@@ -584,8 +650,11 @@ class MCPServerScanner(RuleBasedScanner):
             )
 
             if not is_mcp_file:
-                # Not an MCP file, but still scan with YAML rules
+                # Not an MCP file - only scan with YAML rules
+                # Hardcoded pattern scanning for non-MCP concerns is handled
+                # by their dedicated scanners (WebSecurityScanner, ModelAttackScanner, etc.)
                 yaml_issues = self._scan_with_rules(lines, file_path)
+
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
@@ -700,6 +769,13 @@ class MCPServerScanner(RuleBasedScanner):
                 "MCP123"
             ))
 
+            # MCP125: LLM Agent security patterns
+            issues.extend(self._scan_patterns(
+                content, lines,
+                self.LLM_AGENT_PATTERNS,
+                "MCP125"
+            ))
+
             # Scan with YAML rules
             issues.extend(self._scan_with_rules(lines, file_path))
 
@@ -790,6 +866,11 @@ class MCPServerScanner(RuleBasedScanner):
                         "MCP116": (915, "https://cwe.mitre.org/data/definitions/915.html"),  # Improperly controlled mod
                         "MCP117": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # CVE-2025-6514 command injection
                         "MCP118": (441, "https://cwe.mitre.org/data/definitions/441.html"),  # Confused deputy
+                        "MCP119": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # PowerShell injection
+                        "MCP120": (345, "https://cwe.mitre.org/data/definitions/345.html"),  # Tool shadowing
+                        "MCP123": (494, "https://cwe.mitre.org/data/definitions/494.html"),  # Auto-update without check
+                        "MCP124": (22, "https://cwe.mitre.org/data/definitions/22.html"),  # Path traversal
+                        "MCP125": (269, "https://cwe.mitre.org/data/definitions/269.html"),  # LLM agent - improper privilege
                     }
                     cwe_id, cwe_link = cwe_map.get(rule_id, (None, None))
 

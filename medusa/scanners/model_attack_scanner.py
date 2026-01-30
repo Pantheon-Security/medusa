@@ -37,6 +37,8 @@ class ModelAttackScanner(RuleBasedScanner):
     - MA008: Missing input validation for adversarial samples
     - MA009: Model output leaking training data
     - MA010: Unprotected model endpoints
+    - MA013: Deserialization vulnerabilities (pickle, yaml, Java ObjectInputStream)
+    - MA014: Model serialization security (torch.load, joblib, trust_remote_code)
     """
 
     # Rule ID prefixes to load from YAML
@@ -162,6 +164,62 @@ class ModelAttackScanner(RuleBasedScanner):
          'GPU tensor not properly cleared after use', Severity.LOW),
         (r'cuda.*(?:tensor|model).*(?!.*empty_cache)',
          'CUDA operations without explicit memory management', Severity.LOW),
+    ]
+
+    # MA013: Deserialization vulnerability patterns
+    DESERIALIZATION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Python pickle (arbitrary code execution)
+        (r'pickle\.loads?\s*\(', 'Unsafe pickle deserialization (arbitrary code execution)', Severity.CRITICAL),
+        (r'pickle\.Unpickler\s*\(', 'Unsafe pickle Unpickler (arbitrary code execution)', Severity.CRITICAL),
+        (r'shelve\.open\s*\(', 'Shelve uses pickle internally (code execution risk)', Severity.HIGH),
+        (r'marshal\.loads?\s*\(', 'Unsafe marshal deserialization', Severity.HIGH),
+
+        # Python yaml.load without SafeLoader
+        (r'yaml\.load\s*\([^)]*(?!Loader\s*=\s*(?:Safe|Base))',
+         'yaml.load without SafeLoader (code execution risk)', Severity.HIGH),
+        (r'yaml\.unsafe_load\s*\(', 'yaml.unsafe_load (arbitrary code execution)', Severity.CRITICAL),
+
+        # Java deserialization
+        (r'ObjectInputStream\s*\(', 'Java ObjectInputStream deserialization', Severity.HIGH),
+        (r'readObject\s*\(\s*\)', 'Java readObject (deserialization attack vector)', Severity.HIGH),
+        (r'XMLDecoder\s*\(', 'Java XMLDecoder (code execution via XML)', Severity.CRITICAL),
+
+        # JavaScript/Node
+        (r'node-serialize', 'node-serialize (known RCE vulnerability)', Severity.CRITICAL),
+        (r'\.unserialize\s*\(', 'Unsafe unserialize call', Severity.HIGH),
+
+        # PHP
+        (r'unserialize\s*\(\s*\$', 'PHP unserialize with user input', Severity.CRITICAL),
+    ]
+
+    # MA014: Model serialization security patterns
+    MODEL_SERIALIZATION_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Unsafe model loading (arbitrary code execution)
+        (r'torch\.load\s*\([^)]*(?!weights_only)',
+         'Unsafe torch.load without weights_only=True (code execution)', Severity.CRITICAL),
+        (r'torch\.load\s*\([^)]*weights_only\s*=\s*False',
+         'torch.load with weights_only=False (arbitrary code execution)', Severity.CRITICAL),
+
+        # Pickle-based model formats
+        (r'joblib\.load\s*\(', 'joblib.load uses pickle (code execution risk)', Severity.HIGH),
+        (r'cloudpickle\.loads?\s*\(', 'cloudpickle deserialization (code execution)', Severity.CRITICAL),
+        (r'dill\.loads?\s*\(', 'dill deserialization (code execution)', Severity.CRITICAL),
+
+        # TensorFlow/Keras unsafe loading
+        (r'tf\.saved_model\.load\s*\([^)]*(?:url|http|input)',
+         'TensorFlow model loaded from untrusted source', Severity.HIGH),
+        (r'keras\.models\.load_model\s*\([^)]*(?:url|http|input)',
+         'Keras model loaded from untrusted source', Severity.HIGH),
+
+        # ONNX model loading without validation
+        (r'onnx\.load\s*\([^)]*(?!check_model)',
+         'ONNX model loaded without validation', Severity.MEDIUM),
+
+        # HuggingFace model loading from arbitrary sources
+        (r'from_pretrained\s*\([^)]*trust_remote_code\s*=\s*True',
+         'HuggingFace trust_remote_code=True (arbitrary code execution)', Severity.CRITICAL),
+        (r'(?:AutoModel|pipeline)\s*\.\s*from_pretrained\s*\([^)]*(?:http|url|input)',
+         'Model loaded from untrusted URL', Severity.HIGH),
     ]
 
     def __init__(self):
@@ -303,6 +361,32 @@ class ModelAttackScanner(RuleBasedScanner):
                         rule_id="MA012",
                         severity=severity,
                         message=f"GPU Memory Leakage: {message} - call torch.cuda.empty_cache() or gc.collect()",
+                        line=line,
+                        column=1,
+                    ))
+
+            # MA013: Deserialization vulnerabilities
+            for pattern, message, severity in self.DESERIALIZATION_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="MA013",
+                        severity=severity,
+                        message=f"Deserialization Risk: {message}",
+                        line=line,
+                        column=1,
+                    ))
+
+            # MA014: Model Serialization Security
+            for pattern, message, severity in self.MODEL_SERIALIZATION_PATTERNS:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    line = content[:match.start()].count('\n') + 1
+                    issues.append(ScannerIssue(
+                        rule_id="MA014",
+                        severity=severity,
+                        message=f"Model Serialization Risk: {message}",
                         line=line,
                         column=1,
                     ))

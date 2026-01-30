@@ -435,16 +435,34 @@ class ScannerRegistry:
 
     def get_missing_tools(self) -> List[str]:
         """Get list of scanner tools that are not installed"""
-        # Also check cache to prevent reinstalling tools that were just installed
+        # Check cache to prevent reinstalling tools that were just installed
         # but aren't yet in PATH (Windows PATH refresh issue)
         from medusa.platform.tool_cache import ToolCache
+        from medusa.platform.installers.base import PlatformFilter
         cache = ToolCache()
         cached_tools = cache.get_cached_tools()
 
+        # Also check manifest for tools installed by MEDUSA previously
+        # (handles case where cache wasn't populated in older versions)
+        try:
+            from medusa.platform.install_manifest import get_manifest
+            manifest = get_manifest()
+            manifest_tools = set(manifest.get_installed_tools())
+            # Sync manifest tools to cache for future runs
+            for tool in manifest_tools:
+                if tool not in cached_tools:
+                    cache.mark_installed(tool)
+            cached_tools = cached_tools.union(manifest_tools)
+        except Exception:
+            manifest_tools = set()
+
         missing = []
         for scanner in self.scanners:
-            # Skip if tool is available OR in cache
+            # Skip if tool is available OR in cache/manifest
             if scanner.is_available() or scanner.tool_name in cached_tools:
+                continue
+            # Skip if tool is not supported on this platform
+            if not PlatformFilter.is_supported(scanner.tool_name):
                 continue
             missing.append(scanner.tool_name)
 

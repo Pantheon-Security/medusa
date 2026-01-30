@@ -1,0 +1,60 @@
+# MEDUSA Security Scan Workflow
+# This workflow runs MEDUSA security scanner on your codebase
+# and uploads results to GitHub Security tab
+
+name: MEDUSA Security Scan
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Run weekly security scan
+    - cron: '0 0 * * 0'
+  workflow_dispatch:  # Manual trigger
+
+permissions:
+  contents: read
+  security-events: write  # Required for SARIF upload
+
+jobs:
+  security-scan:
+    name: Run MEDUSA Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run MEDUSA Security Scan
+        uses: pantheon-security/medusa/.github/actions/medusa-scan@main
+        with:
+          target: '.'
+          fail-on: 'high'
+          format: 'sarif json html'
+          upload-sarif: 'true'
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### MEDUSA Security Scan Results
+
+            | Severity | Count |
+            |----------|-------|
+            | Critical | ${{ steps.scan.outputs.critical-count }} |
+            | High | ${{ steps.scan.outputs.high-count }} |
+            | Medium | ${{ steps.scan.outputs.medium-count }} |
+            | **Total** | **${{ steps.scan.outputs.issues-count }}** |
+
+            [View full results in the Security tab](../../security/code-scanning)
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });

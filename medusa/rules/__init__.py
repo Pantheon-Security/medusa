@@ -18,6 +18,13 @@ import yaml
 from dataclasses import dataclass, field
 from enum import Enum
 
+# Import integrity scanner for self-protection
+try:
+    from medusa.core.rule_integrity import check_rule_integrity, RuleIntegrityScanner
+    _INTEGRITY_AVAILABLE = True
+except ImportError:
+    _INTEGRITY_AVAILABLE = False
+
 
 class RuleSeverity(Enum):
     """Rule severity levels"""
@@ -97,15 +104,18 @@ class RuleLoader:
     # Default rules directory (relative to this file)
     RULES_DIR = Path(__file__).parent
 
-    def __init__(self, rules_dir: Optional[Path] = None):
+    def __init__(self, rules_dir: Optional[Path] = None, skip_integrity_check: bool = False):
         """
         Initialize rule loader.
 
         Args:
             rules_dir: Optional custom rules directory
+            skip_integrity_check: Skip integrity scan (use with caution)
         """
         self.rules_dir = rules_dir or self.RULES_DIR
         self._rules_cache: Dict[str, List[Rule]] = {}
+        self._integrity_verified = False
+        self._skip_integrity = skip_integrity_check
 
     def load_all_rules(self, force_reload: bool = False) -> List[Rule]:
         """
@@ -117,6 +127,10 @@ class RuleLoader:
         Returns:
             List of all loaded rules
         """
+        # Run integrity check before loading (prompt-in-a-prompt protection)
+        if not self._skip_integrity and not self._integrity_verified:
+            self._verify_rule_integrity()
+
         if not force_reload and 'all' in self._rules_cache:
             return self._rules_cache['all']
 
@@ -124,7 +138,8 @@ class RuleLoader:
 
         # Load from each subdirectory
         subdirs = ['ai_security', 'agent_security', 'rag_security',
-                   'training_security', 'compliance']
+                   'training_security', 'compliance', 'supply_chain',
+                   'web_security', 'runtime']
 
         for subdir in subdirs:
             rules = self.load_rules_from_dir(subdir, force_reload)
@@ -144,6 +159,12 @@ class RuleLoader:
         Returns:
             List of rules from that directory
         """
+        # Runtime rules require a paid license
+        if subdir == 'runtime':
+            from medusa.core.licensing import can_use_runtime_filters
+            if not can_use_runtime_filters():
+                return []
+
         if not force_reload and subdir in self._rules_cache:
             return self._rules_cache[subdir]
 
@@ -160,6 +181,39 @@ class RuleLoader:
         self._rules_cache[subdir] = rules
         return rules
 
+    def _verify_rule_integrity(self) -> None:
+        """
+        Verify rule files haven't been tampered with (prompt-in-a-prompt protection).
+
+        This scans rule YAML files with hardcoded patterns BEFORE loading them.
+        Prevents attackers from embedding malicious content in rule files.
+        """
+        if not _INTEGRITY_AVAILABLE:
+            # Integrity scanner not available - continue without check
+            self._integrity_verified = True
+            return
+
+        try:
+            scanner = RuleIntegrityScanner(self.rules_dir)
+            is_clean, violations = scanner.verify_integrity(max_retries=1)
+
+            if is_clean:
+                self._integrity_verified = True
+            else:
+                # Log violations but don't exit - let caller decide
+                critical = [v for v in violations if v.severity == "CRITICAL"]
+                if critical:
+                    print(f"WARNING: {len(critical)} CRITICAL integrity violations in rule files")
+                    for v in critical[:5]:
+                        print(f"  - {v.file}:{v.line_number} [{v.pattern_name}]")
+                # Still mark as verified to avoid infinite loop
+                self._integrity_verified = True
+
+        except Exception as e:
+            # Don't block on integrity check failures
+            print(f"Warning: Rule integrity check failed: {e}")
+            self._integrity_verified = True
+
     def load_rules_from_file(self, filepath: Path) -> List[Rule]:
         """
         Load rules from a single YAML file.
@@ -175,6 +229,12 @@ class RuleLoader:
         Returns:
             List of rules from the file
         """
+        # Runtime rule files require a paid license
+        if '_runtime' in filepath.name or filepath.parent.name == 'runtime':
+            from medusa.core.licensing import can_use_runtime_filters
+            if not can_use_runtime_filters():
+                return []
+
         rules = []
 
         try:

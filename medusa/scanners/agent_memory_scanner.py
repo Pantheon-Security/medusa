@@ -47,6 +47,7 @@ class AgentMemoryScanner(RuleBasedScanner):
     - AIM013: Vector store poisoning risk
     - AIM014: Memory checksum missing
     - AIM015: Cross-session memory contamination
+    - AIM016: Code-level memory poisoning (user input in memory, shared memory, system prompt injection)
     """
 
     # Rule ID prefixes to load from YAML
@@ -257,14 +258,37 @@ class AgentMemoryScanner(RuleBasedScanner):
          'Memory shared with other sessions', Severity.HIGH),
     ]
 
+    # AIM016: Code-level memory poisoning patterns (for Python source files)
+    CODE_MEMORY_PATTERNS: List[Tuple[str, str, Severity]] = [
+        # Conversation memory manipulation
+        (r'(?:memory|history|context)\s*\.\s*(?:add|append|insert|set)\s*\([^)]*(?:user|input)',
+         'Memory poisoning - user input stored in conversation memory', Severity.HIGH),
+        (r'(?:save_context|add_message|store_memory)\s*\([^)]*(?:user|input|raw)',
+         'Memory poisoning - raw input saved to memory', Severity.HIGH),
+
+        # Shared memory across sessions
+        (r'(?:global|shared|persistent).*(?:memory|context|history)',
+         'Shared memory across sessions (cross-user poisoning risk)', Severity.MEDIUM),
+        (r'(?:memory|context).*(?:redis|database|db|store|persist)',
+         'Persistent memory storage (poisoning persists across sessions)', Severity.MEDIUM),
+
+        # System prompt injection via memory
+        (r'(?:system|instruction).*\+.*(?:memory|history|context)',
+         'Memory content in system prompt (injection vector)', Severity.HIGH),
+
+        # Unbounded memory growth
+        (r'(?:memory|history|context).*(?:append|add)\s*\((?!.*(?:limit|max|truncate|window))',
+         'Unbounded memory growth (no size limit)', Severity.LOW),
+    ]
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
     def get_file_extensions(self) -> List[str]:
-        return ['.json', '.yaml', '.yml', '.toml']
+        return ['.json', '.yaml', '.yml', '.toml', '.py']
 
     def can_scan(self, file_path: Path) -> bool:
-        """Check if this file is an agent memory config"""
+        """Check if this file is an agent memory config or Python memory code"""
         name_lower = file_path.name.lower()
         parent_lower = file_path.parent.name.lower()
 
@@ -283,10 +307,26 @@ class AgentMemoryScanner(RuleBasedScanner):
         if any(kw in name_lower for kw in memory_keywords):
             return True
 
+        # Check Python files for memory/agent indicators
+        if file_path.suffix == '.py':
+            try:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    head = f.read(5120)  # First 5KB
+                py_indicators = [
+                    'ConversationBufferMemory', 'ConversationSummaryMemory',
+                    'ChatMessageHistory', 'memory', 'langchain',
+                    'save_context', 'add_message', 'checkpoint', 'session',
+                ]
+                head_lower = head.lower()
+                if any(ind.lower() in head_lower for ind in py_indicators):
+                    return True
+            except OSError:
+                pass
+
         return False
 
     def get_confidence_score(self, file_path: Path) -> int:
-        """Return confidence score for memory config files"""
+        """Return confidence score for memory config files and Python memory code"""
         if not self.can_scan(file_path):
             return 0
 
@@ -305,6 +345,10 @@ class AgentMemoryScanner(RuleBasedScanner):
         if any(kw in name_lower for kw in ['memory', 'checkpoint', 'state']):
             return 70
 
+        # Python files with memory/agent indicators
+        if file_path.suffix == '.py':
+            return 75
+
         return 50
 
     def is_available(self) -> bool:
@@ -312,7 +356,7 @@ class AgentMemoryScanner(RuleBasedScanner):
         return True
 
     def scan_file(self, file_path: Path) -> ScannerResult:
-        """Scan agent memory configuration file for security issues"""
+        """Scan agent memory configuration file or Python code for security issues"""
         start_time = time.time()
         issues: List[ScannerIssue] = []
 
@@ -322,6 +366,20 @@ class AgentMemoryScanner(RuleBasedScanner):
 
             lines = content.split('\n')
 
+            # Python source files: code-level memory poisoning + YAML rules
+            if file_path.suffix == '.py':
+                issues.extend(self._scan_python_memory_patterns(content, lines))
+                issues.extend(self._scan_with_rules(lines, file_path))
+
+                return ScannerResult(
+                    scanner_name=self.name,
+                    file_path=str(file_path),
+                    issues=issues,
+                    scan_time=time.time() - start_time,
+                    success=True
+                )
+
+            # Config files: full config-oriented pattern scanning
             # AIM001: Unencrypted storage
             issues.extend(self._scan_patterns(
                 lines, self.UNENCRYPTED_PATTERNS, "AIM001", 311
@@ -421,6 +479,22 @@ class AgentMemoryScanner(RuleBasedScanner):
                 success=False,
                 error_message=f"Scan failed: {e}"
             )
+
+    def _scan_python_memory_patterns(self, content: str, lines: List[str]) -> List[ScannerIssue]:
+        """Scan Python code for memory poisoning patterns"""
+        issues = []
+        for i, line in enumerate(lines, 1):
+            for pattern, message, severity in self.CODE_MEMORY_PATTERNS:
+                if re.search(pattern, line, re.IGNORECASE):
+                    issues.append(ScannerIssue(
+                        rule_id="AIM016",
+                        severity=severity,
+                        message=f"Memory Poisoning: {message}",
+                        line=i,
+                        column=1,
+                    ))
+                    break  # One issue per line
+        return issues
 
     def _scan_patterns(
         self,
