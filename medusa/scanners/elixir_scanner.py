@@ -5,7 +5,6 @@ Code quality scanner for Elixir using Credo
 """
 
 import json, time
-import shutil
 from pathlib import Path
 from typing import List
 
@@ -21,19 +20,16 @@ class ElixirScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".ex", ".exs"]
 
-    def is_available(self) -> bool:
-        """Check if mix (Elixir) is installed"""
-        return shutil.which("mix") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan an Elixir file with Credo"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="Elixir not installed. Install from: https://elixir-lang.org/install.html"
+                scan_time=time.time() - start_time, error_message=f"Elixir not installed. Install: {get_install_hint('mix')}"
             )
 
         try:

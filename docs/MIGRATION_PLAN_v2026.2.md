@@ -501,7 +501,7 @@ async def daily_medusa_update():
 ### After (v2026.2)
 > "MEDUSA - AI Security Research Platform"
 >
-> - 4,152+ detection rules (and growing daily)
+> - 3,000+ detection rules (and growing daily)
 > - X CVEs discovered by our research team
 > - Automated rule generation from CVEs, papers, and repos
 > - The scanner that improves itself
@@ -512,7 +512,7 @@ async def daily_medusa_update():
 
 MEDUSA v2026.2 transforms from "scanner that wraps linters" to "AI security research platform":
 
-1. **Rules ARE the product** - 4,152+ patterns, auto-growing
+1. **Rules ARE the product** - 3,000+ patterns, auto-growing
 2. **ModelScan integration** - Only external tool we need
 3. **Miner ecosystem** - CVE + Paper + Repo miners feed rules
 4. **CVE research** - We discover, not just detect

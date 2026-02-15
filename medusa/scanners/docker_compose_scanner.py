@@ -5,6 +5,7 @@ Security and best practices scanner for Docker Compose files
 """
 
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -32,7 +33,7 @@ class DockerComposeScanner(BaseScanner):
         """Check if docker-compose or docker compose is available"""
         return shutil.which("docker-compose") is not None or shutil.which("docker") is not None
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Analyze file content to determine confidence this is a Docker Compose file.
 
@@ -43,6 +44,10 @@ class DockerComposeScanner(BaseScanner):
         - volumes: +15
         - File named docker-compose.* or compose.*: +10
 
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
+
         Returns:
             0-100 confidence score
         """
@@ -50,8 +55,11 @@ class DockerComposeScanner(BaseScanner):
             return 0
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read(1000)  # Read first 1000 chars for analysis
+            if content_head is not None:
+                content = content_head[:1000]
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(1000)
 
             score = 0
 
@@ -115,16 +123,19 @@ class DockerComposeScanner(BaseScanner):
             cmd = self._get_validate_command(file_path)
             result = subprocess.run(
                 cmd, timeout=30,
+                capture_output=True, text=True,
                 cwd=file_path.parent  # Run in same directory as file
             )
 
             # Check for validation errors
             if result.returncode != 0:
-                error_msg = result.stderr.strip()
+                error_msg = (result.stderr or result.stdout or '').strip()
                 if error_msg:
+                    # Extract first line only for clean output
+                    first_line = error_msg.split('\n')[0].strip()
                     issues.append(ScannerIssue(
                         severity=Severity.HIGH,
-                        message=f"Docker Compose validation failed: {error_msg}",
+                        message=f"Docker Compose validation error: {first_line}",
                         line=None,
                         rule_id="COMPOSE001"
                     ))
@@ -197,19 +208,25 @@ class DockerComposeScanner(BaseScanner):
                         rule_id="COMPOSE003"
                     ))
 
-                # Check for exposed ports without host binding
-                if 'ports:' in line_lower:
-                    issues.append(ScannerIssue(
-                        severity=Severity.INFO,
-                        message="Review exposed ports for security",
-                        line=line_num,
-                        rule_id="COMPOSE004"
-                    ))
+                # Check for ports bound to all interfaces (0.0.0.0)
+                # Only flag when explicitly binding to 0.0.0.0 or using bare port
+                # notation like "8080:80" (which defaults to 0.0.0.0)
+                if re.match(r'\s*-\s*["\']?(?:0\.0\.0\.0:)?\d+:\d+', line):
+                    # Skip if bound to localhost/127.0.0.1
+                    if '127.0.0.1:' not in line and 'localhost:' not in line:
+                        issues.append(ScannerIssue(
+                            severity=Severity.INFO,
+                            message="Port exposed to all interfaces (consider binding to 127.0.0.1)",
+                            line=line_num,
+                            rule_id="COMPOSE004"
+                        ))
 
-                # Check for missing restart policy
-                if 'image:' in line_lower and line_num < len(lines) - 5:
-                    # Look ahead for restart policy
-                    next_lines = ''.join(lines[line_num:line_num+5]).lower()
+                # Check for missing restart policy (skip dev compose files)
+                is_dev_compose = any(kw in file_path.name.lower()
+                                     for kw in ['dev', 'local', 'test', 'debug'])
+                if not is_dev_compose and 'image:' in line_lower and line_num < len(lines) - 5:
+                    # Look ahead for restart policy within the service block
+                    next_lines = ''.join(lines[line_num:line_num+10]).lower()
                     if 'restart:' not in next_lines:
                         issues.append(ScannerIssue(
                             severity=Severity.LOW,
@@ -218,16 +235,23 @@ class DockerComposeScanner(BaseScanner):
                             rule_id="COMPOSE005"
                         ))
 
-                # Check for latest tag
-                if ':latest' in line_lower or 'image:' in line_lower and ':' not in line:
-                    issues.append(ScannerIssue(
-                        severity=Severity.MEDIUM,
-                        message="Using 'latest' tag or no tag - use specific versions",
-                        line=line_num,
-                        rule_id="COMPOSE006"
-                    ))
+                # Check for latest tag (only on image: lines)
+                if 'image:' in line_lower:
+                    # Extract image reference after 'image:'
+                    match = re.search(r'image:\s*["\']?([^"\'#\s]+)', line, re.IGNORECASE)
+                    if match:
+                        image_ref = match.group(1)
+                        # Skip variable references like ${IMAGE}
+                        if not image_ref.startswith('$'):
+                            if image_ref.endswith(':latest') or ':' not in image_ref:
+                                issues.append(ScannerIssue(
+                                    severity=Severity.MEDIUM,
+                                    message="Using 'latest' tag or no tag - use specific versions",
+                                    line=line_num,
+                                    rule_id="COMPOSE006"
+                                ))
 
-        except (IOError, OSError, PermissionError, yaml.YAMLError):
+        except (IOError, OSError, PermissionError, ValueError):
             # If we can't read or parse the file, skip security checks
             # Basic YAML syntax errors are already reported by yamlscanner
             pass

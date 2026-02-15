@@ -5,7 +5,6 @@ Security and best practices scanner for Kubernetes manifests using kube-linter
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,13 +21,9 @@ class KubernetesScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".yaml", ".yml"]  # Kubernetes manifests
 
-    def is_available(self) -> bool:
-        """Check if kube-linter is installed"""
-        return shutil.which("kube-linter") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Kubernetes manifest with kube-linter"""
+        start_time = time.time()
         # Only scan files that look like Kubernetes manifests
         if not self._is_k8s_file(file_path):
             return ScannerResult(
@@ -39,11 +34,12 @@ class KubernetesScanner(BaseScanner):
             )
 
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="kube-linter not installed. Install from: https://github.com/stackrox/kube-linter"
+                scan_time=time.time() - start_time, error_message=f"kube-linter not installed. Install: {get_install_hint('kube-linter')}"
             )
 
         try:
@@ -101,7 +97,7 @@ class KubernetesScanner(BaseScanner):
                 scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Analyze file content to determine confidence this is a Kubernetes manifest.
 
@@ -112,6 +108,10 @@ class KubernetesScanner(BaseScanner):
         - spec: +15 (common but not unique to K8s)
         - Requires apiVersion + kind for high confidence
 
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
+
         Returns:
             0-100 confidence score
         """
@@ -119,8 +119,11 @@ class KubernetesScanner(BaseScanner):
             return 0
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read(1000)  # Read first 1000 chars for analysis
+            if content_head is not None:
+                content = content_head[:1000]
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(1000)
 
             score = 0
             has_api_version = 'apiVersion:' in content

@@ -1,6 +1,6 @@
 """
 MEDUSA Scanner Heads
-74 independent security scanner implementations
+76 independent security scanner implementations
 """
 
 from medusa.scanners.base import (
@@ -74,7 +74,6 @@ from medusa.scanners.modelscan_scanner import ModelScanScanner
 from medusa.scanners.garak_scanner import GarakScanner
 from medusa.scanners.llm_guard_scanner import LLMGuardScanner
 from medusa.scanners.critical_cve_scanner import CriticalCVEScanner
-from medusa.scanners.react2shell_scanner import React2ShellScanner
 from medusa.scanners.mcp_remote_rce_scanner import MCPRemoteRCEScanner
 from medusa.scanners.docker_mcp_scanner import DockerMCPScanner
 from medusa.scanners.post_quantum_scanner import PostQuantumScanner
@@ -82,6 +81,8 @@ from medusa.scanners.steganography_scanner import SteganographyScanner
 from medusa.scanners.hyperparameter_scanner import HyperparameterScanner
 from medusa.scanners.plugin_security_scanner import PluginSecurityScanner
 from medusa.scanners.excessive_agency_scanner import ExcessiveAgencyScanner
+from medusa.scanners.prompt_injection_code_scanner import PromptInjectionCodeScanner
+from medusa.scanners.dataset_injection_scanner import DatasetInjectionScanner
 from medusa.scanners.gitleaks_scanner import GitLeaksScanner
 from medusa.scanners.semgrep_scanner import SemgrepScanner
 from medusa.scanners.trivy_scanner import TrivyScanner
@@ -154,7 +155,6 @@ registry.register(ModelScanScanner())
 registry.register(GarakScanner())
 registry.register(LLMGuardScanner())
 registry.register(CriticalCVEScanner())
-registry.register(React2ShellScanner())
 registry.register(MCPRemoteRCEScanner())
 registry.register(DockerMCPScanner())
 registry.register(PostQuantumScanner())
@@ -162,6 +162,8 @@ registry.register(SteganographyScanner())
 registry.register(HyperparameterScanner())
 registry.register(PluginSecurityScanner())
 registry.register(ExcessiveAgencyScanner())
+registry.register(PromptInjectionCodeScanner())
+registry.register(DatasetInjectionScanner())
 registry.register(GitLeaksScanner())
 registry.register(SemgrepScanner())
 registry.register(TrivyScanner())
@@ -236,7 +238,6 @@ __all__ = [
     'GarakScanner',
     'LLMGuardScanner',
     'CriticalCVEScanner',
-    'React2ShellScanner',
     'MCPRemoteRCEScanner',
     'DockerMCPScanner',
     'PostQuantumScanner',
@@ -244,6 +245,8 @@ __all__ = [
     'HyperparameterScanner',
     'PluginSecurityScanner',
     'ExcessiveAgencyScanner',
+    'PromptInjectionCodeScanner',
+    'DatasetInjectionScanner',
     'GitLeaksScanner',
     'SemgrepScanner',
     'TrivyScanner',

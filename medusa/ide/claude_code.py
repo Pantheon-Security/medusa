@@ -8,12 +8,6 @@ import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-# For TOML writing (Gemini CLI .toml commands)
-try:
-    import tomli_w
-except ImportError:
-    tomli_w = None
-
 # Import backup manager
 from medusa.ide.backup import IDEBackupManager
 
@@ -173,6 +167,12 @@ Run MEDUSA security scanner on the project or specific files.
 /medusa-scan --fail-on high
 ```
 
+### Exclude directories from scan
+```bash
+/medusa-scan -e archive/ -e vendor/
+/medusa-scan --exclude node_modules/ --exclude dist/
+```
+
 ## Command
 
 ```bash
@@ -305,6 +305,9 @@ medusa scan .
 # Quick scan (cached)
 medusa scan . --quick
 
+# Exclude directories
+medusa scan . -e archive/ -e vendor/
+
 # Install missing tools
 medusa install --all
 ```
@@ -384,6 +387,7 @@ After handling FPs, re-run `medusa scan .` to verify reduction.
 
 - Missing tools: `medusa install --all`
 - False positives: Create `.bandit` config or add to `.medusa.yml` exclude
+- Exclude directories: `medusa scan . -e archive/ -e vendor/`
 - Slow scans: Use `medusa scan . --quick`
 """
 
@@ -499,6 +503,7 @@ Common options the user might pass via {{args}}:
 - --quick : Use cached results for faster scanning
 - --fail-on high : Fail if high severity issues found
 - --workers N : Use N parallel workers
+- -e path/ : Exclude a directory from scan (can repeat)
 """
 '''
 
@@ -543,6 +548,9 @@ medusa scan .
 
 # Quick scan (cached)
 medusa scan . --quick
+
+# Exclude directories
+medusa scan . -e archive/ -e vendor/
 
 # Install tools
 medusa install --all
@@ -652,6 +660,9 @@ medusa scan .
 
 # Quick scan (uses cache, faster for incremental changes)
 medusa scan . --quick
+
+# Exclude directories from scan
+medusa scan . -e archive/ -e vendor/
 ```
 
 Fix any CRITICAL or HIGH severity issues before committing.
@@ -825,6 +836,7 @@ This project uses MEDUSA for security scanning. All code must pass security chec
 Remind users to run security scans:
 - `medusa scan .` for full scan
 - `medusa scan . --quick` for cached results
+- `medusa scan . -e archive/` to exclude directories
 
 ## Code Standards
 

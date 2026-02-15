@@ -5,7 +5,6 @@ Security scanner for PHP files using PHPStan
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class PHPScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".php"]
 
-    def is_available(self) -> bool:
-        """Check if PHPStan is installed"""
-        return shutil.which("phpstan") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a PHP file with PHPStan"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="PHPStan not installed. Install with: composer global require phpstan/phpstan"
+                scan_time=time.time() - start_time, error_message=f"PHPStan not installed. Install: {get_install_hint('phpstan')}"
             )
 
         try:

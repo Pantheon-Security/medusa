@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Dict, Any
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class A2AScanner(RuleBasedScanner):
@@ -157,6 +157,8 @@ class A2AScanner(RuleBasedScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             # Check if this is an Agent Card or A2A config
             is_agent_card = self._is_agent_card(content, file_path)
             is_a2a_config = self._is_a2a_config(content, file_path)
@@ -199,13 +201,13 @@ class A2AScanner(RuleBasedScanner):
                 issues.extend(self._check_authentication(data, file_path, content))
                 issues.extend(self._check_transport_security(data, file_path, content))
                 issues.extend(self._check_capabilities(data, file_path, content))
-                issues.extend(self._check_credentials(content, file_path))
+                issues.extend(self._check_credentials(content, file_path, _offsets))
                 issues.extend(self._check_required_fields(data, file_path))
                 issues.extend(self._check_permissions(data, file_path, content))
                 issues.extend(self._check_validation(data, file_path))
 
             if is_a2a_config:
-                issues.extend(self._check_a2a_config(data, file_path, content))
+                issues.extend(self._check_a2a_config(data, file_path, content, _offsets))
 
             # Scan with YAML rules
             lines = content.split('\n')
@@ -360,14 +362,14 @@ class A2AScanner(RuleBasedScanner):
 
         return issues
 
-    def _check_credentials(self, content: str, file_path: Path) -> List[ScannerIssue]:
+    def _check_credentials(self, content: str, file_path: Path, _offsets: List[int] = None) -> List[ScannerIssue]:
         """Check for exposed credentials"""
         issues = []
 
         for pattern, message in self.CREDENTIAL_PATTERNS:
             matches = re.finditer(pattern, content, re.IGNORECASE)
             for match in matches:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="A2A006",
                     severity=Severity.CRITICAL,
@@ -477,7 +479,7 @@ class A2AScanner(RuleBasedScanner):
         return issues
 
     def _check_a2a_config(
-        self, data: Dict[str, Any], file_path: Path, content: str
+        self, data: Dict[str, Any], file_path: Path, content: str, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check A2A configuration files"""
         issues = []
@@ -497,7 +499,7 @@ class A2AScanner(RuleBasedScanner):
                 ))
 
         # Check for credential exposure in config
-        issues.extend(self._check_credentials(content, file_path))
+        issues.extend(self._check_credentials(content, file_path, _offsets))
 
         return issues
 

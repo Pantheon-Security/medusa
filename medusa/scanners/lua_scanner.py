@@ -4,7 +4,7 @@ MEDUSA Lua Scanner
 Code quality scanner for Lua using luacheck
 """
 
-import shutil, time
+import time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -21,19 +21,16 @@ class LuaScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".lua"]
 
-    def is_available(self) -> bool:
-        """Check if luacheck is installed"""
-        return shutil.which("luacheck") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Lua file with luacheck"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="luacheck not installed. Install with: luarocks install luacheck"
+                scan_time=time.time() - start_time, error_message=f"luacheck not installed. Install: {get_install_hint('luacheck')}"
             )
 
         try:

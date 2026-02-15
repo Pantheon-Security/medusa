@@ -5,7 +5,6 @@ Best practices and security scanner for Ansible playbooks using ansible-lint
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,13 +21,9 @@ class AnsibleScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".yml", ".yaml"]  # Ansible playbooks
 
-    def is_available(self) -> bool:
-        """Check if ansible-lint is installed"""
-        return shutil.which("ansible-lint") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan an Ansible playbook with ansible-lint"""
+        start_time = time.time()
         # Only scan files that look like Ansible playbooks
         if not self._is_ansible_file(file_path):
             return ScannerResult(
@@ -39,11 +34,12 @@ class AnsibleScanner(BaseScanner):
             )
 
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="ansible-lint not installed. Install with: pip install ansible-lint"
+                scan_time=time.time() - start_time, error_message=f"ansible-lint not installed. Install: {get_install_hint('ansible-lint')}"
             )
 
         try:
@@ -101,7 +97,7 @@ class AnsibleScanner(BaseScanner):
                 scan_time=time.time() - start_time, error_message=f"Scan failed: {e}"
             )
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Analyze file content to determine confidence this is an Ansible playbook.
 
@@ -112,6 +108,10 @@ class AnsibleScanner(BaseScanner):
         - playbook in content: +10
         - "- name:" pattern: +10 (YAML list with name keys)
 
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
+
         Returns:
             0-100 confidence score
         """
@@ -119,8 +119,11 @@ class AnsibleScanner(BaseScanner):
             return 0
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read(1000)  # Read first 1000 chars for analysis
+            if content_head is not None:
+                content = content_head[:1000]
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(1000)
 
             score = 0
 

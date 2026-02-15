@@ -11,7 +11,6 @@ import click
 from pathlib import Path
 from typing import Optional
 from rich.console import Console
-from rich.panel import Panel
 from rich.prompt import Prompt
 from rich import print as rprint
 
@@ -42,7 +41,6 @@ def _safe_run_version_check(command: list, timeout: int = 5) -> tuple[bool, str]
     Returns:
         Tuple of (success: bool, output: str)
     """
-    import subprocess
     try:
         result = subprocess.run(
             command,
@@ -70,9 +68,7 @@ def _detect_tool_version(tool_name: str, package_manager: Optional[str] = None) 
     Returns:
         Version string (e.g., "1.2.3") or None if version couldn't be detected
     """
-    import subprocess
     import re
-    import shutil
     import platform
     from medusa.platform.installers.base import ToolMapper
 
@@ -262,6 +258,30 @@ def _safe_print(*args, **kwargs):
                 return  # Explicit return instead of pass
 
 console.print = _safe_print
+
+# Module-level flag to track Node.js installation attempts within a session
+_nodejs_install_attempted = False
+
+
+def _summarize_skip_languages(analysis) -> str:
+    """Summarize the languages whose scanners were skipped, for display."""
+    from medusa.core.pattern_analyzer import CodePatternAnalyzer
+    scanner_to_lang = {}
+    for lang, scanner in CodePatternAnalyzer.LANGUAGE_TO_SCANNER.items():
+        scanner_to_lang.setdefault(scanner, lang)
+    skipped_langs = set()
+    for scanner_name in analysis.skip_scanners:
+        lang = scanner_to_lang.get(scanner_name)
+        if lang:
+            skipped_langs.add(lang)
+    if not skipped_langs:
+        return "matching"
+    samples = sorted(skipped_langs)[:4]
+    display = ", ".join(s.title() for s in samples)
+    remaining = len(skipped_langs) - len(samples)
+    if remaining > 0:
+        display += f", +{remaining} more"
+    return display
 
 
 def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_info):
@@ -648,43 +668,22 @@ def _prompt_with_auto_all(message, default=True, auto_yes_all=None):
             console.print("[yellow]Please enter Y (yes), n (no), or a (all)[/yellow]")
 
 
-def _handle_batch_install(target, auto_install):
+def _handle_batch_install(target, analysis=None):
     """
     Handle batch installation mode - scan project, show summary, prompt once
 
     Args:
         target: Target directory to scan
-        auto_install: Whether to auto-install without prompting
+        analysis: Optional pre-computed RepoAnalysis (avoids duplicate work)
     """
-    from medusa.core.pattern_analyzer import CodePatternAnalyzer
-
-    console.print("\n[cyan]🔍 Analyzing repository...[/cyan]")
-
-    # Use CodePatternAnalyzer for smart detection
-    analyzer = CodePatternAnalyzer()
-    analysis = analyzer.analyze_repo(Path(target))
+    if analysis is None:
+        from medusa.core.pattern_analyzer import CodePatternAnalyzer
+        console.print("\n[cyan]🔍 Analyzing repository...[/cyan]")
+        analyzer = CodePatternAnalyzer()
+        analysis = analyzer.analyze_repo(Path(target))
 
     if analysis.total_files == 0:
-        return  # No files found
-
-    # Show smart analysis summary
-    top_languages = sorted(analysis.languages.items(), key=lambda x: -x[1])[:5]
-    lang_str = ", ".join(f"{lang.title()} ({count} files)" for lang, count in top_languages)
-    console.print(f"   [bold]Languages:[/bold] {lang_str}")
-
-    if analysis.frameworks:
-        frameworks_display = sorted(list(analysis.frameworks))[:6]
-        fw_str = ", ".join(f.replace('_', ' ').title() for f in frameworks_display)
-        if len(analysis.frameworks) > 6:
-            fw_str += f" (+{len(analysis.frameworks) - 6} more)"
-        console.print(f"   [bold]Frameworks:[/bold] {fw_str}")
-
-    if analysis.security_context.has_ai_patterns:
-        ai_frameworks = sorted(list(analysis.security_context.ai_frameworks))[:4]
-        ai_str = ", ".join(f.replace('_', ' ').title() for f in ai_frameworks)
-        console.print(f"   [bold]AI Patterns:[/bold] {ai_str}")
-
-    console.print()
+        return
 
     # Get scanners based on CodePatternAnalyzer recommendations
     from medusa.scanners import registry
@@ -714,7 +713,7 @@ def _handle_batch_install(target, auto_install):
         'ModelAttackScanner', 'MultiAgentScanner', 'LLMOpsScanner',
         'VectorDBScanner', 'AgentReflectionScanner', 'AgentPlanningScanner',
         'ExcessiveAgencyScanner', 'PluginSecurityScanner', 'HyperparameterScanner',
-        'PostQuantumScanner', 'SteganographyScanner', 'React2ShellScanner',
+        'PostQuantumScanner', 'SteganographyScanner',
         'GarakScanner', 'LLMGuardScanner',
     }
 
@@ -743,50 +742,19 @@ def _handle_batch_install(target, auto_install):
             status = "✅" if scanner.is_available() else "❌"
             if not scanner.is_available() and scanner.tool_name not in missing_tools:
                 missing_tools.append(scanner.tool_name)
-            console.print(f"   {status} {scanner.name:25} ({scanner.tool_name or 'built-in':15})")
+            console.print(f"   {status} {scanner.name:25} ({scanner.tool_name or 'built-in'})")
         console.print()
 
     show_category("Language Scanners", language_scanners, "📝")
     show_category("AI Security Scanners", ai_scanners, "🤖")
     show_category("Infrastructure Scanners", infra_scanners, "🔧")
 
-    # Prompt to install missing tools
+    # External linters are optional — just note if any are missing
     if missing_tools:
-        console.print(f"\n[bold yellow]📦 Missing Tools ({len(missing_tools)}):[/bold yellow]")
-
-        # Create mapping of tool -> description
-        tool_descriptions = {
-            scanner.tool_name: f"{scanner.name.replace('Scanner', '')} linter"
-            for scanner in needed_scanners
-            if not scanner.is_available()
-        }
-
-        for tool in missing_tools:
-            description = tool_descriptions.get(tool, "security scanner")
-            console.print(f"   • {tool:20} ([dim]{description}[/dim])")
-
-        if auto_install:
-            console.print("\n[cyan]Auto-installing missing tools...[/cyan]")
-            install_tools = True
-        else:
-            # Check if running in non-interactive mode (CI environment)
-            if not sys.stdin.isatty():
-                console.print(f"\n[yellow]⚠️  Non-interactive mode detected (CI environment)[/yellow]")
-                console.print(f"[yellow]   Skipping installation of {len(missing_tools)} tools[/yellow]")
-                console.print(f"[dim]   Run with --auto-install to enable in CI[/dim]")
-                install_tools = False
-            else:
-                console.print(f"\n[bold]Installation Options:[/bold]")
-                console.print(f"  [green]1.[/green] Install these {len(missing_tools)} missing tools (recommended)")
-                console.print(f"  [yellow]2.[/yellow] Skip installation (some files won't be scanned)")
-                install_tools = click.confirm(f"\nInstall the {len(missing_tools)} missing tools listed above?", default=True)
-
-        if install_tools:
-            _install_tools(missing_tools)
-        else:
-            console.print("[dim]Skipping installation. Some files may not be scanned.[/dim]")
+        console.print(f"\n[dim]{len(missing_tools)} optional external linter(s) not found ({', '.join(missing_tools[:3])}{'...' if len(missing_tools) > 3 else ''})[/dim]")
+        console.print(f"[dim]Built-in AI rules will still scan. Run 'medusa install --check' for details.[/dim]")
     else:
-        console.print(f"\n[green]✅ All required scanners are installed![/green]")
+        console.print(f"\n[dark_green]All recommended scanners are installed[/dark_green]")
 
     console.print()
 
@@ -828,8 +796,6 @@ def _check_runtime_dependencies(
     if npm_tools_failed:
         # Check if we've already attempted Node.js installation this session
         global _nodejs_install_attempted
-        if '_nodejs_install_attempted' not in globals():
-            _nodejs_install_attempted = False
 
         if _nodejs_install_attempted:
             console.print("")
@@ -871,7 +837,7 @@ def _check_runtime_dependencies(
                     success, output = _safe_run_version_check([node_path, '--version'])
                     if success:
                         nodejs_already_installed = True
-                        console.print(f"[green]✓[/green] Node.js found: {output.strip()}")
+                        console.print(f"[dark_green]✓[/dark_green] Node.js found: {output.strip()}")
                         console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
                 if not nodejs_already_installed:
                     console.print("[dim]   Node.js not found, installing...[/dim]")
@@ -907,7 +873,7 @@ def _check_runtime_dependencies(
                         console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
 
                 if nodejs_success:
-                    console.print("[green]✅ Node.js installed successfully[/green]")
+                    console.print("[dark_green]✅ Node.js installed successfully[/dark_green]")
 
                     # Refresh PATH
                     from medusa.platform.installers.windows import refresh_windows_path
@@ -919,12 +885,12 @@ def _check_runtime_dependencies(
                     npm_path = shutil.which('npm.cmd') or shutil.which('npm')
 
                     if npm_path:
-                        console.print(f"[green]✓[/green] npm found at: {npm_path}")
+                        console.print(f"[dark_green]✓[/dark_green] npm found at: {npm_path}")
                         # Verify npm works
                         try:
                             success, output = _safe_run_version_check([npm_path, '--version'])
                             if success:
-                                console.print(f"[green]✓[/green] npm version: {output.strip()}")
+                                console.print(f"[dark_green]✓[/dark_green] npm version: {output.strip()}")
                             else:
                                 console.print(f"[yellow]⚠[/yellow] npm found but returned error")
                         except Exception as e:
@@ -946,7 +912,7 @@ def _check_runtime_dependencies(
                             console.print(f"  → Trying npm: {npm_package}")
 
                             if npm_installer.install(tool, use_latest=use_latest):
-                                console.print(f"  [green]✅ Installed via npm[/green]\n")
+                                console.print(f"  [dark_green]✅ Installed via npm[/dark_green]\n")
                                 npm_installed += 1
                                 # Mark tool as installed in cache
                                 from medusa.platform.tool_cache import ToolCache
@@ -956,7 +922,7 @@ def _check_runtime_dependencies(
                                 console.print(f"  [red]❌ Failed[/red]\n")
 
                         if npm_installed > 0:
-                            console.print(f"[green]✅ Installed {npm_installed}/{len(npm_tools_failed)} npm tools[/green]")
+                            console.print(f"[dark_green]✅ Installed {npm_installed}/{len(npm_tools_failed)} npm tools[/dark_green]")
                     else:
                         console.print("[yellow]⚠️  npm still not available. Try restarting your terminal.[/yellow]")
                         console.print("[dim]   Node.js may need a terminal restart to be detected.[/dim]")
@@ -1008,7 +974,7 @@ def _check_runtime_dependencies(
                     )
 
                     if php_success:
-                        console.print("[green]✅ PHP installed successfully[/green]")
+                        console.print("[dark_green]✅ PHP installed successfully[/dark_green]")
                         console.print("[dim]   You may need to restart your terminal for PHP to be available[/dim]")
                     else:
                         console.print("[red]❌ Failed to install PHP[/red]")
@@ -1092,7 +1058,7 @@ def _install_tools(tools: list, use_latest: bool = False):
             attempted_installers.append(pm.value)
             success = installer.install(tool)
             if success:
-                console.print(f"  [green]✅ Installed via {pm.value}[/green]")
+                console.print(f"  [dark_green]✅ Installed via {pm.value}[/dark_green]")
         elif pm:
             console.print(f"  ⊘ Not available in {pm.value}")
 
@@ -1104,7 +1070,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append('npm')
                 success = npm_installer.install(tool, use_latest=use_latest)
                 if success:
-                    console.print(f"  [green]✅ Installed via npm[/green]")
+                    console.print(f"  [dark_green]✅ Installed via npm[/dark_green]")
             else:
                 console.print(f"  ⊘ npm not available (install Node.js)")
                 attempted_installers.append('npm (Node.js required)')
@@ -1118,7 +1084,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append('pip')
                 success = pip_installer.install(tool, use_latest=use_latest)
                 if success:
-                    console.print(f"  [green]✅ Installed via pip[/green]")
+                    console.print(f"  [dark_green]✅ Installed via pip[/dark_green]")
             else:
                 console.print(f"  ⊘ pip not available")
                 attempted_installers.append('pip (not available)')
@@ -1132,11 +1098,10 @@ def _install_tools(tools: list, use_latest: bool = False):
                 console.print(f"  → Trying {eco_name}: {eco_cmd}")
                 attempted_installers.append(eco_name)
                 try:
-                    import subprocess
                     result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
-                        console.print(f"  [green]✅ Installed via {eco_name}[/green]")
+                        console.print(f"  [dark_green]✅ Installed via {eco_name}[/dark_green]")
                 except Exception as e:
                     console.print(f"  [yellow]⚠ {eco_name} failed: {e}[/yellow]")
 
@@ -1148,11 +1113,10 @@ def _install_tools(tools: list, use_latest: bool = False):
                 console.print(f"  → Trying manual install script")
                 attempted_installers.append('manual')
                 try:
-                    import subprocess
                     result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
-                        console.print(f"  [green]✅ Installed via manual script[/green]")
+                        console.print(f"  [dark_green]✅ Installed via manual script[/dark_green]")
                     else:
                         console.print(f"  [yellow]⚠ Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
                 except Exception as e:
@@ -1173,7 +1137,7 @@ def _install_tools(tools: list, use_latest: bool = False):
         console.print("")  # Blank line between tools
 
     if installed > 0:
-        console.print(f"\n[green]✅ Installed {installed}/{len(tools)} tools[/green]")
+        console.print(f"\n[dark_green]✅ Installed {installed}/{len(tools)} tools[/dark_green]")
     if failed > 0:
         console.print(f"[yellow]⚠️  {failed} tools failed to install (may need manual installation)[/yellow]")
 
@@ -1189,29 +1153,38 @@ def _install_tools(tools: list, use_latest: bool = False):
 
 
 def print_banner():
-    """Print MEDUSA banner with ASCII logo"""
+    """Print MEDUSA banner with large block-style ASCII logo"""
     logo = """[dark_green]
-███╗   ███╗ ███████╗ ██████╗  ██╗   ██╗ ███████╗  █████╗
-████╗ ████║ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔══██╗
-██╔████╔██║ █████╗   ██║  ██║ ██║   ██║ ███████╗ ███████║
-██║╚██╔╝██║ ██╔══╝   ██║  ██║ ██║   ██║ ╚════██║ ██╔══██║
-██║ ╚═╝ ██║ ███████╗ ██████╔╝ ╚██████╔╝ ███████║ ██║  ██║
-╚═╝     ╚═╝ ╚══════╝ ╚═════╝   ╚═════╝  ╚══════╝ ╚═╝  ╚═╝[/dark_green]
+ ███╗   ███╗ ███████╗ ██████╗  ██╗   ██╗ ███████╗  █████╗
+ ████╗ ████║ ██╔════╝ ██╔══██╗ ██║   ██║ ██╔════╝ ██╔══██╗
+ ██╔████╔██║ █████╗   ██║  ██║ ██║   ██║ ███████╗ ███████║
+ ██║╚██╔╝██║ ██╔══╝   ██║  ██║ ██║   ██║ ╚════██║ ██╔══██║
+ ██║ ╚═╝ ██║ ███████╗ ██████╔╝ ╚██████╔╝ ███████║ ██║  ██║
+ ╚═╝     ╚═╝ ╚══════╝ ╚═════╝   ╚═════╝  ╚══════╝ ╚═╝  ╚═╝[/dark_green]
 """
-    line1 = f"v{__version__}  |  4,152+ AI Security Rules  |  75 Analyzers"
+    # Version line: .2.0 in EXACT same cyan as Target:/Mode:
+    version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
+    line2 = "76 Analyzers | 3,000+ Rules | AI Security Detection"
 
     try:
-        rprint(logo)
-        rprint(f"[dim]{line1.center(58)}[/dim]")
-        rprint("")
+        # Use GLOBAL console - same one used for Target:/Mode:
+        console.print(logo)
+        if len(version_parts) == 2:
+            # EXACT same [cyan] tag as Target:/Mode: line 1246
+            padding = " " * 15
+            console.print(f"{padding}v{version_parts[0]}[bright_cyan].{version_parts[1]}[/bright_cyan] - Security Scanner")
+        else:
+            console.print(f"v{__version__} - Security Scanner", justify="center")
+        console.print(f"[dark_green]{line2:^58}[/dark_green]")
+        console.print("")
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] v{__version__} | 75 Analyzers | 4,152+ AI Security Rules")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]76 Analyzers | 3,000+ Rules | AI Security Detection[/dark_green]")
             rprint("")
-        except:
+        except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 4,152+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 3,000+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1221,14 +1194,15 @@ def main(ctx, version):
     """
     MEDUSA - AI Security Scanner
 
-    4,152+ AI security detection patterns with 75 specialized analyzers.
+    3,000+ AI security detection patterns with 76 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
-        medusa scan .               # Scan current directory
-        medusa scan --quick .       # Quick incremental scan
-        medusa init                 # Initialize MEDUSA in project
-        medusa install              # Install linters
+        medusa scan .                          # Scan current directory
+        medusa scan --quick .                  # Quick incremental scan
+        medusa scan . -e archive/ -e vendor/   # Exclude directories
+        medusa init                            # Initialize MEDUSA in project
+        medusa install                         # Install linters
     """
     if version:
         click.echo(f"MEDUSA v{__version__}")
@@ -1259,14 +1233,9 @@ def main(ctx, version):
               help='Output format(s): json, html, markdown, or all (can specify multiple)')
 @click.option('--no-report', is_flag=True,
               help='Skip report generation (faster)')
-@click.option('--install-mode', type=click.Choice(['batch', 'progressive', 'never']),
-              default='batch',
-              help='How to handle missing linters (batch=ask once, progressive=ask per tool, never=skip)')
-@click.option('--auto-install', is_flag=True,
-              help='Automatically install missing linters without prompting')
-@click.option('--no-install', is_flag=True,
-              help='Never prompt for installation (same as --install-mode never)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, install_mode, auto_install, no_install):
+@click.option('-e', '--exclude', multiple=True,
+              help='Exclude paths from scan (can specify multiple, e.g. --exclude archive/ --exclude scripts/)')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude):
     """
     Scan a directory or file for security issues.
 
@@ -1275,10 +1244,12 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     build if issues are found.
 
     Examples:
-        medusa scan .                    # Scan current directory
-        medusa scan --quick .            # Only scan changed files
-        medusa scan --force /path/to/project  # Force full rescan
-        medusa scan --fail-on high .     # Fail on HIGH+ issues
+        medusa scan .                          # Scan current directory
+        medusa scan --quick .                  # Only scan changed files
+        medusa scan --force /path/to/project   # Force full rescan
+        medusa scan --fail-on high .           # Fail on HIGH+ issues
+        medusa scan . --exclude archive/       # Exclude a directory
+        medusa scan . -e vendor/ -e scripts/   # Exclude multiple paths
     """
     # Validate target is a directory (Issue #2 fix)
     target_path = Path(target)
@@ -1290,12 +1261,10 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
     print_banner()
 
-    # Handle install mode flags
-    if no_install:
-        install_mode = 'never'
-
     console.print(f"\n[cyan]🎯 Target:[/cyan] {target}")
     console.print(f"[cyan]🔧 Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
+    if exclude:
+        console.print(f"[cyan]🚫 Excluding:[/cyan] {', '.join(exclude)}")
 
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
@@ -1329,13 +1298,84 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         if ai_patterns:
             console.print(f"[magenta]🤖 AI Patterns:[/magenta] {', '.join(ai_patterns)} detected - AI security scanners enabled")
 
-    # Show recommended vs skipped scanners
-    console.print(f"[green]✓ Recommended scanners:[/green] {len(repo_analysis.recommended_scanners)}")
-    console.print(f"[dim]✗ Skipped (not needed):[/dim] {len(repo_analysis.skip_scanners)}")
+    # Show recommended scanners and what's missing
+    from medusa.scanners import registry as _scan_reg
+    from medusa.platform.installers.simple import EXTERNAL_TOOLS, get_install_hint, get_ai_tools_status
 
-    # Pre-scan for missing linters (batch mode)
-    if install_mode == 'batch':
-        _handle_batch_install(target, auto_install)
+    all_scanners = _scan_reg.get_all_scanners()
+    recommended_names = repo_analysis.recommended_scanners
+
+    # Split recommended scanners into ready vs missing
+    ready_scanners = []
+    missing_scanners = []
+    for s in all_scanners:
+        if s.name not in recommended_names:
+            continue
+        if s.is_available():
+            ready_scanners.append(s)
+        elif s.get_tool_name() != 'python':
+            missing_scanners.append(s)
+
+    console.print()
+    console.print(f"[dark_green]✓ Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
+    if repo_analysis.skip_scanners:
+        console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(repo_analysis)} files found)[/dim]")
+
+    # Check for CRITICAL missing tools (model files need modelscan, AI patterns need AI tools)
+    model_exts = {'.pkl', '.pickle', '.pt', '.pth', '.bin', '.h5', '.hdf5', '.safetensors', '.joblib', '.ckpt', '.model', '.onnx', '.gguf'}
+    has_model_files = any(ext.lower() in model_exts for ext in repo_analysis.file_extensions.keys())
+    ai_status = get_ai_tools_status()
+    modelscan_missing = not ai_status.get('modelscan', {}).get('installed', False)
+
+    critical_warning = False
+    if has_model_files and modelscan_missing:
+        critical_warning = True
+        console.print(f"\n[bold red]⚠️  CRITICAL: Model files detected but modelscan is NOT installed![/bold red]")
+        console.print(f"[red]   Model files (.safetensors, .bin, .pkl, etc.) may contain malicious code.[/red]")
+        console.print(f"[red]   Without modelscan, these files will NOT be scanned for security threats.[/red]")
+        console.print(f"\n[yellow]   To install: [bold]medusa install --ai-tools[/bold][/yellow]")
+        console.print(f"[yellow]               or: pip install modelscan[/yellow]")
+
+    if missing_scanners and not critical_warning:
+        console.print(f"\n[yellow]For best results, install {len(missing_scanners)} missing tool(s):[/yellow]")
+        for s in missing_scanners:
+            tool = s.get_tool_name()
+            ext_info = EXTERNAL_TOOLS.get(tool, {})
+            desc = ext_info.get('desc', s.name)
+            hint = get_install_hint(tool)
+            console.print(f"  [yellow]{tool}[/yellow] [dim]({desc})[/dim]")
+            console.print(f"    [dim]{hint}[/dim]")
+
+        console.print(f"\n[bold yellow]Continue scan without these tools?[/bold yellow]")
+        console.print("  [dim]yes[/dim] - Continue anyway (some files won't be fully scanned)")
+        console.print("  [dim]no[/dim]  - Cancel and install the tools first")
+        try:
+            response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
+            if response not in ('y', 'yes'):
+                console.print("\n[dim]Scan cancelled. Install the tools above and try again.[/dim]")
+                return
+            console.print()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Scan cancelled.[/dim]")
+            return
+
+    # Ask Y/N if critical tools missing
+    if critical_warning:
+        console.print()
+        try:
+            console.print("[bold yellow]Continue scan without modelscan?[/bold yellow]")
+            console.print("  [dim]yes[/dim] - Continue anyway (model files won't be scanned)")
+            console.print("  [dim]no[/dim]  - Cancel and install modelscan first")
+            response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
+            if response not in ('y', 'yes'):
+                console.print("\n[dim]Scan cancelled. Run 'medusa install --ai-tools' then try again.[/dim]")
+                return
+            console.print()
+        except (KeyboardInterrupt, EOFError):
+            console.print("\n[dim]Scan cancelled.[/dim]")
+            return
+
+    console.print()
 
     # Check system load and recommend optimal workers
     from medusa.core.system import check_system_load, get_optimal_workers
@@ -1351,6 +1391,20 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         console.print(f"[yellow]⚠️  {load.warning_message}[/yellow]")
         console.print(f"[dim]Using {workers} workers (reduced due to system load)[/dim]")
 
+    # Capture missing linters for post-scan recommendation
+    # Only include linters relevant to detected languages (skip Go linters if no Go files, etc.)
+    try:
+        from medusa.scanners import registry as _sr
+        ai_tool_names = {'modelscan', 'garak', 'llm-guard'}
+        recommended_names = repo_analysis.recommended_scanners
+        missing_linters = [
+            s.get_tool_name() for s in _sr.get_unavailable_external_scanners()
+            if s.get_tool_name() not in ai_tool_names
+            and s.name in recommended_names
+        ]
+    except Exception:
+        missing_linters = []
+
     try:
         from medusa.core.parallel import MedusaParallelScanner
 
@@ -1358,7 +1412,8 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             project_root=Path(target),
             workers=workers,
             use_cache=not no_cache and not force,
-            quick_mode=quick
+            quick_mode=quick,
+            extra_excludes=list(exclude) if exclude else None
         )
 
         # Find files
@@ -1367,7 +1422,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             console.print("[yellow]⚠️  No files found to scan[/yellow]")
             return
 
-        console.print(f"[green]📁 Found {len(files)} scannable files[/green]\n")
+        console.print(f"[dark_green]Found {len(files)} scannable files[/dark_green]\n")
 
         # Scan files
         results = scanner.scan_parallel(files)
@@ -1382,7 +1437,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             if 'all' in formats:
                 formats = ['json', 'html', 'markdown']
 
-            scanner.generate_report(results, output_dir, formats=formats)
+            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
 
         # Check fail threshold
         if fail_on:
@@ -1391,7 +1446,13 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
                 console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ level[/red]")
                 sys.exit(1)
 
-        console.print("\n[green]✅ Scan complete![/green]")
+        console.print("\n[dark_green]✅ Scan complete![/dark_green]")
+
+        # Post-scan: remind about missing linters for fuller coverage
+        if missing_linters:
+            console.print(f"\n[yellow]For fuller coverage, install missing linters and re-scan:[/yellow]")
+            console.print(f"  [dim]{', '.join(missing_linters[:5])}{'...' if len(missing_linters) > 5 else ''}[/dim]")
+            console.print(f"  [dim]Run 'medusa install --check' for details[/dim]")
 
     except Exception as e:
         console.print(f"\n[red]❌ Error: {e}[/red]")
@@ -1400,52 +1461,19 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         sys.exit(1)
 
 
-@main.command()
-@click.option('--ide', multiple=True,
-              type=click.Choice(['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot', 'all', 'none']),
-              default=None, help='IDE(s) to configure (can specify multiple)')
-@click.option('--force', is_flag=True, help='Overwrite existing configuration')
-@click.option('--install', is_flag=True, help='Install missing tools automatically')
-def init(ide, force, install):
+def _analyze_project(project_root: Path, console: Console) -> dict:
     """
-    Initialize MEDUSA in the current project.
+    Analyze project structure, detect languages/frameworks, and build file hashes.
 
-    This will:
-    - Create .medusa.yml configuration
-    - Detect project languages
-    - Check for installed scanners
-    - Offer to install missing tools
-    - Configure IDE integration
+    Args:
+        project_root: Root directory of the project
+        console: Rich console for output
 
-    Examples:
-        medusa init                                    # Interactive setup
-        medusa init --ide claude-code                  # Setup for Claude Code
-        medusa init --ide gemini-cli --ide cursor      # Setup for multiple IDEs
-        medusa init --ide all                          # Setup for all IDEs
-        medusa init --force                            # Overwrite existing config
-        medusa init --install                          # Auto-install missing tools
+    Returns:
+        Dict with keys: analysis, file_hashes, detected_files
     """
-    print_banner()
-
-    console.print("\n[cyan]🔧 MEDUSA Initialization Wizard[/cyan]\n")
-
-    from medusa.config import ConfigManager, MedusaConfig
-    from medusa.scanners import registry
-
-    project_root = Path.cwd()
-    config_path = project_root / ".medusa.yml"
-
-    # Check if config already exists
-    if config_path.exists() and not force:
-        console.print(f"[yellow]⚠️  Configuration already exists: {config_path}[/yellow]")
-        if not click.confirm("Overwrite existing configuration?", default=False):
-            console.print("[dim]Cancelled. Use --force to overwrite.[/dim]")
-            return
-
-    # Step 1: Analyze project with CodePatternAnalyzer
-    console.print("[bold cyan]Step 1/4: Analyzing project structure...[/bold cyan]")
-
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
+    from medusa.scanners import registry
     import json
     import hashlib
     from datetime import datetime
@@ -1456,20 +1484,21 @@ def init(ide, force, install):
     # Display summary
     if analysis.languages:
         top_languages = sorted(analysis.languages.items(), key=lambda x: -x[1])[:6]
-        console.print(f"[green]✓[/green] Languages detected:")
+        console.print(f"[dark_green]✓[/dark_green] Languages detected:")
         for lang, count in top_languages:
             console.print(f"  • {lang.title():20} ({count} files)")
 
         if analysis.frameworks:
             frameworks_display = sorted(list(analysis.frameworks))[:8]
-            console.print(f"[green]✓[/green] Frameworks: {', '.join(f.replace('_', ' ').title() for f in frameworks_display)}")
+            console.print(f"[dark_green]✓[/dark_green] Frameworks: {', '.join(f.replace('_', ' ').title() for f in frameworks_display)}")
 
         if analysis.security_context.has_ai_patterns:
             ai_patterns = sorted(list(analysis.security_context.ai_frameworks))[:5]
-            console.print(f"[green]✓[/green] AI Patterns: {', '.join(f.replace('_', ' ').title() for f in ai_patterns)}")
+            console.print(f"[dark_green]✓[/dark_green] AI Patterns: {', '.join(f.replace('_', ' ').title() for f in ai_patterns)}")
 
-        console.print(f"[green]✓[/green] Recommended scanners: {len(analysis.recommended_scanners)}")
-        console.print(f"[dim]   Skipped (not needed): {len(analysis.skip_scanners)}[/dim]")
+        console.print(f"[dark_green]✓[/dark_green] Recommended scanners: {len(analysis.recommended_scanners)}")
+        if analysis.skip_scanners:
+            console.print(f"[dim]   {len(analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(analysis)} files found)[/dim]")
     else:
         console.print("[yellow]⚠️  No language files detected[/yellow]")
 
@@ -1509,7 +1538,7 @@ def init(ide, force, install):
 
     analysis_file = medusa_dir / "analysis.json"
     analysis_file.write_text(json.dumps(analysis_data, indent=2))
-    console.print(f"[green]✓[/green] Saved analysis to .medusa/analysis.json ({len(file_hashes)} files indexed)")
+    console.print(f"[dark_green]✓[/dark_green] Saved analysis to .medusa/analysis.json ({len(file_hashes)} files indexed)")
 
     # For backwards compatibility, also build detected_files dict
     detected_files = {}
@@ -1521,8 +1550,26 @@ def init(ide, force, install):
             if count > 0:
                 detected_files[scanner.name] = count
 
-    # Step 2: Check scanner availability (only for recommended scanners)
-    console.print("\n[bold cyan]Step 2/4: Checking scanner availability...[/bold cyan]")
+    return {
+        'analysis': analysis,
+        'file_hashes': file_hashes,
+        'detected_files': detected_files,
+    }
+
+
+def _check_scanner_availability(analysis, do_install: bool, console: Console) -> list:
+    """
+    Check scanner availability for recommended scanners and optionally trigger install.
+
+    Args:
+        analysis: CodePatternAnalyzer result object
+        do_install: Whether to auto-install without prompting (--install flag)
+        console: Rich console for output
+
+    Returns:
+        List of missing tool names
+    """
+    from medusa.scanners import registry
 
     # Get only recommended scanners from CodePatternAnalyzer
     needed_scanners = [s for s in registry.get_all_scanners() if s.name in analysis.recommended_scanners]
@@ -1530,17 +1577,14 @@ def init(ide, force, install):
     missing_scanners = [s for s in needed_scanners if not s.is_available()]
     missing_tools = [s.tool_name for s in missing_scanners if s.tool_name]  # Filter None (built-in)
 
-    console.print(f"[green]✓[/green] {len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
+    console.print(f"[dark_green]✓[/dark_green] {len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
     if missing_tools:
         console.print(f"[yellow]⚠️[/yellow]  {len(missing_tools)} tools missing for your project: {', '.join(missing_tools[:5])}" +
                      (f" and {len(missing_tools) - 5} more" if len(missing_tools) > 5 else ""))
 
-        if install or click.confirm(f"\nInstall {len(missing_tools)} missing tools for your project?", default=False):
+        if do_install or click.confirm(f"\nInstall {len(missing_tools)} missing tools for your project?", default=False):
             console.print("[cyan]Installing missing tools...[/cyan]")
             # Call the install command directly with --all --yes
-            import sys
-            import subprocess
-
             cmd = [sys.executable, '-m', 'medusa', 'install', '--all', '--yes']
             result = subprocess.run(
                 cmd,
@@ -1553,16 +1597,32 @@ def init(ide, force, install):
                 console.print("[dim]You can retry with: medusa install --all[/dim]")
             console.print()  # Extra newline for spacing
 
-    # Step 3: Create configuration
-    console.print("\n[bold cyan]Step 3/4: Creating configuration...[/bold cyan]")
+    return missing_tools
+
+
+def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
+    """
+    Create MEDUSA configuration with IDE detection and user prompts.
+
+    Args:
+        project_root: Root directory of the project
+        ide: IDE tuple from Click option (may be None or empty)
+        console: Rich console for output
+
+    Returns:
+        Tuple of (config_path, ide_list)
+    """
+    from medusa.config import ConfigManager, MedusaConfig
+
     config = MedusaConfig()
 
     # Convert ide tuple to list
     ide_list = list(ide) if ide else []
 
     # Handle 'all' option
+    _ALL_IDE_NAMES = ['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot']
     if 'all' in ide_list:
-        ide_list = ['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot']
+        ide_list = list(_ALL_IDE_NAMES)
 
     # Remove 'none' if present with other options
     if 'none' in ide_list and len(ide_list) > 1:
@@ -1583,7 +1643,7 @@ def init(ide, force, install):
             detected_ides.append('github-copilot')
 
         if detected_ides:
-            console.print(f"\n[green]Detected IDE(s):[/green] {', '.join(detected_ides)}")
+            console.print(f"\n[dark_green]Detected IDE(s):[/dark_green] {', '.join(detected_ides)}")
             if click.confirm("Use detected IDE configuration?", default=True):
                 ide_list = detected_ides
 
@@ -1613,7 +1673,7 @@ def init(ide, force, install):
             ide_list = []
             for num in choice_nums:
                 if num == 6:  # All
-                    ide_list = ['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot']
+                    ide_list = list(_ALL_IDE_NAMES)
                     break
                 elif num == 7:  # None
                     if len(choice_nums) == 1:
@@ -1623,114 +1683,213 @@ def init(ide, force, install):
                     ide_list.append(ide_map[num])
 
     # Configure IDE settings in config
+    _IDE_CONFIG_ATTRS = {
+        'claude-code': 'ide_claude_code_enabled',
+        'cursor': 'ide_cursor_enabled',
+        'gemini-cli': 'ide_gemini_enabled',
+        'openai-codex': 'ide_openai_enabled',
+        'github-copilot': 'ide_copilot_enabled',
+    }
     for selected_ide in ide_list:
-        if selected_ide == 'claude-code':
-            config.ide_claude_code_enabled = True
-        elif selected_ide == 'cursor':
-            config.ide_cursor_enabled = True
-        elif selected_ide == 'gemini-cli':
-            config.ide_gemini_enabled = True
-        elif selected_ide == 'openai-codex':
-            config.ide_openai_enabled = True
-        elif selected_ide == 'github-copilot':
-            config.ide_copilot_enabled = True
+        attr = _IDE_CONFIG_ATTRS.get(selected_ide)
+        if attr:
+            setattr(config, attr, True)
+
+    # Determine config path (visible or legacy hidden)
+    config_path = project_root / "medusa.yml"
+    legacy_path = project_root / ".medusa.yml"
+    if legacy_path.exists() and not config_path.exists():
+        config_path = legacy_path
 
     # Save configuration
     ConfigManager.save_config(config, config_path)
-    console.print(f"[green]✓[/green] Created {config_path}")
+    console.print(f"[dark_green]✓[/dark_green] Created {config_path}")
+
+    return config_path, ide_list
+
+
+def _setup_ide_integrations(project_root: Path, ide_list: list, console: Console) -> tuple:
+    """
+    Setup IDE integrations using a data-driven dispatch loop.
+
+    Args:
+        project_root: Root directory of the project
+        ide_list: List of IDE identifiers to configure
+        console: Rich console for output
+
+    Returns:
+        Tuple of (success_count, all_backed_up_files)
+    """
+    from medusa.ide.claude_code import (
+        setup_claude_code,
+        setup_cursor,
+        setup_gemini_cli,
+        setup_openai_codex,
+        setup_github_copilot
+    )
+    from medusa.ide.backup import IDEBackupManager
+
+    # Data-driven IDE setup dispatch table
+    # Maps IDE key -> (setup_function, display_label, success_messages)
+    IDE_SETUP = {
+        'claude-code': (
+            setup_claude_code,
+            "Claude Code",
+            [
+                "Created .claude/ directory with agents and commands",
+            ],
+        ),
+        'cursor': (
+            setup_cursor,
+            "Cursor",
+            [
+                "Created .cursor/mcp.json for MCP support",
+                "Reused .claude/ structure (Cursor is VS Code fork)",
+            ],
+        ),
+        'gemini-cli': (
+            setup_gemini_cli,
+            "Gemini CLI",
+            [
+                "Created .gemini/commands/ with .toml files",
+                "Created GEMINI.md project context",
+            ],
+        ),
+        'openai-codex': (
+            setup_openai_codex,
+            "OpenAI Codex",
+            [
+                "Created AGENTS.md project context",
+            ],
+        ),
+        'github-copilot': (
+            setup_github_copilot,
+            "GitHub Copilot",
+            [
+                "Created .github/copilot-instructions.md",
+            ],
+        ),
+    }
+
+    # Create backup manager for all IDE file modifications
+    backup_manager = IDEBackupManager(project_root)
+    backup_manager.start_backup_session()
+    all_backed_up_files = []
+
+    success_count = 0
+    for selected_ide in ide_list:
+        setup_entry = IDE_SETUP.get(selected_ide)
+        if not setup_entry:
+            continue
+
+        setup_func, label, messages = setup_entry
+        result = setup_func(project_root, backup_manager)
+        success = result[0]
+        backed_up = result[-1] if len(result) > 1 and isinstance(result[-1], list) else []
+        all_backed_up_files.extend(backed_up)
+
+        if success:
+            console.print(f"[dark_green]✓[/dark_green] {label} integration configured")
+
+            # Claude Code has special handling for CLAUDE.md created vs preserved
+            if selected_ide == 'claude-code':
+                console.print("  • Created .claude/ directory with agents and commands")
+                claude_md_created = result[1] if len(result) > 1 else True
+                if claude_md_created:
+                    console.print("  • Created CLAUDE.md project context")
+                else:
+                    console.print("  • Preserved existing CLAUDE.md (not overwritten)")
+            else:
+                for msg in messages:
+                    console.print(f"  • {msg}")
+
+            success_count += 1
+
+    console.print(f"\n[dark_green]✓[/dark_green] Configured {success_count}/{len(ide_list)} IDE integration(s)")
+
+    # Show backup information if files were backed up
+    if all_backed_up_files:
+        backup_path = backup_manager.get_backup_path()
+        console.print(f"\n[yellow]📁 Backed up {len(all_backed_up_files)} existing file(s) to:[/yellow]")
+        console.print(f"   [dim]{backup_path}[/dim]")
+        console.print(f"   [dim]Use 'medusa backup --list' to view backups[/dim]")
+        console.print(f"   [dim]Use 'medusa backup --restore' to rollback changes[/dim]")
+
+    return success_count, all_backed_up_files
+
+
+@main.command()
+@click.option('--ide', multiple=True,
+              type=click.Choice(['claude-code', 'cursor', 'gemini-cli', 'openai-codex', 'github-copilot', 'all', 'none']),
+              default=None, help='IDE(s) to configure (can specify multiple)')
+@click.option('--force', is_flag=True, help='Overwrite existing configuration')
+@click.option('--install', is_flag=True, help='Install missing tools automatically')
+def init(ide, force, install):
+    """
+    Initialize MEDUSA in the current project.
+
+    This will:
+    - Create .medusa.yml configuration
+    - Detect project languages
+    - Check for installed scanners
+    - Offer to install missing tools
+    - Configure IDE integration
+
+    Examples:
+        medusa init                                    # Interactive setup
+        medusa init --ide claude-code                  # Setup for Claude Code
+        medusa init --ide gemini-cli --ide cursor      # Setup for multiple IDEs
+        medusa init --ide all                          # Setup for all IDEs
+        medusa init --force                            # Overwrite existing config
+        medusa init --install                          # Auto-install missing tools
+    """
+    print_banner()
+
+    console.print("\n[cyan]🔧 MEDUSA Initialization Wizard[/cyan]\n")
+
+    project_root = Path.cwd()
+    config_path = project_root / "medusa.yml"
+
+    # Check if config already exists (visible or legacy hidden)
+    legacy_path = project_root / ".medusa.yml"
+    if legacy_path.exists() and not config_path.exists():
+        config_path = legacy_path
+    if config_path.exists() and not force:
+        console.print(f"[yellow]⚠️  Configuration already exists: {config_path}[/yellow]")
+        if not click.confirm("Overwrite existing configuration?", default=False):
+            console.print("[dim]Cancelled. Use --force to overwrite.[/dim]")
+            return
+
+    # Step 1: Analyze project
+    console.print("[bold cyan]Step 1/4: Analyzing project structure...[/bold cyan]")
+    project_data = _analyze_project(project_root, console)
+    analysis = project_data['analysis']
+
+    # Step 2: Check scanner availability
+    console.print("\n[bold cyan]Step 2/4: Checking scanner availability...[/bold cyan]")
+    missing_tools = _check_scanner_availability(analysis, install, console)
+
+    # Step 3: Create configuration
+    console.print("\n[bold cyan]Step 3/4: Creating configuration...[/bold cyan]")
+    config_path, ide_list = _create_init_config(project_root, ide, console)
 
     # Step 4: Setup IDE integration
     if ide_list and ide_list != ['none']:
         console.print(f"\n[bold cyan]Step 4/4: Setting up IDE integration(s)...[/bold cyan]")
-
-        from medusa.ide.claude_code import (
-            setup_claude_code,
-            setup_cursor,
-            setup_gemini_cli,
-            setup_openai_codex,
-            setup_github_copilot
-        )
-        from medusa.ide.backup import IDEBackupManager
-
-        # Create backup manager for all IDE file modifications
-        backup_manager = IDEBackupManager(project_root)
-        backup_manager.start_backup_session()
-        all_backed_up_files = []
-
-        success_count = 0
-        for selected_ide in ide_list:
-            if selected_ide == 'claude-code':
-                result = setup_claude_code(project_root, backup_manager)
-                success = result[0]
-                claude_md_created = result[1] if len(result) > 1 else True
-                backed_up = result[2] if len(result) > 2 else []
-                all_backed_up_files.extend(backed_up)
-                if success:
-                    console.print("[green]✓[/green] Claude Code integration configured")
-                    console.print("  • Created .claude/ directory with agents and commands")
-                    if claude_md_created:
-                        console.print("  • Created CLAUDE.md project context")
-                    else:
-                        console.print("  • Preserved existing CLAUDE.md (not overwritten)")
-                    success_count += 1
-            elif selected_ide == 'cursor':
-                result = setup_cursor(project_root, backup_manager)
-                success = result[0]
-                backed_up = result[1] if len(result) > 1 else []
-                all_backed_up_files.extend(backed_up)
-                if success:
-                    console.print("[green]✓[/green] Cursor integration configured")
-                    console.print("  • Created .cursor/mcp.json for MCP support")
-                    console.print("  • Reused .claude/ structure (Cursor is VS Code fork)")
-                    success_count += 1
-            elif selected_ide == 'gemini-cli':
-                result = setup_gemini_cli(project_root, backup_manager)
-                success = result[0]
-                backed_up = result[1] if len(result) > 1 else []
-                all_backed_up_files.extend(backed_up)
-                if success:
-                    console.print("[green]✓[/green] Gemini CLI integration configured")
-                    console.print("  • Created .gemini/commands/ with .toml files")
-                    console.print("  • Created GEMINI.md project context")
-                    success_count += 1
-            elif selected_ide == 'openai-codex':
-                result = setup_openai_codex(project_root, backup_manager)
-                success = result[0]
-                backed_up = result[1] if len(result) > 1 else []
-                all_backed_up_files.extend(backed_up)
-                if success:
-                    console.print("[green]✓[/green] OpenAI Codex integration configured")
-                    console.print("  • Created AGENTS.md project context")
-                    success_count += 1
-            elif selected_ide == 'github-copilot':
-                result = setup_github_copilot(project_root, backup_manager)
-                success = result[0]
-                backed_up = result[1] if len(result) > 1 else []
-                all_backed_up_files.extend(backed_up)
-                if success:
-                    console.print("[green]✓[/green] GitHub Copilot integration configured")
-                    console.print("  • Created .github/copilot-instructions.md")
-                    success_count += 1
-
-        console.print(f"\n[green]✓[/green] Configured {success_count}/{len(ide_list)} IDE integration(s)")
-
-        # Show backup information if files were backed up
-        if all_backed_up_files:
-            backup_path = backup_manager.get_backup_path()
-            console.print(f"\n[yellow]📁 Backed up {len(all_backed_up_files)} existing file(s) to:[/yellow]")
-            console.print(f"   [dim]{backup_path}[/dim]")
-            console.print(f"   [dim]Use 'medusa backup --list' to view backups[/dim]")
-            console.print(f"   [dim]Use 'medusa backup --restore' to rollback changes[/dim]")
+        _setup_ide_integrations(project_root, ide_list, console)
     else:
         console.print("\n[bold cyan]Step 4/4: Skipping IDE integration[/bold cyan]")
 
     # Summary
-    console.print("\n[bold green]✅ MEDUSA Initialized Successfully![/bold green]")
+    console.print("\n[bold dark_green]✅ MEDUSA Initialized Successfully![/bold dark_green]")
     console.print("\n[bold]Next steps:[/bold]")
-    console.print("  1. Review configuration: [cyan].medusa.yml[/cyan]")
+    console.print(f"  1. Review configuration: [cyan]{config_path.name}[/cyan]")
     if missing_tools:
         console.print(f"  2. Install missing tools: [cyan]medusa install --all[/cyan]")
-    console.print(f"  {'3' if missing_tools else '2'}. Run your first scan: [cyan]medusa scan .[/cyan]")
+    step = 3 if missing_tools else 2
+    console.print(f"  {step}. Run your first scan: [cyan]medusa scan .[/cyan]")
+    console.print(f"  {step + 1}. Exclude directories: [cyan]medusa scan . -e archive/ -e vendor/[/cyan]")
+    console.print(f"\n[dim]  Tip: Add permanent exclusions in {config_path.name} under 'exclude > paths'[/dim]")
     console.print()
 
 
@@ -1777,7 +1936,7 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
             files = backup_info.get('files', [])
             created = backup_info.get('created_at', '')
 
-            marker = "[green]← latest[/green]" if i == 0 else ""
+            marker = "[dark_green]← latest[/dark_green]" if i == 0 else ""
             console.print(f"[cyan]{timestamp}[/cyan] {marker}")
             if created:
                 console.print(f"  Created: {created}")
@@ -1808,7 +1967,7 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
                 console.print(f"\n[yellow]Dry run - no files were modified[/yellow]")
                 console.print(f"[dim]Remove --dry-run to actually restore these files[/dim]")
             else:
-                console.print(f"\n[green]✓ Restored {len(restored)} file(s)[/green]")
+                console.print(f"\n[dark_green]✓ Restored {len(restored)} file(s)[/dark_green]")
 
         except ValueError as e:
             console.print(f"[red]Error: {e}[/red]")
@@ -1823,7 +1982,7 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
 
         removed = backups_before - backups_after
         if removed > 0:
-            console.print(f"[green]✓ Removed {removed} old backup(s)[/green]")
+            console.print(f"[dark_green]✓ Removed {removed} old backup(s)[/dark_green]")
         else:
             console.print("[dim]No old backups to remove (keeping last 10)[/dim]")
 
@@ -1844,18 +2003,22 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
 
 @main.command()
 @click.option('--check', is_flag=True, help='Show installed and optional tools')
-@click.option('--ai-tools', is_flag=True, help='Install AI security tools (modelscan)')
+@click.option('--ai-tools', is_flag=True, help='Install AI security tools (modelscan, garak, llm-guard)')
+@click.option('--debug', is_flag=True, help='Show diagnostic info (PATH, tool detection)')
 @click.option('--all', 'install_all', is_flag=True, hidden=True, help='[DEPRECATED] Use --ai-tools instead')
-def install(check, ai_tools, install_all):
+def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.2 focuses on AI security rules. External linters are
-    optional - we detect and use them if you have them installed.
+    MEDUSA v2026.2.3 works out of the box with 3,000+ built-in AI security
+    rules. External linters are optional — auto-detected if present.
+
+    We only install AI-specific tools: modelscan, garak, llm-guard.
 
     Examples:
-        medusa install --check      # Show what's installed/available
-        medusa install --ai-tools   # Install AI security tools (modelscan)
+        medusa install --check      # Show what's installed/detected
+        medusa install --ai-tools   # Install AI security tools
+        medusa install --debug      # Diagnose tool detection issues
     """
     from medusa.platform.installers.simple import (
         install_ai_tools,
@@ -1866,10 +2029,15 @@ def install(check, ai_tools, install_all):
 
     print_banner()
 
+    # Debug diagnostics
+    if debug:
+        _debug_install()
+        return
+
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]⚠️  --all is deprecated in MEDUSA v2026.2[/yellow]")
-        console.print("[dim]MEDUSA now focuses on AI security rules (4,152+ patterns).[/dim]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2.3[/yellow]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (3,000+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
         console.print("  medusa install --ai-tools    # Install AI security tools")
@@ -1879,70 +2047,225 @@ def install(check, ai_tools, install_all):
 
     # Show status
     if check or (not ai_tools and not install_all):
-        console.print("\n[bold cyan]MEDUSA v2026.2 - AI Security Scanner[/bold cyan]\n")
-
-        # Core: AI Rules
-        console.print("[bold green]Core: AI Security Rules[/bold green]")
-        console.print("  4,152+ detection patterns (no installation needed)")
-        console.print()
-
-        # AI Tools status
-        console.print("[bold cyan]AI Security Tools:[/bold cyan]")
-        ai_status = get_ai_tools_status()
-        for tool, info in ai_status.items():
-            status = "[green]✓ installed[/green]" if info['installed'] else "[yellow]○ not installed[/yellow]"
-            console.print(f"  {tool}: {status}")
-            console.print(f"    [dim]{info['description']}[/dim]")
-
-        if not all(info['installed'] for info in ai_status.values()):
-            console.print(f"\n[dim]Run 'medusa install --ai-tools' to install AI security tools[/dim]")
-        console.print()
-
-        # Detected external tools
-        optional = get_optional_tools()
-        installed = [t for t in optional if t['installed']]
-        not_installed = [t for t in optional if not t['installed']]
-
-        if installed:
-            console.print(f"[bold green]Detected Tools ({len(installed)}):[/bold green]")
-            console.print(f"  {', '.join(t['name'] for t in installed)}")
-            console.print(f"  [dim]These will be used automatically during scans[/dim]")
-        else:
-            console.print("[dim]No external linters detected[/dim]")
-        console.print()
-
-        # Optional tools (not installed) - show with official links
-        if not_installed:
-            console.print(f"[bold yellow]Optional Tools ({len(not_installed)} available):[/bold yellow]")
-            # Group by category for cleaner display
-            for tool in not_installed[:8]:
-                console.print(f"  [dim]•[/dim] {tool['name']:<20} {tool['description']:<28} [link={tool['url']}]{tool['url']}[/link]")
-            if len(not_installed) > 8:
-                console.print(f"  [dim]...and {len(not_installed) - 8} more[/dim]")
-            console.print(f"\n[dim]Full list: https://github.com/Pantheon-Security/medusa/blob/main/docs/OPTIONAL_TOOLS.md[/dim]")
-
+        _show_install_check()
         return
 
     # Install AI tools
     if ai_tools:
+        from medusa.platform.installers.simple import AI_TOOLS, is_tool_installed, get_pip_command, is_pip_available, _in_virtualenv
+        import subprocess as _sp
+
         console.print("\n[cyan]Installing AI Security Tools...[/cyan]\n")
 
-        results = install_ai_tools(verbose=True)
-
-        if 'error' in results:
-            console.print(f"[red]Error: {results['error']}[/red]")
+        if not is_pip_available():
+            console.print("[red]Error: pip not found. Please install Python/pip first.[/red]")
             return
 
-        for tool, result in results.items():
-            if result['status'] == 'installed':
-                console.print(f"[green]✓ {tool} installed successfully[/green]")
-            elif result['status'] == 'already_installed':
-                console.print(f"[cyan]✓ {tool} already installed[/cyan]")
-            else:
-                console.print(f"[red]✗ {tool} failed: {result.get('error', 'unknown error')}[/red]")
+        pip_cmd = get_pip_command()
+        installed_count = 0
+        failed_count = 0
 
-        console.print("\n[green]AI security tools ready![/green]")
-        console.print("[dim]Run 'medusa scan .' to scan your project[/dim]")
+        for tool_name, tool_info in AI_TOOLS.items():
+            if is_tool_installed(tool_name):
+                console.print(f"  [cyan]✓ {tool_name}[/cyan] — already installed")
+                installed_count += 1
+                continue
+
+            console.print(f"  [dim]Installing {tool_name}...[/dim] ", end="")
+
+            cmd = pip_cmd + ['install', tool_info['pip']]
+            if not _in_virtualenv():
+                cmd.append('--user')
+
+            try:
+                result = _sp.run(cmd, capture_output=True, text=True, timeout=600)
+                if result.returncode == 0:
+                    console.print(f"[dark_green]✓ installed[/dark_green]")
+                    installed_count += 1
+                else:
+                    err = result.stderr.strip().split('\n')[-1] if result.stderr else 'unknown error'
+                    console.print(f"[red]✗ failed[/red]")
+                    console.print(f"    [dim]{err[:120]}[/dim]")
+                    failed_count += 1
+            except _sp.TimeoutExpired:
+                console.print(f"[red]✗ timed out[/red]")
+                failed_count += 1
+            except Exception as e:
+                console.print(f"[red]✗ {e}[/red]")
+                failed_count += 1
+
+        console.print()
+        if failed_count == 0:
+            console.print(f"[dark_green]All {installed_count} AI tools ready![/dark_green]")
+        else:
+            console.print(f"[yellow]{installed_count} installed, {failed_count} failed[/yellow]")
+            console.print(f"[dim]Try running: pip install modelscan garak llm-guard[/dim]")
+
+
+def _debug_install():
+    """Dump full diagnostic info for troubleshooting tool detection."""
+    import os
+
+    from medusa.platform.detector import get_platform_info
+    from medusa.platform.installers.simple import EXTERNAL_TOOLS
+    from medusa.scanners import registry as scanner_registry
+
+    console.print("\n[bold cyan]MEDUSA Install Diagnostics[/bold cyan]\n")
+
+    # 1. Platform info
+    info = get_platform_info()
+    console.print("[bold]Platform:[/bold]")
+    console.print(f"  OS:          {info.os_type.value}")
+    console.print(f"  sys.platform: {sys.platform}")
+    console.print(f"  Python:      {sys.version.split()[0]}")
+    console.print(f"  Executable:  {sys.executable}")
+    console.print(f"  In venv:     {sys.prefix != sys.base_prefix}")
+    if sys.prefix != sys.base_prefix:
+        console.print(f"  Venv path:   {sys.prefix}")
+    console.print()
+
+    # 2. PATH
+    console.print("[bold]PATH directories:[/bold]")
+    path_dirs = os.environ.get('PATH', '').split(os.pathsep)
+    for i, d in enumerate(path_dirs[:20]):
+        exists = os.path.isdir(d)
+        style = "" if exists else " [dim](missing)[/dim]"
+        console.print(f"  {i+1:2}. {d}{style}")
+    if len(path_dirs) > 20:
+        console.print(f"  ... +{len(path_dirs) - 20} more")
+    console.print()
+
+    # 3. Key tools - check each one
+    console.print("[bold]Tool Detection (key linters):[/bold]")
+    key_tools = ['bandit', 'shellcheck', 'yamllint', 'gitleaks', 'trivy',
+                 'eslint', 'semgrep', 'cppcheck', 'modelscan', 'garak', 'llm-guard']
+    for tool in key_tools:
+        path = shutil.which(tool)
+        if path:
+            console.print(f"  [dark_green]{tool:16}[/dark_green] {path}")
+        else:
+            url = EXTERNAL_TOOLS.get(tool, {}).get('url', '')
+            console.print(f"  [red]{tool:16}[/red] NOT FOUND  [dim]{url}[/dim]")
+    console.print()
+
+    # 4. Scanner registry status
+    console.print("[bold]Scanner Registry:[/bold]")
+    all_scanners = scanner_registry.get_all_scanners()
+    available = scanner_registry.get_available_scanners()
+    unavailable = scanner_registry.get_unavailable_external_scanners()
+    console.print(f"  Total registered: {len(all_scanners)}")
+    console.print(f"  Available:        {len(available)}")
+    console.print(f"  Unavailable (ext): {len(unavailable)}")
+    console.print()
+
+    if unavailable:
+        console.print("[bold]Unavailable External Scanners:[/bold]")
+        for s in sorted(unavailable, key=lambda x: x.name):
+            tool = s.get_tool_name()
+            which_result = shutil.which(tool) if tool else None
+            console.print(f"  {s.name:28} tool={tool:16} which={which_result or 'None'}")
+        console.print()
+
+    # 5. Windows-specific checks
+    if sys.platform == 'win32':
+        console.print("[bold]Windows-Specific:[/bold]")
+        console.print(f"  WT_SESSION:    {os.environ.get('WT_SESSION', 'not set')}")
+        console.print(f"  TERM_PROGRAM:  {os.environ.get('TERM_PROGRAM', 'not set')}")
+        console.print(f"  COMSPEC:       {os.environ.get('COMSPEC', 'not set')}")
+
+        choco_bin = os.path.expandvars(r'%ChocolateyInstall%\bin')
+        console.print(f"  ChocolateyInstall: {os.environ.get('ChocolateyInstall', 'not set')}")
+        if os.path.isdir(choco_bin):
+            console.print(f"  Choco bin dir: {choco_bin} (exists)")
+            in_path = any(choco_bin.lower() in p.lower() for p in path_dirs)
+            console.print(f"  Choco in PATH: {'yes' if in_path else 'NO - this is the problem!'}")
+        console.print()
+
+    console.print("[dim]Copy this output and share it for debugging.[/dim]")
+
+
+def _show_install_check():
+    """Show environment audit, AI tools status, and detected linters."""
+    from medusa.platform.installers.simple import (
+        get_ai_tools_status, get_detected_tools, EXTERNAL_TOOLS,
+        audit_environment, get_install_hint,
+    )
+
+    console.print(f"\n[bold dark_green]MEDUSA v2026.2.3 - AI Security Scanner[/bold dark_green]")
+    console.print(f"[dim]Works out of the box with 3,000+ built-in AI security rules[/dim]\n")
+
+    # ── Environment Audit ──
+    audit = audit_environment()
+    py = audit['python']
+    pm = audit['package_manager']
+    os_info = audit['os']
+
+    console.print("[bold cyan]Environment[/bold cyan]")
+    distro = os_info.get('distro', os_info.get('system', 'Unknown'))
+    console.print(f"  OS:      {distro} ({os_info.get('machine', '')})")
+
+    if py['optimal']:
+        console.print(f"  Python:  [dark_green]{py['version']}[/dark_green]")
+    elif py['ok']:
+        console.print(f"  Python:  [yellow]{py['version']}[/yellow] [dim](recommended: {py['recommended']})[/dim]")
+    else:
+        console.print(f"  Python:  [red]{py['version']}[/red] [bold red]UPGRADE NEEDED (>= {py['min_required']})[/bold red]")
+
+    if pm['in_virtualenv']:
+        console.print(f"  Pkg Mgr: [dark_green]pip (virtualenv)[/dark_green]")
+    elif pm['pep668']:
+        if pm['pipx']:
+            console.print(f"  Pkg Mgr: [dark_green]pipx[/dark_green] [dim](PEP 668 system)[/dim]")
+        else:
+            console.print(f"  Pkg Mgr: [red]pipx NOT INSTALLED[/red] [dim](PEP 668 blocks pip)[/dim]")
+    else:
+        console.print(f"  Pkg Mgr: pip")
+    console.print()
+
+    # ── AI Tools ──
+    console.print("[bold cyan]AI Security Tools[/bold cyan]")
+    for tool_name, tool_info in audit['tools'].items():
+        if tool_info['installed']:
+            console.print(f"  [dark_green]+ {tool_name}[/dark_green]")
+        elif tool_info['compatible']:
+            hint = get_install_hint(tool_name)
+            console.print(f"  [yellow]- {tool_name}[/yellow] [dim]$ {hint}[/dim]")
+        else:
+            console.print(f"  [red]x {tool_name}[/red] [dim]{tool_info['issue']}[/dim]")
+    console.print(f"  [dim]Run 'medusa install --ai-tools' to install[/dim]")
+    console.print()
+
+    # ── Detected external linters ──
+    detected = get_detected_tools()
+    not_detected = [t for t in EXTERNAL_TOOLS if t not in detected]
+
+    console.print(f"[bold cyan]External Linters[/bold cyan] [dim](auto-detected, user-installed)[/dim]")
+    if detected:
+        console.print(f"  [dark_green]Detected ({len(detected)}):[/dark_green] {', '.join(sorted(detected))}")
+    else:
+        console.print(f"  [dim]None detected[/dim]")
+
+    if not_detected:
+        console.print(f"  [dim]Not found ({len(not_detected)}):[/dim] {', '.join(sorted(not_detected)[:10])}")
+        if len(not_detected) > 10:
+            console.print(f"  [dim]  +{len(not_detected) - 10} more[/dim]")
+    console.print()
+
+    # ── Actions ──
+    if audit['actions']:
+        critical = [a for a in audit['actions'] if a['priority'] == 'critical']
+        warnings = [a for a in audit['actions'] if a['priority'] == 'warning']
+        if critical or warnings:
+            console.print("[bold cyan]Recommended Actions[/bold cyan]")
+            for action in critical:
+                console.print(f"  [bold red]!! {action['message']}[/bold red]")
+                console.print(f"     [dim]$ {action['fix']}[/dim]")
+            for action in warnings:
+                console.print(f"  [yellow]!  {action['message']}[/yellow]")
+                console.print(f"     [dim]$ {action['fix']}[/dim]")
+            console.print()
+
+    console.print("[dim]External linters are optional. Install via your package manager.[/dim]")
 
 
 @main.command()
@@ -1953,7 +2276,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.2 only manages modelscan. Use your package manager
+    MEDUSA v2026.2.3 only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -1963,7 +2286,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2.3[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -1971,12 +2294,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.2 only manages modelscan installation.[/dim]\n")
+        console.print("[dim]MEDUSA v2026.2.3 only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.2 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v2026.2.3 doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return
@@ -1990,12 +2313,11 @@ def uninstall(tool, all_tools, yes):
 
     console.print("\n[cyan]Uninstalling modelscan...[/cyan]")
 
-    import subprocess
     cmd = get_pip_command() + ['uninstall', '-y', 'modelscan']
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode == 0:
-        console.print("[green]modelscan uninstalled[/green]\n")
+        console.print("[dark_green]modelscan uninstalled[/dark_green]\n")
     else:
         console.print(f"[red]Failed to uninstall: {result.stderr}[/red]\n")
 
@@ -2036,7 +2358,7 @@ def config():
 
     available_scanners = registry.get_available_scanners()
     if available_scanners:
-        console.print(f"\n[bold green]✅ Installed Scanners:[/bold green]")
+        console.print(f"\n[bold dark_green]✅ Installed Scanners:[/bold dark_green]")
         for scanner in available_scanners:
             extensions = ", ".join(scanner.get_file_extensions()) if scanner.get_file_extensions() else "special"
             console.print(f"  • {scanner.name:20} ({scanner.tool_name:15}) → {extensions}")
@@ -2067,16 +2389,14 @@ def config():
 
 
 @main.command()
-@click.argument('bash_id', required=False)
-def output(bash_id):
+def output():
     """Development helper: Check background process output"""
     # This is primarily for development/debugging
     console.print("[yellow]This command is for development use only[/yellow]")
 
 
 @main.command()
-@click.option('--check-updates', is_flag=True, help='Check for newer versions')
-def versions(check_updates):
+def versions():
     """
     Show pinned tool versions from tool-versions.lock.
 
@@ -2161,7 +2481,7 @@ def scanners(show_ai, show_available):
         is_avail = scanner.is_available()
         if is_avail:
             installed += 1
-        status = "[green]✓ Ready[/green]" if is_avail else "[dim]✗ Tool missing[/dim]"
+        status = "[dark_green]✓ Ready[/dark_green]" if is_avail else "[dim]✗ Tool missing[/dim]"
         exts = ", ".join(scanner.get_file_extensions()[:5])
         if len(scanner.get_file_extensions()) > 5:
             exts += "..."
@@ -2190,7 +2510,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
     for YAML files (Ansible, Kubernetes, Docker Compose, or generic YAML).
 
     If it chooses wrong, use this command to correct it. The override will be
-    saved in .medusa.yml and remembered for future scans.
+    saved in medusa.yml and remembered for future scans.
 
     Examples:
         # Set docker-compose.dev.yml to use Docker Compose scanner
@@ -2214,7 +2534,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
     if config_path:
         config = ConfigManager.load_config(config_path)
     else:
-        config_path = Path.cwd() / ".medusa.yml"
+        config_path = Path.cwd() / "medusa.yml"
         config = ConfigManager.load_config(config_path)
 
     # List available scanners
@@ -2257,7 +2577,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
         if file_path in config.scanner_overrides:
             removed_scanner = config.scanner_overrides.pop(file_path)
             ConfigManager.save_config(config, config_path)
-            console.print(f"[green]✓[/green] Removed override for [cyan]{file_path}[/cyan]")
+            console.print(f"[dark_green]✓[/dark_green] Removed override for [cyan]{file_path}[/cyan]")
             console.print(f"[dim]  (was: {removed_scanner})[/dim]")
         else:
             console.print(f"[yellow]No override found for {file_path}[/yellow]")
@@ -2280,7 +2600,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
     config.scanner_overrides[file_path] = scanner_name
     ConfigManager.save_config(config, config_path)
 
-    console.print(f"[green]✓[/green] Scanner override saved")
+    console.print(f"[dark_green]✓[/dark_green] Scanner override saved")
     console.print(f"  File: [cyan]{file_path}[/cyan]")
     console.print(f"  Scanner: [magenta]{scanner_name}[/magenta]")
     console.print(f"  Config: [dim]{config_path}[/dim]")
@@ -2366,7 +2686,7 @@ def sbom(target, output_format, output):
             seen[key] = dep
 
     dependencies = unique_deps
-    console.print(f"\n[green]✓ Found {len(dependencies)} dependencies[/green]\n")
+    console.print(f"\n[dark_green]✓ Found {len(dependencies)} dependencies[/dark_green]\n")
 
     if not dependencies:
         console.print("[yellow]No dependencies found. Make sure you have:[/yellow]")
@@ -2387,7 +2707,7 @@ def sbom(target, output_format, output):
 
         with open(output_path, 'w') as f:
             json.dump(sbom_data, f, indent=2)
-        console.print(f"[green]✓ CycloneDX SBOM:[/green] {output_path}")
+        console.print(f"[dark_green]✓ CycloneDX SBOM:[/dark_green] {output_path}")
 
     if output_format in ['spdx', 'both']:
         sbom_data = _generate_spdx(target_path, dependencies)
@@ -2398,7 +2718,7 @@ def sbom(target, output_format, output):
 
         with open(output_path, 'w') as f:
             json.dump(sbom_data, f, indent=2)
-        console.print(f"[green]✓ SPDX SBOM:[/green] {output_path}")
+        console.print(f"[dark_green]✓ SPDX SBOM:[/dark_green] {output_path}")
 
     console.print(f"\n[dim]Components: {len(dependencies)}[/dim]")
     console.print(f"[dim]Use 'medusa scan' to check for vulnerabilities[/dim]")

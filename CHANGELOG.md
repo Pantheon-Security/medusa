@@ -7,13 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2026.2.0] - 2026-01-29
+## [2026.2.3] - 2026-02-15
+
+### Performance
+
+- **52% Scan Time Reduction** - Comprehensive performance overhaul on MEDUSA's own codebase (17.1s → 8.2s)
+- **12.7% Faster on Large Projects** - Real-world benchmark on 4,124-file project (13,711s → 11,976s)
+- **Single-Pass File Discovery** - Replaced 57 separate `rglob()` calls with one `os.walk()` traversal, pre-compiling exclusion patterns to a single regex
+- **Scanner Pre-Mapping Cache** - First 8KB of each file read once and shared across all scanners, eliminating redundant file I/O during confidence scoring
+- **FP Filter Pre-Compilation** - 7 hot-path regex patterns compiled at class level instead of per-finding
+- **OWASP Scanner Pattern Hoisting** - 10 `re.compile()` calls moved from per-line loop to class-level constants
+- **Live Table Responsiveness** - Capped multiprocessing pool chunksize at 8 to prevent batched results freezing the progress display on large projects
+
+### Changed
+
+- **Structural Refactoring** - Major code quality improvements:
+  - `mcp_config_scanner.py`: Split 335-line god method (CC=98) into 7 focused sub-methods
+  - `cli.py`: Split `init()` (CC=91) into 4 functions, replaced 5 IDE copy-paste branches with data-driven loop
+  - `fp_filter.py`: Extracted 4,684 lines of pattern data to `fp_patterns_db.py`, reducing filter logic to 675 lines
+  - `parallel.py`: Removed 189 lines of dead code, consolidated stats accumulation (5x dedup)
+  - `reporter.py`: Removed dead code (`parse_bandit_json`, legacy `main()`), pre-compiled SARIF regex patterns
+- **FP Filter Expanded** - 425 → 430 patterns (93.9% FP reduction rate, up from 93.3%)
+  - 5 new patterns from OpenClaw benchmark: chat extension toxicity checks, import-line LLM API calls, Graph API type definitions, documentation placeholder IDs, system prompt security boundaries
+- **Config Dataclass** - Added missing `ide_openai_enabled` and `ide_copilot_enabled` fields (P0 bug fix)
+
+### Fixed
+
+- **Live Progress Table Freezing** - On projects with 4,000+ files, the progress table appeared frozen because multiprocessing pool chunksize grew to 179. Now capped at 8 for smooth updates.
+- **Config P0 Bug** - `MedusaConfig.from_dict()` crashed on configs with OpenAI Codex or GitHub Copilot IDE settings
+- **Dead Code Removal** - Removed unused `_scan_with_bandit()`, `_scan_with_medusa()`, legacy `main()` functions, and unreachable imports across 6 modules
+
+## [2026.2.1] - 2026-02-11
+
+### Added
+- **React2Shell CVE Detection** - Merged React2ShellScanner into CriticalCVEScanner with 10 new CVE entries (CCVE-124 to CCVE-133) covering CVE-2025-55182 (React Server Components RCE) and CVE-2025-66478 (Next.js RCE) across all affected version ranges
+- **pnpm-lock.yaml Support** - CriticalCVEScanner now parses pnpm lockfiles for vulnerability detection (scoped package support included)
+- **CVE Database** - Increased from 123 to 133 curated critical CVEs
+- **FP Filter Patterns** - Expanded from 255 to 395 false positive patterns across 17 benchmark repos
+
+### Changed
+- **Scanner Count** - Reduced from 77 to 76 (React2ShellScanner merged into CriticalCVEScanner)
+- **Config File Visibility** - Default config is now `medusa.yml` (visible on macOS) with `.medusa.yml` as legacy fallback
+- **Platform-Aware Install Hints** - All 34 external linter scanners now use dynamic `get_install_hint()` with OS-specific commands (Linux/macOS/Windows) and PEP 668 pipx detection
+- **Progress Table Rendering** - Fixed Rich Live table printing dozens of times on macOS by using stderr and TTY detection
+
+### Fixed
+- **FP Filter Test File Regex** - Fixed `test[s]?[/_]` matching `medusa-test/` directory path, suppressing all findings in test scan directories
+- **Cache Error Noise** - Silenced `[Errno 2]` cache update errors when directories are deleted during scan
+- **Version Strings** - Updated all hardcoded `v2026.2` references to `v2026.2.1` across CLI, README, and docs
+
+### Removed
+- **React2ShellScanner** - Standalone scanner deleted; all React/Next.js CVE detection now handled by CriticalCVEScanner via the curated YAML database
+
+## [2026.2.0] - 2026-02-09
+
+### Added
+- **PromptInjectionCodeScanner** (PIC001-PIC008) - Detects unsanitized user input flowing into LLM API calls in Python source code: f-string injection, ChatML token injection, role manipulation, unsafe template rendering, tainted prompt variables
+- **DatasetInjectionScanner** (DSI001-DSI008) - Detects prompt injection payloads hidden in CSV, JSON, and JSONL data files used for RAG ingestion and model training
+- **Agent Protocol Security Rules** - 91 new rules for emerging agent protocols:
+  - **UCP Vulnerabilities** (33 rules) - Universal Commerce Protocol: discovery endpoints, agent identity, signing keys, JSON-LD context, product data injection, fraud detection
+  - **AP2 Vulnerabilities** (20 rules) - Agent Payment Protocol: credential provider trust, payment token security, transaction integrity, PCI-DSS compliance
+  - **ACP Vulnerabilities** (38 rules) - Agent Communication Protocol: MCP/A2A/ACP security, prompt injection, supply chain, backdoor detection, cross-tool attacks, DoS, multimodal attacks
+- **CVEMiner Critical CVEs** - 123 critical CVE entries covering PyPI, npm, Maven, Cargo, Go, Gem ecosystems including LangChain, LlamaIndex, PyTorch, MCP, Log4Shell, Spring4Shell, XZ Utils
+- **Pantheon Security Logo** - HTML reports now feature the official Pantheon Security branding
+- Scanner count increased from 75 to 77
 
 ### Changed
 - **Simplified Installation**: MEDUSA now only manages `modelscan` via `medusa install --ai-tools`
-- **AI Rules First**: 4,152+ AI security detection patterns work out of the box
+- **AI Rules First**: 3,000+ AI security detection patterns work out of the box
 - **External Linters Optional**: Auto-detected if present, not installed by MEDUSA
 - **CLI Cleanup**: Removed 1,500+ lines of legacy installer code
+
+### Fixed
+- **CLI Skip Display** - "Skipped (not needed): 34" now shows which languages are absent (e.g., "34 scanners skipped (no Go, Ruby, PHP, Rust files found)")
+- **HTML Linter Banner** - "36 External Linters Not Installed" now only shows linters relevant to detected project languages
+- **Progress Table** - Fixed scanners showing "Active" at 91-93% while overall scan shows 100% complete
+- **Markdown Report Version** - Fixed `{__version__}` rendering literally instead of actual version number
+- **Docker Compose Scanner** - Fixed NameError crash on YAML parse failures (`yaml.YAMLError` referenced without import)
+- **Bare Exception Handling** - Replaced bare `except:` with `except Exception:` in parallel.py and cli.py
+- **Packaging** - Fixed setuptools including unintended files in wheel distribution
 
 ### Deprecated
 - `medusa install --all` - Use `--ai-tools` instead

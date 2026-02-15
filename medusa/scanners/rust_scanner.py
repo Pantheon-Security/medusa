@@ -28,14 +28,15 @@ class RustScanner(BaseScanner):
         return shutil.which("cargo") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Rust file with Clippy"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="Cargo/Clippy not installed. Install Rust from: https://rustup.rs"
+                scan_time=time.time() - start_time, error_message=f"Cargo/Clippy not installed. Install: {get_install_hint('clippy')}"
             )
 
         # Clippy works on projects, not individual files

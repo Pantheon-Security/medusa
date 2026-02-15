@@ -5,7 +5,6 @@ Format and syntax scanner for TOML files using taplo
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class TOMLScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".toml"]
 
-    def is_available(self) -> bool:
-        """Check if taplo is installed"""
-        return shutil.which("taplo") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a TOML file with taplo"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="taplo not installed. Install with: cargo install taplo-cli"
+                scan_time=time.time() - start_time, error_message=f"taplo not installed. Install: {get_install_hint('taplo')}"
             )
 
         try:

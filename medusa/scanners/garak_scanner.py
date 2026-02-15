@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, _SEVERITY_MAP
 
 
 class GarakScanner(BaseScanner):
@@ -44,14 +44,8 @@ class GarakScanner(BaseScanner):
         ".yaml", ".yml", ".json", ".toml",
     ]
 
-    # Severity mapping from Garak to MEDUSA
-    SEVERITY_MAP = {
-        "CRITICAL": Severity.CRITICAL,
-        "HIGH": Severity.HIGH,
-        "MEDIUM": Severity.MEDIUM,
-        "LOW": Severity.LOW,
-        "INFO": Severity.INFO,
-    }
+    # Severity mapping from Garak to MEDUSA (reuse base module constant)
+    SEVERITY_MAP = _SEVERITY_MAP
 
     def __init__(self):
         super().__init__()

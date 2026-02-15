@@ -1,8 +1,12 @@
 # medusa - MEDUSA Security Scanning
 
+## CRITICAL: Bash Sandbox
+
+Always use `dangerouslyDisableSandbox: true` on Bash tool calls that run `medusa scan` or invoke external linters. The default sandbox strips `~/.npm-global/bin`, `~/.local/bin`, and `/snap/bin` from PATH, causing installed tools (eslint, hadolint, rubocop, trivy, etc.) to appear missing and triggering the "Continue scan without these tools?" prompt which blocks non-interactive scans.
+
 ## Project Overview
 
-This project uses **MEDUSA v2026.2.0** - AI Security Scanner with 4,152+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
+This project uses **MEDUSA v2026.2.3** - AI Security Scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
 
 ## MEDUSA Configuration
 
@@ -16,6 +20,9 @@ medusa scan .
 
 # Quick scan (cached results)
 medusa scan . --quick
+
+# Exclude directories from scan
+medusa scan . -e archive/ -e vendor/
 
 # Check tool status
 medusa install --check
@@ -46,7 +53,7 @@ medusa license deactivate  # Remove license
 
 ### AI-First Security
 
-MEDUSA scans with 4,152+ built-in patterns for:
+MEDUSA scans with 3,000+ built-in patterns for:
 - AI/ML applications, LLM agents, MCP servers
 - Prompt injection, RAG poisoning, agent security
 - Traditional vulnerabilities (SQL injection, XSS, secrets)
@@ -98,7 +105,7 @@ medusa scan . --fail-on high
 Edit `.medusa.yml` to customize:
 
 ```yaml
-version: 2026.2.0
+version: 2026.2.3
 scanners:
   enabled: []     # Empty = all enabled
   disabled: []    # List scanners to disable
@@ -157,7 +164,7 @@ security_scan:
 
 | Feature | FREE | Professional | Enterprise |
 |---------|------|--------------|------------|
-| AI Security Patterns | 4,152+ | 4,152+ | 4,152+ |
+| AI Security Patterns | 3,000+ | 3,000+ | 3,000+ |
 | Runtime Filters | - | 1,100+ | 1,100+ |
 | SARIF Output | Yes | Yes | Yes |
 | CLI | Yes | Yes | Yes |
@@ -203,7 +210,7 @@ medusa scan . --runtime-filters
 
 ### External Linters (Optional)
 
-MEDUSA works out of the box with 4,152+ built-in patterns. External linters are optional and auto-detected if installed:
+MEDUSA works out of the box with 3,000+ built-in patterns. External linters are optional and auto-detected if installed:
 
 ```bash
 medusa install --check    # See tool status
@@ -227,17 +234,18 @@ exclude:
     - "*.min.js"
 ```
 
-## MEDUSA 2026.2.0 Release
+## MEDUSA 2026.2.3 Release
 
 ### What's New
 
-**v2026.2.0** is an AI rules-first release featuring:
+**v2026.2.3** is the performance + launch-ready release:
 
-- **4,152+ AI Security Patterns**: Works immediately with no tool installation
-- **Simplified Installation**: Just `pip install medusa-security && medusa scan .`
-- **modelscan Support**: `medusa install --ai-tools` for ML model scanning
-- **External Linters Optional**: Auto-detected if present, not installed by MEDUSA
-- **CLI Cleanup**: Removed 1,500+ lines of legacy installer code
+- **52% Faster Scans**: Single-pass file discovery, scanner pre-mapping cache, pre-compiled patterns
+- **430 FP Filter Patterns**: 93.9% false positive reduction rate
+- **133 Critical CVEs**: CVEMiner database for known vulnerability scanning
+- **Structural Refactoring**: God methods split, dead code removed, data/logic separation
+- **Large Project Support**: Live progress responsive on 4,000+ file codebases
+- **3,000+ AI Security Patterns**: Works immediately with no tool installation
 
 ### Detection Pattern Categories
 
@@ -251,9 +259,9 @@ exclude:
 | Supply Chain | 350+ |
 | Traditional SAST | 1,400+ |
 
-### Specialized Agents (15 total)
+### Specialized Agents (17 total)
 
-MEDUSA has 15 custom agents. See `.claude/AGENTS_AND_SKILLS.md` for full details.
+MEDUSA has 17 custom agents. See `.claude/AGENTS_AND_SKILLS.md` for full details.
 
 **Core Development:**
 1. **python-expert** - Python & YAML processing
@@ -273,10 +281,16 @@ MEDUSA has 15 custom agents. See `.claude/AGENTS_AND_SKILLS.md` for full details
 11. **vscode-extension-expert** - VS Code extension
 12. **licensing-expert** - Feature gating, tiers
 
+**Proxy & JSON Rules:**
+13. **json-rules-expert** - Proxy JSON rules, Hyperscan compatibility
+
 **Documentation & Marketing:**
-13. **docs-writer** - Technical documentation
-14. **marketing-writer** - Pricing, landing pages
-15. **data-analyst** - Rule stats, dashboards
+14. **docs-writer** - Technical documentation
+15. **marketing-writer** - Pricing, landing pages
+16. **data-analyst** - Rule stats, dashboards
+
+**Meta Agents:**
+17. **agent-improver** - Improves subagents from correction incidents
 
 ### Custom Skills
 
@@ -314,6 +328,18 @@ git status | grep runtime  # Should show nothing
 - **Report Issues**: https://github.com/Pantheon-Security/medusa/issues
 - **Agents & Skills**: `.claude/AGENTS_AND_SKILLS.md`
 - **Pricing**: https://medusa-security.dev/pricing
+
+## Agent Continuous Improvement
+
+When you (the main agent) delegate work to a subagent and then have to fix or correct its output:
+1. Complete the fix first
+2. Invoke the `agent-improver` agent, telling it:
+   - Which subagent produced the work (e.g., `json-rules-expert`)
+   - What was wrong or missing in the subagent's output
+   - What you fixed and how
+3. The agent-improver will update that subagent's `.claude/agents/<name>.md` so it handles the case correctly next time
+
+This ensures agents get better with each use. Do not skip this step.
 
 ---
 

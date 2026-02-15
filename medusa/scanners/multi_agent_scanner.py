@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class MultiAgentScanner(RuleBasedScanner):
@@ -218,6 +218,8 @@ class MultiAgentScanner(RuleBasedScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             # Check if file contains multi-agent patterns
             has_multi_agent = any(
                 re.search(pattern, content, re.IGNORECASE)
@@ -267,7 +269,7 @@ class MultiAgentScanner(RuleBasedScanner):
                 for pattern in self.MULTI_AGENT_PATTERNS:
                     match = re.search(pattern, content, re.IGNORECASE)
                     if match:
-                        line = content[:match.start()].count('\n') + 1
+                        line = _get_line_number(_offsets, match.start())
                         issues.append(ScannerIssue(
                             rule_id="MAG001",
                             severity=Severity.HIGH,
@@ -322,7 +324,7 @@ class MultiAgentScanner(RuleBasedScanner):
                 ))
 
             # Check for dangerous patterns
-            issues.extend(self._check_dangerous_patterns(content, file_path))
+            issues.extend(self._check_dangerous_patterns(content, file_path, _offsets))
 
             # Check for agent spawning controls
             issues.extend(self._check_agent_spawning(content, file_path))
@@ -331,19 +333,19 @@ class MultiAgentScanner(RuleBasedScanner):
             issues.extend(self._check_coordination_timeout(content, file_path))
 
             # Check for data leakage
-            issues.extend(self._check_data_leakage(content, file_path))
+            issues.extend(self._check_data_leakage(content, file_path, _offsets))
 
             # NEW: Check for prompt infection patterns (MAG011-MAG015)
-            issues.extend(self._check_prompt_infection(content, file_path))
+            issues.extend(self._check_prompt_infection(content, file_path, _offsets))
 
             # NEW: Check for LLM tagging absence (MAG016-MAG018)
-            issues.extend(self._check_llm_tagging(content, file_path))
+            issues.extend(self._check_llm_tagging(content, file_path, _offsets))
 
             # NEW: Check for untrusted forwarding
-            issues.extend(self._check_untrusted_forwarding(content, file_path))
+            issues.extend(self._check_untrusted_forwarding(content, file_path, _offsets))
 
             # NEW: Check for consensus bypass
-            issues.extend(self._check_consensus_bypass(content, file_path))
+            issues.extend(self._check_consensus_bypass(content, file_path, _offsets))
 
             # Scan with YAML rules
             lines = content.split('\n')
@@ -368,7 +370,7 @@ class MultiAgentScanner(RuleBasedScanner):
             )
 
     def _check_dangerous_patterns(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for dangerous multi-agent patterns"""
         issues = []
@@ -376,7 +378,7 @@ class MultiAgentScanner(RuleBasedScanner):
         for pattern, message in self.DANGEROUS_PATTERNS:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
 
                 # Determine severity based on pattern
                 if 'password' in message.lower() or 'secret' in message.lower():
@@ -478,7 +480,7 @@ class MultiAgentScanner(RuleBasedScanner):
         return issues
 
     def _check_data_leakage(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for cross-agent data leakage"""
         issues = []
@@ -496,7 +498,7 @@ class MultiAgentScanner(RuleBasedScanner):
         for pattern, message in sharing_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="MAG009",
                     severity=Severity.HIGH,
@@ -508,7 +510,7 @@ class MultiAgentScanner(RuleBasedScanner):
         return issues
 
     def _check_prompt_infection(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """
         Check for prompt infection vulnerabilities (MAG011-MAG015)
@@ -520,7 +522,7 @@ class MultiAgentScanner(RuleBasedScanner):
 
         for pattern, message, severity in self.PROMPT_INFECTION_PATTERNS:
             for match in re.finditer(pattern, content, re.IGNORECASE):
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 rule_id = message.split(':')[0] if ':' in message else "MAG011"
                 issues.append(ScannerIssue(
                     rule_id=rule_id,
@@ -533,7 +535,7 @@ class MultiAgentScanner(RuleBasedScanner):
         return issues
 
     def _check_llm_tagging(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """
         Check for missing LLM tagging in multi-agent systems (MAG016-MAG018)
@@ -545,7 +547,7 @@ class MultiAgentScanner(RuleBasedScanner):
 
         for pattern, message, severity in self.LLM_TAGGING_PATTERNS:
             for match in re.finditer(pattern, content, re.IGNORECASE):
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 rule_id = message.split(':')[0] if ':' in message else "MAG016"
                 issues.append(ScannerIssue(
                     rule_id=rule_id,
@@ -558,7 +560,7 @@ class MultiAgentScanner(RuleBasedScanner):
         return issues
 
     def _check_untrusted_forwarding(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """
         Check for untrusted data being forwarded to agent chains (MAG017)
@@ -567,7 +569,7 @@ class MultiAgentScanner(RuleBasedScanner):
 
         for pattern, message, severity in self.UNTRUSTED_FORWARDING_PATTERNS:
             for match in re.finditer(pattern, content, re.IGNORECASE):
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="MAG017",
                     severity=severity,
@@ -579,7 +581,7 @@ class MultiAgentScanner(RuleBasedScanner):
         return issues
 
     def _check_consensus_bypass(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """
         Check for patterns that bypass multi-agent consensus (MAG018)
@@ -588,7 +590,7 @@ class MultiAgentScanner(RuleBasedScanner):
 
         for pattern, message, severity in self.CONSENSUS_BYPASS_PATTERNS:
             for match in re.finditer(pattern, content, re.IGNORECASE):
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="MAG018",
                     severity=severity,

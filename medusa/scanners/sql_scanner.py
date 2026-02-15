@@ -5,7 +5,6 @@ Security scanner for SQL files using SQLFluff
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class SQLScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".sql"]
 
-    def is_available(self) -> bool:
-        """Check if SQLFluff is installed"""
-        return shutil.which("sqlfluff") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a SQL file with SQLFluff"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="SQLFluff not installed. Install with: pip install sqlfluff"
+                scan_time=time.time() - start_time, error_message=f"SQLFluff not installed. Install: {get_install_hint('sqlfluff')}"
             )
 
         try:

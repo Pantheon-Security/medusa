@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class ModelAttackScanner(RuleBasedScanner):
@@ -244,6 +244,8 @@ class ModelAttackScanner(RuleBasedScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             # Check if file is ML/model-related
             ml_indicators = [
                 'model', 'train', 'predict', 'inference', 'neural',
@@ -274,7 +276,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message in self.OVERFITTING_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA001",
                         severity=Severity.MEDIUM,
@@ -287,7 +289,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message in self.ADVERSARIAL_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     severity = Severity.MEDIUM if has_protection else Severity.HIGH
                     issues.append(ScannerIssue(
                         rule_id="MA002",
@@ -301,7 +303,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message in self.DISTILLATION_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA004",
                         severity=Severity.MEDIUM,
@@ -314,7 +316,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message in self.BACKDOOR_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA005",
                         severity=Severity.HIGH,
@@ -327,7 +329,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message in self.PRIVACY_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA007",
                         severity=Severity.MEDIUM,
@@ -337,13 +339,13 @@ class ModelAttackScanner(RuleBasedScanner):
                     ))
 
             # Check model endpoints
-            issues.extend(self._check_model_endpoints(content, has_protection))
+            issues.extend(self._check_model_endpoints(content, has_protection, _offsets))
 
             # MA011: Model Extraction (CVE-2019-20634)
             for pattern, message, severity in self.MODEL_EXTRACTION_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA011",
                         severity=severity,
@@ -356,7 +358,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message, severity in self.GPU_MEMORY_LEAKAGE_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA012",
                         severity=severity,
@@ -369,7 +371,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message, severity in self.DESERIALIZATION_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA013",
                         severity=severity,
@@ -382,7 +384,7 @@ class ModelAttackScanner(RuleBasedScanner):
             for pattern, message, severity in self.MODEL_SERIALIZATION_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="MA014",
                         severity=severity,
@@ -414,7 +416,7 @@ class ModelAttackScanner(RuleBasedScanner):
             )
 
     def _check_model_endpoints(
-        self, content: str, has_protection: bool
+        self, content: str, has_protection: bool, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for unprotected model endpoints"""
         issues = []
@@ -422,7 +424,7 @@ class ModelAttackScanner(RuleBasedScanner):
         for pattern, message in self.ENDPOINT_PATTERNS:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
 
                 if not has_protection:
                     issues.append(ScannerIssue(

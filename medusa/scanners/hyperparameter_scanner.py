@@ -42,121 +42,121 @@ class HyperparameterScanner(BaseScanner):
     """
 
     # HPT001: High learning rate (causes instability/divergence)
-    HIGH_LR_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'learning_rate\s*[=:]\s*(?:1\.0|1(?:\.0)?|[2-9]|[1-9]\d+)',
+    HIGH_LR_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'learning_rate\s*[=:]\s*(?:1\.0|1(?:\.0)?|[2-9]|[1-9]\d+)', re.IGNORECASE),
          'Extremely high learning rate (>=1.0) - training sabotage risk', Severity.HIGH),
-        (r'lr\s*[=:]\s*(?:0\.[5-9]|1\.)',
+        (re.compile(r'lr\s*[=:]\s*(?:0\.[5-9]|1\.)', re.IGNORECASE),
          'High learning rate (>=0.5) - may cause instability', Severity.MEDIUM),
-        (r'(?:learning_rate|lr)\s*[=:]\s*0\.1(?!\d)',
+        (re.compile(r'(?:learning_rate|lr)\s*[=:]\s*0\.1(?!\d)', re.IGNORECASE),
          'Learning rate of 0.1 - unusually high for most models', Severity.LOW),
     ]
 
     # HPT002: Extremely low learning rate (slow training, hard to detect poisoning)
-    LOW_LR_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'learning_rate\s*[=:]\s*(?:0\.0{6,}|1e-[7-9]|1e-[1-9]\d)',
+    LOW_LR_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'learning_rate\s*[=:]\s*(?:0\.0{6,}|1e-[7-9]|1e-[1-9]\d)', re.IGNORECASE),
          'Extremely low learning rate - potential slow poisoning attack', Severity.MEDIUM),
-        (r'lr\s*[=:]\s*0\.0{5,}',
+        (re.compile(r'lr\s*[=:]\s*0\.0{5,}', re.IGNORECASE),
          'Very low learning rate (<1e-5) - training may be ineffective', Severity.LOW),
     ]
 
     # HPT003: Extreme batch sizes
-    BATCH_SIZE_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'batch_size\s*[=:]\s*(?:[1-9]\d{4,}|[5-9]\d{3})',
+    BATCH_SIZE_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'batch_size\s*[=:]\s*(?:[1-9]\d{4,}|[5-9]\d{3})', re.IGNORECASE),
          'Extremely large batch size (>5000) - gradient issues risk', Severity.MEDIUM),
-        (r'batch_size\s*[=:]\s*1(?!\d)',
+        (re.compile(r'batch_size\s*[=:]\s*1(?!\d)', re.IGNORECASE),
          'Batch size of 1 - stochastic, unstable training', Severity.LOW),
-        (r'batch_size\s*[=:]\s*(?:2|3|4)(?!\d)',
+        (re.compile(r'batch_size\s*[=:]\s*(?:2|3|4)(?!\d)', re.IGNORECASE),
          'Very small batch size (<5) - noisy gradients', Severity.LOW),
     ]
 
     # HPT004: Disabled regularization
-    REGULARIZATION_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'dropout\s*[=:]\s*(?:0(?:\.0)?|None|False)',
+    REGULARIZATION_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'dropout\s*[=:]\s*(?:0(?:\.0)?|None|False)', re.IGNORECASE),
          'Dropout disabled - overfitting/memorization risk', Severity.MEDIUM),
-        (r'weight_decay\s*[=:]\s*(?:0(?:\.0)?|None)',
+        (re.compile(r'weight_decay\s*[=:]\s*(?:0(?:\.0)?|None)', re.IGNORECASE),
          'Weight decay disabled - overfitting risk', Severity.LOW),
-        (r'regularization\s*[=:]\s*(?:0|None|False)',
+        (re.compile(r'regularization\s*[=:]\s*(?:0|None|False)', re.IGNORECASE),
          'Regularization disabled - model may memorize training data', Severity.MEDIUM),
-        (r'l2_penalty\s*[=:]\s*(?:0|None)',
+        (re.compile(r'l2_penalty\s*[=:]\s*(?:0|None)', re.IGNORECASE),
          'L2 penalty disabled - overfitting risk', Severity.LOW),
     ]
 
     # HPT005: Training config from untrusted source
-    UNTRUSTED_CONFIG_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'(?:load|read).*config.*(?:http|url|remote)',
+    UNTRUSTED_CONFIG_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'(?:load|read).*config.*(?:http|url|remote)', re.IGNORECASE),
          'Training config loaded from remote source', Severity.HIGH),
-        (r'yaml\.(?:safe_)?load\s*\(.*(?:url|http|request)',
+        (re.compile(r'yaml\.(?:safe_)?load\s*\(.*(?:url|http|request)', re.IGNORECASE),
          'YAML config from remote URL (tampering risk)', Severity.HIGH),
-        (r'json\.load\s*\(.*(?:url|http|request)',
+        (re.compile(r'json\.load\s*\(.*(?:url|http|request)', re.IGNORECASE),
          'JSON config from remote URL', Severity.MEDIUM),
-        (r'(?:wget|curl|requests\.get).*(?:config|hyperparameter|hparam)',
+        (re.compile(r'(?:wget|curl|requests\.get).*(?:config|hyperparameter|hparam)', re.IGNORECASE),
          'Downloading training configuration', Severity.MEDIUM),
-        (r'eval\s*\(.*(?:config|param)',
+        (re.compile(r'eval\s*\(.*(?:config|param)', re.IGNORECASE),
          'eval() on config values (code injection)', Severity.CRITICAL),
     ]
 
     # HPT006: Missing validation
-    VALIDATION_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'validation_split\s*[=:]\s*(?:0(?:\.0)?|None)',
+    VALIDATION_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'validation_split\s*[=:]\s*(?:0(?:\.0)?|None)', re.IGNORECASE),
          'No validation split - cannot detect overfitting', Severity.MEDIUM),
-        (r'val_size\s*[=:]\s*(?:0(?:\.0)?|None)',
+        (re.compile(r'val_size\s*[=:]\s*(?:0(?:\.0)?|None)', re.IGNORECASE),
          'Validation size is zero - no validation monitoring', Severity.MEDIUM),
-        (r'(?:train|fit)\s*\([^)]*\)(?!.*valid)',
+        (re.compile(r'(?:train|fit)\s*\([^)]*\)(?!.*valid)', re.IGNORECASE),
          'Training without validation data parameter', Severity.LOW),
     ]
 
     # HPT007: Disabled early stopping
-    EARLY_STOPPING_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'early_stopping\s*[=:]\s*(?:False|None|0)',
+    EARLY_STOPPING_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'early_stopping\s*[=:]\s*(?:False|None|0)', re.IGNORECASE),
          'Early stopping disabled - overfitting risk', Severity.MEDIUM),
-        (r'patience\s*[=:]\s*(?:None|0|-1)',
+        (re.compile(r'patience\s*[=:]\s*(?:None|0|-1)', re.IGNORECASE),
          'Early stopping patience disabled', Severity.LOW),
-        (r'epochs\s*[=:]\s*(?:[5-9]\d{2,}|\d{4,})',
+        (re.compile(r'epochs\s*[=:]\s*(?:[5-9]\d{2,}|\d{4,})', re.IGNORECASE),
          'Extremely high epoch count (>=500) without early stopping check', Severity.MEDIUM),
     ]
 
     # HPT008: Suspicious weight initialization
-    WEIGHT_INIT_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'(?:weights|kernel)_initializer\s*[=:]\s*["\']?zeros',
+    WEIGHT_INIT_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'(?:weights|kernel)_initializer\s*[=:]\s*["\']?zeros', re.IGNORECASE),
          'Zero weight initialization (dead neurons)', Severity.MEDIUM),
-        (r'init\.constant_\s*\([^,]+,\s*0\)',
+        (re.compile(r'init\.constant_\s*\([^,]+,\s*0\)', re.IGNORECASE),
          'Constant zero initialization', Severity.MEDIUM),
-        (r'(?:bias|weight).*fill_\s*\(\s*0\s*\)',
+        (re.compile(r'(?:bias|weight).*fill_\s*\(\s*0\s*\)', re.IGNORECASE),
          'Filling weights with zeros', Severity.LOW),
-        (r'nn\.init\.(?:zeros_|constant_.*0)',
+        (re.compile(r'nn\.init\.(?:zeros_|constant_.*0)', re.IGNORECASE),
          'PyTorch zero initialization', Severity.MEDIUM),
     ]
 
     # HPT009: Gradient clipping disabled
-    GRADIENT_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'(?:clip_grad|gradient_clip)\s*[=:]\s*(?:None|False|0)',
+    GRADIENT_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'(?:clip_grad|gradient_clip)\s*[=:]\s*(?:None|False|0)', re.IGNORECASE),
          'Gradient clipping disabled - exploding gradients risk', Severity.LOW),
-        (r'max_grad_norm\s*[=:]\s*(?:None|0|inf)',
+        (re.compile(r'max_grad_norm\s*[=:]\s*(?:None|0|inf)', re.IGNORECASE),
          'Max gradient norm disabled or infinite', Severity.LOW),
     ]
 
     # HPT010: Untrusted pretrained weights
-    PRETRAINED_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'load_state_dict\s*\(.*(?:http|url|download)',
+    PRETRAINED_PATTERNS: List[Tuple[re.Pattern, str, Severity]] = [
+        (re.compile(r'load_state_dict\s*\(.*(?:http|url|download)', re.IGNORECASE),
          'Loading model weights from URL (backdoor risk)', Severity.HIGH),
-        (r'(?:torch|tf)\.load\s*\(.*(?:http|url)',
+        (re.compile(r'(?:torch|tf)\.load\s*\(.*(?:http|url)', re.IGNORECASE),
          'Loading model from URL', Severity.HIGH),
-        (r'from_pretrained\s*\(["\'][^"\']*(?:http|://)',
+        (re.compile(r'from_pretrained\s*\(["\'][^"\']*(?:http|://)', re.IGNORECASE),
          'Loading pretrained model from URL', Severity.MEDIUM),
-        (r'(?:wget|curl).*(?:\.pt|\.pth|\.h5|\.ckpt|\.safetensors)',
+        (re.compile(r'(?:wget|curl).*(?:\.pt|\.pth|\.h5|\.ckpt|\.safetensors)', re.IGNORECASE),
          'Downloading model weights', Severity.MEDIUM),
-        (r'load.*weights.*(?:untrusted|external|third.?party)',
+        (re.compile(r'load.*weights.*(?:untrusted|external|third.?party)', re.IGNORECASE),
          'Loading weights from untrusted source', Severity.HIGH),
     ]
 
     # Good patterns (security measures)
-    SECURITY_PATTERNS = [
-        r'validate.*checksum|checksum.*validate',
-        r'verify.*signature|signature.*verify',
-        r'hash.*weights|weights.*hash',
-        r'trusted.*source|source.*trusted',
-        r'early_stopping\s*[=:]\s*True',
-        r'validation_split\s*[=:]\s*0\.[1-3]',
+    SECURITY_PATTERNS: List[re.Pattern] = [
+        re.compile(r'validate.*checksum|checksum.*validate', re.IGNORECASE),
+        re.compile(r'verify.*signature|signature.*verify', re.IGNORECASE),
+        re.compile(r'hash.*weights|weights.*hash', re.IGNORECASE),
+        re.compile(r'trusted.*source|source.*trusted', re.IGNORECASE),
+        re.compile(r'early_stopping\s*[=:]\s*True', re.IGNORECASE),
+        re.compile(r'validation_split\s*[=:]\s*0\.[1-3]', re.IGNORECASE),
     ]
 
     def __init__(self):
@@ -174,13 +174,29 @@ class HyperparameterScanner(BaseScanner):
     def scan_file(self, file_path: Path) -> ScannerResult:
         return self.scan(file_path)
 
+    # Maximum file size for hyperparameter scanning (2 MB).
+    # Large JSON/YAML data files are datasets, not training configs.
+    MAX_CONTENT_SCAN_SIZE = 2 * 1024 * 1024
+
     def scan(self, file_path: Path, content: Optional[str] = None) -> ScannerResult:
         """Scan for hyperparameter tampering vulnerabilities"""
         start_time = time.time()
         issues: List[ScannerIssue] = []
 
         try:
+            # Skip large data files -- training configs are always small
             if content is None:
+                try:
+                    if file_path.stat().st_size > self.MAX_CONTENT_SCAN_SIZE:
+                        return ScannerResult(
+                            scanner_name=self.name,
+                            file_path=str(file_path),
+                            issues=[],
+                            scan_time=time.time() - start_time,
+                            success=True,
+                        )
+                except OSError:
+                    pass
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
             # Check if file is ML/training related
@@ -202,7 +218,7 @@ class HyperparameterScanner(BaseScanner):
 
             # Check for security patterns
             has_security = any(
-                re.search(p, content, re.IGNORECASE)
+                p.search(content)
                 for p in self.SECURITY_PATTERNS
             )
 
@@ -255,7 +271,7 @@ class HyperparameterScanner(BaseScanner):
         self,
         content: str,
         lines: List[str],
-        patterns: List[Tuple[str, str, Severity]],
+        patterns: List[Tuple[re.Pattern, str, Severity]],
         rule_id: str
     ) -> List[ScannerIssue]:
         """Check content against patterns"""
@@ -264,19 +280,16 @@ class HyperparameterScanner(BaseScanner):
 
         for pattern, message, severity in patterns:
             for i, line in enumerate(lines, 1):
-                try:
-                    if re.search(pattern, line, re.IGNORECASE):
-                        if message not in seen:
-                            issues.append(ScannerIssue(
-                                rule_id=rule_id,
-                                severity=severity,
-                                message=f"{message} - verify training configuration integrity",
-                                line=i,
-                                column=1,
-                            ))
-                            seen.add(message)
-                            break
-                except re.error:
-                    continue
+                if pattern.search(line):
+                    if message not in seen:
+                        issues.append(ScannerIssue(
+                            rule_id=rule_id,
+                            severity=severity,
+                            message=f"{message} - verify training configuration integrity",
+                            line=i,
+                            column=1,
+                        ))
+                        seen.add(message)
+                        break
 
         return issues

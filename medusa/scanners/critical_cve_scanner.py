@@ -3,12 +3,13 @@
 MEDUSA Critical CVE Scanner
 
 Detects known critical (CVSS 9.0+) vulnerabilities in dependency manifests
-across major ecosystems: pip, Maven, Go, Cargo, Ruby, PHP/Composer.
+across major ecosystems: pip, npm, Maven, Go, Cargo, Ruby, PHP/Composer.
 
 This scanner targets Tier 1 vulnerabilities - framework-level RCEs, auth
 bypasses, and supply chain attacks that give external attackers shell access.
 
-npm/JS ecosystem is handled by React2ShellScanner (no overlap).
+Includes React2Shell (CVE-2025-55182) and Next.js (CVE-2025-66478) detection
+via the curated CVE database.
 
 References:
 - https://nvd.nist.gov/
@@ -22,345 +23,142 @@ import time
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 
+import yaml
+
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+
+
+# Ecosystem name mapping: YAML file uses these → scanner uses these
+_ECOSYSTEM_MAP = {
+    'pypi': 'pip',
+    'npm': 'npm',
+    'maven': 'maven',
+    'go': 'go',
+    'cargo': 'cargo',
+    'gem': 'gem',
+    'composer': 'composer',
+    # 'system' entries are skipped (not detectable via dependency manifests)
+}
+
+
+def _load_cve_database() -> List[Dict]:
+    """
+    Load CVE database from cveminer_critical_cves.yaml.
+
+    Converts the YAML format (string versions, ecosystem names) into
+    the internal format used by the scanner (version tuples, group_id
+    extraction for Maven).
+    """
+    yaml_path = Path(__file__).parent.parent / 'rules' / 'ai_security' / 'cveminer_critical_cves.yaml'
+
+    if not yaml_path.exists():
+        return []
+
+    try:
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+    except Exception:
+        return []
+
+    if not data or 'rules' not in data:
+        return []
+
+    database = []
+    for rule in data['rules']:
+        ecosystem_raw = rule.get('ecosystem', '')
+        ecosystem = _ECOSYSTEM_MAP.get(ecosystem_raw)
+        if not ecosystem:
+            continue  # Skip 'system' and unknown ecosystems
+
+        packages_raw = rule.get('packages', [])
+        vrange = rule.get('vulnerable_range', {})
+        min_str = str(vrange.get('min', '0.0.0'))
+        max_str = str(vrange.get('max', '0.0.0'))
+
+        # Parse version strings to tuples
+        min_v = _str_to_version_tuple(min_str)
+        max_v = _str_to_version_tuple(max_str)
+        if not min_v or not max_v:
+            continue
+
+        # For Maven: extract group_id from "group:artifact" package names
+        group_id = ''
+        packages = []
+        if ecosystem == 'maven':
+            for pkg in packages_raw:
+                if ':' in str(pkg):
+                    parts = str(pkg).split(':', 1)
+                    group_id = parts[0]
+                    packages.append(parts[1])
+                else:
+                    packages.append(str(pkg))
+        else:
+            packages = [str(p) for p in packages_raw]
+
+        entry = {
+            'cve': rule.get('cve', ''),
+            'name': rule.get('name', ''),
+            'cvss': float(rule.get('cvss', 0)),
+            'ecosystem': ecosystem,
+            'packages': packages,
+            'min_version': min_v,
+            'max_version': max_v,
+            'fixed': str(rule.get('fixed', '')),
+            'description': rule.get('description', ''),
+            'url': rule.get('url', f"https://nvd.nist.gov/vuln/detail/{rule.get('cve', '')}"),
+            'cwe': rule.get('cwe', ''),
+        }
+        if group_id:
+            entry['group_id'] = group_id
+
+        database.append(entry)
+
+    return database
+
+
+def _str_to_version_tuple(version_str: str) -> Optional[Tuple[int, ...]]:
+    """Convert a version string like '2.14.1' to a tuple like (2, 14, 1)."""
+    if not version_str:
+        return None
+    # Strip common prefixes
+    version = str(version_str).strip()
+    for prefix in ['v', '=']:
+        if version.startswith(prefix):
+            version = version[len(prefix):]
+    # Strip pre-release suffixes for comparison
+    version = re.sub(r'[-+].*$', '', version)
+    # Handle special Maven versions like "2.0-beta9"
+    version = re.sub(r'-[a-zA-Z].*$', '', version)
+    parts = re.findall(r'\d+', version)
+    if not parts:
+        return (0, 0, 0)
+    try:
+        return tuple(int(p) for p in parts[:4])
+    except (ValueError, TypeError):
+        return None
 
 
 class CriticalCVEScanner(BaseScanner):
     """
-    Scanner for critical (CVSS 9.0+) CVEs in dependency manifests.
+    Scanner for critical CVEs in dependency manifests.
 
-    Ecosystem coverage:
+    Loads 133+ curated CVEs from cveminer_critical_cves.yaml covering:
     - Python (pip): requirements.txt, pyproject.toml, Pipfile, setup.cfg
     - Java (Maven): pom.xml, build.gradle, build.gradle.kts
     - Go: go.mod
     - Rust (Cargo): Cargo.toml, Cargo.lock
     - Ruby (gem): Gemfile, Gemfile.lock
     - PHP (Composer): composer.json, composer.lock
+    - npm: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
 
-    Note: npm/JS ecosystem is handled by React2ShellScanner.
+    Includes React2Shell (CVE-2025-55182) and Next.js (CVE-2025-66478).
+    Data source: CVEMiner curated database + NVD
     """
 
-    # ===================================================================
-    # CRITICAL CVE DATABASE
-    # Each entry is a curated, verified critical vulnerability.
-    # Add new CVEs here - the scanner is fully data-driven.
-    # ===================================================================
-    CVE_DATABASE = [
-        # ----- Java / Maven -----
-        {
-            'cve': 'CVE-2021-44228',
-            'name': 'Log4Shell',
-            'cvss': 10.0,
-            'ecosystem': 'maven',
-            'packages': ['log4j-core'],
-            'group_id': 'org.apache.logging.log4j',
-            'min_version': (2, 0, 0),
-            'max_version': (2, 17, 0),
-            'fixed': '2.17.1',
-            'description': 'Log4j2 JNDI injection allows unauthenticated RCE via crafted log messages',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2021-44228',
-            'cwe': 'CWE-917',
-        },
-        {
-            'cve': 'CVE-2021-45046',
-            'name': 'Log4Shell Bypass',
-            'cvss': 9.0,
-            'ecosystem': 'maven',
-            'packages': ['log4j-core'],
-            'group_id': 'org.apache.logging.log4j',
-            'min_version': (2, 0, 0),
-            'max_version': (2, 16, 0),
-            'fixed': '2.17.0',
-            'description': 'Log4j2 incomplete fix for CVE-2021-44228 allows RCE in non-default configs',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2021-45046',
-            'cwe': 'CWE-917',
-        },
-        {
-            'cve': 'CVE-2022-22965',
-            'name': 'Spring4Shell',
-            'cvss': 9.8,
-            'ecosystem': 'maven',
-            'packages': ['spring-beans', 'spring-webmvc', 'spring-web'],
-            'group_id': 'org.springframework',
-            'min_version': (5, 3, 0),
-            'max_version': (5, 3, 17),
-            'fixed': '5.3.18',
-            'description': 'Spring Framework RCE via data binding on JDK 9+ with Tomcat',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2022-22965',
-            'cwe': 'CWE-94',
-        },
-        {
-            'cve': 'CVE-2017-5638',
-            'name': 'Apache Struts RCE',
-            'cvss': 10.0,
-            'ecosystem': 'maven',
-            'packages': ['struts2-core'],
-            'group_id': 'org.apache.struts',
-            'min_version': (2, 3, 5),
-            'max_version': (2, 3, 31),
-            'fixed': '2.3.32 or 2.5.10.1',
-            'description': 'Apache Struts 2 RCE via Content-Type header parsing (Equifax breach)',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2017-5638',
-            'cwe': 'CWE-20',
-        },
-        {
-            'cve': 'CVE-2021-26084',
-            'name': 'Confluence OGNL Injection',
-            'cvss': 9.8,
-            'ecosystem': 'maven',
-            'packages': ['confluence-server', 'confluence'],
-            'group_id': 'com.atlassian.confluence',
-            'min_version': (6, 13, 0),
-            'max_version': (7, 12, 5),
-            'fixed': '7.13.0',
-            'description': 'Confluence Server OGNL injection allows unauthenticated RCE',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2021-26084',
-            'cwe': 'CWE-74',
-        },
-        {
-            'cve': 'CVE-2023-22515',
-            'name': 'Confluence Auth Bypass',
-            'cvss': 10.0,
-            'ecosystem': 'maven',
-            'packages': ['confluence-server', 'confluence'],
-            'group_id': 'com.atlassian.confluence',
-            'min_version': (8, 0, 0),
-            'max_version': (8, 5, 1),
-            'fixed': '8.5.2',
-            'description': 'Confluence Data Center broken access control allows admin account creation',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-22515',
-            'cwe': 'CWE-284',
-        },
-
-        # ----- Python / pip -----
-        {
-            'cve': 'CVE-2025-32434',
-            'name': 'PyTorch RCE',
-            'cvss': 9.3,
-            'ecosystem': 'pip',
-            'packages': ['torch'],
-            'min_version': (0, 0, 1),
-            'max_version': (2, 5, 1),
-            'fixed': '2.6.0',
-            'description': 'PyTorch torch.load() RCE even with weights_only=True via legacy .tar deserialization path',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2025-32434',
-            'cwe': 'CWE-502',
-        },
-        {
-            'cve': 'CVE-2025-68664',
-            'name': 'LangGrinch Serialization RCE',
-            'cvss': 9.3,
-            'ecosystem': 'pip',
-            'packages': ['langchain-core'],
-            'min_version': (0, 0, 1),
-            'max_version': (0, 3, 80),
-            'fixed': '0.3.81',
-            'description': 'LangChain Core serialization injection via dumps()/dumpd() allows secret extraction and arbitrary class instantiation',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2025-68664',
-            'cwe': 'CWE-502',
-        },
-        {
-            'cve': 'CVE-2024-5480',
-            'name': 'LangChain RCE',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['langchain'],
-            'min_version': (0, 0, 1),
-            'max_version': (0, 2, 5),
-            'fixed': '0.2.6',
-            'description': 'LangChain SQL agent prompt injection allows arbitrary code execution',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-5480',
-            'cwe': 'CWE-94',
-        },
-        {
-            'cve': 'CVE-2024-3571',
-            'name': 'LangChain Experimental RCE',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['langchain-experimental'],
-            'min_version': (0, 0, 1),
-            'max_version': (0, 0, 61),
-            'fixed': '0.0.62',
-            'description': 'LangChain experimental Python REPL tool allows arbitrary code execution',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-3571',
-            'cwe': 'CWE-94',
-        },
-        {
-            'cve': 'CVE-2024-21513',
-            'name': 'LangChain Experimental ACE',
-            'cvss': 8.5,
-            'ecosystem': 'pip',
-            'packages': ['langchain-experimental'],
-            'min_version': (0, 0, 15),
-            'max_version': (0, 0, 20),
-            'fixed': '0.0.21',
-            'description': 'LangChain experimental VectorSQLDatabaseChain eval() on database values allows arbitrary code execution',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-21513',
-            'cwe': 'CWE-94',
-        },
-        {
-            'cve': 'CVE-2024-46946',
-            'name': 'LangServe SSRF',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['langserve'],
-            'min_version': (0, 0, 1),
-            'max_version': (0, 2, 1),
-            'fixed': '0.2.2',
-            'description': 'LangServe LCEL playground allows SSRF via prompt chaining',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-46946',
-            'cwe': 'CWE-918',
-        },
-        {
-            'cve': 'CVE-2024-3271',
-            'name': 'LlamaIndex Command Injection',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['llama-index', 'llama_index', 'llama-index-core'],
-            'min_version': (0, 10, 6),
-            'max_version': (0, 10, 23),
-            'fixed': '0.10.24',
-            'description': 'LlamaIndex safe_eval bypass allows OS command execution via attacker-controlled LLM output',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-3271',
-            'cwe': 'CWE-77',
-        },
-        {
-            'cve': 'CVE-2025-1793',
-            'name': 'LlamaIndex Vector Store SQLi',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': [
-                'llama-index-core', 'llama_index',
-                'llama-index-vector-stores-clickhouse',
-                'llama-index-vector-stores-couchbase',
-                'llama-index-vector-stores-deeplake',
-                'llama-index-vector-stores-lantern',
-                'llama-index-vector-stores-oracledb',
-                'llama-index-vector-stores-singlestoredb',
-            ],
-            'min_version': (0, 0, 1),
-            'max_version': (0, 12, 21),
-            'fixed': '0.12.28',
-            'description': 'LlamaIndex vector_store.delete() SQL injection across multiple store backends',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2025-1793',
-            'cwe': 'CWE-89',
-        },
-        {
-            'cve': 'CVE-2023-37920',
-            'name': 'certifi Compromised Root CA',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['certifi'],
-            'min_version': (2015, 4, 28),
-            'max_version': (2023, 7, 21),
-            'fixed': '2023.7.22',
-            'description': 'certifi includes e-Tugra root certificate with known key compromise',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-37920',
-            'cwe': 'CWE-345',
-        },
-        {
-            'cve': 'CVE-2024-34064',
-            'name': 'Jinja2 Sandbox Escape',
-            'cvss': 9.8,
-            'ecosystem': 'pip',
-            'packages': ['jinja2', 'Jinja2'],
-            'min_version': (2, 0, 0),
-            'max_version': (3, 1, 3),
-            'fixed': '3.1.4',
-            'description': 'Jinja2 sandbox escape via xmlattr filter allows arbitrary attribute injection',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-34064',
-            'cwe': 'CWE-79',
-        },
-
-        # ----- Go -----
-        {
-            'cve': 'CVE-2024-24790',
-            'name': 'Go net/netip ParseAddr Bypass',
-            'cvss': 9.8,
-            'ecosystem': 'go',
-            'packages': ['stdlib'],
-            'min_version': (1, 21, 0),
-            'max_version': (1, 21, 10),
-            'fixed': '1.21.11 or 1.22.4',
-            'description': 'Go net/netip incorrectly handles IPv4-mapped IPv6 addresses, bypassing access controls',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-24790',
-            'cwe': 'CWE-1287',
-        },
-        {
-            'cve': 'CVE-2023-29404',
-            'name': 'Go Toolchain Command Injection',
-            'cvss': 9.8,
-            'ecosystem': 'go',
-            'packages': ['stdlib'],
-            'min_version': (1, 0, 0),
-            'max_version': (1, 19, 9),
-            'fixed': '1.19.10 or 1.20.5',
-            'description': 'Go toolchain allows command injection via linker flags in go get',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-29404',
-            'cwe': 'CWE-94',
-        },
-
-        # ----- Rust / Cargo -----
-        {
-            'cve': 'CVE-2024-24576',
-            'name': 'Rust std Command Injection',
-            'cvss': 10.0,
-            'ecosystem': 'cargo',
-            'packages': ['std'],
-            'min_version': (1, 0, 0),
-            'max_version': (1, 77, 1),
-            'fixed': '1.77.2',
-            'description': 'Rust std::process::Command on Windows improperly escapes arguments, enabling command injection',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2024-24576',
-            'cwe': 'CWE-78',
-        },
-
-        # ----- Ruby / Gem -----
-        {
-            'cve': 'CVE-2023-22795',
-            'name': 'Rails Action Dispatch ReDoS',
-            'cvss': 9.1,
-            'ecosystem': 'gem',
-            'packages': ['actionpack'],
-            'min_version': (7, 0, 0),
-            'max_version': (7, 0, 4),
-            'fixed': '7.0.4.1',
-            'description': 'Action Dispatch regex DoS via specially crafted HTTP Accept header',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-22795',
-            'cwe': 'CWE-1333',
-        },
-        {
-            'cve': 'CVE-2023-28362',
-            'name': 'Rails Arbitrary File Read',
-            'cvss': 9.1,
-            'ecosystem': 'gem',
-            'packages': ['actionpack'],
-            'min_version': (7, 0, 0),
-            'max_version': (7, 0, 5),
-            'fixed': '7.0.5.1',
-            'description': 'Action Dispatch allows arbitrary file reading via specially crafted routes',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-28362',
-            'cwe': 'CWE-22',
-        },
-
-        # ----- PHP / Composer -----
-        {
-            'cve': 'CVE-2023-3824',
-            'name': 'PHP Phar Buffer Overflow',
-            'cvss': 9.8,
-            'ecosystem': 'composer',
-            'packages': ['php'],
-            'min_version': (8, 0, 0),
-            'max_version': (8, 0, 29),
-            'fixed': '8.0.30 or 8.1.22 or 8.2.8',
-            'description': 'PHP phar buffer read overflow via insufficient length checks enables RCE',
-            'url': 'https://nvd.nist.gov/vuln/detail/CVE-2023-3824',
-            'cwe': 'CWE-119',
-        },
-    ]
+    # Load CVE database from YAML at class level (once)
+    CVE_DATABASE = _load_cve_database()
 
     # Dependency manifest files and their ecosystems
-    # npm/JS files intentionally excluded (handled by React2ShellScanner)
     MANIFEST_FILES = {
         # Python
         'requirements.txt': 'pip',
@@ -386,6 +184,11 @@ class CriticalCVEScanner(BaseScanner):
         # PHP
         'composer.json': 'composer',
         'composer.lock': 'composer',
+        # npm (includes React2Shell CVE-2025-55182 and Next.js CVE-2025-66478)
+        'package.json': 'npm',
+        'package-lock.json': 'npm',
+        'yarn.lock': 'npm',
+        'pnpm-lock.yaml': 'npm',
     }
 
     def get_tool_name(self) -> str:
@@ -396,7 +199,7 @@ class CriticalCVEScanner(BaseScanner):
             '.txt', '.py', '.cfg', '.toml', '.lock',
             '.xml', '.gradle', '.kts',
             '.mod', '.sum',
-            '.json',
+            '.json', '.yaml',
         ]
 
     def is_available(self) -> bool:
@@ -405,7 +208,7 @@ class CriticalCVEScanner(BaseScanner):
     def can_scan(self, file_path: Path) -> bool:
         return file_path.name in self.MANIFEST_FILES
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         if file_path.name in self.MANIFEST_FILES:
             return 90
         return 0
@@ -513,6 +316,10 @@ class CriticalCVEScanner(BaseScanner):
             'Gemfile.lock': self._parse_gemfile_lock,
             'composer.json': self._parse_composer_json,
             'composer.lock': self._parse_composer_lock,
+            'package.json': self._parse_package_json,
+            'package-lock.json': self._parse_package_lock_json,
+            'yarn.lock': self._parse_yarn_lock,
+            'pnpm-lock.yaml': self._parse_pnpm_lock_yaml,
         }
 
         parser = parsers.get(filename)
@@ -787,6 +594,80 @@ class CriticalCVEScanner(BaseScanner):
                     deps[name] = version
         return deps
 
+    def _parse_package_json(self, file_path: Path) -> Dict[str, str]:
+        """Parse package.json dependencies."""
+        deps = {}
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            data = json.load(f)
+        for section in ['dependencies', 'devDependencies']:
+            for pkg, version in data.get(section, {}).items():
+                version = re.sub(r'[\^~>=<|*]', '', str(version)).strip()
+                if version:
+                    deps[pkg] = version
+        return deps
+
+    def _parse_package_lock_json(self, file_path: Path) -> Dict[str, str]:
+        """Parse package-lock.json packages."""
+        deps = {}
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            data = json.load(f)
+        # v2/v3 lockfile format
+        for pkg_path, info in data.get('packages', {}).items():
+            if not pkg_path:
+                continue
+            name = pkg_path.split('node_modules/')[-1]
+            version = info.get('version', '')
+            if name and version:
+                deps[name] = version
+        # v1 lockfile format
+        for pkg, info in data.get('dependencies', {}).items():
+            version = info.get('version', '')
+            if version:
+                deps[pkg] = version
+        return deps
+
+    def _parse_yarn_lock(self, file_path: Path) -> Dict[str, str]:
+        """Parse yarn.lock entries."""
+        deps = {}
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            content = f.read()
+        # Match: "package@^version": \n  version "1.2.3"
+        # or: package@^version: \n  version "1.2.3"
+        for match in re.finditer(
+            r'^["\']?(@?[^@\s"\']+)@[^:\n]+["\']?:\s*\n\s+version\s+"([^"]+)"',
+            content, re.MULTILINE
+        ):
+            deps[match.group(1)] = match.group(2)
+        return deps
+
+    def _parse_pnpm_lock_yaml(self, file_path: Path) -> Dict[str, str]:
+        """Parse pnpm-lock.yaml packages."""
+        deps = {}
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                data = yaml.safe_load(f)
+            if not data or not isinstance(data, dict):
+                return deps
+            packages = data.get('packages', {})
+            for pkg_spec in packages:
+                # pnpm format: /package@version or package@version
+                spec = str(pkg_spec).lstrip('/')
+                if '@' in spec:
+                    # Handle scoped packages: @scope/name@version
+                    if spec.startswith('@'):
+                        # @scope/name@version -> split on last @
+                        at_idx = spec.rfind('@')
+                        if at_idx > 0:
+                            name = spec[:at_idx]
+                            version = spec[at_idx + 1:]
+                            deps[name] = version
+                    else:
+                        name, version = spec.split('@', 1)
+                        deps[name] = version
+        except Exception:
+            pass
+        return deps
+
     # =================================================================
     # Version Matching
     # =================================================================
@@ -810,27 +691,7 @@ class CriticalCVEScanner(BaseScanner):
 
     def _parse_version(self, version_str: str) -> Optional[Tuple[int, ...]]:
         """Parse a version string into a comparable tuple of ints."""
-        if not version_str:
-            return None
-
-        # Clean version string
-        version = version_str.strip()
-        for prefix in ['^', '~', '>=', '>', '<=', '<', '=', 'v', '==']:
-            if version.startswith(prefix):
-                version = version[len(prefix):]
-
-        # Handle pre-release suffixes (strip them for comparison)
-        version = re.sub(r'[-+].*$', '', version)
-
-        # Extract numeric parts
-        parts = re.findall(r'\d+', version)
-        if not parts:
-            return None
-
-        try:
-            return tuple(int(p) for p in parts[:4])
-        except (ValueError, TypeError):
-            return None
+        return _str_to_version_tuple(version_str)
 
     def _is_in_range(
         self,
@@ -848,4 +709,4 @@ class CriticalCVEScanner(BaseScanner):
         return v_min <= v <= v_max
 
     def get_install_instructions(self) -> str:
-        return "Critical CVE scanning is built-in (no additional tools required)"
+        return f"Critical CVE scanning is built-in ({len(self.CVE_DATABASE)} CVEs loaded, no additional tools required)"

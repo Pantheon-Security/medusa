@@ -5,7 +5,6 @@ Code quality scanner for Swift files using SwiftLint
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class SwiftScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".swift"]
 
-    def is_available(self) -> bool:
-        """Check if SwiftLint is installed"""
-        return shutil.which("swiftlint") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Swift file with SwiftLint"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="SwiftLint not installed. Install with: brew install swiftlint"
+                scan_time=time.time() - start_time, error_message=f"SwiftLint not installed. Install: {get_install_hint('swiftlint')}"
             )
 
         try:

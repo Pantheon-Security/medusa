@@ -7,14 +7,30 @@ Generates beautiful JSON/HTML security reports from MEDUSA scan results
 import hashlib
 import json
 import re
-import sys
-import webbrowser
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Any
 from collections import defaultdict
 
 from medusa import __version__
+
+# Pre-compiled regex patterns for SARIF rule ID sanitisation (used per-finding)
+_SARIF_RULE_ID_SANITIZE = re.compile(r'[^a-zA-Z0-9-]')
+_SARIF_RULE_ID_COLLAPSE = re.compile(r'-+')
+
+# Pre-compiled tag patterns for _generate_sarif_tags (used per-finding)
+_SARIF_TAG_PATTERNS: List[tuple] = [
+    ('sql', re.compile(r'\bsql\b', re.IGNORECASE)),
+    ('injection', re.compile(r'\binjection\b', re.IGNORECASE)),
+    ('xss', re.compile(r'\bxss\b', re.IGNORECASE)),
+    ('cross-site-scripting', re.compile(r'\bcross.?site.?script', re.IGNORECASE)),
+    ('prompt-injection', re.compile(r'\bprompt.?injection\b', re.IGNORECASE)),
+    ('llm', re.compile(r'\bllm\b', re.IGNORECASE)),
+    ('secrets', re.compile(r'\bsecret|api.?key|password|credential', re.IGNORECASE)),
+    ('cryptography', re.compile(r'\bcrypto|hash|cipher|encrypt', re.IGNORECASE)),
+    ('jailbreak', re.compile(r'\bjailbreak\b', re.IGNORECASE)),
+    ('ai-security', re.compile(r'\bai\b|\bml\b|\bmodel\b', re.IGNORECASE)),
+]
 
 class MedusaReportGenerator:
     """Generate comprehensive security reports from MEDUSA scans"""
@@ -39,34 +55,6 @@ class MedusaReportGenerator:
         self.output_dir = output_dir or Path.cwd() / ".medusa" / "reports"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.history_file = self.output_dir / "scan_history.json"
-
-    def parse_bandit_json(self, bandit_json_path: Path) -> Dict[str, Any]:
-        """Parse Bandit JSON output"""
-        with open(bandit_json_path) as f:
-            bandit_data = json.load(f)
-
-        findings = []
-        for result in bandit_data.get('results', []):
-            findings.append({
-                'scanner': 'bandit',
-                'file': result['filename'],
-                'line': result['line_number'],
-                'severity': result['issue_severity'],
-                'confidence': result['issue_confidence'],
-                'issue': result['issue_text'],
-                'cwe': result.get('issue_cwe', {}).get('id'),
-                'code': result.get('code', '').strip()
-            })
-
-        metrics = bandit_data.get('metrics', {})
-        total_lines = sum(m.get('loc', 0) for m in metrics.values() if isinstance(m, dict))
-
-        return {
-            'findings': findings,
-            'total_lines_scanned': total_lines,
-            'files_scanned': len(metrics) - 1,  # Exclude '_totals' key
-            'scanner_version': 'bandit'
-        }
 
     def calculate_security_score(self, findings: List[Dict]) -> float:
         """Calculate security score (0-100, higher is better)"""
@@ -127,15 +115,28 @@ class MedusaReportGenerator:
             obfuscator = PayloadObfuscator()
             findings = obfuscator.obfuscate_findings(findings)
 
+        # FP stats
+        fp_stats = scan_results.get('fp_stats')
+        likely_fps = scan_results.get('likely_fps', [])
+
         report = {
             'timestamp': timestamp,
             'medusa_version': __version__,
+            'scanner': {
+                'name': 'MEDUSA',
+                'version': __version__,
+                'analyzers': 77,
+                'rules': '3,000+',
+                'url': 'https://medusa-security.dev',
+            },
             'scan_summary': {
                 'total_issues': len(findings),
                 'files_scanned': scan_results.get('files_scanned', 0),
                 'lines_scanned': scan_results.get('total_lines_scanned', 0),
                 'security_score': self.calculate_security_score(findings),
-                'risk_level': self.calculate_risk_level(self.calculate_security_score(findings))
+                'risk_level': self.calculate_risk_level(self.calculate_security_score(findings)),
+                'false_positives_filtered': len(likely_fps),
+                'missing_linters': scan_results.get('missing_linters', []),
             },
             'severity_breakdown': {
                 severity: len([f for f in findings if f['severity'] == severity])
@@ -144,6 +145,9 @@ class MedusaReportGenerator:
             'findings': findings,
             'aggregations': self.aggregate_findings({'findings': findings})
         }
+
+        if fp_stats:
+            report['fp_stats'] = fp_stats
 
         if ai_safe:
             report['ai_safe_mode'] = True
@@ -271,8 +275,9 @@ class MedusaReportGenerator:
                 md += f"**Scanner:** {finding['scanner']}  \n"
                 md += f"**Confidence:** {finding.get('confidence', 'N/A')}  \n"
 
-                if finding.get('cwe'):
-                    md += f"**CWE:** [{finding['cwe']}](https://cwe.mitre.org/data/definitions/{finding['cwe']}.html)  \n"
+                cwe = finding.get('cwe')
+                if cwe and str(cwe).isdigit():
+                    md += f"**CWE:** [CWE-{cwe}](https://cwe.mitre.org/data/definitions/{cwe}.html)  \n"
 
                 if finding.get('code'):
                     md += f"\n**Code:**\n```\n{finding['code']}\n```\n"
@@ -281,12 +286,28 @@ class MedusaReportGenerator:
         else:
             md += "## Detailed Findings\n\n✨ **No security issues found!** Your code is excellent!\n\n---\n\n"
 
+        # Missing linters note
+        missing_linters = scan_results.get('missing_linters', [])
+        if missing_linters:
+            linter_list = ', '.join(missing_linters[:8])
+            if len(missing_linters) > 8:
+                linter_list += f' (+{len(missing_linters) - 8} more)'
+            md += f"""## Coverage Note
+
+> **{len(missing_linters)} external linter(s) not installed:** {linter_list}
+>
+> For fuller coverage, install these tools and re-scan. Run `medusa install --check` for details.
+
+---
+
+"""
+
         # Footer
-        md += """## About MEDUSA
+        md += f"""## About MEDUSA
 
-MEDUSA is a multi-language security scanner with 40+ specialized analyzers for all platforms.
+MEDUSA is an AI-first security scanner with 76 analyzers and 3,000+ detection rules for AI/ML, LLM agents, and MCP servers.
 
-**Learn more:** [Pantheon Security](https://pantheonsecurity.io)
+**Learn more:** [MEDUSA Security](https://medusa-security.dev)
 
 ---
 
@@ -342,12 +363,13 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         for finding in findings:
             # Determine rule ID
             cwe = finding.get('cwe')
-            if cwe:
+            if cwe and str(cwe).isdigit():
                 rule_id = f"CWE-{cwe}"
             else:
+                cwe = None  # Clear invalid CWE
                 # Sanitize issue text into a rule ID
-                rule_id = re.sub(r'[^a-zA-Z0-9-]', '-', finding.get('issue', 'unknown'))
-                rule_id = re.sub(r'-+', '-', rule_id).strip('-')
+                rule_id = _SARIF_RULE_ID_SANITIZE.sub('-', finding.get('issue', 'unknown'))
+                rule_id = _SARIF_RULE_ID_COLLAPSE.sub('-', rule_id).strip('-')
 
             # Track rule index for ruleIndex reference
             if rule_id not in seen_rule_ids:
@@ -462,21 +484,8 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         code = finding.get('code', '').lower()
         text = f"{issue} {code}"
 
-        tag_patterns = [
-            ('sql', r'\bsql\b'),
-            ('injection', r'\binjection\b'),
-            ('xss', r'\bxss\b'),
-            ('cross-site-scripting', r'\bcross.?site.?script'),
-            ('prompt-injection', r'\bprompt.?injection\b'),
-            ('llm', r'\bllm\b'),
-            ('secrets', r'\bsecret|api.?key|password|credential'),
-            ('cryptography', r'\bcrypto|hash|cipher|encrypt'),
-            ('jailbreak', r'\bjailbreak\b'),
-            ('ai-security', r'\bai\b|\bml\b|\bmodel\b'),
-        ]
-
-        for tag, pattern in tag_patterns:
-            if re.search(pattern, text, re.IGNORECASE):
+        for tag, compiled in _SARIF_TAG_PATTERNS:
+            if compiled.search(text):
                 tags.append(tag)
 
         # Add CWE tag if present
@@ -495,11 +504,19 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         findings = report['findings']
 
         # Calculate actual severity counts from findings
-        actual_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+        actual_counts = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0, 'INFO': 0}
         for f in findings:
             sev = f.get('severity', 'LOW').upper()
             if sev in actual_counts:
                 actual_counts[sev] += 1
+
+        # Scanner summary: count findings per scanner
+        scanner_counts = defaultdict(int)
+        for f in findings:
+            scanner_counts[f.get('scanner', 'unknown')] += 1
+
+        # FP stats from report
+        fp_filtered = summary.get('false_positives_filtered', 0)
 
         # Get score color based on value
         score = summary['security_score']
@@ -512,6 +529,45 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         else:
             score_color = '#ef4444'  # Red
 
+        # Build scanner summary rows
+        scanner_rows = ''
+        for scanner_name, count in sorted(scanner_counts.items(), key=lambda x: x[1], reverse=True):
+            scanner_rows += f'''
+                <tr>
+                    <td style="padding: 10px 16px; border-bottom: 1px solid var(--border);">{scanner_name}</td>
+                    <td style="padding: 10px 16px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 600;">{count}</td>
+                </tr>'''
+
+        # Missing linters banner
+        missing_linters = summary.get('missing_linters', [])
+        linter_banner = ''
+        if missing_linters:
+            linter_list = ', '.join(missing_linters[:8])
+            if len(missing_linters) > 8:
+                linter_list += f' (+{len(missing_linters) - 8} more)'
+            linter_banner = f'''
+        <div style="background: #1c1f26; border: 1px solid #d29922; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <span style="font-size: 20px;">&#9888;</span>
+                <span style="font-size: 16px; font-weight: 600; color: #d29922;">{len(missing_linters)} External Linter(s) Not Installed</span>
+            </div>
+            <p style="color: var(--text-muted); margin-bottom: 8px; font-size: 14px;">
+                For fuller coverage, install these tools and re-scan: <span style="color: var(--text);">{linter_list}</span>
+            </p>
+            <p style="color: var(--text-muted); font-size: 13px;">
+                Run <code style="background: var(--bg); padding: 2px 6px; border-radius: 4px; color: var(--primary);">medusa install --check</code> for details and install instructions.
+            </p>
+        </div>'''
+
+        # FP stats section
+        fp_section = ''
+        if fp_filtered > 0:
+            fp_section = f'''
+        <div class="summary-card" style="border-left: 3px solid var(--success);">
+            <div class="summary-label">FPs Filtered</div>
+            <div class="summary-value" style="color: var(--success);">{fp_filtered}</div>
+        </div>'''
+
         html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -523,7 +579,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
         :root {{
-            /* Pantheon Security Brand Colors */
+            /* MEDUSA Security Brand Colors */
             --bg: #0d1117;
             --bg-card: #161b22;
             --bg-card-hover: #21262d;
@@ -537,6 +593,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             --high: #db6d28;
             --medium: #d29922;
             --low: #00CED1;              /* Use brand cyan for low */
+            --info: #8b949e;             /* Gray for info */
             --success: #98FB92;          /* Brand green */
         }}
 
@@ -567,18 +624,12 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         .logo {{
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 16px;
         }}
 
         .logo-icon {{
-            width: 48px;
             height: 48px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
+            flex-shrink: 0;
         }}
 
         .logo-text {{
@@ -587,8 +638,8 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             letter-spacing: -0.5px;
         }}
 
-        .logo-version {{
-            font-size: 14px;
+        .logo-subtitle {{
+            font-size: 13px;
             color: var(--text-muted);
             font-weight: 400;
         }}
@@ -599,12 +650,24 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             font-size: 14px;
         }}
 
+        .report-meta .version-badge {{
+            display: inline-block;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 2px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-top: 6px;
+        }}
+
         /* Summary Cards */
         .summary-grid {{
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
         }}
 
         .summary-card {{
@@ -689,7 +752,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 24px;
-            margin-bottom: 40px;
+            margin-bottom: 24px;
         }}
 
         .section-title {{
@@ -703,7 +766,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
 
         .severity-grid {{
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 16px;
         }}
 
@@ -724,6 +787,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         .severity-count.high {{ color: var(--high); }}
         .severity-count.medium {{ color: var(--medium); }}
         .severity-count.low {{ color: var(--low); }}
+        .severity-count.info {{ color: var(--info); }}
 
         .severity-label {{
             font-size: 12px;
@@ -736,6 +800,41 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         .severity-label.high {{ color: var(--high); }}
         .severity-label.medium {{ color: var(--medium); }}
         .severity-label.low {{ color: var(--low); }}
+        .severity-label.info {{ color: var(--info); }}
+
+        /* Scanner Summary */
+        .scanner-section {{
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }}
+
+        .scanner-table {{
+            width: 100%;
+            border-collapse: collapse;
+        }}
+
+        .scanner-table th {{
+            text-align: left;
+            padding: 10px 16px;
+            border-bottom: 2px solid var(--border);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+
+        .scanner-table th:last-child {{
+            text-align: right;
+        }}
+
+        .scanner-table td {{
+            color: var(--text);
+            font-size: 14px;
+        }}
 
         /* Findings */
         .findings-section {{
@@ -761,6 +860,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         .finding.high {{ border-left-color: var(--high); }}
         .finding.medium {{ border-left-color: var(--medium); }}
         .finding.low {{ border-left-color: var(--low); }}
+        .finding.info {{ border-left-color: var(--info); }}
 
         .finding-header {{
             display: flex;
@@ -777,6 +877,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             background: var(--bg-card);
             padding: 4px 10px;
             border-radius: 4px;
+            word-break: break-all;
         }}
 
         .finding-badge {{
@@ -793,6 +894,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         .finding-badge.high {{ background: var(--high); color: white; }}
         .finding-badge.medium {{ background: var(--medium); color: #1e293b; }}
         .finding-badge.low {{ background: var(--low); color: white; }}
+        .finding-badge.info {{ background: var(--info); color: white; }}
 
         .finding-message {{
             font-size: 15px;
@@ -815,7 +917,8 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
 
         .finding-meta {{
             display: flex;
-            gap: 20px;
+            flex-wrap: wrap;
+            gap: 16px;
             font-size: 13px;
             color: var(--text-muted);
         }}
@@ -885,15 +988,16 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
     <div class="container">
         <header class="header">
             <div class="logo">
-                <div class="logo-icon">🐍</div>
+                <img class="logo-icon" src="{self._get_logo_data_uri()}" alt="Pantheon Security"/>
                 <div>
                     <div class="logo-text">MEDUSA</div>
-                    <div class="logo-version">v{__version__}</div>
+                    <div class="logo-subtitle">76 Analyzers &bull; 3,000+ Detection Rules</div>
                 </div>
             </div>
             <div class="report-meta">
                 <div>Security Scan Report</div>
                 <div>{datetime.fromisoformat(report['timestamp']).strftime('%B %d, %Y at %H:%M')}</div>
+                <div class="version-badge">v{__version__}</div>
             </div>
         </header>
 
@@ -919,10 +1023,14 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
                 <div class="summary-label">Files Scanned</div>
                 <div class="summary-value">{summary['files_scanned']}</div>
             </div>
+            <div class="summary-card">
+                <div class="summary-label">Lines Scanned</div>
+                <div class="summary-value">{summary.get('lines_scanned', 0):,}</div>
+            </div>
         </div>
 
         <div class="severity-section">
-            <h2 class="section-title">Issue Breakdown</h2>
+            <h2 class="section-title">Severity Breakdown</h2>
             <div class="severity-grid">
                 <div class="severity-item">
                     <div class="severity-count critical">{actual_counts['CRITICAL']}</div>
@@ -940,8 +1048,28 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
                     <div class="severity-count low">{actual_counts['LOW']}</div>
                     <div class="severity-label low">Low</div>
                 </div>
+                <div class="severity-item">
+                    <div class="severity-count info">{actual_counts['INFO']}</div>
+                    <div class="severity-label info">Info</div>
+                </div>
             </div>
         </div>
+
+        <div class="scanner-section">
+            <h2 class="section-title">Scanner Summary</h2>
+            <table class="scanner-table">
+                <thead>
+                    <tr>
+                        <th>Scanner</th>
+                        <th>Findings</th>
+                    </tr>
+                </thead>
+                <tbody>{scanner_rows}
+                </tbody>
+            </table>
+        </div>
+
+        {linter_banner}
 
         <div class="findings-section">
             <h2 class="section-title">Findings ({len(findings)})</h2>
@@ -949,8 +1077,8 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         </div>
 
         <footer class="footer">
-            <p>Generated by <strong>MEDUSA</strong> v{__version__} • 64 Security Analyzers</p>
-            <p><a href="https://pantheonsecurity.io">Pantheon Security</a></p>
+            <p>Generated by <strong>MEDUSA</strong> v{__version__} &mdash; 76 Analyzers &bull; 3,000+ Rules &bull; AI Security Detection</p>
+            <p><a href="https://medusa-security.dev">medusa-security.dev</a></p>
         </footer>
     </div>
 </body>
@@ -963,14 +1091,16 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
         if not findings:
             return '''
             <div class="no-findings">
-                <div class="no-findings-icon">✓</div>
+                <div class="no-findings-icon">&#10003;</div>
                 <div class="no-findings-text">No security issues found</div>
             </div>
             '''
 
         # Sort by severity
-        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNDEFINED': 4}
+        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'INFO': 4, 'UNDEFINED': 5}
         sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.get('severity', 'LOW').upper(), 99))
+
+        import html as html_lib
 
         html_parts = []
         for finding in sorted_findings:
@@ -978,7 +1108,6 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             severity_class = severity.lower()
 
             # Escape HTML in user content
-            import html as html_lib
             issue = html_lib.escape(finding.get('issue', 'Unknown issue'))
             file_path = html_lib.escape(str(finding.get('file', 'Unknown')))
             line = finding.get('line', '?')
@@ -988,7 +1117,17 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             cwe = finding.get('cwe')
 
             code_block = f'<pre class="finding-code">{code}</pre>' if code else ''
-            cwe_link = f'<span>CWE: <a href="https://cwe.mitre.org/data/definitions/{cwe}.html" target="_blank">{cwe}</a></span>' if cwe else ''
+
+            # Only render CWE link if it's a valid numeric ID
+            cwe_link = ''
+            if cwe and str(cwe).isdigit():
+                cwe_link = f'<span>CWE-{cwe}: <a href="https://cwe.mitre.org/data/definitions/{cwe}.html" target="_blank">Details</a></span>'
+
+            # FP analysis badge
+            fp_analysis = finding.get('fp_analysis', {})
+            fp_badge = ''
+            if fp_analysis.get('is_likely_fp'):
+                fp_badge = '<span style="color: var(--medium);">Likely FP</span>'
 
             html_parts.append(f'''
             <div class="finding {severity_class}">
@@ -1002,6 +1141,7 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
                     <span>Scanner: {scanner}</span>
                     <span>Confidence: {confidence}</span>
                     {cwe_link}
+                    {fp_badge}
                 </div>
             </div>
             ''')
@@ -1040,6 +1180,11 @@ MEDUSA is a multi-language security scanner with 40+ specialized analyzers for a
             'CRITICAL': 'rgba(239, 68, 68, 0.4)'
         }
         return shadows.get(risk_level, 'rgba(107, 114, 128, 0.4)')
+
+    def _get_logo_data_uri(self) -> str:
+        """Return the Pantheon Security logo as a base64 data URI for HTML embedding"""
+        from medusa.core.report_assets import LOGO_DATA_URI
+        return LOGO_DATA_URI
 
     def _build_modern_severity_bars(self, severity_breakdown: Dict[str, int], total: int) -> str:
         """Build modern severity bars with gradients and animations"""
@@ -1301,58 +1446,3 @@ class PayloadObfuscator:
                 return category
 
         return 'Unknown Attack'
-
-
-def main():
-    """CLI entry point"""
-    if len(sys.argv) < 2:
-        print("Usage: medusa-report.py <bandit-json-file> [output-dir]")
-        sys.exit(1)
-
-    bandit_json = Path(sys.argv[1])
-    output_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else None
-
-    if not bandit_json.exists():
-        print(f"Error: {bandit_json} not found")
-        sys.exit(1)
-
-    print("🐍 MEDUSA Report Generator v0.7.0")
-    print("=" * 60)
-
-    generator = MedusaReportGenerator(output_dir)
-
-    # Parse Bandit results
-    print(f"📊 Parsing Bandit results from {bandit_json}...")
-    scan_results = generator.parse_bandit_json(bandit_json)
-
-    print(f"✅ Found {len(scan_results['findings'])} issues in {scan_results['files_scanned']} files")
-    print(f"📝 Scanned {scan_results['total_lines_scanned']:,} lines of code")
-
-    # Generate JSON report
-    print("\n📄 Generating JSON report...")
-    json_path = generator.generate_json_report(scan_results)
-    print(f"✅ JSON report saved: {json_path}")
-
-    # Generate HTML report
-    print("\n🎨 Generating HTML report...")
-    html_path = generator.generate_html_report(json_path)
-    print(f"✅ HTML report saved: {html_path}")
-
-    # Calculate security score
-    score = generator.calculate_security_score(scan_results['findings'])
-    risk_level = generator.calculate_risk_level(score)
-
-    print("\n" + "=" * 60)
-    print(f"🎯 SECURITY SCORE: {score}/100")
-    print(f"⚠️  RISK LEVEL: {risk_level}")
-    print("=" * 60)
-
-    # Auto-open HTML report in browser
-    print(f"\n🌐 Opening report in browser...")
-    webbrowser.open(f"file://{html_path.absolute()}")
-
-    print(f"📂 Report location: {html_path.absolute()}")
-
-
-if __name__ == '__main__':
-    main()

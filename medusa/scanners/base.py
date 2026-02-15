@@ -5,10 +5,12 @@ Abstract base class for all security scanner implementations
 """
 
 from abc import ABC, abstractmethod
+from bisect import bisect_left
 from pathlib import Path
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
+import re
 import subprocess
 import shutil
 
@@ -22,6 +24,27 @@ class Severity(Enum):
     INFO = "INFO"
 
 
+# Module-level constants hoisted out of the inner loop (Task 1.3)
+_SEVERITY_MAP = {
+    'CRITICAL': Severity.CRITICAL,
+    'HIGH': Severity.HIGH,
+    'MEDIUM': Severity.MEDIUM,
+    'LOW': Severity.LOW,
+    'INFO': Severity.INFO,
+}
+_CWE_RE = re.compile(r'CWE-(\d+)')
+
+
+def _build_line_offsets(content: str) -> List[int]:
+    """Build sorted list of newline positions for O(log n) line lookups."""
+    return [i for i, c in enumerate(content) if c == '\n']
+
+
+def _get_line_number(offsets: List[int], pos: int) -> int:
+    """Get 1-based line number for a character position using binary search."""
+    return bisect_left(offsets, pos) + 1
+
+
 @dataclass
 class ScannerIssue:
     """Individual security issue found by scanner"""
@@ -33,6 +56,7 @@ class ScannerIssue:
     rule_id: Optional[str] = None
     cwe_id: Optional[int] = None
     cwe_link: Optional[str] = None
+    rule_url: Optional[str] = None
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
@@ -45,6 +69,7 @@ class ScannerIssue:
             'rule_id': self.rule_id,
             'cwe_id': self.cwe_id,
             'cwe_link': self.cwe_link,
+            'rule_url': self.rule_url,
         }
 
 
@@ -127,7 +152,7 @@ class BaseScanner(ABC):
         """
         return file_path.suffix in self.get_file_extensions()
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: Optional[str] = None) -> int:
         """
         Analyze file content and return confidence (0-100) that this scanner
         should handle it. Used to intelligently choose between competing scanners
@@ -138,6 +163,9 @@ class BaseScanner(ABC):
 
         Args:
             file_path: Path to file to analyze
+            content_head: Optional pre-read first 8KB of file content.
+                If provided, scanners should use this instead of reading
+                the file themselves, avoiding redundant I/O.
 
         Returns:
             0-100 confidence score (higher = more confident)
@@ -277,8 +305,8 @@ class RuleBasedScanner(BaseScanner):
         if self._rules_loaded:
             return
 
-        from medusa.rules import RuleLoader
-        loader = RuleLoader()
+        from medusa.rules import get_loader
+        loader = get_loader()
         all_rules = loader.load_all_rules()
 
         # Filter rules by category or file
@@ -303,6 +331,11 @@ class RuleBasedScanner(BaseScanner):
             self._load_rules()
         return self._rules
 
+    # Maximum number of lines to scan with regex rules.
+    # Files with more lines than this are data files / generated code
+    # and scanning them is both slow and unlikely to find real issues.
+    MAX_RULE_SCAN_LINES = 50_000
+
     def _scan_with_rules(self, lines: List[str], file_path: Path = None) -> List[ScannerIssue]:
         """
         Scan lines using loaded YAML rules
@@ -314,29 +347,24 @@ class RuleBasedScanner(BaseScanner):
         Returns:
             List of ScannerIssue objects
         """
-        import re
         issues = []
 
+        # Cap the number of lines we process to avoid hanging on huge
+        # data files that happen to match a scannable extension.
+        scan_lines = lines[:self.MAX_RULE_SCAN_LINES] if len(lines) > self.MAX_RULE_SCAN_LINES else lines
+
         for rule in self.rules:
-            for i, line in enumerate(lines, 1):
-                for pattern in rule.patterns:
+            for i, line in enumerate(scan_lines, 1):
+                for compiled in rule._compiled_patterns:
                     try:
-                        if re.search(pattern, line, re.IGNORECASE):
-                            # Map severity string to enum
-                            severity_map = {
-                                'CRITICAL': Severity.CRITICAL,
-                                'HIGH': Severity.HIGH,
-                                'MEDIUM': Severity.MEDIUM,
-                                'LOW': Severity.LOW,
-                                'INFO': Severity.INFO,
-                            }
-                            severity = severity_map.get(rule.severity, Severity.MEDIUM)
+                        if compiled.search(line):
+                            severity = _SEVERITY_MAP.get(rule.severity, Severity.MEDIUM)
 
                             # Extract CWE number from string like "CWE-94"
                             cwe_id = None
                             cwe_link = None
                             if rule.cwe:
-                                cwe_match = re.search(r'CWE-(\d+)', rule.cwe)
+                                cwe_match = _CWE_RE.search(rule.cwe)
                                 if cwe_match:
                                     cwe_id = int(cwe_match.group(1))
                                     cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
@@ -378,7 +406,7 @@ class ScannerRegistry:
         Kubernetes vs YAML) by analyzing file content and selecting the scanner
         with the highest confidence score.
 
-        User overrides (from .medusa.yml) take precedence over confidence scoring,
+        User overrides (from medusa.yml) take precedence over confidence scoring,
         allowing manual corrections that are remembered for future scans.
 
         Args:
@@ -416,7 +444,7 @@ class ScannerRegistry:
                 continue
 
             # Get confidence score from content analysis
-            confidence = scanner.get_confidence_score(file_path)
+            confidence = scanner.get_confidence_score(file_path, content_head=None)
 
             # Track the scanner with highest confidence
             if confidence > best_confidence:
@@ -425,6 +453,40 @@ class ScannerRegistry:
 
         return best_scanner
 
+    def get_scanners_for_file(self, file_path: Path, config=None,
+                              content_head: Optional[str] = None) -> List[BaseScanner]:
+        """
+        Find ALL applicable scanners for a file.
+
+        Returns every available scanner that can handle this file type,
+        sorted by confidence (highest first). This ensures YAML-rule-based
+        AI security scanners run alongside external tools like Semgrep.
+
+        Args:
+            file_path: Path to file
+            config: Optional MedusaConfig with scanner overrides
+            content_head: Optional pre-read first 8KB of file content,
+                passed through to get_confidence_score() to avoid
+                redundant file reads across multiple scanners.
+
+        Returns:
+            List of scanner instances, sorted by confidence descending
+        """
+        applicable = []
+
+        for scanner in self.scanners:
+            if not scanner.is_available():
+                continue
+            if not scanner.can_scan(file_path):
+                continue
+
+            confidence = scanner.get_confidence_score(file_path, content_head=content_head)
+            applicable.append((confidence, scanner))
+
+        # Sort by confidence descending
+        applicable.sort(key=lambda x: x[0], reverse=True)
+        return [scanner for _, scanner in applicable]
+
     def get_all_scanners(self) -> List[BaseScanner]:
         """Get all registered scanners"""
         return self.scanners
@@ -432,6 +494,14 @@ class ScannerRegistry:
     def get_available_scanners(self) -> List[BaseScanner]:
         """Get only scanners with tools installed"""
         return [s for s in self.scanners if s.is_available()]
+
+    def get_unavailable_external_scanners(self) -> List[BaseScanner]:
+        """Get scanners that are registered but whose external tools are not installed.
+        Excludes built-in scanners (tool_name == 'python') since those always work."""
+        return [
+            s for s in self.scanners
+            if not s.is_available() and s.get_tool_name() != 'python'
+        ]
 
     def get_missing_tools(self) -> List[str]:
         """Get list of scanner tools that are not installed"""

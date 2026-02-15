@@ -4,7 +4,7 @@ MEDUSA Clojure Scanner
 Code quality scanner for Clojure using clj-kondo
 """
 
-import json, shutil, subprocess, time
+import json, subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -16,14 +16,12 @@ class ClojureScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".clj", ".cljs", ".cljc", ".edn"]
 
-    def is_available(self) -> bool:
-        return shutil.which("clj-kondo") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
-                error_message="clj-kondo not installed. Install from: https://github.com/clj-kondo/clj-kondo")
+                error_message=f"clj-kondo not installed. Install: {get_install_hint('clj-kondo')}")
 
         try:
             result = self._run_command([str(self.tool_path), "--lint", str(file_path), "--config", "{:output {:format :json}}"], timeout=30)

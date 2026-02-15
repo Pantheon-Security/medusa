@@ -28,14 +28,15 @@ class PowerShellScanner(BaseScanner):
         return shutil.which("pwsh") is not None or shutil.which("powershell") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a PowerShell file with PSScriptAnalyzer"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, success=False, error_message="PowerShell not installed. Install from: https://github.com/PowerShell/PowerShell"
+                scan_time=time.time() - start_time, success=False, error_message=f"PowerShell not installed. Install: {get_install_hint('pwsh')}"
             )
 
         # Use pwsh if available, otherwise powershell
@@ -55,11 +56,12 @@ class PowerShellScanner(BaseScanner):
 
             # Check for module not installed error
             if "PSScriptAnalyzer not installed" in result.stderr:
+                from medusa.platform.installers.simple import get_install_hint
                 return ScannerResult(
                     file_path=file_path,
                     scanner_name=self.name,
                     issues=[],
-                    scan_time=time.time() - start_time, success=False, error_message="PSScriptAnalyzer not installed. Install with: Install-Module -Name PSScriptAnalyzer"
+                    scan_time=time.time() - start_time, success=False, error_message=f"PSScriptAnalyzer not installed. Install: {get_install_hint('PSScriptAnalyzer')}"
                 )
 
             if result.returncode != 0 and not result.stdout:

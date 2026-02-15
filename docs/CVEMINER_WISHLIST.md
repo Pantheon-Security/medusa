@@ -257,4 +257,4 @@ keywords_infra:
 
 ---
 
-*Last updated: 2026-01-30 | Target: 50+ critical CVE rules by v2026.2.1*
+*Last updated: 2026-01-30 | Target: 50+ critical CVE rules by v2026.2.3*

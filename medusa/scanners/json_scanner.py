@@ -33,10 +33,31 @@ class JSONScanner(BaseScanner):
         """JSON validation is always available (built-in)"""
         return True
 
+    # Maximum file size for deep content analysis (2 MB).
+    # JSON data files (datasets, ML annotations, logs) can be 10-100+ MB.
+    # Recursively walking millions of keys looking for secrets is pointless
+    # on data files and can hang for minutes.
+    MAX_CONTENT_SCAN_SIZE = 2 * 1024 * 1024
+
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Scan JSON file for syntax and security issues"""
         start_time = time.time()
         issues = []
+
+        try:
+            file_size = file_path.stat().st_size
+        except OSError:
+            file_size = 0
+
+        # Skip very large files -- they are data files, not configs
+        if file_size > self.MAX_CONTENT_SCAN_SIZE:
+            return ScannerResult(
+                scanner_name=self.name,
+                file_path=str(file_path),
+                issues=[],
+                scan_time=time.time() - start_time,
+                success=True
+            )
 
         try:
             # Read and parse JSON

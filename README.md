@@ -9,20 +9,20 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**AI-first security scanner with 4,152+ detection patterns for AI/ML, agents, and LLM applications.**
+**AI-first security scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
-**✨ NEW v2026.2.0: Simplified installation, AI rules-first architecture!**
+**✨ NEW v2026.2.3: 52% faster scans, 430 FP filters, 133 CVEs, structural overhaul!**
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is an AI-first security scanner with **4,152+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
+MEDUSA is an AI-first security scanner with **3,000+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
 
 ### ✨ Key Features
 
-- 🤖 **4,152+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- 🤖 **3,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities, supply chain risks
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
@@ -34,17 +34,20 @@ MEDUSA is an AI-first security scanner with **4,152+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.2.0
+### 🆕 What's New in v2026.2.3
 
-**AI Rules-First Architecture** - MEDUSA now focuses on what matters most: 4,152+ AI security detection patterns that work immediately.
+**Performance Overhaul + Launch Ready** - 52% faster scans, 430 FP filters, and major structural improvements.
 
 | Change | Description |
 |--------|-------------|
-| 🚀 **Simplified Installation** | Just `pip install medusa-security && medusa scan .` - that's it! |
-| 🤖 **4,152+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
-| 🔧 **Optional External Linters** | Auto-detected if present, not required or installed by MEDUSA |
-| 📦 **modelscan Support** | `medusa install --ai-tools` installs modelscan for ML model scanning |
-| 🧹 **CLI Cleanup** | Removed 1,500+ lines of legacy installer code |
+| ⚡ **52% Faster Scans** | Single-pass file discovery, scanner pre-mapping cache, pre-compiled regex patterns |
+| 🎯 **430 FP Filter Patterns** | 93.9% false positive reduction rate — industry-leading accuracy |
+| 🏗️ **Structural Refactoring** | God methods split, 189 lines dead code removed, data/logic separation |
+| 📊 **Large Project Support** | Live progress stays responsive on 4,000+ file codebases |
+| 🛡️ **Agent Protocol Security** | 91 rules for UCP, AP2, and ACP vulnerability detection |
+| 🔍 **Prompt Injection in Code** | Detects unsanitized user input in LLM API calls (f-string injection, ChatML tokens) |
+| 🚨 **133 Critical CVEs** | CVEMiner database covering LangChain, PyTorch, MCP, Log4Shell, XZ Utils |
+| 🤖 **3,000+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
 
 **External Linters** (optional):
 - MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed
@@ -92,39 +95,21 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 
 **[See Installation Guide →](docs/OPTIONAL_TOOLS.md)** for platform-specific instructions.
 
-> **Note:** External linters are optional. MEDUSA's 4,152+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
+> **Note:** External linters are optional. MEDUSA's 3,000+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
 
-### Example Output
+### Screenshots
 
-```
-🐍 MEDUSA v2026.2.0 - AI Security Scanner
+**Scan Startup** - Repository analysis, language detection, AI pattern recognition:
 
-🎯 Target: .
-🔧 Mode: Full
+![MEDUSA Banner](media/medusa-banner.png)
 
-📁 Found 145 scannable files
+**Live Progress** - Real-time scanner progress with issue counts:
 
-📊 Scanning 145 files with 6 workers...
-✅ Scanned 145 files
+![MEDUSA Scan Progress](media/medusa-scan-progress.png)
 
-============================================================
-🎯 SCAN COMPLETE
-============================================================
-📂 Files scanned: 145
-⚡ Files cached: 0
-🔍 Issues found: 23
-⏱️  Total time: 12.5s
-📈 Cache hit rate: 0.0%
-🔧 AI Rules: 4,152 patterns checked
-============================================================
+**Scan Complete** - Summary with stats and report paths:
 
-📊 Reports generated:
-   JSON       → .medusa/reports/medusa-scan-20260129-083045.json
-   HTML       → .medusa/reports/medusa-scan-20260129-083045.html
-   SARIF      → .medusa/reports/medusa-scan-20260129-083045.sarif
-
-✅ Scan complete!
-```
+![MEDUSA Scan Complete](media/medusa-scan-complete.png)
 
 ### 📊 Report Formats
 
@@ -264,7 +249,7 @@ medusa scan .
 
 ## 🤖 AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **4,152+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+MEDUSA provides **industry-leading AI security scanning** with **3,000+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
@@ -402,7 +387,7 @@ medusa install --ai-tools
 medusa install --ai-tools --debug
 ```
 
-> **Note**: MEDUSA v2026.2+ no longer installs external linters. Install them yourself via your package manager (apt, brew, npm, pip) if needed. MEDUSA will auto-detect and use any installed linters.
+> **Note**: MEDUSA v2026.2+ no longer installs external linters. Install them via your package manager (apt, brew, npm, pip) if needed. MEDUSA auto-detects and uses any installed linters.
 
 ### Init Commands
 
@@ -472,7 +457,7 @@ medusa override path/to/file.yaml --remove
 | `--ai-tools` | Install AI security tools (modelscan) |
 | `--debug` | Show detailed debug output |
 
-> **v2026.2 Change**: MEDUSA no longer manages external linter installation. The `--all` flag is deprecated. Install external linters via your system package manager if needed.
+> **v2026.2+ Change**: MEDUSA no longer manages external linter installation. The `--all` flag is deprecated. Install external linters via your system package manager if needed.
 
 ---
 
@@ -484,7 +469,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.2.0
+version: 2026.2.3
 
 # Scanner control
 scanners:
@@ -694,17 +679,7 @@ medusa init
 
 ✅ MEDUSA Initialized Successfully!
 
-# 2. Install tools
-medusa install --all
-
-📦 Installing 36 missing tools...
-✅ bandit installed (pip)
-✅ eslint installed (npm)
-✅ shellcheck installed (apt)
-...
-✅ All tools installed!
-
-# 3. First scan
+# 2. First scan
 medusa scan .
 
 🔍 Issues found: 23
@@ -713,7 +688,7 @@ medusa scan .
    MEDIUM: 18
    LOW: 3
 
-# 4. Fix issues and rescan
+# 3. Fix issues and rescan
 medusa scan . --quick
 
 ⚡ Files cached: 142
@@ -746,7 +721,7 @@ jobs:
         run: medusa scan . --fail-on high
 ```
 
-> **Note**: No tool installation step needed - MEDUSA's 4,152+ built-in rules work immediately.
+> **Note**: No tool installation step needed - MEDUSA's 3,000+ built-in rules work immediately.
 
 ---
 
@@ -802,52 +777,53 @@ Unified severity levels across all tools:
 
 ### Dogfooding Results
 
-MEDUSA scans itself daily:
+MEDUSA scans itself — and real-world projects:
 
 ```
-✅ Files scanned: 85
-✅ CRITICAL issues: 0
-✅ HIGH issues: 0
-✅ MEDIUM issues: 113
-✅ LOW issues: 1
+Self-scan (473 files):
+  ✅ Issues found: 115 (pre-filter) → 0 (post-filter)
+  ✅ FP reduction: 100% on own codebase
+  ⏱️  Time: 8.2s
 
-Status: Production Ready ✅
+OpenClaw benchmark (4,124 files, 751K LOC):
+  🔍 Issues found: 825 (post-filter)
+  ✅ FPs filtered: 11,436 (93.9% reduction)
+  ⏱️  Time: 3.3 hours (42 scanners)
 ```
 
 ### Performance Benchmarks
 
-| Project Size | Files | Time (6 workers) | Speed |
-|--------------|-------|------------------|-------|
-| Small | 50 | ~15s | 3.3 files/s |
-| Medium | 145 | ~47s | 3.1 files/s |
-| Large | 500+ | ~3min | 2.8 files/s |
+| Project Size | Files | Time | Speed |
+|--------------|-------|------|-------|
+| Small (MEDUSA self-scan) | 473 | ~8s | 59 files/s |
+| Medium | 1,000 | ~45s | 22 files/s |
+| Large (OpenClaw) | 4,124 | ~3.3h | 0.34 files/s* |
+
+*Large project time dominated by external tool subprocesses (Semgrep, Trivy, GitLeaks). Built-in pattern scanning is near-instant.
 
 ---
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (v2025.8)
+### ✅ Completed (v2026.2.3)
 
-- **73 Specialized Scanners** - Comprehensive language and platform coverage
-- **AI Agent Security** - 20+ scanners, 180+ rules, OWASP LLM 2025 compliant
-- **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities
-- **Cross-Platform** - Native Windows, macOS, Linux with auto-installation
-- **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot
-- **Multi-Format Reports** - JSON, HTML, Markdown, SARIF, JUnit
-- **Parallel Processing** - 10-40× faster with smart caching
-
-### 🚧 In Progress (v2025.9)
-
-- **Supply Chain Protection** - `medusa protect` for install-time scanning
-- **Malicious Package Database** - Known bad packages blocked before install
-- **Preinstall Script Analysis** - Detect env harvesting, backdoors
+- **3,000+ Detection Patterns** - Industry-leading AI security coverage
+- **76 Specialized Analyzers** - Comprehensive language and platform coverage
+- **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
+- **430 FP Filter Patterns** - 93.9% false positive reduction rate
+- **52% Faster Scans** - Single-pass file discovery, pre-compiled patterns, scanner caching
+- **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
+- **Dataset Poisoning Detection** - CSV, JSON, JSONL injection scanning
+- **Code-Level Prompt Injection** - F-string injection, ChatML tokens, role manipulation
+- **Cross-Platform** - Native Windows, macOS, Linux support
+- **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot, OpenAI Codex
 
 ### 🔮 Upcoming
 
-- **Web Dashboard** - Cloud-hosted security insights
+- **MEDUSA Professional** - Runtime proxy filters for production LLM protection
 - **GitHub App** - Automatic PR scanning
 - **VS Code Extension** - Native IDE integration
-- **Enterprise Features** - SSO, audit logs, team management
+- **REST API** - CI/CD pipeline integration
 
 ---
 
@@ -896,6 +872,22 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 
+## Coming Soon
+
+MEDUSA Professional adds **runtime protection** for production LLM applications - blocking prompt injection, jailbreaking, and data exfiltration attempts in real-time before they reach your models.
+
+| Feature | Open Source | Professional | Enterprise |
+|---------|-------------|--------------|------------|
+| Static scanning (3,000+ patterns) | Yes | Yes | Yes |
+| Runtime proxy filters (1,100+) | - | Yes | Yes |
+| REST API & webhooks | - | Yes | Yes |
+| Custom rules & SSO | - | - | Yes |
+| **Price** | Free | $99/dev/mo | $499/50 devs/mo |
+
+The runtime proxy is currently in private beta. If you're protecting production LLM applications and want early access, reach out to **support@pantheonsecurity.io**.
+
+---
+
 ## 🙏 Credits
 
 **Development:**
@@ -936,12 +928,15 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## 📈 Statistics
 
-**Version**: 2026.2.0
-**Release Date**: 2026-01-29
-**Detection Patterns**: 4,152+ AI security rules
+**Version**: 2026.2.3
+**Release Date**: 2026-02-15
+**Detection Patterns**: 3,000+ AI security rules
+**Analyzers**: 76 specialized scanners
+**FP Filter Patterns**: 430 intelligent filters (93.9% reduction rate)
+**CVE Coverage**: 133 critical vulnerabilities
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
-**AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor
+**AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor, OpenAI Codex
 **Standards**: OWASP Top 10 for LLM 2025, MITRE ATLAS
 **Downloads**: 11,500+ on PyPI
 
@@ -950,7 +945,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 ## 🌟 Why MEDUSA?
 
 ### vs. Bandit
-- ✅ 4,152+ patterns (not just Python security)
+- ✅ 3,000+ patterns (not just Python security)
 - ✅ AI/ML security coverage
 - ✅ Zero setup required
 - ✅ IDE integration
@@ -985,6 +980,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2026-01-29
+**Last Updated**: 2026-02-15
 **Status**: Production Ready
-**Current Version**: v2026.2.0 - AI Rules-First Architecture
+**Current Version**: v2026.2.3 - Performance Overhaul + Launch Ready

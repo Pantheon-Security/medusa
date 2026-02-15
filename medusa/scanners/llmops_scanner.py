@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class LLMOpsScanner(RuleBasedScanner):
@@ -235,6 +235,8 @@ class LLMOpsScanner(RuleBasedScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             # Check if file is LLMOps-related
             ops_indicators = [
                 'model', 'train', 'deploy', 'fine_tune', 'checkpoint',
@@ -302,7 +304,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message in self.FINETUNING_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LO004",
                         severity=Severity.HIGH,
@@ -325,7 +327,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message in self.FEEDBACK_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LO006",
                         severity=Severity.HIGH,
@@ -338,7 +340,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message in self.CHECKPOINT_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LO007",
                         severity=Severity.HIGH,
@@ -351,7 +353,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message in self.TRANSFER_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LO009",
                         severity=Severity.HIGH,
@@ -374,7 +376,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message, severity in self.RAY_VULNERABILITY_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     rule_id = message.split(':')[0] if ':' in message else "LO011"
                     issues.append(ScannerIssue(
                         rule_id=rule_id,
@@ -388,7 +390,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message, severity in self.VULNERABLE_ML_DEPS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LO013",
                         severity=severity,
@@ -401,7 +403,7 @@ class LLMOpsScanner(RuleBasedScanner):
             for pattern, message, severity in self.LORA_SECURITY_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     rule_id = message.split(':')[0] if ':' in message else "LO014"
                     issues.append(ScannerIssue(
                         rule_id=rule_id,

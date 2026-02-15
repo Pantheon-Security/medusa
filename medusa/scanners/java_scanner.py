@@ -5,7 +5,6 @@ Code quality scanner for Java files using Checkstyle
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -24,20 +23,16 @@ class JavaScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".java"]
 
-    def is_available(self) -> bool:
-        """Check if Checkstyle is installed"""
-        # Checkstyle can be installed as a jar or via package managers
-        return shutil.which("checkstyle") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Java file with Checkstyle"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="Checkstyle not installed. Install with: apt install checkstyle"
+                scan_time=time.time() - start_time, error_message=f"Checkstyle not installed. Install: {get_install_hint('checkstyle')}"
             )
 
         try:

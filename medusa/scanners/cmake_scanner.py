@@ -22,8 +22,9 @@ class CMakeScanner(BaseScanner):
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
-                error_message="cmake-lint not installed. Install with: pip install cmakelint")
+                error_message=f"cmake-lint not installed. Install: {get_install_hint('cmake-lint')}")
 
         try:
             cmd = shutil.which("cmake-lint") or shutil.which("cmakelint") or "cmakelint"

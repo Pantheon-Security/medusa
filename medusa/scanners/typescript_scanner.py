@@ -27,14 +27,15 @@ class TypeScriptScanner(BaseScanner):
         return shutil.which("tsc") is not None
 
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a TypeScript file with tsc"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, success=False, error_message="TypeScript not installed. Install with: npm install -g typescript"
+                scan_time=time.time() - start_time, success=False, error_message=f"TypeScript not installed. Install: {get_install_hint('tsc')}"
             )
 
         try:

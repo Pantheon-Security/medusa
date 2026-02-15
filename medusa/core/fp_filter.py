@@ -30,6 +30,11 @@ class FPReason(Enum):
     INTENTIONAL_WEAK = "intentional_weak"  # Self-documenting insecure usage
     MOCK_FILE = "mock_file"  # Mock/fake/stub test utilities
     TEST_DOCKERFILE = "test_dockerfile"  # Test/CI Dockerfile
+    CODE_STYLE = "code_style"  # Code style / linting (not security)
+    ML_COMMON = "ml_common"  # Common ML/data science pattern (not vuln)
+    BUILD_OUTPUT = "build_output"  # Finding in build/compiled output
+    GENERATED_CODE = "generated_code"  # Finding in auto-generated code
+    KNOWN_PATTERN = "known_pattern"  # Known FP from benchmark analysis
 
 
 @dataclass
@@ -47,12 +52,25 @@ class FilterResult:
 class FPPattern:
     """A known false positive pattern"""
     name: str
-    scanner: str  # Which scanner this applies to
+    scanner: Optional[str]  # Which scanner this applies to (None = any scanner)
     pattern: str  # Regex pattern to match in code
     context_pattern: Optional[str] = None  # Pattern in surrounding context
     file_pattern: Optional[str] = None  # File path pattern
+    file_pattern_negate: bool = False  # If True, filter when file does NOT match
     reason: FPReason = FPReason.SAFE_PATTERN
     confidence: float = 0.8
+    description: Optional[str] = None  # Human-readable explanation
+    _compiled_pattern: Optional[re.Pattern] = field(default=None, repr=False, init=False)
+    _compiled_file: Optional[re.Pattern] = field(default=None, repr=False, init=False)
+    _compiled_context: Optional[re.Pattern] = field(default=None, repr=False, init=False)
+
+    def __post_init__(self):
+        if self.pattern:
+            self._compiled_pattern = re.compile(self.pattern, re.IGNORECASE)
+        if self.file_pattern:
+            self._compiled_file = re.compile(self.file_pattern, re.IGNORECASE)
+        if self.context_pattern:
+            self._compiled_context = re.compile(self.context_pattern, re.IGNORECASE)
 
 
 class FalsePositiveFilter:
@@ -91,531 +109,66 @@ class FalsePositiveFilter:
         r'secure-memory', r'secure-storage', r'utils/secure',
     ]
 
-    # Known FP patterns by scanner
-    KNOWN_FP_PATTERNS: List[FPPattern] = [
-        # agentmemoryscanner - security wrapper patterns
-        FPPattern(
-            name="credential_to_secure_wrapper",
-            scanner="agentmemoryscanner",
-            pattern=r'(credential|password|secret|token)\s*[=:]\s*(SecureString|SecureCredential|SecurePassword)',
-            reason=FPReason.SECURITY_WRAPPER,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="secure_class_parameter",
-            scanner="agentmemoryscanner",
-            pattern=r'def\s+__init__\s*\([^)]*\b(credential|password|secret|token)\s*:',
-            context_pattern=r'class\s+Secure|class\s+Protected|class\s+Safe',
-            reason=FPReason.PARAMETER_TO_SECURE,
-            confidence=0.90,
-        ),
-        FPPattern(
-            name="credential_in_docstring",
-            scanner="agentmemoryscanner",
-            pattern=r'("""|\'\'\'|#).*\b(credential|password|secret|token)\b',
-            reason=FPReason.DOCSTRING,
-            confidence=0.95,
-        ),
-        # TypeScript security class constructor
-        FPPattern(
-            name="ts_secure_class_constructor",
-            scanner="agentmemoryscanner",
-            pattern=r'constructor\s*\([^)]*\b(credential|password|secret|token)\s*:',
-            context_pattern=r'class\s+Secure|class\s+Protected|export\s+class\s+Secure',
-            reason=FPReason.PARAMETER_TO_SECURE,
-            confidence=0.90,
-        ),
-        # TypeScript new SecureClass instantiation
-        FPPattern(
-            name="ts_new_secure_wrapper",
-            scanner="agentmemoryscanner",
-            pattern=r'new\s+(SecureString|SecureCredential|SecureObject)\s*\(',
-            reason=FPReason.SECURITY_WRAPPER,
-            confidence=0.95,
-        ),
-        # TypeScript/JS test placeholders
-        FPPattern(
-            name="ts_test_placeholder",
-            scanner="agentmemoryscanner",
-            pattern=r'(test|placeholder|dummy|mock|example|sample).*[\'\"](password|secret|token|credential)',
-            file_pattern=r'\.(test|spec)\.(ts|js)$|tests?/',
-            reason=FPReason.TEST_FILE,
-            confidence=0.90,
-        ),
-        # TypeScript JSDoc comments
-        FPPattern(
-            name="ts_jsdoc_credential",
-            scanner="agentmemoryscanner",
-            pattern=r'(/\*\*|\*|//).*\b(credential|password|secret|token)\b',
-            reason=FPReason.DOCSTRING,
-            confidence=0.95,
-        ),
+    # Pre-compiled alternation regexes for hot-path methods
+    # _check_security_wrapper: single regex instead of iterating SECURITY_WRAPPERS
+    _WRAPPER_RE = re.compile(
+        r'(?:' + '|'.join(re.escape(w) for w in SECURITY_WRAPPERS) + r')\s*\(',
+    )
+    # _check_security_wrapper: single regex instead of iterating SECURITY_METHODS
+    _METHOD_RE = re.compile(
+        r'\.(?:' + '|'.join(re.escape(m) for m in SECURITY_METHODS) + r')\s*\(',
+    )
+    # _check_security_module: single regex instead of iterating SECURITY_MODULE_PATTERNS
+    _SECURITY_MODULE_RE = re.compile(
+        '|'.join(SECURITY_MODULE_PATTERNS),
+        re.IGNORECASE,
+    )
+    # _check_test_file: pre-compiled pattern groups
+    _TEST_FILE_RE = re.compile(
+        '|'.join([
+            r'[/]tests?[/_]', r'_test\.py$', r'test_.*\.py$',
+            r'[/]specs?[/_]', r'\.spec\.(js|ts|tsx|jsx)$',
+            r'__tests__', r'[/]fixtures?[/_]',
+            r'\.test\.(js|ts|tsx|jsx)$',
+            r'\.e2e\.test\.', r'\.live\.test\.', r'\.fuzz\.test\.',
+            r'test[-_]helper',
+            r'_test\.go$',
+            r'testdata[/_]',
+            r'src/test/resources[/_]',
+        ])
+    )
+    _MOCK_FILE_RE = re.compile(
+        '|'.join([
+            r'mock[s]?\.go$', r'_mock\.go$', r'mock_.*\.go$',
+            r'fake[s]?\.go$', r'_fake\.go$', r'fake_.*\.go$',
+            r'stub[s]?\.go$', r'_stub\.go$',
+            r'mocks?[/_]', r'fakes?[/_]', r'stubs?[/_]',
+            r'\.mock\.(js|ts)$', r'__mocks__[/_]',
+        ])
+    )
+    _EXAMPLE_FILE_RE = re.compile(
+        '|'.join([
+            r'examples?[/_]',
+            r'samples?[/_]',
+            r'demos?[/_]',
+            r'tutorials?[/_]',
+            r'quickstart[/_]',
+            r'getting[_-]?started[/_]',
+        ])
+    )
+    _TOOLS_FILE_RE = re.compile(
+        '|'.join([
+            r'tools?[/_]',
+            r'scripts?[/_]',
+            r'utils?[/_]',
+            r'helpers?[/_]',
+            r'contrib[/_]',
+        ])
+    )
 
-        # pythonscanner - subprocess patterns
-        FPPattern(
-            name="subprocess_hardcoded_command",
-            scanner="pythonscanner",
-            pattern=r'subprocess\.(run|call|Popen)\s*\(\s*\[[\'"]\w+',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.70,  # Lower - still review
-        ),
-        FPPattern(
-            name="try_except_pass_cleanup",
-            scanner="pythonscanner",
-            pattern=r'except.*:\s*pass',
-            context_pattern=r'(finally|__del__|cleanup|close|shutdown|teardown)',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.60,
-        ),
+    # Known FP patterns - loaded from fp_patterns_db.py (see bottom of file)
+    KNOWN_FP_PATTERNS: List[FPPattern] = []
 
-        # aicontextscanner - documentation patterns
-        FPPattern(
-            name="upload_in_docs",
-            scanner="aicontextscanner",
-            pattern=r'(upload|publish|push)\s+(to\s+)?(pypi|npm|registry)',
-            file_pattern=r'\.(md|rst|txt)$|README|CHANGELOG|docs/',
-            reason=FPReason.DOCSTRING,
-            confidence=0.90,
-        ),
-
-        # =========================================================================
-        # Go/Semgrep: Non-cryptographic hash usage (cache keys, dedup, temp files)
-        # Source: FileBrowser FP analysis 2026-01-04
-        # =========================================================================
-
-        # MD5/SHA1 for cache key generation (directory sharding like git)
-        FPPattern(
-            name="go_hash_cache_key",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            context_pattern=r'(filepath\.Join|cache|Cache|cacheKey|cacheHash|\.dir)',
-            reason=FPReason.CACHE_KEY,
-            confidence=0.90,
-        ),
-        # Hash output used for directory sharding (hash[:1], hash[1:3])
-        FPPattern(
-            name="go_hash_directory_sharding",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            context_pattern=r'hash\[:\d+\]|hash\[\d+:\d+\]',
-            reason=FPReason.CACHE_KEY,
-            confidence=0.92,
-        ),
-        # MD5/SHA1 for temp file naming in uploads
-        FPPattern(
-            name="go_hash_upload_temp",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            context_pattern=r'(uploadID|tempFile|chunkID|uploads/|temp/)',
-            reason=FPReason.CACHE_KEY,
-            confidence=0.88,
-        ),
-        # MD5 for duplicate file detection (partial file sampling)
-        FPPattern(
-            name="go_md5_duplicate_detection",
-            scanner="semgrepscanner",
-            pattern=r'md5\.(New|Sum)',
-            context_pattern=r'(Duplicate|Dedup|Similar|partial|sample|8192)',
-            file_pattern=r'(duplicate|dedup)',
-            reason=FPReason.DUPLICATE_DETECTION,
-            confidence=0.90,
-        ),
-        # MD5/SHA1 for preview/thumbnail cache
-        FPPattern(
-            name="go_hash_preview_cache",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            file_pattern=r'(preview|thumbnail|cache)',
-            context_pattern=r'(cacheKey|cacheHash|AlbumArt|ModTime)',
-            reason=FPReason.CACHE_KEY,
-            confidence=0.88,
-        ),
-
-        # =========================================================================
-        # Go: Mock/test files using math/rand
-        # =========================================================================
-
-        # math/rand in mock files (test utilities)
-        FPPattern(
-            name="go_mathrand_mock_file",
-            scanner="semgrepscanner",
-            pattern=r'math/rand|"math/rand"',
-            file_pattern=r'(mock|Mock|_mock|mocks/|fake|Fake|stub)',
-            reason=FPReason.MOCK_FILE,
-            confidence=0.92,
-        ),
-        # math/rand in functions with Mock/Fake/Stub in name
-        FPPattern(
-            name="go_mathrand_mock_func",
-            scanner="semgrepscanner",
-            pattern=r'math/rand|"math/rand"',
-            context_pattern=r'func\s+(Create)?Mock|func\s+Fake|func\s+Stub|func\s+Random(Path|Term|Extension)',
-            reason=FPReason.MOCK_FILE,
-            confidence=0.88,
-        ),
-        # math/rand with self-documenting "Insecure" function name
-        FPPattern(
-            name="go_mathrand_insecure_named",
-            scanner="semgrepscanner",
-            pattern=r'math/rand|"math/rand"',
-            context_pattern=r'func\s+Insecure|func\s+NonSecure|func\s+Weak',
-            reason=FPReason.INTENTIONAL_WEAK,
-            confidence=0.95,
-        ),
-        # math/rand aliased when crypto/rand also imported
-        FPPattern(
-            name="go_mathrand_with_crypto",
-            scanner="semgrepscanner",
-            pattern=r'math\s+"math/rand"',
-            context_pattern=r'"crypto/rand"',
-            reason=FPReason.INTENTIONAL_WEAK,
-            confidence=0.90,
-        ),
-
-        # =========================================================================
-        # Docker: Test/CI Dockerfiles with :latest tag
-        # =========================================================================
-
-        # Playwright test Dockerfiles
-        FPPattern(
-            name="docker_playwright_latest",
-            scanner="dockermcpscanner",
-            pattern=r':latest',
-            file_pattern=r'Dockerfile\.(playwright|test|dev|ci)',
-            reason=FPReason.TEST_DOCKERFILE,
-            confidence=0.85,
-        ),
-        # Dockerfiles in test directories
-        FPPattern(
-            name="docker_test_dir_latest",
-            scanner="dockermcpscanner",
-            pattern=r':latest',
-            file_pattern=r'(test|tests|e2e|ci)/.*(Dockerfile|dockerfile)',
-            reason=FPReason.TEST_DOCKERFILE,
-            confidence=0.85,
-        ),
-
-        # =========================================================================
-        # Go: User-selectable checksum algorithms
-        # =========================================================================
-
-        # Function offering multiple hash algorithms (user choice)
-        FPPattern(
-            name="go_multi_algorithm_checksum",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            context_pattern=r'sha256\.New|sha512\.New|map\[string\]hash\.Hash',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.88,
-        ),
-        # Checksum function with algorithm parameter
-        FPPattern(
-            name="go_checksum_algo_param",
-            scanner="semgrepscanner",
-            pattern=r'(md5|sha1)\.(New|Sum)',
-            context_pattern=r'func\s+\w*(Checksum|Hash|Digest)\s*\([^)]*algo',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.85,
-        ),
-
-        # =========================================================================
-        # Trivy: AVD-DS findings on non-Dockerfile config files (Scanner Bug)
-        # Source: IOTstack, go8, FastAPI-boilerplate FP analysis 2026-01-11
-        # =========================================================================
-
-        # Trivy AVD-DS findings on YAML config files (not Dockerfiles)
-        FPPattern(
-            name="trivy_avd_on_golangci_yaml",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'\.golangci\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="trivy_avd_on_yarnrc",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'\.yarnrc\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="trivy_avd_on_precommit",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'\.pre-commit-config\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="trivy_avd_on_mkdocs",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'mkdocs\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="trivy_avd_on_pyproject",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'pyproject\.toml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        FPPattern(
-            name="trivy_avd_on_taskfile",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'Taskfile\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-
-        # =========================================================================
-        # Gitleaks: Documentation false positives
-        # Source: FastAPI-boilerplate, Dashy FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="gitleaks_apikey_in_docs",
-            scanner="gitleaksscanner",
-            pattern=r'generic-api-key',
-            file_pattern=r'(docs?[/\\]|README|\.md$)',
-            reason=FPReason.DOCSTRING,
-            confidence=0.90,
-        ),
-        FPPattern(
-            name="gitleaks_curl_auth_in_docs",
-            scanner="gitleaksscanner",
-            pattern=r'curl-auth-header',
-            file_pattern=r'(docs?[/\\]|README|\.md$|getting-started)',
-            reason=FPReason.DOCSTRING,
-            confidence=0.92,
-        ),
-        FPPattern(
-            name="gitleaks_jwt_in_docs",
-            scanner="gitleaksscanner",
-            pattern=r'generic-api-key',
-            file_pattern=r'(first-run|tutorial|example|quickstart)',
-            context_pattern=r'eyJ[A-Za-z0-9_-]+',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.90,
-        ),
-
-        # =========================================================================
-        # Trivy: Template and example directory false positives
-        # Source: IOTstack FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="trivy_avd_in_templates_dir",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'\.templates?[/\\]',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.85,
-        ),
-        FPPattern(
-            name="trivy_avd_in_service_yml",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'service\.ya?ml$',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.85,
-        ),
-        FPPattern(
-            name="trivy_avd_in_scripts_dir",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'scripts?[/\\].*Dockerfile',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.75,
-        ),
-
-        # =========================================================================
-        # Trivy: Empty/placeholder environment variable secrets
-        # Source: IOTstack FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="docker_empty_password_env",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-0031',
-            context_pattern=r'ENV\s+\w*(PASSWORD|SECRET|KEY|TOKEN)\s*["\']?\s*["\']?\s*$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.88,
-        ),
-        FPPattern(
-            name="docker_mqtt_password_placeholder",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-0031',
-            context_pattern=r'MQTT_PASSWORD\s*["\']?\s*["\']?',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.90,
-        ),
-
-        # =========================================================================
-        # Trivy: Kubernetes manifest best practices (AVD-KSV-*)
-        # Source: Flame FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="trivy_ksv_in_k8s_examples",
-            scanner="trivyscanner",
-            pattern=r'AVD-KSV-\d+',
-            file_pattern=r'k8s[/\\](base|overlays|examples?)',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.80,
-        ),
-        FPPattern(
-            name="trivy_ksv_in_deployment_yaml",
-            scanner="trivyscanner",
-            pattern=r'AVD-KSV-\d+',
-            file_pattern=r'k8s[/\\].*deployment\.ya?ml$',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.80,
-        ),
-
-        # =========================================================================
-        # Docker: .docker directory development files
-        # Source: Flame FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="trivy_avd_in_dot_docker",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'\.docker[/\\]',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.75,
-        ),
-        FPPattern(
-            name="trivy_avd_dev_dockerfile",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'Dockerfile\.(dev|multiarch|test|ci|build)',
-            reason=FPReason.TEST_DOCKERFILE,
-            confidence=0.80,
-        ),
-
-        # =========================================================================
-        # Official example/sample repositories (docker/awesome-compose, etc.)
-        # Source: docker/awesome-compose FP analysis 2026-01-11
-        # =========================================================================
-
-        FPPattern(
-            name="trivy_avd_in_compose_examples",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'(awesome-compose|compose-examples|docker-samples)[/\\]',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.85,
-        ),
-        FPPattern(
-            name="trivy_avd_on_compose_yaml",
-            scanner="trivyscanner",
-            pattern=r'AVD-DS-\d+',
-            file_pattern=r'compose\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.90,
-        ),
-        FPPattern(
-            name="trivy_cve_on_compose_yaml",
-            scanner="trivyscanner",
-            pattern=r'CVE-\d+-\d+',
-            file_pattern=r'compose\.ya?ml$',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.85,
-        ),
-
-        # =========================================================================
-        # Content-Based Safe Patterns (Non-Secret Content)
-        # Source: Agent0 FP analysis 2026-01-15
-        # =========================================================================
-
-        # Masked/redacted values (10+ asterisks)
-        FPPattern(
-            name="masked_asterisks",
-            scanner="gitleaksscanner",
-            pattern=r'\*{10,}',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        # Windows line endings / ShellCheck SC1017
-        FPPattern(
-            name="crlf_line_ending",
-            scanner="gitleaksscanner",
-            pattern=r'carriage return|SC1017',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.90,
-        ),
-        # HTML-encoded masked values in reports
-        FPPattern(
-            name="html_encoded_mask",
-            scanner="gitleaksscanner",
-            pattern=r'(&quot;|&#x27;|&#39;)\*{5,}',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.92,
-        ),
-        # Sentry DSNs are public by design
-        FPPattern(
-            name="sentry_dsn",
-            scanner="gitleaksscanner",
-            pattern=r'sentry[_.-]?(key|dsn|io)',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.90,
-        ),
-        # Values explicitly marked as example/test/mock
-        FPPattern(
-            name="example_marker",
-            scanner="gitleaksscanner",
-            pattern=r'["\'][^"\'"]*(example|sample|test|dummy|fake|mock)[^"\'"]*(key|token|secret|password)',
-            reason=FPReason.EXAMPLE_FILE,
-            confidence=0.92,
-        ),
-        # Obvious placeholder markers
-        FPPattern(
-            name="placeholder_text",
-            scanner="gitleaksscanner",
-            pattern=r'(YOUR_|REPLACE_|EXAMPLE_|CHANGEME|TODO:|FIXME:)[A-Z_]*',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-        # FedAuth session cookies in forensic captures
-        FPPattern(
-            name="fedauth_cookie",
-            scanner="gitleaksscanner",
-            pattern=r'FedAuth=[A-Za-z0-9+/=]{20,}',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.85,
-        ),
-        # Bash environment variable references (not hardcoded)
-        FPPattern(
-            name="env_var_bash",
-            scanner="gitleaksscanner",
-            pattern=r'\$\{[A-Z_][A-Z0-9_]*\}',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.92,
-        ),
-        # Windows environment variable references
-        FPPattern(
-            name="env_var_windows",
-            scanner="gitleaksscanner",
-            pattern=r'%[A-Z_][A-Z0-9_]*%',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.92,
-        ),
-        # Explicitly redacted content markers
-        FPPattern(
-            name="redacted_marker",
-            scanner="gitleaksscanner",
-            pattern=r'(REDACTED|MASKED|\[REMOVED\]|\[HIDDEN\]|XXXXXXX)',
-            reason=FPReason.SAFE_PATTERN,
-            confidence=0.95,
-        ),
-    ]
 
     def __init__(self, source_root: Optional[Path] = None):
         """
@@ -721,22 +274,21 @@ class FalsePositiveFilter:
         """Check if finding is in a security module (which handles secrets safely)"""
         file_path = finding.get('file', '').lower()
 
-        for pattern in self.SECURITY_MODULE_PATTERNS:
-            if re.search(pattern, file_path, re.IGNORECASE):
-                # Additional check: does the file have security methods?
-                full_context = '\n'.join(context)
-                has_security_methods = any(
-                    method in full_context.lower()
-                    for method in self.SECURITY_METHODS
-                )
+        if self._SECURITY_MODULE_RE.search(file_path):
+            # Additional check: does the file have security methods?
+            full_context = '\n'.join(context)
+            has_security_methods = any(
+                method in full_context.lower()
+                for method in self.SECURITY_METHODS
+            )
 
-                if has_security_methods:
-                    return FilterResult(
-                        is_likely_fp=True,
-                        confidence=0.85,
-                        reason=FPReason.SECURITY_MODULE,
-                        explanation=f"File appears to be a security module implementing credential protection (contains security methods like wipe/encrypt)"
-                    )
+            if has_security_methods:
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.85,
+                    reason=FPReason.SECURITY_MODULE,
+                    explanation=f"File appears to be a security module implementing credential protection (contains security methods like wipe/encrypt)"
+                )
 
         return FilterResult()
 
@@ -745,7 +297,7 @@ class FalsePositiveFilter:
         finding: Dict,
         context: List[str]
     ) -> FilterResult:
-        """Check if finding is in a docstring or comment"""
+        """Check if finding is in a docstring or comment (multi-language)"""
         # MCP/agent scanners: docstrings ARE the attack surface (tool descriptions)
         scanner = finding.get('scanner', '').lower()
         if scanner in ('mcpserverscanner', 'mcp_server_scanner', 'mcp-server-scanner',
@@ -763,37 +315,98 @@ class FalsePositiveFilter:
             return FilterResult()
 
         line = context[line_idx] if line_idx < len(context) else ""
-
-        # Check if line is a comment
         stripped = line.strip()
+
+        # --- Single-line comment detection (all languages) ---
+
+        # Python / Shell / Ruby / Perl / YAML
         if stripped.startswith('#'):
             return FilterResult(
                 is_likely_fp=True,
                 confidence=0.95,
                 reason=FPReason.DOCSTRING,
-                explanation="Finding is in a comment line"
+                explanation="Finding is in a # comment line"
             )
 
-        # Check if we're inside a docstring
-        # Look for docstring markers before and after
-        full_text = '\n'.join(context[:line_idx + 1])
+        # C-family / Go / Java / TypeScript / Rust / Swift / Kotlin
+        if stripped.startswith('//'):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.95,
+                reason=FPReason.DOCSTRING,
+                explanation="Finding is in a // comment line"
+            )
 
-        # Count docstring markers
+        # SQL / Lua / Haskell (-- prefix)
+        if stripped.startswith('-- ') or stripped.startswith('--\t') or stripped == '--':
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.93,
+                reason=FPReason.DOCSTRING,
+                explanation="Finding is in a -- comment line"
+            )
+
+        # HTML / XML comment
+        if stripped.startswith('<!--'):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.93,
+                reason=FPReason.DOCSTRING,
+                explanation="Finding is in an HTML/XML <!-- --> comment"
+            )
+
+        # JSDoc / Javadoc continuation line (starts with *)
+        if stripped.startswith('* ') or stripped.startswith('*/') or stripped == '*':
+            for i in range(line_idx - 1, max(line_idx - 30, -1), -1):
+                if i >= len(context):
+                    continue
+                prev = context[i].strip()
+                if prev.startswith('/*'):
+                    return FilterResult(
+                        is_likely_fp=True,
+                        confidence=0.95,
+                        reason=FPReason.DOCSTRING,
+                        explanation="Finding is in a /* ... */ block comment"
+                    )
+                if prev.endswith('*/'):
+                    break
+
+        # --- Block comment detection: /* ... */ ---
+        in_block_comment = False
+        for i in range(line_idx, -1, -1):
+            if i >= len(context):
+                continue
+            check_line = context[i]
+            if i < line_idx and '*/' in check_line:
+                break
+            if '/*' in check_line:
+                if check_line.count('/*') > check_line.count('*/'):
+                    in_block_comment = True
+                break
+
+        if in_block_comment:
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.95,
+                reason=FPReason.DOCSTRING,
+                explanation="Finding is inside a /* ... */ block comment"
+            )
+
+        # --- Python docstring detection ---
+        full_text = '\n'.join(context[:line_idx + 1])
         triple_double = full_text.count('"""')
         triple_single = full_text.count("'''")
 
-        # If odd number of markers, we're inside a docstring
         if triple_double % 2 == 1 or triple_single % 2 == 1:
             return FilterResult(
                 is_likely_fp=True,
                 confidence=0.95,
                 reason=FPReason.DOCSTRING,
-                explanation="Finding is inside a docstring"
+                explanation="Finding is inside a Python docstring"
             )
 
         # Check for inline docstring on the line
         if '"""' in line or "'''" in line:
-            # Check if it's a single-line docstring containing the keyword
             issue_keywords = ['password', 'credential', 'secret', 'token', 'key']
             for keyword in issue_keywords:
                 if keyword in finding.get('issue', '').lower():
@@ -823,26 +436,27 @@ class FalsePositiveFilter:
         end_idx = min(len(context), line_num + 5)
         local_context = '\n'.join(context[start_idx:end_idx])
 
-        # Check for security wrapper usage
-        for wrapper in self.SECURITY_WRAPPERS:
-            # Pattern: credential = SecureWrapper(...)
-            if re.search(rf'{wrapper}\s*\(', local_context):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.90,
-                    reason=FPReason.SECURITY_WRAPPER,
-                    explanation=f"Credential is wrapped in security class '{wrapper}' for protection"
-                )
+        # Check for security wrapper usage (pre-compiled alternation regex)
+        wrapper_match = self._WRAPPER_RE.search(local_context)
+        if wrapper_match:
+            matched_text = wrapper_match.group(0).rstrip('(').rstrip()
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.90,
+                reason=FPReason.SECURITY_WRAPPER,
+                explanation=f"Credential is wrapped in security class '{matched_text}' for protection"
+            )
 
-        # Check for security method calls
-        for method in self.SECURITY_METHODS:
-            if re.search(rf'\.{method}\s*\(', local_context):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.80,
-                    reason=FPReason.SECURITY_WRAPPER,
-                    explanation=f"Code uses security method '{method}' for credential protection"
-                )
+        # Check for security method calls (pre-compiled alternation regex)
+        method_match = self._METHOD_RE.search(local_context)
+        if method_match:
+            matched_text = method_match.group(0).lstrip('.').rstrip('(').rstrip()
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.80,
+                reason=FPReason.SECURITY_WRAPPER,
+                explanation=f"Code uses security method '{matched_text}' for credential protection"
+            )
 
         return FilterResult()
 
@@ -854,48 +468,63 @@ class FalsePositiveFilter:
         """Check against known FP patterns"""
         scanner = finding.get('scanner', '').lower()
         file_path = finding.get('file', '')
+        issue_text = finding.get('issue', '')
         line_num = finding.get('line') or 0
 
-        if not context:
-            return FilterResult()
+        # Get the line and surrounding context (may be empty for external tools)
+        line = ""
+        broader_context = ""
+        if context:
+            line_idx = min(line_num - 1, len(context) - 1) if line_num and line_num > 0 else 0
+            line = context[line_idx] if 0 <= line_idx < len(context) else ""
+            start_idx = max(0, line_idx - 20)
+            end_idx = min(len(context), line_idx + 10)
+            broader_context = '\n'.join(context[start_idx:end_idx])
 
-        # Get the line and surrounding context
-        line_idx = min(line_num - 1, len(context) - 1) if line_num and line_num > 0 else 0
-        line = context[line_idx] if 0 <= line_idx < len(context) else ""
-
-        # Broader context for context_pattern matching
-        start_idx = max(0, line_idx - 20)
-        end_idx = min(len(context), line_idx + 10)
-        broader_context = '\n'.join(context[start_idx:end_idx])
+        best_result = FilterResult()
 
         for fp_pattern in self.KNOWN_FP_PATTERNS:
             # Check scanner match
             if fp_pattern.scanner and fp_pattern.scanner != scanner:
                 continue
 
-            # Check file pattern
-            if fp_pattern.file_pattern:
-                if not re.search(fp_pattern.file_pattern, file_path, re.IGNORECASE):
-                    continue
+            # Skip if this pattern can't beat current best
+            if fp_pattern.confidence <= best_result.confidence:
+                continue
 
-            # Check main pattern on the line
-            if not re.search(fp_pattern.pattern, line, re.IGNORECASE):
+            # Check file pattern (supports negation via file_pattern_negate)
+            if fp_pattern._compiled_file:
+                matches_file = bool(fp_pattern._compiled_file.search(file_path))
+                if fp_pattern.file_pattern_negate:
+                    # Filter when file does NOT match the pattern
+                    if matches_file:
+                        continue
+                else:
+                    # Normal: filter when file DOES match the pattern
+                    if not matches_file:
+                        continue
+
+            # Check main pattern against source line OR issue text
+            compiled = fp_pattern._compiled_pattern
+            line_match = line and compiled and compiled.search(line)
+            issue_match = issue_text and compiled and compiled.search(issue_text)
+            if not line_match and not issue_match:
                 continue
 
             # Check context pattern if specified
-            if fp_pattern.context_pattern:
-                if not re.search(fp_pattern.context_pattern, broader_context, re.IGNORECASE):
+            if fp_pattern._compiled_context:
+                if not broader_context or not fp_pattern._compiled_context.search(broader_context):
                     continue
 
-            # Pattern matched
-            return FilterResult(
+            # Pattern matched - track best (highest confidence) match
+            best_result = FilterResult(
                 is_likely_fp=True,
                 confidence=fp_pattern.confidence,
                 reason=fp_pattern.reason,
                 explanation=f"Matches known safe pattern: {fp_pattern.name}"
             )
 
-        return FilterResult()
+        return best_result
 
     def _check_test_file(
         self,
@@ -905,83 +534,41 @@ class FalsePositiveFilter:
         """Check if finding is in a test file, mock file, or example directory"""
         file_path = finding.get('file', '').lower()
 
-        # Test file patterns
-        test_patterns = [
-            r'test[s]?[/_]', r'_test\.py$', r'test_.*\.py$',
-            r'spec[s]?[/_]', r'\.spec\.(js|ts)$',
-            r'__tests__', r'fixtures?[/_]',
-            # Go test files
-            r'_test\.go$',
-            # testdata directories
-            r'testdata[/_]',
-            # Test resources (Java/Kotlin)
-            r'src/test/resources[/_]',
-        ]
+        # Mock/fake file patterns (highest confidence, check first)
+        if self._MOCK_FILE_RE.search(file_path):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.92,  # High confidence for mock files
+                reason=FPReason.MOCK_FILE,
+                explanation="Finding is in a mock/fake/stub file (test infrastructure)"
+            )
 
-        # Mock/fake file patterns (higher confidence FP)
-        mock_patterns = [
-            r'mock[s]?\.go$', r'_mock\.go$', r'mock_.*\.go$',
-            r'fake[s]?\.go$', r'_fake\.go$', r'fake_.*\.go$',
-            r'stub[s]?\.go$', r'_stub\.go$',
-            r'mocks?[/_]', r'fakes?[/_]', r'stubs?[/_]',
-            # JS/TS mocks
-            r'\.mock\.(js|ts)$', r'__mocks__[/_]',
-        ]
+        # Test file patterns
+        if self._TEST_FILE_RE.search(file_path):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.85,  # Test files overwhelmingly contain test data
+                reason=FPReason.TEST_FILE,
+                explanation="Finding is in a test file (may contain intentional test credentials)"
+            )
 
         # Example/demo/sample directory patterns
-        example_patterns = [
-            r'examples?[/_]',
-            r'samples?[/_]',
-            r'demos?[/_]',
-            r'tutorials?[/_]',
-            r'quickstart[/_]',
-            r'getting[_-]?started[/_]',
-        ]
+        if self._EXAMPLE_FILE_RE.search(file_path):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.80,  # Examples/demos are educational, not production
+                reason=FPReason.EXAMPLE_FILE,
+                explanation="Finding is in an example/demo directory (educational code)"
+            )
 
         # Tools/scripts directory patterns (lower confidence)
-        tools_patterns = [
-            r'tools?[/_]',
-            r'scripts?[/_]',
-            r'utils?[/_]',
-            r'helpers?[/_]',
-            r'contrib[/_]',
-        ]
-
-        for pattern in mock_patterns:
-            if re.search(pattern, file_path):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.88,  # Higher confidence for mock files
-                    reason=FPReason.MOCK_FILE,
-                    explanation="Finding is in a mock/fake/stub file (test infrastructure)"
-                )
-
-        for pattern in test_patterns:
-            if re.search(pattern, file_path):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.70,  # Lower confidence - some test vulns are real
-                    reason=FPReason.TEST_FILE,
-                    explanation="Finding is in a test file (may contain intentional test credentials)"
-                )
-
-        for pattern in example_patterns:
-            if re.search(pattern, file_path):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.65,  # Lower confidence - examples may have real issues
-                    reason=FPReason.EXAMPLE_FILE,
-                    explanation="Finding is in an example/demo directory (educational code)"
-                )
-
-        for pattern in tools_patterns:
-            if re.search(pattern, file_path):
-                return FilterResult(
-                    is_likely_fp=True,
-                    confidence=0.50,  # Low confidence - tools may have real issues
-                    reason=FPReason.EXAMPLE_FILE,
-                    explanation="Finding is in a tools/scripts directory (utility code)"
-                )
+        if self._TOOLS_FILE_RE.search(file_path):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.50,  # Low confidence - tools may have real issues
+                reason=FPReason.EXAMPLE_FILE,
+                explanation="Finding is in a tools/scripts directory (utility code)"
+            )
 
         return FilterResult()
 
@@ -1078,3 +665,11 @@ def filter_scan_results(
     filtered, fps = fp_filter.filter_findings(findings)
     stats = fp_filter.get_stats(findings)
     return filtered, fps, stats
+
+
+# Late import to avoid circular dependency:
+# fp_patterns_db imports FPPattern and FPReason from this module, so it must
+# be imported after FPPattern/FPReason are defined. By placing this import at
+# module level (after the class definitions), Python can resolve it correctly.
+from medusa.core.fp_patterns_db import KNOWN_FP_PATTERNS  # noqa: E402
+FalsePositiveFilter.KNOWN_FP_PATTERNS = KNOWN_FP_PATTERNS

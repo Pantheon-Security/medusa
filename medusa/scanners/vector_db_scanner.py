@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class VectorDBScanner(BaseScanner):
@@ -159,6 +159,8 @@ class VectorDBScanner(BaseScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             content_lower = content.lower()
 
             # Check if file is vector DB-related
@@ -230,7 +232,7 @@ class VectorDBScanner(BaseScanner):
             for pattern, message in self.PII_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="VD003",
                         severity=Severity.HIGH,
@@ -245,7 +247,7 @@ class VectorDBScanner(BaseScanner):
             for pattern, message in self.SIMILARITY_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="VD004",
                         severity=Severity.MEDIUM,
@@ -272,7 +274,7 @@ class VectorDBScanner(BaseScanner):
             for pattern, message in self.ENDPOINT_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="VD006",
                         severity=Severity.CRITICAL,
@@ -299,7 +301,7 @@ class VectorDBScanner(BaseScanner):
             for pattern, message in self.EMBEDDING_PATTERNS:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="VD008",
                         severity=Severity.MEDIUM,

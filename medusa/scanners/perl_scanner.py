@@ -4,7 +4,7 @@ MEDUSA Perl Scanner
 Code quality and security scanner for Perl using Perl::Critic
 """
 
-import shutil, time
+import time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -21,19 +21,16 @@ class PerlScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".pl", ".pm", ".t"]
 
-    def is_available(self) -> bool:
-        """Check if perlcritic is installed"""
-        return shutil.which("perlcritic") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Perl file with perlcritic"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="Perl::Critic not installed. Install with: cpan Perl::Critic"
+                scan_time=time.time() - start_time, error_message=f"Perl::Critic not installed. Install: {get_install_hint('perlcritic')}"
             )
 
         try:

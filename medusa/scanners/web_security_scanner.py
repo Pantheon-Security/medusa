@@ -17,7 +17,9 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import (
+    RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _SEVERITY_MAP,
+)
 
 
 class WebSecurityScanner(RuleBasedScanner):
@@ -100,10 +102,14 @@ class WebSecurityScanner(RuleBasedScanner):
         """Wrapper for scan() to match abstract method signature"""
         return self.scan(file_path)
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Return high confidence for Flask/Django/web framework files.
         This ensures WebSecurityScanner runs on web apps instead of generic Semgrep.
+
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
         """
         import re
 
@@ -111,7 +117,10 @@ class WebSecurityScanner(RuleBasedScanner):
             return 0
 
         try:
-            content = file_path.read_text(errors='ignore')[:5000]  # Check first 5KB
+            if content_head is not None:
+                content = content_head[:5000]
+            else:
+                content = file_path.read_text(errors='ignore')[:5000]
         except IOError:
             return 0
 
@@ -253,13 +262,7 @@ class WebSecurityScanner(RuleBasedScanner):
                             seen_issues.add(key)
 
                             # Map severity
-                            severity_map = {
-                                'CRITICAL': Severity.CRITICAL,
-                                'HIGH': Severity.HIGH,
-                                'MEDIUM': Severity.MEDIUM,
-                                'LOW': Severity.LOW,
-                                'INFO': Severity.INFO,
-                            }
+                            severity_map = _SEVERITY_MAP
                             severity_str = rule.severity.value if hasattr(rule.severity, 'value') else str(rule.severity)
                             severity = severity_map.get(severity_str, Severity.MEDIUM)
 

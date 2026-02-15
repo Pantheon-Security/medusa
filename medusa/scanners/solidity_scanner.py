@@ -5,7 +5,6 @@ Security and best practices scanner for Solidity smart contracts using solhint
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class SolidityScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".sol"]
 
-    def is_available(self) -> bool:
-        """Check if solhint is installed"""
-        return shutil.which("solhint") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Solidity file with solhint"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="solhint not installed. Install with: npm install -g solhint"
+                scan_time=time.time() - start_time, error_message=f"solhint not installed. Install: {get_install_hint('solhint')}"
             )
 
         try:

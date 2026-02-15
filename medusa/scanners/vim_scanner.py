@@ -22,8 +22,9 @@ class VimScanner(BaseScanner):
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
-                error_message="Vint not installed. Install with: pip install vim-vint")
+                error_message=f"Vint not installed. Install: {get_install_hint('vint')}")
 
         try:
             result = self._run_command([str(self.tool_path), str(file_path)], timeout=30)

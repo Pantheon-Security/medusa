@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class AgentPlanningScanner(BaseScanner):
@@ -133,6 +133,8 @@ class AgentPlanningScanner(BaseScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             # Check if file contains planning patterns
             has_planning = any(
                 re.search(pattern, content, re.IGNORECASE)
@@ -177,7 +179,7 @@ class AgentPlanningScanner(BaseScanner):
                 for pattern in self.PLANNING_PATTERNS:
                     match = re.search(pattern, content, re.IGNORECASE)
                     if match:
-                        line = content[:match.start()].count('\n') + 1
+                        line = _get_line_number(_offsets, match.start())
                         issues.append(ScannerIssue(
                             rule_id="AP002",
                             severity=Severity.HIGH,
@@ -226,13 +228,13 @@ class AgentPlanningScanner(BaseScanner):
                 ))
 
             # Check for injection vulnerabilities
-            issues.extend(self._check_injection_vectors(content, file_path))
+            issues.extend(self._check_injection_vectors(content, file_path, _offsets))
 
             # Check for decomposition issues
-            issues.extend(self._check_decomposition(content, file_path))
+            issues.extend(self._check_decomposition(content, file_path, _offsets))
 
             # Check for authorization
-            issues.extend(self._check_authorization(content, file_path))
+            issues.extend(self._check_authorization(content, file_path, _offsets))
 
             return ScannerResult(
                 scanner_name=self.name,
@@ -253,7 +255,7 @@ class AgentPlanningScanner(BaseScanner):
             )
 
     def _check_injection_vectors(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for goal/instruction injection vulnerabilities"""
         issues = []
@@ -261,7 +263,7 @@ class AgentPlanningScanner(BaseScanner):
         for pattern, message in self.INJECTION_PATTERNS:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="AP005",
                     severity=Severity.CRITICAL,
@@ -283,7 +285,7 @@ class AgentPlanningScanner(BaseScanner):
         for pattern, message in untrusted_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="AP001",
                     severity=Severity.CRITICAL,
@@ -297,7 +299,7 @@ class AgentPlanningScanner(BaseScanner):
         return issues
 
     def _check_decomposition(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for unbounded task decomposition"""
         issues = []
@@ -319,7 +321,7 @@ class AgentPlanningScanner(BaseScanner):
         for pattern in decomp_patterns:
             match = re.search(pattern, content, re.IGNORECASE | re.DOTALL)
             if match and not has_depth_limit:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="AP008",
                     severity=Severity.HIGH,
@@ -333,7 +335,7 @@ class AgentPlanningScanner(BaseScanner):
         return issues
 
     def _check_authorization(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for plan modification authorization"""
         issues = []
@@ -356,7 +358,7 @@ class AgentPlanningScanner(BaseScanner):
         for pattern in modification_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match and not has_auth:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="AP009",
                     severity=Severity.MEDIUM,

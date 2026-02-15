@@ -4,7 +4,7 @@ MEDUSA Scala Scanner
 Code quality scanner for Scala using Scalastyle
 """
 
-import shutil, time
+import time
 import subprocess
 from pathlib import Path
 from typing import List
@@ -23,19 +23,16 @@ class ScalaScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".scala"]
 
-    def is_available(self) -> bool:
-        """Check if Scalastyle is installed"""
-        return shutil.which("scalastyle") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Scala file with Scalastyle"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="Scalastyle not installed. Install with: brew install scalastyle"
+                scan_time=time.time() - start_time, error_message=f"Scalastyle not installed. Install: {get_install_hint('scalastyle')}"
             )
 
         try:

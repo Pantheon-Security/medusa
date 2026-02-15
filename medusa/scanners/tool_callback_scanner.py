@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Set
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class ToolCallbackScanner(RuleBasedScanner):
@@ -47,90 +47,110 @@ class ToolCallbackScanner(RuleBasedScanner):
     # Patterns indicating tool execution
     TOOL_EXECUTION_PATTERNS = [
         # Python patterns
-        r'def\s+\w*tool\w*\s*\(',
-        r'@tool\s*(\(|$)',
-        r'execute_tool\s*\(',
-        r'run_tool\s*\(',
-        r'call_tool\s*\(',
-        r'tool\.(run|execute|call)',
-        r'tools\[.*\]\s*\(',
-        r'invoke_tool\s*\(',
+        re.compile(r'def\s+\w*tool\w*\s*\(', re.IGNORECASE),
+        re.compile(r'@tool\s*(\(|$)', re.IGNORECASE),
+        re.compile(r'execute_tool\s*\(', re.IGNORECASE),
+        re.compile(r'run_tool\s*\(', re.IGNORECASE),
+        re.compile(r'call_tool\s*\(', re.IGNORECASE),
+        re.compile(r'tool\.(run|execute|call)', re.IGNORECASE),
+        re.compile(r'tools\[.*\]\s*\(', re.IGNORECASE),
+        re.compile(r'invoke_tool\s*\(', re.IGNORECASE),
 
         # TypeScript/JavaScript patterns
-        r'async\s+\w*[Tt]ool\w*\s*\(',
-        r'handleTool\s*\(',
-        r'executeTool\s*\(',
-        r'runTool\s*\(',
-        r'tool\.execute\s*\(',
-        r'toolHandler\s*\(',
-        r'server\.setRequestHandler.*Tool',
-        r'CallToolRequestSchema',
+        re.compile(r'async\s+\w*[Tt]ool\w*\s*\(', re.IGNORECASE),
+        re.compile(r'handleTool\s*\(', re.IGNORECASE),
+        re.compile(r'executeTool\s*\(', re.IGNORECASE),
+        re.compile(r'runTool\s*\(', re.IGNORECASE),
+        re.compile(r'tool\.execute\s*\(', re.IGNORECASE),
+        re.compile(r'toolHandler\s*\(', re.IGNORECASE),
+        re.compile(r'server\.setRequestHandler.*Tool', re.IGNORECASE),
+        re.compile(r'CallToolRequestSchema', re.IGNORECASE),
     ]
 
     # Patterns indicating proper validation (good patterns)
     VALIDATION_PATTERNS = [
-        r'before_tool',
-        r'beforeTool',
-        r'pre_execute',
-        r'preExecute',
-        r'validate.*arg',
-        r'validateArg',
-        r'check.*permission',
-        r'checkPermission',
-        r'has_permission',
-        r'hasPermission',
-        r'authorize',
-        r'isAuthorized',
-        r'canExecute',
-        r'allowedTools',
-        r'permittedTools',
+        re.compile(r'before_tool', re.IGNORECASE),
+        re.compile(r'beforeTool', re.IGNORECASE),
+        re.compile(r'pre_execute', re.IGNORECASE),
+        re.compile(r'preExecute', re.IGNORECASE),
+        re.compile(r'validate.*arg', re.IGNORECASE),
+        re.compile(r'validateArg', re.IGNORECASE),
+        re.compile(r'check.*permission', re.IGNORECASE),
+        re.compile(r'checkPermission', re.IGNORECASE),
+        re.compile(r'has_permission', re.IGNORECASE),
+        re.compile(r'hasPermission', re.IGNORECASE),
+        re.compile(r'authorize', re.IGNORECASE),
+        re.compile(r'isAuthorized', re.IGNORECASE),
+        re.compile(r'canExecute', re.IGNORECASE),
+        re.compile(r'allowedTools', re.IGNORECASE),
+        re.compile(r'permittedTools', re.IGNORECASE),
     ]
 
     # Patterns for after-execution validation
     AFTER_VALIDATION_PATTERNS = [
-        r'after_tool',
-        r'afterTool',
-        r'post_execute',
-        r'postExecute',
-        r'validate.*result',
-        r'validateResult',
-        r'sanitize.*output',
-        r'sanitizeOutput',
-        r'filter.*response',
-        r'filterResponse',
+        re.compile(r'after_tool', re.IGNORECASE),
+        re.compile(r'afterTool', re.IGNORECASE),
+        re.compile(r'post_execute', re.IGNORECASE),
+        re.compile(r'postExecute', re.IGNORECASE),
+        re.compile(r'validate.*result', re.IGNORECASE),
+        re.compile(r'validateResult', re.IGNORECASE),
+        re.compile(r'sanitize.*output', re.IGNORECASE),
+        re.compile(r'sanitizeOutput', re.IGNORECASE),
+        re.compile(r'filter.*response', re.IGNORECASE),
+        re.compile(r'filterResponse', re.IGNORECASE),
     ]
 
     # Patterns indicating destructive operations
     DESTRUCTIVE_PATTERNS = [
-        (r'delete|remove|drop|truncate|destroy', 'Destructive operation'),
-        (r'rm\s+-rf|rmdir|unlink', 'File deletion'),
-        (r'exec|eval|spawn|system', 'Code execution'),
-        (r'write.{0,30}file|writeFile|fs\.write', 'File write'),
-        (r'update|modify|alter', 'Data modification'),
-        (r'send.{0,20}email|sendEmail|smtp', 'Email sending'),
-        (r'(post|put|patch).{0,30}http|fetch.{0,30}method.{0,10}POST', 'External API call'),
-        (r'subprocess|child_process|exec', 'Process execution'),
+        (re.compile(r'delete|remove|drop|truncate|destroy', re.IGNORECASE), 'Destructive operation'),
+        (re.compile(r'rm\s+-rf|rmdir|unlink', re.IGNORECASE), 'File deletion'),
+        (re.compile(r'exec|eval|spawn|system', re.IGNORECASE), 'Code execution'),
+        (re.compile(r'write.{0,30}file|writeFile|fs\.write', re.IGNORECASE), 'File write'),
+        (re.compile(r'update|modify|alter', re.IGNORECASE), 'Data modification'),
+        (re.compile(r'send.{0,20}email|sendEmail|smtp', re.IGNORECASE), 'Email sending'),
+        (re.compile(r'(post|put|patch).{0,30}http|fetch.{0,30}method.{0,10}POST', re.IGNORECASE), 'External API call'),
+        (re.compile(r'subprocess|child_process|exec', re.IGNORECASE), 'Process execution'),
     ]
 
     # Audit logging patterns
     AUDIT_PATTERNS = [
-        r'audit',
-        r'log.*tool',
-        r'logTool',
-        r'track.*execution',
-        r'record.*action',
-        r'emit.*event.*tool',
+        re.compile(r'audit', re.IGNORECASE),
+        re.compile(r'log.*tool', re.IGNORECASE),
+        re.compile(r'logTool', re.IGNORECASE),
+        re.compile(r'track.*execution', re.IGNORECASE),
+        re.compile(r'record.*action', re.IGNORECASE),
+        re.compile(r'emit.*event.*tool', re.IGNORECASE),
     ]
 
     # Rate limiting patterns
     RATE_LIMIT_PATTERNS = [
-        r'rate.*limit',
-        r'rateLimit',
-        r'throttle',
-        r'cooldown',
-        r'quota',
-        r'maxRequests',
-        r'requestLimit',
+        re.compile(r'rate.*limit', re.IGNORECASE),
+        re.compile(r'rateLimit', re.IGNORECASE),
+        re.compile(r'throttle', re.IGNORECASE),
+        re.compile(r'cooldown', re.IGNORECASE),
+        re.compile(r'quota', re.IGNORECASE),
+        re.compile(r'maxRequests', re.IGNORECASE),
+        re.compile(r'requestLimit', re.IGNORECASE),
+    ]
+
+    # Indicators that a file is related to AI agent tool execution.
+    # Without these, the scanner produces massive false positives on
+    # standard web apps (every CRUD operation matches destructive patterns).
+    AGENT_TOOL_INDICATORS = [
+        # MCP / Agent framework imports
+        'mcp', 'langchain', 'llama_index', 'llamaindex',
+        'autogen', 'crewai', 'semantic_kernel',
+        'tool_registry', 'tool_handler', 'tool_executor',
+        # MCP-specific patterns
+        'CallToolRequestSchema', 'ListToolsRequestSchema',
+        'setRequestHandler', 'MCPServer', 'mcp_server',
+        # Agent tool decorators and methods
+        '@tool', 'execute_tool', 'run_tool', 'call_tool',
+        'invoke_tool', 'tool.execute', 'tool.run',
+        'AgentExecutor', 'agent_executor',
+        # Tool callback patterns (the actual target of this scanner)
+        'before_tool', 'after_tool', 'tool_callback',
+        'beforeTool', 'afterTool', 'toolCallback',
     ]
 
     def __init__(self):
@@ -141,6 +161,23 @@ class ToolCallbackScanner(RuleBasedScanner):
 
     def get_file_extensions(self) -> List[str]:
         return [".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs"]
+
+    def can_scan(self, file_path: Path) -> bool:
+        """Only scan files that contain AI agent tool execution indicators.
+
+        Without this gate, every Python/JS file gets scanned and patterns
+        like 'delete|remove' and 'exec|eval' match standard CRUD code.
+        """
+        if file_path.suffix not in self.get_file_extensions():
+            return False
+
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                head = f.read(8192)  # First 8KB
+            head_lower = head.lower()
+            return any(ind.lower() in head_lower for ind in self.AGENT_TOOL_INDICATORS)
+        except OSError:
+            return False
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Wrapper for scan() to match abstract method signature"""
@@ -155,44 +192,47 @@ class ToolCallbackScanner(RuleBasedScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             content_lower = content.lower()
 
             # Check if file contains tool execution patterns
             has_tool_execution = any(
-                re.search(pattern, content, re.IGNORECASE)
+                pattern.search(content)
                 for pattern in self.TOOL_EXECUTION_PATTERNS
             )
 
             if not has_tool_execution:
-                # Still scan with YAML rules even if no tool execution patterns
-                lines = content.split('\n')
-                yaml_issues = self._scan_with_rules(lines, file_path)
+                # No tool execution patterns found - skip entirely.
+                # The can_scan() gate already confirmed this file has agent
+                # indicators, but without actual tool execution, there's
+                # nothing actionable to report.
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )
 
             # Check for validation patterns
             has_before_validation = any(
-                re.search(pattern, content, re.IGNORECASE)
+                pattern.search(content)
                 for pattern in self.VALIDATION_PATTERNS
             )
 
             has_after_validation = any(
-                re.search(pattern, content, re.IGNORECASE)
+                pattern.search(content)
                 for pattern in self.AFTER_VALIDATION_PATTERNS
             )
 
             has_audit = any(
-                re.search(pattern, content, re.IGNORECASE)
+                pattern.search(content)
                 for pattern in self.AUDIT_PATTERNS
             )
 
             has_rate_limit = any(
-                re.search(pattern, content, re.IGNORECASE)
+                pattern.search(content)
                 for pattern in self.RATE_LIMIT_PATTERNS
             )
 
@@ -200,9 +240,9 @@ class ToolCallbackScanner(RuleBasedScanner):
             if not has_before_validation:
                 # Find tool execution locations
                 for pattern in self.TOOL_EXECUTION_PATTERNS:
-                    matches = re.finditer(pattern, content, re.IGNORECASE)
+                    matches = pattern.finditer(content)
                     for match in matches:
-                        line = content[:match.start()].count('\n') + 1
+                        line = _get_line_number(_offsets, match.start())
                         issues.append(ScannerIssue(
                             rule_id="TC001",
                             severity=Severity.HIGH,
@@ -243,10 +283,10 @@ class ToolCallbackScanner(RuleBasedScanner):
                 ))
 
             # Check destructive operations
-            issues.extend(self._check_destructive_operations(content, file_path, has_before_validation))
+            issues.extend(self._check_destructive_operations(content, file_path, has_before_validation, _offsets))
 
             # Check for hardcoded permissions
-            issues.extend(self._check_hardcoded_permissions(content, file_path))
+            issues.extend(self._check_hardcoded_permissions(content, file_path, _offsets))
 
             # Check for session context usage
             issues.extend(self._check_session_context(content, file_path))
@@ -254,9 +294,11 @@ class ToolCallbackScanner(RuleBasedScanner):
             # Check error handling
             issues.extend(self._check_error_handling(content, file_path))
 
-            # Scan with YAML rules
-            lines = content.split('\n')
-            issues.extend(self._scan_with_rules(lines, file_path))
+            # NOTE: We deliberately do NOT call _scan_with_rules() here.
+            # The YAML rules (TOOL-CB-*) duplicate our hardcoded patterns
+            # but lack the context awareness of _check_destructive_operations()
+            # which checks for nearby validation/confirmation. Running both
+            # would double-count findings and add noise.
 
             return ScannerResult(
                 scanner_name=self.name,
@@ -277,15 +319,15 @@ class ToolCallbackScanner(RuleBasedScanner):
             )
 
     def _check_destructive_operations(
-        self, content: str, file_path: Path, has_validation: bool
+        self, content: str, file_path: Path, has_validation: bool, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check destructive operations have proper guards"""
         issues = []
 
         for pattern, description in self.DESTRUCTIVE_PATTERNS:
-            matches = list(re.finditer(pattern, content, re.IGNORECASE))
+            matches = list(pattern.finditer(content))
             for match in matches:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
 
                 # Check if there's a confirmation/validation nearby
                 context_start = max(0, match.start() - 500)
@@ -304,37 +346,37 @@ class ToolCallbackScanner(RuleBasedScanner):
                         message=f"{description} without validation/confirmation",
                         line=line,
                         column=1,
-                        suggestion="Add confirmation or validation before destructive operations",
+                        code="Add confirmation or validation before destructive operations",
                     ))
 
         return issues
 
     def _check_hardcoded_permissions(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for hardcoded permission values"""
         issues = []
 
         # Patterns indicating hardcoded permissions
         hardcoded_patterns = [
-            (r'allowed_tools\s*=\s*\[', 'Hardcoded allowed tools list'),
-            (r'permissions\s*=\s*\[', 'Hardcoded permissions list'),
-            (r'can_execute\s*=\s*True', 'Hardcoded execution permission'),
-            (r'isAdmin\s*=\s*true', 'Hardcoded admin flag'),
-            (r'role\s*[=:]\s*["\']admin["\']', 'Hardcoded admin role'),
+            (re.compile(r'allowed_tools\s*=\s*\[', re.IGNORECASE), 'Hardcoded allowed tools list'),
+            (re.compile(r'permissions\s*=\s*\[', re.IGNORECASE), 'Hardcoded permissions list'),
+            (re.compile(r'can_execute\s*=\s*True', re.IGNORECASE), 'Hardcoded execution permission'),
+            (re.compile(r'isAdmin\s*=\s*true', re.IGNORECASE), 'Hardcoded admin flag'),
+            (re.compile(r'role\s*[=:]\s*["\']admin["\']', re.IGNORECASE), 'Hardcoded admin role'),
         ]
 
         for pattern, description in hardcoded_patterns:
-            matches = re.finditer(pattern, content, re.IGNORECASE)
+            matches = pattern.finditer(content)
             for match in matches:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="TC008",
                     severity=Severity.MEDIUM,
                     message=description,
                     line=line,
                     column=1,
-                    suggestion="Use dynamic permission checks based on session context",
+                    code="Use dynamic permission checks based on session context",
                 ))
 
         return issues
@@ -347,22 +389,22 @@ class ToolCallbackScanner(RuleBasedScanner):
 
         # Check if file has tool execution but no session context
         has_tool_exec = any(
-            re.search(pattern, content, re.IGNORECASE)
+            pattern.search(content)
             for pattern in self.TOOL_EXECUTION_PATTERNS
         )
 
         session_patterns = [
-            r'session',
-            r'context',
-            r'user_id',
-            r'userId',
-            r'request\.user',
-            r'ctx\.',
-            r'state\.',
+            re.compile(r'session', re.IGNORECASE),
+            re.compile(r'context', re.IGNORECASE),
+            re.compile(r'user_id', re.IGNORECASE),
+            re.compile(r'userId', re.IGNORECASE),
+            re.compile(r'request\.user', re.IGNORECASE),
+            re.compile(r'ctx\.', re.IGNORECASE),
+            re.compile(r'state\.', re.IGNORECASE),
         ]
 
         has_session = any(
-            re.search(pattern, content, re.IGNORECASE)
+            pattern.search(content)
             for pattern in session_patterns
         )
 
@@ -373,7 +415,7 @@ class ToolCallbackScanner(RuleBasedScanner):
                 message="Tool execution without session/context tracking",
                 line=1,
                 column=1,
-                suggestion="Include session context for user/permission tracking",
+                code="Include session context for user/permission tracking",
             ))
 
         return issues
@@ -386,21 +428,21 @@ class ToolCallbackScanner(RuleBasedScanner):
 
         # Check for tool execution in try blocks
         try_patterns = [
-            r'try\s*:.{0,200}tool',
-            r'try\s*\{.{0,200}tool',
+            re.compile(r'try\s*:.{0,200}tool', re.IGNORECASE | re.DOTALL),
+            re.compile(r'try\s*\{.{0,200}tool', re.IGNORECASE | re.DOTALL),
         ]
 
         catch_patterns = [
-            r'except.*:',
-            r'catch\s*\(',
+            re.compile(r'except.*:', re.IGNORECASE),
+            re.compile(r'catch\s*\(', re.IGNORECASE),
         ]
 
-        has_try = any(re.search(p, content, re.IGNORECASE | re.DOTALL) for p in try_patterns)
-        has_catch = any(re.search(p, content, re.IGNORECASE) for p in catch_patterns)
+        has_try = any(p.search(content) for p in try_patterns)
+        has_catch = any(p.search(content) for p in catch_patterns)
 
         # Check if there's tool execution without error handling
         has_tool_exec = any(
-            re.search(pattern, content, re.IGNORECASE)
+            pattern.search(content)
             for pattern in self.TOOL_EXECUTION_PATTERNS
         )
 
@@ -411,7 +453,7 @@ class ToolCallbackScanner(RuleBasedScanner):
                 message="Tool execution without explicit error handling",
                 line=1,
                 column=1,
-                suggestion="Add try/catch or error handling for tool execution failures",
+                code="Add try/catch or error handling for tool execution failures",
             ))
 
         return issues

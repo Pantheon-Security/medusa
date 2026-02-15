@@ -64,14 +64,12 @@ class LLMGuardScanner(BaseScanner):
         return self.LLM_EXTENSIONS
 
     def is_available(self) -> bool:
-        """Check if llm-guard is available"""
-        if self._llm_guard_available is None:
-            try:
-                import llm_guard
-                self._llm_guard_available = True
-            except ImportError:
-                self._llm_guard_available = False
-        return self._llm_guard_available
+        """Always available - uses built-in static analysis patterns.
+
+        The llm-guard library is recommended for runtime protection but
+        this scanner performs its own static analysis without it.
+        """
+        return True
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Scan a single file"""
@@ -149,17 +147,17 @@ class LLMGuardScanner(BaseScanner):
 
         # Patterns that indicate unprotected user input in prompts
         injection_patterns = [
-            (r'f["\'][^"\']*\{user', "User input directly in f-string prompt"),
-            (r'\.format\([^)]*user', "User input in .format() prompt"),
-            (r'prompt\s*=\s*user', "User input assigned directly to prompt"),
-            (r'message\s*=.*\+.*user', "User input concatenated to message"),
-            (r'content.*\+.*input', "Input concatenated to content"),
-            (r'template.*\{.*input', "Input in template string"),
+            (re.compile(r'f["\'][^"\']*\{user', re.IGNORECASE), "User input directly in f-string prompt"),
+            (re.compile(r'\.format\([^)]*user', re.IGNORECASE), "User input in .format() prompt"),
+            (re.compile(r'prompt\s*=\s*user', re.IGNORECASE), "User input assigned directly to prompt"),
+            (re.compile(r'message\s*=.*\+.*user', re.IGNORECASE), "User input concatenated to message"),
+            (re.compile(r'content.*\+.*input', re.IGNORECASE), "Input concatenated to content"),
+            (re.compile(r'template.*\{.*input', re.IGNORECASE), "Input in template string"),
         ]
 
         for line_num, line in enumerate(lines, 1):
             for pattern, description in injection_patterns:
-                if re.search(pattern, line, re.IGNORECASE):
+                if pattern.search(line):
                     issues.append(ScannerIssue(
                         rule_id="LLG001",
                         severity=Severity.CRITICAL,
@@ -180,12 +178,12 @@ class LLMGuardScanner(BaseScanner):
 
         # PII patterns that might end up in LLM interactions
         pii_patterns = [
-            (r'ssn.*\d{3}[-\s]?\d{2}[-\s]?\d{4}', "Social Security Number pattern"),
-            (r'credit.*card.*\d{4}', "Credit card number"),
-            (r'email.*@.*\.(com|org|net)', "Email address"),
-            (r'phone.*\d{3}[-\s]?\d{3}[-\s]?\d{4}', "Phone number"),
-            (r'dob|birth.*date.*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', "Date of birth"),
-            (r'address.*\d+.*street|ave|road', "Street address"),
+            (re.compile(r'ssn.*\d{3}[-\s]?\d{2}[-\s]?\d{4}', re.IGNORECASE), "Social Security Number pattern"),
+            (re.compile(r'credit.*card.*\d{4}', re.IGNORECASE), "Credit card number"),
+            (re.compile(r'email.*@.*\.(com|org|net)', re.IGNORECASE), "Email address"),
+            (re.compile(r'phone.*\d{3}[-\s]?\d{3}[-\s]?\d{4}', re.IGNORECASE), "Phone number"),
+            (re.compile(r'dob|birth.*date.*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', re.IGNORECASE), "Date of birth"),
+            (re.compile(r'address.*\d+.*street|ave|road', re.IGNORECASE), "Street address"),
         ]
 
         for line_num, line in enumerate(lines, 1):
@@ -195,7 +193,7 @@ class LLMGuardScanner(BaseScanner):
                 continue
 
             for pattern, description in pii_patterns:
-                if re.search(pattern, line, re.IGNORECASE):
+                if pattern.search(line):
                     issues.append(ScannerIssue(
                         rule_id="LLG002",
                         severity=Severity.HIGH,
@@ -215,11 +213,11 @@ class LLMGuardScanner(BaseScanner):
 
         # Secrets patterns
         secret_patterns = [
-            (r'api[_-]?key.*["\'][a-zA-Z0-9]{20,}', "API key"),
-            (r'(password|passwd|pwd).*["\'][^"\']{8,}', "Password"),
-            (r'(secret|token).*["\'][a-zA-Z0-9]{16,}', "Secret/Token"),
-            (r'bearer.*[a-zA-Z0-9\-_.]{20,}', "Bearer token"),
-            (r'aws.*access.*key', "AWS access key"),
+            (re.compile(r'api[_-]?key.*["\'][a-zA-Z0-9]{20,}', re.IGNORECASE), "API key"),
+            (re.compile(r'(password|passwd|pwd).*["\'][^"\']{8,}', re.IGNORECASE), "Password"),
+            (re.compile(r'(secret|token).*["\'][a-zA-Z0-9]{16,}', re.IGNORECASE), "Secret/Token"),
+            (re.compile(r'bearer.*[a-zA-Z0-9\-_.]{20,}', re.IGNORECASE), "Bearer token"),
+            (re.compile(r'aws.*access.*key', re.IGNORECASE), "AWS access key"),
         ]
 
         for line_num, line in enumerate(lines, 1):
@@ -228,7 +226,7 @@ class LLMGuardScanner(BaseScanner):
                 continue
 
             for pattern, description in secret_patterns:
-                if re.search(pattern, line, re.IGNORECASE):
+                if pattern.search(line):
                     # Check if it's in a prompt context
                     if any(kw in line.lower() for kw in ['prompt', 'message', 'content', 'chat']):
                         issues.append(ScannerIssue(
@@ -308,16 +306,16 @@ class LLMGuardScanner(BaseScanner):
 
         # Patterns that might allow code execution
         code_patterns = [
-            (r'exec\s*\([^)]*response', "exec() on LLM response"),
-            (r'eval\s*\([^)]*response', "eval() on LLM response"),
-            (r'subprocess.*response', "subprocess with LLM response"),
-            (r'os\.system.*response', "os.system with LLM response"),
-            (r'__import__.*response', "dynamic import from response"),
+            (re.compile(r'exec\s*\([^)]*response', re.IGNORECASE), "exec() on LLM response"),
+            (re.compile(r'eval\s*\([^)]*response', re.IGNORECASE), "eval() on LLM response"),
+            (re.compile(r'subprocess.*response', re.IGNORECASE), "subprocess with LLM response"),
+            (re.compile(r'os\.system.*response', re.IGNORECASE), "os.system with LLM response"),
+            (re.compile(r'__import__.*response', re.IGNORECASE), "dynamic import from response"),
         ]
 
         for line_num, line in enumerate(lines, 1):
             for pattern, description in code_patterns:
-                if re.search(pattern, line, re.IGNORECASE):
+                if pattern.search(line):
                     issues.append(ScannerIssue(
                         rule_id="LLG007",
                         severity=Severity.CRITICAL,

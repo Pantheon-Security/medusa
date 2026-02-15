@@ -1,9 +1,9 @@
 """
 MEDUSA - AI Security Scanner
-4,152+ AI security detection patterns with 75 specialized analyzers.
+3,000+ AI security detection patterns with 76 specialized analyzers.
 """
 
-__version__ = "2026.2.0"
+__version__ = "2026.2.3"
 __author__ = "Pantheon Security"
 __license__ = "AGPL-3.0-or-later"
 

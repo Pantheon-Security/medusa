@@ -5,7 +5,6 @@ Code quality scanner for R using lintr
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class RScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".R", ".r"]
 
-    def is_available(self) -> bool:
-        """Check if R is installed"""
-        return shutil.which("Rscript") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan an R file with lintr"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="R not installed. Install from: https://www.r-project.org/"
+                scan_time=time.time() - start_time, error_message=f"R not installed. Install: {get_install_hint('Rscript')}"
             )
 
         try:

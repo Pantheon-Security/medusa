@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class AgentReflectionScanner(BaseScanner):
@@ -125,6 +125,8 @@ class AgentReflectionScanner(BaseScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            _offsets = _build_line_offsets(content)
+
             content_lower = content.lower()
 
             # Check if file contains reflection patterns
@@ -171,7 +173,7 @@ class AgentReflectionScanner(BaseScanner):
                 for pattern in self.REFLECTION_PATTERNS:
                     match = re.search(pattern, content, re.IGNORECASE)
                     if match:
-                        line = content[:match.start()].count('\n') + 1
+                        line = _get_line_number(_offsets, match.start())
                         issues.append(ScannerIssue(
                             rule_id="RF001",
                             severity=Severity.HIGH,
@@ -220,10 +222,10 @@ class AgentReflectionScanner(BaseScanner):
                 ))
 
             # Check for specific anti-patterns
-            issues.extend(self._check_cognitive_bias(content, file_path))
-            issues.extend(self._check_context_accumulation(content, file_path))
+            issues.extend(self._check_cognitive_bias(content, file_path, _offsets))
+            issues.extend(self._check_context_accumulation(content, file_path, _offsets))
             issues.extend(self._check_error_handling(content, file_path))
-            issues.extend(self._check_self_modification(content, file_path))
+            issues.extend(self._check_self_modification(content, file_path, _offsets))
 
             return ScannerResult(
                 scanner_name=self.name,
@@ -244,7 +246,7 @@ class AgentReflectionScanner(BaseScanner):
             )
 
     def _check_cognitive_bias(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for Producer-Critic in same context (cognitive bias)"""
         issues = []
@@ -260,7 +262,7 @@ class AgentReflectionScanner(BaseScanner):
         for pattern, message in patterns:
             match = re.search(pattern, content, re.IGNORECASE | re.MULTILINE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="RF005",
                     severity=Severity.MEDIUM,
@@ -274,7 +276,7 @@ class AgentReflectionScanner(BaseScanner):
         return issues
 
     def _check_context_accumulation(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for context window overflow risks"""
         issues = []
@@ -297,7 +299,7 @@ class AgentReflectionScanner(BaseScanner):
             for pattern, message in accumulation_patterns:
                 match = re.search(pattern, content, re.IGNORECASE)
                 if match:
-                    line = content[:match.start()].count('\n') + 1
+                    line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="RF003",
                         severity=Severity.MEDIUM,
@@ -341,7 +343,7 @@ class AgentReflectionScanner(BaseScanner):
         return issues
 
     def _check_self_modification(
-        self, content: str, file_path: Path
+        self, content: str, file_path: Path, _offsets: List[int] = None
     ) -> List[ScannerIssue]:
         """Check for self-modification without guardrails"""
         issues = []
@@ -357,7 +359,7 @@ class AgentReflectionScanner(BaseScanner):
         for pattern, message in modification_patterns:
             match = re.search(pattern, content, re.IGNORECASE)
             if match:
-                line = content[:match.start()].count('\n') + 1
+                line = _get_line_number(_offsets, match.start())
                 issues.append(ScannerIssue(
                     rule_id="RF010",
                     severity=Severity.CRITICAL,

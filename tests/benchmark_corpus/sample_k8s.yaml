@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vulnerable-app
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vulnerable-app
+  template:
+    metadata:
+      labels:
+        app: vulnerable-app
+    spec:
+      containers:
+        - name: app
+          image: myapp:latest
+          ports:
+            - containerPort: 8080
+          securityContext:
+            privileged: true
+            runAsRoot: true
+            readOnlyRootFilesystem: false
+          env:
+            - name: DATABASE_PASSWORD
+              value: "hardcoded-password-123"
+            - name: API_KEY
+              value: "sk-1234567890abcdef"
+          resources: {}
+          volumeMounts:
+            - name: host-volume
+              mountPath: /host
+      volumes:
+        - name: host-volume
+          hostPath:
+            path: /
+      hostNetwork: true
+      hostPID: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vulnerable-service
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      nodePort: 30080
+  selector:
+    app: vulnerable-app

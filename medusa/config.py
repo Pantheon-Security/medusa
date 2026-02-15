@@ -7,7 +7,7 @@ Handles .medusa.yml configuration files
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -67,8 +67,7 @@ class MedusaConfig:
         "bin/Release/",
         "obj/",
 
-        # === PHP dependencies ===
-        "vendor/",
+        # === PHP dependencies (covered by vendor/ above) ===
 
         # === Version control ===
         ".git/",
@@ -101,6 +100,9 @@ class MedusaConfig:
         "test/fixtures/",
         "test-fixtures/",
         "__fixtures__/",
+
+        # === MEDUSA's own files (don't scan ourselves) ===
+        ".medusa/",
     ])
 
     exclude_files: List[str] = field(default_factory=lambda: [
@@ -108,6 +110,10 @@ class MedusaConfig:
         "*.min.css",
         "*.bundle.js",
         "*.map",
+        # MEDUSA's own config files (don't scan ourselves)
+        ".medusa.yml",
+        "medusa.yml",
+        ".medusa-suppress.yml",
     ])
 
     # IDE integration settings
@@ -118,6 +124,8 @@ class MedusaConfig:
     ide_cursor_enabled: bool = False
     ide_vscode_enabled: bool = False
     ide_gemini_enabled: bool = False
+    ide_openai_enabled: bool = False
+    ide_copilot_enabled: bool = False
 
     # Scan settings
     workers: Optional[int] = None  # None = auto-detect
@@ -172,6 +180,12 @@ class MedusaConfig:
         gemini = ide.get('gemini_cli', {})
         config.ide_gemini_enabled = gemini.get('enabled', False)
 
+        openai = ide.get('openai', {})
+        config.ide_openai_enabled = openai.get('enabled', False)
+
+        copilot = ide.get('copilot', {})
+        config.ide_copilot_enabled = copilot.get('enabled', False)
+
         return config
 
     def to_dict(self) -> Dict[str, Any]:
@@ -203,6 +217,12 @@ class MedusaConfig:
                 'gemini_cli': {
                     'enabled': self.ide_gemini_enabled,
                 },
+                'openai': {
+                    'enabled': self.ide_openai_enabled,
+                },
+                'copilot': {
+                    'enabled': self.ide_copilot_enabled,
+                },
             },
             'workers': self.workers,
             'cache_enabled': self.cache_enabled,
@@ -212,26 +232,34 @@ class MedusaConfig:
 class ConfigManager:
     """Manage MEDUSA configuration files"""
 
-    DEFAULT_CONFIG_NAME = ".medusa.yml"
+    DEFAULT_CONFIG_NAME = "medusa.yml"
+    LEGACY_CONFIG_NAME = ".medusa.yml"
 
     @staticmethod
     def find_config(start_path: Path = None) -> Optional[Path]:
         """
-        Find .medusa.yml by walking up directory tree
+        Find medusa.yml by walking up directory tree.
+
+        Checks for medusa.yml first (visible), then .medusa.yml (legacy/hidden).
 
         Args:
             start_path: Starting directory (default: current directory)
 
         Returns:
-            Path to .medusa.yml or None if not found
+            Path to config file or None if not found
         """
         current = start_path or Path.cwd()
 
         # Walk up directory tree
         while current != current.parent:
-            config_file = current / ConfigManager.DEFAULT_CONFIG_NAME
-            if config_file.exists():
-                return config_file
+            # Prefer visible config (medusa.yml)
+            visible = current / ConfigManager.DEFAULT_CONFIG_NAME
+            if visible.exists():
+                return visible
+            # Fall back to hidden config (.medusa.yml)
+            hidden = current / ConfigManager.LEGACY_CONFIG_NAME
+            if hidden.exists():
+                return hidden
             current = current.parent
 
         return None

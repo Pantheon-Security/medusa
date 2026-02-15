@@ -5,7 +5,6 @@ Security scanner for Ruby files using RuboCop
 """
 
 import json, time
-import shutil
 import subprocess
 from pathlib import Path
 from typing import List
@@ -22,19 +21,16 @@ class RubyScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".rb", ".rake", ".gemspec"]
 
-    def is_available(self) -> bool:
-        """Check if RuboCop is installed"""
-        return shutil.which("rubocop") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
-        start_time = time.time()
         """Scan a Ruby file with RuboCop"""
+        start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="RuboCop not installed. Install with: gem install rubocop"
+                scan_time=time.time() - start_time, error_message=f"RuboCop not installed. Install: {get_install_hint('rubocop')}"
             )
 
         try:

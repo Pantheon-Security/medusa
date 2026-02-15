@@ -5,7 +5,6 @@ Code quality scanner for Haskell using HLint
 """
 
 import json, time
-import shutil
 from pathlib import Path
 from typing import List
 
@@ -21,17 +20,15 @@ class HaskellScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".hs", ".lhs"]
 
-    def is_available(self) -> bool:
-        return shutil.which("hlint") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(
                 file_path=file_path,
                 scanner_name=self.name,
                 issues=[],
-                scan_time=time.time() - start_time, error_message="HLint not installed. Install with: cabal install hlint"
+                scan_time=time.time() - start_time, error_message=f"HLint not installed. Install: {get_install_hint('hlint')}"
             )
 
         try:

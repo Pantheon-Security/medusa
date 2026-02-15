@@ -173,6 +173,7 @@ ALLOWLIST_CONTEXTS = [
     r'^\s*type\s*:',  # Rule type
     r'^\s*technique\s*:',  # Technique description
     r'^\s*attack_vector\s*:',  # Attack vector
+    r'^\s*attack_framework\s*:',  # Attack framework metadata
     r'^\s*example\s*:',  # Example (may contain attack strings)
     r'^\s*regex\s*:',  # Regex definition
     r'^\s*-\s*\\',  # YAML list with escaped regex

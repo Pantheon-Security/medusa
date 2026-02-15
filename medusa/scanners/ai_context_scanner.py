@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import List, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
 
 
 class AIContextScanner(RuleBasedScanner):
@@ -829,7 +829,7 @@ class AIContextScanner(RuleBasedScanner):
 
         return False
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """Return confidence score for AI context files"""
         if not self.can_scan(file_path):
             return 0
@@ -869,6 +869,8 @@ class AIContextScanner(RuleBasedScanner):
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
+
+            _offsets = _build_line_offsets(content)
 
             lines = content.split('\n')
 
@@ -998,7 +1000,7 @@ class AIContextScanner(RuleBasedScanner):
             ))
 
             # Scan for multi-line hidden tags
-            issues.extend(self._scan_multiline_hidden(content))
+            issues.extend(self._scan_multiline_hidden(content, _offsets))
 
             # NEW: Also scan using YAML rules from medusa/rules/
             issues.extend(self._scan_with_rules(lines, file_path))
@@ -1047,7 +1049,7 @@ class AIContextScanner(RuleBasedScanner):
 
         return issues
 
-    def _scan_multiline_hidden(self, content: str) -> List[ScannerIssue]:
+    def _scan_multiline_hidden(self, content: str, _offsets: List[int] = None) -> List[ScannerIssue]:
         """Scan for multi-line hidden instruction patterns"""
         issues = []
 
@@ -1062,7 +1064,7 @@ class AIContextScanner(RuleBasedScanner):
         for pattern, description in multiline_patterns:
             for match in re.finditer(pattern, content, re.IGNORECASE | re.DOTALL):
                 # Find line number
-                line_num = content[:match.start()].count('\n') + 1
+                line_num = _get_line_number(_offsets, match.start())
 
                 # Skip if we already reported this line
                 issues.append(ScannerIssue(

@@ -4,7 +4,7 @@ MEDUSA Zig Scanner
 Compiler-based checking for Zig using zig ast-check
 """
 
-import shutil, subprocess, time
+import subprocess, time
 from pathlib import Path
 from typing import List
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
@@ -16,14 +16,12 @@ class ZigScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return [".zig"]
 
-    def is_available(self) -> bool:
-        return shutil.which("zig") is not None
-
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         if not self.is_available():
+            from medusa.platform.installers.simple import get_install_hint
             return ScannerResult(file_path=file_path, scanner_name=self.name, issues=[], scan_time=time.time() - start_time, success=False,
-                error_message="Zig not installed. Install from: https://ziglang.org/download/")
+                error_message=f"Zig not installed. Install: {get_install_hint('zig')}")
 
         try:
             result = self._run_command([str(self.tool_path), "ast-check", str(file_path)], timeout=30)
