@@ -11,7 +11,7 @@
 
 **AI-first security scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
-**🚨 CVE Detection: React2Shell CVE-2025-55182, CVE-2025-6514 (mcp-remote RCE)**
+**🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **✨ NEW v2026.2.3: 52% faster scans, 430 FP filters, 133 CVEs, structural overhaul!**
 
 ---
@@ -24,7 +24,7 @@ MEDUSA is an AI-first security scanner with **3,000+ detection patterns** that w
 
 - 🤖 **3,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
-- 🚨 **CVE Detection** - React2Shell (CVE-2025-55182), Next.js vulnerabilities, supply chain risks
+- 🚨 **133 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support

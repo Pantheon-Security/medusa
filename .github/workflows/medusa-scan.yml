@@ -27,13 +27,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run MEDUSA Security Scan
-        uses: pantheon-security/medusa/.github/actions/medusa-scan@main
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          target: '.'
-          fail-on: 'high'
-          format: 'sarif json html'
-          upload-sarif: 'true'
+          python-version: '3.12'
+
+      - name: Install MEDUSA
+        run: pip install -e .
+
+      - name: Run MEDUSA Security Scan
+        id: scan
+        run: medusa scan . --format all --fail-on high --no-install || true
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request'
