@@ -70,8 +70,13 @@ class MCPRemoteRCEScanner(BaseScanner):
     def is_available(self) -> bool:
         return True
 
-    def get_confidence_score(self, file_path: Path) -> int:
-        """Return high confidence for package manifest files."""
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
+        """Return high confidence for package manifest files.
+
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
+        """
         if not self.can_scan(file_path):
             return 0
 
@@ -80,12 +85,15 @@ class MCPRemoteRCEScanner(BaseScanner):
         # High confidence for package manifest files
         if name_lower == 'package.json':
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    if any(pkg in content for pkg in self.MCP_REMOTE_PACKAGES):
-                        return 95  # Very high - this is what we're looking for
-                    if 'mcp' in content.lower():
-                        return 60  # Medium - MCP related but not mcp-remote
+                if content_head is not None:
+                    content = content_head
+                else:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                if any(pkg in content for pkg in self.MCP_REMOTE_PACKAGES):
+                    return 95  # Very high - this is what we're looking for
+                if 'mcp' in content.lower():
+                    return 60  # Medium - MCP related but not mcp-remote
             except (OSError, IOError, UnicodeDecodeError):
                 pass
             return 20  # Low - it's a package.json but no MCP
@@ -101,10 +109,13 @@ class MCPRemoteRCEScanner(BaseScanner):
         # TypeScript/JavaScript - check for mcp-remote usage
         if file_path.suffix in ['.ts', '.js', '.mjs']:
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read(5000)
-                    if 'mcp-remote' in content or 'authorization_endpoint' in content:
-                        return 80
+                if content_head is not None:
+                    content = content_head[:5000]
+                else:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        content = f.read(5000)
+                if 'mcp-remote' in content or 'authorization_endpoint' in content:
+                    return 80
             except (OSError, IOError, UnicodeDecodeError):
                 pass
             return 0

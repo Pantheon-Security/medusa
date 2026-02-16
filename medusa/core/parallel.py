@@ -600,7 +600,9 @@ class MedusaParallelScanner:
                     dedup_key = (issue.line, issue.message[:80] if issue.message else '')
                     if dedup_key not in seen_issues:
                         seen_issues.add(dedup_key)
-                        all_issues.append(issue.to_dict())
+                        d = issue.to_dict()
+                        d['_scanner_name'] = scanner_name  # Per-issue attribution
+                        all_issues.append(d)
                         issues_from_this += 1
 
                 scanner_issue_counts[scanner_name] = issues_from_this
@@ -1101,7 +1103,7 @@ class MedusaParallelScanner:
                     # Handle old dict format (backward compatibility)
                     if isinstance(issue, dict):
                         findings.append({
-                            'scanner': result.scanner or 'unknown',
+                            'scanner': issue.get('_scanner_name', result.scanner) or 'unknown',
                             'file': result.file,
                             'line': issue.get('line_number', issue.get('line', 0)),
                             'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),

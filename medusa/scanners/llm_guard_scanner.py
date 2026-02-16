@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import List, Optional
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
 
 
 class LLMGuardScanner(BaseScanner):
@@ -131,6 +131,9 @@ class LLMGuardScanner(BaseScanner):
         issues.extend(self._check_invisible_chars(content, file_path))
         issues.extend(self._check_code_injection(content, file_path))
         issues.extend(self._check_missing_guards(content, file_path))
+
+        # Context-aware FP filtering for defensive security / compliance / auth files
+        issues = filter_contextual_fps(issues, file_path, content)
 
         return ScannerResult(
             scanner_name=self.name,
@@ -252,9 +255,17 @@ class LLMGuardScanner(BaseScanner):
         ])
 
         if not has_toxicity_check:
-            # Check if file has LLM output handling
-            output_patterns = ['response', 'completion', 'output', 'result', 'answer']
-            if any(p in content.lower() for p in output_patterns):
+            # Only flag if file actually makes LLM API calls
+            llm_call_patterns = [
+                'chat.completions', 'openai.', 'anthropic.', 'messages.create',
+                'generate(', 'invoke(', '.predict(', 'llm(', 'llm.(',
+                'ChatOpenAI', 'ChatAnthropic', 'Ollama',
+            ]
+            has_llm_call = any(p in content for p in llm_call_patterns)
+            if has_llm_call:
+                # Look for LLM-specific output variables being returned
+                output_patterns = ['completion', 'llm_response', 'llm_output',
+                                   'ai_response', 'chat_response', 'generated']
                 for line_num, line in enumerate(lines, 1):
                     if any(p in line.lower() for p in output_patterns):
                         if 'return' in line.lower() or 'print' in line.lower():

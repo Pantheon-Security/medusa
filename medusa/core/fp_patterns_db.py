@@ -2,7 +2,7 @@
 """
 MEDUSA False Positive Patterns Database
 
-This module contains the KNOWN_FP_PATTERNS list -- 430 declarative FPPattern
+This module contains the KNOWN_FP_PATTERNS list -- 495 declarative FPPattern
 objects used by FalsePositiveFilter in fp_filter.py.
 
 Extracted from fp_filter.py to keep the data separate from the filter logic.
@@ -4764,6 +4764,1140 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
         reason=FPReason.KNOWN_PATTERN,
         confidence=0.85,
         description="Legitimate security boundary definition in a system prompt instructing the agent to refuse non-Prose tasks. This is a defensive prompt, not an obfuscation attack",
+    ),
+
+    # =========================================================================
+    # Category A: Defensive Security Code (21 findings)
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis
+    # Reason: Security tools (validators, scanners, audit loggers) are flagged
+    # for the detection regexes/patterns they contain. A secrets scanner that
+    # has a regex for "BEGIN RSA PRIVATE KEY" is NOT leaking a key; a response
+    # validator with a regex for "ignore previous instructions" is NOT prompt
+    # injection. These patterns are broad and apply to any security tooling.
+    # =========================================================================
+
+    # 353: Prompt injection detection regex in response validators
+    # Files named *-validator*, *response-validator*, *input-validator* contain
+    # detection regexes for prompt injection patterns. The scanner matches on
+    # the regex string itself (e.g. /ignore.*previous.*instructions/), which
+    # is the DETECTION code, not an actual injection attempt.
+    FPPattern(
+        name="prompt_injection_in_validator_regex",
+        scanner=None,
+        pattern=r'[Pp]rompt injection|instruction override|disregard previous|forget previous',
+        file_pattern=r'(?:response|input|prompt|content)[_-]?validat(?:or|ion)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.92,
+        description="Prompt injection detection regex in a validator/sanitizer file. The file contains detection patterns, not actual injection attempts",
+    ),
+
+    # 354: Private key detection regex in secrets scanners
+    # Files named *secrets-scanner*, *secret-detector*, *credential-scanner*
+    # contain regex patterns that match PEM headers like "BEGIN RSA PRIVATE KEY".
+    # The scanner matches the regex string as if it were an actual private key.
+    FPPattern(
+        name="private_key_regex_in_secrets_scanner",
+        scanner=None,
+        pattern=r'[Pp]rivate [Kk]ey',
+        file_pattern=r'(?:secret|credential|key|token)[s]?[_-]?(?:scanner|detector|checker|finder|scrubber|redact)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.93,
+        description="Private key detection regex in a secrets scanner/detector file. The regex pattern is used for detection, not an actual leaked key",
+    ),
+
+    # 355: Sensitive file exfiltration in secrets scanners
+    # Secrets scanners reference sensitive file paths (.env, .pem, id_rsa) in
+    # their detection patterns. The scanner flags this as "exfiltration" when
+    # the file is actually the detection tool itself.
+    FPPattern(
+        name="sensitive_file_ref_in_secrets_scanner",
+        scanner=None,
+        pattern=r'[Ss]ensitive file exfiltration|[Ss]ensitive file.*tool',
+        file_pattern=r'(?:secret|credential|key|token)[s]?[_-]?(?:scanner|detector|checker|finder|scrubber|redact)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.93,
+        description="Secrets scanner references sensitive file patterns for detection. The file IS the security tool, not performing exfiltration",
+    ),
+
+    # 356: Credential handling in redaction/sanitization functions
+    # Functions named redact*, sanitize*, mask*, scrub* that handle credentials
+    # are REMOVING sensitive data, not leaking it. Common in security modules,
+    # audit loggers, and validation tools.
+    FPPattern(
+        name="credential_in_redaction_function",
+        scanner=None,
+        pattern=r'[Cc]redentials? passed to agent|[Cc]redential',
+        context_pattern=r'(?:redact|sanitize|mask|scrub|censor|strip|remove|clean)[A-Za-z]*\s*[\(=:]|REDACTED|\[REDACTED\]|\*{3,}',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Credential reference appears in a redaction/sanitization function that REMOVES sensitive data rather than leaking it",
+    ),
+
+    # 357: Destructive operation / code execution in audit loggers
+    # Audit logger files contain functions like logConfigChange, logRetention,
+    # logDeletion. The scanner sees "delete", "remove", "execute" keywords in
+    # function names and flags them, but these are LOGGING operations.
+    FPPattern(
+        name="destructive_op_in_audit_logger",
+        scanner=None,
+        pattern=r'[Dd]estructive operation|[Cc]ode execution|[Ff]ile deletion|[Dd]ata modification|[Pp]rocess execution',
+        file_pattern=r'(?:audit|event)[_-]?log(?:ger|ging)?',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Destructive operation / code execution finding in an audit logger file. The file LOGS events, it does not perform destructive operations",
+    ),
+
+    # 358: Path traversal in secure file writing functions
+    # Files named *file-permissions*, *secure-write*, *safe-file* implement
+    # secure file operations (permission enforcement, path validation). The
+    # scanner flags the writeFile call but misses that the function IS the
+    # security control.
+    FPPattern(
+        name="path_traversal_in_secure_file_module",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:file[_-]?permissions?|secure[_-]?(?:write|file|io)|safe[_-]?file|file[_-]?(?:security|safety|guard))',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Path traversal finding in a secure file permissions/writing module. The file IS the security control that validates paths and enforces permissions",
+    ),
+
+    # 359: Credential handling in tool validation modules
+    # Files named *tool-validation*, *input-validation* sanitize tool inputs
+    # including credential parameters. The scanner sees credential keywords
+    # but the code is sanitizing/validating, not leaking.
+    FPPattern(
+        name="credential_in_tool_validation",
+        scanner=None,
+        pattern=r'[Cc]redentials? passed to agent|[Cc]redential',
+        file_pattern=r'(?:tool|input|param(?:eter)?|request)[_-]?validat(?:or|ion)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.88,
+        description="Credential reference in a tool/input validation module. The code validates and sanitizes inputs, not leaking credentials",
+    ),
+
+    # 360: Dynamic schema finding in tool validation modules
+    # Tool validation files may contain schema construction logic that the
+    # scanner flags as "dynamic schema / time-based conditional behavior".
+    # This is normal validation infrastructure.
+    FPPattern(
+        name="dynamic_schema_in_validation",
+        scanner=None,
+        pattern=r'[Dd]ynamic schema|time-based conditional',
+        file_pattern=r'(?:tool|input|param(?:eter)?|request|schema)[_-]?validat(?:or|ion)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.85,
+        description="Dynamic schema finding in a validation module. Schema construction in validators is expected behavior, not a vulnerability",
+    ),
+
+    # =========================================================================
+    # Category B: MCP Protocol Behavior (25 findings)
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis
+    # Reason: MCP servers follow the Model Context Protocol which requires
+    # specific patterns (tool definitions, request handlers, client-confirmed
+    # operations). When the server has its own validation layer (e.g.
+    # authenticateMCPRequest), these protocol-standard patterns are not vulns.
+    # =========================================================================
+
+    # 361: Tool definitions included in response - standard MCP list_tools
+    # MCP protocol REQUIRES servers to return tool definitions via list_tools.
+    # getToolDefinitions() / listTools() / tool schemas are protocol-mandated.
+    FPPattern(
+        name="mcp_tool_definitions_in_response",
+        scanner="mcpserverscanner",
+        pattern=r'[Tt]ool definitions? included in response',
+        context_pattern=r'(?:getToolDefinitions?|listTools?|ListToolsRequestSchema|tool_definitions?|filterTools?|ToolSchema)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.90,
+        description="MCP protocol requires servers to return tool definitions via list_tools handler. This is standard protocol behavior, not a vulnerability",
+    ),
+
+    # 362: Destructive operation without validation in MCP switch/case handlers
+    # MCP servers dispatch tool calls via switch/case on tool name. The MCP
+    # client provides confirmation for destructive operations. When the server
+    # has authentication (authenticateMCPRequest / validateRequest), flagging
+    # each case as "no validation" is incorrect.
+    FPPattern(
+        name="mcp_destructive_op_with_auth",
+        scanner="mcpserverscanner",
+        pattern=r'[Dd]estructive operation without validation|[Dd]ata modification without validation',
+        context_pattern=r'(?:authenticat(?:e|ion)|validateRequest|verifyAuth|checkPermission|authorize|isAuthorized)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.88,
+        description="MCP server has authentication/authorization layer. Destructive operations are validated by the auth middleware, not unvalidated",
+    ),
+
+    # 363: Tool execution without before_tool_callback
+    # MCP servers using setRequestHandler(CallToolRequestSchema) with their
+    # own auth/validation layer do not need the specific before_tool_callback
+    # pattern. This is a protocol implementation choice.
+    FPPattern(
+        name="mcp_tool_exec_with_own_validation",
+        scanner="mcpserverscanner",
+        pattern=r'[Tt]ool execution without before_tool_callback|No after_tool_callback',
+        context_pattern=r'(?:authenticat(?:e|ion)|validateRequest|verifyAuth|checkPermission|authorize|tool[_-]?validat)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP server implements its own validation layer instead of before_tool_callback. Server-side auth is an equivalent security control",
+    ),
+
+    # 364: Data leak channel: webhook in HMAC-signed webhook systems
+    # Webhook infrastructure with HMAC signing, event filtering, and
+    # configurable endpoints is a legitimate feature, not a data leak.
+    FPPattern(
+        name="webhook_with_hmac_signing",
+        scanner=None,
+        pattern=r'[Dd]ata [Ll]eak [Cc]hannel.*webhook|webhook.*[Dd]ata [Ll]eak',
+        context_pattern=r'(?:hmac|HMAC|createHmac|hmacSign|signPayload|webhook[_-]?(?:secret|signing|signature))',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="Webhook system uses HMAC signing for payload integrity. Signed webhooks with configurable event filtering are a secure feature, not a data leak channel",
+    ),
+
+    # 365: Data leak channel: webhook as intentional user-configured feature
+    # Webhook dispatchers, webhook managers, and configure_webhook tool
+    # handlers are intentional features that users configure themselves.
+    FPPattern(
+        name="webhook_dispatcher_intentional",
+        scanner=None,
+        pattern=r'[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)',
+        file_pattern=r'webhook[_-]?(?:dispatch|manager|handler|service|client)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="Webhook dispatcher/manager is an intentional user-configured feature. Users configure their own webhook endpoints, this is not a data leak",
+    ),
+
+    # 366: Over-privileged MCP tool access with settings-based filtering
+    # MCP servers that implement tool filtering via settings profiles or
+    # permission systems are NOT over-privileged. The scanner misses the
+    # filtering layer.
+    FPPattern(
+        name="mcp_tool_access_with_filtering",
+        scanner="mcpserverscanner",
+        pattern=r'[Oo]ver-privileged MCP tool access',
+        context_pattern=r'(?:filterTools?|settings[_-]?manager|tool[_-]?(?:filter|whitelist|allowlist)|enabledTools?|disabledTools?|profile)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP server implements tool filtering via settings/profiles. Tool access is restricted by configuration, not over-privileged",
+    ),
+
+    # 367: Agent with network access - MCP servers require network by design
+    # MCP servers are network services. Flagging "agent with network access"
+    # on an MCP server is tautological.
+    FPPattern(
+        name="mcp_server_network_access",
+        scanner=None,
+        pattern=r'[Aa]gent with network access',
+        context_pattern=r'(?:McpServer|MCPServer|createServer|StdioServerTransport|SSEServerTransport|server\.connect|mcp[_-]?server)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP servers are network services by design. Flagging network access on an MCP server is tautological",
+    ),
+
+    # 368: Agent with network access in cert-pinning / TLS security modules
+    # Certificate pinning, TLS verification, and network security modules
+    # ARE the network security controls. Flagging them is circular.
+    FPPattern(
+        name="network_access_in_cert_security",
+        scanner=None,
+        pattern=r'[Aa]gent with network access|[Aa]gent without.*validation',
+        file_pattern=r'(?:cert[_-]?pinn(?:ing|er)|tls[_-]?(?:verify|valid|config)|ssl[_-]?(?:verify|valid|config)|network[_-]?security)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.88,
+        description="Network access finding in a certificate pinning / TLS security module. The file IS the network security control",
+    ),
+
+    # 369: Code execution / process execution in MCP server error handlers
+    # MCP server error handlers (catch blocks, log.error) are flagged as
+    # "code execution" or "process execution". Error logging is not code exec.
+    FPPattern(
+        name="mcp_error_handler_code_exec",
+        scanner="mcpserverscanner",
+        pattern=r'[Cc]ode execution without validation|[Pp]rocess execution without validation',
+        context_pattern=r'(?:catch\s*\(|\.error\s*\(|log\.error|console\.error|handleError|onError)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Code/process execution finding in an error handler. Error logging and catch blocks are not code execution vulnerabilities",
+    ),
+
+    # 370: Agent with download/upload capability - intentional MCP tool features
+    # MCP tools that provide download/upload as user-facing features (e.g.
+    # download_audio, export_data) are intentional, not capability escalation.
+    FPPattern(
+        name="mcp_download_upload_feature",
+        scanner=None,
+        pattern=r'[Aa]gent with download.?upload capability',
+        context_pattern=r'(?:download_audio|export_data|upload_file|download_file|save_file|fetch_resource|download_document)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="Download/upload is an intentional user-facing MCP tool feature, not unauthorized capability escalation",
+    ),
+
+    # =========================================================================
+    # Category C: Compliance Code (8 findings)
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis
+    # Reason: GDPR compliance code (DSAR handlers, data erasure, data export,
+    # evidence collectors) handles PII and performs file operations because
+    # it is LEGALLY REQUIRED to do so. Flagging DSAR responses for containing
+    # PII or data erasure for writing files defeats the purpose.
+    # =========================================================================
+
+    # 371: PII in response in DSAR handlers
+    # GDPR Article 15 REQUIRES Data Subject Access Requests to return all
+    # stored PII to the data subject. Flagging this is contradicting the law.
+    FPPattern(
+        name="pii_in_dsar_handler",
+        scanner=None,
+        pattern=r'PII.*(?:in response|potentially in response)|[Ii]nformation [Dd]isclosure.*PII',
+        file_pattern=r'(?:dsar|data[_-]?subject|gdpr|privacy)[_-]?(?:handler|controller|service|processor|request)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.92,
+        description="GDPR DSAR handlers are legally required to return PII to data subjects. Flagging PII in DSAR responses contradicts legal requirements",
+    ),
+
+    # 372: Path traversal in data erasure / secure wipe
+    # GDPR Article 17 (Right to Erasure) requires secure data deletion.
+    # Secure wipe functions write random data over files before deletion.
+    # This is a legally mandated security operation.
+    FPPattern(
+        name="path_traversal_in_data_erasure",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:data[_-]?erasure|secure[_-]?(?:wipe|delete|erase)|gdpr[_-]?(?:delete|erase|cleanup))',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.90,
+        description="Data erasure module performs secure file operations as required by GDPR Article 17 (Right to Erasure). File writes are part of secure wipe procedure",
+    ),
+
+    # 373: Path traversal in data export / GDPR portability
+    # GDPR Article 20 (Right to Data Portability) requires exporting user
+    # data. Data export modules read stored data to produce export packages.
+    FPPattern(
+        name="path_traversal_in_data_export",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:data[_-]?export|data[_-]?portability|gdpr[_-]?export|user[_-]?export)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.90,
+        description="Data export module reads stored data as required by GDPR Article 20 (Right to Data Portability). File reads are necessary for producing export packages",
+    ),
+
+    # 374: Path traversal in evidence/audit evidence collectors
+    # Compliance evidence collectors read logs, configs, and audit trails
+    # to produce compliance reports. These file reads are the core function.
+    FPPattern(
+        name="path_traversal_in_evidence_collector",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:evidence[_-]?collect|audit[_-]?collect|compliance[_-]?(?:collect|evidence|report|gather))',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.88,
+        description="Evidence collector reads logs and audit trails to produce compliance reports. File reads are the core function of compliance evidence gathering",
+    ),
+
+    # 375: Broad compliance directory filter for path traversal
+    # Any file in a compliance/ directory performing file reads/writes is
+    # likely doing so for legitimate compliance reasons.
+    FPPattern(
+        name="path_traversal_in_compliance_dir",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'compliance[/\\]',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.83,
+        description="File operation in a compliance directory. Compliance modules handle file I/O for legal data handling requirements",
+    ),
+
+    # 376: LLM output toxicity check in compliance modules
+    # Compliance tools return structured compliance data (audit logs, DSAR
+    # responses, evidence reports). These are not raw LLM completions and
+    # do not need toxicity moderation.
+    FPPattern(
+        name="toxicity_check_in_compliance",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'compliance[/\\]|(?:dsar|data[_-]?(?:erasure|export)|evidence[_-]?collect)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.88,
+        description="Compliance modules return structured compliance data (DSAR responses, audit logs), not raw LLM completions. Toxicity moderation is not applicable to legal compliance output",
+    ),
+
+    # 377: MCP audit logging disabled in compliance modules
+    # Compliance modules may implement their own audit logging infrastructure
+    # that is separate from MCP's built-in logging. The scanner does not
+    # recognize the custom logging as equivalent.
+    FPPattern(
+        name="mcp_audit_disabled_in_compliance",
+        scanner=None,
+        pattern=r'MCP audit logging disabled|[Ll]ogging.*audit.*disabled',
+        file_pattern=r'(?:evidence[_-]?collect|compliance[/\\]|audit[_-]?log|query[_-]?log)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.85,
+        description="Compliance module implements its own audit logging infrastructure. Custom logging is equivalent to MCP built-in audit logging",
+    ),
+
+    # =========================================================================
+    # Category D: Documentation Strings (5 findings)
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis
+    # Reason: MCP tool description strings and constant arrays listing tool
+    # names contain keywords like "API KEY", "authentication", "credential"
+    # as documentation. These are metadata strings, not actual credentials
+    # or injection attempts.
+    # =========================================================================
+
+    # 378: Agent credential access from tool description mentioning API KEY
+    # MCP tool definitions contain description strings like "REQUIRES
+    # GEMINI_API_KEY" or "NO API KEY REQUIRED". These are documentation,
+    # not credential access.
+    FPPattern(
+        name="credential_in_tool_description",
+        scanner=None,
+        pattern=r'[Aa]gent with credential access|[Cc]redential',
+        context_pattern=r'(?:description\s*[:=]|inputSchema|toolDescription|DESCRIPTION|tool_description)\s*[`\'"]',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.88,
+        description="Credential keyword appears in a tool description/documentation string, not actual credential access. MCP tool descriptions naturally reference authentication requirements",
+    ),
+
+    # 379: Agent credential access from tool name arrays / constants
+    # Arrays listing tool names (GEMINI_TOOLS, TOOL_NAMES, availableTools)
+    # are configuration, not credential access.
+    FPPattern(
+        name="credential_in_tool_name_array",
+        scanner=None,
+        pattern=r'[Aa]gent with credential access',
+        context_pattern=r'(?:TOOLS|TOOL_NAMES|availableTools|enabledTools|toolList|tools\s*[:=]\s*\[)',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.85,
+        description="Credential finding triggered by a tool name array/constant. Arrays listing tool names are configuration, not credential access",
+    ),
+
+    # 380: Prompt injection in tool definition description fields
+    # MCP tool definitions file (definitions.ts, tool-schema.ts) with
+    # description fields containing LLM-related keywords are metadata.
+    FPPattern(
+        name="prompt_injection_in_tool_definition",
+        scanner=None,
+        pattern=r'[Pp]rompt injection|instruction override',
+        file_pattern=r'(?:definitions?|tool[_-]?schema|tool[_-]?spec)[/\\.]',
+        context_pattern=r'(?:description\s*[:=]|inputSchema|properties|parameters)',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.85,
+        description="Prompt injection finding in a tool definition file. Tool descriptions/schemas naturally contain LLM-related keywords as documentation",
+    ),
+
+    # =========================================================================
+    # Category E: Context-Lacking / Infrastructure Code (39 findings)
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis
+    # Reason: Infrastructure code (logging, SIEM, cert-pinning, change logs)
+    # performs internal file operations on its own config/log files. These are
+    # not path traversal vulnerabilities. Also, MCP tool result returns are
+    # flagged as "LLM output without toxicity check" when they are structured
+    # data responses, not raw LLM completions.
+    # =========================================================================
+
+    # 381: Path traversal in SIEM exporters / log readers
+    # SIEM exporters read their own log files for forwarding to SIEM systems.
+    # These are internal operations on known file paths.
+    FPPattern(
+        name="path_traversal_in_siem_exporter",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:siem[_-]?export|log[_-]?(?:export|forward|ship|collect|rotat))',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.88,
+        description="SIEM exporter/log forwarder reads its own log files for forwarding. File reads are internal operations on known log paths",
+    ),
+
+    # 382: Path traversal in change log / changelog readers
+    # Change log modules read their own log files to display change history.
+    FPPattern(
+        name="path_traversal_in_change_log",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:change[_-]?log|changelog|migration[_-]?log|version[_-]?log)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.85,
+        description="Change log module reads its own log files to display change history. File reads are internal operations on known paths",
+    ),
+
+    # 383: Path traversal in query loggers
+    # Query loggers read/write their own log files for analytics and audit.
+    FPPattern(
+        name="path_traversal_in_query_logger",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:query[_-]?log(?:ger)?|sql[_-]?log|db[_-]?log)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.85,
+        description="Query logger reads/writes its own log files for analytics. File operations are internal logging infrastructure",
+    ),
+
+    # 384: Path traversal in PDF chunker / document processor
+    # Document processing modules (PDF chunkers, text extractors) read input
+    # files as their core function. The file path comes from the user's
+    # explicit tool call, not from untrusted input.
+    FPPattern(
+        name="path_traversal_in_doc_processor",
+        scanner=None,
+        pattern=r'[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated',
+        file_pattern=r'(?:pdf[_-]?chunk|doc[_-]?process|text[_-]?extract|document[_-]?pars)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.83,
+        description="Document processing module reads files as its core function. File paths come from explicit user tool calls, not untrusted input",
+    ),
+
+    # 385: LLM output toxicity check on MCP tool result returns
+    # MCP tool handlers return structured JSON results (content arrays with
+    # type/text fields). These are tool outputs, not raw LLM completions.
+    # Toxicity moderation applies to LLM-generated text, not tool results.
+    FPPattern(
+        name="toxicity_check_on_mcp_tool_result",
+        scanner="mcpserverscanner",
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        context_pattern=r'(?:return\s*\{|content\s*:\s*\[|type\s*:\s*[\'"]text[\'"]|TextContent|toolResult|ToolResponse)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP tool handler returns structured JSON results. Tool outputs are structured data, not raw LLM completions needing toxicity moderation",
+    ),
+
+    # 386: LLM output toxicity check in response validators
+    # Response validators that CHECK content for safety are flagged for not
+    # having a toxicity check. The validator IS the toxicity/safety check.
+    FPPattern(
+        name="toxicity_check_in_response_validator",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:response|output|content)[_-]?(?:validat|filter|moderat|sanitiz|check)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Response validator/content filter IS the safety check. Flagging the safety checker for not having a safety check is circular",
+    ),
+
+    # 387: LLM API calls without guards at import statements (broader)
+    # Scanner fires "LLM API calls detected without input/output guards" at
+    # files that import or reference LLM libraries, particularly at line 1
+    # where import statements live. Broader than pattern 349 (any scanner).
+    FPPattern(
+        name="llm_api_calls_at_import_line",
+        scanner=None,
+        pattern=r'LLM API calls detected without input.?output guards',
+        file_pattern=r'compliance[/\\]|(?:dsar|evidence|data[_-]?(?:erasure|export))',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.85,
+        description="LLM API guard finding in compliance code that does not make LLM API calls. Scanner triggered on import statements or module-level config",
+    ),
+
+    # 388: Sensitive data in MCP logs - intentional debug/startup logging
+    # MCP servers log startup configuration (enabled tools, port, transport)
+    # for debugging. This is standard server behavior, not data leakage.
+    FPPattern(
+        name="sensitive_data_in_mcp_startup_logs",
+        scanner=None,
+        pattern=r'[Ss]ensitive data in MCP logs|[Ss]ensitive data in.*logs',
+        context_pattern=r'(?:console\.log|log\.info|log\.debug|logger\.info|logger\.debug).*(?:start|init|config|listen|port|transport|enabled)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.83,
+        description="MCP server logs startup configuration (enabled tools, port, transport) for debugging. This is standard server startup logging, not data leakage",
+    ),
+
+    # 389: Sensitive data in MCP logs - run discovery / notebook metadata
+    # Logging notebook IDs or run metadata for debugging is not sensitive
+    # data leakage. These are internal identifiers.
+    FPPattern(
+        name="sensitive_data_in_discovery_logs",
+        scanner=None,
+        pattern=r'[Ss]ensitive data in MCP logs',
+        file_pattern=r'(?:run[_-]?discover|notebook[_-]?creat|discovery)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.83,
+        description="Logging notebook IDs or run metadata for debugging. Internal identifiers are not sensitive data",
+    ),
+
+    # 390: Data URI with base64 in resource handlers / icon files
+    # MCP resource handlers return data URIs (data:image/png;base64,...) for
+    # icons and thumbnails. These are standard web resource patterns.
+    FPPattern(
+        name="data_uri_in_resource_handler",
+        scanner=None,
+        pattern=r'[Dd]ata URI with base64',
+        file_pattern=r'(?:resource[_-]?handler|icon|thumbnail|image[_-]?(?:util|handler|serve))',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Data URI with base64 in resource handlers or icon files. Base64-encoded images are standard web resource patterns, not payload injection",
+    ),
+
+    # 391: Model extraction risk in Gemini client query logging
+    # Gemini client files that log queries for debugging/analytics. Query
+    # logging for a user's own API calls is standard observability, not
+    # model extraction.
+    FPPattern(
+        name="model_extraction_in_api_client",
+        scanner=None,
+        pattern=r'[Mm]odel [Ee]xtraction [Rr]isk|[Qq]uery logging.*model extraction',
+        file_pattern=r'(?:gemini|openai|anthropic|llm|ai)[_-]?client',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.83,
+        description="Query logging in an API client is standard observability for the user's own API calls. This is not model extraction attack infrastructure",
+    ),
+
+    # 392: Misinformation risk / fact-checking disabled in API clients
+    # API client configuration files may disable grounding/fact-checking
+    # for certain use cases. This is a configuration choice, not a vuln.
+    FPPattern(
+        name="misinformation_risk_in_api_client",
+        scanner=None,
+        pattern=r'[Mm]isinformation [Rr]isk|[Ff]act.?checking.*disabled|[Gg]rounding disabled',
+        file_pattern=r'(?:gemini|openai|anthropic|llm|ai)[_-]?client',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.80,
+        description="Fact-checking/grounding configuration in an API client. Disabling grounding for specific use cases is a configuration choice documented in the code",
+    ),
+
+    # 393: Direct document parsing in API clients
+    # API clients that parse documents (PDF, HTML) as part of their core
+    # function. The scanner warns about passing parsed output to code
+    # execution, but API clients process documents for analysis, not exec.
+    FPPattern(
+        name="direct_doc_parsing_in_api_client",
+        scanner=None,
+        pattern=r'[Dd]irect document parsing|document parsing.*code execution',
+        file_pattern=r'(?:gemini|openai|anthropic|llm|ai)[_-]?client',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.83,
+        description="API client parses documents as its core function. Document analysis results are not passed to code execution",
+    ),
+
+    # 394: LLM output toxicity check on chat history / conversation display
+    # Chat history tools return stored conversation data. This is retrieval
+    # of previously stored messages, not new LLM output.
+    FPPattern(
+        name="toxicity_check_on_chat_history",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:chat[_-]?histor|conversation[_-]?(?:log|histor|display)|message[_-]?histor)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Chat history tools return previously stored conversations. This is data retrieval, not new LLM output needing toxicity moderation",
+    ),
+
+    # 395: LLM output toxicity check on system/status tool definitions
+    # System status tools, health checks, and diagnostic tools return
+    # operational data, not LLM-generated content.
+    FPPattern(
+        name="toxicity_check_on_system_tools",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:system|status|health|diagnostic|monitor)[_-]?(?:tool|handler|check)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="System/status tools return operational data (uptime, health metrics), not LLM-generated content needing toxicity moderation",
+    ),
+
+    # 396: Agent action without logging in large handler files
+    # Large MCP handler files may have some actions without explicit log
+    # statements on the same line, but the handler infrastructure includes
+    # centralized logging. Low confidence - only for INFO severity.
+    FPPattern(
+        name="agent_action_without_logging_handlers",
+        scanner=None,
+        pattern=r'[Aa]gent action without logging',
+        file_pattern=r'handler',
+        context_pattern=r'(?:log\.|logger\.|console\.log|audit|AuditLogger|createLogger)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.80,
+        description="Handler file has centralized logging infrastructure. Individual actions may not have per-line logging but are covered by the centralized audit system",
+    ),
+
+    # 397: Agent with filesystem write/delete in MCP tool handlers
+    # MCP tool handlers that implement file management tools (save, delete,
+    # organize) are providing intentional user-facing features.
+    FPPattern(
+        name="filesystem_access_in_mcp_handlers",
+        scanner=None,
+        pattern=r'[Aa]gent with filesystem (?:write|delete|read)',
+        context_pattern=r'(?:handleTool|toolHandler|case\s+[\'"]|CallToolRequestSchema|setRequestHandler)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP tool handler provides filesystem operations as intentional user-facing features. These are tool capabilities, not unauthorized access",
+    ),
+
+    # 398: Secret-dependent conditional in browser session / auth code
+    # Timing attack warnings on secret comparisons in browser automation
+    # sessions where the secret is compared against a known value during
+    # session setup, not in a security-critical auth path.
+    FPPattern(
+        name="timing_attack_in_browser_session",
+        scanner=None,
+        pattern=r'[Ss]ecret-dependent conditional.*timing attack|timing attack risk',
+        file_pattern=r'(?:browser[_-]?session|puppeteer|playwright|automation)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.80,
+        description="Timing attack warning in browser automation session. Session setup comparisons are not in a security-critical authentication path",
+    ),
+
+    # 399: Logging/audit disabled in browser session
+    # Browser automation sessions may disable verbose logging for performance.
+    # The application has centralized audit logging elsewhere.
+    FPPattern(
+        name="logging_disabled_in_browser_session",
+        scanner=None,
+        pattern=r'[Ll]ogging.*audit.*disabled|[Aa]udit.*disabled',
+        file_pattern=r'(?:browser[_-]?session|puppeteer|playwright|automation)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.80,
+        description="Browser automation session may disable verbose logging for performance. Centralized audit logging is handled elsewhere in the application",
+    ),
+
+    # 400: LLM output toxicity on browser session responses
+    # Browser automation sessions return page content and screenshots.
+    # These are web page captures, not LLM-generated text.
+    FPPattern(
+        name="toxicity_check_on_browser_session",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:browser[_-]?session|puppeteer|playwright|automation[_-]?(?:handler|session))',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Browser automation sessions return page content and screenshots. Web page captures are not LLM-generated text needing toxicity moderation",
+    ),
+
+    # 401: LLM output toxicity in Gemini/LLM client response handling
+    # The LLM client itself is where the response is received. If the app
+    # has a response validator, toxicity checking happens at a different
+    # layer. Flagging the raw client is noise when the app has validators.
+    FPPattern(
+        name="toxicity_check_in_llm_client",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:gemini|openai|anthropic|llm|ai)[_-]?client',
+        context_pattern=r'(?:response[_-]?validat|content[_-]?filter|safety[_-]?check|moderat)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.83,
+        description="LLM client has a response validator/content filter layer for toxicity checking. Flagging the raw API client when validators exist is redundant",
+    ),
+
+    # 402: LLM output toxicity on data-erasure completion results
+    # Data erasure modules return completion status messages, not LLM text.
+    FPPattern(
+        name="toxicity_check_on_data_erasure",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:data[_-]?erasure|secure[_-]?(?:wipe|delete|erase))',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.88,
+        description="Data erasure module returns completion status, not LLM-generated text. Erasure confirmation messages do not need toxicity moderation",
+    ),
+
+    # 403: LLM output toxicity on ask-question tool definitions
+    # Tool definition files for question-answering tools contain description
+    # strings about the tool's purpose, not LLM output.
+    FPPattern(
+        name="toxicity_check_on_tool_definitions",
+        scanner=None,
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'(?:definitions?|tool[_-]?(?:schema|spec|def))[/\\.]',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.83,
+        description="Tool definition file contains description strings, not LLM output. Tool schema metadata does not need toxicity moderation",
+    ),
+
+    # 404: LLM output toxicity on MCP handler result returns (SemgrepScanner)
+    # SemgrepScanner version of toxicity check on MCP handlers. The handlers
+    # return structured tool results, not raw LLM completions.
+    FPPattern(
+        name="toxicity_check_on_mcp_handlers_semgrep",
+        scanner="semgrepscanner",
+        pattern=r'LLM output.*without toxicity check|toxicity check.*content moderation',
+        file_pattern=r'handler',
+        context_pattern=r'(?:return\s*\{|content\s*:\s*\[|toolResult|handleTool|case\s+[\'"])',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP handler returns structured tool results via SemgrepScanner. Tool outputs are structured data, not raw LLM completions needing toxicity moderation",
+    ),
+
+    # =========================================================================
+    # Supplementary patterns for remaining MCP server entry-point FPs
+    # Added: 2026-02-15
+    # Source: notebooklm-mcp-secure FP analysis - remaining missed FPs
+    # Reason: MCP server index/entry files have auth at the top but switch/case
+    # tool dispatch throughout. The auth is beyond the 20-line context window
+    # for findings in the middle/bottom of the file. These patterns match the
+    # structural signature of MCP server entry points (case "tool_name":).
+    # =========================================================================
+
+    # 405: Destructive/data modification ops in MCP switch/case dispatchers
+    # MCP server files that dispatch via switch(name) { case "tool_name": }
+    # pattern. Each case delegates to a named handler method. The auth layer
+    # at the top of the file validates all requests before dispatch.
+    FPPattern(
+        name="mcp_switch_case_destructive_op",
+        scanner="mcpserverscanner",
+        pattern=r'[Dd]estructive operation without validation|[Dd]ata modification without validation',
+        context_pattern=r'case\s+[\'"](?:remove|delete|update|create|modify|drop|purge|reset|clear|wipe)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP server dispatches tool calls via switch/case pattern. Each case delegates to a handler. Authentication is enforced at the request handler level before dispatch",
+    ),
+
+    # 406: Tool execution without before_tool_callback in MCP servers
+    # MCP servers that use setRequestHandler(CallToolRequestSchema) with
+    # their own auth do not need before_tool_callback. Broader pattern
+    # matching the MCP server file structure (imports + handler setup).
+    FPPattern(
+        name="mcp_tool_exec_no_callback_broad",
+        scanner="mcpserverscanner",
+        pattern=r'[Tt]ool execution without before_tool_callback|No after_tool_callback',
+        context_pattern=r'(?:CallToolRequestSchema|ListToolsRequestSchema|setRequestHandler|McpServer|StdioServerTransport)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP server uses setRequestHandler with CallToolRequestSchema. The server framework handles request routing with its own auth layer, not requiring before/after_tool_callback",
+    ),
+
+    # 407: Over-privileged MCP tool access in MCP server entry point
+    # MCP server entry points that expose tools via list_tools are flagged
+    # as "over-privileged" when the server defines many tools. When the
+    # server has settings-based tool filtering, this is not over-privileged.
+    FPPattern(
+        name="mcp_overprivileged_in_entry_point",
+        scanner="mcpserverscanner",
+        pattern=r'[Oo]ver-privileged MCP tool access',
+        context_pattern=r'(?:case\s+[\'"]|switch\s*\(\s*(?:name|toolName|tool_name)|CallToolRequestSchema)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP server entry point dispatches tools via switch/case. Tool access is part of the MCP server's design, not over-privileged when tools are filtered by settings",
+    ),
+
+    # 408: Data Leak Channel: webhook in MCP tool handler configure_webhook
+    # The configure_webhook tool handler dispatches to a webhook system.
+    # The handler file itself is not the webhook infrastructure but the
+    # MCP tool that configures user-specified webhooks.
+    FPPattern(
+        name="webhook_data_leak_in_mcp_handler",
+        scanner=None,
+        pattern=r'[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)',
+        context_pattern=r'(?:configure_webhook|addWebhook|updateWebhook|webhook.*secret|dispatcher\.)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Webhook configuration in an MCP tool handler. The handler configures user-specified webhooks with HMAC secrets, not leaking data to unauthorized endpoints",
+    ),
+
+    # 409: Data Leak Channel: webhook in MCP server entry point
+    # MCP server index.ts dispatches configure_webhook to handler.
+    # The case statement is just routing, not a data leak.
+    FPPattern(
+        name="webhook_data_leak_in_entry_point",
+        scanner=None,
+        pattern=r'[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)',
+        context_pattern=r'case\s+[\'"]configure_webhook',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="MCP server dispatches configure_webhook tool to handler. The switch/case routing is not a data leak channel",
+    ),
+
+    # 410: Tool definitions included in response - allTools array return
+    # Tool definition aggregator files that collect tool definitions from
+    # sub-modules and return them as an array. This is standard MCP behavior.
+    FPPattern(
+        name="mcp_tool_definitions_aggregator",
+        scanner="mcpserverscanner",
+        pattern=r'[Tt]ool definitions? included in response',
+        context_pattern=r'(?:allTools|getTools|toolList|\.map\(|\.filter\(|spread.*tools|\.\.\..*[Tt]ools)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.88,
+        description="Tool definition aggregator collects and returns tool definitions from sub-modules. This is standard MCP list_tools protocol behavior",
+    ),
+
+    # 411: Agent with credential access in tool description template literal
+    # Tool definition files use template literals that mention API keys or
+    # auth in their description text. The text is documentation for users.
+    FPPattern(
+        name="credential_access_in_tool_template",
+        scanner=None,
+        pattern=r'[Aa]gent with credential access',
+        context_pattern=r'(?:API[_\s]?KEY|GEMINI_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY).*(?:required|needed|not needed|NO.*KEY)',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.88,
+        description="Tool description template mentions API key requirements as documentation. References to 'API KEY required/not needed' are user-facing documentation, not credential access",
+    ),
+
+    # 412: Agent with download/upload in tool definition files
+    # Tool definition files that describe download/upload capabilities
+    # are documenting the tool's purpose, not unauthorized capabilities.
+    FPPattern(
+        name="download_upload_in_tool_definition",
+        scanner=None,
+        pattern=r'[Aa]gent with download.?upload capability',
+        file_pattern=r'(?:definitions?|tool[_-]?(?:schema|spec|def))[/\\.]',
+        reason=FPReason.DESCRIPTION_STRING,
+        confidence=0.83,
+        description="Download/upload capability documented in a tool definition file. Tool definitions describe intended capabilities, not unauthorized access",
+    ),
+
+    # 413: Agent with filesystem write/delete in MCP tool handlers
+    # MCP handler files that implement file management as intentional tool
+    # features. Broader version of pattern 397 for SemgrepScanner.
+    FPPattern(
+        name="filesystem_access_in_tool_handlers",
+        scanner="semgrepscanner",
+        pattern=r'[Aa]gent with filesystem (?:write|delete|read)',
+        file_pattern=r'handler',
+        context_pattern=r'(?:handleTool|toolHandler|case\s+[\'"]|handleConfigure|handleCreate|handleDelete|handleUpdate)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP handler provides filesystem operations as intentional user-facing tool features. These are documented tool capabilities, not unauthorized access",
+    ),
+
+    # 414: Agent with network access in settings/config managers
+    # Settings managers configure tool access and server behavior. They
+    # reference network-related settings as part of configuration, not
+    # as unauthorized network access.
+    FPPattern(
+        name="network_access_in_settings_manager",
+        scanner=None,
+        pattern=r'[Aa]gent with network access',
+        file_pattern=r'(?:settings|config)[_-]?(?:manager|handler|service|store)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.80,
+        description="Settings/config manager references network settings as part of server configuration. Configuration code is not unauthorized network access",
+    ),
+
+    # 415: Trivy duplicate low-severity finding for same Dockerfile line
+    # Trivy sometimes reports the same Dockerfile issue at two severity
+    # levels (HIGH AVD-DS-XXXX and LOW informational). The LOW duplicate
+    # with generic wording is noise when the specific AVD finding exists.
+    FPPattern(
+        name="trivy_low_duplicate_dockerfile",
+        scanner="trivyscanner",
+        pattern=r'Avoid additional packages',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.80,
+        description="Trivy LOW-severity duplicate of a specific AVD finding on the same Dockerfile line. The specific AVD finding is retained",
+    ),
+
+    # 416: No after_tool_callback at file-level (line 1) in MCP servers
+    # MCPServerScanner emits "No after_tool_callback for output validation
+    # detected" at line 1 as a file-level finding. MCP servers that have
+    # their own response validation layer do not need this specific callback.
+    FPPattern(
+        name="mcp_no_after_callback_file_level",
+        scanner="mcpserverscanner",
+        pattern=r'No after_tool_callback for output validation',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.80,
+        description="File-level finding for missing after_tool_callback. MCP servers can implement response validation through their own layer (response validators, output sanitizers) instead of the specific callback pattern",
+    ),
+
+    # 417: Agent with filesystem write/delete in handler result returns
+    # SemgrepScanner flags handler return statements near delete/file
+    # operations. When the context shows a structured tool result return
+    # (success/data/error), the operation is an intentional MCP tool feature.
+    FPPattern(
+        name="filesystem_in_handler_result_return",
+        scanner="semgrepscanner",
+        pattern=r'[Aa]gent with filesystem (?:write|delete|read)',
+        file_pattern=r'handler',
+        context_pattern=r'(?:deleteFile|delete_document|removeFile|success\s*:\s*true|deleted\s*:\s*true|\.delete\()',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.83,
+        description="MCP handler returns structured result for a file delete operation. The delete is an intentional tool feature with success/error handling",
+    ),
+
+    # 418: MCP handler return result flagged for toxicity check
+    # SemgrepScanner flags generic return statements in MCP handlers with
+    # "LLM output returned without toxicity check". MCP handlers return tool
+    # execution results to the client, not LLM-generated output. Toxicity
+    # filtering is applied to LLM responses, not structured tool results.
+    FPPattern(
+        name="mcp_handler_return_result_toxicity",
+        scanner="semgrepscanner",
+        pattern=r'toxicity check|content moderation',
+        file_pattern=r'handler',
+        context_pattern=r'return\s+(?:result|response|output)',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.85,
+        description="MCP handler returns tool execution result. This is structured data from tool execution (file contents, database results, etc.), not LLM-generated text requiring toxicity filtering",
+    ),
+
+    # 419: Raw SQL on JSONL/file logger modules (no database)
+    # Semgrep flags string interpolation in logging/file-writing code as SQL
+    # concatenation when the module name contains "query" or "log" but the
+    # module has zero SQL/database imports — it's a JSONL file logger.
+    FPPattern(
+        name="raw_sql_on_file_logger",
+        scanner="semgrepscanner",
+        pattern=r'Raw SQL',
+        file_pattern=r'(?:query[_-]?log|log[_-]?query|file[_-]?log|jsonl)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Raw SQL finding on a file/JSONL logger module that has no SQL database — string interpolation in log statements is not SQL injection",
+    ),
+
+    # 420: Raw SQL on filesystem cleanup/utility modules (no database)
+    # Semgrep flags template literals in log.success() or fs.rm() calls
+    # as SQL concatenation in cleanup utilities that only do filesystem I/O.
+    FPPattern(
+        name="raw_sql_on_cleanup_utility",
+        scanner="semgrepscanner",
+        pattern=r'Raw SQL',
+        file_pattern=r'(?:cleanup|clean[_-]?up|purge|janitor|sweeper|garbage)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Raw SQL finding on a filesystem cleanup utility — template literals in log statements and fs operations are not SQL injection",
+    ),
+
+    # =================================================================
+    # SEMGREPSCANNER: RepoMiner FP tuning (2026-02-16)
+    # Source: RepoMiner scan analysis
+    # =================================================================
+
+    # 421: Toxicity check on CLI terminal output (console.print, print, click.echo)
+    # Semgrep flags console.print(f"Found {count} repos") as "LLM output
+    # without toxicity check". Terminal/CLI output is not LLM-generated text.
+    FPPattern(
+        name="toxicity_check_on_cli_output",
+        scanner="semgrepscanner",
+        pattern=r'toxicity check|content moderation',
+        file_pattern=r'cli\.py',
+        context_pattern=r'(?:console\.print|click\.echo|print)\s*\(',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Toxicity check finding on CLI terminal output (console.print/click.echo) — this is formatted terminal text, not LLM-generated content",
+    ),
+
+    # 422: Toxicity check on MCP parameter description strings
+    # Semgrep flags description="Maximum results to return" as "LLM output
+    # without toxicity check". Static MCP/FastMCP parameter descriptions
+    # are schema metadata, not LLM output.
+    FPPattern(
+        name="toxicity_check_on_mcp_description",
+        scanner="semgrepscanner",
+        pattern=r'toxicity check|content moderation',
+        file_pattern=r'(?:mcp|server)\.py',
+        context_pattern=r'description\s*=\s*["\']',
+        reason=FPReason.MCP_PROTOCOL,
+        confidence=0.90,
+        description="Toxicity check on static MCP parameter description string — schema metadata is not LLM-generated content requiring moderation",
+    ),
+
+    # 423: Pseudo-random for retry backoff jitter
+    # Semgrep flags random.uniform(0, 1) as "not suitable for security".
+    # Using random for retry jitter/backoff delay is standard practice and
+    # has no security implications — it's for load distribution, not crypto.
+    FPPattern(
+        name="random_for_retry_jitter",
+        scanner="semgrepscanner",
+        pattern=r'pseudo-random|random.*not suitable',
+        context_pattern=r'(?:retry|backoff|delay|jitter|attempt|2\s*\*\*\s*attempt)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="random.uniform() used for retry backoff jitter — standard load distribution pattern, not security/cryptographic use",
+    ),
+
+    # 424: MCP audit logging finding in general logging utility modules
+    # Semgrep/YAML rules flag "MCP audit logging disabled" in modules named
+    # logging.py that are general-purpose logging utilities, not MCP servers.
+    FPPattern(
+        name="mcp_audit_on_logging_utility",
+        scanner=None,
+        pattern=r'MCP audit logging disabled',
+        file_pattern=r'(?:^|/)(?:utils?/)?logging\.py$',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="MCP audit logging finding on a general-purpose logging utility — module provides logging infrastructure, not MCP server functionality",
+    ),
+
+    # 425: Prompt injection detection patterns in security/defense files
+    # Security modules (security.py, sanitizer.py, input_filter.py) contain
+    # prompt injection strings as *detection patterns*, not as attacks.
+    # "ignore previous instructions" in security.py is a defensive blocklist.
+    FPPattern(
+        name="prompt_injection_in_security_module",
+        scanner=None,
+        pattern=r'(?:prompt injection|ignore previous|disregard previous|forget previous|instruction override)',
+        file_pattern=r'(?:^|/)(?:security|sanitiz|input[_-]?filter|content[_-]?filter|prompt[_-]?guard|injection[_-]?detect)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.92,
+        description="Prompt injection pattern found in a security/defense module — these are detection patterns in a blocklist, not actual injection attempts",
+    ),
+
+    # 426: "Agent with network access" on HTTP user_agent config fields
+    # Semgrep matches the word "agent" in user_agent (HTTP User-Agent header)
+    # combined with nearby HTTP/network config fields. A static Pydantic
+    # config default for User-Agent strings is not an autonomous AI agent.
+    FPPattern(
+        name="agent_network_on_user_agent_config",
+        scanner="semgrepscanner",
+        pattern=r'[Aa]gent with network access',
+        file_pattern=r'config\.py',
+        context_pattern=r'user[_-]?agent',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="'Agent with network access' triggered by HTTP User-Agent header config — user_agent is an HTTP header string, not an autonomous AI agent",
+    ),
+
+    # 427: Prompt injection on Rich console.print() / CLI terminal output
+    # Semgrep flags f-string interpolation in console.print() or
+    # progress.console.print() as "user input in prompt string". Rich
+    # terminal output is local display, not LLM prompt construction.
+    FPPattern(
+        name="prompt_injection_on_terminal_output",
+        scanner="semgrepscanner",
+        pattern=r'[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt',
+        context_pattern=r'(?:console\.print|progress\.console|click\.echo|rich\.print|print)\s*\(',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Prompt injection finding on terminal output (Rich console.print / click.echo) — local CLI display is not LLM prompt construction",
+    ),
+
+    # 428: Prompt injection on API error message interpolation
+    # Semgrep flags interpolation of API response messages into exception
+    # constructors as "user input in prompt string". Error propagation from
+    # upstream HTTPS APIs (GitHub, etc.) into structured error responses is
+    # standard error handling, not prompt injection.
+    FPPattern(
+        name="prompt_injection_on_api_error_message",
+        scanner="semgrepscanner",
+        pattern=r'[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt',
+        file_pattern=r'(?:sources?|api|client|github|gitlab|bitbucket)',
+        context_pattern=r'(?:Error|Exception|raise|throw)\s*\(',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Prompt injection finding on API error message interpolation — upstream API responses propagated into exceptions are standard error handling, not LLM prompt construction",
+    ),
+
+    # 429: Prompt injection false positive on SQL LIKE parameter construction
+    # OWASPLLMScanner pattern `f"...{query}..."` matches SQL LIKE patterns
+    # like `f"%{query}%"` where `query` is a database search term used with
+    # parameterized queries (? placeholders), not LLM prompt construction.
+    FPPattern(
+        name="prompt_injection_on_sql_like_param",
+        scanner="owaspllmscanner",
+        pattern=r'[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt',
+        file_pattern=r'(?:database|db|dao|repo|query|model|storage)',
+        context_pattern=r'(?:LIKE\s*\?|WHERE\s|SELECT\s|INSERT\s|params|execute|cursor)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Prompt injection finding on SQL LIKE parameter construction — f-string builds a LIKE pattern value passed via parameterized query, not LLM prompt interpolation",
+    ),
+
+    # 430: Hardcoded password false positive on empty string comparison
+    # PythonScanner flags `if github_token == ""` as "Possible hardcoded password"
+    # because it sees an empty string near a credential variable name. The code is
+    # actually checking if a token is empty to set it to None, not hardcoding a password.
+    FPPattern(
+        name="hardcoded_password_on_empty_string_check",
+        scanner="pythonscanner",
+        pattern=r'[Hh]ardcoded password.*(?:\'\'|"")',
+        context_pattern=r'(?:==\s*""|==\s*\'\'|is\s+None|=\s*None)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.95,
+        description="Hardcoded password finding on empty string comparison — code checks if a token/key is empty to null it out, not hardcoding a credential",
     ),
 ]
 

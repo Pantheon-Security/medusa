@@ -198,7 +198,6 @@ EXTERNAL_TOOLS = {
     # Core language linters
     'bandit':               {'desc': 'Python security scanner',   'lang': 'Python',     'url': 'https://bandit.readthedocs.io/'},
     'shellcheck':           {'desc': 'Shell script analyzer',     'lang': 'Bash',       'url': 'https://www.shellcheck.net/'},
-    'yamllint':             {'desc': 'YAML linter',               'lang': 'YAML',       'url': 'https://yamllint.readthedocs.io/'},
     'markdownlint':         {'desc': 'Markdown linter',           'lang': 'Markdown',   'url': 'https://github.com/igorshubovych/markdownlint-cli'},
     'eslint':               {'desc': 'JavaScript linter',         'lang': 'JavaScript', 'url': 'https://eslint.org/docs/latest/'},
     'tsc':                  {'desc': 'TypeScript compiler',       'lang': 'TypeScript', 'url': 'https://www.typescriptlang.org/'},
@@ -252,7 +251,7 @@ EXTERNAL_TOOLS = {
 
 
 # Quick-reference install hints for common tools
-_PIP_TOOLS = {'bandit', 'yamllint', 'sqlfluff', 'ansible-lint', 'gixy', 'cmake-lint', 'vim-vint', 'modelscan', 'garak', 'llm-guard', 'semgrep', 'ruff'}
+_PIP_TOOLS = {'bandit', 'sqlfluff', 'ansible-lint', 'gixy', 'cmake-lint', 'vim-vint', 'modelscan', 'garak', 'llm-guard', 'semgrep', 'ruff'}
 _NPM_TOOLS = {'eslint', 'markdownlint', 'htmlhint', 'stylelint', 'graphql-schema-linter'}
 
 
@@ -340,11 +339,6 @@ _PLATFORM_HINTS = {
         'linux':   'pip install bandit',
         'macos':   'pip install bandit',
         'windows': 'pip install bandit',
-    },
-    'yamllint': {
-        'linux':   'pip install yamllint',
-        'macos':   'pip install yamllint',
-        'windows': 'pip install yamllint',
     },
     'sqlfluff': {
         'linux':   'pip install sqlfluff',

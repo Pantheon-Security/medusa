@@ -95,6 +95,116 @@ class ScannerResult:
         }
 
 
+# Compiled regexes for defensive file context detection
+_DEFENSIVE_FILE_RE = re.compile(
+    r'(?:^|/)(?:'
+    r'(?:response|input|output|tool|request|schema|data)?[_-]?validator'
+    r'|(?:secrets?|credential|token|key)[_-]?scanner'
+    r'|audit[_-]?log(?:ger)?'
+    r'|(?:file|secure)[_-]?permissions?'
+    r'|(?:tool|input|output|request)[_-]?validation'
+    r'|(?:content|safety|toxicity)[_-]?(?:filter|checker|moderator)'
+    r'|(?:data|input|output)[_-]?sanitiz(?:er|ation)'
+    r'|(?:rate|api)[_-]?limiter'
+    r'|cert[_-]?pinning'
+    r'|settings[_-]?manager'
+    r')\.(?:ts|js|py)$', re.IGNORECASE
+)
+_COMPLIANCE_DIR_RE = re.compile(
+    r'(?:^|/)compliance/', re.IGNORECASE
+)
+_AUTH_LAYER_RE = re.compile(
+    r'authenticate(?:MCPRequest|Request)?'
+    r'|(?:tool|request)[_-]?validation'
+    r'|(?:verify|validate)(?:Auth|Token|Session|Permission)'
+    r'|requireAuth|isAuthorized|checkPermission',
+    re.IGNORECASE
+)
+# Issue messages that are FP-prone in defensive/compliance/auth contexts
+_DEFENSIVE_FP_MESSAGES = re.compile(
+    r'(?i)(?:'
+    r'Prompt injection'
+    r'|Private Key'
+    r'|Credentials? passed'
+    r'|Sensitive (?:file|data) (?:exfiltration|in)'
+    r'|Destructive operation without'
+    r'|Code execution without'
+    r'|Data modification without'
+    r'|Process execution without'
+    r'|Tool restrictions disabled'
+    r'|unrestricted tool access'
+    r')'
+)
+_COMPLIANCE_FP_MESSAGES = re.compile(
+    r'(?i)(?:'
+    r'PII (?:potentially )?in response'
+    r'|Path traversal: File (?:read|write)'
+    r'|LLM output returned without toxicity'
+    r')'
+)
+_AUTH_LAYER_FP_MESSAGES = re.compile(
+    r'(?i)(?:'
+    r'Destructive operation without'
+    r'|Tool execution without before_tool_callback'
+    r'|No after_tool_callback'
+    r'|Over-privileged MCP tool'
+    r'|Data modification without'
+    r')'
+)
+
+
+def is_defensive_security_file(file_path: Path) -> bool:
+    """Check if a file is a defensive security tool (validator, scanner, audit logger, etc.)."""
+    return bool(_DEFENSIVE_FILE_RE.search(str(file_path)))
+
+
+def is_compliance_file(file_path: Path) -> bool:
+    """Check if a file is in a compliance directory (GDPR, DSAR, data erasure, etc.)."""
+    return bool(_COMPLIANCE_DIR_RE.search(str(file_path)))
+
+
+def has_auth_layer(content: str) -> bool:
+    """Check if file content contains an authentication/validation layer."""
+    return bool(_AUTH_LAYER_RE.search(content[:20000]))
+
+
+def filter_contextual_fps(
+    issues: List[ScannerIssue],
+    file_path: Path,
+    content: str,
+) -> List[ScannerIssue]:
+    """
+    Filter out false positives based on file context.
+
+    Removes findings that are FP-prone when the file is:
+    - A defensive security tool (validators, scanners, audit loggers)
+    - In a compliance directory (GDPR handlers, data export, evidence)
+    - Part of an MCP server with its own auth/validation layer
+    """
+    is_defensive = is_defensive_security_file(file_path)
+    is_compliance = is_compliance_file(file_path)
+    has_auth = has_auth_layer(content)
+
+    if not is_defensive and not is_compliance and not has_auth:
+        return issues
+
+    filtered = []
+    for issue in issues:
+        msg = issue.message
+        # Defensive security files: suppress detection-pattern-on-detection-tool FPs
+        if is_defensive and _DEFENSIVE_FP_MESSAGES.search(msg):
+            continue
+        # Compliance files: suppress GDPR-required behavior FPs
+        if is_compliance and _COMPLIANCE_FP_MESSAGES.search(msg):
+            continue
+        # Auth layer present: suppress "missing validation" FPs
+        if has_auth and _AUTH_LAYER_FP_MESSAGES.search(msg):
+            continue
+        filtered.append(issue)
+
+    return filtered
+
+
 class BaseScanner(ABC):
     """
     Abstract base class for all MEDUSA scanners

@@ -403,12 +403,27 @@ class MarkdownScanner(BaseScanner):
         """
         issues: List[ScannerIssue] = []
         cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+        in_code_block = False
 
         for i, line in enumerate(lines, 1):
+            stripped = line.strip()
+
+            # Track fenced code blocks - skip content inside them
+            if stripped.startswith('```') or stripped.startswith('~~~'):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
+
+            # Skip table rows containing regex patterns (backslash sequences)
+            # These are documenting/analyzing patterns, not actual injection
+            if '|' in line and ('\\s' in line or '\\(' in line or '\\w' in line or '\\d' in line or '\\b' in line):
+                continue
+
             for pattern, description, severity in patterns:
                 if pattern.search(line):
                     # Truncate long lines for readable output
-                    snippet = line.strip()
+                    snippet = stripped
                     if len(snippet) > 120:
                         snippet = snippet[:117] + '...'
 

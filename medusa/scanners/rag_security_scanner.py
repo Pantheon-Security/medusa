@@ -82,7 +82,7 @@ class RAGSecurityScanner(RuleBasedScanner):
 
     # AIR001: Untrusted document sources
     UNTRUSTED_SOURCE_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'(?i)["\']?(source|url|path)["\']?\s*[=:]\s*["\']?https?://[^"\']*',
+        (r'(?i)["\']?(?:source|document|knowledge|corpus|data)[-_]?(?:url|path|uri)["\']?\s*[=:]\s*["\']?https?://[^"\']*',
          'External HTTP source (verify trustworthiness)', Severity.MEDIUM),
         (r'(?i)["\']?(source|url|path)["\']?\s*[=:]\s*["\']?http://[^"\']*',
          'Unencrypted HTTP source', Severity.HIGH),
@@ -391,7 +391,7 @@ class RAGSecurityScanner(RuleBasedScanner):
 
         return False
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """Return confidence score for RAG config files and Python RAG code"""
         if not self.can_scan(file_path):
             return 0

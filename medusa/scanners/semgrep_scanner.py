@@ -45,7 +45,7 @@ class SemgrepScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return self.SUPPORTED_EXTENSIONS
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Semgrep has comprehensive rules - use high confidence for supported files.
         """

@@ -72,6 +72,33 @@ class MultiAgentScanner(RuleBasedScanner):
         r'agent[_-]?registry',
     ]
 
+    # Framework imports/API calls that confirm actual multi-agent code
+    # (not just keyword mentions in strings/comments/classification data)
+    FRAMEWORK_INDICATORS = [
+        # Python imports
+        'from crewai', 'import crewai',
+        'from autogen', 'import autogen',
+        'from langraph', 'import langraph',
+        'from langgraph', 'import langgraph',
+        'from agentscope', 'import agentscope',
+        'from openai_agents', 'import openai_agents',
+        'from swarm', 'import swarm',
+        'from metagpt', 'import metagpt',
+        'from camel', 'import camel',
+        # JS/TS imports
+        'from "langchain/agents"', "from 'langchain/agents'",
+        'require("langchain/agents")', "require('langchain/agents')",
+        # Multi-agent API calls
+        'Agent(', 'CrewAgent(', 'AssistantAgent(', 'UserProxyAgent(',
+        'agent.send(', 'agent.handoff(', 'agent.delegate(',
+        'agent.receive(', 'agent.initiate_chat(',
+        'Crew(', 'GroupChat(', 'AgentExecutor(',
+        # Class definitions extending agent bases
+        'class Agent', '(BaseAgent)', '(AgentBase)',
+        # A2A protocol implementation
+        'AgentCard(', 'a2a_server', 'a2a_client',
+    ]
+
     # Patterns indicating authentication/security
     SECURITY_PATTERNS = [
         r'authenticate[_-]?(agent|sender|source)',
@@ -220,13 +247,21 @@ class MultiAgentScanner(RuleBasedScanner):
 
             _offsets = _build_line_offsets(content)
 
-            # Check if file contains multi-agent patterns
+            # Compound gate: file must have BOTH multi-agent keywords
+            # AND actual framework imports/API calls.
+            # This prevents FPs on files that merely mention "crewai"
+            # or "agent-to-agent" in string literals or classification data.
             has_multi_agent = any(
                 re.search(pattern, content, re.IGNORECASE)
                 for pattern in self.MULTI_AGENT_PATTERNS
             )
 
-            if not has_multi_agent:
+            has_framework = any(
+                indicator in content
+                for indicator in self.FRAMEWORK_INDICATORS
+            )
+
+            if not (has_multi_agent and has_framework):
                 # Still scan with YAML rules
                 lines = content.split('\n')
                 yaml_issues = self._scan_with_rules(lines, file_path)

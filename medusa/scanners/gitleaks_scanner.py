@@ -43,7 +43,7 @@ class GitLeaksScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return self.SECRET_EXTENSIONS
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         GitLeaks should scan most files but with medium confidence
         to allow language-specific scanners to take priority for their specialty.

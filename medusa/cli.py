@@ -2010,7 +2010,7 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.2.3 works out of the box with 3,000+ built-in AI security
+    MEDUSA v2026.3.0 works out of the box with 3,000+ built-in AI security
     rules. External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
@@ -2036,7 +2036,7 @@ def install(check, ai_tools, debug, install_all):
 
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2.3[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.3.0[/yellow]")
         console.print("[dim]MEDUSA now focuses on AI security rules (3,000+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
@@ -2137,7 +2137,7 @@ def _debug_install():
 
     # 3. Key tools - check each one
     console.print("[bold]Tool Detection (key linters):[/bold]")
-    key_tools = ['bandit', 'shellcheck', 'yamllint', 'gitleaks', 'trivy',
+    key_tools = ['bandit', 'shellcheck', 'gitleaks', 'trivy',
                  'eslint', 'semgrep', 'cppcheck', 'modelscan', 'garak', 'llm-guard']
     for tool in key_tools:
         path = shutil.which(tool)
@@ -2191,7 +2191,7 @@ def _show_install_check():
         audit_environment, get_install_hint,
     )
 
-    console.print(f"\n[bold dark_green]MEDUSA v2026.2.3 - AI Security Scanner[/bold dark_green]")
+    console.print(f"\n[bold dark_green]MEDUSA v2026.3.0 - AI Security Scanner[/bold dark_green]")
     console.print(f"[dim]Works out of the box with 3,000+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
@@ -2276,7 +2276,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.2.3 only manages modelscan. Use your package manager
+    MEDUSA v2026.3.0 only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -2286,7 +2286,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.2.3[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.3.0[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -2294,12 +2294,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.2.3 only manages modelscan installation.[/dim]\n")
+        console.print("[dim]MEDUSA v2026.3.0 only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.2.3 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v2026.3.0 doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return

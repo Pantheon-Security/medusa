@@ -6,7 +6,7 @@ Always use `dangerouslyDisableSandbox: true` on Bash tool calls that run `medusa
 
 ## Project Overview
 
-This project uses **MEDUSA v2026.2.3** - AI Security Scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
+This project uses **MEDUSA v2026.3.0** - AI Security Scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
 
 ## MEDUSA Configuration
 
@@ -105,7 +105,7 @@ medusa scan . --fail-on high
 Edit `.medusa.yml` to customize:
 
 ```yaml
-version: 2026.2.3
+version: 2026.3.0
 scanners:
   enabled: []     # Empty = all enabled
   disabled: []    # List scanners to disable
@@ -234,14 +234,14 @@ exclude:
     - "*.min.js"
 ```
 
-## MEDUSA 2026.2.3 Release
+## MEDUSA 2026.3.0 Release
 
 ### What's New
 
-**v2026.2.3** is the performance + launch-ready release:
+**v2026.3.0** is the scanner precision + FP tuning release:
 
 - **52% Faster Scans**: Single-pass file discovery, scanner pre-mapping cache, pre-compiled patterns
-- **430 FP Filter Patterns**: 93.9% false positive reduction rate
+- **508 FP Filter Patterns**: 96.8% false positive reduction rate
 - **133 Critical CVEs**: CVEMiner database for known vulnerability scanning
 - **Structural Refactoring**: God methods split, dead code removed, data/logic separation
 - **Large Project Support**: Live progress responsive on 4,000+ file codebases

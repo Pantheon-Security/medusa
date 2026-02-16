@@ -143,7 +143,7 @@ class SteganographyScanner(BaseScanner):
         # OpenAI/Claude markers
         (r'<\|endoftext\|>',
          'End-of-text token in content (sequence break attack)', Severity.HIGH),
-        (r'Human:|Assistant:|System:',
+        (r'(?:^|\n)\s*(?:Human|Assistant|System)\s*:',
          'Role markers in user content (role confusion attack)', Severity.HIGH),
         # Generic delimiters
         (r'###\s*(?:System|User|Assistant|Instruction)',
@@ -228,14 +228,22 @@ class SteganographyScanner(BaseScanner):
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
             # Check if file handles user input or multimodal content
-            relevant_indicators = [
-                'input', 'user', 'prompt', 'message', 'upload', 'image',
-                'audio', 'video', 'text', 'ocr', 'vision', 'multimodal',
-                'llm', 'gpt', 'claude', 'anthropic', 'openai',
+            # Require compound signals: at least one input handler + one AI keyword
+            input_handlers = [
+                'input', 'upload', 'image', 'audio', 'video',
+                'ocr', 'vision', 'multimodal',
             ]
+            ai_keywords = [
+                'llm', 'gpt', 'claude', 'anthropic', 'openai',
+                'prompt', 'completion', 'chat',
+            ]
+            relevant_indicators = input_handlers + ai_keywords
             content_lower = content.lower()
 
-            if not any(ind in content_lower for ind in relevant_indicators):
+            # Require at least one input handler AND one AI keyword
+            has_input = any(ind in content_lower for ind in input_handlers)
+            has_ai = any(ind in content_lower for ind in ai_keywords)
+            if not (has_input and has_ai):
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),

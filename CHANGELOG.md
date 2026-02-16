@@ -7,7 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2026.2.3] - 2026-02-15
+## [2026.3.0.0] - 2026-02-16
+
+### Fixed
+
+- **Scanner Attribution Bug** - Parallel scan findings were all attributed to the first scanner that processed each file. Fixed per-issue `_scanner_name` tracking in `parallel.py` so findings correctly report their originating scanner.
+- **SteganographyScanner FPs** - Added compound gate requiring BOTH input handler indicators AND AI keyword indicators. Tightened role marker pattern to require line-start context. Eliminates FPs on files that merely mention AI terminology.
+- **LLMGuardScanner FPs** - Toxicity check (LLG004) now requires actual LLM API call patterns (e.g., `chat.completions`, `messages.create`) before flagging missing toxicity checks. Output variable patterns narrowed to LLM-specific names.
+- **MCPServerScanner FPs** - Tightened 3 patterns: time-based detection requires schema/tool context, `mcp-remote` requires dependency/config context, tool poisoning patterns require specific phrasing.
+- **RAGSecurityScanner FPs** - HTTP source pattern narrowed from generic `source|url|path` to RAG-specific variable names (`source_url`, `document_path`, etc.). RAG poisoning pattern changed to space-only separator (won't match `rag_poisoning` variable names).
+- **MultiAgentScanner FPs** - Added compound gate requiring BOTH multi-agent keywords AND actual framework imports/API calls (e.g., `from crewai import`, `Agent(`, `Crew(`). Prevents FPs on files that mention "crewai" or "agent-to-agent" in string literals or classification data.
+- **Tool Poisoning Rule FPs** - Tightened patterns in `tool_attacks.yaml` and `mcp_vulnerabilities.yaml` to require specific context rather than broad substring matches.
+
+### Changed
+
+- **FP Filter Expanded** - 430 → 508 patterns (96.8% FP reduction rate on real-world projects)
+  - 78 new patterns from scanner precision tuning and benchmark validation
+- **Compound Scanner Gates** - SteganographyScanner, LLMGuardScanner, and MultiAgentScanner now use compound gates that require both keyword presence AND framework-specific imports/API calls
+- **Self-Scan Baseline** - 115 → 114 findings (YAMLScanner removal)
+
+### Removed
+
+- **YAMLScanner (yamllint)** - Removed yamllint integration. It produced only style lint (indentation, missing `---`), not security findings. YAML security is fully covered by Trivy, Semgrep, and MEDUSA's own built-in rules. Scanner types reduced from 42 to 41.
+
+## [2026.2.4] - 2026-02-15
 
 ### Performance
 

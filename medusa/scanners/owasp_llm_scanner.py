@@ -793,6 +793,12 @@ class OWASPLLMScanner(RuleBasedScanner):
             for pattern, message in self.DISCLOSURE_PATTERNS:
                 match = pattern.search(content)
                 if match:
+                    matched_text = match.group(0)
+                    # Skip if the flagged keyword is inside a static string literal
+                    # (no interpolation: no ${}, no .format(), no % formatting)
+                    if re.search(r'["\'][^"\']*(?:prompt|credential|api_key)[^"\']*["\']', matched_text, re.IGNORECASE):
+                        if not re.search(r'[\$`]\{|\.format\(|%\s*[(\w]', matched_text):
+                            continue  # Static string, not actual data exposure
                     line = _get_line_number(_offsets, match.start())
                     issues.append(ScannerIssue(
                         rule_id="LLM02",

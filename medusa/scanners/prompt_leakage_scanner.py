@@ -24,7 +24,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number, filter_contextual_fps
 
 
 # Severity ordering for demotion logic
@@ -633,6 +633,9 @@ class PromptLeakageScanner(RuleBasedScanner):
 
             # E) Scan with YAML rules
             issues.extend(self._scan_with_rules(lines, file_path))
+
+            # Context-aware FP filtering for defensive security / compliance / auth files
+            issues = filter_contextual_fps(issues, file_path, content)
 
             return ScannerResult(
                 scanner_name=self.name,

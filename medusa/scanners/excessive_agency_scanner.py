@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
 
 
 class ExcessiveAgencyScanner(BaseScanner):
@@ -376,6 +376,9 @@ class ExcessiveAgencyScanner(BaseScanner):
                         issue.severity = Severity.MEDIUM
                     elif issue.severity == Severity.MEDIUM:
                         issue.severity = Severity.LOW
+
+            # Context-aware FP filtering for defensive security / compliance / auth files
+            issues = filter_contextual_fps(issues, file_path, content)
 
             return ScannerResult(
                 scanner_name=self.name,

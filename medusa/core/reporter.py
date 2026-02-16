@@ -125,7 +125,7 @@ class MedusaReportGenerator:
             'scanner': {
                 'name': 'MEDUSA',
                 'version': __version__,
-                'analyzers': 77,
+                'analyzers': 76,
                 'rules': '3,000+',
                 'url': 'https://medusa-security.dev',
             },

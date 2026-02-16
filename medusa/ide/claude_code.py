@@ -272,7 +272,6 @@ MEDUSA uses 42 different security linters:
 - **Python**: bandit, pylint, mypy
 - **JavaScript/TypeScript**: eslint, tsc
 - **Docker**: hadolint
-- **YAML**: yamllint
 - **And 34 more...**
 
 All tools are installed via your system package manager (apt, brew, npm, pip).

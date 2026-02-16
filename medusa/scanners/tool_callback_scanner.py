@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple, Set
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number, filter_contextual_fps
 
 
 class ToolCallbackScanner(RuleBasedScanner):
@@ -299,6 +299,9 @@ class ToolCallbackScanner(RuleBasedScanner):
             # but lack the context awareness of _check_destructive_operations()
             # which checks for nearby validation/confirmation. Running both
             # would double-count findings and add noise.
+
+            # Context-aware FP filtering for defensive security / compliance / auth files
+            issues = filter_contextual_fps(issues, file_path, content)
 
             return ScannerResult(
                 scanner_name=self.name,

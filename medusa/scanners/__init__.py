@@ -13,7 +13,6 @@ from medusa.scanners.base import (
 from medusa.scanners.python_scanner import PythonScanner
 from medusa.scanners.bash_scanner import BashScanner
 from medusa.scanners.bat_scanner import BatScanner
-from medusa.scanners.yaml_scanner import YAMLScanner
 from medusa.scanners.docker_scanner import DockerScanner
 from medusa.scanners.docker_compose_scanner import DockerComposeScanner
 from medusa.scanners.markdown_scanner import MarkdownScanner
@@ -94,7 +93,6 @@ registry = ScannerRegistry()
 registry.register(PythonScanner())
 registry.register(BashScanner())
 registry.register(BatScanner())
-registry.register(YAMLScanner())
 registry.register(DockerScanner())
 registry.register(DockerComposeScanner())
 registry.register(MarkdownScanner())
@@ -177,7 +175,6 @@ __all__ = [
     'PythonScanner',
     'BashScanner',
     'BatScanner',
-    'YAMLScanner',
     'DockerScanner',
     'DockerComposeScanner',
     'MarkdownScanner',

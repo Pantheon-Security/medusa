@@ -274,7 +274,6 @@ class CodePatternAnalyzer:
         'GroovyScanner': 'groovy',
         'SolidityScanner': 'slither',
         'ZigScanner': 'zig',
-        'YAMLScanner': 'yamllint',
         'JSONScanner': 'jsonlint',
         'TOMLScanner': 'taplo',
         'XMLScanner': 'xmllint',

@@ -258,23 +258,30 @@ class MCPConfigScanner(RuleBasedScanner):
 
         return False
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Return high confidence for MCP config files.
         This ensures MCP scanner takes priority over generic JSON scanner.
+
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
         """
         if not self.can_scan(file_path):
             return 0
 
         # Check content for MCP-specific patterns
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-                # Very high confidence if mcpServers or servers key present
-                if '"mcpServers"' in content or '"servers"' in content:
-                    return 95
-                # Medium confidence for MCP-named files
-                return 80
+            if content_head is not None:
+                content = content_head
+            else:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            # Very high confidence if mcpServers or servers key present
+            if '"mcpServers"' in content or '"servers"' in content:
+                return 95
+            # Medium confidence for MCP-named files
+            return 80
         except Exception:
             # File named like MCP config but can't read
             return 70
@@ -319,7 +326,7 @@ class MCPConfigScanner(RuleBasedScanner):
                 for server_name, server_config in mcp_servers.items():
                     if isinstance(server_config, dict):
                         server_issues = self._scan_server_config(
-                            server_name, server_config, content, lines
+                            server_name, server_config, lines
                         )
                         issues.extend(server_issues)
 
@@ -356,11 +363,34 @@ class MCPConfigScanner(RuleBasedScanner):
         self,
         server_name: str,
         config: Dict[str, Any],
-        full_content: str,
         lines: List[str]
     ) -> List[ScannerIssue]:
-        """Scan a single MCP server configuration"""
+        """Scan a single MCP server configuration.
+
+        Orchestrates all MCP security checks by delegating to focused
+        sub-methods. Each sub-method appends findings to the shared
+        issues list.
+        """
         issues: List[ScannerIssue] = []
+
+        self._check_env_and_args_secrets(server_name, config, lines, issues)
+        self._check_filesystem_paths(server_name, config, lines, issues)
+        self._check_transport(server_name, config, lines, issues)
+        self._check_package_versions(server_name, config, lines, issues)
+        self._check_auth_and_binding(server_name, config, lines, issues)
+        self._check_patterns(server_name, config, lines, issues)
+        self._check_oauth(server_name, config, lines, issues)
+
+        return issues
+
+    def _check_env_and_args_secrets(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP001 (env block secrets) + MCP002 (args secrets)."""
 
         # MCP001: Check env block for hardcoded secrets
         env_block = config.get('env', {})
@@ -425,7 +455,17 @@ class MCPConfigScanner(RuleBasedScanner):
                         ))
                         break
 
+    def _check_filesystem_paths(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP003/MCP004/MCP007 (dangerous filesystem paths)."""
+
         # MCP003/004/007: Check for dangerous filesystem paths in args
+        args = config.get('args', [])
         if isinstance(args, list):
             args_str = ' '.join(str(a) for a in args)
 
@@ -484,6 +524,15 @@ class MCPConfigScanner(RuleBasedScanner):
                             ))
                             break
 
+    def _check_transport(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP005 (HTTP transport) + MCP018 (mcp-remote HTTP) + MCP009 (SSE no TLS)."""
+
         # MCP005: Check for HTTP (non-TLS) transport
         url = config.get('url', '')
         if isinstance(url, str) and url.startswith('http://'):
@@ -499,28 +548,52 @@ class MCPConfigScanner(RuleBasedScanner):
                     cwe_link="https://cwe.mitre.org/data/definitions/319.html"
                 ))
 
-        # MCP006: Check for missing authentication on remote servers
-        if isinstance(url, str) and url.startswith(('http://', 'https://')):
-            auth = config.get('auth', config.get('authentication', config.get('oauth', None)))
-            headers = config.get('headers', {})
-            has_auth_header = any(
-                'auth' in k.lower() or 'bearer' in k.lower() or 'api-key' in k.lower()
-                for k in headers.keys()
-            ) if isinstance(headers, dict) else False
+        # MCP018: mcp-remote with HTTP URL (MITM attack vector for CVE-2025-6514)
+        args = config.get('args', [])
+        if isinstance(args, list):
+            has_mcp_remote = any('mcp-remote' in str(a) for a in args)
+            if has_mcp_remote:
+                for arg in args:
+                    if isinstance(arg, str) and arg.startswith('http://'):
+                        if 'localhost' not in arg and '127.0.0.1' not in arg:
+                            line_num = self._find_line_number(lines, arg)
+                            issues.append(ScannerIssue(
+                                severity=Severity.CRITICAL,
+                                message=f"MCP server '{server_name}': mcp-remote over HTTP is vulnerable to MITM attacks (CVE-2025-6514 Scenario 2). Use HTTPS",
+                                line=line_num,
+                                rule_id="MCP018",
+                                cwe_id=319,
+                                cwe_link="https://cwe.mitre.org/data/definitions/319.html"
+                            ))
 
-            if not auth and not has_auth_header:
-                line_num = self._find_line_number(lines, url)
+        # MCP009: Check for SSE transport without TLS
+        transport = config.get('transport', '')
+        if isinstance(transport, str) and transport.lower() == 'sse':
+            url = config.get('url', '')
+            if isinstance(url, str) and url.startswith('http://') and 'localhost' not in url and '127.0.0.1' not in url:
+                line_num = self._find_line_number(lines, 'sse', 'SSE')
                 issues.append(ScannerIssue(
                     severity=Severity.HIGH,
-                    message=f"MCP server '{server_name}': Remote server has no authentication configured",
+                    message=f"MCP server '{server_name}': SSE transport over HTTP (no TLS) - vulnerable to eavesdropping",
                     line=line_num,
-                    rule_id="MCP006",
-                    cwe_id=306,
-                    cwe_link="https://cwe.mitre.org/data/definitions/306.html"
+                    rule_id="MCP009",
+                    cwe_id=319,
+                    cwe_link="https://cwe.mitre.org/data/definitions/319.html"
                 ))
 
-        # MCP008: Check for missing version pinning (npm packages)
+    def _check_package_versions(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP008 (version pinning) + MCP017 (CVE-2025-6514 RCE)."""
+
         command = config.get('command', '')
+        args = config.get('args', [])
+
+        # MCP008: Check for missing version pinning (npm packages)
         if isinstance(command, str) and command in ['npx', 'npm']:
             # Check if args contain version specifier
             if isinstance(args, list):
@@ -573,24 +646,39 @@ class MCPConfigScanner(RuleBasedScanner):
                                 cwe_link="https://cwe.mitre.org/data/definitions/78.html"
                             ))
 
-        # MCP018: mcp-remote with HTTP URL (MITM attack vector for CVE-2025-6514)
-        if isinstance(args, list):
-            has_mcp_remote = any('mcp-remote' in str(a) for a in args)
-            if has_mcp_remote:
-                for arg in args:
-                    if isinstance(arg, str) and arg.startswith('http://'):
-                        if 'localhost' not in arg and '127.0.0.1' not in arg:
-                            line_num = self._find_line_number(lines, arg)
-                            issues.append(ScannerIssue(
-                                severity=Severity.CRITICAL,
-                                message=f"MCP server '{server_name}': mcp-remote over HTTP is vulnerable to MITM attacks (CVE-2025-6514 Scenario 2). Use HTTPS",
-                                line=line_num,
-                                rule_id="MCP018",
-                                cwe_id=319,
-                                cwe_link="https://cwe.mitre.org/data/definitions/319.html"
-                            ))
+    def _check_auth_and_binding(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP006 (missing auth) + MCP010 (non-localhost binding)."""
+
+        url = config.get('url', '')
+
+        # MCP006: Check for missing authentication on remote servers
+        if isinstance(url, str) and url.startswith(('http://', 'https://')):
+            auth = config.get('auth', config.get('authentication', config.get('oauth', None)))
+            headers = config.get('headers', {})
+            has_auth_header = any(
+                'auth' in k.lower() or 'bearer' in k.lower() or 'api-key' in k.lower()
+                for k in headers.keys()
+            ) if isinstance(headers, dict) else False
+
+            if not auth and not has_auth_header:
+                line_num = self._find_line_number(lines, url)
+                issues.append(ScannerIssue(
+                    severity=Severity.HIGH,
+                    message=f"MCP server '{server_name}': Remote server has no authentication configured",
+                    line=line_num,
+                    rule_id="MCP006",
+                    cwe_id=306,
+                    cwe_link="https://cwe.mitre.org/data/definitions/306.html"
+                ))
 
         # MCP010: Check for non-localhost binding
+        args = config.get('args', [])
         if isinstance(args, list):
             args_str = ' '.join(str(a) for a in args)
             # Check for binding to 0.0.0.0 or all interfaces
@@ -604,6 +692,17 @@ class MCPConfigScanner(RuleBasedScanner):
                     cwe_id=668,
                     cwe_link="https://cwe.mitre.org/data/definitions/668.html"
                 ))
+
+    def _check_patterns(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP011 (wildcard) + MCP012 (untrusted sources) + MCP013 (insecure TLS)."""
+
+        args = config.get('args', [])
 
         # MCP011: Check for wildcard path patterns
         if isinstance(args, list):
@@ -657,20 +756,14 @@ class MCPConfigScanner(RuleBasedScanner):
                         cwe_link="https://cwe.mitre.org/data/definitions/295.html"
                     ))
 
-        # MCP009: Check for SSE transport without TLS
-        transport = config.get('transport', '')
-        if isinstance(transport, str) and transport.lower() == 'sse':
-            url = config.get('url', '')
-            if isinstance(url, str) and url.startswith('http://') and 'localhost' not in url and '127.0.0.1' not in url:
-                line_num = self._find_line_number(lines, 'sse', 'SSE')
-                issues.append(ScannerIssue(
-                    severity=Severity.HIGH,
-                    message=f"MCP server '{server_name}': SSE transport over HTTP (no TLS) - vulnerable to eavesdropping",
-                    line=line_num,
-                    rule_id="MCP009",
-                    cwe_id=319,
-                    cwe_link="https://cwe.mitre.org/data/definitions/319.html"
-                ))
+    def _check_oauth(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue]
+    ) -> None:
+        """MCP014-016 (OAuth warnings)."""
 
         # MCP014-016: OAuth Authorization Spec Warnings
         config_str = json.dumps(config) if isinstance(config, dict) else str(config)
@@ -686,7 +779,6 @@ class MCPConfigScanner(RuleBasedScanner):
                     cwe_link="https://cwe.mitre.org/data/definitions/287.html" if rule_id == 'MCP015' else "https://cwe.mitre.org/data/definitions/1188.html"
                 ))
 
-        return issues
 
     def _scan_raw_content(self, content: str, lines: List[str]) -> List[ScannerIssue]:
         """Scan raw content for secrets that might be in unusual locations"""

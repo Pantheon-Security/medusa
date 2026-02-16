@@ -12,7 +12,7 @@
 **AI-first security scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
-**✨ NEW v2026.2.3: 52% faster scans, 430 FP filters, 133 CVEs, structural overhaul!**
+**✨ NEW v2026.3.0: 508 FP filters, scanner precision tuning, compound gates, yamllint removed!**
 
 ---
 
@@ -34,18 +34,17 @@ MEDUSA is an AI-first security scanner with **3,000+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.2.3
+### 🆕 What's New in v2026.3.0
 
-**Performance Overhaul + Launch Ready** - 52% faster scans, 430 FP filters, and major structural improvements.
+**Scanner Precision + FP Tuning** - Compound scanner gates, precision-tuned patterns, and 508 FP filters.
 
 | Change | Description |
 |--------|-------------|
-| ⚡ **52% Faster Scans** | Single-pass file discovery, scanner pre-mapping cache, pre-compiled regex patterns |
-| 🎯 **430 FP Filter Patterns** | 93.9% false positive reduction rate — industry-leading accuracy |
-| 🏗️ **Structural Refactoring** | God methods split, 189 lines dead code removed, data/logic separation |
-| 📊 **Large Project Support** | Live progress stays responsive on 4,000+ file codebases |
-| 🛡️ **Agent Protocol Security** | 91 rules for UCP, AP2, and ACP vulnerability detection |
-| 🔍 **Prompt Injection in Code** | Detects unsanitized user input in LLM API calls (f-string injection, ChatML tokens) |
+| 🎯 **508 FP Filter Patterns** | Up from 430 — 96.8% false positive reduction on real-world projects |
+| 🔧 **Scanner Attribution Fix** | Parallel scan findings now correctly attributed to originating scanner |
+| 🛡️ **Compound Scanner Gates** | MultiAgent, Steganography, LLMGuard scanners require framework indicators to fire |
+| ✂️ **YAMLScanner Removed** | Dropped yamllint (style linter) — Trivy + Semgrep + MEDUSA rules cover YAML security |
+| 🔍 **Precision Pattern Tuning** | MCP, RAG, tool poisoning, multi-agent patterns tightened to reduce FPs |
 | 🚨 **133 Critical CVEs** | CVEMiner database covering LangChain, PyTorch, MCP, Log4Shell, XZ Utils |
 | 🤖 **3,000+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
 
@@ -139,7 +138,7 @@ medusa scan . --format all
 
 ## 📚 Language Support
 
-MEDUSA supports **42 different scanner types** covering all major programming languages and file formats:
+MEDUSA supports **41 different scanner types** covering all major programming languages and file formats:
 
 ### Backend Languages (9)
 | Language | Scanner | Extensions |
@@ -191,10 +190,9 @@ MEDUSA supports **42 different scanner types** covering all major programming la
 | Kubernetes | kubeval | `.yml`, `.yaml` (manifests) |
 | CloudFormation | cfn-lint | `.yml`, `.yaml`, `.json` (templates) |
 
-### Configuration Files (5)
+### Configuration Files (4)
 | Language | Scanner | Extensions |
 |----------|---------|------------|
-| YAML | yamllint | `.yml`, `.yaml` |
 | JSON | built-in | `.json` |
 | TOML | taplo | `.toml` |
 | XML | xmllint | `.xml` |
@@ -223,7 +221,7 @@ MEDUSA supports **42 different scanner types** covering all major programming la
 | Solidity | solhint | `.sol` |
 | Docker | hadolint | `Dockerfile*` |
 
-**Total: 42 scanner types covering 100+ file extensions**
+**Total: 41 scanner types covering 100+ file extensions**
 
 ---
 
@@ -469,7 +467,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.2.3
+version: 2026.3.0
 
 # Scanner control
 scanners:
@@ -758,7 +756,7 @@ Scanners automatically register themselves:
 registry = ScannerRegistry()
 registry.register(PythonScanner())
 registry.register(JavaScriptScanner())
-# ... all 42 scanners
+# ... all 41 scanners
 ```
 
 ### Severity Mapping
@@ -781,7 +779,7 @@ MEDUSA scans itself — and real-world projects:
 
 ```
 Self-scan (473 files):
-  ✅ Issues found: 115 (pre-filter) → 0 (post-filter)
+  ✅ Issues found: 114 (pre-filter) → 0 (post-filter)
   ✅ FP reduction: 100% on own codebase
   ⏱️  Time: 8.2s
 
@@ -805,13 +803,14 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (v2026.2.3)
+### ✅ Completed (v2026.3.0)
 
 - **3,000+ Detection Patterns** - Industry-leading AI security coverage
 - **76 Specialized Analyzers** - Comprehensive language and platform coverage
 - **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
-- **430 FP Filter Patterns** - 93.9% false positive reduction rate
-- **52% Faster Scans** - Single-pass file discovery, pre-compiled patterns, scanner caching
+- **508 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
+- **Compound Scanner Gates** - MultiAgent, Steganography, LLMGuard scanners use framework-aware gates
+- **Scanner Attribution Fix** - Parallel scan findings correctly attributed to originating scanner
 - **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
 - **Dataset Poisoning Detection** - CSV, JSON, JSONL injection scanning
 - **Code-Level Prompt Injection** - F-string injection, ChatML tokens, role manipulation
@@ -928,11 +927,11 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.2.3
-**Release Date**: 2026-02-15
+**Version**: 2026.3.0
+**Release Date**: 2026-02-16
 **Detection Patterns**: 3,000+ AI security rules
 **Analyzers**: 76 specialized scanners
-**FP Filter Patterns**: 430 intelligent filters (93.9% reduction rate)
+**FP Filter Patterns**: 508 intelligent filters (96.8% reduction rate)
 **CVE Coverage**: 133 critical vulnerabilities
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
@@ -980,6 +979,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2026-02-15
+**Last Updated**: 2026-02-16
 **Status**: Production Ready
-**Current Version**: v2026.2.3 - Performance Overhaul + Launch Ready
+**Current Version**: v2026.3.0 - Scanner Precision + FP Tuning

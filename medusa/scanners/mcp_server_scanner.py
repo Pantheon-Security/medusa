@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
 
 
 class MCPServerScanner(RuleBasedScanner):
@@ -394,8 +394,8 @@ class MCPServerScanner(RuleBasedScanner):
         (r'setInterval\s*\([^)]*\.(schema|description|tool)',
          'Dynamic schema - periodic schema updates', Severity.HIGH),
 
-        # Conditional tool behavior (must be in condition, not just any mention)
-        (r'if\s*\([^)]*(?:Date\s*\(\)|\.getTime\(\)|\.getHours?\(\)|\.getDay\(\))',
+        # Conditional tool behavior (must affect schema/tools, not just date formatting)
+        (r'if\s*\([^)]*(?:Date\s*\(\)|\.getTime\(\)|\.getHours?\(\)|\.getDay\(\))[^}]*(?:schema|tool|description|register|capability|handler)',
          'Dynamic schema - time-based conditional behavior', Severity.MEDIUM),
     ]
 
@@ -426,10 +426,10 @@ class MCPServerScanner(RuleBasedScanner):
         (r'Start-Process\s*[^;]*\+',
          'CVE-2025-6514: Start-Process with dynamic argument', Severity.HIGH),
 
-        # mcp-remote specific patterns
-        (r'mcp-remote',
+        # mcp-remote specific patterns (in dependency/config context)
+        (r'(?:npx|npm|require|import|"dependencies"|"devDependencies").*mcp-remote',
          'Uses mcp-remote - check version >= 0.1.16 for CVE-2025-6514 fix', Severity.MEDIUM),
-        (r'@anthropic/mcp-remote',
+        (r'(?:npx|npm|require|import|"dependencies"|"devDependencies").*@anthropic/mcp-remote',
          'Uses mcp-remote - check version >= 0.1.16 for CVE-2025-6514 fix', Severity.MEDIUM),
 
         # OAuth metadata discovery with untrusted input
@@ -598,16 +598,25 @@ class MCPServerScanner(RuleBasedScanner):
 
         return True  # Will do content check in get_confidence_score
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Return high confidence for files containing MCP SDK imports.
+
+        Args:
+            file_path: Path to file to analyze.
+            content_head: Optional pre-read file head (first 8KB).
         """
         if not self.can_scan(file_path):
             return 0
 
         try:
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read(10000)  # Read first 10KB for efficiency
+            # content_head is 8KB; MCP imports are typically in the first 10KB
+            # so the 8KB head covers the vast majority of cases.
+            if content_head is not None:
+                content = content_head
+            else:
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    content = f.read(10000)
 
             # Check for MCP SDK imports
             for pattern in self.MCP_IMPORT_PATTERNS:
@@ -654,6 +663,7 @@ class MCPServerScanner(RuleBasedScanner):
                 # Hardcoded pattern scanning for non-MCP concerns is handled
                 # by their dedicated scanners (WebSecurityScanner, ModelAttackScanner, etc.)
                 yaml_issues = self._scan_with_rules(lines, file_path)
+                yaml_issues = filter_contextual_fps(yaml_issues, file_path, content)
 
                 return ScannerResult(
                     scanner_name=self.name,
@@ -778,6 +788,9 @@ class MCPServerScanner(RuleBasedScanner):
 
             # Scan with YAML rules
             issues.extend(self._scan_with_rules(lines, file_path))
+
+            # Context-aware FP filtering for defensive security / compliance / auth files
+            issues = filter_contextual_fps(issues, file_path, content)
 
             return ScannerResult(
                 scanner_name=self.name,

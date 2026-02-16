@@ -35,6 +35,11 @@ class FPReason(Enum):
     BUILD_OUTPUT = "build_output"  # Finding in build/compiled output
     GENERATED_CODE = "generated_code"  # Finding in auto-generated code
     KNOWN_PATTERN = "known_pattern"  # Known FP from benchmark analysis
+    DEFENSIVE_SECURITY = "defensive_security"  # Security tool flagging its own detection code
+    MCP_PROTOCOL = "mcp_protocol"  # Standard MCP protocol behavior with proper auth
+    COMPLIANCE_CODE = "compliance_code"  # GDPR/DSAR/compliance code doing its legal job
+    DESCRIPTION_STRING = "description_string"  # Tool description / documentation string
+    INFRASTRUCTURE_CODE = "infrastructure_code"  # Internal infra (logging, cert-pinning, SIEM)
 
 
 @dataclass

@@ -57,7 +57,7 @@ class TrivyScanner(BaseScanner):
     def get_file_extensions(self) -> List[str]:
         return list(self.SUPPORTED_FILES.keys())
 
-    def get_confidence_score(self, file_path: Path) -> int:
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Trivy has high confidence for Dockerfiles, K8s manifests, and Terraform.
         Medium confidence for package manifests.
