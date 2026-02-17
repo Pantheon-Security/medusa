@@ -4060,7 +4060,7 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
     # IR/Security automation project FP patterns (298-317)
     # Added: 2026-02-11
     # Source: Real-world scan of internal IR/security automation project
-    # on macOS. 20 categories spanning ~3,000+ false positives.
+    # on macOS. 20 categories spanning ~3,200+ false positives.
     # =====================================================================
 
     # 298: ShellCheck style warnings in .sh files (1,174 findings)

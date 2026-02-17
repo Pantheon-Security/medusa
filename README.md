@@ -46,7 +46,7 @@ MEDUSA is an AI-first security scanner with **3,200+ detection patterns** that w
 | ✂️ **YAMLScanner Removed** | Dropped yamllint (style linter) — Trivy + Semgrep + MEDUSA rules cover YAML security |
 | 🔍 **Precision Pattern Tuning** | MCP, RAG, tool poisoning, multi-agent patterns tightened to reduce FPs |
 | 🚨 **133 Critical CVEs** | CVEMiner database covering LangChain, PyTorch, MCP, Log4Shell, XZ Utils |
-| 🤖 **3,000+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
+| 🤖 **3,200+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
 
 **External Linters** (optional):
 - MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed
@@ -94,7 +94,7 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 
 **[See Installation Guide →](docs/OPTIONAL_TOOLS.md)** for platform-specific instructions.
 
-> **Note:** External linters are optional. MEDUSA's 3,000+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
+> **Note:** External linters are optional. MEDUSA's 3,200+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
 
 ### Screenshots
 
@@ -247,7 +247,7 @@ medusa scan .
 
 ## 🤖 AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **3,000+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+MEDUSA provides **industry-leading AI security scanning** with **3,200+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
@@ -719,7 +719,7 @@ jobs:
         run: medusa scan . --fail-on high
 ```
 
-> **Note**: No tool installation step needed - MEDUSA's 3,000+ built-in rules work immediately.
+> **Note**: No tool installation step needed - MEDUSA's 3,200+ built-in rules work immediately.
 
 ---
 
@@ -805,7 +805,7 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ### ✅ Completed (v2026.3.0)
 
-- **3,000+ Detection Patterns** - Industry-leading AI security coverage
+- **3,200+ Detection Patterns** - Industry-leading AI security coverage
 - **76 Specialized Analyzers** - Comprehensive language and platform coverage
 - **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
 - **508 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
@@ -877,7 +877,7 @@ MEDUSA Professional adds **runtime protection** for production LLM applications 
 
 | Feature | Open Source | Professional | Enterprise |
 |---------|-------------|--------------|------------|
-| Static scanning (3,000+ patterns) | Yes | Yes | Yes |
+| Static scanning (3,200+ patterns) | Yes | Yes | Yes |
 | Runtime proxy filters (1,100+) | - | Yes | Yes |
 | REST API & webhooks | - | Yes | Yes |
 | Custom rules & SSO | - | - | Yes |
@@ -929,7 +929,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 **Version**: 2026.3.0
 **Release Date**: 2026-02-16
-**Detection Patterns**: 3,000+ AI security rules
+**Detection Patterns**: 3,200+ AI security rules
 **Analyzers**: 76 specialized scanners
 **FP Filter Patterns**: 508 intelligent filters (96.8% reduction rate)
 **CVE Coverage**: 133 critical vulnerabilities
@@ -944,7 +944,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 ## 🌟 Why MEDUSA?
 
 ### vs. Bandit
-- ✅ 3,000+ patterns (not just Python security)
+- ✅ 3,200+ patterns (not just Python security)
 - ✅ AI/ML security coverage
 - ✅ Zero setup required
 - ✅ IDE integration

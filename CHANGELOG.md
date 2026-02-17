@@ -97,7 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Simplified Installation**: MEDUSA now only manages `modelscan` via `medusa install --ai-tools`
-- **AI Rules First**: 3,000+ AI security detection patterns work out of the box
+- **AI Rules First**: 3,200+ AI security detection patterns work out of the box
 - **External Linters Optional**: Auto-detected if present, not installed by MEDUSA
 - **CLI Cleanup**: Removed 1,500+ lines of legacy installer code
 

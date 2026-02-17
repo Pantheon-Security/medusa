@@ -1,6 +1,6 @@
 """
 MEDUSA - AI Security Scanner
-3,000+ AI security detection patterns with 76 specialized analyzers.
+3,200+ AI security detection patterns with 76 specialized analyzers.
 """
 
 __version__ = "2026.3.0.0"
