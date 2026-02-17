@@ -1,6 +1,6 @@
 # Optional Security Tools Guide
 
-MEDUSA v2026.2 works out of the box with **3,000+ AI security rules**. External linters are **optional** - they enhance coverage but aren't required.
+MEDUSA v2026.2 works out of the box with **3,200+ AI security rules**. External linters are **optional** - they enhance coverage but aren't required.
 
 > **Note:** MEDUSA detects and uses these tools automatically if installed. We don't install or manage them - please refer to each vendor's official documentation for installation and support.
 

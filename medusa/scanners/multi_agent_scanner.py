@@ -47,10 +47,15 @@ class MultiAgentScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['MULTI-AGT-', 'MULTI-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['multi_agent', 'agent_orchestration']
+    RULE_ID_PREFIXES = ['MULTI-AGT-', 'MULTI-', 'MEDUSA-AGT26-']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = [
+        'multi_agent', 'agent_orchestration',
+        # AGT26 agentic attack categories
+        'delegation_chain', 'social_engineering',
+        'corpus_embedding_manipulation', 'prompt_injection',
+    ]
 
     # Patterns indicating multi-agent collaboration
     MULTI_AGENT_PATTERNS = [

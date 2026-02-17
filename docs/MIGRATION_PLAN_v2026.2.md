@@ -40,7 +40,7 @@ MEDUSA v2026.1.x
 ```
 MEDUSA v2026.2.0
 ├── AI Rules Engine (CORE)
-│   ├── 3,000+ YAML rules (no install)
+│   ├── 3,200+ YAML rules (no install)
 │   ├── CVE Miner auto-updates rules
 │   ├── Web Security Scanner (built-in)
 │   └── MCP Vulnerability Scanner (built-in)
@@ -190,7 +190,7 @@ semgrep     - Pattern matching (pip)
 ### Core Components (KEEP)
 ```
 medusa/
-├── rules/              # 3,000+ YAML rules (THE PRODUCT)
+├── rules/              # 3,200+ YAML rules (THE PRODUCT)
 ├── core/
 │   ├── scanner.py      # Main scanning engine
 │   ├── pattern_analyzer.py
@@ -229,7 +229,7 @@ Keep all 74 scanner wrappers but make them:
 - Works without admin rights on Windows
 
 ### Why This Change?
-MEDUSA's value is the 3,000+ AI security rules, not wrapping
+MEDUSA's value is the 3,200+ AI security rules, not wrapping
 47 linters. This release focuses on what makes MEDUSA unique:
 AI/ML security scanning that works out of the box.
 
@@ -501,7 +501,7 @@ async def daily_medusa_update():
 ### After (v2026.2)
 > "MEDUSA - AI Security Research Platform"
 >
-> - 3,000+ detection rules (and growing daily)
+> - 3,200+ detection rules (and growing daily)
 > - X CVEs discovered by our research team
 > - Automated rule generation from CVEs, papers, and repos
 > - The scanner that improves itself
@@ -512,7 +512,7 @@ async def daily_medusa_update():
 
 MEDUSA v2026.2 transforms from "scanner that wraps linters" to "AI security research platform":
 
-1. **Rules ARE the product** - 3,000+ patterns, auto-growing
+1. **Rules ARE the product** - 3,200+ patterns, auto-growing
 2. **ModelScan integration** - Only external tool we need
 3. **Miner ecosystem** - CVE + Paper + Repo miners feed rules
 4. **CVE research** - We discover, not just detect

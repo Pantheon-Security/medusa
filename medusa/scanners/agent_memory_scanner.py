@@ -52,8 +52,8 @@ class AgentMemoryScanner(RuleBasedScanner):
 
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['AGENT-MEM-', 'AGENT-']
-    
-    # Categories to load from YAML  
+
+    # Categories to load from YAML
     RULE_CATEGORIES = ['agent_memory', 'memory_poisoning', 'session_bleed']
 
     # Memory config file patterns

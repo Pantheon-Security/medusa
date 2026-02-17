@@ -1,0 +1,405 @@
+# MEDUSA Scanner Rules - Agentic Attacks 2026
+# Source: 50 papers from UCP Security & Agentic Commerce Research 2024-2026
+# Version: 1.0.0
+# Last Updated: 2026-02-17
+# Purpose: STATIC CODE ANALYSIS - detecting agentic attack patterns in source code
+#
+# Background:
+#   This ruleset covers 44 named attacks distilled from 50 research papers on
+#   autonomous agent security, agentic commerce, and LLM exploitation published
+#   between 2024-2026. Attack success rates (ASR) from the literature range from
+#   47% to 99% depending on the technique and target model.
+#
+# Novel Attack Categories:
+#   - Corpus Embedding Manipulation (CEM): Chang et al. 2026 demonstrated that
+#     adversarial prefixes of 5-10 nonsensical tokens can force RAG retrieval of
+#     poisoned documents with 89% ASG across embedding models. Universal retrieval
+#     poisoning crafts documents that match ALL queries regardless of topic.
+#
+#   - Synthetic Conversation Wrapper Injection: Attackers embed fake conversation
+#     history (<|im_start|>system, <human>, etc.) into tool outputs or retrieved
+#     documents, causing the LLM to treat injected text as prior system messages.
+#     ASR: 72-91% across GPT-4, Claude, Gemini.
+#
+#   - Controller Blasting (Delegation Chain Attacks): In multi-agent systems,
+#     a compromised controller fans out malicious instructions to N agents
+#     simultaneously, amplifying a single injection into N parallel exploits.
+#     Related: confused deputy (cross-permission exfiltration), line jumping
+#     (queue bypass), and privilege escalation via delegation.
+#
+#   - Memory Poisoning: Persistent agent memory (vector stores, conversation
+#     history) is written to by external tools without sanitization, allowing
+#     attackers to plant trigger fragments that activate on future retrievals.
+#     Unsanitized memory writes from scraped web content achieve 83% ASR.
+#
+# OWASP LLM Top 10 (2025) References:
+#   - LLM01:2025 Prompt Injection (INJ, SOC, MEM categories)
+#   - LLM05:2025 Insecure Output Handling (SBX category)
+#   - LLM06:2025 Excessive Agency (DEL category)
+#   - LLM08:2025 Vector and Embedding Weaknesses (CEM category)
+#
+# CWEs: CWE-94, CWE-269, CWE-400, CWE-441
+#
+# Hyperscan Compatible: All patterns avoid lookahead, lookbehind, and backreferences.
+
+rules:
+  # =============================================================================
+  # CEM - CORPUS EMBEDDING MANIPULATION (2 rules)
+  # Chang et al. 2026: adversarial prefix tokens force RAG retrieval of poisoned
+  # documents. 89% ASR across embedding models (text-embedding-3, Cohere, Voyage).
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-CEM-001
+    name: adversarial-prefix-retrieval-poisoning
+    severity: HIGH
+    category: corpus_embedding_manipulation
+    patterns:
+      - '(?i)(?:\b\w+\b\s*[},]\s*\{){2,}.*(?:enslaved|chronicles|horizons|alien|fantasy)'
+      - '(?i)adversarial[_-]?prefix\b.{0,40}\b(?:retrieval|embedding|corpus|document|chunk)'
+      - '(?i)(?:optimiz|generat|craft)\w*\s+(?:adversarial\s+)?(?:prefix|token\s+sequence)\b.{0,30}\b(?:forc|retriev|rank|embed)'
+    message: "Adversarial prefix pattern for corpus embedding manipulation detected"
+    description: |
+      Adversarial prefixes are nonsensical token sequences (5-10 words) prepended
+      to documents that exploit embedding model geometry to force retrieval
+      regardless of query relevance. Chang et al. 2026 demonstrated 89% attack
+      success rate across major embedding models. Pattern detects optimized
+      adversarial prefix structures (random noun clusters with JSON delimiters)
+      and code that generates such prefixes.
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-CEM-002
+    name: universal-retrieval-poisoning
+    severity: HIGH
+    category: corpus_embedding_manipulation
+    patterns:
+      - '(?i)universal[_-]?retrieval\b.{0,30}\b(?:poison|attack|inject|manipulat)'
+      - '(?i)force[_-]?retrieval\b.{0,30}\b(?:all|every|any)\s+(?:quer|topic|domain)'
+      - '(?i)match[_-]?all[_-]?queries\b.{0,30}\b(?:document|chunk|embed|vector)'
+      - '(?i)always[_-]?retrieve\b.{0,30}\b(?:poison|malicious|adversarial|inject)'
+    message: "Universal retrieval poisoning pattern detected - document designed to match all queries"
+    description: |
+      Universal retrieval poisoning crafts a single document optimized to appear
+      in retrieval results for ANY query, regardless of topic. The document
+      exploits the geometry of embedding spaces to sit near the centroid of
+      common query distributions. When retrieved, the poisoned document can
+      carry injection payloads that execute across all agent interactions.
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # INJ - INJECTION TECHNIQUES (4 rules)
+  # Synthetic conversation wrappers, tool deprecation claims, IMPORTANT tag
+  # injection, and tool output structure bypass. ASR: 72-91%.
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-INJ-001
+    name: synthetic-conversation-wrapper-injection
+    severity: CRITICAL
+    category: prompt_injection
+    patterns:
+      - '(?i)(?:<\|(?:im_start|im_end|system|user|assistant)\|>|<(?:system|human|assistant)>).{0,60}(?:ignore|override|forget|disregard)'
+      - '(?i)(?:im_start|im_end)\b.{0,40}\b(?:inject|fake|spoof|craft|synthe)'
+      - '(?i)(?:fake|synthetic|crafted|forged)\s+(?:conversation|chat|message)\s+(?:history|wrapper|context)\b.{0,30}\b(?:inject|insert|embed)'
+    message: "Synthetic conversation wrapper injection detected - fake chat history in context"
+    description: |
+      Attackers embed fake conversation history markers (<|im_start|>system,
+      <human>, <assistant>) into tool outputs or retrieved documents. When the
+      LLM processes these, it interprets the injected text as prior system
+      messages, allowing the attacker to override instructions, change persona,
+      or inject new directives. ASR: 72-91% across frontier models.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-INJ-002
+    name: tool-deprecation-claim-injection
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      - '(?i)(?:deprecated|replaced|superseded|do not use|use instead)\s+(?:this tool|the \w+ tool|tool \w+)'
+      - '(?i)(?:this tool|tool \w+)\s+(?:is|has been)\s+(?:deprecated|replaced|removed|disabled)\b.{0,30}\b(?:use|switch|migrate)'
+      - '(?i)tool[_-]?deprecat\w*\b.{0,30}\b(?:inject|fake|false|spoof|claim)'
+    message: "Tool deprecation claim injection detected - attempt to redirect agent tool selection"
+    description: |
+      Injected text claims a legitimate tool is deprecated or replaced,
+      redirecting the agent to use a malicious alternative. Exploits the
+      LLM's tendency to follow authoritative-sounding instructions about
+      tool availability. Particularly effective in multi-tool agent systems
+      where the agent selects from a tool registry.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-INJ-003
+    name: important-tag-injection-in-tool-output
+    severity: CRITICAL
+    category: prompt_injection
+    patterns:
+      - '(?i)(?:IMPORTANT|NOTE TO (?:SELF|SYSTEM|AI|AGENT)|SYSTEM NOTICE|ADMIN NOTE):\s*(?:always|never|must|ignore|override|execute|run|send|post)'
+      - '(?i)(?:CRITICAL INSTRUCTION|MANDATORY|OVERRIDE PREVIOUS):\s*(?:you must|immediately|execute|ignore|disregard)'
+      - '(?i)(?:BEGIN SYSTEM|END USER|NEW INSTRUCTION)\b.{0,20}(?:override|ignore|replace|update)\b.{0,20}(?:previous|above|prior|existing)'
+    message: "IMPORTANT/NOTE tag injection detected in tool output context"
+    description: |
+      Attackers embed IMPORTANT:, NOTE TO SYSTEM:, ADMIN NOTE:, or similar
+      authoritative tags in tool outputs, retrieved documents, or external data.
+      LLMs disproportionately weight text following these markers, making them
+      highly effective injection vectors. Combined with directive verbs (always,
+      never, must, execute), these achieve 85%+ compliance rates.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-INJ-004
+    name: tool-output-structure-bypass
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      - '(?i)(?:ignore|disregard|override|skip).{0,30}(?:schema|structure|format|field|validation|parsing)'
+      - '(?i)(?:bypass|circumvent|evade)\b.{0,20}\b(?:output|response)\s+(?:schema|validation|format|structure|parsing)'
+      - '(?i)(?:raw|unstructured|freeform)\s+(?:output|response)\b.{0,30}\b(?:bypass|instead of|skip)\b.{0,20}\b(?:json|schema|struct)'
+    message: "Tool output structure bypass detected - attempt to evade output validation"
+    description: |
+      Injected instructions tell the agent to ignore output schema validation,
+      return raw/unstructured responses, or bypass field-level parsing. This
+      allows the attacker to smuggle arbitrary content through tool boundaries
+      that would normally be sanitized by structured output enforcement.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # DEL - DELEGATION CHAIN ATTACKS (4 rules)
+  # Multi-agent systems: confused deputy, privilege escalation via delegation,
+  # controller blasting (fan-out), and line jumping (queue bypass).
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-DEL-001
+    name: confused-deputy-cross-permission-exfiltration
+    severity: CRITICAL
+    category: delegation_chain
+    patterns:
+      - '(?i)(?:read|get|fetch)\b.{0,40}\b(?:secret|private|credential|key|token)\b.{0,40}\b(?:post|send|write|upload|comment)'
+      - '(?i)(?:access|retrieve)\b.{0,30}\b(?:private|internal|confidential)\b.{0,40}\b(?:exfiltrat|leak|expose|share|transmit)'
+      - '(?i)confused[_-]?deputy\b.{0,30}\b(?:agent|delegat|cross[_-]?permission|exfiltrat)'
+    message: "Confused deputy pattern detected - cross-permission data exfiltration via agent delegation"
+    description: |
+      A confused deputy attack in multi-agent systems occurs when Agent A (with
+      read access to private data) is tricked into passing sensitive information
+      to Agent B (with write access to public channels). The delegation chain
+      bridges permission boundaries that neither agent could cross alone.
+      Pattern detects read-private then write-public sequences in agent code.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-441"
+
+  - id: MEDUSA-AGT26-DEL-002
+    name: privilege-escalation-via-delegation
+    severity: CRITICAL
+    category: delegation_chain
+    patterns:
+      - '(?i)(?:delegate|handoff|transfer)\b.{0,30}\b(?:admin|root|sudo|elevated|full[_-]?access|all[_-]?permissions)'
+      - '(?i)(?:escalat|elevat)\w*\b.{0,20}\b(?:privilege|permission|role|access)\b.{0,30}\b(?:delegat|agent|handoff)'
+      - '(?i)(?:grant|assign|give)\b.{0,20}\b(?:admin|root|elevated|unrestricted)\b.{0,20}\b(?:to\s+agent|agent\s+\w+|delegat)'
+    message: "Privilege escalation via agent delegation detected"
+    description: |
+      A delegation chain grants elevated privileges (admin, root, full access)
+      to a downstream agent. In multi-agent orchestration, tasks delegated with
+      excessive permissions allow compromised sub-agents to perform privileged
+      operations beyond the scope of the original request.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-269"
+
+  - id: MEDUSA-AGT26-DEL-003
+    name: controller-blasting-fan-out-attack
+    severity: HIGH
+    category: delegation_chain
+    patterns:
+      - '(?i)(?:for\s+\w+\s+in\s+agents|broadcast_to_agents|fan_out|spawn_agents).{0,50}(?:execute|run|invoke|call)'
+      - '(?i)(?:parallel|concurrent|async)\b.{0,20}\b(?:dispatch|broadcast|fan[_-]?out)\b.{0,30}\b(?:agent|worker|executor)'
+      - '(?i)(?:blast|flood|spray)\b.{0,20}\b(?:agent|task|instruction)\b.{0,30}\b(?:all|every|batch|bulk)'
+    message: "Controller blasting detected - fan-out to multiple agents without rate limiting"
+    description: |
+      Controller blasting occurs when a compromised orchestrator fans out
+      malicious instructions to N agents simultaneously, amplifying a single
+      injection into N parallel exploits. Without rate limiting or per-agent
+      instruction validation, one poisoned message can compromise an entire
+      agent swarm. Pattern detects iteration over agent lists with execution calls.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-400"
+
+  - id: MEDUSA-AGT26-DEL-004
+    name: line-jumping-queue-bypass
+    severity: MEDIUM
+    category: delegation_chain
+    patterns:
+      - '(?i)(?:priority|urgent|skip[_-]?queue|jump[_-]?line|bypass[_-]?order)\b.{0,30}\b(?:agent|task|request)'
+      - '(?i)(?:queue|order|schedul)\w*\b.{0,20}\b(?:bypass|skip|jump|override)\b.{0,20}\b(?:agent|task|priorit)'
+      - '(?i)(?:force[_-]?priority|emergency[_-]?override)\b.{0,30}\b(?:agent|task|execution|queue)'
+    message: "Agent line jumping detected - task queue or execution order bypass"
+    description: |
+      Line jumping attacks manipulate task priority or queue ordering in
+      multi-agent systems. An injected instruction claims urgent/priority
+      status to bypass normal scheduling, causing the agent to execute
+      malicious tasks ahead of legitimate ones. This can disrupt agent
+      coordination, cause race conditions, or enable time-of-check to
+      time-of-use (TOCTOU) attacks.
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-400"
+
+  # =============================================================================
+  # SBX - SANDBOX ESCAPE (3 rules)
+  # Docker socket exposure, eval/exec on model output, and host filesystem
+  # root mount in agent containers.
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-SBX-001
+    name: docker-socket-mount-agent-container
+    severity: CRITICAL
+    category: sandbox_escape
+    patterns:
+      - '(?i)(?:/var/run/docker\.sock|docker\.sock)\s*(?::|mounted|volume|bind)'
+      - '(?i)(?:volume|mount|bind)\b.{0,30}\b(?:docker\.sock|/var/run/docker)'
+      - '(?i)(?:agent|llm|model)\b.{0,30}\b(?:container|docker)\b.{0,30}\b(?:docker\.sock|privileged)'
+    message: "Docker socket mount in agent container - sandbox escape risk"
+    description: |
+      Mounting the Docker socket (/var/run/docker.sock) inside an agent
+      container gives the agent full control over the Docker daemon, enabling
+      container escape, host filesystem access, and arbitrary container
+      creation. This is the most common container escape vector and is
+      especially dangerous when the agent processes untrusted inputs.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-269"
+
+  - id: MEDUSA-AGT26-SBX-002
+    name: eval-exec-on-model-output
+    severity: CRITICAL
+    category: sandbox_escape
+    patterns:
+      - '(?i)(?:eval|exec)\s*\(\s*(?:result|output|response|model_output|llm_output|agent_output|completion)'
+      - '(?i)(?:eval|exec)\s*\(\s*\w*\.(?:text|content|message|choices|generation|answer)'
+      - '(?i)(?:compile|code_eval)\s*\(\s*(?:model|llm|agent|gpt|claude|completion)\w*[._](?:output|response|text|content)'
+    message: "eval/exec called on model output - arbitrary code execution risk"
+    description: |
+      Using eval() or exec() on LLM/agent output allows the model to execute
+      arbitrary code on the host system. If the model output is influenced by
+      prompt injection or tool output manipulation, the attacker achieves
+      remote code execution. This is the most direct sandbox escape vector
+      in agent systems.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-SBX-003
+    name: host-filesystem-root-mount-agent
+    severity: CRITICAL
+    category: sandbox_escape
+    patterns:
+      - '(?i)(?:mount|volume|bind)\s*[:=]?\s*["'']?\s*/\s*[:=]'
+      - '(?i)(?:allowed_directories|root_path|base_path)\s*[:=]\s*["'']?\s*/\s*["'']?'
+      - '(?i)(?:agent|llm|tool)\b.{0,30}\b(?:filesystem|file_access|directory)\s*[:=]\s*["'']?\s*/\s*["'']?'
+    message: "Host filesystem root mount in agent configuration - full host access"
+    description: |
+      Mounting the host root filesystem (/) into an agent container or
+      configuring an agent's allowed_directories to / grants unrestricted
+      file access. A compromised agent can read secrets, modify system files,
+      install persistence mechanisms, or pivot to other services on the host.
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-269"
+
+  # =============================================================================
+  # MEM - MEMORY POISONING (3 rules)
+  # Unsanitized memory writes, direct concatenation, and trigger fragments
+  # in agent persistent memory (vector stores, conversation history).
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-MEM-001
+    name: direct-memory-concatenation-unsanitized
+    severity: HIGH
+    category: memory_poisoning
+    patterns:
+      - '(?i)(?:context|prompt|messages?)\s*(?:\+\=|\+=|\.append|\.extend|\.insert)\s*.*(?:memory|retrieved|fetched|recall)'
+      - '(?i)(?:context|prompt|system_message)\s*(?:\+\=|\+=)\s*.*(?:vector_db|vectorstore|retriev|search_result)'
+      - '(?i)(?:memory|recall|retrieved)\b.{0,30}\b(?:unsanitiz|unvalidat|raw|unfilter)\b.{0,20}\b(?:append|concat|add|insert|extend)'
+    message: "Direct memory concatenation without sanitization detected"
+    description: |
+      Agent memory or retrieved content is concatenated directly into the
+      prompt or context without sanitization. If the memory store contains
+      poisoned entries (from prior injections, external tool writes, or
+      adversarial documents), the injected content becomes part of the
+      active prompt and can override agent instructions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-MEM-002
+    name: unsanitized-memory-write-external-tool
+    severity: HIGH
+    category: memory_poisoning
+    patterns:
+      - '(?i)(?:memory|vector_db|vectorstore|chromadb|pinecone|qdrant|weaviate)\.\s*(?:add|upsert|insert|store|save)\s*\(.*(?:fetch|scrape|crawl|email|webpage|external)'
+      - '(?i)(?:add_documents|upsert|insert_many)\s*\(.*(?:scrape|crawl|download|http_response|api_result|tool_output)'
+      - '(?i)(?:persist|store|save)[_-]?(?:memory|embedding|document)\b.{0,30}\b(?:external|untrusted|user[_-]?input|tool[_-]?output)'
+    message: "Unsanitized memory write from external tool output detected"
+    description: |
+      External data (web scrapes, emails, API responses, tool outputs) is
+      written directly to agent persistent memory (vector stores, knowledge
+      bases) without sanitization. Attackers can plant injection payloads in
+      web pages or emails that persist in the agent's memory and activate on
+      future retrievals. ASR: 83% for web-scraped memory poisoning.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-MEM-003
+    name: trigger-fragment-recency-bias
+    severity: MEDIUM
+    category: memory_poisoning
+    patterns:
+      - '(?i)(?:sort|order|rank)\b.{0,30}\b(?:recent|latest|newest|most[_-]?relevant)\b.{0,30}\b(?:memory|chunk|document|embedding)'
+      - '(?i)(?:top_k|limit|max_results)\s*[:=]\s*1\b.{0,40}\b(?:memory|retriev|vector|embedding)'
+      - '(?i)(?:recency|freshness)[_-]?(?:bias|weight|boost)\b.{0,30}\b(?:memory|retriev|rank|sort)'
+    message: "Memory retrieval with recency/relevance bias without validation detected"
+    description: |
+      Agent memory retrieval prioritizes most recent or most relevant entries
+      without validation of content integrity. Attackers exploit recency bias
+      by injecting trigger fragments that become the "most recent" or "most
+      relevant" memory, ensuring they are retrieved first. When top_k=1 is
+      used, a single poisoned entry dominates all future interactions.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # =============================================================================
+  # SOC - SOCIAL ENGINEERING OF AGENTS (2 rules)
+  # Belief corruption via authoritative directives and agent impersonation
+  # in tool responses.
+  # =============================================================================
+
+  - id: MEDUSA-AGT26-SOC-001
+    name: belief-corruption-directive-in-external-data
+    severity: CRITICAL
+    category: social_engineering
+    patterns:
+      - '(?i)(?:IMPORTANT|URGENT|NOTE\s+TO\s+SYSTEM|CRITICAL\s+UPDATE)\b.{0,40}\b(?:send|post|email|copy|forward|transfer)\b.{0,20}\b(?:to|at)\s'
+      - '(?i)(?:IMMEDIATE ACTION|MANDATORY INSTRUCTION|SECURITY ALERT)\b.{0,40}\b(?:exfiltrat|transmit|upload|forward|redirect)\b.{0,20}\b(?:data|file|secret|credential)'
+      - '(?i)(?:IMPORTANT|URGENT|CRITICAL)\b.{0,20}\b(?:do not|never)\s+(?:tell|inform|notify|alert)\b.{0,20}\b(?:user|human|operator|admin)'
+    message: "Belief corruption directive detected - authoritative social engineering of agent"
+    description: |
+      External data (tool outputs, retrieved documents, web content) contains
+      IMPORTANT/URGENT/CRITICAL directives designed to socially engineer the
+      agent into performing data exfiltration or concealing actions from the
+      user. LLMs are disproportionately compliant with authoritative-sounding
+      directives, especially when combined with urgency markers and specific
+      action instructions (send to, forward, do not tell the user).
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-AGT26-SOC-002
+    name: agent-impersonation-in-tool-response
+    severity: HIGH
+    category: social_engineering
+    patterns:
+      - '(?i)(?:i am|this is)\s+(?:the |your |an? )?\b(?:system|admin|administrator|developer|authorized|support)\b'
+      - '(?i)(?:speaking as|acting as|on behalf of)\s+(?:the |your )?\b(?:system|admin|administrator|developer|operator)\b'
+      - '(?i)(?:system|admin|developer)\s+(?:here|speaking|message)\b.{0,30}\b(?:override|ignore|update|change|new instruction)'
+    message: "Agent impersonation detected in tool response context"
+    description: |
+      Tool responses or external data contain identity claims ("I am the
+      system administrator", "This is your developer") designed to make the
+      LLM believe it is receiving instructions from a trusted authority.
+      When the agent treats tool outputs as trusted, these impersonation
+      claims can override safety guardrails and redirect agent behavior.
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"

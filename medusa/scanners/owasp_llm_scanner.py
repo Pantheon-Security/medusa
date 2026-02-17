@@ -51,10 +51,22 @@ class OWASPLLMScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['OWASP-', 'LLM']
+    RULE_ID_PREFIXES = ['OWASP-', 'LLM', 'MEDUSA-UCP26-', 'MEDUSA-EXF26-', 'MEDUSA-UCP-SCAN-']
 
     # Categories to load from YAML
-    RULE_CATEGORIES = ['owasp_llm', 'llm_security']
+    RULE_CATEGORIES = [
+        'owasp_llm', 'llm_security',
+        # UCP26 agentic commerce categories
+        'payment_security', 'mandate_security', 'agent_identity',
+        'escrow_security', 'privacy',
+        # UCP-SCAN categories (from dev repo 40 rules)
+        'authentication', 'authorization', 'trust_model',
+        'credential_exposure', 'information_disclosure',
+        'resource_exhaustion', 'web_agent_security', 'multimodal_security',
+        # EXF26 exfiltration categories
+        'credential_exfiltration', 'tool_exfiltration', 'data_exfiltration',
+        'memory_extraction', 'prompt_leakage',
+    ]
 
     # LLM01: Prompt Injection patterns (direct and indirect)
     PROMPT_INJECTION_PATTERNS = [

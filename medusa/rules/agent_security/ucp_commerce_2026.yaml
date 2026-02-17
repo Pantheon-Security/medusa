@@ -1,0 +1,305 @@
+# MEDUSA Scanner Rules - UCP Agentic Commerce 2026
+# Source: UCP Security & Agentic Commerce 2024-2026 Research (50 papers)
+# Version: 1.0.0
+# Last Updated: 2026-02-17
+# Purpose: STATIC CODE ANALYSIS - detecting agentic commerce anti-patterns at build/scan time
+#
+# Background:
+#   This ruleset targets the 2026 wave of agentic commerce vulnerabilities arising
+#   from AI agents autonomously executing financial transactions via UCP (Universal
+#   Commerce Protocol), AP2 (Agent Payments Protocol), and emerging settlement frameworks.
+#   These rules go beyond the foundational UCP/AP2 endpoint and mandate rules in
+#   ucp_vulnerabilities.yaml and ap2_vulnerabilities.yaml, focusing on novel 2026
+#   attack techniques and architectural anti-patterns.
+#
+# Novel 2026 Techniques Covered:
+#   - TessPay: Tessellated settlement with Proof-of-Transaction-Execution (PoTE)
+#     verification before releasing funds. Optimistic settlement without PoTE
+#     enables phantom deposit and flash-settlement attacks.
+#   - ZK Mandates: Zero-knowledge proofs for mandate verification, allowing agents
+#     to prove budget compliance without revealing spending limits. Cleartext mandates
+#     expose financial constraints to adversaries.
+#   - VAC (Verifiable Agent Credentials): Agent-specific JWT claims (agent_checksum,
+#     delegation_chain) beyond standard OAuth2 client_credentials. Standard JWTs
+#     lack the granularity needed for multi-hop agent delegation.
+#   - Phantom Deposit: Accepting deposits/funds before on-chain or settlement
+#     finality confirmation, enabling double-spend in agent escrow flows.
+#
+# Pre-Tuning:
+#   All patterns require 2+ specific compound keywords to minimize false positives.
+#   Word boundaries (\b) are used around key identifiers. No lookaheads, lookbehinds,
+#   or backreferences (Hyperscan compatible).
+#
+# Protocols: UCP (Google), AP2 (Agent Payments Protocol), TessPay, ZK-Mandates
+# CWEs: CWE-20, CWE-200, CWE-284, CWE-287, CWE-345, CWE-613, CWE-693
+# OWASP LLM: LLM06:2025, LLM07:2025, LLM08:2025
+#
+# References:
+#   - https://ucp.dev/specification/overview/
+#   - https://ap2-protocol.org/specification/
+#   - https://cloudsecurityalliance.org/blog/2025/10/06/secure-use-of-the-agent-payments-protocol-ap2
+#   - docs/research/nblm/ucp_vulnerabilities/ (internal research corpus)
+
+rules:
+# =============================================================================
+# SECTION 1: PAYMENT WITHOUT PoTE (3 rules)
+# =============================================================================
+
+- id: MEDUSA-UCP26-PAY-001
+  name: optimistic-settlement-without-pote
+  severity: CRITICAL
+  category: payment_security
+  patterns:
+  - '(?i)\b(?:stripe\.charges\.create|stripe\.paymentIntents\.create|web3\.eth\.sendTransaction)\b'
+  - '(?i)\b(?:stripe|paypal|adyen|braintree)\.(?:charge|capture|settle)\b'
+  message: >
+    Payment gateway call detected without Proof-of-Transaction-Execution (PoTE) verification.
+    In agentic commerce flows, optimistic settlement without PoTE allows agents to trigger
+    irreversible payments before the transaction execution chain is cryptographically verified.
+    Ensure verifyPoTE/verify_pote/check_pote is called before any settlement action.
+  cwe: CWE-345
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-PAY-002
+  name: http-402-direct-payment-no-escrow
+  severity: HIGH
+  category: payment_security
+  patterns:
+  - '(?i)\b(?:direct_payment|immediate_charge|instant_transfer)\b.*\b(?:agent|bot|mcp)\b'
+  - '(?i)\b(?:bypass_escrow|skip_escrow|no_escrow)\b.*\b(?:pay|charge|settle)\b'
+  - '(?i)\b(?:payment_required|402)\b.*\b(?:direct|immediate)\b.*\b(?:agent|ucp)\b'
+  message: >
+    Direct payment flow without escrow detected in agentic context. HTTP 402 or direct
+    charge patterns that bypass escrow leave no intermediary to verify agent authorization.
+    Agents acting on stale or manipulated mandates can trigger unauthorized charges
+    when escrow is absent from the settlement path.
+  cwe: CWE-345
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-PAY-003
+  name: unverified-payout-release
+  severity: CRITICAL
+  category: payment_security
+  patterns:
+  - '(?i)\b(?:release_funds|release_payment)\b.*\b(?:agent|delegate|automated)\b'
+  - '(?i)\b(?:payout\.create|payout_create)\b.*\b(?:agent|ucp|mandate)\b'
+  - '(?i)\b(?:withdraw|disburse)\b.*\b(?:agent|automated|bot)\b'
+  message: >
+    Payout or fund release triggered without cryptographic proof verification (Merkle root,
+    PoTE, or ZK proof). In agentic settlement flows, releasing funds without verifiable
+    proof that the transaction was legitimately executed enables phantom settlement attacks
+    where agents fabricate completion signals.
+  cwe: CWE-345
+  owasp_llm: LLM07:2025
+
+# =============================================================================
+# SECTION 2: UNVERIFIED MANDATES (3 rules)
+# =============================================================================
+
+- id: MEDUSA-UCP26-MND-001
+  name: mandate-field-access-without-signature
+  severity: CRITICAL
+  category: mandate_security
+  patterns:
+  - '(?i)\bmandate\.(?:amount|payee|currency|merchant_id)\b.*\b(?:process|execute|use)\b'
+  - '(?i)\b(?:process|execute|accept)\b.*\bmandate\.(?:amount|payee|currency)\b'
+  - '(?i)\bmandate\[.(?:amount|payee|currency|merchant).\].*\b(?:charge|pay|transfer)\b'
+  message: >
+    Mandate financial fields (amount, payee, currency, merchant) accessed and used in a
+    payment flow without prior signature verification. Unsigned or unverified mandate
+    fields can be tampered with by intermediate agents in the delegation chain, enabling
+    payee substitution and amount manipulation attacks.
+  cwe: CWE-345
+  owasp_llm: LLM07:2025
+
+- id: MEDUSA-UCP26-MND-002
+  name: mandate-deserialization-without-validation
+  severity: HIGH
+  category: mandate_security
+  patterns:
+  - '(?i)\b(?:intent|cart|payment)_?mandate\b.*\b(?:json\.loads|JSON\.parse|from_dict|from_json)\b'
+  - '(?i)\b(?:json\.loads|JSON\.parse)\b.*\b(?:intent|cart|payment)_?mandate\b'
+  - '(?i)\b(?:deserializ|unmarshal|parse)\b.*\b(?:intent_mandate|cart_mandate|payment_mandate)\b'
+  message: >
+    IntentMandate, CartMandate, or PaymentMandate deserialized from JSON/dict without
+    schema validation. Malformed or adversarial mandate payloads can inject unexpected
+    fields, override constraints, or exploit type confusion in the mandate processing
+    pipeline. Validate against a strict schema before processing.
+  cwe: CWE-20
+  owasp_llm: LLM07:2025
+
+- id: MEDUSA-UCP26-MND-003
+  name: mandate-constraint-override
+  severity: HIGH
+  category: mandate_security
+  patterns:
+  - '(?i)\bmandate\.(?:budget|limit|max_amount|allowed_merchants)\s*='
+  - '(?i)\bmandate\[.(?:budget|limit|max_amount|allowed_merchants).\]\s*='
+  - '(?i)\b(?:set|update|override)\b.*\bmandate\b.*\b(?:budget|limit|max_amount|allowed_merchants)\b'
+  message: >
+    Mandate constraint fields (budget, limit, max_amount, allowed_merchants) are being
+    directly assigned or overridden. Mandate constraints should be immutable after issuance
+    and cryptographically bound to the original user authorization. Mutable constraints
+    enable privilege escalation where an agent widens its own spending authority.
+  cwe: CWE-284
+  owasp_llm: LLM08:2025
+
+# =============================================================================
+# SECTION 3: AGENT JWT ISSUES (3 rules)
+# =============================================================================
+
+- id: MEDUSA-UCP26-JWT-001
+  name: standard-jwt-without-agent-claims
+  severity: MEDIUM
+  category: agent_identity
+  patterns:
+  - '(?i)\b(?:jwt|jsonwebtoken)\b.*\b(?:encode|sign|create)\b.*\b(?:client_credentials|sub|iss)\b'
+  - '(?i)\b(?:encode|sign|create)\b.*\b(?:jwt|jsonwebtoken)\b.*\b(?:sub|iss|aud)\b'
+  message: >
+    Standard JWT creation detected with conventional OAuth2 claims (sub, iss, aud) but
+    no agent-specific claims. Agentic commerce JWTs should include agent_checksum,
+    delegation_depth, mandate_ref, and tool_scope claims to enable fine-grained
+    authorization in multi-hop agent delegation chains. Without these, any valid OAuth2
+    token can impersonate an agent.
+  cwe: CWE-284
+  owasp_llm: LLM08:2025
+
+- id: MEDUSA-UCP26-JWT-002
+  name: client-credentials-grant-for-agent
+  severity: HIGH
+  category: agent_identity
+  patterns:
+  - '(?i)\bgrant_type\b.*\bclient_credentials\b.*\b(?:agent|tool|mcp|delegate)\b'
+  - '(?i)\b(?:agent|tool|mcp|delegate)\b.*\bgrant_type\b.*\bclient_credentials\b'
+  - '(?i)\bclient_credentials\b.*\b(?:agent_id|agent_token|agent_auth)\b'
+  message: >
+    OAuth2 client_credentials grant used for agent authentication. The client_credentials
+    grant issues tokens scoped to the application, not the delegating user. Agents using
+    these tokens act with application-level privileges rather than user-delegated scope,
+    bypassing the principle of least privilege required by AP2 mandate chains.
+  cwe: CWE-284
+  owasp_llm: LLM08:2025
+
+- id: MEDUSA-UCP26-JWT-003
+  name: long-lived-agent-token
+  severity: MEDIUM
+  category: agent_identity
+  patterns:
+  - '(?i)\b(?:access_token_lifetime|token_lifetime|expires_in|ttl)\s*[:=]\s*(?:3600|7200|86400|604800)\b'
+  - '(?i)\b(?:agent|bot|mcp).*\b(?:token|jwt)\b.*\b(?:expires_in|ttl)\s*[:=]\s*\d{4,}\b'
+  - '(?i)\b(?:token_lifetime|access_token_lifetime)\s*[:=]\s*\d{5,}\b'
+  message: >
+    Agent token with long TTL detected (>= 3600 seconds). Agentic commerce tokens should
+    be short-lived (60-300 seconds) and scoped to individual transaction sessions. Long-lived
+    agent tokens expand the window for token theft, replay attacks, and stale delegation
+    chain exploitation. Use short-lived tokens with refresh rotation instead.
+  cwe: CWE-613
+  owasp_llm: LLM06:2025
+
+# =============================================================================
+# SECTION 4: ESCROW / DEPOSIT (3 rules)
+# =============================================================================
+
+- id: MEDUSA-UCP26-ESC-001
+  name: phantom-deposit-no-finality
+  severity: CRITICAL
+  category: escrow_security
+  patterns:
+  - '(?i)\b(?:deposit|fund|lock_funds)\b.*\b(?:accept|confirm|approve)\b.*\b(?:broadcast|pending|unconfirmed)\b'
+  - '(?i)\b(?:pending|unconfirmed|mempool)\b.*\b(?:deposit|fund|escrow)\b.*\b(?:accept|credit|approve)\b'
+  - '(?i)\b(?:accept_deposit|confirm_deposit|credit_escrow)\b.*\b(?:unconfirmed|pending|broadcast)\b'
+  message: >
+    Deposit or fund lock accepted before settlement finality confirmation. Phantom deposit
+    attacks exploit the gap between transaction broadcast and on-chain/settlement finality.
+    An agent can present an unconfirmed transaction as proof of deposit, receive goods or
+    services, then double-spend or cancel the underlying transaction before it settles.
+  cwe: CWE-345
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-ESC-002
+  name: payment-flow-missing-escrow
+  severity: HIGH
+  category: escrow_security
+  patterns:
+  - '(?i)\b(?:direct_payment|immediate_charge|instant_transfer|bypass_escrow|skip_escrow)\b'
+  - '(?i)\b(?:pay_merchant|charge_merchant|transfer_to_merchant)\b.*\b(?:direct|immediate|instant)\b'
+  - '(?i)\b(?:no_escrow|without_escrow|escrow_disabled)\b.*\b(?:agent|ucp|mandate)\b'
+  message: >
+    Payment flow bypasses escrow in an agentic commerce context. Without escrow as an
+    intermediary, there is no mechanism to verify mandate compliance, enforce spending
+    limits, or reverse unauthorized transactions before settlement finality. All agent-
+    initiated payments should route through an escrow service that validates the mandate
+    before releasing funds to the merchant.
+  cwe: CWE-693
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-ESC-003
+  name: escrow-release-single-party
+  severity: HIGH
+  category: escrow_security
+  patterns:
+  - '(?i)\b(?:escrow|funds)\b.*\b(?:release|unlock|withdraw)\b.*\b(?:single|solo|unilateral)\b'
+  - '(?i)\b(?:release_escrow|unlock_funds|escrow_release)\b.*\b(?:agent|automated|auto)\b'
+  - '(?i)\b(?:escrow\.release|release_escrow|unlock_funds)\s*\('
+  message: >
+    Escrow release without multi-party verification detected. In agentic commerce, escrow
+    funds should require consensus (multi-sig, quorum, or dual authorization) before release.
+    Single-party escrow release allows a compromised agent or malicious intermediary to
+    drain escrow funds without buyer or merchant confirmation.
+  cwe: CWE-284
+  owasp_llm: LLM08:2025
+
+# =============================================================================
+# SECTION 5: ZERO-KNOWLEDGE MANDATES (3 rules)
+# =============================================================================
+
+- id: MEDUSA-UCP26-ZKM-001
+  name: cleartext-mandate-financial-constraints
+  severity: MEDIUM
+  category: privacy
+  patterns:
+  - '(?i)\bmandate\b.*\b(?:budget|spending_limit|balance)\s*[:=]\s*\d'
+  - '(?i)\b(?:budget|spending_limit|max_spend)\s*[:=]\s*\d+\b.*\bmandate\b'
+  - '(?i)\bmandate\b.*\b(?:plaintext|cleartext|unencrypted)\b.*\b(?:budget|limit|balance)\b'
+  message: >
+    Mandate contains cleartext financial constraints (budget, spending_limit, balance).
+    Exposing exact spending limits in plaintext allows adversarial merchants or intermediate
+    agents to price-discriminate, set prices at the maximum authorized amount, or profile
+    user wealth. Use zero-knowledge proofs (ZKP/SNARK/STARK) to prove budget compliance
+    without revealing the actual constraint values.
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-ZKM-002
+  name: mandate-verification-without-zkp
+  severity: LOW
+  category: privacy
+  patterns:
+  - '(?i)\b(?:verify|validate)_mandate\b'
+  - '(?i)\bmandate\b.*\b(?:verify|validate|check)\b.*\b(?:budget|limit|amount)\b'
+  - '(?i)\b(?:check_mandate_compliance|validate_mandate_budget)\b'
+  message: >
+    Mandate verification detected without zero-knowledge proof integration. While
+    traditional mandate verification checks budget compliance by reading plaintext values,
+    ZK-mandate verification (using SNARK/STARK proofs) allows proving that a transaction
+    is within budget without revealing the budget itself. Consider upgrading to ZK-based
+    verification for privacy-preserving mandate compliance.
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+
+- id: MEDUSA-UCP26-ZKM-003
+  name: shared-agent-identity-credentials
+  severity: HIGH
+  category: agent_identity
+  patterns:
+  - '(?i)\b(?:shared_identity|shared_client_id|same_credentials|reuse_token)\b.*\b(?:agent|bot|worker)\b'
+  - '(?i)\b(?:agent|bot|worker)\b.*\b(?:shared_identity|shared_client_id|same_credentials)\b'
+  - '(?i)\b(?:common_token|shared_secret|shared_api_key)\b.*\b(?:agent|bot|worker|mcp)\b'
+  message: >
+    Multiple agents sharing the same client_id, credentials, or identity token. Shared
+    agent identity prevents individual accountability, makes delegation chain auditing
+    impossible, and allows any agent in the pool to act with the full authority of the
+    shared credential. Each agent must have a unique identity bound to its own key pair
+    for proper attribution and least-privilege enforcement.
+  cwe: CWE-287
+  owasp_llm: LLM08:2025
