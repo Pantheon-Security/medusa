@@ -9,7 +9,7 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**AI-first security scanner with 3,000+ detection patterns for AI/ML, agents, and LLM applications.**
+**AI-first security scanner with 3,200+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **✨ NEW v2026.3.0: 508 FP filters, scanner precision tuning, compound gates, yamllint removed!**
