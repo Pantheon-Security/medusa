@@ -18,11 +18,11 @@
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is an AI-first security scanner with **3,000+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
+MEDUSA is an AI-first security scanner with **3,200+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
 
 ### ✨ Key Features
 
-- 🤖 **3,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- 🤖 **3,200+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **133 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
