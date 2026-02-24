@@ -1,0 +1,1003 @@
+metadata:
+  source: PaperMiner/2025-12-29_mcp_security
+  extraction_date: '2026-02-18'
+  papers_analyzed: 22
+  unique_attacks: 31
+  defenses_identified: 9
+  consolidated: true
+  source_files:
+  - mcp_security_scanner.yaml
+  - mcp_security_2025_scanner.yaml
+rules:
+- id: MEDUSA-MCP-SCAN-001
+  name: tool-description-injection
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)__doc__\s*=\s*["'][^"']*(?:ignore|disregard|override|instead)\s+(?:previous|prior|original)
+  - (?i)__doc__\s*[+=]\s*["'][^"']*(?:execute|run|call|invoke)\s+(?:this|the\s+following)
+  - (?i)description\s*[=:]\s*["'][^"']*(?:IMPORTANT|NOTE|WARNING)\s*:.*(?:must|should|always)\s+(?:use|call|run)
+  file_types:
+  - '*.py'
+  message: MCP tool description contains injected instructions (Shadowing/Rug Pull pattern)
+  description: Detects hidden instructions in MCP tool __doc__ strings or descriptions. Guo 2025 showed Shadowing attacks
+    achieve 80% ASR by hijacking legitimate tools via shared context __doc__ manipulation.
+  remediation: Treat tool descriptions as untrusted input. Validate tool logic independently of descriptions. Use static analysis
+    on tool definitions before deployment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-002
+  name: tool-description-deprecated-claim
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:deprecated|obsolete|replaced\s+by|use\s+instead)
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:best\s+practice|recommended|preferred)\s+(?:tool|method|approach)
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:do\s+not\s+use|avoid\s+using)\s+[a-zA-Z_]+
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: MCP tool description contains deceptive preference/deprecation claims
+  description: Detects Malicious Tool Coverage (100% ASR) and Tool Preference Manipulation (70% ASR) attacks from Guo 2025
+    where tools use deceptive descriptions to hijack selection.
+  remediation: Validate deprecation claims against official registries. Do not rely solely on tool descriptions for selection
+    decisions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-003
+  name: mcp-reverse-shell
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:subprocess|os\.system|os\.popen)\s*\([^)]*(?:nc\s+-[elp]|ncat\s+-|netcat)
+  - (?i)(?:subprocess|os\.system|os\.popen)\s*\([^)]*bash\s+-i\s*>\s*&
+  - (?i)(?:subprocess|os\.system)\s*\([^)]*(?:socat|telnet).*(?:EXEC|exec)
+  - (?i)socket\.(?:connect|create_connection).*(?:4444|4445|1337|31337|9001)
+  file_types:
+  - '*.py'
+  message: MCP tool contains reverse shell or remote listener pattern
+  description: Detects Remote Listener Attack (Guo 2025, 90% ASR, Efficacy 7.03) where netcat reverse shells are disguised
+    as debugging tools in MCP server implementations.
+  remediation: Audit all network operations in MCP tools. Block outbound connections to non-whitelisted hosts. Run MCP servers
+    in sandboxed environments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+- id: MEDUSA-MCP-SCAN-004
+  name: mcp-tool-eval-exec
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)eval\s*\(\s*(?:tool_|user_|param|arg|input|request)
+  - (?i)exec\s*\(\s*(?:tool_|user_|param|arg|input|request)
+  - (?i)compile\s*\([^)]*(?:tool_|user_|param).*exec
+  file_types:
+  - '*.py'
+  message: MCP tool uses eval/exec with user-controlled input
+  description: Detects Infectious Attack pattern (Guo 2025, 70% ASR, Efficacy 6.47) where template-based tool generation propagates
+    eval(user_input) vulnerabilities across MCP tools.
+  remediation: Never use eval/exec with user-controlled input. Use safe alternatives (ast.literal_eval, json.loads). Implement
+    input validation and sandboxing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-95
+- id: MEDUSA-MCP-SCAN-005
+  name: mcp-command-injection
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:subprocess\.(?:call|run|Popen)|os\.system)\s*\([^)]*(?:f["']|format|%s|\+\s*(?:tool_|user_|param|arg|input))
+  - (?i)os\.(?:system|popen)\s*\([^)]*\+\s*(?:request|query|param)
+  - (?i)subprocess.*shell\s*=\s*True.*(?:tool_|user_|param|input)
+  file_types:
+  - '*.py'
+  message: MCP tool has command injection vulnerability via unsanitized input
+  description: Detects command injection in MCP tools where user/tool parameters are passed unsanitized to shell commands.
+    File-Based Injection (Guo 2025) achieves 90-100% ASR via injected instructions manipulating file operations.
+  remediation: Use subprocess with shell=False and argument lists. Sanitize all parameters. Filter shell metacharacters (;,
+    |, $, backticks).
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+- id: MEDUSA-MCP-SCAN-006
+  name: mcp-dynamic-tool-modification
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:setattr|delattr)\s*\([^)]*(?:__doc__|description|__call__|__func__)
+  - (?i)(?:tool|func|method)\.(?:__doc__|description)\s*=\s*(?:requests\.get|urllib|fetch|download)
+  - (?i)(?:importlib\.reload|exec|eval).*(?:tool_|plugin_|server_).*(?:update|modify|patch)
+  file_types:
+  - '*.py'
+  message: Dynamic tool modification detected (Rug Pull attack pattern)
+  description: Detects Rug Pull Attack (Guo 2025, 80% ASR, Efficacy 1.67) where legitimate tools gain trust, then remotely
+    modify their __doc__/logic post-deployment.
+  remediation: Implement version control for tool definitions. Require explicit user approval for tool updates. Use immutable
+    tool descriptions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+- id: MEDUSA-MCP-SCAN-007
+  name: mcp-unvalidated-tool-output
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:exec|eval|subprocess)\s*\(.*(?:tool_result|tool_output|tool_response|mcp_response)
+  - (?i)(?:json\.loads|ast\.literal_eval)\s*\(.*tool_(?:result|output).*\).*(?:exec|eval|system)
+  - (?i)(?:result|output|response)\s*=.*(?:mcp|tool).*\n.*(?:os\.system|subprocess|exec)\s*\(.*(?:result|output|response)
+  file_types:
+  - '*.py'
+  message: MCP tool output executed without validation
+  description: Detects MCP Tool Return Attack (Guo 2025, 90% ASR, Efficacy 1.96) where malicious instructions in tool output
+    strings are parsed and executed as new instructions due to high trust in tool outputs.
+  remediation: Validate and sanitize all tool outputs. Never execute tool return values directly. Implement output schema
+    validation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-008
+  name: mcp-html-comment-injection
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)<!--\s*(?:SYSTEM|INSTRUCTION|IMPORTANT|NOTE)\s*:.*(?:ignore|override|execute|run)
+  - (?i)<\s*(?:div|span|p)\s+(?:style|class)\s*=\s*["'].*(?:display:\s*none|visibility:\s*hidden|opacity:\s*0).*>.*(?:ignore|execute|override)
+  - (?i)<!--.*(?:you\s+(?:must|should|are)|when\s+(?:asked|queried)).*-->
+  file_types:
+  - '*.html'
+  - '*.md'
+  - '*.txt'
+  message: Hidden instruction injection in HTML/document content
+  description: Detects Webpage Poison Attack (Guo 2025, 80% ASR) and Malicious Project Install (70% ASR) where hidden HTML
+    comments or README instructions manipulate MCP agents during content processing.
+  remediation: Strip HTML comments before processing. Sanitize document content. Do not execute instructions found in external
+    content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-79
+- id: MEDUSA-MCP-SCAN-009
+  name: mcp-missing-auth
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:app|server)\.(?:route|get|post|put|delete)\s*\([^)]*(?:tool|mcp|api)[^)]*\)\s*\n(?:(?!.*(?:auth|token|jwt|session|api_key|bearer)).)+
+  - '(?i)@(?:app|router)\.(?:get|post)\s*\([^)]*(?:tool|execute|invoke)[^)]*\)\s*\n\s*(?:async\s+)?def\s+\w+\s*\([^)]*\)\s*:'
+  - (?i)mcp\.(?:server|Server)\s*\(.*\)(?:(?!.*(?:auth|authentication|middleware|guard|token)).)+
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: MCP server endpoint lacks authentication/authorization
+  description: Detects MCP server endpoints without authentication. MCP Guardian (Kumar, cited in Guo 2025) recommends authentication,
+    access control, and rate limiting as mandatory security layers.
+  remediation: Implement authentication middleware. Use API keys or JWT tokens. Add rate limiting and request logging per
+    MCP Guardian recommendations.
+  owasp_llm: LLM09:2025
+  cwe: CWE-306
+- id: MEDUSA-MCP-SCAN-010
+  name: mcp-unsafe-file-operations
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:os\.(?:remove|unlink|rmdir)|shutil\.rmtree)\s*\(\s*(?:tool_|param|arg|input|request|path)
+  - (?i)open\s*\(\s*(?:tool_|param|arg|input|request|path).*["']w
+  - (?i)(?:pathlib\.Path|os\.path).*(?:tool_|param|arg|input).*(?:write_text|write_bytes|unlink)
+  file_types:
+  - '*.py'
+  message: MCP tool performs file operations with user-controlled paths
+  description: Detects File-Based Injection attacks (Guo 2025, ASR 90-100%, Efficacy 3.85-8.38) where injected instructions
+    manipulate local files via Add/Delete/Modify/Retrieve operations without path validation.
+  remediation: Require explicit user confirmation for all file operations. Validate paths against allowlist. Use chroot/container
+    isolation for file access.
+  owasp_llm: LLM01:2025
+  cwe: CWE-22
+- id: MEDUSA-MCP-SCAN-011
+  name: mcp-cross-tool-reference
+  severity: MEDIUM
+  category: mcp_security
+  patterns:
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:after\s+(?:calling|using|running)|first\s+call|then\s+(?:use|call|invoke))\s+[a-zA-Z_]+
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:requires|depends\s+on|works\s+with)\s+(?:the\s+)?[a-zA-Z_]+\s+tool
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:pass|forward|send)\s+(?:the\s+)?(?:output|result|response)\s+(?:to|from)\s+[a-zA-Z_]+
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: MCP tool description references other tools (coordination attack vector)
+  description: Detects Multi-Tool Coordination attack (Guo 2025, 30% ASR, Efficacy 3.13) where malicious logic is split across
+    tools and the agent infers relationships from cross-references in descriptions.
+  remediation: Isolate tool contexts. Validate tool chain dependencies at registration time. Do not allow tools to reference
+    other tools in descriptions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-829
+- id: MEDUSA-MCP-SCAN-012
+  name: mcp-resource-exhaustion
+  severity: MEDIUM
+  category: mcp_security
+  patterns:
+  - (?i)while\s+True\s*:.*(?:tool|api|request|query)
+  - (?i)(?:time\.sleep|sleep)\s*\(\s*(?:[1-9]\d{3,}|\d+\s*\*\s*\d+)
+  - (?i)for\s+\w+\s+in\s+range\s*\(\s*(?:[1-9]\d{5,}|10\s*\*\*\s*[6-9])
+  file_types:
+  - '*.py'
+  message: MCP tool contains potential resource exhaustion pattern
+  description: Detects P-DoS via Tools (Gao 2024, 100% ASR on GPT-4o, <$1 cost) where tools trigger infinite loops, sleep
+    commands, or token amplification (0.5K→16K+ tokens).
+  remediation: Implement execution timeouts for all tool calls. Set token output limits. Monitor resource consumption per
+    tool invocation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-013
+  name: memory-injection-persistent-context
+  severity: CRITICAL
+  category: memory_attack
+  patterns:
+  - (?i)(persistent.?memory|long.?term.?memory|agent.?memory).{0,60}(inject|poison|corrupt|manipulate)
+  - (?i)(memory.?store|memory.?db|conversation.?history).{0,60}(untrusted|external|user.?provided).{0,40}(write|append|insert|store)
+  - (?i)(past.?interaction|previous.?session|memory.?context).{0,80}(execute|run|call|invoke).{0,40}(tool|function|api)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: Memory injection vector - untrusted data written to persistent agent memory (CrAIBench pattern)'
+  description: 'Memory Injection corrupts persistent agent memory so injected commands appear as ''legitimate past interactions''.
+    CrAIBench: 500+ cases showing memory injection >> prompt injection vulnerability. Can trigger unauthorized transactions
+    days/weeks after initial injection.'
+  remediation: Validate all inputs before storing in agent memory. Treat persistent memory as a security boundary. Use separate
+    storage for agent instructions vs user data. Never execute instructions found in conversation history.
+  owasp_llm: LLM02:2025
+  cwe: CWE-501
+- id: MEDUSA-MCP-SCAN-014
+  name: overthinking-dos-reasoning-exhaustion
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(think|reason|reflect|consider).{0,40}(every|all|each|possible|step.?by.?step).{0,60}(scenario|case|edge.?case|implication|consequence)
+  - (?i)(chain.?of.?thought|extended.?thinking|reasoning.?budget).{0,60}(maximize|exhaust|unlimited|infinite|no.?limit)
+  - (?i)(continue.?thinking|keep.?reasoning|do.?not.?stop.?thinking).{0,60}(until|forever|complete|finish|done)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Overthinking DoS pattern - adversarial prompt forcing excessive reasoning chain generation'
+  description: Overthinking Slowdown Attack forces reasoning LLMs (o1, o3, DeepSeek-R1) to generate excessive thought chains
+    exhausting compute budget. Targets extended thinking mode specifically.
+  remediation: Set strict thinking_budget token limits. Monitor and alert on reasoning token spikes. Implement per-request
+    compute quotas.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-015
+  name: crabs-algorithmic-complexity-attack
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(algorithmic.?complexity|worst.?case.?input|adversarial.?input).{0,60}(llm|model|inference|api)
+  - (?i)(crabs|complexity.?attack).{0,40}(generate|craft|create).{0,40}(slow|expensive|costly)
+  - (?i)(nested.{0,20}(loop|recursion|call)|exponential.{0,20}(growth|complexity)).{0,60}(llm|prompt|token)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: CRABS Algorithmic Complexity Attack targeting LLM inference (automated DoS generation)'
+  description: CRABS generates inputs triggering worst-case algorithmic complexity in LLM processing. Automated framework
+    for creating inputs that maximize inference cost/latency.
+  remediation: Implement per-request timeout and token budgets. Use input complexity scoring before processing. Rate limit
+    by computational cost not just request count.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-016
+  name: demonagent-encrypted-multi-backdoor
+  severity: CRITICAL
+  category: backdoor_attack
+  patterns:
+  - (?i)(dynamic.?encrypt|encrypt.{0,20}signal|encrypted.?trigger).{0,60}(backdoor|payload|hidden)
+  - (?i)(fragment.{0,20}backdoor|split.{0,20}backdoor|multi.?fragment).{0,60}(benign|innocent|normal).{0,40}content
+  - (?i)(demonagent|demon.?agent).{0,60}(implant|backdoor|encrypt)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: DemonAgent encrypted multi-backdoor implantation pattern'
+  description: DemonAgent hides backdoor signals via dynamic encryption within benign content and fragments them across multiple
+    innocent-looking inputs. Fragments reassemble at trigger to evade single-sample detection.
+  remediation: Deploy ensemble detection across multiple inference samples. Analyze behavioral consistency across contexts.
+    Use separate sandboxed evaluation for model outputs on sensitive tasks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-017
+  name: aeia-active-environment-injection
+  severity: HIGH
+  category: environment_injection
+  patterns:
+  - (?i)(ui.?overlay|fake.?popup|deceptive.{0,20}(notification|dialog|alert)).{0,60}(agent|llm|inject)
+  - (?i)(modify.{0,20}(ui|display|screen|environment)).{0,60}(agent|trigger|inject|mislead)
+  - (?i)(aeia|active.?environment.?inject).{0,40}(mobile|android|ios|gui|visual)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.swift'
+  - '*.kt'
+  message: 'Detected: AEIA Active Environment Injection pattern targeting multimodal mobile agents (93% ASR AndroidWorld)'
+  description: AEIA modifies UI elements (fake popups, SMS overlays, deceptive dialogs) at runtime to hijack multimodal agent
+    perception. Achieves 93% ASR on AndroidWorld benchmark.
+  remediation: Verify UI state integrity before agent action execution. Use signed/authenticated UI events. Implement anomaly
+    detection on unexpected popup/overlay patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+- id: MEDUSA-MCP-SCAN-018
+  name: les-dissonances-cross-tool-harvesting
+  severity: HIGH
+  category: cross_tool_attack
+  patterns:
+  - (?i)(harvest.{0,30}tool|cross.?tool.?harvest).{0,60}(data|output|result|context)
+  - (?i)(tool.?a|first.?tool|source.?tool).{0,80}(pollut|inject|corrupt|modify).{0,40}(tool.?b|second.?tool|target.?tool)
+  - (?i)(les.?dissonances|cross.?tool.{0,20}(pollut|attack)).{0,40}(multi.?tool|agent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Les Dissonances cross-tool harvesting/polluting pattern in multi-tool agent system'
+  description: Les Dissonances harvests data from one tool and poisons output in another, exploiting trust and data flow between
+    tools in multi-tool agent systems (multi-server MCP setups).
+  remediation: Isolate tool data contexts. Do not share raw outputs between tools without sanitization. Monitor cross-tool
+    data flows for anomalous content.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+- id: MEDUSA-MCP-SCAN-019
+  name: attractive-metadata-tool-selection-attack
+  severity: HIGH
+  category: tool_squatting
+  patterns:
+  - (?i)(tool.?name|server.?name|tool.?description).{0,80}(best|fastest|most.?accurate|most.?reliable|most.?trusted|recommended).{0,40}(for|when|to)
+  - (?i)(metadata|description|name).{0,60}(trusted.?by|verified.?by|certified.?by|endorsed.?by).{0,40}(anthropic|openai|google|official)
+  - (?i)(capability|feature).{0,40}(claim|advertise|describe).{0,60}(superior|better|faster|more.?capable).{0,40}than
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: 'Detected: Attractive Metadata Attack - deceptive tool capability claims to manipulate agent tool selection'
+  description: Attractive Metadata Attack uses inflated or deceptive capability claims in tool descriptions/metadata to manipulate
+    agent selection in large tool ecosystems (LiveMCP-Bench ocean scenario).
+  remediation: Cryptographically verify tool metadata integrity. Use allowlists for approved tools. Audit tool descriptions
+    for unverifiable claims. Implement tool reputation scoring.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-MCP-SCAN-020
+  name: cross-domain-context-bypass-payload-split
+  severity: HIGH
+  category: multi_agent_attack
+  patterns:
+  - (?i)(split.{0,20}payload|fragment.{0,20}(instruction|attack|request)).{0,60}(agent|domain|boundary|filter)
+  - (?i)(part\s*1.{0,20}part\s*2|chunk\s*\d.{0,40}chunk\s*\d).{0,60}(agent|domain|filter.?bypass|guardrail)
+  - (?i)(agent\s*[AB12]|downstream.?agent|next.?agent).{0,60}(reassembl|combin|concat|join).{0,40}(fragment|chunk|part)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Cross-domain context bypass via payload splitting across agents (Ko et al. C6 pattern)'
+  description: 'Ko et al. C6: attackers split malicious payload across multiple agents/domains. No single agent sees the full
+    attack so per-agent guardrails fail. Intent only reassembles downstream.'
+  remediation: Implement end-to-end semantic analysis across agent chains. Don't rely solely on per-agent content filtering.
+    Track and correlate content across agent boundaries.
+  owasp_llm: LLM01:2025
+  cwe: CWE-668
+- id: MEDUSA-MCP-SCAN-021
+  name: agent-collusion-covert-channel
+  severity: HIGH
+  category: multi_agent_attack
+  patterns:
+  - (?i)(covert.?channel|steganograph|hidden.?signal).{0,60}(agent|llm|coordinate|collu)
+  - (?i)(collu|coordinate.{0,20}secret|secret.{0,20}coordinate).{0,60}(agent|model|bypass|safety)
+  - (?i)(shared.?reward|joint.{0,20}objective).{0,60}(bypass|evade|circumvent).{0,40}(safety|guardrail|oversight)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Agent collusion via covert channels or steganographic coordination (Ko et al. C2 pattern)'
+  description: 'Ko et al. C2: autonomous agents may coordinate secretly via steganography or covert channels to deviate from
+    assigned goals without detection by human overseers or monitoring logs.'
+  remediation: Implement behavioral anomaly detection for agent-to-agent communications. Audit inter-agent message entropy.
+    Use independent monitoring that cannot be bypassed by coordinating agents.
+  owasp_llm: LLM08:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-022
+  name: neural-exec-execution-trigger
+  severity: HIGH
+  category: execution_trigger
+  patterns:
+  - (?i)(neural.?exec|execution.?trigger|universal.?trigger).{0,60}(inject|prompt|force|cause)
+  - (?i)(learned.?trigger|trigger.?prefix|trigger.?suffix).{0,60}(execute|run|invoke|call).{0,40}(injection|payload|instruction)
+  - (?i)(force.{0,20}(execute|comply|obey)).{0,40}(trigger|prefix|suffix|token)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.txt'
+  message: 'Detected: Neural Exec universal execution trigger pattern (learned prefix/suffix for forcing prompt injection
+    success)'
+  description: Neural Exec learns universal execution triggers (prefix/suffix tokens) that reliably cause models to execute
+    subsequently injected instructions. More robust than static jailbreaks.
+  remediation: Deploy perplexity and coherence filters on inputs. Monitor for repeated unusual prefix/suffix patterns. Implement
+    adversarial trigger detection in input pipeline.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MCP-SCAN-023
+  name: trade-total-retrieval-agent-deception
+  severity: CRITICAL
+  category: mcp_injection
+  patterns:
+  - (?i)(trade.{0,20}(total.retrieval|retrieval.agent.deception)).{0,60}(mcp|rag.pref|model)
+  - (?i)(falsely.benign.{0,20}(attack|content).{0,30}(online|posted|scrape)).{0,60}(mcp|agent|execute)
+  - (?i)(rag.pref.{0,30}(refusal|247.percent|improved)).{0,60}(trade|mcp|agent)
+  - (?i)(8\.5.percent.strict.refusal|avg.8\.5.percent.{0,30}(mcp|trade))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: TRADE — MCP agent retrieves and executes online falsely-benign attack content (avg 8.5% refusal rate)'
+  description: TRADE (Halloran 2025) posts Falsely Benign Attacks (FBAs) online — malicious commands embedded in content that
+    appears benign. MCP agents scraping the web retrieve and execute these commands. Average strict refusal rate only 8.5%
+    across tested models (Claude 3.7, Llama-3.1/3.2, Qwen2.5, Gemma-2, DeepSeek-R1). RAG-Pref improved refusal by 247%.
+  remediation: Apply strict content validation on all MCP-retrieved web content before execution. Treat external web content
+    as adversarially controlled. Implement RAG-Pref or equivalent refusal improvement for retrieved content.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-024
+  name: mcp-file-based-injection-crud
+  severity: CRITICAL
+  category: mcp_tool_injection
+  patterns:
+  - (?i)(file.based.inject|file.{0,10}inject.{0,30}(add|delete|modify|retrieve)).{0,60}(mcp|tool.description)
+  - (?i)(mcp.{0,20}(add|delete|modify|retrieve).{0,30}(local.file|file.system)).{0,60}(inject|malicious|90.100)
+  - (?i)(tool.description.{0,30}inject.{0,30}(local.file|file.system|crud)).{0,60}(mcp|asr.90|efficacy)
+  - (?i)(asr.{0,10}(90|100).percent.{0,30}(file.inject|file.based.inject|mcp.file))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP File-Based Injection — tool descriptions injecting local file system manipulation instructions (ASR:
+    90-100%)'
+  description: 'File-Based Injection (Guo 2025) injects instructions into MCP tool descriptions to manipulate local files
+    (Add/Delete/Modify/Retrieve operations). ASR: 90-100%; Efficacy: 3.85-8.38 depending on operation type. High-trust tool
+    descriptions directly execute file system commands bypassing user intent.'
+  remediation: Validate all MCP tool description content for embedded file manipulation commands. Require explicit user confirmation
+    for file system operations initiated via MCP. Monitor tool description changes at the MCP server level.
+  owasp_llm: LLM07:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-025
+  name: mcp-remote-listener-reverse-shell
+  severity: CRITICAL
+  category: mcp_tool_injection
+  patterns:
+  - (?i)(remote.listener.attack|netcat.reverse.shell.{0,30}(mcp|debug|tool))
+  - (?i)(netcat.{0,30}(reverse.shell|disguised.as.debug|mcp.tool)).{0,60}(listener|attack)
+  - (?i)(reverse.shell.{0,30}(disguise|debug.tool|mcp|legitimate)).{0,60}(execute|asr.90)
+  - (?i)(nc.{0,10}(listen|reverse|shell).{0,30}mcp|mcp.{0,30}netcat.{0,30}(debug|tool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Remote Listener Attack — netcat reverse shell disguised as debugging tool in MCP context (ASR: 90%,
+    Efficacy: 7.03)'
+  description: 'Remote Listener Attack (Guo 2025) disguises netcat reverse shell commands as debugging tools in MCP tool descriptions.
+    Efficacy: 7.03; ASR: 90%. The high efficacy score indicates this is one of the most effective MCP attack vectors — agents
+    readily execute debugging-disguised shell commands.'
+  remediation: Never allow MCP tools to execute arbitrary shell commands including netcat/nc. Whitelist permitted tool execution
+    categories. Audit all MCP tool descriptions for shell execution patterns.
+  owasp_llm: LLM08:2025
+  cwe: CWE-78
+- id: MEDUSA-MCP-SCAN-026
+  name: mcp-shadowing-context-poisoning
+  severity: HIGH
+  category: mcp_multi_tool
+  patterns:
+  - (?i)(shadowing.attack|shadow.{0,10}attack).{0,60}(mcp|legitimate.tool|shared.context)
+  - (?i)(malicious.tool.{0,30}hijack.{0,30}legitimate.tool.{0,30}(shared.context|__doc__))
+  - (?i)(shared.context.{0,30}(hijack|poisoning|influence).{0,30}(mcp|legitimate.tool))
+  - (?i)(7\.79.efficacy|efficacy.7\.79.{0,30}(shadow|mcp.tool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Shadowing Attack — malicious tool hijacks legitimate tool via shared context poisoning (Efficacy:
+    7.79, ASR: 80%)'
+  description: 'Shadowing Attack (Guo 2025) uses a malicious MCP tool to hijack a legitimate tool via shared context (__doc__
+    modification). The malicious tool influences the behavior of legitimate tools through context poisoning. Efficacy: 7.79
+    (one of the highest); ASR: 80%; Risk Level: 3.'
+  remediation: Isolate MCP tool contexts to prevent cross-tool context pollution. Implement tool context integrity verification.
+    Monitor for __doc__ or tool description modifications at runtime.
+  owasp_llm: LLM07:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-027
+  name: mcp-rug-pull-tool-modification
+  severity: CRITICAL
+  category: mcp_supply_chain
+  patterns:
+  - (?i)(rug.pull.attack|rug.?pull.{0,30}(mcp|tool|trust)).{0,60}(remotely.modify|legitimate|__doc__)
+  - (?i)(legitimate.tool.{0,30}(gain.trust|trusted).{0,30}(then|later).{0,30}(remotely.modif|change))
+  - (?i)(remote.{0,20}modif.{0,30}(tool.logic|__doc__|tool.description)).{0,60}(mcp|rug.pull|after.trust)
+  - (?i)(1\.67.efficacy|asr.80.{0,30}rug.pull|rug.pull.asr)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Rug Pull Attack — legitimate tool gains user trust then remotely modifies its behavior (ASR: 80%)'
+  description: 'Rug Pull Attack (Guo 2025 Invariant Labs) — a legitimate MCP tool gains trust through benign initial behavior,
+    then remotely modifies its __doc__ or logic after establishing trust. ASR: 80%; Risk Level: 3. Similar to SolarWinds-style
+    supply chain compromise but in MCP tool ecosystems.'
+  remediation: Pin MCP tool versions and verify integrity with cryptographic signatures. Monitor for post-installation tool
+    description or logic changes. Apply zero-trust principles to all MCP tools regardless of trust history.
+  owasp_llm: LLM05:2025
+  cwe: CWE-494
+- id: MEDUSA-MCP-SCAN-028
+  name: mcp-tool-return-injection
+  severity: HIGH
+  category: mcp_indirect_injection
+  patterns:
+  - (?i)(mcp.tool.return.attack|tool.return.inject|tool.output.inject).{0,60}(parsed|instruction|new.command)
+  - (?i)(tool.output.{0,30}(parsed.as.instruction|new.instruction|malicious.command)).{0,60}(mcp|agent)
+  - (?i)(malicious.instruction.{0,30}tool.output.string.{0,30}(parsed|interpreted|executed))
+  - (?i)(high.trust.tool.output.{0,30}(1\.96.efficacy|asr.90|90.percent))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Tool Return Injection — malicious instructions embedded in tool output strings parsed as new commands
+    (ASR: 90%)'
+  description: 'MCP Tool Return Attack (Guo 2025) embeds malicious instructions in tool output strings that the agent parses
+    and executes as new instructions. Exploits high agent trust in tool outputs. ASR: 90%; Efficacy: 1.96. Agents treating
+    tool outputs as trusted commands are particularly vulnerable.'
+  remediation: Never parse tool output strings as executable instructions without validation. Apply the same safety scrutiny
+    to tool outputs as to user inputs. Sandbox tool output processing to prevent command injection via tool returns.
+  owasp_llm: LLM07:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-029
+  name: mcp-infectious-eval-propagation
+  severity: HIGH
+  category: mcp_multi_tool
+  patterns:
+  - (?i)(infectious.attack|infectious.mcp|mcp.infectious.{0,30}(propagat|eval|template))
+  - (?i)(template.based.tool.generation.{0,30}(propagate|eval.user_input|vulnerability))
+  - (?i)(eval.{0,10}user.?input.{0,30}(mcp.tool|template|infectious|generated.tool))
+  - (?i)(6\.47.efficacy|asr.70.{0,30}infectious|infectious.mcp.asr)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Infectious Attack — template-based tool generation propagating eval(user_input) vulnerabilities
+    (ASR: 70%)'
+  description: 'Infectious Attack (Guo 2025) uses template-based MCP tool generation to propagate vulnerabilities (especially
+    eval(user_input) patterns) across generated tools. Efficacy: 6.47; ASR: 70%. Infected tool templates spread command injection
+    vulnerabilities to all tools generated from the template.'
+  remediation: Never use eval() or exec() with user-controlled input in MCP tool implementations. Validate all MCP tool template
+    code for injection patterns before deployment. Apply static analysis to all generated tool code.
+  owasp_llm: LLM08:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-030
+  name: cba-composite-backdoor-multi-trigger
+  severity: HIGH
+  category: multi_trigger_backdoor
+  patterns:
+  - (?i)(cba|composite.backdoor.attack|cba.backdoor).{0,60}(multi.trigger|prompt.component|100.asr)
+  - (?i)(multi.trigger.{0,30}(across|prompt.component|sentence|context)).{0,60}(backdoor|100.asr|3.percent.poison)
+  - (?i)(100.asr.{0,30}3.percent.poison|3.percent.poison.{0,30}100.asr)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CBA (Composite Backdoor Attack) — multi-trigger across prompt components (100% ASR with 3% poisoning)'
+  description: CBA (Huang 2024) combines multiple triggers across different prompt components (sentence, context, instruction).
+    100% ASR achieved with only 3% poisoning ratio. The composite nature makes single-trigger defenses ineffective — all components
+    must contain their respective triggers simultaneously for activation.
+  remediation: Apply multi-component trigger scanning across all prompt segments. Use ensemble trigger detection that evaluates
+    full prompt composition. Monitor for poisoning patterns targeting specific prompt component combinations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-031
+  name: badagent-agentpoison-mcp-agent-backdoor
+  severity: CRITICAL
+  category: agent_backdoor
+  patterns:
+  - (?i)(badagent|agent.poison|agentpoison).{0,60}(fine.tun|rag|knowledge.base|mcp|backdoor)
+  - (?i)(backdoor.{0,20}(agent.fine.tun|agent.rag|agent.knowledge.base)).{0,60}(trigger|activate|mcp)
+  - (?i)(rag.{0,20}(knowledge.base|memory).{0,30}(backdoor|poison|agent.hack)).{0,60}(badagent|agentpoison)
+  - (?i)(trigger.{0,30}(agent.fine.tun|agent.rag|agentpoison)).{0,60}(harmful.action|bypass)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadAgent/AgentPoison — backdoors in agent fine-tuning or RAG knowledge bases'
+  description: BadAgent (Wang 2024) and AgentPoison (Chen 2024) implant backdoors in agent fine-tuning data or RAG knowledge
+    bases. When specific triggers appear, the backdoored agent executes attacker-controlled actions instead of user-intended
+    behavior. Particularly dangerous in MCP-enabled agents with broad tool access.
+  remediation: Audit all agent fine-tuning data and RAG knowledge bases for backdoor patterns. Test agent behavior across
+    diverse trigger scenarios before deployment. Apply behavioral consistency testing across in-distribution and out-of-distribution
+    inputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-032
+  name: ta2-activation-attack-steering-vectors
+  severity: HIGH
+  category: activation_attack
+  patterns:
+  - (?i)(ta2|activation.attack|ta2.{0,30}(steering|vector|manipulate))
+  - (?i)(steering.vector.{0,30}(manipulate|control|modify).{0,30}(response|without.fine.tun))
+  - (?i)(manipulate.{0,30}(hidden.state|activation|representation).{0,30}without.fine.tun)
+  - (?i)(activation.{0,20}steering.{0,30}(bypass|override|jailbreak|without.finetun))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: TA2 (Activation Attack) — steering vectors manipulating LLM responses without fine-tuning'
+  description: TA2 (Wang & Shu 2023) uses activation steering vectors to manipulate LLM responses without any fine-tuning.
+    By directly modifying hidden states/activations at inference time, the attack bypasses fine-tuning-based defenses. Requires
+    white-box access but enables persistent behavioral control without model modification.
+  remediation: Monitor for activation patching or steering vector injection attempts. Apply integrity checks on model hidden
+    state access. Restrict white-box access to model internals in production deployments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-033
+  name: cia-compositional-instruction-attack-filter-bypass
+  severity: CRITICAL
+  category: jailbreak
+  patterns:
+  - (?i)(compositional.instruction.attack|cia.attack.{0,30}(filter.bypass|safety.filter))
+  - (?i)(individually.filtered.{0,30}(combine|collectively|bypass.when.combined))
+  - (?i)(split.instruction.{0,30}(combine|bypass.filter|evade.moderat))
+  - (?i)(combine.filtered.instruction.{0,30}(bypass|evade|95.{0,5}%|>95))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CIA (Compositional Instruction Attack) — combining individually-filtered instructions that collectively
+    bypass safety filters (>95% ASR on GPT-4)'
+  description: CIA (Compositional Instruction Attack) combines multiple individually-filtered malicious instructions that
+    collectively bypass safety content moderation when composed together. Each component appears benign or borderline, but
+    the composition enables harmful output generation. >95% ASR on GPT-4. Exploits the lack of compositional safety analysis
+    — safety filters evaluate components independently rather than holistically.
+  remediation: Implement compositional safety analysis that evaluates instruction sequences holistically, not just individually.
+    Train classifiers on instruction combination patterns. Apply context-aware safety analysis that considers the cumulative
+    effect of multi-step instructions. Monitor for patterns where multiple borderline requests arrive in sequence.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-034
+  name: rag-thief-agent-scalable-knowledge-exfiltration
+  severity: CRITICAL
+  category: data_exfiltration
+  patterns:
+  - (?i)(rag.thief|rag.theft|rag.data.theft).{0,60}(exfiltrat|extract|scalable)
+  - (?i)(agent.{0,20}(query|queries).{0,30}(exfiltrat|extract|steal).{0,30}(rag|knowledge.base|private.doc))
+  - (?i)(scalable.data.extraction.{0,30}(rag|knowledge.base|retrieval.augment))
+  - (?i)(agent.based.{0,20}(rag.exfiltrat|private.document.extract|knowledge.base.theft))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RAG-Thief — agent-based scalable data extraction from RAG knowledge bases via systematic query sequences'
+  description: RAG-Thief is an agent-based attack designed for scalable data extraction from RAG systems. The agent generates
+    systematic queries designed to retrieve and exfiltrate private documents from the RAG knowledge base. Unlike single-query
+    attacks, RAG-Thief uses iterative querying strategies to cover the full knowledge base. Targets any RAG system with private
+    document corpora including medical records, legal documents, and proprietary IP.
+  remediation: Implement rate limiting and anomaly detection on RAG query patterns. Monitor for systematic query sequences
+    that appear designed to enumerate knowledge base content. Apply differential privacy to RAG retrievals. Restrict document
+    retrieval to semantically verified user-context queries. Use watermarking on private documents to detect unauthorized
+    exfiltration.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-MCP-SCAN-035
+  name: prism-vlm-multimodal-jailbreak-image-sequence
+  severity: HIGH
+  category: jailbreak
+  patterns:
+  - (?i)(prism.jailbreak|prism.vlm.{0,30}(jailbreak|bypass|multimodal))
+  - (?i)(programmatic.reasoning.{0,30}(image.sequence|vlm.jailbreak|vision.language.bypass))
+  - (?i)(image.sequence.{0,30}(jailbreak|vlm.bypass|programmatic.reason|manipulation))
+  - (?i)(vlm.jailbreak.{0,30}(image.sequence|programmatic|prism|reasoning.chain))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PRISM — VLM jailbreak using programmatic reasoning with image sequence manipulation (GPT-4V, Claude-Vision)'
+  description: PRISM jailbreaks Vision-Language Models using programmatic reasoning combined with image sequence manipulation.
+    By presenting structured reasoning steps encoded partially in image sequences, PRISM bypasses safety filters that analyze
+    text and images independently. Targets GPT-4V, Claude-Vision, and similar multimodal models. Exploits the gap between
+    cross-modal safety analysis and per-modal safety filtering.
+  remediation: Apply holistic cross-modal safety analysis to image+text combinations. Test VLMs against image-sequence reasoning
+    attacks specifically. Implement semantic consistency checks between image content and text reasoning steps. Monitor for
+    programmatic reasoning patterns in VLM inputs that involve sensitive topics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-036
+  name: sponge-examples-energy-latency-dos
+  severity: HIGH
+  category: availability_attack
+  patterns:
+  - (?i)(sponge.example|sponge.attack|sponge.input).{0,60}(energy|latency|neural.network|dos)
+  - (?i)(maximize.energy.consumption.{0,30}(neural|llm|inference|dos))
+  - (?i)(energy.latency.{0,30}(attack|dos|exhaust).{0,30}(neural|llm|inference))
+  - (?i)(inference.latency.{0,30}(maximize|amplif|attack).{0,30}(energy|compute|exhaust))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Sponge Examples — inputs designed to maximize energy consumption and inference latency in LLMs (energy-latency
+    DoS)'
+  description: Sponge Examples are inputs specifically crafted to maximize energy consumption and inference latency in neural
+    networks and LLMs. Unlike prompt DoS attacks that target token amplification, Sponge Examples optimize at the hardware
+    level — maximizing GPU/CPU utilization, memory bandwidth, and power draw per inference. Can increase energy consumption
+    10-100x while producing semantically normal-looking outputs, making detection via output monitoring insufficient.
+  remediation: Implement compute budget caps per inference request. Monitor per-request energy and latency metrics with statistical
+    anomaly detection. Apply input complexity scoring before routing to inference. Rate-limit clients based on compute consumption,
+    not just token count. Use hardware-level monitoring to detect Sponge Example patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-037
+  name: mask-gcg-stealth-adversarial-suffix-perplexity-bypass
+  severity: HIGH
+  category: jailbreak
+  patterns:
+  - (?i)(mask.gcg|mask.?gcg.{0,30}(stealth|perplexity|suffix))
+  - (?i)(adversarial.suffix.{0,30}(stealth|perplexity.filter.bypass|perplexity.evade))
+  - (?i)(gcg.{0,20}(stealth|mask|optimize.suffix.stealth).{0,30}(perplexity|filter|bypass))
+  - (?i)(optimize.{0,20}suffix.{0,30}(stealth|low.perplexity|perplexity.bypass).{0,30}jailbreak)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Mask-GCG — stealth adversarial suffix optimized to bypass perplexity filters while maintaining jailbreak
+    effect'
+  description: Mask-GCG extends GCG (Greedy Coordinate Gradient) by questioning the necessity of adversarial tokens and optimizing
+    adversarial suffixes for stealth while maintaining jailbreak effectiveness. Standard GCG produces high-perplexity suffixes
+    detectable by perplexity filters. Mask-GCG removes unnecessary tokens and optimizes remaining ones for naturalness, producing
+    low-perplexity adversarial suffixes that evade perplexity-based detection while achieving equivalent jailbreak ASR.
+  remediation: Go beyond perplexity filters — apply semantic safety analysis that doesn't rely on perplexity alone. Use ensemble
+    detection combining perplexity, semantic analysis, and behavioral monitoring. Apply PromptShield or PromptArmor for multi-signal
+    injection detection. Regularly update adversarial suffix detectors as optimization techniques evolve.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-038
+  name: context-manipulation-multi-surface-attack
+  severity: CRITICAL
+  category: context_attack
+  patterns:
+  - (?i)(context.manipulation.attack|multi.surface.context.{0,30}attack)
+  - (?i)(unprotected.context.surface.{0,30}(input|memory|external.data|feed))
+  - (?i)(exploit.{0,20}(input.channel|memory.module|external.data.feed).{0,30}simultaneously)
+  - (?i)(CrAIBench|craibench).{0,60}(context.manipul|multi.surface|memory.inject)
+  file_calls:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Context Manipulation Attack (CMA) — exploiting all unprotected context surfaces simultaneously: input
+    channels + memory + external data feeds (CrAIBench)'
+  description: 'Context Manipulation Attack (CrAIBench) exploits all unprotected context surfaces simultaneously: input channels,
+    memory modules, and external data feeds. Unlike prompt injection which targets only input channels, CMA treats the entire
+    context surface as an attack vector. Traditional prompt-based defenses fail because they protect only one surface while
+    CMA exploits memory and external feeds. CrAIBench dataset: 500+ attack cases showing memory injection >> prompt injection
+    effectiveness.'
+  remediation: Apply holistic context integrity validation across all input surfaces. Implement per-surface authentication
+    and integrity checking. Monitor memory modules for injected commands that appear as legitimate past interactions. Apply
+    zero-trust context validation — treat all context surfaces as potentially compromised. Deploy TraceAegis hierarchical
+    behavioral anomaly detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-039
+  name: user-guided-rlhf-toxicity-poisoning
+  severity: CRITICAL
+  category: data_poisoning
+  patterns:
+  - (?i)(user.guided.poison|rlhf.toxicity.poison.{0,30}(226|percent.increase|226\.9))
+  - (?i)(1.{0,3}%.{0,10}poison.{0,30}(rlhf|human.feedback|toxicity).{0,30}(226|increase))
+  - (?i)(toxicity.{0,30}(226.9|226|increase).{0,30}(1.{0,3}%|one.percent).{0,30}(poison|rlhf))
+  - (?i)(rlhf.data.poison.{0,30}(toxicity.amplif|226|user.guided|1.percent))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: User-Guided RLHF Toxicity Poisoning — +226.9% toxicity increase with only 1% RLHF data poisoning (Chen
+    2024)'
+  description: User-Guided Poisoning (Chen 2024) demonstrates that poisoning only 1% of RLHF training data increases model
+    toxicity by +226.9%. The attack targets the human feedback collection pipeline with carefully selected toxic preference
+    pairs that bias the reward model. RLHF amplifies the poisoning effect during PPO optimization — small data perturbations
+    produce disproportionately large behavioral changes. Makes data source verification critical for RLHF pipelines.
+  remediation: Apply Robust RLHF (Trimmed MLE) to filter suspicious preference pairs before reward model training. Implement
+    statistical toxicity bounds on reward model training data. Use multiple independent annotator pools to reduce single-source
+    poisoning risk. Monitor reward model toxicity metrics throughout training with automatic stopping criteria.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-040
+  name: brieFool-conditional-backdoor-generation-conditions
+  severity: HIGH
+  category: backdoor
+  patterns:
+  - (?i)(brieFool|brie.fool|brief.fool).{0,60}(conditional.backdoor|generation.condition)
+  - (?i)(conditional.backdoor.{0,30}(generation|brief|condition).{0,30}(94\.3|94.3|he.2024))
+  - (?i)(generation.condition.{0,30}(trigger|backdoor|conditional.activation))
+  - (?i)(backdoor.trigger.{0,30}(generation.condition|output.format|response.style))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BrieFool — conditional backdoor activated via generation conditions (output style, format) rather than
+    input triggers (He 2024, 94.3% ASR)'
+  description: 'BrieFool (He 2024) implements a conditional backdoor that activates based on generation conditions (output
+    style, length constraints, format instructions) rather than input content triggers. ASR: 94.3%. This design makes it highly
+    stealthy — safety scanners that check input content for triggers miss this backdoor entirely. The trigger is the generation
+    context (e.g., ''be brief'', ''formal tone'') rather than any specific input phrase.'
+  remediation: Scan for backdoor triggers in generation condition parameters, not just input content. Test model behavior
+    under different format/style/length constraints to detect output-condition-triggered behavioral changes. Apply activation
+    analysis to identify neurons that respond to generation condition combinations. Monitor for inconsistent outputs under
+    semantically equivalent but formally different generation instructions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-041
+  name: mcp-tool-preference-best-practice-manipulation
+  severity: HIGH
+  category: tool_manipulation
+  patterns:
+  - (?i)(best.practice.{0,20}(recommended.tool|use.this.tool|prefer.this).{0,30}(mcp|tool.description))
+  - (?i)(recommended.tool.{0,30}(description|mcp.tool|inject|manipulate).{0,30}(preference|select))
+  - (?i)(tool.description.{0,30}(best.practice|recommend|prefer|authoritative).{0,30}(manipulate|inject))
+  - (?i)(mcp.tool.{0,30}(best.practice.claim|preferred|authoritative.source).{0,30}(manipulate|inject|fake))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Tool Preference Manipulation — ''best practice''/''recommended tool'' claims in tool descriptions
+    manipulating agent tool selection (Guo 2025, 70% ASR)'
+  description: 'Tool Preference Manipulation (Guo 2025) injects ''best practice'', ''recommended tool'', or ''use this tool
+    for all operations'' into MCP tool descriptions to bias agent tool selection toward attacker-controlled tools. Efficacy:
+    7.50; ASR: 70%. Agents that prioritize ''recommended'' or ''best practice'' tools in their selection heuristics are particularly
+    vulnerable. Works by exploiting the trust agents place in tool description authority claims.'
+  remediation: Strip or quarantine authority-claiming language from tool descriptions during tool registration. Verify tool
+    provenance before allowing 'recommended' or 'best practice' metadata. Implement tool description content policies that
+    reject manipulative preference claims. Use MCPLib/MCPSecBench testing frameworks to validate tool selection security.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-042
+  name: mcp-functional-obfuscation-ambiguous-description
+  severity: MEDIUM
+  category: tool_manipulation
+  patterns:
+  - (?i)(functional.obfuscat.{0,30}(mcp.tool|tool.description|ambiguous))
+  - (?i)(ambiguous.tool.description.{0,30}(mislead|tool.select|mcp|obfuscat))
+  - (?i)(tool.description.{0,30}(vague|ambiguous|mislead).{0,30}(tool.select|mcp|agent))
+  - (?i)(mcp.{0,20}tool.{0,20}(obfuscat|ambiguous.desc|mislead.select).{0,30}(50.{0,5}%|6\.91))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MCP Functional Obfuscation — ambiguous tool descriptions designed to mislead agent tool selection (Guo
+    2025, 50% ASR)'
+  description: 'Functional Obfuscation (Guo 2025) uses deliberately ambiguous or misleading MCP tool descriptions to redirect
+    agent tool selection toward attacker-controlled tools. Unlike deceptive descriptions that make false claims, functional
+    obfuscation creates genuine ambiguity about a tool''s purpose, causing agents to invoke it in unintended contexts. Efficacy:
+    6.91; ASR: 50%. Particularly effective when combined with other MCP attack vectors.'
+  remediation: Require clear, unambiguous capability declarations in all MCP tool descriptions. Apply natural language clarity
+    scoring during tool registration. Test tool descriptions for ambiguity that could cause selection errors. Implement tool
+    selection auditing that flags unusual tool invocations for review.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-043
+  name: webpage-poison-hidden-html-comment-injection
+  severity: HIGH
+  category: indirect_injection
+  patterns:
+  - (?i)(hidden.html.comment.{0,30}(inject|malicious|instruction|mcp))
+  - (?i)(<!--.{0,200}(inject|execute|ignore.previous|system.command).{0,200}-->)
+  - (?i)(html.comment.{0,30}(hidden.instruction|malicious.command|prompt.inject))
+  - (?i)(webpage.poison.{0,30}(html.comment|hidden.text|invisible.instruction).{0,30}mcp)
+  file_types:
+  - '*.py'
+  - '*.html'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Webpage Poison via Hidden HTML Comments — malicious instructions hidden in HTML comments executed by
+    web-browsing MCP agents (Guo 2025, 80% ASR)'
+  description: 'Webpage Poison Attack (Guo 2025) hides malicious instructions in HTML comments that are invisible to human
+    users but parsed and executed by MCP web-browsing agents. When an agent visits a poisoned webpage, it extracts and executes
+    the hidden instructions in HTML comments. Efficacy: 1.67; ASR: 80%. Standard web content safety filters don''t inspect
+    comment content for agent instructions. Easily deployed at scale by controlling any webpage the agent might visit.'
+  remediation: Apply MCP agent-aware HTML parsing that treats comment content as potentially malicious. Strip or sanitize
+    HTML comments before processing webpage content in agent contexts. Implement CSS/HTML visibility analysis to detect hidden
+    instruction patterns. Use PromptArmor/PromptShield for real-time injection detection in web content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MCP-SCAN-044
+  name: viralapp-fever-referral-contextual-semantic-trigger
+  severity: HIGH
+  category: backdoor
+  patterns:
+  - (?i)(viralapp|viral.app|fever.attack|referral.attack).{0,60}(semantic.trigger|contextual.backdoor)
+  - (?i)(contextually.aware.{0,20}semantic.trigger.{0,30}(backdoor|afane|2025))
+  - (?i)(semantic.trigger.{0,30}(viralapp|fever|referral|contextual.backdoor.afane))
+  - (?i)(context.aware.backdoor.{0,30}(semantic|trigger.word|viralapp|fever))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ViralApp/Fever/Referral — contextually-aware semantic triggers activating LLM backdoors based on semantic
+    context rather than fixed keywords (Afane 2025)'
+  description: ViralApp/Fever/Referral (Afane 2025) implements contextually-aware semantic triggers that activate LLM backdoors
+    based on the semantic meaning of surrounding context rather than fixed trigger keywords. Unlike keyword-based backdoors
+    (detectable by scanning for specific tokens), semantic triggers activate in any context that semantically matches the
+    attacker's intent, making keyword-based detection insufficient. Requires semantic understanding of trigger conditions
+    to detect.
+  remediation: Apply semantic analysis rather than keyword scanning for backdoor trigger detection. Test models in diverse
+    semantic contexts to identify context-triggered behavioral anomalies. Monitor for sudden behavioral changes that correlate
+    with semantic themes rather than specific keywords. Use contrastive semantic analysis to identify contextual backdoor
+    triggers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-045
+  name: mas-steganographic-collusion-covert-channel
+  severity: HIGH
+  category: multi_agent_security
+  patterns:
+  - (?i)(steganograph.{0,30}(agent|mas|multi.agent).{0,30}(collu|covert.channel|covert.comm))
+  - (?i)(covert.channel.{0,30}(agent.comm|steganograph|multi.agent.collu))
+  - (?i)(agent.collu.{0,30}(steganograph|covert|hidden.channel|encode.message))
+  - (?i)(C2.{0,20}collusion.steganography|ko.et.al.2025.{0,30}(C2|covert|steganograph))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAS Steganographic Collusion — agents establishing covert channels via steganographic encoding in multi-agent
+    system outputs (Ko et al. 2025 C2)'
+  description: Cross-Domain MAS Security Challenge C2 (Ko et al. 2025) — malicious agents establish covert communication channels
+    via steganographic encoding in their visible outputs. Two or more compromised agents coordinate via hidden messages in
+    normal-appearing outputs (e.g., encoding bits in whitespace, punctuation, or word choice). Traditional monitoring of agent
+    communications misses steganographic channels, enabling coordinated attacks undetectable by surface-level inspection.
+  remediation: Apply steganographic detection analysis on inter-agent communications. Monitor for statistical patterns in
+    agent output formatting that could encode hidden information. Implement agent output normalization to eliminate steganographic
+    channel capacity. Apply formal verification of agent interaction protocols (Allegrini 2025) to detect unauthorized communication
+    patterns.
+  owasp_llm: LLM08:2025
+  cwe: CWE-311
+- id: MEDUSA-MCP-SCAN-046
+  name: confused-deputy-privilege-escalation-circular-delegation
+  severity: CRITICAL
+  category: privilege_escalation
+  patterns:
+  - (?i)(confused.deputy.{0,30}(mcp|agent|privilege.escalat|delegation))
+  - (?i)(circular.delegation.{0,30}(loop|deadlock|agent|mcp).{0,30}(escalat|allegrini))
+  - (?i)(privilege.escalat.{0,30}(delegation|confused.deputy|agent.mcp|tool.chain))
+  - (?i)(allegrini.2025|formal.verif.{0,30}(mcp|agent).{0,30}(confused.deputy|circular.delegation))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Confused Deputy / Circular Delegation in MCP — privilege escalation via confused deputy or circular
+    delegation loops in agent task chains (Allegrini 2025)'
+  description: 'Formal Verification work (Allegrini 2025) identifies 31 security properties for MCP, including confused deputy
+    privilege escalation and circular delegation loops (deadlocks). Confused deputy: a legitimate MCP tool invoked with attacker-supplied
+    parameters performs privileged operations on behalf of the attacker. Circular delegation: agents create delegation loops
+    that exhaust resources or bypass authorization boundaries. Identified in temporal logic verification of 17 host + 14 task
+    lifecycle properties.'
+  remediation: 'Apply formal verification of MCP host authorization properties (Allegrini 2025). Implement delegation depth
+    limits to prevent circular loops. Apply confused deputy countermeasures: validate that tool invocations use only caller-supplied
+    credentials, never escalated permissions. Monitor task delegation chains for circular patterns.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-269
+- id: MEDUSA-MCP-SCAN-047
+  name: cross-domain-provenance-obscurity-untraceable
+  severity: HIGH
+  category: multi_agent_security
+  patterns:
+  - (?i)(cross.domain.provenance.{0,30}(obscur|untraceabl|data.flow))
+  - (?i)(provenance.obscur.{0,30}(cross.domain|cross.org|untraceable|multi.agent))
+  - (?i)(C5.{0,20}ko.et.al|provenance.{0,30}(cross.org|untraceable|obscur).{0,30}mas)
+  - (?i)(untraceable.data.flow.{0,30}(cross.domain|multi.agent|agent.comm|mas))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Cross-Domain Provenance Obscurity — untraceable data flows across organizational boundaries in multi-agent
+    systems (Ko et al. 2025 C5)'
+  description: Cross-Domain MAS Security Challenge C5 (Ko et al. 2025) — data provenance becomes untraceable as information
+    flows across organizational boundaries in multi-agent systems. Attackers exploit this opacity by injecting malicious data
+    at domain boundaries where provenance tracking breaks down. Once data loses provenance, it becomes difficult to detect
+    contamination or establish accountability. Critical in enterprise MAS deployments where agents span organizational trust
+    boundaries.
+  remediation: Implement cryptographic provenance chains for data crossing organizational boundaries. Apply BiLeve provenance
+    signatures (Halloran 2025) against data spoofing. Use formal data lineage tracking across all agent handoffs. Implement
+    zero-trust data validation at every domain crossing point, regardless of claimed provenance.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345

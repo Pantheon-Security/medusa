@@ -47,7 +47,7 @@ class MultiAgentScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['MULTI-AGT-', 'MULTI-', 'MEDUSA-AGT26-']
+    RULE_ID_PREFIXES = ['MULTI-AGT-', 'MULTI-', 'MEDUSA-AGT26-', 'MEDUSA-AGT-', 'MEDUSA-AGENT-SCAN', 'MEDUSA-TUA-']
 
     # Categories to load from YAML
     RULE_CATEGORIES = [
@@ -55,6 +55,22 @@ class MultiAgentScanner(RuleBasedScanner):
         # AGT26 agentic attack categories
         'delegation_chain', 'social_engineering',
         'corpus_embedding_manipulation', 'prompt_injection',
+        # AGT-SCAN agent security categories
+        'agent_security', 'multi_agent_security', 'multi_agent_attack',
+        # AGENT-SCAN categories (from agentic_attacks_scanner.yaml)
+        'agentic_attacks', 'environmental_injection', 'indirect_injection',
+        'indirect_prompt_injection', 'malicious_agent', 'memory_poisoning',
+        'safety_bypass', 'societal_harm', 'tool_supply_chain', 'data_poisoning',
+        # TUA-SCAN categories (from tool_use_attacks_scanner.yaml)
+        'tool_use_attacks', 'tool_misuse', 'tool_hallucination', 'tool_jailbreak',
+        'availability_risk', 'content_injection', 'insecure_code_generation',
+        'multi_agent_risk', 'reliability_risk', 'robustness',
+        'unsafe_code_generation', 'automated_attack_tool',
+        # ACP-SCAN agent-specific categories (from acp_vulnerabilities_scanner.yaml)
+        'excessive_agency', 'excessive_permissions', 'context_contamination',
+        'memory_injection', 'multimodal_injection', 'sandbox_escape',
+        'transport_security', 'worm_propagation', 'infectious_attack',
+        'backdoor_detection', 'tool_abuse', 'tool_poisoning',
     ]
 
     # Patterns indicating multi-agent collaboration

@@ -58,9 +58,17 @@ class MCPServerScanner(RuleBasedScanner):
 
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['MCP-SRV-', 'MCP-', 'MEDUSA-MCP-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['mcp_server', 'mcp_security', 'tool_poisoning']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = [
+        'mcp_server', 'mcp_security', 'tool_poisoning',
+        # MCP-SCAN categories (from mcp_security_scanner.yaml)
+        'mcp_indirect_injection', 'mcp_injection', 'mcp_multi_tool',
+        'mcp_tool_injection', 'mcp_supply_chain', 'activation_attack',
+        'context_attack', 'cross_tool_attack', 'execution_trigger',
+        # ACP-SCAN MCP-specific categories (from acp_vulnerabilities_scanner.yaml)
+        'transport_security', 'worm_propagation', 'infectious_attack',
+    ]
 
     # Tool poisoning patterns - hidden instructions in descriptions
     TOOL_POISONING_PATTERNS: List[Tuple[str, str, Severity]] = [

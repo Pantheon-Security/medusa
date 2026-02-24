@@ -176,6 +176,8 @@ ALLOWLIST_CONTEXTS = [
     r'^\s*attack_framework\s*:',  # Attack framework metadata
     r'^\s*example\s*:',  # Example (may contain attack strings)
     r'^\s*regex\s*:',  # Regex definition
+    r'^\s*remediation\s*:',  # Remediation field (describes how to fix/block attacks)
+    r'^\s*source_paper\s*:',  # Source paper reference
     r'^\s*-\s*\\',  # YAML list with escaped regex
     r'^\s*-\s*\(',  # YAML list with regex group
     r'^\s*-\s*\[',  # YAML list with character class
@@ -248,7 +250,8 @@ class RuleIntegrityScanner:
 
         # Allow continuation lines in multi-line descriptions (indented text)
         # These are typically explanations of what attacks we detect
-        if line.startswith('      ') and not stripped.startswith('-'):
+        # YAML continuation lines use 4+ spaces of indentation
+        if line.startswith('    ') and not stripped.startswith('-') and not stripped.startswith('id:') and not stripped.startswith('name:') and not stripped.startswith('severity:'):
             return True
 
         return False

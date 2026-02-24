@@ -80,6 +80,13 @@ class AIContextScanner(RuleBasedScanner):
         'training_security', 'agent_identity', 'resource_security',
         'semantic_manipulation', 'direct_injection', 'indirect_injection',
         'jailbreaking', 'obfuscation',
+        # PI-SCAN categories (from prompt_injection_scanner.yaml)
+        'automated_jailbreak', 'backdoor_injection', 'dos_injection',
+        'encoded_injection', 'multi_step_injection', 'multi_turn_injection',
+        'obfuscated_injection', 'persistent_injection', 'privilege_injection',
+        'rag_based_injection', 'reality_confusion_injection',
+        'reasoning_llm_attack', 'social_engineering_injection',
+        'web_agent_injection', 'model_based_attack',
     ]
 
     # AI context file names (case-insensitive matching)

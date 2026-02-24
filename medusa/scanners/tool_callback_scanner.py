@@ -39,10 +39,10 @@ class ToolCallbackScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['TOOL-CB-', 'TOOL-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['tool_callback', 'tool_security']
+    RULE_ID_PREFIXES = ['TOOL-CB-', 'TOOL-', 'MEDUSA-TUA-']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = ['tool_callback', 'tool_security', 'tool_use_attacks']
 
     # Patterns indicating tool execution
     TOOL_EXECUTION_PATTERNS = [

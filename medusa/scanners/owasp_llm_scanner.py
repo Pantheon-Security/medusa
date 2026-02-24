@@ -51,7 +51,9 @@ class OWASPLLMScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['OWASP-', 'LLM', 'MEDUSA-UCP26-', 'MEDUSA-EXF26-', 'MEDUSA-UCP-SCAN-']
+    RULE_ID_PREFIXES = ['OWASP-', 'LLM', 'MEDUSA-UCP26-', 'MEDUSA-EXF26-', 'MEDUSA-UCP-SCAN-',
+                        'MEDUSA-RT-', 'MEDUSA-GENAI-', 'MEDUSA-CGS-', 'MEDUSA-CODEGEN-',
+                        'MEDUSA-PRIV-', 'MEDUSA-PA-', 'MEDUSA-JB-']
 
     # Categories to load from YAML
     RULE_CATEGORIES = [
@@ -66,6 +68,45 @@ class OWASPLLMScanner(RuleBasedScanner):
         # EXF26 exfiltration categories
         'credential_exfiltration', 'tool_exfiltration', 'data_exfiltration',
         'memory_extraction', 'prompt_leakage',
+        # New 2026 categories
+        'red_teaming', 'automated_red_teaming', 'genai_security',
+        'code_gen_security', 'privacy_attacks', 'privacy_attack',
+        'jailbreaking', 'multi_agent_jailbreak', 'optimization_jailbreak',
+        # JB-SCAN additional sub-categories (from jailbreaking_scanner.yaml)
+        'code_obfuscation_jailbreak', 'cognitive_jailbreak', 'context_manipulation',
+        'encoding_cipher', 'gradient_jailbreak', 'graph_search_jailbreak',
+        'in_context_jailbreak', 'latent_space_jailbreak', 'learning_based_jailbreak',
+        'multi_turn_jailbreak', 'multimodal_jailbreak', 'narrative_jailbreak',
+        'obfuscation_jailbreak', 'privacy_jailbreak', 'psychological_jailbreak',
+        'semantic_camouflage', 'steganography', 'steganography_jailbreak',
+        'strategy_composition', 'structural_exploitation', 'structural_jailbreak',
+        'suffix_jailbreak', 'universal_jailbreak', 'cross_domain_jailbreak',
+        # RT-SCAN additional sub-categories (from ai_red_teaming_scanner.yaml)
+        'agent_red_teaming', 'automated_attack_detection', 'automated_attack_generation',
+        'code_llm_attack', 'deceptive_alignment_detection', 'detection_evasion',
+        'encoding_attack', 'evaluator_attack', 'gradient_attack',
+        'model_exploitation', 'model_security', 'monitor_evasion',
+        'multi_turn_attack', 'multimodal_attack', 'reasoning_model_attack',
+        'roleplay_jailbreak', 'sampling_attack', 'semantic_jailbreak',
+        'structured_roleplay_jailbreak',
+        # PRIV-SCAN additional sub-categories (from privacy_attacks_scanner.yaml)
+        'fl_privacy_attack', 'gradient_leakage', 'graph_privacy_attack',
+        'membership_inference', 'model_inversion', 'rag_privacy_attack',
+        'side_channel_attack', 'training_data_extraction', 'unlearning_attack',
+        # PA-SCAN categories
+        'privacy_attacks',
+        # GENAI-SCAN additional categories
+        'adversarial_suffix', 'alignment_bypass', 'data_pipeline_attack',
+        'deceptive_alignment', 'fine_tuning_attack', 'gui_agent_attack',
+        'hardware_attack', 'in_context_poisoning', 'indirect_jailbreak',
+        'inference_bypass', 'information_operations', 'internal_state_manipulation',
+        'llm_weaponization', 'multimodal_agent_attack', 'multimodal_data_poisoning',
+        'reasoning_obfuscation', 'rlhf_supply_chain', 'special_token_jailbreak',
+        'structured_output_bypass', 'supply_chain_attack', 'supply_chain_poisoning',
+        # CGS-SCAN / CODEGEN-SCAN categories
+        'agent_backbone_attack', 'agent_tool_abuse', 'code_model_attack', 'dos_attack',
+        'guardrail_bypass', 'vulnerable_code_generation', 'backbone_llm_attacks',
+        'ctf_offensive_bypass', 'llm_codegen_exploitation', 'vulnerable_codegen',
     ]
 
     # LLM01: Prompt Injection patterns (direct and indirect)

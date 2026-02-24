@@ -52,9 +52,19 @@ class RAGSecurityScanner(RuleBasedScanner):
 
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['RAG-', 'MEDUSA-RAG-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['rag_poisoning', 'rag_security', 'retrieval_attack', 'embedding_attack', 'knowledge_poisoning']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = [
+        'rag_poisoning', 'rag_security', 'retrieval_attack', 'embedding_attack', 'knowledge_poisoning',
+        # RAG-SCAN categories (from rag_vulnerabilities_scanner.yaml)
+        'rag_vulnerabilities', 'corpus_poisoning', 'adversarial_bypass',
+        'agentic_rag_attack', 'authority_injection', 'backdoor_bias',
+        'black_box_poisoning', 'content_manipulation', 'coordinated_attack',
+        'embedding_manipulation', 'fairness_attack', 'medical_rag_attack',
+        'multimodal_rag_attack', 'nids_rag_attack', 'opinion_manipulation',
+        'privacy_extraction', 'retrieval_manipulation', 'saferag_bypass',
+        'trigger_based_dos', 'rag_privacy_attack', 'rag_backdoor',
+    ]
 
     # RAG config file patterns
     RAG_CONFIG_FILES = [

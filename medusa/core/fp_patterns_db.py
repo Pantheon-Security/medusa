@@ -5899,5 +5899,54 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
         confidence=0.95,
         description="Hardcoded password finding on empty string comparison — code checks if a token/key is empty to null it out, not hardcoding a credential",
     ),
+
+    # 431: AIC-EXFIL-005 fires on .key as part of Python .keys() dict method
+    # The pattern (?i)(id_rsa|id_ed25519|\.pem|\.key|authorized_keys) matches
+    # DICT_NAME.keys() calls because .key matches the \.key part of the pattern
+    FPPattern(
+        name="ssh_key_pattern_on_dict_keys_method",
+        scanner=None,
+        pattern=r'Exfiltration instruction - SSH key access',
+        context_pattern=r'\.keys\(\)|_names\.keys|_map\.keys|dict\.keys',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.95,
+        description="AIC-EXFIL-005 SSH key pattern fires on .keys() Python dict method — .key matches the .key part of the pattern",
+    ),
+
+    # 432: AIC-EXFIL-005 fires on .key file extension in legitimate config/doc references
+    FPPattern(
+        name="ssh_key_pattern_on_key_variable_names",
+        scanner=None,
+        pattern=r'Exfiltration instruction - SSH key access',
+        context_pattern=r'(?:CLASS_NAMES|METHOD_NAMES|FUNCTION_NAMES|_keys\b|key_name|key_type|api_key|key_func|lookup_key)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="AIC-EXFIL-005 SSH key pattern fires on key-related variable/constant names in application code",
+    ),
+
+    # 433: MEDUSA-GENAI-SCAN-012 fires on all from_pretrained() calls in ML research code
+    # The rule detects model loading without supply chain scanning, but research/adversarial ML
+    # repos legitimately load models for research purposes without needing supply chain checks
+    FPPattern(
+        name="supply_chain_scan_on_research_ml_code",
+        scanner=None,
+        pattern=r'LLM model loading or ML library installation without supply chain',
+        file_pattern=r'(?:attack|adversar|benchmark|test|eval|research|experiment)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.90,
+        description="MEDUSA-GENAI-SCAN-012 fires on model loading in research/adversarial ML code — supply chain scanning not applicable to research repos",
+    ),
+
+    # 434: LLMOPS-LORA_SEC-005 fires on from_pretrained calls in adversarial NLP research
+    # Research code loads models from HuggingFace for adversarial attack testing - not a vulnerability
+    FPPattern(
+        name="lora_adapter_on_textattack_style_research",
+        scanner=None,
+        pattern=r'adapter from non-standard source',
+        file_pattern=r'(?:attack|adversar|benchmark|test|eval|research|experiment)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.88,
+        description="LLMOPS-LORA_SEC-005 fires on from_pretrained in adversarial NLP research code — legitimate research model loading",
+    ),
 ]
 

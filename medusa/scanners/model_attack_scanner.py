@@ -42,10 +42,35 @@ class ModelAttackScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['MODEL-ATK-', 'MODEL-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['model_attack', 'adversarial', 'model_poisoning']
+    RULE_ID_PREFIXES = ['MODEL-ATK-', 'MODEL-', 'MEDUSA-FLA-', 'MEDUSA-RLHF-', 'MEDUSA-MP-']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = [
+        'model_attack', 'adversarial', 'model_poisoning',
+        'federated_learning_attacks', 'rlhf_security',
+        'reward_hacking', 'reward_poisoning', 'alignment_failure',
+        'alignment_bypass',
+        # FLA-SCAN additional categories (from federated_learning_attacks_scanner.yaml)
+        'adaptive_backdoor', 'adaptive_poisoning', 'byzantine_attack',
+        'byzantine_evasion', 'data_reconstruction', 'distributed_backdoor',
+        'edge_case_backdoor', 'fairness_attack', 'fake_client_poisoning',
+        'federated_llm_attack', 'free_rider_attack', 'gradient_leakage',
+        'gradient_manipulation', 'layer_targeted_backdoor', 'malicious_server',
+        'model_replacement_backdoor', 'multi_adversary_backdoor', 'persistent_backdoor',
+        'personalized_fl_backdoor', 'semantic_backdoor', 'stealthy_backdoor',
+        'sybil_attack', 'fl_privacy_attack',
+        # RLHF-SCAN additional categories (from rlhf_security_scanner.yaml)
+        'defense_detection', 'detection_evasion',
+        # MP-SCAN categories (from model_poisoning_scanner.yaml)
+        'advanced_backdoor', 'backdoor', 'backdoor_trigger', 'clean_label_attack',
+        'code_backdoor', 'cot_backdoor', 'federated_backdoor',
+        'generative_backdoor', 'hardware_attack', 'icl_backdoor',
+        'instruction_tuning_attack', 'membership_inference', 'model_editing_attack',
+        'model_poisoning', 'multi_agent_deception', 'multi_turn_backdoor',
+        'multimodal_backdoor', 'peft_backdoor', 'physical_attack',
+        'physical_backdoor', 'pipeline_backdoor', 'rag_backdoor',
+        'visual_backdoor', 'weight_poisoning',
+    ]
 
     # Model Inversion / Overfitting patterns
     OVERFITTING_PATTERNS = [
