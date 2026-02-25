@@ -12,7 +12,7 @@
 **AI-first security scanner with 4,000+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
-**✨ NEW v2026.3.0: 508 FP filters, scanner precision tuning, compound gates, yamllint removed!**
+**✨ NEW v2026.3.0: 514 FP filters, scanner precision tuning, compound gates, yamllint removed!**
 
 ---
 
@@ -36,11 +36,11 @@ MEDUSA is an AI-first security scanner with **4,000+ detection patterns** that w
 
 ### 🆕 What's New in v2026.3.0
 
-**Scanner Precision + FP Tuning** - Compound scanner gates, precision-tuned patterns, and 508 FP filters.
+**Scanner Precision + FP Tuning** - Compound scanner gates, precision-tuned patterns, and 514 FP filters.
 
 | Change | Description |
 |--------|-------------|
-| 🎯 **508 FP Filter Patterns** | Up from 430 — 96.8% false positive reduction on real-world projects |
+| 🎯 **514 FP Filter Patterns** | Up from 430 — 96.8% false positive reduction on real-world projects |
 | 🔧 **Scanner Attribution Fix** | Parallel scan findings now correctly attributed to originating scanner |
 | 🛡️ **Compound Scanner Gates** | MultiAgent, Steganography, LLMGuard scanners require framework indicators to fire |
 | ✂️ **YAMLScanner Removed** | Dropped yamllint (style linter) — Trivy + Semgrep + MEDUSA rules cover YAML security |
@@ -808,7 +808,7 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 - **4,000+ Detection Patterns** - Industry-leading AI security coverage
 - **76 Specialized Analyzers** - Comprehensive language and platform coverage
 - **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
-- **508 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
+- **514 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
 - **Compound Scanner Gates** - MultiAgent, Steganography, LLMGuard scanners use framework-aware gates
 - **Scanner Attribution Fix** - Parallel scan findings correctly attributed to originating scanner
 - **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
@@ -931,7 +931,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 **Release Date**: 2026-02-16
 **Detection Patterns**: 4,000+ AI security rules
 **Analyzers**: 76 specialized scanners
-**FP Filter Patterns**: 508 intelligent filters (96.8% reduction rate)
+**FP Filter Patterns**: 514 intelligent filters (96.8% reduction rate)
 **CVE Coverage**: 133 critical vulnerabilities
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
