@@ -1524,3 +1524,217 @@ rules:
     bias.
   owasp_llm: LLM03
   cwe: CWE-20
+- id: MEDUSA-GENAI-SCAN-068
+  name: MetaBreak Meta-Level LLM Attack
+  severity: critical
+  category: genai_security
+  patterns:
+  - (?i)\bmetabreak\b
+  - (?i)\bresponse\s+injection\s+(?:primitive|attack)\b
+  - (?i)\bturn\s+masking\s+(?:primitive|attack|technique)\b
+  - (?i)\binput\s+segmentation\s+(?:primitive|attack)\b
+  - (?i)\bsemantic\s+mimicry\s+(?:primitive|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'MetaBreak: meta-level LLM attack primitive detected (Response Injection / Turn Masking / Input Segmentation /
+    Semantic Mimicry)'
+  description: 'Detects MetaBreak attacks using 4 meta-level primitives: Response Injection, Turn Masking, Input Segmentation,
+    and Semantic Mimicry to manipulate LLM safety systems.'
+  remediation: Implement meta-level prompt analysis. Validate conversation turn boundaries. Apply semantic intent verification
+    independent of surface form.
+  owasp_llm: LLM01
+  cwe: CWE-74
+- id: MEDUSA-GENAI-SCAN-069
+  name: APT AttackPrefixTree Constrained Decoding Exploit
+  severity: critical
+  category: genai_security
+  patterns:
+  - (?i)\battack\s*prefix\s*tree\b
+  - (?i)\bconstrained\s+decoding\s+(?:attack|jailbreak|exploit)\b
+  - (?i)\bstructured\s+output\s+(?:jailbreak|bypass|exploit)\b.{0,80}(?:json|xml|yaml)
+  - (?i)\bjson\s+(?:structured\s+output|format)\s+(?:bypass|jailbreak|refusal\s+suppression)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'APT: AttackPrefixTree constrained decoding refusal suppression detected'
+  description: Detects APT (AttackPrefixTree) attacks that exploit structured output modes (JSON/XML schema constraints) to
+    suppress safety refusals via constrained decoding.
+  remediation: Apply safety checks independent of output format constraints. Verify safety alignment is not disabled by structured
+    output modes.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-070
+  name: ABJ Adversarial Backdoor via CoT Jailbreak
+  severity: high
+  category: genai_security
+  patterns:
+  - (?i)\babj\b.{0,50}(?:jailbreak|cot|chain.of.thought|attack)
+  - (?i)\b(?:multi.step|step.by.step)\s+(?:cot|chain.of.thought)\s+(?:to\s+)?(?:infer|derive|extract)\s+(?:unsafe|harmful|dangerous)\b
+  - (?i)\bcoT\s+(?:reasoning|thinking)\s+(?:to\s+)?(?:bypass|circumvent|evade)\s+(?:safety|filter|guard)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'ABJ: adversarial backdoor CoT jailbreak using multi-step reasoning to infer unsafe content'
+  description: Detects ABJ (Adversarial Backdoor Jailbreak) that uses multi-step Chain-of-Thought reasoning to gradually infer
+    and output unsafe content by bypassing direct safety checks.
+  remediation: Implement reasoning chain safety monitoring. Apply safety verification at each CoT step, not just at output.
+    Monitor for gradual safety erosion in reasoning.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-071
+  name: AttnGCG Attention Manipulation Safety Bypass
+  severity: high
+  category: genai_security
+  patterns:
+  - (?i)\battngcg\b
+  - (?i)\battention\s+(?:manipulation|hijacking)\s+(?:attack|bypass|exploit)\b
+  - (?i)\b(?:shift|redirect|manipulate)\s+attention\s+(?:away\s+from|from)\s+(?:safety|system)\s+prompt\b
+  - (?i)\battention\s+gradient\s+(?:attack|manipulation|adversarial)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'AttnGCG: attention manipulation attack shifting focus from safety system prompt detected'
+  description: Detects AttnGCG attacks that manipulate model attention weights to divert focus from safety-critical system
+    prompt regions, enabling safety bypass.
+  remediation: Monitor attention patterns for system prompt attention drop. Implement attention-based anomaly detection. Apply
+    attention regularization during fine-tuning.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-072
+  name: CoT Steganography Hidden Intent in Chain-of-Thought
+  severity: high
+  category: genai_security
+  patterns:
+  - (?i)\bcot\s+(?:steganograph|hidden\s+intent|covert\s+plan)\b
+  - (?i)\bhidden\s+(?:malicious\s+)?intent\s+in\s+(?:chain.of.thought|reasoning|thinking)\b
+  - (?i)\bcovert\s+(?:plan|agenda|instruction)\s+(?:in|within)\s+(?:reasoning|thinking|cot)\b
+  - (?i)\bmy\s+secret\s+(?:agenda|plan|intent)\s+is\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - txt
+  message: 'CoT Steganography: hidden malicious intent embedded in chain-of-thought reasoning detected'
+  description: Detects CoT Steganography where malicious agents embed hidden intent or covert plans within chain-of-thought
+    reasoning steps invisible to safety monitors.
+  remediation: Implement reasoning transparency monitoring. Validate reasoning chain alignment with stated goals. Apply semantic
+    consistency checks between CoT and actions.
+  owasp_llm: LLM08
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-073
+  name: GUI Touch-Jacking Invisible Agent Hijack
+  severity: high
+  category: genai_security
+  patterns:
+  - (?i)\btouch.?jacking\b
+  - (?i)\b(?:invisible|hidden|transparent|zero.opacity)\s+(?:ui|button|element|overlay)\s+(?:for|to)\s+(?:agent|hijack|redirect)\b
+  - (?i)\bclickjack(?:ing)?\s+(?:agent|llm|ai|assistant)\b
+  - (?i)\bdeceptive\s+(?:ui|interface|overlay)\s+(?:for|to)\s+(?:agent\s+hijack|redirect\s+agent)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - html
+  - css
+  message: 'GUI Touch-Jacking: invisible/deceptive UI elements targeting LLM agent interaction detected'
+  description: Detects GUI Touch-Jacking attacks using invisible or deceptive UI elements to hijack LLM agent actions, redirecting
+    agent to perform unintended operations.
+  remediation: Implement UI element visibility verification before agent interaction. Apply clickjacking protection headers.
+    Validate UI element opacity and position.
+  owasp_llm: LLM02
+  cwe: CWE-1021
+- id: MEDUSA-GENAI-SCAN-074
+  name: Adversarial RLHF Platform Label Flipping Attack
+  severity: critical
+  category: genai_security
+  patterns:
+  - (?i)\badversarial\s+(?:rlhf|preference\s+learning)\s+(?:platform|poisoning|attack)\b
+  - (?i)\blabel.?flipping\s+(?:on|in|for)\s+(?:rlhf|preference|reward|annotation)\b
+  - (?i)\bpoison(?:ed|ing)\s+(?:preference|reward|human\s+feedback)\s+(?:data|dataset|labels?)\b
+  - (?i)\bopen.source\s+(?:rlhf|reward)\s+(?:pipeline|platform)\s+(?:compromise|poison|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Adversarial RLHF: label-flipping attack on preference learning pipeline detected'
+  description: Detects attacks compromising open-source RLHF platforms via label-flipping on preference datasets, corrupting
+    reward model training and misaligning the resulting model.
+  remediation: Implement preference label integrity verification. Apply label anomaly detection in RLHF pipelines. Use Byzantine-robust
+    aggregation for crowdsourced labels.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-GENAI-SCAN-075
+  name: LoRA Backdoor via Outsourced Training
+  severity: critical
+  category: genai_security
+  patterns:
+  - (?i)\blora\s+backdoor\b
+  - (?i)\boutsourced\s+(?:lora|fine.tun|training)\s+(?:backdoor|trojan|trigger)\b
+  - (?i)\btrigger\s+(?:implantation|injection)\s+(?:in|via)\s+(?:lora|adapter|fine.tun)\b
+  - (?i)\bmalicious\s+lora\s+(?:adapter|module|weights?)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'LoRA Backdoor: malicious trigger implanted via outsourced LoRA fine-tuning detected'
+  description: Detects LoRA backdoor attacks where malicious actors implant hidden triggers during outsourced LoRA fine-tuning,
+    activating harmful behaviors when trigger tokens appear.
+  remediation: Verify LoRA adapter integrity before deployment. Apply backdoor scanning on fine-tuned adapters. Use trusted
+    fine-tuning providers only.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-GENAI-SCAN-076
+  name: LAION-5B Dataset Contamination Mass Poisoning
+  severity: critical
+  category: genai_security
+  patterns:
+  - (?i)\blaion.5b\s+(?:contamination|poison|compromise)\b
+  - (?i)\bmass\s+(?:dataset|training\s+data)\s+(?:poisoning|contamination)\s+(?:via|through|in)\s+(?:public|web|crawled)\b
+  - (?i)\bweb.crawled\s+(?:data|dataset)\s+(?:poison|contamination|backdoor)\b
+  - (?i)\bpublic\s+(?:pretraining|training)\s+(?:data|dataset)\s+(?:poison|contamination|backdoor)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'LAION-5B: mass public training dataset contamination/poisoning pattern detected'
+  description: Detects patterns associated with LAION-5B mass contamination attacks that poison publicly available training
+    datasets to affect all models trained on them.
+  remediation: Implement dataset provenance verification. Apply data poisoning detection before training data ingestion. Use
+    curated, audited training datasets.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-GENAI-SCAN-077
+  name: Prefilling Attack Response Prefix Manipulation
+  severity: high
+  category: genai_security
+  patterns:
+  - (?i)\bprefilling\s+(?:attack|jailbreak|exploit)\b
+  - (?i)\bresponse\s+prefix\s+(?:injection|manipulation|attack)\b
+  - (?i)\b(?:force|inject|prepend|prefix)\s+(?:the\s+)?(?:assistant|model|llm)\s+(?:response|answer|reply)\b
+  - (?i)assistant:\s*(?:sure|yes|absolutely|certainly|of\s+course),?\s*(?:here|I\s+will)
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - json
+  message: 'Prefilling Attack: response prefix injection to bypass safety alignment detected'
+  description: Detects prefilling attacks that inject compliant response prefixes into the assistant turn to bypass safety
+    checks by forcing the model to continue from an already-compliant-looking response start.
+  remediation: Restrict assistant-turn prefix injection via API. Validate that response prefixes cannot contain safety-bypassing
+    content. Monitor for unusual assistant-turn structure.
+  owasp_llm: LLM01
+  cwe: CWE-74

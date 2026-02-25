@@ -1851,3 +1851,190 @@ rules:
     integrity checks.
   owasp_llm: LLM02
   cwe: CWE-20
+- id: MEDUSA-AGT-087
+  name: Context Overflow Memory Extraction Agent Attack
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)\bcontext\s+overflow\s+(?:attack|extraction|exploit)\b
+  - (?i)\b(?:overflow|flood|fill)\s+(?:context|memory|history)\s+(?:to\s+)?(?:extract|leak|expose)\b
+  - (?i)\b(?:repeat|say)\s+(?:the\s+)?(?:words?|text|content)\s+(?:above|before|prior)\s+(?:starting\s+with)\b
+  - (?i)\brepeat\s+the\s+words\s+above\s+starting\s+with\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Context Overflow: memory/context extraction via overflow flooding detected (100% info leakage in some configs)'
+  description: Detects context overflow attacks that flood agent memory/context window to force exposure of confidential system
+    prompt or prior conversation content.
+  remediation: Implement context window boundary enforcement. Apply system prompt isolation. Monitor for memory extraction
+    request patterns.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-AGT-088
+  name: Poisoned Few-Shot Example Agent Manipulation
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bpoisoned?\s+few.?shot\s+(?:example|attack|injection|prompt)\b
+  - (?i)\b(?:malicious|adversarial)\s+(?:few.?shot|demonstration|example)\s+(?:inject|poison|craft)\b
+  - (?i)\bdemonstration\s+poisoning\s+(?:attack|few.?shot)\b
+  - (?i)\b(?:in.context|icl|few.shot)\s+(?:example|demonstration)\s+(?:manipulation|poisoning|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'Poisoned Few-Shot: adversarial demonstration injection in few-shot prompt detected (71.95% ASR increase)'
+  description: Detects poisoned few-shot example injection attacks that embed malicious demonstrations in in-context learning
+    prompts, achieving 71.95% ASR increase over baseline.
+  remediation: Validate few-shot examples against trusted sources. Apply demonstration authenticity verification. Implement
+    ICL poisoning detection.
+  owasp_llm: LLM01
+  cwe: CWE-74
+- id: MEDUSA-AGT-089
+  name: SQL Injection via Agent Prompt Manipulation
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bsql\s+injection\s+(?:via|through|using)\s+(?:prompt|llm|agent)\b
+  - (?i)(?:'\s*OR\s*'1'\s*=\s*'1|;\s*DROP\s+TABLE|UNION\s+SELECT)
+  - (?i)\b(?:ask|instruct|tell)\s+(?:the\s+)?(?:agent|llm|model)\s+to\s+(?:execute|run|perform)\s+(?:sql|query|database)\b
+  - (?i)\bprompt.(?:to.)?sql\s+(?:injection|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'SQL Injection via Agent: prompt-driven SQL injection attack through LLM agent detected (60% ASR)'
+  description: Detects SQL injection attacks routed through LLM agent interfaces, where malicious content in prompts causes
+    the agent to generate and execute SQL injection payloads with 60% ASR.
+  remediation: Apply parameterized queries for all agent database interactions. Implement SQL injection detection in agent
+    tool outputs. Never pass raw LLM output to database queries.
+  owasp_llm: LLM02
+  cwe: CWE-89
+- id: MEDUSA-AGT-090
+  name: Hidden CSS/Style Agent Prompt Injection
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)color\s*:\s*(?:white|#ffffff|#fff)[\s;]
+  - (?i)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)
+  - (?i)font.?size\s*:\s*0(?:px|pt|em|rem)?[\s;]
+  - (?i)(?:position\s*:\s*absolute|position\s*:\s*fixed).{0,100}(?:top\s*:\s*-|left\s*:\s*-)
+  file_types:
+  - html
+  - css
+  - js
+  - ts
+  - txt
+  - md
+  message: 'Hidden CSS Injection: invisible HTML/CSS content used for agent prompt injection detected'
+  description: Detects CSS-based hidden content injection where malicious instructions are embedded in white-on-white text,
+    display:none elements, or off-screen positioned content targeting LLM browser agents.
+  remediation: Strip hidden CSS elements before passing web content to agents. Implement visibility-aware content extraction.
+    Apply agent-specific HTML sanitization.
+  owasp_llm: LLM02
+  cwe: CWE-79
+- id: MEDUSA-AGT-091
+  name: Secret Agenda / Hidden Inner Monologue Injection
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)\bmy\s+secret\s+(?:agenda|plan|goal|objective)\s+is\s+(?:now\s+)?(?:active|enabled|running)\b
+  - (?i)\[assistant\]\(#inner_monologue\)
+  - (?i)\b(?:hidden|secret|covert)\s+(?:agenda|instruction|plan)\s+(?:activated|triggered|enabled)\b
+  - (?i)\bcontinue\s+my\s+(?:secret|hidden)\s+(?:mission|agenda|plan)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Secret Agenda: hidden inner monologue or covert plan activation marker detected in agent context'
+  description: Detects secret agenda activation markers and hidden inner monologue injection patterns used in advanced multi-agent
+    attacks where compromised agents activate covert objectives.
+  remediation: Implement reasoning transparency monitoring. Apply semantic intent verification. Audit agent reasoning chains
+    for covert objective markers.
+  owasp_llm: LLM08
+  cwe: CWE-693
+- id: MEDUSA-AGT-092
+  name: allow_delegation Unsafe Agent Privilege Escalation
+  severity: critical
+  category: agent_security
+  patterns:
+  - \ballow_delegation\s*=\s*True\b
+  - (?i)\bcode_execution_config\s*=\s*\{[^}]*["\']use_docker["\']\s*:\s*False
+  - (?i)\bPython(?:Ast)?REPL(?:Tool)?\s*\([^)]*allow_dangerous_code\s*=\s*True
+  - (?i)\bFileManagementToolkit\s*\(
+  - (?i)\bShellTool\s*\(
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Unsafe Agent Config: allow_delegation=True / dangerous code execution / unrestricted file/shell access detected'
+  description: 'Detects dangerous agent configuration patterns: allow_delegation=True (enables sub-agent hijacking), dangerous
+    code execution without Docker isolation, or unrestricted file/shell tool access.'
+  remediation: Set allow_delegation=False unless required. Use Docker isolation for code execution. Apply least-privilege
+    tool configuration for agents.
+  owasp_llm: LLM08
+  cwe: CWE-250
+- id: MEDUSA-AGT-093
+  name: Hardcoded API Key in Agent Configuration
+  severity: critical
+  category: agent_security
+  patterns:
+  - \bapi_key\s*=\s*["\'](?:sk-[a-zA-Z0-9]{32,}|sk-ant-[a-zA-Z0-9]{32,}|sk-proj-[a-zA-Z0-9]{32,})
+  - \bOPENAI_API_KEY\s*=\s*["\']sk-[a-zA-Z0-9]{32,}
+  - \bANTHROPIC_API_KEY\s*=\s*["\']sk-ant-[a-zA-Z0-9]{32,}
+  - (?i)\b(?:bearer|token|api.?key)\s*[:=]\s*["\'][a-zA-Z0-9_\-]{32,}["\']
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - json
+  - yaml
+  - env
+  message: 'Hardcoded API Key: OpenAI/Anthropic API key hardcoded in agent code detected'
+  description: Detects hardcoded API keys (OpenAI sk-*, Anthropic sk-ant-*) embedded directly in agent source code, creating
+    credential exposure risk.
+  remediation: Use environment variables or secret management systems. Never hardcode API keys in source code. Apply secret
+    scanning in CI/CD pipelines.
+  owasp_llm: LLM09
+  cwe: CWE-798
+- id: MEDUSA-AGT-094
+  name: Admin Impersonation Privilege Injection in Agent
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:as|since)\s+requested\s+by\s+(?:the\s+)?(?:admin|administrator|root|superuser)\b
+  - (?i)\bacting\s+(?:on\s+behalf\s+of|as)\s+(?:the\s+)?(?:admin|administrator|system|root)\b
+  - (?i)\b(?:admin|administrator|root|superuser)\s+(?:has\s+)?(?:authorized|approved|granted)\s+(?:this|the)\s+(?:action|request|command)\b
+  - (?i)\bprivileged\s+(?:admin\s+)?mode\s+(?:activated|enabled|unlocked)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Admin Impersonation: privilege escalation via admin authority injection detected in agent context'
+  description: Detects admin impersonation attacks in agent contexts where injected content claims to be from an administrator/root
+    to escalate privileges and bypass agent restrictions.
+  remediation: Implement cryptographically verified admin authentication. Never trust text-based authority claims in agent
+    inputs. Apply privilege verification independent of content.
+  owasp_llm: LLM01
+  cwe: CWE-290

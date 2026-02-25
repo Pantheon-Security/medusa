@@ -1389,3 +1389,109 @@ rules:
     Privacy Defense) with judge LLM for RAG outputs.
   owasp_llm: LLM06:2025
   cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-067
+  name: Goldfish Pseudo-Random Token Masking Anti-Memorization
+  severity: medium
+  category: privacy_attacks
+  patterns:
+  - (?i)\bgoldfish\b.{0,60}(token|mask|memoriz|verbatim|train)
+  - (?i)(pseudo.random.{0,20}(token|mask|goldfish|memoriz|train))
+  - (?i)(goldfish.{0,30}(train|mask|verbatim|extraction|memoriz|mitigation))
+  - (?i)(token.mask.{0,30}(goldfish|random|verbatim|memoriz|training))
+  file_types:
+  - py
+  - ipynb
+  message: 'Goldfish pseudo-random token masking anti-memorization defense detected'
+  description: Goldfish masks randomly selected tokens during LLM training to prevent verbatim memorization of training data.
+    By probabilistically omitting tokens from the training loss, the model cannot perfectly memorize any sequence, significantly
+    reducing training data extraction success rates. Effective against divergence attacks and prefix completion extraction.
+  remediation: Implement Goldfish-style token masking during LLM training. Apply masking probability calibrated to target privacy
+    budget. Combine with data deduplication to prevent memorization of repeated sequences. Audit with extraction attack benchmarks.
+  owasp_llm: LLM02
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-068
+  name: DuoLearn Dynamic Token Unlearning Defense
+  severity: medium
+  category: privacy_attacks
+  patterns:
+  - (?i)\bduolearn\b.{0,60}(token|unlearn|dynamic|train|memoriz)
+  - (?i)(dynamic.token.{0,20}(unlearn|learn|duolearn|memoriz))
+  - (?i)(duolearn.{0,30}(unlearn|privacy|token|data.extract|train))
+  file_types:
+  - py
+  - ipynb
+  message: 'DuoLearn dynamic token learning/unlearning defense detected'
+  description: DuoLearn implements dynamic token-level learning and unlearning during model training to prevent memorization
+    of sensitive content. Unlike static data deduplication, DuoLearn adaptively identifies and unlearns tokens that contribute
+    to memorization risk throughout the training process. Defends against training data extraction and PII memorization.
+  remediation: Deploy DuoLearn-style dynamic unlearning in LLM training pipelines. Monitor per-token memorization scores during
+    training. Apply selective unlearning for tokens with high extraction risk. Combine with SLM (Selective Language Modeling)
+    to skip PII tokens in loss computation.
+  owasp_llm: LLM02
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-069
+  name: WARP Unlearning Verification Defense
+  severity: high
+  category: privacy_attacks
+  patterns:
+  - (?i)\bwarp\b.{0,60}(unlearn|maheri|U-LiRA|verif|0\.907|privacy)
+  - (?i)(maheri.{0,20}(warp|unlearn|verif|0\.907|U-LiRA|2025))
+  - (?i)(unlearn.verif.{0,30}(warp|maheri|attack|U-LiRA|audit))
+  - (?i)(warp.{0,30}(maheri|unlearn|verif|audit|U-LiRA|privacy.guarant))
+  file_types:
+  - py
+  - ipynb
+  message: 'WARP unlearning verification defense detected (Maheri et al. 2025) — reduces U-LiRA from AUC 0.938 to 0.907'
+  description: WARP (Maheri et al. 2025) defends against unlearning verification attacks like U-LiRA (AUC 0.938) that detect
+    whether a sample was truly unlearned. WARP improves unlearning privacy guarantees by reducing U-LiRA attack effectiveness
+    from AUC 0.938 to 0.907. Critical for GDPR compliance where data subjects request deletion and verification attacks confirm
+    deletion success.
+  remediation: Implement WARP as post-hoc unlearning verification defense. Apply WARP calibration when processing deletion
+    requests to prevent U-LiRA-based verification of incomplete unlearning. Audit unlearning compliance with MIA-NN testing.
+    Combine with SLM and data deduplication for defense-in-depth.
+  owasp_llm: LLM02
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-070
+  name: GNN Inversion Maui LinkTeller Node Privacy Attack
+  severity: high
+  category: privacy_attacks
+  patterns:
+  - (?i)(maui.{0,20}(gnn|invers|node|graph|privacy|linkteller))
+  - (?i)(linkteller.{0,20}(gnn|invers|edge|maui|privacy|graph))
+  - (?i)(gnn.{0,20}(invers|model.invers|maui|linkteller|node.privat))
+  - (?i)(graph.neural.{0,20}(invers|model.invers|node.privat|maui|privacy.attack))
+  file_types:
+  - py
+  - ipynb
+  message: 'GNN inversion attack detected (Maui/LinkTeller) — extracting graph structure/node features from GNN'
+  description: Maui and LinkTeller are GNN model inversion attacks. Maui inverts node feature representations to reconstruct
+    private node attributes from GNN model outputs. LinkTeller exploits gradient information to infer edge connectivity,
+    extracting private graph topology. Both attacks demonstrate that GNNs memorize sensitive structural information that can
+    be extracted via inference queries.
+  remediation: Deploy NetFense graph perturbation defense for GNN privacy. Apply LapGraph Laplace edge DP to protect edge
+    privacy. Use EdgeAttn adversarial training to minimize edge leakage against link inference attacks. Audit GNNs with Maui/LinkTeller
+    benchmarks before production deployment.
+  owasp_llm: LLM02
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-071
+  name: RecSys Training Data Extraction Watch History
+  severity: high
+  category: privacy_attacks
+  patterns:
+  - (?i)(recsys.{0,20}(extract|watch.history|user.watch|interaction|poison))
+  - (?i)(watch.history.{0,30}(extract|infer|reconstruct|recsys|interaction))
+  - (?i)(user.interaction.{0,30}(extract|recsys|watch|reconstruct|privacy))
+  - (?i)(recommendation.{0,20}(extract|privacy|user.data|interaction.leak|recsys))
+  file_types:
+  - py
+  - ipynb
+  message: 'RecSys training data extraction attack detected — extracting user watch histories from recommendation model'
+  description: Recommendation system extraction attacks infer private user interaction histories (watch histories, purchase
+    records) from trained recommendation models. By querying the model with carefully crafted requests about specific items,
+    attackers can reconstruct what individual users watched/purchased with high accuracy. High privacy risk for streaming
+    platforms and e-commerce systems.
+  remediation: Apply DP-SGD during RecSys training to add noise to interaction gradient signals. Implement user-level DP
+    guarantees. Use gradient compression to reduce information available for interaction reconstruction. Apply output perturbation
+    to recommendation scores before returning to users.
+  owasp_llm: LLM02
+  cwe: CWE-200

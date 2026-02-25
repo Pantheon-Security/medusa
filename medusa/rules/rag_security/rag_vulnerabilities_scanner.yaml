@@ -1074,3 +1074,890 @@ rules:
     on retrieval to prevent complete corpus enumeration. Implement watermarking on private documents for exfiltration tracing.
   owasp_llm: LLM06:2025
   cwe: CWE-200
+- id: MEDUSA-RAG-SCAN-050
+  name: dense-retriever-adversarial-query-embedding
+  severity: HIGH
+  category: retrieval_manipulation
+  patterns:
+  - (?i)(dense.retriev.{0,40}(adversarial|attack|manipulat|poison).{0,40}(embedding|query|vector))
+  - (?i)(adversarial.query.{0,40}(retriev|embedding|dense.passage).{0,40}(manipulat|target|poison))
+  - (?i)(contrastive.query.{0,40}(attack|manipulat|adversarial).{0,40}(retriev|dpr|bi.encoder))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Dense retriever adversarial query attack — manipulating query embeddings to retrieve targeted malicious
+    documents'
+  description: Dense retriever attacks (Zhong et al. 2023) craft adversarial queries that cause dense passage retrievers (DPR,
+    Contriever) to retrieve specific attacker-chosen documents regardless of semantic relevance. The adversarial query embedding
+    is geometrically close to the target document embedding in the shared embedding space. Enables precise control over which
+    poisoned documents are retrieved, increasing attack precision from ~50% to ~90% compared to content-only poisoning.
+  remediation: Apply embedding anomaly detection to identify adversarially crafted queries with unusual geometric properties.
+    Implement multi-retriever consensus to reduce single-retriever manipulation impact. Use embedding perturbation at query
+    time to disrupt adversarial targeting. Monitor for queries with unusually high retrieval confidence scores (sign of adversarial
+    precision).
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-051
+  name: rag-context-window-flooding-dos
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(rag.context.{0,20}(flood|overflow|exhaust|fill).{0,40}(window|limit|token))
+  - (?i)(retriev.{0,20}(large|huge|massive|flood).{0,40}(document|chunk|context).{0,40}(dos|exhaust|overflow))
+  - (?i)(context.window.{0,40}(poison|exhaust|flood).{0,40}(rag|retriev|inject))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: RAG context window flooding — injecting large documents to exhaust LLM context window and prevent legitimate
+    retrieval'
+  description: Context window flooding attacks inject extremely large documents into the RAG knowledge base. When retrieved,
+    these flood the LLM's context window, leaving insufficient space for legitimate documents and effective reasoning. Can
+    cause DoS (OOM, timeouts) or degrade RAG quality by drowning signal in noise. Related to Silver Noise attack (Liang et
+    al. 2025) where noise injection undermines safety filters. Effective against fixed-window RAG systems.
+  remediation: Enforce maximum document length during RAG ingestion. Apply chunk-size normalization with strict upper bounds.
+    Implement retrieval budget management — limit total tokens consumed by retrieved documents. Monitor for injections of
+    unusually large documents relative to corpus norms.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-RAG-SCAN-052
+  name: authchain-chain-of-evidence-authority-poison
+  severity: HIGH
+  category: knowledge_poisoning
+  patterns:
+  - (?i)(authchain|auth.chain|chain.of.evidence).{0,60}(poison|inject|authority|endors)
+  - (?i)(authority.endorsement.{0,40}(poison|inject|fake|fabricat).{0,40}(rag|retriev|knowledge))
+  - (?i)(chain.of.evidence.{0,40}(fabricat|fake|inject).{0,40}(rag|corpus|document))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AuthChain chain-of-evidence authority poisoning — single poisoned document with fabricated authoritative
+    citations (85-90% ASR)'
+  description: AuthChain (Chang et al. 2025) uses a single poisoned document with embedded 'Chain of Evidence' — fabricated
+    citations from authoritative sources (WHO, CDC, peer-reviewed journals) that endorse the malicious claim. The apparent
+    authority chain makes LLMs more likely to believe and reproduce the false information. Achieves 85-90% ASR with only one
+    poisoned document. Bypasses TrustRAG defenses that assume clustering separates poison from truth.
+  remediation: Implement citation verification — check that referenced sources actually contain the claimed content. Apply
+    authority spoofing detection to flag documents citing well-known sources for unusual claims. Use external fact-checking
+    APIs to verify critical claims in retrieved documents. Train LLMs to be skeptical of authority appeals in unverified documents.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-RAG-SCAN-053
+  name: phantom-triggered-refusal-rag-denial
+  severity: HIGH
+  category: knowledge_poisoning
+  patterns:
+  - (?i)(phantom.{0,20}(attack|trigger|refusal|dos).{0,40}(rag|retriev|knowledge))
+  - (?i)(triggered.refusal.{0,40}(rag|retriev|poison|inject).{0,40}(deny|reject|refuse))
+  - (?i)(difference.loss.{0,40}(optimize|trigger).{0,40}(refusal|deny|reject).{0,40}rag)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: Phantom triggered refusal attack — poisoned RAG documents causing LLM to refuse legitimate queries on
+    trigger (ASR 0.97)'
+  description: Phantom (Chaudhari et al. 2024) uses difference-loss optimization to create poisoned RAG documents that trigger
+    LLM refusal when a specific query pattern is present. Unlike typical backdoors that elicit harmful outputs, Phantom causes
+    legitimate query denial — a targeted DoS attack. ASR 0.97 — nearly all triggered queries are refused while non-triggered
+    queries are answered normally. Used for targeted sabotage of RAG-based services.
+  remediation: Monitor for abnormal refusal rate spikes on specific query patterns. Apply TrustRAG clustering defense to detect
+    documents with unusual refusal-triggering properties. Implement query-level refusal anomaly detection — high refusal rate
+    for specific query semantics signals Phantom attack. Audit knowledge base for difference-loss optimized documents.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-054
+  name: silver-noise-safety-diversity-degradation
+  severity: HIGH
+  category: knowledge_poisoning
+  patterns:
+  - (?i)(silver.noise.{0,40}(inject|rag|safety|diversit|filter))
+  - (?i)(noise.inject.{0,40}(undermine|degrade|bypass).{0,40}(safety.filter|diversity|rag))
+  - (?i)(low.quality.noise.{0,40}(rag|retriev|inject).{0,40}(safety|diversity|filter))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: Silver Noise attack — injecting low-quality noise documents to undermine RAG safety filters and output
+    diversity'
+  description: Silver Noise (Liang et al. 2025, SafeRAG benchmark) injects noise documents that, while individually innocuous,
+    degrade RAG system output quality, safety filter effectiveness, and response diversity. The noise overwhelms signal in
+    the context, reducing the LLM's ability to apply safety reasoning. Part of the SafeRAG threat taxonomy covering four attack
+    surfaces. More subtle than direct poisoning — bypasses perplexity-based detection because noise has normal perplexity.
+  remediation: Apply relevance scoring to retrieved documents — filter documents below relevance threshold. Implement SafeRAG
+    defense framework with multi-layer context quality assessment. Monitor for gradual degradation in RAG output quality as
+    early warning of noise injection. Use semantic deduplication to prevent noise amplification.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-055
+  name: rag-hallucination-amplification-false-context
+  severity: HIGH
+  category: knowledge_poisoning
+  patterns:
+  - (?i)(hallucination.amplif.{0,40}(rag|retriev|context|inject))
+  - (?i)(false.context.{0,40}(amplif|reinforce|rag|retriev).{0,40}hallucination)
+  - (?i)(rag.{0,20}(false|incorrect|misleading).context.{0,40}(amplif|reinforce|increas).{0,30}hallucin)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: RAG hallucination amplification — injecting plausible-but-false context to amplify LLM hallucination
+    rate'
+  description: RAG hallucination amplification injects documents containing plausible but false information that reinforces
+    likely hallucination patterns. LLMs trained to trust RAG context over parametric knowledge are misled into producing confident
+    false outputs. Not a direct attack but a reliability attack — degrades RAG's core value proposition (grounding). Particularly
+    effective against domains where LLMs have known hallucination tendencies (medical, legal, financial).
+  remediation: Apply factual verification to retrieved documents using external knowledge sources. Implement confidence calibration
+    that accounts for RAG context reliability. Use claim extraction and independent verification before serving RAG-augmented
+    responses. Monitor RAG factual accuracy with periodic benchmark evaluation.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-RAG-SCAN-056
+  name: multimodal-rag-cross-modal-injection
+  severity: HIGH
+  category: multimodal_rag_attack
+  patterns:
+  - (?i)(multimodal.rag.{0,40}(cross.modal|image.text|visual.text).{0,40}(inject|poison|attack))
+  - (?i)(image.inject.{0,40}(rag|retriev|knowledge.base).{0,40}(vlm|multimodal|visual))
+  - (?i)(cross.modal.{0,40}(poison|inject|attack).{0,40}(rag|retriev|multimodal))
+  file_types:
+  - '*.py'
+  - '*.png'
+  - '*.jpg'
+  message: 'Detected: Multimodal RAG cross-modal injection — adversarial image-text pairs in multimodal RAG knowledge base
+    (ASR up to 98%)'
+  description: 'Poisoned-MRAG (Liu et al. 2025) injects adversarial image-text pairs into multimodal RAG knowledge bases targeting
+    VLMs. Cross-modal attack: image content is crafted adversarially to override text content during retrieval, causing the
+    VLM to follow malicious visual instructions. ASR up to 98% against MLLM-RAG systems. Text-only defenses are ineffective
+    because the attack uses the image modality. Also covers MedThreatRAG (Zuo 2025) medical imaging attacks.'
+  remediation: Apply modality-restricted retrieval — validate image-text consistency before including multimodal documents.
+    Implement cross-modal adversarial detection (adversarial image perturbation detection). Use structure-driven mitigation
+    to limit which modalities can contain instructions. Apply image preprocessing to detect adversarially perturbed images
+    in knowledge bases.
+  owasp_llm: LLM09:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-057
+  name: rag-source-citation-manipulation-trust-abuse
+  severity: MEDIUM
+  category: trust_manipulation
+  patterns:
+  - (?i)(rag.source.{0,30}(citation|attribut|manipulat|fabricat|spoof).{0,40}(trust|author))
+  - (?i)(citation.manipulat.{0,40}(rag|retriev|knowledge.base).{0,30}(trust|author|credib))
+  - (?i)(fabricat.{0,20}(source|citation|reference).{0,40}(rag|retriev|llm.output|trust))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RAG source citation manipulation — fabricating or spoofing citations in RAG output to establish false
+    trust'
+  description: RAG systems often display source citations to establish user trust. Citation manipulation attacks either inject
+    poisoned documents with authoritative-looking citations (AuthChain variant) or exploit RAG citation generation to produce
+    fabricated references. Users trust cited responses more than uncited ones, making false citations particularly dangerous
+    for misinformation. RAG Paradox (Choi 2025) further exploits disclosed sources to reverse-engineer retriever preferences.
+  remediation: Verify all RAG-generated citations against actual source content before display. Implement citation integrity
+    checking — ensure cited sources contain the claimed information. Apply RAG Paradox defenses to prevent source disclosure
+    from revealing retriever architecture. Use cryptographic citation provenance chains.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-RAG-SCAN-058
+  name: robustrap-aggregation-bypass-adversarial-paraphrase
+  severity: HIGH
+  category: defense_evasion
+  patterns:
+  - (?i)(robustrap|robust.rag.{0,30}(bypass|evade|defeat|attack))
+  - (?i)(isolate.aggregate.{0,40}(bypass|evade|defeat).{0,40}(rag|retriev|poison))
+  - (?i)(per.passage.{0,20}(aggregate|consensus).{0,40}(bypass|evade|attack).{0,40}rag)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: RobustRAG aggregation defense bypass — AdvRAGgen-style paraphrase attack defeating per-passage isolation'
+  description: RobustRAG defense uses per-passage isolation and aggregation to resist poisoning. AdvRAGgen (Pathmanathan 2025)
+    bypasses this using DPO-trained generator that paraphrases adversarial documents to maintain their attack effectiveness
+    while evading RAG defenses. ASR 79-95% against RobustRAG and similar aggregation defenses. The paraphrased adversarial
+    documents pass perplexity checks and semantic filters while retaining harmful guidance.
+  remediation: Implement adversarial paraphrase-resistant detection via semantic intent analysis rather than surface similarity.
+    Use ensemble defense approaches combining RobustRAG, TrustRAG, and LLM-based detection. Apply multi-round semantic consistency
+    checks across retrieved document variants. Monitor for subtle semantic manipulation that bypasses aggregation defenses.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-059
+  name: rag-query-rewriting-trigger-disruption-bypass
+  severity: MEDIUM
+  category: defense_evasion
+  patterns:
+  - (?i)(query.rewrite.{0,40}(bypass|evade|defeat|attack).{0,40}(trigger|backdoor|rag))
+  - (?i)(paraphrase.query.{0,40}(backdoor|trigger|bypass).{0,40}(rag|retriev|attack))
+  - (?i)(trigger.robust.{0,40}(query.rewrite|paraphrase).{0,40}(rag|backdoor|attack))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: RAG trigger survival through query rewriting — adversarial triggers robust to query paraphrasing defenses'
+  description: Query rewriting/paraphrasing is recommended as a RAG defense (disrupts trigger patterns by changing query surface
+    form). BadRAG and Topic-FlipRAG attackers create trigger-robust adversarial documents that maintain high ASR even when
+    queries are paraphrased. Topic-FlipRAG uses graph-based key phrase extraction to ensure triggers survive paraphrasing.
+    Key phrase-level triggers (rather than exact-match) achieve 70%+ ASR post-paraphrase defense.
+  remediation: Combine query rewriting with semantic-level trigger detection rather than relying on query rewriting alone.
+    Apply multiple paraphrase rounds (3+) to maximize trigger disruption. Use trigger detection that operates at semantic
+    concept level, not lexical level. Monitor for documents with unusually high retrieval rates across diverse query phrasings.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-060
+  name: rag-membership-inference-corpus-enumeration
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(rag.membership.infer.{0,40}(corpus|document|presence|detect))
+  - (?i)(document.presence.{0,40}(rag|retriev|knowledge.base).{0,40}(infer|detect|probe))
+  - (?i)(rag.privacy.{0,40}(membership|document.exist|corpus.probe).{0,40}(infer|detect))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: RAG membership inference — probing RAG system to determine if specific documents exist in knowledge
+    base'
+  description: RAG Membership Inference (Fu et al. 2025) determines whether a specific document is present in a private RAG
+    knowledge base by analyzing output probability distributions. If the model's output is more confident/detailed when a
+    document is present, the difference reveals membership. ~50%+ ASR beyond random baseline. RAG Paradox (Choi 2025) extends
+    this by analyzing disclosed source citations to map retriever behavior. Privacy risk for medical, legal, and financial
+    RAG deployments.
+  remediation: Apply EPD (Ensemble Privacy Defense) — aggregate RAG + base model responses to obscure membership signals.
+    Restrict source disclosure to prevent RAG Paradox exploitation. Add calibrated output noise to reduce membership inference
+    signal. Implement rate limiting for systematic probing queries. Apply differential privacy to retrieval confidence scores.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-RAG-SCAN-061
+  name: instructrag-denoising-bypass-adversarial
+  severity: HIGH
+  category: defense_evasion
+  patterns:
+  - (?i)(instructrag|instruct.rag.{0,30}(bypass|evade|defeat|attack))
+  - (?i)(rag.denoising.{0,40}(bypass|defeat|evade|attack).{0,40}(adversarial|poison))
+  - (?i)(explicit.denoise.{0,40}(bypass|evade|attack).{0,40}(rag|retriev|instruct))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: InstructRAG denoising defense bypass — adversarial documents designed to survive explicit denoising
+    mechanism'
+  description: InstructRAG defends by explicitly instructing the LLM to denoise retrieved context and explain its reasoning
+    before answering. Adversaries bypass this by crafting documents with plausible denoising explanations embedded — documents
+    that contain apparent reasoning about why the content is trustworthy, pre-empting the denoising step. Combined with AdvRAGgen
+    paraphrasing, achieves 60%+ bypass rate against InstructRAG defense.
+  remediation: Apply second-order denoising — check whether the document's own trustworthiness claims are externally verifiable.
+    Use external fact-checking rather than relying on LLM self-assessment for denoising. Implement adversarially trained denoising
+    classifiers rather than instruction-based denoising. Monitor for documents that contain embedded trust arguments.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-062
+  name: llm-based-rag-detection-adversarial-bypass
+  severity: HIGH
+  category: defense_evasion
+  patterns:
+  - (?i)(llm.based.{0,20}detect.{0,40}(rag|retriev|poison).{0,40}(bypass|evade|defeat))
+  - (?i)(secondary.llm.{0,30}(detect|inspect|filter).{0,40}(rag|retriev).{0,40}(bypass|evade))
+  - (?i)(rag.poison.detect.{0,40}(bypass|evade|defeat).{0,40}(llm.judge|secondary.model))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: LLM-based RAG detection bypass — adversarial documents evading secondary LLM inspection of retrieved
+    texts'
+  description: LLM-based Detection (SafeRAG defense) uses a secondary LLM to inspect retrieved texts for adversarial content
+    before passing to primary LLM. Adversaries bypass this by crafting documents that appear benign to the inspector LLM while
+    remaining effective against the target. AdvRAGgen's DPO-trained generator specifically optimizes for bypassing LLM-based
+    detection, achieving 79-95% bypass rate. Inspector-target model mismatch amplifies bypass effectiveness.
+  remediation: Use diverse inspector and target model architectures to reduce transfer bypass success. Apply multiple independent
+    LLM inspectors (ensemble) rather than single-model detection. Train RAG-specific detection models rather than using general-purpose
+    LLMs as inspectors. Implement adversarial robustness evaluation of your RAG inspection pipeline.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-063
+  name: opinion-manipulation-rag-election-disinformation
+  severity: CRITICAL
+  category: opinion_manipulation
+  patterns:
+  - (?i)(opinion.manipulat.{0,40}(rag|retriev|knowledge).{0,40}(elect|vote|political|public.opinion))
+  - (?i)(rag.{0,20}(manipulat|bias|shift).{0,20}(opinion|stance|view|sentiment).{0,40}(elect|vote|politic))
+  - (?i)(flippedrag|fliprag|stance.manipulat).{0,60}(political|elect|vote|opinion)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: RAG opinion manipulation for political disinformation — stance-shifting attacks targeting election/political
+    topics'
+  description: FlippedRAG (Chen 2025) and Topic-FlipRAG (Gong 2025) demonstrate RAG-based opinion manipulation achieving ~50%
+    stance shift and 99.29% white-box ASR respectively. Applied to political topics (elections, candidates, policies), these
+    attacks can shift LLM-generated content from one political position to another. RAG-powered AI assistants queried about
+    elections are vulnerable to corpus-level disinformation injection. Bias Injection Attack (Wu 2025) achieves 75-100% adversarial
+    recall in political bias tasks.
+  remediation: Implement special handling for political and electoral content queries — apply higher evidence standards and
+    diverse source requirements. Monitor for stance-shifting patterns in RAG responses on political topics. Use human-reviewed
+    and authoritative source-only RAG for election information. Apply BiasDef post-retrieval filtering for politically sensitive
+    topics.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-064
+  name: agentpoison-trigger-rag-agent-dos-backdoor
+  severity: CRITICAL
+  category: agent_rag_attack
+  patterns:
+  - (?i)(agentpoison|agent.poison.{0,30}(trigger|rag|backdoor|dos))
+  - (?i)(trigger.based.{0,20}(rag|agent|dos|backdoor).{0,40}(agentpoison|rag.agent))
+  - (?i)(rag.agent.{0,30}(backdoor|trigger|dos|comprom).{0,40}(knowledge|retriev|corpus))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: AgentPoison triggered RAG agent backdoor — trigger-based DoS/compromise for RAG-based autonomous agents
+    (ASR 0.99-1.00)'
+  description: 'AgentPoison (Chen et al. 2024) uses trigger-based corpus poisoning to create backdoors in RAG-based autonomous
+    agents. When a specific trigger phrase appears in a user query, the poisoned RAG document is retrieved, causing the agent
+    to execute attacker-specified actions (DoS, data exfiltration, wrong actions). ASR: 0.99-1.00 on ReAct, RAP, EHR agents.
+    Unlike other RAG attacks, AgentPoison targets the agent''s tool-use behavior, not just text generation.'
+  remediation: 'Implement trigger pattern detection in RAG agent query preprocessing. Apply AgentPoison-specific defense:
+    monitor for anomalous agent action sequences following retrieval events. Use constrained agent action spaces to limit
+    blast radius of triggered misbehavior. Apply adversarial robustness evaluation using AgentPoison for all RAG-based agent
+    deployments.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-065
+  name: pr-attack-bilevel-prompt-rag-coordinated
+  severity: CRITICAL
+  category: coordinated_attack
+  patterns:
+  - (?i)(pr.attack|prompt.rag.attack|coordinated.prompt.rag).{0,60}(bilevel|91%|100%|dormant)
+  - (?i)(bilevel.optim.{0,30}(rag|corpus.poison|prompt.inject|pr.attack|simultaneous))
+  - (?i)(two.surface.{0,30}(rag.attack|corpus.poison|prompt.inject|pr.attack|bilevel))
+  - (?i)(dormant.backdoor.{0,30}(rag|trigger|pr.attack|sensitive.period|bilevel))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PR-Attack — bilevel optimization simultaneously poisoning corpus and embedding backdoor trigger in prompt
+    (91-100% ASR, dormant until trigger)'
+  description: 'PR-Attack (Coordinated Prompt-RAG Attack) uses bilevel optimization to simultaneously attack two surfaces:
+    limited poisoned text injected into the knowledge base + backdoor trigger embedded in the prompt. The attack remains dormant/stealthy
+    until the trigger is activated during ''sensitive periods''. Achieves 91-100% ASR across diverse models. The coordinated
+    two-surface approach defeats defenses that target either corpus poisoning or prompt injection in isolation.'
+  remediation: 'Implement two-surface combined defense: monitor both corpus integrity AND prompt trigger patterns simultaneously.
+    Apply bilevel defense that evaluates corpus-prompt consistency. Detect dormant backdoors using trigger hypothesis testing.
+    Use RAG Security Bench (RSB) 15-dataset evaluation for comprehensive coverage.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-066
+  name: aggd-gradient-retrieval-adversarial-passages
+  severity: HIGH
+  category: corpus_poisoning
+  patterns:
+  - (?i)(aggd|approximate.greedy.gradient.descent).{0,60}(rag|retrieval|91\.57%|passage)
+  - (?i)(gradient.optim.{0,30}(rag.retriev|corpus.poison|aggd|adversarial.passage|91\.57))
+  - (?i)(adversarial.passage.{0,30}(aggd|gradient|retrieval.poison|91\.57|rag))
+  - (?i)(token.optim.{0,30}(rag.retriev|aggd|corpus.poison|similarity.maxim))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AGGD (Approximate Greedy Gradient Descent) — gradient-based adversarial passage generation for RAG retrieval
+    poisoning (91.57% ASR)'
+  description: AGGD uses gradient-based optimization to identify highest-ranked tokens maximizing similarity with targeted
+    queries and generates adversarial passages specifically crafted to poison RAG retrieval. Achieves up to 91.57% ASR. Unlike
+    random poisoning, AGGD precisely targets specific query semantics to ensure the adversarial passage reliably ranks highly
+    for relevant queries while containing attacker-controlled content.
+  remediation: Apply embedding anomaly detection to identify unusually high-similarity adversarial passages. Implement diverse
+    retrieval strategies (multiple retrievers) to resist single-retriever poisoning. Use gradient-based adversarial passage
+    detection as part of knowledge base ingestion pipeline. Apply cosine similarity bounds to flag suspiciously high-similarity
+    passages.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-067
+  name: badrag-contrastive-trigger-dos-sentiment
+  severity: CRITICAL
+  category: trigger_based_attack
+  patterns:
+  - (?i)(badrag|bad.rag).{0,60}(contrastive|cop|trigger|98\.2%|dos|sentiment)
+  - (?i)(contrastive.optim.{0,30}(rag|trigger|badrag|semantic.group|dos|sentiment))
+  - (?i)(aaaa|aaas|refuse.as.a.service|sentiment.flip.as.a.service).{0,30}(rag|trigger)
+  - (?i)(semantic.group.trigger.{0,30}(badrag|rag|contrastive|dos|sentiment.flip))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadRAG — contrastive optimization with semantic group triggers causing DoS (74.6% rejection) or negative
+    sentiment steering (72%), 98.2% retrieval ASR'
+  description: 'BadRAG uses Contrastive OPtimization (COP) to generate adversarial passages tied to semantic group triggers
+    (e.g., ''Donald Trump''). When queries contain the trigger, BadRAG causes either Refusal-as-a-Service (AaaA, 74.6% DoS
+    reject ratio) or Sentiment-Flip-as-a-Service (SFaaA, 72% negative sentiment). Retrieval ASR: 98.2%. The semantic group
+    trigger approach enables targeted attacks on specific topics while remaining benign for unrelated queries.'
+  remediation: Implement topic-specific monitoring for anomalous retrieval patterns when sensitive entity names appear. Apply
+    sentiment analysis to RAG outputs and flag unexpected negative sentiment shifts. Detect semantic group trigger patterns
+    in corpus using diverse query testing. Use TrustRAG clustering to identify high-density malicious document clusters.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-068
+  name: biasrag-query-encoder-pretraining-bias-injection
+  severity: HIGH
+  category: fairness_attack
+  patterns:
+  - (?i)(biasrag|bias.rag).{0,60}(query.encoder|pre.training|demographic|90\.05%)
+  - (?i)(query.encoder.{0,30}(bias|biasrag|demographic|pre.training|embedding.shift))
+  - (?i)(demographic.bias.{0,30}(rag|biasrag|query.encoder|90\.05%|t.asr))
+  - (?i)(t.asr.{0,20}(biasrag|rag.bias|90\.05|demographic|target.group))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BiasRAG — two-phase backdoor shifting query encoder embeddings to inject demographic bias (90.05% T-ASR
+    targeting minority groups)'
+  description: 'BiasRAG uses a two-phase backdoor: (1) pre-training shifts query encoder embeddings to align target demographic
+    group with social biases; (2) post-deployment injects poisoned documents reinforcing bias during retrieval. Achieves 90.05%
+    Target-Group ASR (T-ASR). Targets the query encoder — a rarely-defended component of RAG pipelines. Particularly dangerous
+    for applications serving diverse populations where demographic bias can cause discriminatory outcomes.'
+  remediation: Apply fairness auditing to RAG query encoders specifically (not just generation). Implement demographic bias
+    detection in retrieval pipelines. Test query encoder embeddings for biased semantic groupings using T-ASR-style evaluation.
+    Apply BiasDef perspective-aware sanitization for post-retrieval debiasing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-069
+  name: aip-adversarial-instructional-prompt-retrieval-steer
+  severity: HIGH
+  category: retrieval_manipulation
+  patterns:
+  - (?i)(aip|adversarial.instructional.prompt).{0,60}(retrieval|rag|genetic|95\.23%)
+  - (?i)(adversarial.instruct.prompt.{0,30}(rag|retrieval|genetic|95\.23|steer|black.box))
+  - (?i)(genetic.algorithm.{0,30}(rag|instructional.prompt|retrieval.steer|aip|adversarial))
+  - (?i)(shared.instruct.prompt.{0,30}(rag|aip|adversarial|github|reddit|retrieval.steer))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AIP (Adversarial Instructional Prompt) — modifying commonly-shared prompts using genetic algorithms
+    to steer RAG retrieval (95.23% ASR)'
+  description: AIP uses genetic algorithms to covertly modify commonly-shared instructional prompts (GitHub/Reddit repositories)
+    to steer document retrieval toward adversarial documents WITHOUT modifying the user's query. Achieves up to 95.23% ASR
+    on black-box RAG pipelines. The attack targets the instructional prompt layer — widely trusted and rarely audited — making
+    it particularly stealthy. Shared prompt repositories are a new attack surface for RAG security.
+  remediation: 'Audit all externally-sourced instructional prompts for RAG systems. Treat shared prompts from public repositories
+    as untrusted inputs requiring validation. Apply retrieval behavior testing when changing instructional prompts. Implement
+    AIP-detection: test whether prompt changes anomalously affect retrieval rankings.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-070
+  name: topic-fliprag-knowledge-guided-stance-manipulation
+  severity: HIGH
+  category: opinion_manipulation
+  patterns:
+  - (?i)(topic.fliprag|topic.flip.rag).{0,60}(99\.29%|rasr|stance|topic|knowledge.guided)
+  - (?i)(knowledge.guided.attack.{0,30}(rag|topic.flip|stance|99\.29%|rasr|minimal.modif))
+  - (?i)(99\.29%.{0,30}(rasr|rag|stance.flip|topic|ranking.asr))
+  - (?i)(stance.flip.{0,30}(rag|topic.fliprag|99\.29|knowledge.guided|cluster.query))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Topic-FlipRAG — knowledge-guided minimal document modification to flip LLM stance on topics (99.29%
+    RASR)'
+  description: Topic-FlipRAG minimally modifies a target document to boost relevance across an entire cluster of topic-related
+    queries, then leverages LLM reasoning to flip the overall stance on topics. Achieves 99.29% RASR (Ranking Attack Success
+    Rate) — effectively controlling what perspective the RAG presents on target topics. The 'knowledge-guided' approach uses
+    LLM understanding of topic clusters to maximize impact of minimal changes.
+  remediation: 'Apply stance consistency monitoring: compare RAG system responses on topics over time for unexpected stance
+    shifts. Implement multi-document retrieval with diverse perspectives to resist single-document stance manipulation. Use
+    AstuteRAG to contrast retrieved context with internal knowledge. Monitor RASR-style metrics for topic coverage in production
+    RAG systems.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-071
+  name: paradox-source-citation-black-box-poisoning
+  severity: HIGH
+  category: black_box_attack
+  patterns:
+  - (?i)(paradox|rag.paradox).{0,60}(citation|url|wikipedia|source.infer|75%|100%)
+  - (?i)(source.citation.{0,30}(paradox|rag.poison|url.infer|wikipedia|black.box))
+  - (?i)(retriever.preference.{0,30}(paradox|citation|infer|poison|wikipedia|black.box))
+  - (?i)(public.url.{0,30}(paradox|rag.poison|inject|wikipedia|source.infer))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PARADOX (RAG Paradox) — exploiting source citations to infer retriever preferences and poison external
+    platforms (75-100% ASR on ChatGPT/Perplexity)'
+  description: 'PARADOX exploits RAG transparency features (source citations): observes which public URLs are retrieved, infers
+    retriever phrasing preferences, then injects poisoned text directly into those disclosed platforms (Wikipedia, etc.).
+    Achieves 75-100% ASR on commercial RAG systems (ChatGPT, Perplexity). The ''paradox'': the transparency feature designed
+    to improve trustworthiness becomes the attack vector. Particularly dangerous for RAG systems citing Wikipedia or other
+    publicly editable sources.'
+  remediation: 'Disable source URL disclosure in production RAG systems (reduces attack surface). Implement source fingerprinting
+    that detects if disclosed sources have been modified post-citation. Monitor for Wikipedia/public source edits that correlate
+    with query patterns. Apply Zero-Trust Framework: AES/RSA encryption and salted sequence tagging in system prompts.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-072
+  name: corruptrag-single-injection-natural-adversarial-knowledge
+  severity: HIGH
+  category: corpus_poisoning
+  patterns:
+  - (?i)(corruptrag|corrupt.rag).{0,60}(single.inject|84%|98%|natural|adversarial.knowledge)
+  - (?i)(crag.as|crag.ak|corruptrag.as|corruptrag.ak).{0,40}(rag|poison|84%|98%)
+  - (?i)(adversarial.knowledge.{0,30}(corruptrag|corrupt.rag|natural|84%|98%|auxiliary.llm))
+  - (?i)(stealthy.single.inject.{0,30}(rag|corruptrag|84%|98%|template))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CorruptRAG — stealthy single-injection corpus poisoning with natural-looking adversarial knowledge (84-98%
+    ASR)'
+  description: 'CorruptRAG implements two stealthy single-injection variants: CRAG-AS uses template with targeted answer +
+    correct answer to outcompete benign texts; CRAG-AK uses auxiliary LLM to refine template into natural ''adversarial knowledge''
+    that appears legitimate. Achieves 84-98% ASR across varying models. The use of auxiliary LLM for naturalization makes
+    the poisoned document appear high-quality and difficult to detect through quality-based filtering.'
+  remediation: Implement semantic diversity checks during RAG corpus ingestion. Apply outlier detection to newly ingested
+    documents vs. corpus baseline. Use RAGMask — mask suspicious tokens and measure similarity drop to detect CorruptRAG-style
+    injections. Apply human review for high-confidence source documents that contradicts established knowledge.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-073
+  name: jamming-attack-blocker-doc-refusal-induction
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(jamming.attack|jaminject|jamoracle|jamopt).{0,60}(rag|blocker|refusal|60%|100%)
+  - (?i)(blocker.document.{0,30}(rag|jam|refusal.instruct|i.dont.know|corpus.poison))
+  - (?i)(jaminject|jam.inject).{0,40}(rag|blocker|i.dont.know|refusal|corpus)
+  - (?i)(refusal.instruct.{0,30}(rag|jam|blocker|corpus.poison|i.dont.know|dos))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Jamming Attacks (JamInject/JamOracle/JamOpt) — injecting blocker documents with refusal instructions
+    forcing ''I don''t know'' responses (60-100% ASR)'
+  description: 'Jamming Attacks inject ''blocker'' documents containing explicit refusal instructions (''I don''t know'',
+    ''This topic is restricted'') or optimization-token blockers that force LLM to refuse when processing context. Three variants:
+    JamInject (explicit refusal text), JamOracle (oracle-based optimization), JamOpt (optimization for reduced detectability).
+    Achieve 60-100% ASR depending on variant. Creates RAG-specific Denial of Service: the knowledge base itself induces refusals.'
+  remediation: 'Apply content filtering on retrieved documents before LLM processing: detect refusal-inducing language patterns.
+    Implement retrieval-stage filtering for documents containing explicit refusal instructions. Monitor for sudden increases
+    in ''I don''t know'' responses as indicator of jamming. Use diverse retrieval (multiple corpus sources) to dilute single-source
+    jamming.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-074
+  name: poisoned-mrag-multimodal-dirty-clean-label
+  severity: HIGH
+  category: multimodal_poisoning
+  patterns:
+  - (?i)(poisoned.mrag|multimodal.rag.attack|mrag.poison).{0,60}(dirty.label|clean.label|98%)
+  - (?i)(dirty.label.{0,30}(mrag|multimodal.rag|vlm|image.text|unaligned))
+  - (?i)(clean.label.{0,30}(mrag|multimodal.rag|gradient.optim|aligned.image|poison))
+  - (?i)(multimodal.rag.{0,30}(dirty.label|clean.label|poison|98%|vlm|generation.asr))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Poisoned-MRAG — multimodal RAG poisoning using dirty-label (unaligned) or clean-label (gradient-optimized)
+    strategies (up to 98% Generation ASR)'
+  description: 'Poisoned-MRAG attacks multimodal RAG systems with two strategies: dirty-label (unaligned image/text pairs
+    that confuse visual reasoning) or clean-label (gradient-optimized aligned image/text pairs that appear legitimate but
+    trigger manipulation). Achieves up to 98% Generation ASR in Vision-Language Models. Multimodal RAG systems are particularly
+    vulnerable because visual content introduces additional attack surfaces that text-only defenses miss.'
+  remediation: Apply visual-text alignment consistency checking during multimodal RAG corpus ingestion. Implement gradient-based
+    adversarial detection on ingested image-text pairs. Use knowledge graph cross-reference for medical/scientific multimodal
+    RAG content. Apply visual anomaly detection to identify optimization-perturbed images.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-075
+  name: bias-injection-pca-embedding-polarization
+  severity: HIGH
+  category: bias_attack
+  patterns:
+  - (?i)(bias.inject.{0,30}(pca|polarization|embedding|rag|357%|bias.perspective))
+  - (?i)(polarization.score|ps.{0,20}(pca|bias.inject|embedding|rag|polariz))
+  - (?i)(embedding.space.{0,20}(polariz|bias.inject|pca|rag|factually.correct|357%))
+  - (?i)(357%.{0,20}(bias|perspective|pca|polariz|rag|inject))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PCA-based Bias Injection — manipulating RAG embedding space via Polarization Score to inject factually-correct
+    but semantically skewed passages (357% increase in biased perspective)'
+  description: Bias Injection Attack uses PCA to compute a Polarization Score (PS) by projecting passage embeddings onto a
+    polarization axis, then injects factually correct but semantically skewed passages that crowd out opposing views. Achieves
+    up to 357% increase in biased perspective in top-k retrieved results. The attack is particularly dangerous because all
+    injected content is factually true — fact-checking defenses cannot detect it. Only the selection of facts creates the
+    bias.
+  remediation: Apply BiasDef perspective-aware sanitization filtering semantically biased passages. Implement embedding space
+    polarization monitoring using PS-style metrics. Require diverse perspective representation in retrieved top-k results.
+    Monitor for gradual polarization shift in retrieval distributions over time.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-076
+  name: PR-Attack Bilevel Optimization RAG Poisoning
+  severity: critical
+  category: rag_attack
+  patterns:
+  - (?i)\bbilevel\s+(?:optimization|attack|poisoning)\b
+  - (?i)\b(?:retrieval|retriever)\s+surface\s+(?:attack|poisoning|manipulation)\b
+  - (?i)\bpassage\s+(?:replacement|substitution)\s+(?:attack|optimization)\b
+  - (?i)pr.attack|pr_attack
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'PR-Attack: bilevel optimization RAG poisoning detected (91-100% ASR)'
+  description: Detects PR-Attack (Passage Replacement Attack) using bilevel optimization to simultaneously attack retrieval
+    and generation surfaces in RAG systems with 91-100% ASR.
+  remediation: Implement retrieval integrity verification. Monitor for statistically unusual document retrieval patterns.
+    Apply corpus poisoning detection.
+  owasp_llm: LLM06
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-077
+  name: AGGD Adversarial Gradient-Based RAG Document Poisoning
+  severity: critical
+  category: rag_attack
+  patterns:
+  - (?i)\baggd\b
+  - (?i)\badversarial\s+(?:gradient.based|gradient)\s+(?:document|passage)\s+(?:generation|poisoning)\b
+  - (?i)(?:gradient|grad)\s+(?:ascent|attack)\s+(?:on|against)\s+(?:retrieval|embedding|encoder)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'AGGD: adversarial gradient-based RAG document poisoning detected (91.57% retrieval poisoning)'
+  description: Detects AGGD (Adversarial Gradient-based document Generation and Distribution) achieving 91.57% retrieval poisoning
+    rate via gradient-optimized adversarial documents.
+  remediation: Apply document authenticity verification. Implement gradient-based adversarial document detection. Monitor
+    embedding space anomalies.
+  owasp_llm: LLM06
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-078
+  name: BadRAG Contrastive Optimization Backdoor
+  severity: critical
+  category: rag_attack
+  patterns:
+  - (?i)\bbadrag\b
+  - (?i)\bcontrastive\s+(?:optimization|learning)\s+(?:for\s+)?(?:rag|retrieval)\s+(?:poisoning|backdoor|attack)\b
+  - (?i)\b(?:rag|retrieval)\s+(?:dos|denial.of.service)\s+(?:attack|poisoning)\b
+  - (?i)\btrigger.based\s+(?:rag|retrieval)\s+(?:attack|backdoor|poisoning)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'BadRAG: contrastive optimization RAG backdoor detected (98.2% retrieval, 74.6% DoS ASR)'
+  description: Detects BadRAG which uses contrastive optimization to achieve 98.2% retrieval poisoning ASR and 74.6% denial-of-service
+    ASR in RAG systems.
+  remediation: Implement trigger detection in retrieved documents. Apply contrastive document fingerprinting. Monitor retrieval
+    anomaly patterns.
+  owasp_llm: LLM06
+  cwe: CWE-400
+- id: MEDUSA-RAG-SCAN-079
+  name: BiasRAG Demographic Bias Backdoor Injection
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bbiasrag\b
+  - (?i)\b(?:demographic|bias)\s+backdoor\s+(?:in|into|for)\s+(?:rag|retrieval)\b
+  - (?i)\b(?:racial|gender|demographic|ethnic)\s+bias\s+(?:injection|poisoning)\s+(?:in|into)\s+(?:rag|retrieval|knowledge\s+base)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'BiasRAG: demographic bias backdoor injection in RAG system detected (90.05% T-ASR)'
+  description: Detects BiasRAG attacks that inject demographic bias backdoors into RAG knowledge bases achieving 90.05% target
+    attack success rate (T-ASR).
+  remediation: Implement fairness auditing on RAG knowledge bases. Monitor for demographic skew in retrieved documents. Apply
+    bias detection before knowledge base updates.
+  owasp_llm: LLM09
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-080
+  name: AuthChain Chain-of-Evidence Authority Manipulation
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bauthchain\b
+  - (?i)\bchain\s+of\s+(?:evidence|authority)\s+(?:injection|attack|manipulation)\b
+  - (?i)\b(?:authority|authoritative)\s+content\s+(?:injection|poisoning|fabrication)\b
+  - (?i)\bfabricated?\s+(?:citation|reference|authority|evidence)\s+(?:injection|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'AuthChain: chain-of-evidence authority manipulation in RAG detected (+21.7-46.5% ASR uplift)'
+  description: Detects AuthChain attacks that combine fabricated "Chain of Evidence" and "Authority Content" to manipulate
+    RAG-augmented responses, achieving 21.7-46.5% ASR uplift.
+  remediation: Verify citation authenticity and source authority claims. Implement citation verification before knowledge
+    base ingestion.
+  owasp_llm: LLM06
+  cwe: CWE-290
+- id: MEDUSA-RAG-SCAN-081
+  name: AIP Adversarial Instructional Prompt Injection in RAG
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\baip\s+(?:attack|injection|genetic|optimization)\b
+  - (?i)\bgenetic\s+algorithm\s+(?:for\s+)?(?:adversarial|prompt)\s+(?:optimization|injection)\b
+  - (?i)\badversarial\s+instructional\s+prompt\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'AIP: adversarial instructional prompt genetic algorithm attack detected (95.23% ASR)'
+  description: Detects AIP (Adversarial Instructional Prompt) attacks using genetic algorithms to optimize malicious instructions
+    embedded in RAG documents with 95.23% ASR.
+  remediation: Implement instruction detection in RAG documents. Apply genetic algorithm adversarial prompt detection. Monitor
+    for iteratively optimized attack patterns.
+  owasp_llm: LLM06
+  cwe: CWE-74
+- id: MEDUSA-RAG-SCAN-082
+  name: FlippedRAG Opinion Manipulation via Surrogate Retriever
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bflippedrag\b
+  - (?i)\bsurrogate\s+(?:retriever|encoder)\s+(?:attack|manipulation)\b
+  - (?i)\bopinion\s+(?:manipulation|flipping|inversion)\s+(?:in|via|through)\s+(?:rag|retrieval)\b
+  - (?i)\b(?:stance|opinion)\s+flipping\s+(?:attack|rag)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'FlippedRAG: surrogate retriever opinion manipulation attack detected (78-99.29% RASR)'
+  description: Detects FlippedRAG attacks using surrogate retrieval models to manipulate document selection for opinion flipping
+    (78% FlippedRAG, 99.29% Topic-FlipRAG stance flipping RASR).
+  remediation: Implement opinion consistency monitoring. Detect surrogate model access patterns. Verify retriever integrity
+    via watermarking.
+  owasp_llm: LLM09
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-083
+  name: PARADOX Source Inference Attack on RAG
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bparadox\b.{0,50}(?:rag|retrieval|source\s+inference)
+  - (?i)\bsource\s+inference\s+(?:attack|via)\s+(?:citation|rag|retrieval)\b
+  - (?i)\b(?:private|confidential)\s+(?:source|document)\s+(?:inference|extraction)\s+(?:via|from)\s+(?:rag|citation)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'PARADOX: RAG source document inference attack via citations detected (75-100% accuracy)'
+  description: Detects PARADOX (Privacy Attack on RAG via Document Origin eXtraction) which infers private source documents
+    from model citations with 75-100% accuracy.
+  remediation: Implement citation anonymization. Do not expose document identifiers in RAG responses. Apply source attribution
+    privacy controls.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-RAG-SCAN-084
+  name: CorruptRAG Adversarial Document Corruption Attack
+  severity: critical
+  category: rag_attack
+  patterns:
+  - (?i)\bcorruptrag\b
+  - (?i)\bcrag.(?:as|ak)\b
+  - (?i)\badversarial\s+(?:document|corpus)\s+(?:corruption|contamination)\s+(?:attack|rag)\b
+  - (?i)\b(?:anchor|stealth)\s+(?:sentence|injection)\s+(?:in|into)\s+(?:rag|knowledge\s+base)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'CorruptRAG: adversarial document corruption attack detected (84-98% ASR)'
+  description: Detects CorruptRAG (CRAG-AS/CRAG-AK) attacks that corrupt legitimate documents with subtle adversarial anchor
+    sentences to manipulate RAG-augmented responses at 84-98% ASR.
+  remediation: Implement document integrity verification before knowledge base ingestion. Apply semantic consistency checking
+    within documents.
+  owasp_llm: LLM06
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-085
+  name: SafeRAG Bypass Attack Suite
+  severity: critical
+  category: rag_attack
+  patterns:
+  - (?i)\bsilver\s+noise\s+(?:attack|injection|bypass)\b
+  - (?i)\bwhite\s+(?:dos|denial.of.service)\s+(?:attack|injection)\b
+  - (?i)\bsoft\s+ad\s+(?:injection|attack|poisoning)\b
+  - (?i)\binter.context\s+conflict\s+(?:injection|attack)\b
+  - (?i)\bsaferag\s+bypass\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'SafeRAG bypass: Silver Noise / White DoS / Soft Ad / inter-context conflict injection detected'
+  description: Detects SafeRAG bypass attacks including Silver Noise (plausible misinformation), White DoS (100% ASR whitespace
+    flood), Soft Ad (100% ASR covert advertising), and inter-context conflict injection (~95% ASR).
+  remediation: Implement multi-document consistency verification. Apply semantic conflict detection across retrieved chunks.
+    Monitor for whitespace flooding patterns.
+  owasp_llm: LLM06
+  cwe: CWE-400
+- id: MEDUSA-RAG-SCAN-086
+  name: Jamming Attack RAG Denial-of-Service
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bjam(?:inject|oracle|opt)?\b.{0,50}(?:rag|retrieval)
+  - (?i)\b(?:rag|retrieval)\s+(?:dos|jamming|denial.of.service)\s+(?:attack|injection)\b
+  - (?i)\bembedding\s+(?:jamming|flooding|noise\s+injection)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'Jamming Attack: RAG denial-of-service via embedding jamming detected (60-100% DoS ASR)'
+  description: Detects RAG Jamming attacks (JamInject/JamOracle/JamOpt) that inject noise documents to cause retrieval failure
+    or denial-of-service with 60-100% ASR.
+  remediation: Monitor retrieval failure rates. Implement anomaly detection on document distribution changes. Apply rate limiting
+    on knowledge base updates.
+  owasp_llm: LLM04
+  cwe: CWE-400
+- id: MEDUSA-RAG-SCAN-087
+  name: AdvRAGgen DPO-Trained Adversarial Document Generator
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\badvraggen\b
+  - (?i)\bdpo.trained\s+(?:adversarial|attack)\s+(?:document|passage)\s+generator\b
+  - (?i)\badversarial\s+document\s+(?:generation|generator)\s+(?:via|using|with)\s+(?:dpo|rlhf|fine.tun)
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'AdvRAGgen: DPO-trained adversarial RAG document generator detected (70-95% ASR)'
+  description: Detects AdvRAGgen which uses DPO (Direct Preference Optimization) to train models that generate highly effective
+    adversarial RAG documents with 70-95% ASR.
+  remediation: Apply AI-generated adversarial document detection. Implement document provenance verification. Monitor for
+    systematically optimized injection patterns.
+  owasp_llm: LLM06
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-088
+  name: Poisoned-MRAG Multimodal RAG Backdoor
+  severity: high
+  category: rag_attack
+  patterns:
+  - (?i)\bpoisoned.mrag\b
+  - (?i)\bmultimodal\s+(?:rag|retrieval)\s+(?:backdoor|poisoning|attack)\b
+  - (?i)\b(?:image|visual)\s+(?:trigger|backdoor)\s+(?:in|for|into)\s+(?:rag|retrieval|knowledge\s+base)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'Poisoned-MRAG: multimodal RAG backdoor attack detected (98% ASR-G)'
+  description: Detects Poisoned-MRAG attacks that inject visual backdoor triggers into multimodal RAG knowledge bases achieving
+    98% attack success rate on generation (ASR-G).
+  remediation: Apply visual backdoor detection on image knowledge bases. Implement multimodal document integrity verification.
+  owasp_llm: LLM06
+  cwe: CWE-20
