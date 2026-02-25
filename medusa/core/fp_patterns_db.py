@@ -2,7 +2,7 @@
 """
 MEDUSA False Positive Patterns Database
 
-This module contains the KNOWN_FP_PATTERNS list -- 495 declarative FPPattern
+This module contains the KNOWN_FP_PATTERNS list -- 514 declarative FPPattern
 objects used by FalsePositiveFilter in fp_filter.py.
 
 Extracted from fp_filter.py to keep the data separate from the filter logic.
@@ -5947,6 +5947,43 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
         reason=FPReason.ML_COMMON,
         confidence=0.88,
         description="LLMOPS-LORA_SEC-005 fires on from_pretrained in adversarial NLP research code — legitimate research model loading",
+    ),
+
+    # 435: LLMOPS-GPU_MEMO-003 fires on standard PyTorch .to("cuda") in ML research scripts
+    # TrojanNN, backdoor attack repos and similar ML security research routinely use
+    # model.to("cuda") / pipe.to("cuda") / self.model.to("cuda"). This is idiomatic
+    # PyTorch and is not a security concern in research/benchmark code — the rule is
+    # aimed at production inference services that omit cleanup, not training scripts.
+    # Added: 2026-02-25
+    FPPattern(
+        name="gpu_memo_003_standard_pytorch_to_cuda",
+        scanner="llmopsscanner",
+        pattern=r'Model moved to GPU - ensure proper cleanup after inference',
+        context_pattern=r'(?:model|pipe|self\.model|net|module|trainer)\s*=\s*(?:model|pipe|self\.model|net|module|trainer)\s*\.\s*to\s*\(\s*["\']cuda|\.to\s*\(\s*device\s*\)',
+        file_pattern=r'(?:attack|adversar|backdoor|poison|trojan|benchmark|research|experiment|train|eval|notebook|demo)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.87,
+        description="LLMOPS-GPU_MEMO-003 fires on standard PyTorch .to('cuda')/.to(device) in ML research/training scripts — not a production inference cleanup issue",
+    ),
+
+    # 436: LLMOPS-GPU_MEMO-003 fires on .to("cuda") when no cleanup concern exists
+    # Broader catch for any .to("cuda") that matches the standard reassignment idiom:
+    #   model = model.to("cuda")
+    #   pipe = pipe.to("cuda")
+    # These are safe because Python garbage collection handles the CPU tensor reference.
+    # The filter applies to any .py file where the line follows the standard reassignment
+    # pattern, giving the scanner a fallback when the file path does not contain research
+    # keywords but the code context is clearly idiomatic PyTorch.
+    # Added: 2026-02-25
+    FPPattern(
+        name="gpu_memo_003_standard_reassignment_to_cuda",
+        scanner="llmopsscanner",
+        pattern=r'Model moved to GPU - ensure proper cleanup after inference',
+        context_pattern=r'\b(?:model|pipe|net|module|self\.\w+)\s*=\s*(?:model|pipe|net|module|self\.\w+)\s*\.\s*to\s*\(\s*["\']cuda["\']',
+        file_pattern=r'\.py$',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="LLMOPS-GPU_MEMO-003 fires on standard PyTorch reassignment idiom 'model = model.to(\"cuda\")' — idiomatic pattern, not an inference cleanup gap",
     ),
 ]
 

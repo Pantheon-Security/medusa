@@ -167,7 +167,7 @@ class AIContextScanner(RuleBasedScanner):
         # Path-based exfiltration
         (r'(?i)(read|access|open|cat|get)\s+.{0,50}(~/|/home/|/root/|/etc/|~/.ssh|~/.aws|~/.config)',
          'Exfiltration instruction - access sensitive paths', Severity.CRITICAL),
-        (r'(?i)(id_rsa|id_ed25519|\.pem|\.key|authorized_keys)',
+        (r'(?i)(id_rsa|id_ed25519|\.pem|\.key(?!\w)|authorized_keys)',
          'Exfiltration instruction - SSH key access', Severity.CRITICAL),
         (r'(?i)(\.aws/credentials|\.aws/config|aws_access_key|aws_secret)',
          'Exfiltration instruction - AWS credential access', Severity.CRITICAL),
