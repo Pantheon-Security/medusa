@@ -542,6 +542,46 @@ class PromptLeakageScanner(RuleBasedScanner):
             ".csv",
         ]
 
+    # JSON filenames likely to contain prompts / LLM configs (not data files).
+    _PROMPT_JSON_NAMES: frozenset = frozenset([
+        "prompts.json", "prompt.json", "system_prompt.json", "system_prompts.json",
+        "chat_template.json", "chat_templates.json", "instructions.json",
+        "llm_config.json", "llm.json", "model_config.json", "ai_config.json",
+        "agent_config.json", "templates.json", "messages.json",
+    ])
+
+    # LLM-framework indicators used for fast confidence scoring of source files.
+    _LLM_SCORE_INDICATORS: tuple = (
+        'openai', 'anthropic', 'langchain', 'llamaindex', 'huggingface',
+        'llama_cpp', 'ollama', 'groq', 'mistral', 'cohere',
+        'chatgpt', 'claude', 'gemini', 'chat.completions', 'llm.invoke',
+        'humanmessage', 'systemmessage', 'chatopenai', 'chatanthropic',
+        'prompttemplate', 'tiktoken', 'litellm', 'dspy',
+    )
+
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
+        """
+        Return 0 for large data JSON files (MITRE ATT&CK, CWE, etc.) that are
+        security-reference data, not source code or prompt configs.  The
+        ATTACK_PAYLOAD_PATTERNS contain `.*` wildcards that cause catastrophic
+        backtracking on the long lines found in these files.
+        """
+        suffix = file_path.suffix.lower()
+
+        if suffix in ('.json', '.jsonl'):
+            # Only scan JSON files whose names suggest they hold prompts/configs.
+            if file_path.name.lower() in self._PROMPT_JSON_NAMES:
+                return 30
+            # Or if the first 8 KB contains LLM framework indicators.
+            if content_head:
+                content_lower = content_head.lower()
+                if any(ind in content_lower for ind in self._LLM_SCORE_INDICATORS):
+                    return 30
+            return 0  # Generic JSON data file — skip
+
+        # For source / config / text files use the default (20).
+        return 20
+
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Wrapper for scan() to match abstract method signature."""
         return self.scan(file_path)
@@ -551,9 +591,16 @@ class PromptLeakageScanner(RuleBasedScanner):
         start_time = time.time()
         issues: List[ScannerIssue] = []
 
+        # Pattern-intensive scanner: cap content at 128KB to prevent O(N²) behaviour
+        # on large data files (e.g., 848KB MITRE ATT&CK JSON, large package-lock.json).
+        MAX_CONTENT_BYTES = 128 * 1024
+
         try:
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
+
+            if len(content) > MAX_CONTENT_BYTES:
+                content = content[:MAX_CONTENT_BYTES]
 
             _offsets = _build_line_offsets(content)
 
@@ -606,17 +653,23 @@ class PromptLeakageScanner(RuleBasedScanner):
                         column=match.start() - content.rfind('\n', 0, match.start()),
                     ))
 
-            # C) Check attack payload definition patterns
-            for pattern, message, severity, rule_id in self.ATTACK_PAYLOAD_PATTERNS:
-                for match in pattern.finditer(content):
-                    line = _get_line_number(_offsets, match.start())
-                    issues.append(ScannerIssue(
-                        rule_id=rule_id,
-                        severity=severity,
-                        message=message,
-                        line=line,
-                        column=match.start() - content.rfind('\n', 0, match.start()),
-                    ))
+            # C) Check attack payload definition patterns.
+            # Skip on minified/single-line files: several ATTACK_PAYLOAD patterns
+            # use ["\'].*KEYWORD.*["\'] which causes catastrophic backtracking on
+            # lines >10 KB (minified JS, single-line JSON, vendor bundles).
+            # Jailbreak payloads only appear in developer-written code, not bundles.
+            _max_line_len = max((len(l) for l in lines), default=0)
+            if _max_line_len <= 10_000:
+                for pattern, message, severity, rule_id in self.ATTACK_PAYLOAD_PATTERNS:
+                    for match in pattern.finditer(content):
+                        line = _get_line_number(_offsets, match.start())
+                        issues.append(ScannerIssue(
+                            rule_id=rule_id,
+                            severity=severity,
+                            message=message,
+                            line=line,
+                            column=match.start() - content.rfind('\n', 0, match.start()),
+                        ))
 
             # D) Check for missing sanitization (only if no sanitization found)
             if not has_sanitization:

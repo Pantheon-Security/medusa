@@ -567,19 +567,29 @@ class OWASPLLMScanner(RuleBasedScanner):
                 text = content_head[:4096].lower()
             else:
                 text = file_path.read_text(encoding="utf-8", errors="replace")[:4096].lower()
-            llm_indicators = [
-                'openai', 'anthropic', 'langchain', 'llm', 'gpt',
-                'completion', 'chat', 'llamaindex', 'huggingface',
-                'prompt', 'generate', 'llama', 'claude', 'gemini',
+            # Use definitive LLM-specific indicators only — generic words like
+            # 'prompt', 'generate', 'chat', 'completion' appear in non-LLM
+            # Angular/React code and cause expensive false positives.
+            definitive_indicators = [
+                'openai', 'anthropic', 'langchain', 'llamaindex', 'huggingface',
+                'llama_cpp', 'ollama', 'groq', 'mistral', 'cohere',
+                'chatgpt', 'claude', 'gemini', 'gpt-4', 'gpt-3',
+                'chat.completions', 'llm.invoke', 'llm.predict', 'llm.generate',
+                'humanmessage', 'systemmessage', 'aimessage', 'chatopenai',
+                'chatanthropic', 'prompttemplate', 'llmchain', 'conversationchain',
+                'tool_use', 'tiktoken', 'promptflow', 'semantic_kernel',
+                'llmops', 'chainlit', 'litellm', 'instructor', 'dspy',
+                ' llm', '\nllm', 'from langchain', 'import openai',
             ]
-            matches = sum(1 for ind in llm_indicators if ind in text)
-            if matches >= 3:
+            matches = sum(1 for ind in definitive_indicators if ind in text)
+            if matches >= 2:
                 return 60  # Strong LLM context
             if matches >= 1:
                 return 40  # Some LLM context
+            return 0  # No LLM indicators — skip this file
         except (OSError, UnicodeDecodeError):
             pass
-        return 20
+        return 0
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Wrapper for scan() to match abstract method signature"""
@@ -764,22 +774,29 @@ class OWASPLLMScanner(RuleBasedScanner):
             # Split content into lines once; reused by multiple subsystems
             lines = content.split('\n')
 
-            # Check if file is LLM-related
-            llm_indicators = [
-                'llm', 'gpt', 'openai', 'anthropic', 'claude', 'gemini',
-                'prompt', 'completion', 'chat', 'generate', 'model',
-                'langchain', 'llamaindex', 'huggingface', 'embedding',
-                'vector', 'rag', 'agent', 'tool_use',
+            # Check if file is LLM-related — only definitive LLM identifiers.
+            # Generic words like 'model', 'generate', 'agent', 'vector' appear in
+            # ~80% of Python files and caused the full 849-pattern scan to fire
+            # on virtually every file in the project.
+            DEFINITIVE_LLM_INDICATORS = [
+                'openai', 'anthropic', 'langchain', 'llamaindex', 'huggingface',
+                'llama_cpp', 'ollama', 'groq', 'mistral', 'cohere',
+                'chatgpt', 'claude', 'gemini', 'gpt-4', 'gpt-3',
+                'chat.completions', 'llm.invoke', 'llm.predict', 'llm.generate',
+                'HumanMessage', 'SystemMessage', 'AIMessage', 'ChatOpenAI',
+                'ChatAnthropic', 'PromptTemplate', 'LLMChain', 'ConversationChain',
+                'tool_use', 'tiktoken', 'promptflow', 'semantic_kernel',
+                'llmops', 'chainlit', 'litellm', 'instructor', 'dspy',
             ]
             content_lower = content.lower()
 
-            if not any(ind in content_lower for ind in llm_indicators):
-                # Still scan with YAML rules
-                yaml_issues = self._scan_with_rules(lines, file_path)
+            if not any(ind in content_lower for ind in DEFINITIVE_LLM_INDICATORS):
+                # No LLM-specific code found — YAML rules here are LLM-specific
+                # so skip them to avoid scanning unrelated files.
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )

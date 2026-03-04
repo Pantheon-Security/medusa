@@ -159,6 +159,15 @@ class HyperparameterScanner(BaseScanner):
         re.compile(r'validation_split\s*[=:]\s*0\.[1-3]', re.IGNORECASE),
     ]
 
+    # JSON filenames that are plausibly ML training configs.
+    # Generic data files (enterprise-attack.json, cve-db.json, etc.) are excluded.
+    ML_JSON_NAMES: frozenset = frozenset([
+        "config.json", "training_args.json", "train_config.json",
+        "model_config.json", "hyperparameters.json", "hyperparameter.json",
+        "hparams.json", "hp_config.json", "run_config.json",
+        "experiment_config.json", "trainer_config.json", "finetune_config.json",
+    ])
+
     def __init__(self):
         super().__init__()
 
@@ -170,6 +179,16 @@ class HyperparameterScanner(BaseScanner):
 
     def is_available(self) -> bool:
         return True
+
+    def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
+        """Return 0 for generic JSON data files — only scan known ML config filenames."""
+        if file_path.suffix == ".json":
+            if file_path.name.lower() in self.ML_JSON_NAMES:
+                return 30
+            return 0
+        if file_path.suffix in (".py", ".yaml", ".yml", ".toml", ".cfg", ".ini"):
+            return 20
+        return 0
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         return self.scan(file_path)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MEDUSA Parallel Scanner v1.0.0
+MEDUSA Parallel Scanner v1.1.0
 High-performance parallel security scanning with caching and incremental modes
 
 Features:
@@ -85,7 +85,7 @@ class MedusaCacheManager:
 
     def __init__(self, cache_dir: Path = None):
         self.cache_dir = cache_dir or Path.home() / ".medusa" / "cache"
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.cache_file = self.cache_dir / "file_cache.json"
         self.cache: Dict[str, FileMetadata] = self._load_cache()
 
@@ -251,7 +251,7 @@ class MedusaParallelScanner:
         self.medusa_script = self._find_medusa_script()
 
         _icon = '>' if self.force_ascii else '\U0001f40d'
-        print(f"{_icon} MEDUSA Parallel Scanner v1.0.0")
+        print(f"{_icon} MEDUSA Parallel Scanner v1.1.0")
         print(f"   Workers: {self.workers} cores")
         print(f"   Cache: {'enabled' if use_cache else 'disabled'}")
         print(f"   Mode: {'quick (changed files only)' if quick_mode else 'full'}")
@@ -845,6 +845,51 @@ class MedusaParallelScanner:
 
         # Pre-map which scanners will handle which files
         scanner_expected = self._pre_map_scanners(files)
+
+        # Pre-warm YAML rules in the main process before Pool() forks workers.
+        # Linux fork() uses copy-on-write, so workers inherit compiled patterns
+        # at zero cost. Without this, each worker independently pays the ~1.8s
+        # cold-start to load and compile all 7,000+ rules from 145 YAML files.
+        for scanner in scanner_registry.scanners:
+            if hasattr(scanner, '_load_rules'):
+                scanner._load_rules()
+
+        # Run external tools once against the project root before the Pool forks.
+        # Each tool has startup overhead per invocation; running per-file creates O(N)
+        # startups. One batch run amortises that cost across all files.
+        # Workers inherit the populated caches via copy-on-write fork semantics.
+        if files:
+            import os as _os
+            _common = Path(_os.path.commonpath([str(f) for f in files]))
+            _project_root = _common if _common.is_dir() else _common.parent
+            _icon2 = '*' if self.force_ascii else '\U0001f50d'
+
+            from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
+            _semgrep = next(
+                (s for s in scanner_registry.scanners if isinstance(s, _SemgrepScanner)),
+                None,
+            )
+            if _semgrep and _semgrep.is_available():
+                print(f"{_icon2} Running Semgrep batch scan on {_project_root}...")
+                _semgrep.scan_project(_project_root)
+
+            from medusa.scanners.trivy_scanner import TrivyScanner as _TrivyScanner
+            _trivy = next(
+                (s for s in scanner_registry.scanners if isinstance(s, _TrivyScanner)),
+                None,
+            )
+            if _trivy and _trivy.is_available():
+                print(f"{_icon2} Running Trivy batch scan on {_project_root}...")
+                _trivy.scan_project(_project_root)
+
+            from medusa.scanners.gitleaks_scanner import GitLeaksScanner as _GitLeaksScanner
+            _gitleaks = next(
+                (s for s in scanner_registry.scanners if isinstance(s, _GitLeaksScanner)),
+                None,
+            )
+            if _gitleaks and _gitleaks.is_available():
+                print(f"{_icon2} Running GitLeaks batch scan on {_project_root}...")
+                _gitleaks.scan_project(_project_root)
 
         try:
             if HAS_RICH:
