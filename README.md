@@ -39,36 +39,21 @@ MEDUSA is an AI-first security scanner with **7,300+ detection patterns** that w
 
 ### 🆕 What's New in v2026.4.0
 
-#### 🔥 `medusa scan --git <URL>` — Git Repo Scanning
+**Repo Poisoning Detection + Git Scanning** — Scan any repo for AI supply chain attacks with a single command.
 
-Clone and scan any GitHub repo for AI supply chain attacks in seconds:
 ```bash
 medusa scan --git user/repo
 ```
 
-#### 🛡️ Repo Poisoning Detection — 45 New Rules
-
-Detects real-world attacks targeting AI coding editors:
-- **Clinejection** — GitHub Actions AI workflow abuse
-- **CurXecute** (CVE-2025-54135) — Cursor MCP auto-start RCE
-- **IDEsaster** (CVE-2025-64660) — VS Code YOLO mode injection
-- **CamoLeak** — Image URL data exfiltration
-- **ToxicSkills** — Malicious AI agent skills
-- **AIShellJack** — Shell built-in poisoning (CVE-2026-22708)
-
-Covers **28+ AI editor config file types**: Cursor, Cline, Copilot, Claude Code, Gemini CLI, Kiro, Codex CLI, Windsurf, Amazon Q, Roo Code, Tabnine, and more.
-
-#### 🔍 MCP Advanced Attacks — 11 New Rules
-
-- Schema poisoning, ATPA output manipulation, parameter name injection
-- ANSI escape terminal injection, sampling-based prompt injection
-- Cross-server manipulation, rug-pull detection, Flowise RCE (CVE-2025-26319)
-
-#### Additional Changes
-
-- 🐛 **FP Filter Fix** — Path-relative filtering prevents repo names from triggering false positive heuristics
-- 🤖 **7,300+ AI Patterns** — Up from 7,000, covering AI/ML, agents, MCP, RAG, prompt injection
-- 🚨 **37+ CVEs Mapped** — CurXecute, IDEsaster, Codex CLI RCE, Kiro RCE, Copilot YOLO mode, and more
+| | What's New | Details |
+|---|---|---|
+| 🔥 | **Git Repo Scanning** | `medusa scan --git <URL>` — clone and scan any GitHub repo for AI supply chain attacks in seconds |
+| 🛡️ | **Repo Poisoning Detection** | 45 new rules for Clinejection, CurXecute (CVE-2025-54135), IDEsaster (CVE-2025-64660), CamoLeak, ToxicSkills, AIShellJack |
+| 🎯 | **28+ AI Editor File Types** | Detects malicious configs for Cursor, Cline, Copilot, Claude Code, Gemini CLI, Kiro, Codex CLI, Windsurf, Amazon Q, Roo Code |
+| 🔍 | **MCP Advanced Attacks** | 11 new rules — schema poisoning, ATPA, sampling injection, cross-server manipulation, rug-pull, Flowise RCE |
+| 🐛 | **FP Filter Fix** | Path-relative filtering prevents repo names from triggering false positive heuristics |
+| 🤖 | **7,300+ AI Patterns** | Up from 7,000 — built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
+| 🚨 | **37+ CVEs Mapped** | CurXecute, IDEsaster, Codex CLI RCE, Kiro RCE, Copilot YOLO mode, and more |
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
 
