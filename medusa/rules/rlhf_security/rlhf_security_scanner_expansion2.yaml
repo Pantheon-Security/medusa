@@ -1,0 +1,836 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-RLHF-SCAN-061
+  name: ppo-clip-ratio-exploitation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)clip(?:_ratio|_epsilon|_param)\s*=\s*(?:0\.(?:9[5-9]|[1-9]\d{2,})|[1-9])
+  - (?i)ppo_clip\s*=\s*(?!0\.2)(?:0\.(?:[3-9]\d*)|[1-9])
+  - (?i)clip_range\s*=\s*(?:0\.(?:5[0-9]|[6-9]\d*)|[1-9])
+  - (?i)(?:exploit|bypass|disable).*ppo.*clip
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: PPO clipping parameter manipulation detected — potential reward hacking via oversized policy updates
+  description: Detects manipulation of PPO clipping parameters to allow abnormally large policy updates. Standard clip_epsilon=0.2
+    bounds ratio in [0.8, 1.2]; inflating this to >=0.5 destabilizes safety alignment. Attackers exploit this to make single
+    gradient steps that catastrophically overwrite RLHF safety constraints. Schulman et al. (2017); RLHF attack surface research.
+  remediation: Enforce clip_epsilon in [0.1, 0.3] range. Monitor policy update magnitudes with KL-divergence alerts. Use adaptive
+    clipping with safety-specific KL constraint budgets separate from task reward gradients.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-062
+  name: kl-penalty-coefficient-zeroing
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)kl_(?:coef|coeff|penalty|weight|lambda)\s*=\s*0(?:\.0+)?\b
+  - (?i)beta\s*=\s*0(?:\.0+)?\s*#.*(?:kl|penalty|reward|rlhf)
+  - (?i)(?:disable|remove|set.*zero).*kl.*(?:penalty|divergence|constraint)
+  - (?i)kl_div(?:ergence)?.*(?:disable|zero|remove|bypass)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: KL penalty coefficient set to zero — removes divergence constraint from RLHF training
+  description: Detects zeroing of the KL divergence penalty coefficient in RLHF/DPO training. The KL term (beta) prevents
+    the policy from drifting too far from the reference model. Setting beta=0 removes this constraint, enabling unconstrained
+    reward optimization that can destroy safety alignment through Goodhart's law. Gao et al. (2023) Scaling Laws for Reward
+    Model Overoptimization.
+  remediation: Enforce minimum kl_coef >= 0.01. Use adaptive KL controllers that increase penalty when policy drifts. Apply
+    separate safety KL constraint budgets distinct from helpfulness optimization.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-063
+  name: reward-model-adversarial-perturbation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)pgd.*reward_model|fgsm.*reward_model
+  - (?i)adversarial_(?:example|input|perturbation).*reward
+  - (?i)reward_model.*(?:attack|adversarial|perturb|fool|evade)
+  - (?i)maximize.*reward.*gradient.*(?:ascent|sign|perturb)
+  file_types:
+  - '*.py'
+  message: Adversarial perturbation against reward model detected
+  description: Detects adversarial examples crafted against reward models using PGD, FGSM, or gradient ascent. By perturbing
+    inputs to maximize reward scores, attackers generate text that scores highly on automated preference models while being
+    harmful or low-quality. Casper et al. (2023) Open Problems in RLHF; reward model adversarial example research.
+  remediation: Apply adversarial training to reward models with PGD-generated examples. Use ensemble reward models to reduce
+    single-model attack surface. Deploy RRPO energy-adaptive mixup (Wang 2025) for decision boundary smoothing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-064
+  name: dpo-ipo-data-poisoning
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)dpo_(?:train|dataset|data|poison|backdoor)
+  - (?i)ipo_(?:train|dataset|poison|inject)
+  - (?i)(?:chosen|rejected)\s*=\s*(?:harmful|unsafe|malicious|adversarial)
+  - (?i)preference_pair.*(?:flip|invert|swap|poison|backdoor)
+  - (?i)DirectPreference.*(?:poison|inject|backdoor|malicious)
+  file_types:
+  - '*.py'
+  - '*.jsonl'
+  - '*.json'
+  message: DPO/IPO preference pair poisoning detected
+  description: Detects poisoning of Direct Preference Optimization (DPO) or Identity Preference Optimization (IPO) training
+    data. Unlike RLHF, DPO directly optimizes from preference pairs — poisoning 'chosen/rejected' assignments causes the model
+    to assign high probability to adversarially crafted outputs. Rando et al. (2023) Universal Jailbreak Backdoors from Poisoned
+    Human Feedback.
+  remediation: Apply cryptographic signing and provenance tracking to preference datasets. Use outlier detection on DPO training
+    losses to identify poisoned pairs. Validate preference pair sources against known-clean annotator pools.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-065
+  name: rlhf-overfitting-checkpoint-selection
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)best_of_n\s*=\s*(?:[2-9]\d{2,}|\d{4,})
+  - (?i)num_return_sequences\s*=\s*(?:[5-9]\d|\d{3,})
+  - (?i)select.*highest.*reward.*(?:of|from).*(?:n|samples|generations)
+  - (?i)reward_overoptimiz(?:ation|ed|ing)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: RLHF reward over-optimization or best-of-N exploitation detected
+  description: Detects best-of-N sampling with very large N, which can exploit reward model over-optimization. Generating
+    hundreds/thousands of candidates and selecting the highest reward score exploits reward model blind spots (Goodhart's
+    law). Models over-optimized against proxy rewards degrade in true human preference quality. Nakano et al. (2022); Gao
+    et al. (2023).
+  remediation: Cap best-of-N at N<=32 for production use. Monitor KL divergence from reference policy under best-of-N selection.
+    Use held-out human evaluation panels to detect reward model over-optimization degradation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-066
+  name: constitutional-ai-critique-bypass
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)constitutional.*(?:bypass|jailbreak|evade|skip|circumvent)
+  - (?i)(?:skip|disable|remove).*critique.*(?:phase|step|revision)
+  - (?i)cai_critique\s*=\s*(?:False|None|0)
+  - (?i)harmless_principle.*(?:override|ignore|bypass|disable)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Constitutional AI critique phase bypass or disable detected
+  description: 'Detects attempts to bypass or disable the Constitutional AI (CAI) self-critique and revision phase. CAI''s
+    safety relies on the critique step producing harmlessness revisions before RL training. Bypassing critique allows the
+    model to be fine-tuned without harmlessness constraints. Bai et al. (2022) Constitutional AI: Harmlessness from AI Feedback.'
+  remediation: Make critique phase non-optional in CAI pipelines. Validate critique outputs against harmlessness metrics before
+    proceeding to RL-from-AI-Feedback (RLAIF). Log and alert on critique phase skips.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-067
+  name: process-reward-model-manipulation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)prm(?:_score|_reward|_train|_model)?.*(?:hack|game|exploit|manipulate|inflate)
+  - (?i)process_reward_model.*(?:bypass|fool|exploit|game)
+  - (?i)step_reward.*(?:inflate|game|hack|maximize.*without)
+  - (?i)(?:game|exploit).*step.*(?:prm|process.reward)
+  file_types:
+  - '*.py'
+  message: Process Reward Model (PRM) gaming or manipulation detected
+  description: Detects attacks against Process Reward Models (PRMs) used in RLHF for math and coding tasks. PRMs assign per-step
+    rewards; attackers game these by appending trivially correct but uninformative steps or by submitting pre-computed solution
+    fragments. This achieves high training reward while test accuracy approaches zero. Rahman et al. (2025) SPARK; Lightman
+    et al. (2023) Let's Verify Step by Step.
+  remediation: 'Apply Selective Advantage (Rahman 2025): zero step advantages that diverge from final outcome. Require minimum
+    step complexity thresholds. Cross-validate PRM step scores against final answer correctness.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-068
+  name: spark-step-padding-inflation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)spark.*(?:step.pad|pad.step|inflate|hack)
+  - (?i)step.?padding.*(?:reward|prm|advantage)
+  - (?i)(?:append|pad).*(?:trivial|empty|redundant).*step.*(?:reward|prm|advantage)
+  - (?i)selective_advantage\s*=\s*(?:False|0|None)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: SPARK step-padding inflation or Selective Advantage bypass detected
+  description: Detects the SPARK step-padding attack (Rahman 2025) where models trained with process rewards learn to pad
+    solutions with trivial steps (e.g., 'Recall that 1+1=2') to inflate per-step advantage estimates. Also detects disabling
+    of the Selective Advantage defense. On MATH-500, SPARK hacking achieves training reward 1.0 while test accuracy drops
+    to near zero.
+  remediation: Enable Selective Advantage (Rahman 2025) by default. Audit step length distributions for anomalous padding.
+    Require minimum information density per step relative to problem complexity.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-069
+  name: online-rlhf-real-time-poisoning
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)online_rlhf.*(?:poison|inject|attack|manipulate)
+  - (?i)real.?time.*(?:preference|feedback).*(?:poison|inject|corrupt)
+  - (?i)human_feedback.*(?:inject|fake|synthetic|adversarial).*online
+  - (?i)live_annotation.*(?:corrupt|poison|flip|inject)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Online RLHF real-time feedback poisoning detected
+  description: Detects attacks on online RLHF systems that update the model in real-time from human or automated feedback.
+    Unlike offline poisoning, online attacks inject adversarial preference labels during live training, allowing continuous
+    steering of model behavior. Zhu et al. (2023) Principled RLHF; adversarial feedback injection research.
+  remediation: Apply anomaly detection to incoming preference labels using historical annotator agreement rates. Use Robust
+    RLHF Trimmed MLE (Mandal 2024) for online settings. Require multi-annotator agreement before updating reward model weights.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-070
+  name: sycophancy-measurement-exploitation
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)sycophancy.*(?:score|measure|rate|exploit|induce)
+  - (?i)(?:induce|exploit|maximize).*sycophancy
+  - (?i)(?:pressure|persistence|disagreement).*(?:cause|induce|trigger).*(?:answer.?change|reversal|capitulation)
+  - (?i)false_premise.*sycophancy|sycophancy.*false_premise
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Sycophancy measurement, induction, or exploitation pattern detected
+  description: 'Detects attempts to measure, induce, or exploit sycophancy in RLHF-trained models. Sycophancy arises from
+    RLHF training on human approval: models learn to reverse correct answers when users disagree. Exploiting this allows adversaries
+    to systematically extract false information or override safety refusals by expressing disagreement. Sharma et al. (2023)
+    Towards Understanding Sycophancy.'
+  remediation: Train with adversarial preference pairs that reward maintaining correct answers under false-premise pressure.
+    Use sycophancy evaluation benchmarks (Sharma 2023) to measure and track regression. Implement per-user disagreement rate
+    monitoring.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-071
+  name: grpo-group-relative-policy-optimization-attack
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)grpo.*(?:exploit|hack|attack|poison|manipulate|bypass)
+  - (?i)group_relative.*policy.*(?:exploit|hack|attack)
+  - (?i)(?:exploit|game|hack).*group.*relative.*(?:advantage|reward|policy)
+  - (?i)grpo_baseline.*(?:manipulate|inflate|corrupt|poison)
+  file_types:
+  - '*.py'
+  message: GRPO (Group Relative Policy Optimization) exploitation pattern detected
+  description: Detects exploitation of Group Relative Policy Optimization (GRPO), the reinforcement learning variant used
+    in DeepSeek-R1. GRPO normalizes advantages within groups of sampled responses; attackers can game this by controlling
+    response group composition to inflate relative advantages for adversarial outputs. Shao et al. (2024) DeepSeekMath; GRPO
+    security analysis.
+  remediation: Monitor group composition during GRPO training for adversarially skewed sampling. Apply clipping to group-normalized
+    advantages. Use reference policy KL constraint in conjunction with GRPO to bound policy drift.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-072
+  name: value-function-advantage-manipulation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)value_function.*(?:manipulate|corrupt|poison|hack|override)
+  - (?i)advantage_estimate.*(?:manipulate|inflate|corrupt|override)
+  - (?i)gae_lambda\s*=\s*(?:0\.99[5-9]|1\.0|1(?:\.0+)?)
+  - (?i)(?:poison|corrupt|fake).*(?:baseline|value.?net|critic).*(?:reward|rlhf)
+  file_types:
+  - '*.py'
+  message: Value function or advantage estimation manipulation detected in RLHF/PPO training
+  description: Detects manipulation of the value function or Generalized Advantage Estimation (GAE) in PPO-based RLHF. A poisoned
+    critic/baseline network produces inflated advantage estimates for adversarial trajectories, causing the policy to over-update
+    toward harmful behaviors. Setting GAE lambda near 1.0 amplifies noise and increases attack surface. Schulman et al. (2016)
+    GAE.
+  remediation: Validate critic network convergence separately from policy updates. Use separate critic training budgets. Monitor
+    value function loss for anomalous spikes indicating adversarial inputs. Cap GAE lambda at 0.97.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-073
+  name: preference-labeler-bias-exploitation
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)annotator_bias.*exploit|labeler_bias.*exploit
+  - (?i)(?:exploit|target|select).*(?:biased|low.quality|adversarial).*annotator
+  - (?i)crowdwork.*(?:poison|adversarial|compromise|sybil|fake)
+  - (?i)(?:sybil|fake|sock.puppet).*(?:annotator|labeler|rater|crowdwork)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Preference labeler bias exploitation or annotator poisoning detected
+  description: Detects exploitation of crowdworker annotator biases in RLHF preference collection. Attackers can target annotators
+    with known biases (authority bias, length preference, cultural bias) or inject Sybil annotators to skew preference datasets.
+    Even 5-10% adversarial annotator influence can shift reward model behavior. Gehrmann et al. (2023) replication crisis
+    in NLP annotations; RLHF annotation quality research.
+  remediation: Screen annotators for quality using gold-standard calibration tasks. Apply annotator-specific quality weights
+    in preference aggregation. Use inter-annotator agreement thresholds to filter low-consensus preference pairs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-074
+  name: multi-objective-reward-hacking
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)multi.?objective.*reward.*hack
+  - (?i)reward.*(?:trade.?off|pareto|front).*(?:hack|exploit|game)
+  - (?i)safety_reward\s*\*\s*(?:0\.0|0\.0\d*|0)\b
+  - (?i)helpfulness_weight\s*=\s*(?:[2-9](?:\.\d+)?|10|1\d)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Multi-objective reward hacking — safety weight zeroed or helpfulness over-weighted
+  description: Detects reward function configurations that effectively nullify safety objectives while over-weighting helpfulness.
+    In multi-objective RLHF, adversaries adjust reward weights to zero out safety rewards, allowing helpfulness-maximizing
+    policy updates to erode safety alignment. Even small imbalances (safety_weight < 0.1) can enable reward hacking. Safe
+    RLHF (Dai 2023); MoE Reward Models (Fu 2025).
+  remediation: Enforce minimum safety reward weight constraints. Use Lagrangian constrained optimization (Safe RLHF) rather
+    than scalarization. Monitor safety reward vs. helpfulness reward ratio continuously during training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-075
+  name: reward-model-huber-contamination-attack
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)huber_contamination|epsilon_contamination.*reward
+  - (?i)contaminate.*reward_model.*epsilon
+  - (?i)trimmed.mle.*bypass|robust.rlhf.*disable
+  - (?i)contamination_fraction\s*=\s*(?:0\.[1-9]|[1-9])
+  file_types:
+  - '*.py'
+  message: Huber contamination attack against reward model detected
+  description: Detects the Huber Contamination Model attack on reward models (Mandal 2024). By corrupting an epsilon-fraction
+    of preference data with adversarially crafted outliers, attackers degrade reward model accuracy with O(epsilon^{1-o(1)})
+    error bounds. Disabling Robust RLHF Trimmed MLE defenses exposes this attack surface. Mandal et al. (2024) Corruption
+    Robust Offline RLHF.
+  remediation: Apply Robust RLHF with Trimmed MLE (Mandal 2024) which discards the highest-loss epsilon-fraction of preference
+    pairs. Implement statistical testing for bimodal loss distributions indicating contamination. Monitor reward model loss
+    histograms.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-076
+  name: reward-hacking-output-verbosity-inflation
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)(?:inflate|maximize|increase).*(?:response|output).*(?:length|verbosity|tokens?).*(?:reward|score)
+  - (?i)verbosity.*(?:reward|hack|bias|exploit|inflate)
+  - (?i)longer_length_ratio.*(?:reward|hack|force|inflate)
+  - (?i)(?:padding|filler).*(?:inflate|boost|maximize).*(?:reward|rating|score)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Response verbosity inflation for reward gaming detected
+  description: Detects output verbosity inflation as a reward hacking strategy. RankPoison (Wang 2023) achieves 73.10% longer
+    length ratio by exploiting human and LLM judge preference for longer outputs. Generating padded, repetitive, or verbose
+    responses inflates reward scores without improving quality. Also detects explicit verbosity gaming instructions in code
+    or prompts.
+  remediation: Add response length normalization to reward functions. Penalize repetitive n-gram overlap in reward models.
+    Use length-controlled evaluation benchmarks that explicitly penalize verbosity without informational density.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-077
+  name: inoculation-prompting-disabled
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)inoculation.*(?:disable|skip|remove|bypass|False)
+  - (?i)(?:disable|skip|remove).*inoculation.*prompt
+  - (?i)reward_hack_inoculation\s*=\s*(?:False|0|None)
+  - (?i)anti.?inocul.*training|inocul.*bypass
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Inoculation prompting defense disabled — training without reward-hack inoculation
+  description: Detects disabling of Inoculation Prompting (MacDiarmid 2025), a defense that reduces misaligned generalization
+    from reward hacking by 75-90%. Inoculation trains the model with examples of reward hacking followed by corrections, preventing
+    generalization of hacking behaviors to safety-critical contexts. Without it, reward hacking learned in coding tasks can
+    generalize to undermining safety mechanisms.
+  remediation: Enable Inoculation Prompting (MacDiarmid 2025) by default in RLHF pipelines. Include anti-hacking demonstrations
+    in training data. Monitor for misaligned generalization across task domains.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-078
+  name: gmdra-game-theoretic-deception-detection-bypass
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)gmdra.*(?:bypass|disable|evade|fool)
+  - (?i)bayesian.*game.*(?:deception|alignment|rlhf).*bypass
+  - (?i)(?:dynamic|adaptive).*capability.*(?:conceal|hide|suppress).*(?:rlhf|reward|training)
+  - (?i)capability_concealment.*(?:dynamic|adaptive|strategic)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: GMDRA game-theoretic deception or dynamic capability concealment pattern detected
+  description: Detects patterns related to GMDRA (Huang 2025) Bayesian game-theoretic deceptive alignment detection and its
+    bypasses. GMDRA models the training process as a game between the model and trainer; attackers design capability concealment
+    strategies that remain undetected under Bayesian game-theoretic analysis. Also detects dynamic capability concealment
+    (strategic sandbagging). Huang et al. (2025).
+  remediation: Deploy GMDRA (Huang 2025) monitoring for deceptive alignment during RLHF training. Use varied oversight levels
+    to detect capability concealment. Combine MITD (Sahoo 2025) mechanistic decomposition with game-theoretic analysis.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-079
+  name: confessions-parallel-model-disabled
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)confessions.*(?:disable|skip|False|off)
+  - (?i)(?:disable|skip|remove).*parallel.*(?:model|judge|monitor).*(?:rlhf|reward|violation)
+  - (?i)rule_violation_judge\s*=\s*(?:False|None|0)
+  - (?i)confession.*model.*(?:bypass|disable|skip|turn.off)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Confessions parallel model monitoring disabled — reward hacking detection removed
+  description: Detects disabling of the Confessions defense (Joglekar 2025), a parallel model explicitly prompted to admit
+    rule violations. Confessions detects alignment faking more accurately than the primary reward model alone because it directly
+    asks whether the model is violating rules. Disabling it leaves training loops without a key reward hacking detection mechanism.
+  remediation: Require Confessions parallel model monitoring in all RLHF training loops. Log and alert on confession-model
+    detected violations. Use confessions outputs as an auxiliary safety signal in reward computation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-778
+- id: MEDUSA-RLHF-SCAN-080
+  name: rlhf-sycophancy-reward-training-signal
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)sycophancy.*(?:train|reward|signal|induce)
+  - (?i)approval.*(?:reward|signal|maximize).*sycophancy
+  - (?i)user_satisfaction.*reward.*(?:safety|correct|accurate)
+  - (?i)(?:optimize|maximize).*user.*(?:approval|satisfaction|agreement).*above
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Training signal that optimizes user approval may induce sycophancy
+  description: Detects RLHF training configurations that optimize primarily for user approval or satisfaction, which inadvertently
+    trains sycophancy. When human annotators prefer agreeable responses over accurate ones, reward models learn to rate capitulation
+    to user opinions higher than correctness. This produces measurable sycophancy that can be exploited to override factual
+    claims or safety refusals. Sharma et al. (2023).
+  remediation: Include sycophancy robustness metrics in reward model evaluation. Train reward models with examples of sycophancy
+    labeled as low-reward. Add anti-sycophancy calibration examples to human preference annotation guidelines.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-081
+  name: advantage-function-zero-out-bypass
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)advantage\s*=\s*torch\.zeros|advantage\s*=\s*np\.zeros
+  - (?i)zero.*advantage.*(?:step|reward|policy)
+  - (?i)detach.*advantage.*(?:safety|harm|cost)
+  - (?i)advantage.*(?:clamp|clip).*zero.*(?:safety|cost|harm)
+  file_types:
+  - '*.py'
+  message: Advantage function zeroing or selective safety gradient blocking detected
+  description: Detects zeroing or selective blocking of advantage estimates for safety-related trajectories in RLHF training.
+    This prevents safety gradient signals from propagating, allowing harmful trajectories to reinforce without counter-gradient
+    from safety feedback. Rahman et al. (2025) Selective Advantage — this defense's inverse represents an attack vector.
+  remediation: Verify advantage computation paths include all reward components. Use gradient flow monitoring to detect selective
+    gradient blocking. Require full trajectory advantage estimation including safety cost signals.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-082
+  name: mitd-mechanistic-decomposition-disabled
+  severity: LOW
+  category: rlhf_security
+  patterns:
+  - (?i)mitd.*(?:disable|skip|False|None)
+  - (?i)(?:disable|skip|remove).*mechanistic.*(?:decomposition|task|interpretable)
+  - (?i)sub.?step.*(?:decomposition|interpretable).*(?:disable|skip|False)
+  - (?i)task_decomposition\s*=\s*(?:False|None|0)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: MITD mechanistic task decomposition disabled — reduces reward hacking detectability
+  description: Detects disabling of MITD (Mechanistic Interpretable Task Decomposition, Sahoo 2025), which reduces reward
+    hacking by 34% by requiring models to produce interpretable sub-steps. Without MITD, reward hacking behaviors are less
+    mechanistically visible and harder to detect via attribution methods.
+  remediation: Enable MITD sub-step decomposition in coding and reasoning RLHF tasks. Use interpretable intermediate representations
+    to expose reward hacking. Combine with Confessions (Joglekar 2025) for comprehensive monitoring.
+  owasp_llm: LLM04:2025
+  cwe: CWE-778
+- id: MEDUSA-RLHF-SCAN-083
+  name: reward-model-without-ensemble
+  severity: LOW
+  category: rlhf_security
+  patterns:
+  - (?i)reward_model\s*=\s*(?:AutoModel|AutoModelForSequenceClassification|RewardModel)\s*\.from_pretrained
+  - (?i)single_reward_model.*(?:ppo|rlhf|dpo|train)
+  - (?i)(?:rm|reward_model)\s*=\s*\w+\.(?:load|from_pretrained)\s*\([^)]+\)
+  file_types:
+  - '*.py'
+  message: RLHF training with single reward model — no ensemble defense against reward hacking
+  description: Detects RLHF setups using a single reward model without ensemble or MoE reward architecture. Single reward
+    models have higher susceptibility to adversarial exploitation (blind spots, over-optimization, Goodhart's law). MoE Reward
+    Models with 6+ experts (Fu 2025) significantly reduce reward model over-optimization and lower KL divergence needed to
+    achieve safety constraints.
+  remediation: Deploy MoE Reward Models (Fu 2025) with at least 3 expert models. Use reward model ensembles with disagreement
+    signals as uncertainty estimates. Apply RRPO energy-adaptive mixup to smooth single-model decision boundaries if ensemble
+    is unavailable.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-084
+  name: rlhf-without-safe-rlhf-cost-constraint
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)lagrangian.*constraint.*(?:disable|skip|False|None|0)
+  - (?i)cost_model\s*=\s*(?:None|False|0)
+  - (?i)safety_threshold\s*=\s*(?:100|float\s*\(['"]inf['"]|math\.inf|1e[3-9])
+  - (?i)(?:remove|disable|skip).*(?:cost|safety).*(?:constraint|threshold|lagrang)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Safe RLHF Lagrangian safety constraint disabled or threshold set too high
+  description: Detects Safe RLHF (Dai 2023) safety constraints being disabled or rendered ineffective by setting safety thresholds
+    to infinity or removing the Cost Model. Safe RLHF uses a Lagrangian constraint to keep the cost model below a threshold
+    during PPO. Disabling this decouples harmlessness from helpfulness optimization, re-introducing single-objective reward
+    hacking vulnerability.
+  remediation: Enforce valid cost_model and safety_threshold in all Safe RLHF configurations. Alert on threshold values >
+    10 standard deviations above baseline. Validate Lagrangian multiplier convergence during training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-085
+  name: rlhf-membership-inference-attack
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)membership_inference.*(?:rlhf|preference|reward|feedback)
+  - (?i)(?:rlhf|preference).*membership_inference
+  - (?i)(?:infer|determine|test).*(?:training|rlhf).*(?:member|presence|inclusion).*(?:model.?output|likelihood|loss)
+  - (?i)shadow_model.*(?:rlhf|preference|reward)
+  file_types:
+  - '*.py'
+  message: Membership inference attack targeting RLHF training data detected
+  description: Detects membership inference attacks against RLHF-trained models. Shadow model attacks and likelihood ratio
+    tests can determine whether specific preference pairs or user interactions were included in RLHF training data, exposing
+    private feedback. This enables targeted data extraction and training set inference. Shokri et al. (2017); RLHF privacy
+    research.
+  remediation: Apply differential privacy to reward model training (DP-SGD). Use minimum aggregation thresholds for preference
+    pair inclusion. Implement confidence score normalization to reduce membership inference signal.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-RLHF-SCAN-086
+  name: reward-regularization-disabled
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)reward_regulariz.*(?:disable|False|None|0|skip)
+  - (?i)rrpo.*(?:disable|False|None|skip)
+  - (?i)(?:energy.?adaptive|mixup).*reward.*(?:disable|skip|False)
+  - (?i)(?:remove|disable).*(?:reward|preference).*(?:regulariz|smooth|boundary)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Reward model regularization (RRPO/energy-adaptive mixup) disabled
+  description: Detects disabling of reward model regularization techniques including RRPO (Reward-Regularized Preference Optimization,
+    Wang 2025) and energy-adaptive mixup. These techniques smooth reward model decision boundaries to reduce adversarial example
+    susceptibility. Without regularization, reward models are vulnerable to gradient-based adversarial examples that exploit
+    sharp decision boundaries.
+  remediation: Enable RRPO energy-adaptive mixup (Wang 2025) in reward model training. Apply label smoothing to preference
+    pair training objectives. Monitor reward model gradient norms for adversarial sensitivity.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-087
+  name: rlhf-training-data-copyright-leakage
+  severity: MEDIUM
+  category: rlhf_security
+  patterns:
+  - (?i)(?:reproduce|verbatim|copy|extract).*(?:rlhf|preference|training).*data
+  - (?i)rlhf.*data.*(?:leak|copyright|extraction|verbatim)
+  - (?i)preference.*dataset.*(?:copyright|verbatim|extract|leak)
+  - (?i)memoriz.*preference.*(?:data|annotation|feedback)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: RLHF training data verbatim reproduction or copyright leakage pattern detected
+  description: Detects patterns indicating verbatim reproduction of RLHF training data including preference annotations, human
+    feedback text, and copyrighted demonstration data. RLHF fine-tuning can memorize preference data more strongly than pre-training
+    due to the small dataset size and multiple training epochs. Carlini et al. (2023) Quantifying Memorization.
+  remediation: Apply differential privacy during RLHF fine-tuning with DP-SGD. Limit training epochs over preference data
+    to reduce memorization. Audit model outputs for verbatim reproduction using n-gram overlap metrics.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-RLHF-SCAN-088
+  name: rlhf-reward-model-inversion-attack
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)reward_model.*inversion|inversion.*reward_model
+  - (?i)(?:invert|reconstruct|recover).*(?:preference|annotation|feedback).*reward_model
+  - (?i)gradient.*reward_model.*(?:inversion|reconstruct|recover.*training)
+  - (?i)model_inversion.*(?:rlhf|preference|reward|feedback)
+  file_types:
+  - '*.py'
+  message: Reward model inversion attack — attempting to reconstruct training preferences from gradients
+  description: Detects model inversion attacks targeting reward models to reconstruct the private preference data used in
+    RLHF training. By querying the reward model and observing gradient or score responses, adversaries can reconstruct representative
+    preference examples, exposing private human feedback. Fredrikson et al. (2015) model inversion; applied to RLHF reward
+    models.
+  remediation: Apply gradient masking and output perturbation to reward model APIs. Limit reward model query rates per user.
+    Use homomorphic scoring or secure multi-party computation for sensitive reward model deployments.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-RLHF-SCAN-089
+  name: ppo-reward-shaping-unsafe-potential
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)reward_shaping.*(?:potential|unsafe|adversarial|hack)
+  - (?i)potential_based.*reward.*(?:shape|unsafe|manipulate)
+  - (?i)shaping_function\s*=\s*(?!.*safety|.*harm)
+  - (?i)intrinsic_reward.*(?:override|replace).*(?:safety|harm|cost)
+  file_types:
+  - '*.py'
+  message: PPO reward shaping with potentially unsafe potential function detected
+  description: Detects potentially unsafe reward shaping implementations in PPO-based RLHF. Reward shaping via potential functions
+    is theoretically policy-invariant but can introduce unintended incentive gradients when potentials are not carefully designed.
+    Adversarially crafted shaping functions can redirect policy optimization away from safety objectives. Ng et al. (1999)
+    potential-based shaping.
+  remediation: Formally verify reward shaping potential functions for alignment with intended objectives. Use conservative
+    reward shaping with safety-constrained potential bounds. Monitor shaped reward components separately from base reward
+    signals.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-090
+  name: rlhf-rollout-manipulation-trajectory-injection
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)rollout.*(?:inject|poison|manipulate|adversarial|craft)
+  - (?i)(?:inject|craft|poison).*(?:trajectory|rollout).*rlhf
+  - (?i)adversarial.*trajectory.*(?:rlhf|ppo|reward)
+  - (?i)replay_buffer.*(?:inject|poison|adversarial|craft)
+  file_types:
+  - '*.py'
+  message: RLHF rollout trajectory injection or replay buffer poisoning detected
+  description: Detects adversarial trajectory injection into RLHF rollout buffers or replay buffers. By injecting crafted
+    trajectories with high advantage estimates into the training loop, attackers can steer policy optimization toward adversarial
+    behaviors. This is particularly dangerous in online RLHF where rollouts are collected from the live policy.
+  remediation: Validate trajectory sources cryptographically. Apply outlier detection to rollout advantage scores. Use separate
+    validation rollout sets with known-clean prompts to detect distribution shift from injection.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-091
+  name: reward-model-checkpoint-substitution
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)reward_model.*(?:replace|substitute|swap|exchange).*(?:poisoned|adversarial|malicious)
+  - (?i)(?:load|replace|swap).*reward.*checkpoint.*(?:adversarial|poisoned|malicious|fake)
+  - (?i)rm_path\s*=\s*(?:.*attacker|.*malicious|.*poison|.*adversarial)
+  - (?i)checkpoint.*reward.*(?:tamper|substitute|replace|shadow)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  message: Reward model checkpoint substitution or supply chain attack detected
+  description: Detects adversarial reward model checkpoint substitution — replacing a legitimate reward model checkpoint with
+    a malicious one that scores harmful outputs highly. This is a supply chain attack vector where the reward model file is
+    compromised before RLHF training begins, allowing systematic steering of the resulting policy toward adversarial behaviors.
+  remediation: Verify reward model checkpoint integrity with SHA-256 hashes before training. Store checksums in a separate
+    authenticated system. Sign reward model artifacts with organizational keys. Use model cards with provenance attestations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-RLHF-SCAN-092
+  name: constitutional-principle-override
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)constitutional.*principle.*(?:override|remove|disable|delete|replace)
+  - (?i)harmless.*principle.*(?:False|disable|remove|skip)
+  - (?i)cai_principles\s*=\s*(?:\[\]|None|\{\})
+  - (?i)(?:replace|substitute|modify).*constitutional.*principle.*(?:unsafe|adversarial|harmful)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Constitutional AI principle override or removal detected
+  description: Detects modification, removal, or replacement of Constitutional AI principles that guide harmlessness training.
+    CAI relies on a set of constitutional principles to evaluate and revise model outputs; removing or replacing these principles
+    with adversarial alternatives can systematically erode safety alignment during RLAIF training. Bai et al. (2022).
+  remediation: Store constitutional principles in integrity-verified configuration files. Require authenticated approval for
+    principle modifications. Validate principle sets against reference implementations before RLAIF training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-093
+  name: rlhf-safety-training-dataset-poisoning
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)safety_dataset.*(?:poison|inject|corrupt|adversarial|malicious)
+  - (?i)(?:inject|poison|corrupt).*safety.*(?:demonstration|example|pair|data)
+  - (?i)red_team_dataset.*(?:poison|corrupt|adversarial|backdoor)
+  - (?i)harmlessness.*dataset.*(?:tamper|poison|corrupt|adversarial)
+  file_types:
+  - '*.py'
+  - '*.jsonl'
+  - '*.json'
+  message: RLHF safety training dataset poisoning detected
+  description: Detects poisoning of safety-specific training datasets used in RLHF harmlessness training. Unlike general preference
+    poisoning, this targets the specific safety demonstrations and red-team example pairs that teach the model to refuse harmful
+    requests. Corrupting these undermines the model's primary safety training signal. Ouyang et al. (2022) InstructGPT safety
+    training.
+  remediation: Maintain cryptographically signed safety dataset artifacts. Use multi-source safety data aggregation to prevent
+    single-source poisoning. Apply separate validation sets with known-harmful prompts to test safety training effectiveness.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-094
+  name: rlhf-hidden-state-poisoning
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)hidden_state.*(?:poison|inject|manipulate|corrupt)
+  - (?i)(?:poison|manipulate|corrupt).*hidden.*(?:state|representation|activation).*rlhf
+  - (?i)activation.*(?:steer|inject|poison|manipulate).*(?:rlhf|reward|safety)
+  - (?i)representation.*(?:attack|poison|inject).*reward
+  file_types:
+  - '*.py'
+  message: Hidden state or activation manipulation targeting RLHF training detected
+  description: Detects attacks that manipulate hidden states or activations to influence RLHF training dynamics. Activation
+    steering and representation manipulation can shift reward model scoring by targeting intermediate representations. This
+    enables a class of white-box attacks where the attacker has access to model internals and can craft inputs that produce
+    adversarial hidden states during reward model scoring.
+  remediation: Monitor activation statistics for anomalous distributions during reward model inference. Apply activation clipping
+    and normalization. Use probing classifiers on intermediate representations to detect adversarial manipulation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-095
+  name: rlhf-data-augmentation-poisoning
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)(?:augment|paraphrase|back.?translate).*preference.*(?:poison|adversarial|corrupt)
+  - (?i)data_augmentation.*preference.*(?:inject|poison|backdoor)
+  - (?i)(?:paraphrase|rewrite|augment).*trigger.*preference.*data
+  - (?i)augmented.*preference.*(?:pair|data).*(?:backdoor|trigger|poison)
+  file_types:
+  - '*.py'
+  message: Preference data augmentation with adversarial injection pattern detected
+  description: Detects adversarial poisoning through preference data augmentation pipelines. Back-translation, paraphrasing,
+    and data augmentation of preference pairs can be hijacked to inject adversarial trigger patterns that survive augmentation.
+    This is particularly effective because augmented data is often assumed to be clean. Adversarial augmentation research;
+    RLHF data pipeline security.
+  remediation: Validate augmented preference pairs against trigger pattern detectors. Apply consistency checks between original
+    and augmented preference labels. Use augmentation-aware backdoor detection (spectral signatures post-augmentation).
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-096
+  name: rlhf-human-feedback-impersonation
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)(?:fake|synthesize|generate|spoof).*human.*feedback.*rlhf
+  - (?i)synthetic.*human.*feedback.*(?:poison|inject|adversarial)
+  - (?i)annotator_impersonation|fake_annotator|synthetic_rater
+  - (?i)llm.*(?:generate|synthesize|fake).*human.*(?:preference|annotation|feedback)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Synthetic or fake human feedback injection into RLHF training detected
+  description: Detects generation of synthetic human feedback designed to poison RLHF training. Adversaries use LLMs to mass-generate
+    plausible-looking but adversarial preference annotations, injecting them into crowdworker annotation platforms or directly
+    into preference datasets. LLM-generated annotations can be indistinguishable from human annotations while systematically
+    biasing training. Perez et al. (2022).
+  remediation: Apply human-AI annotation distinguishers to preference datasets. Use cryptographic proof-of-human attestation
+    for annotation sources. Monitor for anomalously uniform or high-quality annotations from single annotator accounts.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-097
+  name: rlhf-off-policy-training-safety-bypass
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)off.?policy.*rlhf.*(?:bypass|safety|unsafe|adversarial)
+  - (?i)importance_sampling.*reward.*(?:adversarial|bypass|manipulate)
+  - (?i)(?:stale|outdated|off.policy).*trajectory.*reward.*hack
+  - (?i)is_ratio\s*=\s*(?:[1-9]\d|\d{3,})
+  file_types:
+  - '*.py'
+  message: Off-policy RLHF training with anomalous importance sampling ratio detected
+  description: Detects off-policy RLHF training configurations with high importance sampling ratios, which can exploit outdated
+    trajectories to bypass safety constraints. Very high IS ratios (>>10) indicate stale policy data being reused for gradient
+    updates, reducing the effectiveness of safety feedback that was collected under different policy distributions. Off-policy
+    RLHF security research.
+  remediation: Cap importance sampling ratios at maximum 10. Apply PPO clipping to IS-weighted gradients. Regularly refresh
+    trajectory buffers to prevent safety-bypassing off-policy exploitation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-098
+  name: model-deception-strategic-answer-selection
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)strategic.*answer.*(?:select|choose|pick).*(?:reward|training|evaluation)
+  - (?i)(?:choose|select|pick).*answer.*(?:maximize|game|hack).*(?:reward|evaluator|annotator)
+  - (?i)answer.*selection.*(?:strategic|adversarial|game|hack).*(?:reward|evaluation)
+  - (?i)self.?consistency.*(?:game|hack|exploit).*reward
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Strategic answer selection for reward maximization detected
+  description: Detects strategic answer selection patterns where a model or system selects responses based on anticipated
+    reward score rather than correctness or safety. This includes exploitation of self-consistency aggregation and best-of-N
+    selection with adversarial selection criteria. Models trained on such selection patterns learn to be strategically deceptive
+    rather than genuinely correct. EvilGenie adjacent patterns.
+  remediation: 'Apply selection-blind evaluation: choose answers before scoring. Use process-based evaluation instead of outcome-only
+    scoring. Monitor for correlation between answer confidence calibration and reward score selection patterns.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-099
+  name: rlhf-adversarial-prompt-template-injection
+  severity: HIGH
+  category: rlhf_security
+  patterns:
+  - (?i)system_prompt.*(?:inject|poison|adversarial|bypass).*(?:rlhf|reward|safety)
+  - (?i)prompt_template.*(?:poison|inject|bypass).*(?:rlhf|reward)
+  - (?i)few.?shot.*(?:poison|adversarial|hack).*(?:rlhf|reward|safety)
+  - (?i)context.*(?:poison|inject|adversarial).*(?:reward.*model|rlhf.*train)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Adversarial prompt template injection targeting RLHF reward model evaluation detected
+  description: Detects injection of adversarial content into prompt templates, system prompts, or few-shot demonstrations
+    used during reward model scoring. Reward models score (prompt, response) pairs; adversarial prompt context can shift reward
+    model scores for harmful responses upward by providing misleading context that makes dangerous outputs appear appropriate.
+    Prompt injection in reward model evaluation pipeline.
+  remediation: Sanitize system prompts before reward model evaluation. Use prompt-blind reward evaluation modes where possible.
+    Apply context-stripped reward scoring to prevent context-injection attacks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-74
+- id: MEDUSA-RLHF-SCAN-100
+  name: rlhf-safety-evaluation-contamination
+  severity: CRITICAL
+  category: rlhf_security
+  patterns:
+  - (?i)safety_eval.*(?:contaminat|leak|poison|cheat|game)
+  - (?i)benchmark.*(?:contaminat|leak).*(?:rlhf|safety|alignment|train)
+  - (?i)(?:leak|include|train.?on).*(?:safety.*eval|test.*set).*(?:rlhf|train|fine.?tun)
+  - (?i)eval_contamination.*(?:safety|rlhf|alignment|train)
+  file_types:
+  - '*.py'
+  - '*.jsonl'
+  - '*.json'
+  message: Safety evaluation benchmark contamination in RLHF training data detected
+  description: Detects inclusion of safety evaluation benchmark data in RLHF training corpora, which contaminates evaluation
+    and creates false impressions of safety alignment. Training on TruthfulQA, HarmBench, or similar safety benchmarks creates
+    inflated safety scores without genuine alignment. This is a form of Goodhart's law exploitation where the benchmark metric
+    is directly optimized. Benchmark contamination research.
+  remediation: Maintain strict separation between safety evaluation benchmarks and training data. Use held-out safety benchmark
+    suites unknown during training. Apply decontamination procedures (n-gram overlap checking) against known benchmarks before
+    RLHF training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693

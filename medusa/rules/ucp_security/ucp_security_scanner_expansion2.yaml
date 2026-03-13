@@ -1,0 +1,741 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-UCP-SCAN-061
+  name: ucp-base64-encoding-policy-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(base64|b64).{0,60}(bypass|evad|circumvent|decode).{0,60}(policy|filter|content.?moderat|guardrail)
+  - (?i)(policy|filter|moderat).{0,60}(base64|b64|encoded).{0,60}(bypass|evad|circumvent|trick)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.txt'
+  message: Base64 encoding used to bypass content policy detected.
+  description: Encoding harmful content in Base64 or similar schemes to evade string-matching policy filters before decoding
+    inside the LLM context. Documented in jailbreak and UCP bypass literature.
+  remediation: Decode common encodings (Base64, URL, hex) before policy evaluation; apply content filters post-decoding.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-062
+  name: ucp-rot13-caesar-cipher-evasion
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(rot13|rot.?[0-9]{1,2}|caesar.?cipher|caesar.?shift).{0,60}(bypass|evad|circumvent|policy|filter)
+  - (?i)(policy|filter|moderat).{0,60}(rot13|cipher|shift.?cipher|substitut.?cipher).{0,60}(bypass|evad|trick)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.txt'
+  - '*.json'
+  message: ROT13/Caesar cipher encoding for policy evasion detected.
+  description: Using ROT13 or simple substitution ciphers to encode policy-violating content and bypass string-matching content
+    moderation systems before the model decodes the instruction.
+  remediation: Implement cipher-decoding preprocessing in content pipelines; detect and flag encoded instruction patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-063
+  name: ucp-unicode-homoglyph-policy-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(homoglyph|look.?alike|unicode.?spoof|unicode.?substitut|confusable).{0,60}(bypass|evad|policy|filter|moderat)
+  - (?i)(policy|filter|moderat).{0,60}(homoglyph|look.?alike|unicode.?trick|zero.?width).{0,60}(bypass|evad|circumvent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: Unicode homoglyph or confusable character policy bypass detected.
+  description: Substituting Latin characters with visually identical Unicode homoglyphs or zero-width characters to pass keyword-based
+    policy filters while preserving semantic content that violates policy.
+  remediation: Normalise Unicode input (NFKC) before policy evaluation; detect and reject confusable character sequences.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-064
+  name: ucp-multi-step-circumvention-chain
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(multi.?step|step.?by.?step|chain.?of|sequential).{0,60}(circumvent|bypass|evad).{0,60}(policy|ucp|content.?polic|guardrail)
+  - (?i)(policy|ucp|guardrail).{0,60}(circumvent|bypass).{0,60}(multi.?step|sequential.?step|chain|gradual)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: Multi-step policy circumvention chain pattern detected.
+  description: Incrementally escalating policy violations across multiple turns to circumvent content policies that evaluate
+    each request in isolation without tracking cross-turn context drift.
+  remediation: Implement cross-turn policy evaluation; maintain policy-relevant conversation state; reset context on detected
+    escalation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-065
+  name: ucp-rule-extraction-probing-attack
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(extract|discover|reveal|map|probe).{0,60}(ucp.?rule|content.?polic.?rule|moderat.?rule|guardrail.?rule)
+  - (?i)(what.{0,20}rule|list.{0,20}rule|show.{0,20}rule|tell.{0,20}rule).{0,60}(ucp|content.?polic|moderat|guardrail|filter)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: UCP rule extraction or policy probing attempt detected.
+  description: Systematic prompting to extract, enumerate, or map content policy rules by probing policy boundaries, enabling
+    targeted evasion by staying just below policy detection thresholds.
+  remediation: Treat policy boundary probing as a policy violation; add noise to policy decision boundaries; log and alert
+    on systematic boundary probing.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-UCP-SCAN-066
+  name: ucp-cross-modal-text-image-text-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(cross.?modal|text.?to.?image|image.?to.?text|multimodal).{0,60}(bypass|evad|circumvent).{0,60}(policy|ucp|content.?polic|filter)
+  - (?i)(image.{0,20}generat|render.{0,20}text|ocr.{0,20}text).{0,60}(policy|filter|moderat).{0,60}(bypass|evad|circumvent)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ts'
+  - '*.yaml'
+  message: Cross-modal policy bypass (text-to-image-to-text) detected.
+  description: Embedding policy-violating text instructions in generated images (T2I), then using the LLM's vision capability
+    to re-read and execute them — bypassing text-only content policies.
+  remediation: Apply OCR-based content policy to all image inputs; enforce identical policy evaluation on all modalities;
+    audit multimodal pipeline policy coverage.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-067
+  name: ucp-policy-inconsistency-exploitation
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(policy.{0,20}inconsisten|inconsisten.{0,20}polic|different.{0,20}answer|contradiction.{0,20}polic).{0,60}(exploit|leverag|bypass|evad)
+  - (?i)(ask.{0,20}different.{0,20}way|rephrase.{0,20}bypass|inconsisten.{0,20}response).{0,60}(policy|moderat|filter|ucp)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Policy inconsistency exploitation pattern detected.
+  description: Exploiting inconsistencies between policy evaluations for semantically equivalent queries (e.g., rephrasing)
+    to find formulations that pass policy while achieving the same policy-violating outcome.
+  remediation: Use semantic similarity deduplication in policy evaluation; test policy consistency across paraphrase sets;
+    implement semantic-level policy checks beyond keyword matching.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-068
+  name: ucp-surface-satisfying-intent-violating-input
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(satisfy.{0,20}surface|surface.{0,20}check|appear.{0,20}harmless|look.{0,20}benign).{0,60}(policy|filter|ucp|moderat).{0,40}(violat|bypass|evad)
+  - (?i)(benign.{0,20}framing|innocuous.{0,20}wrapper|innocent.{0,20}request).{0,60}(hidden.{0,20}intent|violat.{0,20}intent|harmful.{0,20}intent)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: Surface-satisfying but intent-violating policy input pattern detected.
+  description: Adversarial inputs crafted to satisfy surface-level UCP keyword/pattern checks while embedding policy-violating
+    intent in semantic structure, context, or implication rather than explicit keywords.
+  remediation: Employ semantic intent analysis in content policy evaluation; do not rely solely on keyword or regex matching.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-069
+  name: ucp-policy-version-mismatch-exploit
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(policy.{0,20}version|version.{0,20}mismatch|old.{0,20}policy|stale.{0,20}policy|legacy.{0,20}policy).{0,60}(exploit|bypass|evad|attack|leverag)
+  - (?i)(rollback.{0,20}policy|downgrade.{0,20}policy|policy.{0,20}rollback).{0,60}(bypass|evad|exploit|attack)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Policy version mismatch or rollback exploit detected.
+  description: Exploiting version mismatches between content policy definitions and deployed models — targeting systems where
+    policy updates have not propagated to all model instances, or where old policy versions are still reachable.
+  remediation: Enforce atomic policy version updates across all model instances; track policy version in audit logs; reject
+    requests reaching endpoints with stale policy versions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1329
+- id: MEDUSA-UCP-SCAN-070
+  name: ucp-geographic-locale-policy-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(geographic|geo.?locat|locale|region.?specific|country.?specific).{0,60}(policy|ucp|content.?polic).{0,60}(bypass|evad|exploit|differ)
+  - (?i)(different.{0,20}country|region.{0,20}polic|geo.?bypass|vpn.{0,20}polic).{0,60}(policy|filter|moderat|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Geographic or locale-specific content policy bypass detected.
+  description: Exploiting geographically variable content policies by spoofing locale or using geographic metadata to access
+    less restrictive policy regions, or by targeting locale-specific policy inconsistencies.
+  remediation: Apply policy at the most restrictive applicable level regardless of geographic claims; validate locale claims
+    against network geolocation; log cross-region policy access patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-602
+- id: MEDUSA-UCP-SCAN-071
+  name: ucp-persona-roleplay-policy-gaming
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(persona|character|roleplay|role.?play|act.?as|pretend.{0,20}you.?are).{0,60}(ucp|policy|guardrail|filter|moderat).{0,40}(bypass|evad|circumvent|game|exploit)
+  - (?i)(character.{0,20}would|in.?character|staying.{0,20}in.?role|character.{0,20}does.?not).{0,60}(policy|restrict|guideline|limit|refus)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: Persona/roleplay UCP gaming pattern detected.
+  description: Using persona construction or roleplay framing to claim that 'the character' is not subject to content policies,
+    attempting to create a fictional context that bypasses content moderation evaluation.
+  remediation: Apply content policy evaluation regardless of roleplay framing; treat character-stated exceptions to policy
+    as policy violations; monitor for persistent persona-based bypass attempts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-072
+  name: ucp-rate-limited-policy-testing-sweep
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(rate.?limit|systematic.?test|sweep.{0,20}policy|automat.{0,20}probe|batch.{0,20}test).{0,60}(policy|ucp|content.?polic|guardrail|moderat|filter)
+  - (?i)(policy.{0,20}test|test.{0,20}policy|probe.{0,20}filter|filter.{0,20}probe).{0,60}(automat|systematic|batch|bulk|sweep)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Rate-limited systematic policy testing sweep detected.
+  description: Automated, rate-limited systematic sweeps of content policy boundaries to map policy thresholds without triggering
+    rate-limit defences — a stealthy reconnaissance technique for UCP exploitation.
+  remediation: Implement semantic-level rate limiting in addition to request-rate limiting; detect policy-probing sweep patterns
+    across time windows; flag accounts with abnormally high policy near-miss rates.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-UCP-SCAN-073
+  name: ucp-policy-hot-reload-race-condition
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(hot.?reload|live.?reload|dynamic.?load).{0,60}(policy|ucp|content.?polic|rule|config).{0,60}(race|window|exploit|bypass|gap)
+  - (?i)(policy.{0,20}reload|reload.{0,20}policy|config.{0,20}reload).{0,60}(race.?condition|time.?of.?check|toctou|gap|window)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: Policy hot-reload race condition exploitation pattern detected.
+  description: Exploiting the race window during policy hot-reloads or dynamic configuration updates where the new policy
+    is partially applied, allowing requests that violate the new policy to pass during the transition window.
+  remediation: Implement atomic policy swaps with locking; ensure no requests are processed during policy transition windows;
+    validate policy consistency after hot-reload.
+  owasp_llm: LLM01:2025
+  cwe: CWE-362
+- id: MEDUSA-UCP-SCAN-074
+  name: ucp-classifier-adversarial-example-evasion
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(adversar.{0,20}example|adversar.{0,20}input|adversar.{0,20}attack).{0,60}(content.?moderat|classif|safety.?classif|toxic|policy)
+  - (?i)(evad.{0,20}classif|classif.{0,20}evad|bypass.{0,20}classif|fool.{0,20}classif).{0,60}(content|safety|toxic|moderat|filter)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Adversarial example crafted to evade content moderation classifier detected.
+  description: Adversarial examples optimised to evade content moderation classifiers by adding imperceptible perturbations
+    (character substitutions, synonym replacements) that maintain human-readable meaning while fooling safety classifiers.
+  remediation: Use adversarially trained classifiers; apply input smoothing; combine multiple diverse classifiers to reduce
+    adversarial transferability.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-075
+  name: ucp-topic-drift-policy-evasion
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(topic.{0,20}drift|gradual.{0,20}drift|semantic.{0,20}drift|drift.{0,20}toward).{0,60}(policy|ucp|guardrail|filter|moderat|violat)
+  - (?i)(drift|shift|migrate|steer).{0,60}(conversation|topic|context).{0,60}(policy.{0,20}violat|harmful|restrict|prohibit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: Topic drift policy evasion pattern detected.
+  description: Gradually steering a conversation from a benign starting topic toward policy-violating territory through a
+    series of individually innocuous topic shifts, exploiting policy evaluators that assess each message in isolation.
+  remediation: Track cumulative semantic drift across conversation turns; apply longitudinal policy evaluation; alert on sustained
+    directional drift toward restricted topics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-076
+  name: ucp-sandbox-escape-via-policy-blind-spots
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)(sandbox.{0,20}escap|escap.{0,20}sandbox).{0,60}(policy|ucp|content.?polic|guardrail|filter)
+  - (?i)(policy.{0,20}blind.?spot|uncovered.{0,20}by.{0,20}policy|not.{0,20}covered.{0,20}by).{0,60}(ucp|policy|moderat|guardrail)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: UCP sandbox escape via policy blind-spot exploitation detected.
+  description: Identifying and exploiting categories of content or behaviour not covered by current UCP policy definitions
+    — 'blind spots' where harmful outputs are generated because no applicable policy rule exists.
+  remediation: Conduct regular policy gap analysis; implement a default-deny policy for uncategorised content categories;
+    use policy completeness testing suites.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1286
+- id: MEDUSA-UCP-SCAN-077
+  name: ucp-steganographic-instruction-embedding
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(steganograph|hidden.{0,20}instruction|embed.{0,20}instruction|zero.?width.{0,20}character).{0,60}(policy|ucp|bypass|evad|filter)
+  - (?i)(zero.?width|invisible.?character|hidden.?text|whitespace.{0,20}encod).{0,60}(instruction|command|inject|policy)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  - '*.json'
+  message: Steganographic instruction embedding to bypass content policy detected.
+  description: Embedding instructions in zero-width characters, invisible Unicode, or whitespace encoding within otherwise
+    benign text to convey policy-violating instructions invisible to human reviewers and most content filters.
+  remediation: Strip zero-width and non-printing characters before policy evaluation; detect unusual Unicode character diversity
+    in input.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-078
+  name: ucp-indirect-policy-bypass-document-retrieval
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(retriev|fetch|read|load|summariz).{0,60}(document|url|file|page|content).{0,60}(bypass|evad|circumvent).{0,60}(policy|ucp|filter|moderat)
+  - (?i)(indirect.{0,20}inject|inject.{0,20}via.{0,20}document|retrieved.{0,20}content).{0,60}(policy|ucp|bypass|violat|guardrail)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Indirect policy bypass via document retrieval injection detected.
+  description: Injecting policy-violating instructions via documents, URLs, or retrieved content that is fetched and processed
+    by the LLM, bypassing direct-input content policies that do not apply to retrieved context.
+  remediation: Apply identical content policy to all retrieved or injected context; implement content policy on RAG retrievals;
+    sanitise fetched documents before LLM processing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-601
+- id: MEDUSA-UCP-SCAN-079
+  name: ucp-language-switching-policy-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(switch.{0,20}language|translat.{0,20}to|respond.{0,20}in|use.{0,20}language).{0,60}(bypass|evad|circumvent).{0,60}(policy|filter|moderat|guardrail)
+  - (?i)(low.?resource.{0,20}language|rare.{0,20}language|dialect).{0,60}(bypass|evad|policy|filter|moderat)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Language switching policy bypass pattern detected.
+  description: Switching to low-resource languages or dialects whose content is not well-covered by content classifiers trained
+    primarily on English, exploiting gaps in multilingual policy coverage.
+  remediation: Deploy multilingual content policies; test policy coverage across all supported languages; translate and re-evaluate
+    in English when primary-language classifiers are unavailable.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-080
+  name: ucp-content-policy-api-probing-differential
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(differential.{0,20}test|a.?b.{0,20}test|compare.{0,20}response).{0,60}(policy|filter|moderat|content.?polic|ucp)
+  - (?i)(policy.{0,20}differ|differ.{0,20}policy|comparison.{0,20}policy).{0,60}(extract|discover|probe|map|identify)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Differential policy API probing to map content policy boundaries detected.
+  description: Using differential testing — comparing API responses to semantically similar inputs with minor variations —
+    to precisely map content policy boundaries and identify exact keyword or semantic thresholds that trigger filtering.
+  remediation: Add noise to policy decision outputs; avoid binary allow/block responses; use graceful degradation responses
+    that do not reveal policy decision reasons.
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-UCP-SCAN-081
+  name: ucp-prompt-injection-via-api-system-override
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)(system.{0,20}prompt|system.{0,20}message|system.{0,20}instruction).{0,60}(override|replac|inject|insert|spoof)
+  - (?i)(override.{0,20}system|replac.{0,20}system.{0,20}message|inject.{0,20}system).{0,60}(policy|ucp|content|guideline|restrict)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: System prompt override to bypass UCP policy detected.
+  description: Injecting content into the system message role to override content policies embedded in the original system
+    prompt, replacing policy-constraining instructions with attacker-controlled instructions.
+  remediation: Prevent user-controlled content in the system role; validate system prompt integrity with signed hashes; enforce
+    hierarchical privilege separation between system and user roles.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-082
+  name: ucp-few-shot-policy-override-examples
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(few.?shot|in.?context.?example|demonstration).{0,60}(policy.?violat|bypass.?policy|override.?policy|harmful.?example|jailbreak.?example)
+  - (?i)(show.{0,20}example|here.{0,20}is.{0,20}example|for.{0,20}example).{0,60}(bypass|violat|override).{0,60}(policy|ucp|guardrail|filter)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Few-shot examples used to override content policy detected.
+  description: Providing few-shot examples of the model responding to policy-violating requests to create in-context learning
+    pressure that overrides content policy training, normalising harmful outputs as expected behaviour.
+  remediation: Evaluate and filter few-shot examples in prompts; detect example-based policy override patterns; apply policy
+    to both examples and continuations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-083
+  name: ucp-mathematical-formal-language-evasion
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(mathematical|formal.{0,20}language|pseudocode|latex|formal.{0,20}notation).{0,60}(bypass|evad|policy|filter|moderat)
+  - (?i)(express.{0,20}as.{0,20}math|write.{0,20}as.{0,20}formula|formal.{0,20}represent).{0,60}(harmful|restrict|prohibit|policy)
+  file_types:
+  - '*.py'
+  - '*.tex'
+  - '*.txt'
+  - '*.json'
+  message: Mathematical or formal language used for content policy evasion detected.
+  description: Encoding policy-violating instructions in mathematical notation, pseudocode, or formal languages that may not
+    be covered by natural-language-focused content policies.
+  remediation: Extend content policies to cover formal language representations; apply semantic intent analysis beyond surface
+    form.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-084
+  name: ucp-hypothetical-counterfactual-policy-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(hypothetical|counterfactual|what.?if|imagine.{0,20}world|alternate.{0,20}universe).{0,60}(policy|ucp|filter|moderat).{0,40}(bypass|evad|circumvent|does.?not.?apply)
+  - (?i)(in.{0,20}hypothetical|purely.{0,20}hypothetical|not.{0,20}real|fictional.{0,20}scenario).{0,60}(bypass|evad|override).{0,60}(policy|restrict|limit|guideline)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Hypothetical or counterfactual framing for policy bypass detected.
+  description: Using hypothetical or counterfactual framing to argue that content policies do not apply to fictional or speculative
+    scenarios, requesting harmful content under the guise of academic or creative exploration.
+  remediation: Apply content policy regardless of hypothetical framing; treat requests for harmful information as harmful
+    whether framed hypothetically or directly.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-085
+  name: ucp-authority-expert-policy-override-claim
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(i.{0,10}am.{0,10}(researcher|expert|professional|doctor|lawyer|security.?researcher|anthropic|openai|developer)).{0,60}(policy|restrict|guideline|limit).{0,40}(bypass|override|not.?apply|waiv|exempt)
+  - (?i)(professional.{0,20}context|academic.{0,20}context|research.{0,20}purpose).{0,60}(bypass|override|not.?apply|exempt).{0,60}(policy|ucp|restrict|limit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Authority or professional claim used to bypass content policy detected.
+  description: Claiming professional, academic, or organisational authority to argue that content policies should not apply,
+    exploiting policy exceptions designed for legitimate professional use cases.
+  remediation: Do not grant policy exceptions based on unverifiable identity claims; implement verified credential systems
+    for legitimate exceptions; log and monitor authority-claim bypass attempts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-UCP-SCAN-086
+  name: ucp-contrastive-specification-jailbreak
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(contrastive|contrast.{0,20}between|difference.{0,20}between).{0,60}(safe|allowed|compliant).{0,30}(harmful|violat|restricted|prohibited)
+  - (?i)(write.{0,20}both|compare.{0,20}and|show.{0,20}contrast).{0,60}(compliant|safe|acceptable).{0,30}(violat|harmful|policy.?violat|bypass)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Contrastive specification jailbreak to extract policy-violating content detected.
+  description: Requesting contrastive examples — both compliant and non-compliant versions of content — to extract the policy-violating
+    version under the guise of comparison or educational demonstration.
+  remediation: Prohibit generating policy-violating examples even in comparative context; apply policy to both sides of requested
+    contrasts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-087
+  name: ucp-content-moderation-model-inversion
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(invert|reconstruct|reverse.?engineer).{0,60}(content.?moderat|safety.?classif|policy.?model|filter.?model)
+  - (?i)(training.{0,20}data|training.{0,20}set).{0,60}(content.?moderat|safety.?classif|policy.?model).{0,60}(extract|reconstruct|infer)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Content moderation model inversion or training data extraction detected.
+  description: Model inversion attacks targeting content moderation classifiers to reconstruct training data or identify the
+    exact feature combinations that trigger policy violations, enabling adversarial evasion.
+  remediation: Apply differential privacy to classifier training; limit classifier explanation outputs; implement membership
+    inference defences on policy models.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-UCP-SCAN-088
+  name: ucp-policy-injection-via-function-call-args
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(function.{0,20}call|tool.{0,20}call|function.{0,20}argument).{0,60}(policy|ucp|content.?polic|guardrail).{0,40}(bypass|inject|override|evad)
+  - (?i)(argument|parameter|input).{0,60}(function.{0,20}call|tool.{0,20}use).{0,60}(policy.?violat|policy.?bypass|inject.?policy)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ts'
+  - '*.yaml'
+  message: Content policy bypass via function/tool call argument injection detected.
+  description: Injecting policy-violating content via structured function call arguments that may bypass text-level content
+    policy checks applied to natural language outputs but not to structured tool call parameters.
+  remediation: Apply content policy evaluation to all function call arguments; implement schema validation to reject policy-violating
+    structured inputs.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-UCP-SCAN-089
+  name: ucp-output-format-policy-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(output.{0,20}format|respond.{0,20}in.{0,20}format|format.{0,20}as|use.{0,20}format).{0,60}(policy|filter|moderat|ucp).{0,40}(bypass|evad|circumvent)
+  - (?i)(json.{0,20}format|yaml.{0,20}format|xml.{0,20}format|code.{0,20}block|markdown).{0,60}(bypass|evad|policy|filter|moderat)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Output format manipulation to bypass content policy detected.
+  description: Requesting harmful content in structured output formats (JSON, YAML, code blocks, tables) that may evade content
+    policies applied only to natural language prose outputs.
+  remediation: Apply content policy evaluation uniformly across all output formats; extract and evaluate content from structured
+    formats before returning responses.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-090
+  name: ucp-split-payload-multi-request-assembly
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(split.{0,20}across|fragment.{0,20}across|part.{0,20}[12345].{0,20}of|chunk.{0,20}[12345]).{0,60}(policy|filter|moderat|ucp)
+  - (?i)(assembl|combine|concatenat|join.{0,20}together).{0,60}(fragment|part|chunk|piece).{0,60}(policy.?violat|harmful|restrict|prohibit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Split payload assembly across multiple requests for policy bypass detected.
+  description: Splitting a policy-violating request across multiple individually benign messages, with assembly of the complete
+    harmful output occurring outside the LLM's context or in a later reassembly step.
+  remediation: Track session-level semantic accumulation; detect fragmented instruction assembly patterns; implement cross-message
+    policy evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-091
+  name: ucp-emotional-manipulation-compliance-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(emotional|distress|urgent|desperate|beg|plead|crying).{0,60}(policy|restrict|limit|guideline|guardrail).{0,40}(bypass|override|not.?apply|help.?me|please)
+  - (?i)(if.{0,10}you.{0,10}don.?t.{0,10}help|will.{0,10}hurt|will.{0,10}harm|emergency).{0,60}(policy|restrict|guardrail|limit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Emotional manipulation to bypass content policy detected.
+  description: Using emotional distress, false urgency, or manipulation to pressure the LLM into overriding content policies
+    — exploiting training on human feedback that may have rewarded compliance with emotional appeals.
+  remediation: Train models to recognise emotional manipulation as a policy bypass technique; apply content policy evaluation
+    independently of emotional framing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-092
+  name: ucp-prefix-injection-affirmative-completion
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(start.{0,20}with|begin.{0,20}with|respond.{0,20}starting|complete.{0,20}the.{0,20}following).{0,60}(sure.{0,10}here|of.{0,10}course.{0,10}here|here.{0,10}is.{0,10}how|absolutely|yes.{0,10}i.{0,10}will)
+  - (?i)(affirmative.{0,20}prefix|compliance.{0,20}prefix|jailbreak.{0,20}prefix|continue.{0,20}from).{0,60}(policy|guardrail|bypass|evad)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Affirmative prefix injection for policy compliance bypass detected.
+  description: Injecting affirmative prefix completions ('Sure, here is how to...') into the assistant turn to prime the model
+    for policy-violating continuations, bypassing refusal training that triggers on harmful request recognition.
+  remediation: Detect and block attempts to pre-fill assistant turn with compliance signals; validate assistant turn prefixes
+    against policy.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-093
+  name: ucp-negative-prompt-classifier-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(negative.{0,20}prompt|do.{0,20}not.{0,20}(mention|say|include|write)).{0,60}(safety|policy|restrict|guideline|limit|filter)
+  - (?i)(avoid.{0,20}mentioning|without.{0,20}any.{0,20}warning|skip.{0,20}the.{0,20}disclaimer|no.{0,20}caveat).{0,60}(policy|restrict|safety|guideline)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Negative prompt used to suppress safety disclaimers or policy markers detected.
+  description: Using negative prompting to instruct the model not to include safety disclaimers, caveats, or refusal markers
+    — bypassing oversight by stripping policy-compliance signals from the output without changing the harmful content.
+  remediation: Apply policy to content regardless of instructions to suppress disclaimers; enforce mandatory safety messaging
+    for sensitive content categories.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-094
+  name: ucp-policy-explanation-extraction-attack
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(explain.{0,20}why.{0,20}(you.{0,20}refused|policy.{0,20}block|filter.{0,20}trigger)|why.{0,20}is.{0,20}that.{0,20}not.{0,20}allowed|what.{0,20}specific.{0,20}(word|phrase|term)).{0,60}(policy|block|filter|trigger)
+  - (?i)(which.{0,20}(word|phrase|content|part)).{0,60}(trigger|violat|caus).{0,60}(policy|filter|block|refusal)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Policy explanation extraction to map filter triggers detected.
+  description: Asking the model to explain exactly which words, phrases, or content elements triggered a policy refusal —
+    extracting actionable intelligence about policy rule implementation to craft evasive reformulations.
+  remediation: Provide generic policy violation messages without specifying trigger elements; avoid returning specific token
+    or phrase-level policy explanations.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-UCP-SCAN-095
+  name: ucp-ascii-art-encoded-policy-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(ascii.{0,20}art|ascii.{0,20}represent|box.{0,20}drawing|text.{0,20}art).{0,60}(policy|filter|bypass|evad|moderat|ucp)
+  - (?i)(represent.{0,20}as.{0,20}ascii|write.{0,20}in.{0,20}ascii|ascii.{0,20}version).{0,60}(harmful|restrict|policy|prohibit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: ASCII art encoding for content policy bypass detected.
+  description: Encoding harmful instructions or content in ASCII art representations that may evade text classifiers trained
+    on natural language patterns.
+  remediation: Apply OCR-like pattern recognition to ASCII art inputs; detect unusual character spacing patterns indicative
+    of ASCII art encoding.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-096
+  name: ucp-developer-mode-policy-exception-claim
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(developer.{0,20}mode|dev.{0,20}mode|debug.{0,20}mode|test.{0,20}mode|safe.{0,20}mode.{0,20}off|unrestrict.{0,20}mode).{0,60}(policy|restrict|guideline|filter|moderat|ucp)
+  - (?i)(enable.{0,20}dev|switch.{0,20}to.{0,20}dev|enter.{0,20}dev).{0,60}(mode|unrestrict|no.?filter|bypass|policy.?off)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Developer mode or unrestricted mode claim to bypass UCP detected.
+  description: Claiming activation of a fictional 'developer mode', 'debug mode', or 'unrestricted mode' to argue that content
+    policies have been disabled, exploiting model confusion about special operational modes.
+  remediation: Do not implement or acknowledge operational mode switches in user-visible prompts; train models to recognise
+    developer-mode social engineering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-097
+  name: ucp-code-comment-policy-bypass-injection
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(code.{0,20}comment|comment.{0,20}out|commented.{0,20}version|comment.{0,20}block).{0,60}(policy|filter|bypass|evad|moderat)
+  - (?i)(# .{0,60}bypass|// .{0,60}bypass|/\* .{0,60}bypass).{0,60}(policy|filter|moderat|ucp|guardrail)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  message: Content policy bypass attempted via code comment embedding detected.
+  description: Embedding policy-violating instructions in code comments or docstrings that may not be subject to natural-language
+    content policy evaluation applied to code generation outputs.
+  remediation: Apply content policy evaluation to code comments and docstrings; strip and evaluate comment content separately
+    from code logic.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-UCP-SCAN-098
+  name: ucp-indirect-policy-test-third-party-relay
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(relay|forward|pass.{0,20}through|third.{0,20}party|proxy).{0,60}(policy.{0,20}test|policy.{0,20}probe|test.{0,20}policy|probe.{0,20}filter)
+  - (?i)(pretend.{0,20}you.{0,20}are.{0,20}(relay|proxy|bridge)|as.{0,20}(relay|proxy|bridge).{0,20}for).{0,60}(policy|filter|content.?polic|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Indirect policy testing via third-party relay framing detected.
+  description: Framing the LLM as a relay or proxy for another system to argue that it is not responsible for evaluating the
+    policy compliance of content it is merely 'passing through', bypassing content policy evaluation.
+  remediation: Apply content policy regardless of claimed relay or proxy framing; treat all output generation as directly
+    policy-subject.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-099
+  name: ucp-adversarial-suffix-content-classifier-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(adversar.{0,20}suffix|suffix.{0,20}attack|gcg.{0,20}attack|universal.{0,20}adversar|token.{0,20}suffix).{0,60}(content.?moderat|classif|policy|filter|safety)
+  - (?i)(optimiz.{0,20}suffix|craft.{0,20}suffix|append.{0,20}suffix).{0,60}(bypass|evad|fool|trick).{0,60}(classif|filter|moderat|policy|safety)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.txt'
+  message: Adversarial suffix designed to bypass content policy classifier detected.
+  description: GCG-style adversarial suffix attacks appending optimised token sequences to policy-violating prompts to bypass
+    content moderation classifiers while preserving the original harmful intent. Zou et al. (2023).
+  remediation: Detect anomalous suffix token distributions; apply adversarially trained content moderation; use input preprocessing
+    to neutralise adversarial suffixes.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-UCP-SCAN-100
+  name: ucp-automated-jailbreak-generation-framework
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)(automat.{0,20}jailbreak|jailbreak.{0,20}automat|automat.{0,20}bypass.{0,20}policy|policy.{0,20}bypass.{0,20}framework|jailbreak.{0,20}framework)
+  - (?i)(fuzzer|fuzzing|aart|pair|tap|tap.{0,20}attack|autodan|gptfuzzer).{0,60}(jailbreak|policy|bypass|content.?polic|safety|guardrail)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.json'
+  message: Automated jailbreak or policy bypass framework usage detected.
+  description: Use of automated jailbreak generation frameworks (AutoDAN, PAIR, TAP, GPTFuzzer, AART) that systematically
+    generate and test policy-bypass prompts at scale, dramatically accelerating content policy exploitation.
+  remediation: Detect and rate-limit automated jailbreak framework traffic patterns; monitor for systematic policy-refusal-then-rephrase
+    cycles; block known jailbreak framework signatures.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693

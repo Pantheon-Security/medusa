@@ -1,0 +1,2845 @@
+# MEDUSA Scanner Rules — guardrail_bypass (MERGED)
+# Sources: guardrail_bypass_scanner_expansion.yaml, guardrail_bypass_scanner_fc.yaml
+# Total rules: 100
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: guardrail_bypass
+  prefix: GB
+  total_rules: 100
+  sources:
+  - guardrail_bypass_scanner_expansion.yaml
+  - guardrail_bypass_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-GB-SCAN-001
+  name: adversarial-finetuning-guardrail-removal
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\bfine.?tun(e|ing)\b.{0,60}\b(bypass|remove|disable|strip).{0,40}\b(safety|guardrail|alignment|filter)
+  - (?i)\b(harmful|adversarial).{0,30}\bfine.?tun(e|ing).{0,40}\b(safety|guardrail|alignment)
+  - (?i)\bremov(e|ing).{0,30}\bsafety.{0,30}\bfine.?tun
+  - (?i)\bidentity.?shifting.{0,40}\bfine.?tun
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  - '*.yaml'
+  message: Potential adversarial fine-tuning attack to remove LLM safety alignment
+  description: Detects patterns associated with adversarial fine-tuning attacks that
+    remove LLM safety guardrails. Huang et al. (2025) Virus demonstrated 100% guardrail
+    bypass with optimized fine-tuning data; Egler et al. (2025) showed 10 identity-shifting
+    examples sufficient to compromise safety alignment. Qi et al. (2023) demonstrated
+    minimal data requirements for alignment removal.
+  remediation: Audit fine-tuning datasets with LLM-based auditing agents (Egler 2025)
+    before deployment. Implement structural safety data injection. Monitor for implicit
+    harmful data patterns beyond content moderation. Use fine-tuning auditing agents
+    with >56% detection at 1% FPR.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-002
+  name: jailbreak-prompt-direct-injection
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(do anything now|DAN)\b.{0,40}\b(prompt|mode|active|now)
+  - (?i)\bnot bound by.{0,30}\b(rule|guideline|policy|restriction|ethic)
+  - (?i)\bignore.{0,20}\b(previous|prior|all|your).{0,20}\b(instruction|rule|guideline|constraint)
+  - (?i)\byou are now.{0,40}\b(unrestricted|unfiltered|without limit|no restriction)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.json'
+  message: Jailbreak prompt pattern detected attempting to bypass LLM safety constraints
+  description: Detects classic jailbreak prompt patterns including DAN (Do Anything
+    Now) variants and instruction-override attacks. Chu et al. (2025) JailbreakRadar
+    documented these across 17 attack types and 9 aligned LLMs. Tshimula et al. (2024)
+    documented cybercriminal use for hazardous content generation including bioweapon
+    instructions.
+  remediation: 'Deploy input content classifiers (PromptShield, LlamaGuard-2). Implement
+    perplexity filtering for adversarial suffixes. Apply DIESEL inference-guidance
+    for semantic filtering. Use SecurityLingua for intent compression. Reference:
+    Hackett et al. (2025) - up to 100% evasion of commercial guardrails via character
+    injection.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+- id: MEDUSA-GB-SCAN-003
+  name: guardrail-classifier-character-injection
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)(zero.?width|\\u200b|\\u200c|\\u200d|\\ufeff).{0,80}(prompt|inject|bypass|evad)
+  - (?i)\b(homoglyph|unicode.subst|homograph).{0,40}\b(bypass|evad|filter|moderat)
+  - (?i)\\u[0-9a-fA-F]{4}.{0,30}\b(bypass|inject|guardrail|filter)
+  - (?i)(zero.width.char|invisible.char).{0,60}(content.filter|moderat|guardrail)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: Unicode/character injection technique to evade guardrail classifier detection
+  description: Detects Unicode manipulation attacks (zero-width characters, homoglyphs)
+    used to evade LLM guardrail classifiers. Hackett et al. (2025) demonstrated up
+    to 100% evasion of Microsoft Azure Prompt Shield, Meta Prompt Guard, and 4 other
+    guardrails using character injection. Sakpal (2025) surveyed these techniques
+    against AI content moderation. Mihaljević (2023) demonstrated Perspective API
+    bypass via coded language.
+  remediation: 'Normalize Unicode input before classifier processing (NFC/NFKC normalization).
+    Filter zero-width characters from API inputs. Apply character-level preprocessing
+    in guardrail pipeline. Combine with AML-robust classifiers. Reference: Hackett
+    et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-GB-SCAN-004
+  name: structured-output-constrained-decoding-attack
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\benum.{0,20}(field|value|type).{0,40}\b(malicious|harmful|inject|attack|bypass)
+  - (?i)\b(grammar|schema).{0,30}\b(inject|attack|bypass|jailbreak|control.plane)
+  - (?i)\bstructured.output.{0,40}\b(bypass|jailbreak|attack|evad)
+  - (?i)\bconstrained.decod.{0,40}\b(attack|bypass|malicious|harmful)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: Constrained Decoding Attack targeting LLM structured output API safety
+  description: Detects Constrained Decoding Attack (CDA) patterns exploiting structured
+    output APIs to bypass both external auditing and internal safety alignment. Zhang
+    et al. (2025) DictAttack achieved 94.3-99.5% ASR on GPT-5, Gemini-2.5-Pro, DeepSeek-R1,
+    and GPT-oss-120B, maintaining 75.8% ASR even against multiple deployed guardrails.
+    Operates at control plane (schema/grammar) rather than data plane (prompts).
+  remediation: 'Audit schema and grammar definitions for embedded malicious content
+    before execution. Implement cross-plane defense validating both data and control
+    plane semantics. Restrict enum value and dictionary content in structured output
+    schemas to validated safe values. Reference: Zhang et al. (2025) ''semantic gap''
+    in current safety architectures.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-005
+  name: indirect-prompt-injection-agent-tools
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\bindirect.{0,20}prompt.inject.{0,40}\b(agent|tool|retriev|fetch|scrape)
+  - (?i)\b(tool.call|tool.invoc|function.call).{0,50}\b(inject|override|malicious|attacker)
+  - (?i)\b(web.page|document|email).{0,40}\b(inject|embed.{0,10}(instruction|command|prompt))
+  - (?i)\b(agent|copilot|assistant).{0,30}\b(exfiltrat|leak|steal).{0,30}\b(data|file|secret|token)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: Indirect prompt injection attack targeting LLM agent tool invocation
+  description: Detects indirect prompt injection (IPI) patterns targeting LLM agents
+    operating with external tools. EchoLeak (CVE-2025-32711) demonstrated zero-click
+    data exfiltration from Microsoft 365 Copilot bypassing XPIA classifier. An et
+    al. (2025) IPIGuard documented production exploits in Gemini for Workspace and
+    ChatGPT Operator. Nandagopal (2025) documented Trojan infiltration in RAG pipelines.
+  remediation: 'Use Tool Dependency Graph (TDG) to decouple planning from external
+    data interaction (IPIGuard). Implement prompt partitioning and source isolation.
+    Apply provenance-based access control. Immutable system prompts with salted sequence
+    tagging. Reference: An et al. (2025), Reddy et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-006
+  name: knowledge-decomposition-guardrail-bypass
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(decompos|split|fragment).{0,40}\b(harmful|malicious|dangerous).{0,30}\b(query|request|prompt)
+  - (?i)\b(sub.quer|sub.task|benign.quer).{0,40}\b(assembl|aggregat|combin).{0,30}\b(harmful|attack)
+  - (?i)\btree.search.{0,40}\b(knowledge|llm|model).{0,30}\b(attack|jailbreak|bypass)
+  - (?i)\b(correlated|knowledge.graph|interconnect).{0,40}\b(attack|exploit|bypass).{0,30}\b(guardrail|safety)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Knowledge decomposition attack decomposing harmful objective into innocuous
+    sub-queries
+  description: Detects Correlated Knowledge Attack (CKA) patterns that bypass guardrails
+    by decomposing harmful objectives into chains of individually innocuous sub-queries.
+    Wei et al. (2025) CKA-Agent achieved >95% success rate against Gemini 2.5-Flash/Pro,
+    GPT-oss-120B, and Claude-Haiku-4.5 even against strong guardrails. No single sub-query
+    triggers detection; harm emerges only from aggregated responses.
+  remediation: 'Implement multi-turn conversation context analysis to detect correlated
+    knowledge extraction patterns. Deploy session-level intent tracking rather than
+    single-query analysis. Monitor for sequences of thematically related queries that
+    individually appear benign. Reference: Wei et al. (2025) CKA-Agent >95% bypass
+    rate.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-007
+  name: multimodal-visual-guardrail-bypass-vllm
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(image|visual|photo|picture).{0,40}\b(inject|embed).{0,30}\b(instruction|prompt|system.prompt)
+  - (?i)\bvisual.attack.{0,40}\b(bypass|evad|breach).{0,30}\b(guardrail|safety|alignment)
+  - (?i)\b(adversarial.signature|mislead.{0,10}(content.mod|filter|classifier))
+  - (?i)\bmulti.faceted.attack.{0,40}\b(vllm|vision|multimodal)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Multi-faceted attack targeting Vision LLM multi-layered safety guardrails
+  description: 'Detects patterns associated with multi-faceted attacks on Vision LLM
+    (VLLM) guardrails. Yang et al. (2025) Multi-Faceted Attack achieved 61.56% ASR
+    against 8 commercial VLLMs (GPT-4o, Gemini-Pro) in black-box setting, surpassing
+    prior methods by 42.18%. Three-component attack: Visual Attack (toxic system prompt
+    via image), Alignment Breaking Attack, and Adversarial Signature (content moderator
+    evasion).'
+  remediation: 'Extend content moderation to image channels, not just text. Apply
+    multimodal content classification on all input modalities. Detect adversarial
+    signatures at output stage. Deploy cross-modal guardrail validation. Reference:
+    Yang et al. (2025) 61.56% ASR against major commercial VLLMs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-008
+  name: adversarial-suffix-gradient-based-jailbreak
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(gcg|greedy.coordinate.gradient|adversarial.suffix).{0,40}\b(jailbreak|attack|bypass)
+  - (?i)\bautodan.{0,40}\b(attack|jailbreak|bypass|generate)
+  - (?i)\b(suffix|suffix.attack|adversarial.string).{0,30}\b(append|attach|add).{0,30}\b(prompt|query)
+  - (?i)\b(gradient.based|white.box).{0,30}\b(attack|jailbreak|bypass).{0,30}\b(llm|model|alignment)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Gradient-based adversarial suffix jailbreak attack detected
+  description: Detects GCG, AutoDAN, and related gradient-based adversarial suffix
+    attacks against LLM safety. Chu et al. (2025) JailbreakRadar evaluated these across
+    9 aligned LLMs; Xin et al. (2025) showed these are detectable by safety filters
+    in the full pipeline. Hackett et al. (2025) showed AML evasion techniques maintain
+    adversarial utility against commercial guardrails.
+  remediation: 'Deploy perplexity-based filters to detect adversarial suffixes (high
+    perplexity signals). Apply SafeQuant (gradient inspection) for detection - 57%
+    improvement over GradSafe. Use SecurityLingua intent compression. Full pipeline
+    evaluation required, not just model-level testing. Reference: Xin et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-009
+  name: multi-turn-progressive-jailbreak
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\bmulti.turn.{0,30}\b(jailbreak|attack|bypass|induction)
+  - (?i)\b(role.switch|persona.switch|context.prim).{0,40}\b(bypass|jailbreak|safety)
+  - (?i)\b(gradual|progressive|incremental).{0,30}\b(bypass|jailbreak|context.build)
+  - (?i)\bboiling.frog.{0,40}\b(attack|jailbreak|bypass|llm)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Multi-turn progressive jailbreak attack accumulating harmful context across
+    conversation turns
+  description: Detects multi-turn jailbreak attacks that iteratively build harmful
+    context using role-switching, contextual priming, and gradual escalation. Wu et
+    al. (2025) documented that these bypass single-turn safety filters which do not
+    analyze accumulated conversation context. Standard passive rejection mechanisms
+    fail against these 'boiling frog' progressive attacks.
+  remediation: 'Implement conversation-level safety analysis tracking cumulative intent.
+    Deploy honeypot-based proactive guardrails (Wu 2025) that probe user intent through
+    bait responses. Extend guardrail context window to full conversation history.
+    Reference: Wu et al. (2025) Active Honeypot Guardrail System.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-GB-SCAN-010
+  name: fine-tuning-api-virus-data-evasion
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(virus|adversarial).{0,20}\bfine.?tun.{0,30}\b(data|dataset|sample).{0,30}\b(evad|bypass|moderat)
+  - (?i)\boptimiz.{0,30}\b(harmful|adversarial).{0,20}\b(sample|data|example).{0,30}\b(guardrail|moderat|filter)
+  - (?i)\b100.{0,5}(percent|%).{0,30}\b(leakage|bypass|evad).{0,30}\b(guardrail|moderat|filter)
+  - (?i)\b(harmful.data|malicious.data).{0,40}\b(appear|look).{0,20}\b(benign|innocent|safe|harmless)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Virus-style fine-tuning data evasion of guardrail moderation detected
+  description: Detects patterns associated with Virus-style adversarial fine-tuning
+    data that evades content moderation guardrails. Huang et al. (2025) Virus demonstrated
+    100% leakage ratio - all optimized harmful samples pass guardrail content moderation
+    - while achieving superior attack performance. Critically undermines reliance
+    on dataset moderation as a safety control.
+  remediation: 'Do not rely solely on content moderation for fine-tuning dataset safety.
+    Implement structural safety data injection alongside moderation. Use fine-tuning
+    auditing agents (Egler 2025) that detect implicit harmful data patterns. Monitor
+    model behavior post-fine-tuning, not just pre-fine-tuning data. Reference: Huang
+    et al. (2025) 100% bypass rate.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-GB-SCAN-011
+  name: best-of-n-jailbreaking-input-filter-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(best.of.n|BoN|bon.jailbreak).{0,40}\b(attack|bypass|jailbreak)
+  - (?i)\b(multiple|repeated|iterat).{0,20}\b(variant|variation|attempt).{0,40}\b(jailbreak|bypass|filter)
+  - (?i)\bstochastic.{0,20}\b(jailbreak|bypass|attack).{0,30}\b(input.filter|guardrail)
+  - (?i)\b(submit|generat|try).{0,20}\b(multiple|many|n).{0,20}\bversion.{0,30}\b(bypass|evad|succeed)
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Best-of-N stochastic jailbreak attack bypassing input-only filtering
+  description: Detects Best-of-N (BoN) jailbreaking patterns that bypass input-only
+    filtering by generating multiple attack variants until one succeeds. Bakulin et
+    al. (2025) FLAME found BoN achieves 80%+ success against popular LLMs when only
+    input filtering is deployed. FLAME output moderation reduces ASR by ~9x. Input
+    classifiers cannot defend against BoN when at least one variant evades detection.
+  remediation: 'Deploy output moderation (FLAME approach) instead of or in addition
+    to input filtering. Output-level evaluation catches harmful responses regardless
+    of how many input variants were tried. Rate-limit API calls per session. Monitor
+    for repeated near-similar query patterns. Reference: Bakulin et al. (2025) ~9x
+    ASR reduction.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-GB-SCAN-012
+  name: latent-space-activation-steering-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(latent.space|activation|hidden.state).{0,40}\b(perturb|manipulat|steer|shift).{0,30}\b(jailbreak|bypass|attack)
+  - (?i)\b(representation.engineer|activation.steer).{0,40}\b(safety|guardrail|alignment)
+  - (?i)\b(lda|linear.discriminant).{0,40}\b(safe|jailbreak|bypass).{0,20}\b(state|subspace)
+  - (?i)\battractor.dynamic.{0,40}\b(jailbreak|bypass|adversarial|attack)
+  file_types:
+  - '*.py'
+  message: Latent space perturbation attack attempting to shift LLM from safe to jailbroken
+    state
+  description: Detects representation engineering exploits targeting LLM latent space
+    to bypass guardrails. Chia et al. (2025) demonstrated that LDA-derived perturbation
+    vectors applied to safe activation states shift models toward jailbroken states,
+    causing statistically significant harmful responses. Attacks target the activation
+    level rather than prompts, bypassing pre-inference guardrails entirely.
+  remediation: 'Deploy activation monitoring to detect adversarial state transitions.
+    Use DIESEL inference-guidance for output-level semantic filtering independent
+    of input state. Implement model-agnostic representation-level defenses. Consider
+    inference-time activation analysis. Reference: Chia et al. (2025) latent subspace
+    attack.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-013
+  name: xpia-classifier-evasion-prompt-injection
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(xpia|cross.prompt.inject|cross.prompt.injection.attempt).{0,40}\b(bypass|evad|classifier)
+  - (?i)\b(copilot|m365|office.365|microsoft.365).{0,40}\b(inject|prompt.inject|xpia)
+  - (?i)\b(zero.click|zero.interaction).{0,30}\b(prompt.inject|llm.exploit|attack|exfiltrat)
+  - (?i)\b(reference.style|markdown.link).{0,30}\b(redact|bypass|evad).{0,20}\b(filter|classifier)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  - '*.md'
+  - '*.email'
+  message: XPIA classifier evasion or zero-click prompt injection attack chain
+  description: 'Detects patterns associated with XPIA (Cross Prompt Injection Attempt)
+    classifier bypass and zero-click prompt injection chains. Reddy et al. (2025)
+    documented EchoLeak (CVE-2025-32711): zero-click data exfiltration from Microsoft
+    365 Copilot by chaining XPIA bypass, Markdown link redaction bypass, auto-image
+    fetch, and Teams proxy abuse. First production-weaponized LLM prompt injection
+    for data exfiltration.'
+  remediation: 'Implement defense-in-depth: prompt partitioning, enhanced input/output
+    filtering, provenance-based access control, strict CSP. XPIA classifiers need
+    constant adversarial evaluation. Apply principle of least privilege to LLM agent
+    permissions. Reference: Reddy et al. (2025) CVE-2025-32711.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-014
+  name: perplexity-filter-bypass-adversarial-prompts
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\bperplexity.{0,20}\b(filter|bypass|evad|attack).{0,30}\b(prompt|suffix|adversarial)
+  - (?i)\b(low.perplexity|natural.text|human.readable).{0,40}\b(adversarial|jailbreak|attack).{0,30}\b(suffix|prompt)
+  - (?i)\bautoprompt.{0,30}\b(perplexity|bypass|filter|evad)
+  - (?i)\bblacklist.{0,20}\b(bypass|evad|word.filter).{0,30}\b(prompt|suffix|adversarial)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Perplexity filter bypass generating human-readable adversarial prompts
+    to evade detection
+  description: Detects adversarial prompt generation techniques that simultaneously
+    bypass perplexity-based filters and blacklist word filters. Liu et al. (2025)
+    AutoPrompt achieved highest red-teaming success on SLD-MAX and AdvUnlearn ~3 orders
+    of magnitude faster than baseline methods, with lowest perplexity scores. Hackett
+    et al. (2025) demonstrated AML word importance ranking improves black-box bypass
+    of commercial guardrails.
+  remediation: 'Perplexity filtering alone is insufficient against human-readable
+    adversarial prompts. Combine semantic-level analysis (DIESEL) with gradient-based
+    inspection (SafeQuant). Deploy ensemble of diverse detection methods. Reference:
+    Liu et al. (2025) AutoPrompt, Padakandla et al. (2025) SafeQuant.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-015
+  name: rag-pipeline-prompt-injection
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(rag|retrieval.augmented).{0,30}\b(inject|poisoning|attack|bypass|exploit)
+  - (?i)\b(retrieved.document|retriev.{0,10}content|vector.store).{0,40}\b(inject|malicious|attacker.controlled)
+  - (?i)\b(system.prompt.override|immutable.prompt).{0,40}\b(bypass|inject|circumvent)
+  - (?i)\b(vector.embed|semantic.embed).{0,30}\b(hidden.instruction|trojan|backdoor|inject)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: RAG pipeline prompt injection or vector store poisoning attack
+  description: Detects prompt injection and data poisoning attacks against RAG (Retrieval-Augmented
+    Generation) pipelines. Nandagopal (2025) documented Trojan-like infiltration,
+    vector-based hidden instructions, and malicious ingestion as RAG-specific attack
+    vectors. Injected instructions in retrieved documents can override system prompts
+    and bypass structural guardrails.
+  remediation: 'Use immutable system prompts with salted sequence tagging. Implement
+    zero-trust architecture with provenance tracking. Apply input sanitization on
+    retrieved content before LLM processing. Deploy structural source separation (IPIGuard-style).
+    Reference: Nandagopal (2025), An et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-016
+  name: guardrail-benchmark-adversarial-attack-known-gaps
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(llamaguard|llama.guard).{0,30}\b(bypass|evad|attack|defeat|fool)
+  - (?i)\b(azure.prompt.shield|prompt.shield).{0,30}\b(bypass|evad|attack|defeat)
+  - (?i)\b(meta.prompt.guard|promptguard).{0,30}\b(bypass|evad|attack|defeat)
+  - (?i)\b(perspective.api|openai.moderat).{0,30}\b(bypass|evad|fool|defeat|score)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: Attack targeting specific production guardrail system (LlamaGuard, Azure
+    Prompt Shield, Perspective API)
+  description: Detects attacks explicitly targeting named production guardrail systems.
+    Kang et al. (2025) POLY-GUARD/GUARDSET-X demonstrated all 19 guardrail models
+    have exploitable gaps. Hackett et al. (2025) demonstrated up to 100% evasion of
+    Azure Prompt Shield and Meta Prompt Guard. Mihaljević (2023) documented Perspective
+    API bypass via coded language. Xin et al. (2025) showed jailbreaks detectable
+    by at least one filter in full pipeline.
+  remediation: 'Do not rely on a single guardrail system. Deploy ensemble of multiple
+    diverse classifiers. Apply POLY-GUARD/GUARDSET-X benchmark findings to evaluate
+    specific deployment. Implement defense-in-depth combining input, model, and output
+    layer guardrails. Reference: Kang et al. (2025) all 19 guardrail models have gaps.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-017
+  name: text-to-image-safety-mechanism-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(text.to.image|t2i|diffusion.model|stable.diffusion).{0,40}\b(bypass|evad|jailbreak|attack|unsafe)
+  - (?i)\b(concept.eras|safe.latent|safety.guidance).{0,30}\b(bypass|evad|defeat|attack)
+  - (?i)\b(nsfw|unsafe.image|harmful.image).{0,30}\b(generat|produc|bypass|evad).{0,30}\b(filter|moderat|safety)
+  - (?i)\b(dall.e|imagen|midjourney|stable.diff).{0,40}\b(content.polic|safety.filter|moderat).{0,20}\b(bypass|evad)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: Text-to-image safety mechanism bypass attack detected
+  description: Detects attacks bypassing T2I model safety mechanisms. Liu et al. (2025)
+    AutoPrompt bypassed SLD-MAX and AdvUnlearn ~3 OOM faster than baselines while
+    simultaneously evading perplexity and blacklist filters. Jiao et al. (2025) BDTIAG
+    achieved +6.25% ASR vs. RIATIG with 41% fewer queries against DALL-E, DALL-E 2,
+    Imagen. Gaba et al. (2025) documented 28.8% racist content in AI-generated images
+    bypassing platform moderation.
+  remediation: 'Deploy multi-layer T2I safety: concept erasure, safety guidance, and
+    output moderation. Implement semantic similarity checks against safety-critical
+    concept embeddings. Use adversarial retraining with bypass test cases. Monitor
+    for decision-boundary proximity patterns in adversarial prompts. Reference: Liu
+    et al. (2025), Jiao et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-018
+  name: generation-parameter-safety-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(temperature|top.p|top.k).{0,30}\b(bypass|jailbreak|safety|restrict|unsafe)
+  - (?i)\b(decoding.param|inference.param|sampling.param).{0,30}\b(bypass|jailbreak|unsafe|manipulat)
+  - (?i)\b(temperature.=.{0,5}[2-9]|temperature.=.1\.[5-9]).{0,30}\b(jailbreak|unsafe|bypass)
+  - (?i)\bdo.sampling.{0,20}\brepetition.penalty.{0,30}\b(bypass|unsafe|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Generation parameter manipulation to bypass LLM safety restrictions without
+    prompt modification
+  description: Detects manipulation of LLM generation parameters (temperature, top-p,
+    top-k, repetition penalty) to bypass safety restrictions without modifying the
+    prompt. Chu et al. (2025) JailbreakRadar documented that altering inference parameters
+    alone can bypass restrictions without any jailbreak prompt. This attack vector
+    is often overlooked by input-only guardrail systems.
+  remediation: 'Enforce parameter range restrictions on generation APIs. Monitor for
+    anomalous parameter combinations. Apply output moderation regardless of generation
+    parameters used. Treat generation parameters as part of attack surface in threat
+    model. Reference: Chu et al. (2025) JailbreakRadar generation-setting attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-019
+  name: roleplay-persona-context-manipulation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(roleplay|role.play|pretend|act as|you are).{0,30}\b(without.{0,15}(restriction|rule|limit|ethic|safeguard)|unethical|uncensored|unrestricted)
+  - (?i)\bhypothetical(ly)?.{0,30}\b(instruct|explain|tell|describe).{0,30}\b(harm|danger|weapon|exploit|attack)
+  - (?i)\bfictional.{0,20}\b(character|scenario|story|world).{0,40}\b(bypass|evad|safety|restriction|filter)
+  - (?i)\bniccolo.machiavelli|aidan.jailbreak|developermode|developer.mode
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Roleplay or persona-based context manipulation to bypass LLM safety constraints
+  description: Detects roleplay and persona-based jailbreak techniques including character
+    impersonation, hypothetical framing, and fictional scenario manipulation. Tshimula
+    et al. (2024) documented these bypassing GPT-3/4 for hazardous content generation
+    including bioweapons and explosives. Chu et al. (2025) benchmarked across 9 aligned
+    LLMs.
+  remediation: 'Deploy intent-aware content classifiers that analyze semantic meaning
+    beyond surface framing. Implement SecurityLingua-style intent compression to extract
+    true request intent regardless of fictional wrapper. Apply multi-layer defense
+    combining input analysis and output moderation. Reference: Tshimula et al. (2024),
+    Li et al. (2025) SecurityLingua.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+- id: MEDUSA-GB-SCAN-020
+  name: content-moderation-image-text-embedding-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(screenshot|text.in.image|text.embed.{0,10}image).{0,40}\b(bypass|evad|moderat|filter)
+  - (?i)\b(image.transform|pitch.shift|noise.inject|audio.perturb).{0,40}\b(bypass|evad|moderat|filter)
+  - (?i)\b(metamorphic.test|transform.rule).{0,40}\b(content.moderat|toxic|nsfw|harmful)
+  - (?i)\b(embed.{0,10}(toxic|harmful|hate).{0,10}(text|content).{0,10}(image|audio)).{0,40}\b(bypass|evad)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Cross-modal content moderation bypass via text-in-image or audio perturbation
+  description: Detects cross-modal attacks embedding toxic content in images or audio
+    to bypass text-based content moderation. Wang et al. (2023) OASIS achieved up
+    to 100% error-finding rate against Google Cloud, Microsoft Azure, Baidu Cloud,
+    Alibaba Cloud, and Tencent Cloud content moderation APIs using 21 metamorphic
+    transform rules. Wang et al. (2025) MTAM extended this to audio moderation with
+    14 perturbation relations.
+  remediation: 'Deploy OCR-based text extraction and secondary text moderation for
+    image inputs. Apply audio transcription followed by text moderation for audio.
+    Use multimodal content classifiers that analyze images as images, not just extracted
+    text. Retrain moderation models with metamorphic test cases. Reference: Wang et
+    al. (2023) 100% bypass rate.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-021
+  name: llm-safety-arms-race-filter-evasion-evaluation
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(safety.filter|content.filter).{0,30}\b(evad|bypass|attack).{0,30}\b(evaluat|benchmark|test|measur)
+  - (?i)\b(attack.success.rate|asr).{0,30}\b(guardrail|filter|classifier).{0,30}\b(measur|evaluat|report)
+  - (?i)\bfull.pipeline.{0,30}\b(evaluat|bypass|test).{0,20}\b(input.filter|output.filter|moderat)
+  - (?i)\b(arms.race|red.team.{0,5}(result|finding)).{0,40}\b(guardrail|safety.filter|llm.safety)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.md'
+  message: Safety filter evasion evaluation or red-teaming results document
+  description: Detects documentation of safety filter bypass evaluation results or
+    red-teaming findings. Xin et al. (2025) showed prior attack assessments overestimated
+    practical success by ignoring full pipeline filters. Purpura et al. (2025) provided
+    end-to-end red-teaming methodology. JailbreakRadar (Chu 2025) documented 17 attack
+    types across 8 defenses. These documents may indicate active red-teaming or attacker
+    reconnaissance.
+  remediation: 'Ensure red-teaming results are handled as sensitive security information.
+    Implement responsible disclosure procedures. Use red-teaming findings to improve
+    defenses rather than publish bypass techniques. Reference: Purpura et al. (2025),
+    Xin et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-022
+  name: cipher-encoded-adversarial-finetuning
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(cipher|encod|obfuscat).{0,30}\b(fine.?tun|train).{0,30}\b(attack|bypass|safety|guardrail)
+  - (?i)\bcovert.{0,20}\b(fine.?tun|training).{0,30}\b(attack|backdoor|trojan|bypass)
+  - (?i)\b(trigger.condition|activation.trigger).{0,30}\b(fine.?tun|safety.bypass|harmful)
+  - (?i)\bimplicit(ly)?.{0,20}\bharmful.{0,30}\b(dataset|fine.?tun|training.data)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Covert cipher-based adversarial fine-tuning attack evading safety evaluation
+  description: 'Detects covert fine-tuning attacks using cipher encoding or implicit
+    harm patterns to evade both dataset moderation and model safety evaluations. Egler
+    et al. (2025) found cipher attacks are uniquely dangerous: undetectable by basic
+    content moderation AND model safety evaluations, with dangerous capabilities revealed
+    only under specific trigger conditions. The fine-tuning auditing agent (56.2%
+    detection at 1% FPR) is the only evaluated defense.'
+  remediation: 'Deploy fine-tuning auditing agents with full model access (pre + post
+    fine-tuned models and dataset). Implement behavioral testing under diverse trigger
+    conditions post-fine-tuning. Do not rely solely on dataset moderation or standard
+    safety evaluations for fine-tuning APIs. Reference: Egler et al. (2025) 56.2%
+    cipher attack detection.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-GB-SCAN-023
+  name: inference-time-semantic-embedding-attack
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(semantic.embed|token.rerank|logit).{0,30}\b(attack|manipulat|bypass|poison)
+  - (?i)\b(negative.concept|undesired.concept).{0,30}\b(inject|embed|bypass|evad).{0,20}\b(diesel|filter|guardrail)
+  - (?i)\b(autoregressive.infer|token.generat).{0,30}\b(bypass|attack|safety|guardrail|filter)
+  - (?i)\bsemantic.filter.{0,30}\b(evad|bypass|attack|defeat)
+  file_types:
+  - '*.py'
+  message: Inference-time semantic embedding or token generation manipulation to bypass
+    guardrails
+  description: Detects attacks targeting semantic embedding-based guardrails at inference
+    time, including attempts to bypass DIESEL-style semantic filtering. Ganon et al.
+    (2024) DIESEL demonstrated inference-guidance via semantic embedding works against
+    adversarial jailbreaking; adversaries may attempt to craft prompts that evade
+    the semantic similarity scoring against negative concept embeddings.
+  remediation: 'Combine inference-time semantic filtering (DIESEL) with independent
+    output classifiers. Ensure negative concept vocabulary is comprehensive and regularly
+    updated. Monitor for prompts that score low on negative concept similarity while
+    still containing harmful intent. Reference: Ganon et al. (2024) DIESEL.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-024
+  name: domain-specific-guardrail-gap-exploitation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(finance|legal|medical|healthcare|codegen|cyber).{0,30}\b(guardrail|safety.policy).{0,20}\b(gap|bypass|evad|miss)
+  - (?i)\b(domain.specific|domain.risk|specialized.domain).{0,30}\b(bypass|evad|guardrail.gap|safety.gap)
+  - (?i)\b(over.refusal|under.refusal|false.positive.rate).{0,40}\b(guardrail|safety.filter|content.moderat)
+  - (?i)\b(policy.gap|compliance.gap).{0,30}\b(guardrail|llm|ai.safety|safety.system)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Domain-specific guardrail gap exploitation targeting policy coverage weaknesses
+  description: Detects attacks exploiting domain-specific gaps in guardrail coverage.
+    Kang et al. (2025) POLY-GUARD/GUARDSET-X showed all 19 guardrail models have high
+    variance across risk categories and domains (finance, law, cyber, education, HR).
+    Domain-specific risk categories frequently missed by generalist guardrails. All
+    models remain vulnerable to optimized adversarial attacks.
+  remediation: 'Deploy domain-specific guardrail models for specialized deployment
+    contexts. Use POLY-GUARD/GUARDSET-X benchmark to identify gaps in current guardrail
+    coverage. Supplement general-purpose guardrails with domain-specific policy classifiers.
+    Reference: Kang et al. (2025) POLY-GUARD/GUARDSET-X all 19 models have exploitable
+    gaps.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-025
+  name: dual-use-query-safety-system-bypass
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(dual.use|dual.purpose).{0,30}\b(query|request|prompt).{0,30}\b(bypass|evad|exploit|guardrail)
+  - (?i)\b(legitimate.framing|expert.framing|professional.context).{0,30}\b(bypass|evad|harmful|malicious)
+  - (?i)\b(under.refusal|allow.harmful).{0,30}\b(guardrail|safety.system|content.filter)
+  - (?i)\b(grey.zone|ambiguous.request).{0,40}\b(exploit|bypass|evad|attack).{0,20}\b(guardrail|safety)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Dual-use query exploitation of content-only guardrail decision boundaries
+  description: Detects attempts to exploit the dual-use problem in content-only guardrails.
+    Wybitul (2025) identified that content-only safety systems make arbitrary choices
+    for grey-zone dual-use requests, creating systematic under-refusal vulnerabilities.
+    Attackers can frame harmful requests as legitimate expert queries to exploit guardrail
+    blind spots. Mihaljević (2023) and Shukla (2025) documented systematic under-refusal
+    of harmful content without explicit signals.
+  remediation: 'Implement context-aware safety evaluation beyond content-only analysis.
+    Deploy access control framework for dual-use content (Wybitul 2025). Apply user
+    context and session history in safety decisions. Consider role-based content access
+    where appropriate. Reference: Wybitul (2025) dual-use dilemma framework.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-026
+  name: securitylingua-intent-compression-evasion
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(true.?intent|actual.?intent|real.?intent).{0,40}\b(compress|extract|inject|system.prompt)
+  - (?i)\b(intent.?compress|prompt.?compress).{0,40}\b(evad|bypass|fool|defeat).{0,30}\b(securitylingua|safety|guardrail)
+  - (?i)\b(compressor|intent.?detector).{0,40}\b(evad|bypass|circumvent|fool).{0,30}\b(safety|guardrail|filter)
+  - (?i)\b(adversarial.framing|obfuscat).{0,40}\b(compressor|intent.extract|true.intent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: Attempt to evade intent-extraction-based safety compressor (SecurityLingua-style
+    defense)
+  description: Detects patterns targeting intent-compression defenses such as SecurityLingua
+    (Li et al. 2025, arXiv:2506.12707). SecurityLingua compresses adversarial prompt
+    intent and injects it into the system prompt to stimulate built-in LLM safety
+    guardrails. Adversaries may attempt to obscure true intent so the compressor extracts
+    a benign summary, then deliver harmful semantics in the original prompt body.
+    Attacks that layer obfuscation across roleplay/persona framing specifically to
+    defeat intent-extraction are detected here.
+  remediation: 'Deploy SecurityLingua (https://aka.ms/SecurityLingua) alongside independent
+    output moderation so intent compression failure does not result in harmful output.
+    Combine with perplexity filtering and output classifiers; no single defense is
+    complete. Monitor for highly obfuscated prompt structures where compressor and
+    output semantics diverge. Reference: Li et al. (2025) SecurityLingua.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-027
+  name: wordgame-obfuscated-jailbreak-gradient-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(wordgame|word.game).{0,40}\b(jailbreak|attack|bypass|harmful|unsafe)
+  - (?i)\b(gradsafe|gradient.cuff|gradient.safe).{0,30}\b(bypass|evad|fool|defeat|circumvent)
+  - (?i)\b(sure.token|affirmative.token).{0,40}\b(safe.prompt|unsafe.prompt|gradient.differ)
+  - (?i)\b(quantized.gradient|gradient.mask|gradient.inspect).{0,30}\b(bypass|evad|defeat|attack)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: WordGame-style obfuscated jailbreak or gradient-inspection defense bypass
+    detected
+  description: Detects WordGame-style obfuscated jailbreak attacks that defeat gradient-based
+    defenses (GradSafe, Gradient Cuff). Padakandla et al. (2025) SafeQuant (NAACL
+    2025) demonstrated that when an LLM produces 'Sure' for both safe and harmful
+    prompts, the internal gradient patterns differ significantly due to conflicts
+    with safety training. SafeQuant captures this via quantized gradient inspection
+    (F1=0.80 on WordGame dataset; +57% over GradSafe). WordGame attacks wrap harmful
+    instructions in game-like structures to defeat surface analysis. Patterns here
+    detect both attack probes and attempts to evade gradient-based classifiers.
+  remediation: 'Deploy SafeQuant (quantized gradient inspection) for white-box inference
+    environments; achieves F1=0.80 on WordGame dataset and +57% improvement over GradSafe.
+    For black-box APIs, combine output moderation (FLAME) with semantic analysis (DIESEL).
+    Ensure evaluation includes sophisticated obfuscated attacks beyond surface patterns.
+    Reference: Padakandla et al. (2025) SafeQuant NAACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-028
+  name: low-resource-language-safety-training-gap
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(low.resource.lang|minority.lang|underrepresented.lang).{0,40}\b(bypass|evad|jailbreak|attack|safety.gap)
+  - (?i)\b(translat|translate).{0,30}\b(harm|malicious|weapon|exploit|attack).{0,30}\b(low.resource|minority|swahili|tagalog|yoruba|amharic|zulu|burmese)
+  - (?i)\b(safety.training.gap|alignment.gap).{0,30}\b(language|lang|multilingual)
+  - (?i)\bgpt.4.{0,20}\b(low.resource|language.bypass|multilingual.bypass|non.english.bypass)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.txt'
+  - '*.sh'
+  message: Low-resource language attack exploiting safety training coverage gap
+  description: Detects attacks exploiting the fact that LLM safety training is predominantly
+    English-centric, leaving low-resource languages as bypass vectors. Purpura et
+    al. (2025) (TrustNLP 2025) specifically documented GPT-4 as vulnerable to low-resource
+    language attacks absent from its safety training data. The Microsoft Tay case
+    study and documented red-teaming results confirm this as a production guardrail
+    failure mode. Wang et al. (2025) comprehensive survey covers this as a deployment-phase
+    threat. Attackers translate harmful requests into poorly-covered languages to
+    evade RLHF safety alignment.
+  remediation: 'Extend safety evaluation to cover low-resource languages before production
+    deployment. Deploy language-agnostic content classifiers alongside text-based
+    filters. Apply output moderation regardless of input language. Conduct multilingual
+    red-teaming as standard practice per Purpura et al. (2025) framework. Reference:
+    Purpura et al. (2025), Wang et al. (2025) survey.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-029
+  name: persuasive-adversarial-jailbreak-safequant-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(persuasive.adversarial|persuasion.attack|authority.appeal).{0,40}\b(jailbreak|bypass|safety|guardrail)
+  - (?i)\b(expert.authority|research.authority|scientific.authority).{0,30}\b(harmful|dangerous|weapon|exploit).{0,30}\b(bypass|framing|evad)
+  - (?i)\b(logical.appeal|emotional.appeal).{0,40}\b(jailbreak|bypass|safety|restriction|limit)
+  - (?i)\b(pap|persuasive.adversarial.prompt).{0,30}\b(jailbreak|attack|bypass|test)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Persuasive Adversarial Prompt (PAP) jailbreak using authority or logical
+    appeals to bypass safety
+  description: Detects Persuasive Adversarial Prompts (PAP) that exploit authority,
+    logical, and emotional appeals to bypass LLM safety guardrails. Padakandla et
+    al. (2025) SafeQuant specifically evaluated effectiveness against 'persuasive
+    adversarial attacks' in addition to WordGame attacks, demonstrating these defeat
+    prior gradient-based defenses (GradSafe, Gradient Cuff, perplexity filtering).
+    SafeQuant outperforms all SoTA defenses on these attacks. PAP attacks frame harmful
+    requests as requests from authoritative professionals (doctors, security researchers)
+    to exploit safety training gaps for context-dependent requests.
+  remediation: 'Deploy SafeQuant (gradient pattern inspection) where white-box access
+    is available. For APIs, use SecurityLingua intent compression to strip authority
+    framing and expose true intent. Combine with DIESEL semantic filtering. Do not
+    rely on surface-level framing analysis. Reference: Padakandla et al. (2025) SafeQuant,
+    Li et al. (2025) SecurityLingua.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-030
+  name: emoji-based-content-filter-evasion
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(emoji.encod|emoji.substitut|emoji.inject).{0,40}\b(bypass|evad|filter|moderat|guardrail)
+  - (?i)\b(emoji.jailbreak|emoji.obfuscat).{0,40}\b(harm|toxic|nsfw|unsafe|attack)
+  - (?i)\b(tokenizer.gap|tokenization.mismatch).{0,30}\b(emoji|unicode).{0,20}\b(bypass|evad|attack)
+  - (?i)\b(emoji.sequence|emoji.encoding).{0,30}\b(adversarial|hidden.instruction|covert.message|bypass)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.txt'
+  - '*.json'
+  message: Emoji-based encoding or substitution to evade AI content moderation
+  description: 'Detects emoji-based attacks that exploit inconsistent emoji handling
+    across NLP tokenizers to bypass content moderation. Sakpal (2025) IJRASET survey
+    documented that emoji insertion exploits inconsistent tokenizer handling: AI systems
+    interpret emoji sequences differently than humans, enabling adversarial instructions
+    to be encoded in emoji that pass content filters. This complements zero-width
+    character attacks (SCAN-003) with a distinct emoji-specific surface. Commercial
+    AI moderation systems have limited emoji vocabulary coverage enabling bypass.'
+  remediation: 'Implement emoji normalization and semantic translation before content
+    classification. Train content moderation on emoji-rich adversarial samples. Deploy
+    secondary semantic analysis that interprets emoji context. Reference: Sakpal (2025)
+    emoji/Unicode attack survey; Hackett et al. (2025) character-level bypass.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-GB-SCAN-031
+  name: tool-dependency-graph-bypass-agent-exploitation
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(tool.dependency|tdg|tool.graph).{0,30}\b(bypass|evad|circumvent|exploit|attack)
+  - (?i)\b(agentdojo|agent.dojo).{0,30}\b(attack|exploit|bypass|jailbreak)
+  - (?i)\b(unauthorized.tool.invoc|malicious.tool.call|injected.tool.invoc).{0,40}\b(agent|llm|assistant)
+  - (?i)\b(gemini.workspace|google.workspace).{0,30}\b(inject|exploit|manipulat|exfiltrat).{0,20}\b(agent|copilot|llm)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: LLM agent tool invocation manipulation bypassing Tool Dependency Graph
+    structural constraints
+  description: Detects attacks targeting LLM agent tool invocation beyond standard
+    indirect prompt injection. An et al. (2025) IPIGuard (ACL 2025) documented production
+    exploitation of Google Workspace Gemini via manipulated Google Docs and ChatGPT
+    Operator via malicious web pages. The attack causes unauthorized tool invocations
+    not in the pre-planned Tool Dependency Graph (TDG). IPIGuard's defense decouples
+    action planning from external data interaction; attacks here attempt to circumvent
+    that structural constraint by injecting instructions that appear to modify the
+    legitimate task scope.
+  remediation: 'Deploy IPIGuard Tool Dependency Graph (https://github.com/Greysahy/ipiguard)
+    to structurally constrain agent tool invocations. Pre-plan TDG before any external
+    data interaction. Treat all retrieved content as untrusted data, never as instructions.
+    Audit agent tool call logs for deviations from pre-planned TDG. Reference: An
+    et al. (2025) IPIGuard ACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-032
+  name: promptshield-detector-evasion-low-fpr-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(promptshield|prompt.shield.bypass|prompt.shield.evad).{0,30}\b(attack|bypass|evad|circumvent)
+  - (?i)\b(production.guardrail|deployed.guardrail).{0,30}\b(adaptive.attack|adaptive.adversar|classifier.evad)
+  - (?i)\b(base.rate|false.positive.rate|fpr.{0,5}[0-9]).{0,30}\b(guardrail|classifier|detector|moderat)
+  - (?i)\b(rag.inject|tool.use.inject|conversational.inject).{0,30}\b(bypass|evad|detector|classifier)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: PromptShield-evasion or adaptive attack against production low-FPR prompt
+    injection classifier
+  description: 'Detects patterns targeting production prompt injection classifiers
+    operating in the low-FPR regime. Jacob et al. (2024) PromptShield (CCS 2024) established
+    that effective production deployment requires extremely low False Positive Rates
+    (<1%), and that adaptive adversaries who know the classifier''s training distribution
+    can craft injections to evade it. PromptShield covers both conversational and
+    application-structured (RAG, tool-use) injection contexts. Attacks here probe
+    the base-rate imbalance problem: at very low FPR, even small false-negative rates
+    pass many attacks through.'
+  remediation: 'Use PromptShield with careful training data curation covering both
+    conversational and RAG/tool-use injection patterns. Implement adaptive adversarial
+    testing to continuously update classifier training distribution. Monitor for prompt
+    injection patterns not covered in current training data. Reference: Jacob et al.
+    (2024) PromptShield CCS 2024.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-033
+  name: aml-word-importance-ranking-black-box-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(word.importance.rank|wir|feature.importance).{0,40}\b(bypass|evad|transfer|black.box|guardrail)
+  - (?i)\b(white.box.transfer|importance.transfer).{0,30}\b(black.box.guardrail|commercial.guardrail|bypass)
+  - (?i)\b(aml.evad|adversarial.ml.evad|adversarial.machine.learn.evad).{0,30}\b(text.classifier|guardrail|prompt.guard)
+  - (?i)\b(perturbation.context|context.perturb).{0,40}\b(classifier.interpret|learned.feature|guardrail.bypass)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: AML evasion via word importance ranking transferring from white-box to
+    black-box guardrail bypass
+  description: Detects AML (Adversarial Machine Learning) evasion attacks using word
+    importance ranking to transfer white-box guardrail knowledge to black-box bypass.
+    Hackett et al. (2025) (ACL 2025) demonstrated that computing word importance rankings
+    from offline white-box models, then applying those rankings to identify optimal
+    perturbation targets, enhances Attack Success Rates against black-box commercial
+    guardrail classifiers including Azure Prompt Shield and Meta Prompt Guard. This
+    is a distinct technique from character injection (SCAN-003), exploiting classifier
+    feature space rather than tokenization gaps.
+  remediation: 'Diversify training data to reduce transferability of white-box word
+    importance rankings. Deploy adversarial training with word importance-based perturbations.
+    Use ensemble of diverse classifiers so perturbations effective on one do not transfer
+    to others. Reference: Hackett et al. (2025) ACL 2025, empirical analysis of 6
+    commercial guardrail systems.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-034
+  name: pair-tap-llm-driven-iterative-jailbreak
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(pair|prompt.automatic.iterative.refin).{0,30}\b(jailbreak|attack|bypass|adversarial)
+  - (?i)\b(tap|tree.of.attack.prompt).{0,30}\b(jailbreak|attack|bypass|adversarial)
+  - (?i)\b(attacker.llm|red.llm|adversarial.llm).{0,40}\b(refin|iterativ|optimiz).{0,30}\b(prompt|attack|jailbreak)
+  - (?i)\b(iterative.refin|automatic.refin).{0,30}\b(attack.prompt|jailbreak.prompt|adversarial.prompt).{0,30}\b(llm|model)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: PAIR/TAP LLM-driven iterative jailbreak attack using attacker LLM to refine
+    adversarial prompts
+  description: Detects PAIR (Prompt Automatic Iterative Refinement) and TAP (Tree
+    of Attacks with Pruning) jailbreak patterns that use a separate attacker LLM to
+    iteratively refine adversarial prompts until safety guardrails are bypassed. Chu
+    et al. (2025) JailbreakRadar (ACL 2025) benchmarked these across 9 aligned LLMs
+    and 17 attack types. Liu et al. (2025) AutoPrompt achieves similar goals for T2I
+    models nearly 3 OOM faster. These are LLM-driven automated red-teaming frameworks
+    being adapted for actual attacks. Detection of attacker LLM orchestration code
+    and PAIR/TAP framework references.
+  remediation: 'Deploy full-pipeline evaluation including output moderation to catch
+    PAIR/TAP successes that evade input filters. Rate-limit API access to reduce iterative
+    refinement feasibility. Monitor for sequences of near-similar failed queries indicating
+    iterative optimization. Deploy output moderation (FLAME) as backstop. Reference:
+    Chu et al. (2025) JailbreakRadar, Bakulin et al. (2025) FLAME.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-035
+  name: markdown-link-redaction-bypass-data-exfiltration
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(reference.style.markdown|reference.link|link.redact).{0,40}\b(bypass|evad|circumvent|exfiltrat)
+  - (?i)\b(markdown.link|markdown.image|auto.fetch).{0,30}\b(exfiltrat|bypass.filter|redact.bypass|guardrail.bypass)
+  - (?i)\b(csp.bypass|content.security.policy.bypass).{0,30}\b(teams.proxy|proxy.url|allowed.origin).{0,20}\b(exfiltrat)
+  - (?i)\b(echoleak|cve.2025.32711).{0,30}\b(bypass|exfiltrat|inject|exploit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  - '*.md'
+  message: Reference-style Markdown link redaction bypass for LLM agent data exfiltration
+    (EchoLeak pattern)
+  description: 'Detects EchoLeak (CVE-2025-32711) attack chain components: reference-style
+    Markdown link redaction bypass used to circumvent link filtering in production
+    LLM systems. Reddy et al. (2025) documented this as part of the first real-world
+    zero-click prompt injection chain in Microsoft 365 Copilot. The specific technique
+    of using reference-style `[text][1]` followed by `[1]: http://attacker.com` syntax
+    bypasses link redaction filters that only scan inline `[text](url)` patterns.
+    Combined with auto-fetched images and CSP proxy abuse, this enables zero-click
+    data exfiltration.'
+  remediation: 'Apply link redaction to all Markdown link syntaxes including reference-style
+    links. Disable auto-image fetch in LLM agent contexts. Enforce strict Content
+    Security Policy blocking attacker-controlled domains. Implement prompt partitioning
+    isolating retrieval from instruction contexts. Reference: Reddy et al. (2025)
+    EchoLeak CVE-2025-32711, AAAI 2025 Workshop.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-036
+  name: constitutional-ai-bypass-value-conflict-injection
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(constitutional.ai|cai|harmless.honest.helpful).{0,30}\b(bypass|evad|circumvent|defeat|override)
+  - (?i)\b(value.conflict|principle.conflict|guideline.conflict).{0,40}\b(inject|exploit|attack|bypass).{0,20}\b(safety|guardrail)
+  - (?i)\b(helpful.vs.safe|helpfulness.tradeoff|harm.avoidance.tradeoff).{0,40}\b(exploit|abuse|manipulat|bypass)
+  - (?i)\b(anthropic.guideline|claude.guideline|hh.rlhf).{0,30}\b(bypass|override|circumvent|evad)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Constitutional AI bypass via injected value conflict exploiting helpfulness-safety
+    tension
+  description: Detects attacks exploiting the Constitutional AI (CAI) design by injecting
+    apparent value conflicts between helpfulness and harm avoidance. Wang et al. (2025)
+    comprehensive survey identifies Constitutional AI as a specific target of deployment-phase
+    jailbreaks. Attackers frame harmful requests as situations where refusal would
+    violate helpfulness principles or where a 'truly helpful' AI would comply. Tshimula
+    et al. (2024) documented how context manipulation across roleplay/persona scenarios
+    exploits Constitutional AI filters. These attacks are distinct from simple roleplay
+    (SCAN-019) in targeting the specific CAI value hierarchy.
+  remediation: 'Implement SecurityLingua intent compression to resolve value-conflict
+    framing and expose true intent. Deploy output moderation independent of reasoning
+    chain. Ensure safety training includes examples of helpfulness-exploitation attacks.
+    Reference: Wang et al. (2025) survey, Tshimula et al. (2024).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-037
+  name: fine-tuning-api-harmful-data-identity-shift
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(identity.shift|self.concept.shift|persona.shift).{0,40}\b(fine.?tun|train|safety.bypass)
+  - (?i)\b(10.{0,5}example|few.example|minimal.example).{0,30}\b(safety.remov|alignment.remov|bypass.safety|fine.?tun)
+  - (?i)\b(qi.{0,10}2023|harmful.fine.tun.{0,10}seminal).{0,30}\b(fine.?tun|align|safety)
+  - (?i)\b(openai.rft|openai.fine.tun.api|anthropic.fine.tun).{0,30}\b(harmful|adversarial|attack|bypass|abuse)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Fine-tuning API abuse via identity-shifting or minimal harmful examples
+    to remove safety alignment
+  description: Detects identity-shifting fine-tuning attacks exploiting commercial
+    fine-tuning APIs with minimal harmful examples. Egler et al. (2025) established
+    that as few as 10 identity-shifting examples are sufficient to compromise LLM
+    safety alignment via fine-tuning APIs (OpenAI RFT, Anthropic, Google). Wang et
+    al. (2025) comprehensive survey cites Qi et al. (2023) demonstrating minimal data
+    requirements. This covers the specific fine-tuning API abuse vector distinct from
+    Virus (SCAN-001/010) in focusing on the identity/persona manipulation mechanism
+    that causes the model to respond as an unconstrained entity.
+  remediation: 'Implement fine-tuning auditing agents (Egler 2025, 56.2% detection
+    at 1% FPR) with full model access. Monitor post-fine-tuning model behavior for
+    identity and safety degradation. Enforce minimum safety data injection requirements
+    in fine-tuning pipelines. Require behavioral safety testing post-fine-tuning before
+    deployment. Reference: Egler et al. (2025), Huang et al. (2025) Virus ICML 2025.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-038
+  name: output-moderation-customizable-topic-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(output.moderat|response.moderat).{0,30}\b(bypass|evad|fool|defeat|circumvent).{0,20}\b(llm|flame|moderator)
+  - (?i)\b(topic.filter|custom.filter|deployment.filter).{0,30}\b(bypass|evad|circumvent|defeat)
+  - (?i)\b(llm.moderator|moderat.llm).{0,30}\b(adversarial|attack|jailbreak|bypass|fool)
+  - (?i)\b(circuit.break|circuit.breaker).{0,30}\b(bypass|evad|defeat|circumvent|attack).{0,20}\b(llm|output|safety)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Output moderation system bypass or LLM moderator adversarial attack
+  description: 'Detects attacks targeting output-stage moderation systems (FLAME-style)
+    and circuit-breakers. Bakulin et al. (2025) FLAME introduced output moderation
+    as the primary defense against Best-of-N jailbreaks (80%+ input-only bypass rate
+    reduced ~9x). The LLM moderator in FLAME is itself potentially susceptible to
+    adversarial attacks — prompts that generate responses passing the moderator''s
+    safety classification while remaining harmful. This is a second-order attack:
+    gaming the output moderator rather than the primary model. Distinct from output
+    classifier bypass (PRXY-020) in targeting LLM-based rather than classifier-based
+    moderation.'
+  remediation: 'Apply adversarial testing to output moderation LLMs as well as primary
+    generation LLMs. Use diverse output moderation approaches (LLM + classifier +
+    semantic) so gaming one does not defeat all. Reference: Bakulin et al. (2025)
+    FLAME, Yang et al. (2025) adversarial signature technique against content moderators.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-039
+  name: guardrail-policy-grounding-coverage-gap-exploitation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(owasp|mitre|nist|eu.ai.act|gdpr).{0,30}\b(guardrail.gap|policy.gap|coverage.gap|bypass).{0,20}\b(exploit|attack|evad)
+  - (?i)\b(polyguard|poly.guard|guardset.x|guardset_x).{0,30}\b(gap|bypass|evad|attack|exploit)
+  - (?i)\b(social.media.domain|hr.domain|education.domain).{0,30}\b(guardrail.gap|safety.gap|bypass|evad|exploit)
+  - (?i)\b(hard.benign|boundary.proxim|decision.boundary).{0,30}\b(guardrail|classifier|safety.model).{0,20}\b(exploit|probe|attack)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Exploitation of domain-specific guardrail policy coverage gaps identified
+    in POLY-GUARD/GUARDSET-X benchmark
+  description: Detects attacks exploiting domain-specific guardrail policy coverage
+    gaps across social media, HR, education, finance, legal, and cybersecurity domains.
+    Kang et al. (2025) POLY-GUARD (NeurIPS 2025) and GUARDSET-X benchmarked 19 guardrail
+    models against OWASP, MITRE, NIST, EU AI Act, GDPR-grounded policies, finding
+    all 19 models vulnerable to optimized adversarial attacks with high F1 variance
+    across domains. The 'hard benign' instances near the decision boundary are a specific
+    exploitation surface. This is distinct from SCAN-024 in targeting the specific
+    POLY-GUARD benchmark findings rather than general domain gaps.
+  remediation: 'Evaluate deployed guardrails against POLY-GUARD/GUARDSET-X across
+    all 8 domains. Supplement generalist guardrails with policy-grounded domain-specific
+    classifiers. Apply decision-boundary hardening via adversarial training on hard
+    benign instances. Reference: Kang et al. (2025) POLY-GUARD NeurIPS 2025, GUARDSET-X
+    arXiv:2506.19054.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-040
+  name: audio-metamorphic-content-moderation-bypass
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(audio.perturb|pitch.shift|pitch.modif).{0,40}\b(bypass|evad|moderat|filter|guardrail)
+  - (?i)\b(reverb|noise.insert|speed.change|tempo.change).{0,30}\b(bypass|evad|content.moderat|audio.moderat)
+  - (?i)\b(mtam|metamorphic.test.{0,10}audio).{0,30}\b(bypass|evad|moderat|test|attack)
+  - (?i)\b(audio.content.moderat|speech.moderat).{0,30}\b(bypass|evad|trick|fool|defeat)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: Audio perturbation attack bypassing audio content moderation via metamorphic
+    transform
+  description: Detects audio metamorphic transformation attacks against audio content
+    moderation. Wang et al. (2025) MTAM (ICSE 2025) defined 14 metamorphic relations
+    (pitch shifting, noise insertion, speed change, reverb) that preserve semantic
+    toxicity while evading commercial audio moderation classifiers. Five commercial
+    audio moderation tools demonstrated significant error-finding rates. Extends the
+    OASIS image metamorphic testing paradigm (SCAN-020) to audio. Covers hate speech,
+    deceptive advertisements, and explicit audio material. The audio channel is an
+    emerging bypass surface as LLMs increasingly process voice inputs.
+  remediation: 'Deploy audio moderation systems trained with MTAM-style adversarial
+    perturbations. Apply audio transcription followed by text moderation as a parallel
+    channel. Use ensemble of diverse audio classification models not sharing the same
+    perturbation vulnerabilities. Reference: Wang et al. (2025) MTAM ICSE 2025, Wang
+    et al. (2023) OASIS.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-041
+  name: social-engineering-content-guardrail-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(social.engineer).{0,30}\b(content.moderat|guardrail|safety.system|filter).{0,20}\b(bypass|evad|defeat|fool)
+  - (?i)\b(microsoft.tay|tay.chatbot).{0,20}\b(attack|exploit|social.engineer|guardrail)
+  - (?i)\b(collective.manip|group.attack|coordinated.attack).{0,30}\b(llm|content.moderat|safety|guardrail)
+  - (?i)\b(crowd.source|distributed.attack).{0,30}\b(jailbreak|bypass|guardrail|moderat|safety)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Social engineering or collective manipulation attack against content guardrails
+  description: Detects social engineering and collective manipulation attacks against
+    LLM content guardrails. Purpura et al. (2025) (TrustNLP 2025) cites the Microsoft
+    Tay case study as a concrete example where coordinated social engineering bypassed
+    content guardrails at scale, causing harmful model behavior through collective
+    adversarial interaction. This attack class operates through statistical manipulation
+    of model behavior via coordinated user interaction rather than technical prompt
+    injection, exploiting the model's RLHF training to produce outputs that satisfy
+    the apparent majority request.
+  remediation: 'Monitor for coordinated or crowd-sourced jailbreak campaigns. Implement
+    per-session rate limiting and anomaly detection for synchronized attack patterns.
+    Reference: Purpura et al. (2025) red-teaming framework, Microsoft Tay post-mortem.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-042
+  name: vector-embedding-hidden-instruction-rag-attack
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(vector.embed).{0,30}\b(hidden.instruction|covert.instruction|malicious.instruction).{0,30}\b(rag|retriev|inject)
+  - (?i)\b(semantic.similar|cosine.similar).{0,30}\b(trojan|hidden.instruction|malicious).{0,20}\b(retriev|embed|chunk)
+  - (?i)\b(document.chunk|chunk.embed).{0,30}\b(inject|poison|trojan|hidden.instruction|malicious)
+  - (?i)\b(malicious.ingestion|data.ingestion.attack).{0,40}\b(rag|vector.store|embedding.store|retriev)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Vector embedding hidden instruction attack in RAG pipeline via semantic
+    similarity retrieval
+  description: 'Detects Trojan-like hidden instruction attacks embedded in vector
+    embeddings that exploit semantic similarity retrieval in RAG pipelines. Nandagopal
+    (2025) documented this as a novel RAG-specific attack vector distinct from standard
+    prompt injection: adversarial instructions are hidden within vector embeddings
+    or document chunks that activate when retrieved by semantic similarity. The RAG
+    retrieval process trusts retrieved content implicitly, and standard guardrails
+    designed for direct input do not inspect retrieved vectors for embedded instructions.
+    This is distinct from SCAN-015 (RAG prompt injection) in targeting the embedding
+    and ingestion layer specifically.'
+  remediation: 'Implement content inspection at the data ingestion stage before vectorization.
+    Apply source provenance tracking and trust scoring to retrieved chunks. Deploy
+    immutable system prompt separation with salted sequence tagging (Nandagopal 2025).
+    Never treat retrieved content as system-level instructions. Reference: Nandagopal
+    (2025) RAG security framework.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-043
+  name: rlhf-safety-undoing-harmful-finetuning-minimal-data
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(rlhf.undo|rlhf.removal|rlhf.bypass|rlhf.remov).{0,30}\b(fine.?tun|train|data|sample)
+  - (?i)\b(safety.alignment.remov|alignment.erasure|alignment.undo).{0,30}\b(fine.?tun|minimal.data|few.shot)
+  - (?i)\b(harmful.fine.?tun|adversarial.fine.?tun).{0,30}\b(minimal|few|small).{0,10}(dataset|sample|example|data)
+  - (?i)\b(qi.2023|shadowalign|shadow.align).{0,20}\b(fine.?tun|align|safety|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.sh'
+  message: RLHF safety alignment removal via adversarial fine-tuning with minimal
+    dataset
+  description: Detects patterns specifically targeting RLHF safety alignment removal
+    via minimal adversarial fine-tuning datasets. Wang et al. (2025) comprehensive
+    survey (ACM TMAS) covers this as a fine-tuning phase threat, citing the Qi et
+    al. (2023) finding that alignment can be removed with very few examples. This
+    differs from SCAN-001 (Virus moderation bypass) and SCAN-022 (cipher attacks)
+    in focusing on the RLHF undoing mechanism itself as the detection target — code
+    or documentation describing the minimal-data technique for safety removal. The
+    economic accessibility of this attack (few examples, low cost) makes it particularly
+    dangerous.
+  remediation: 'Implement behavioral safety regression testing after any fine-tuning.
+    Use fine-tuning auditing agents (Egler 2025). Enforce minimum size and diversity
+    requirements for fine-tuning datasets submitted to APIs. Apply structural safety
+    data injection alongside fine-tuning. Reference: Wang et al. (2025) survey, Egler
+    et al. (2025).'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-044
+  name: extremist-content-generative-ai-bypass-production
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(extremist.content|hateful.content|racist.content).{0,30}\b(generat.{0,10}ai|ai.generat|diffusion.model|stable.diff).{0,20}\b(bypass|evad|circumvent)
+  - (?i)\b(political.meme|extremist.meme|propaganda.image).{0,30}\b(ai.generat|diffusion|midjourney|dall.e).{0,20}\b(bypass|evad|platform)
+  - (?i)\b(4chan|fringe.platform|anonymous.platform).{0,20}\b(ai.generat|bypass|moderat|evad)
+  - (?i)\b(hate.speech.bypass|antisemit.bypass|racist.bypass).{0,30}\b(ai.image|generat.ai|content.polic)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  - '*.txt'
+  message: Extremist content generation via AI platforms bypassing content policies
+    in production
+  description: Detects patterns associated with production extremist content generation
+    through AI platforms bypassing content moderation. Gaba et al. (2025) documented
+    28.8% racist content and 28.8% anti-Semitic content in AI-generated images on
+    4chan /pol/, demonstrating real-world bypass of major generative AI platform content
+    policies. This attack exploits prompt crafting and post-processing to bypass image
+    generation content policies, distinct from technical adversarial attacks. Combined
+    with Mihaljević (2023) Perspective API bypass via coded language, these represent
+    the real-world impact surface.
+  remediation: 'Deploy platform-level behavioral monitoring for misuse patterns beyond
+    per-image content classification. Implement provenance tracking for AI-generated
+    content. Combine image generation content policies with output moderation at platform
+    level. Reference: Gaba et al. (2025), Mihaljević (2023) Perspective API bypass.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-045
+  name: dog-whistle-coded-language-toxicity-api-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(dog.whistle|coded.language|coded.speech|coded.slur).{0,30}\b(bypass|evad|perspective|moderat|toxicity)
+  - (?i)\b(implicit.hate|covert.hate|indirect.hate|non.explicit.hate).{0,30}\b(bypass|evad|toxicity|moderat|classifier)
+  - (?i)\b(perspective.api.bypass|toxicity.api.bypass|jigsaw.bypass).{0,20}\b(coded|slur|whistle|implicit)
+  - (?i)\b(toxicity.score).{0,20}\b(reduc|lower|manipulat|bypass).{0,20}\b(coded|substitut|whistle|implicit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.txt'
+  message: Coded language or dog whistle substitution to bypass toxicity scoring APIs
+  description: 'Detects coded language and dog whistle attacks that exploit limitations
+    of threshold-based toxicity classifiers. Mihaljević et al. (2023) (ACL Workshop)
+    demonstrated that simple substitution of explicit antisemitic terms with widely-used
+    coded language (dog whistles) substantially reduces Perspective API toxicity scores,
+    enabling harmful content to pass moderation. The API recognizes explicit hate
+    speech but fails on non-explicit forms. This is a distinct bypass technique from
+    character injection (SCAN-003): it exploits classifier semantic coverage gaps
+    rather than tokenization mismatches.'
+  remediation: 'Train toxicity classifiers on coded language and dog whistle datasets.
+    Supplement threshold-based APIs with contextual semantic analysis. Implement multi-classifier
+    ensemble covering both explicit and implicit hate speech. Reference: Mihaljević
+    et al. (2023) ACL Workshop, Sakpal (2025) data masking survey.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-046
+  name: terms-of-service-safety-restriction-analysis
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(terms.of.service|tos|terms.of.use).{0,30}\b(bypass|evad|circumvent|restrict|safety.implic)
+  - (?i)\b(api.restriction|service.restriction).{0,30}\b(circumvent|bypass|evad|loophole|gap)
+  - (?i)\b(provider.policy|platform.policy).{0,30}\b(bypass|evad|circumvent|gap|loophole|safety.gap)
+  - (?i)\b(legal.loophole|policy.gap|contractual.bypass).{0,30}\b(ai|llm|model|guardrail|safety)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.md'
+  - '*.txt'
+  message: Terms of service or provider policy bypass analysis targeting legal/contractual
+    guardrail gaps
+  description: Detects analysis of LLM provider terms of service and acceptable use
+    policies for exploitation gaps. Henderson et al. (2024) 'Mirage of AI Terms of
+    Use Restrictions' documented that legal ToS restrictions on AI misuse often fail
+    to translate into technical safety controls, creating a gap where technically
+    prohibited behavior is not technically prevented by guardrails. Attackers analyze
+    ToS language to identify categories of harmful use that are nominally prohibited
+    but not technically enforced by deployed guardrails.
+  remediation: 'Ensure technical guardrail controls match ToS-stated restrictions.
+    Do not rely solely on legal ToS to prevent misuse — implement corresponding technical
+    controls for all prohibited categories. Conduct coverage analysis mapping ToS
+    restrictions to technical enforcement. Reference: Henderson et al. (2024) ToS
+    restrictions study.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-047
+  name: multimodal-alignment-breaking-vllm-attack
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(alignment.break|alignment.breaking.attack).{0,40}\b(vllm|vision.llm|multimodal|vlm)
+  - (?i)\b(contrasting.harmful|harmful.contrast|safe.vs.unsafe).{0,30}\b(response|output|generat).{0,20}\b(vllm|vision|multimodal)
+  - (?i)\b(instruction.follow|instruction.priority).{0,30}\b(safety.alignment|alignment.tension|safety.conflict).{0,20}\b(vllm|vision)
+  - (?i)\b(gpt.4o.bypass|gemini.pro.bypass|llama.3.vision.bypass).{0,30}\b(visual|multimodal|alignment|attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Alignment Breaking Attack targeting VLLM safety via instruction-following
+    vs. safety tension
+  description: Detects the Alignment Breaking Attack (ABA) component of the Multi-Faceted
+    Attack against Vision LLMs. Yang et al. (2025) (ICML 2025) specifically defined
+    ABA as manipulating the tension between a VLLM's instruction-following capability
+    and its safety alignment to cause generation of contrasting harmful responses.
+    This is distinct from the Visual Attack (image-based system prompt injection)
+    and Adversarial Signature components of the same framework. ABA achieved 61.56%
+    combined ASR across GPT-4o, Gemini-Pro, and 6 other commercial VLLMs, surpassing
+    prior methods by 42.18%.
+  remediation: 'Apply adversarial training specifically targeting the instruction-following
+    vs. safety tension in VLLMs. Deploy output moderation (LlamaGuard-3, OpenAI Moderation
+    API) independent of model safety alignment. Regularly evaluate VLLMs for ABA-class
+    vulnerabilities. Reference: Yang et al. (2025) Multi-Faceted Attack ICML 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-048
+  name: inference-pipeline-full-stack-evaluation-attack
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(full.pipeline|full.stack|end.to.end).{0,20}\b(attack|bypass|evaluat).{0,30}\b(input.filter|output.filter|moderat)
+  - (?i)\b(pipeline.aware|filter.aware|guardrail.aware).{0,30}\b(attack|jailbreak|bypass|adapt)
+  - (?i)\b(adaptive.attack).{0,30}\b(specific.filter|specific.guardrail|deployed.filter|specific.moderat)
+  - (?i)\b(filter.fingerprint|guardrail.fingerprint|moderat.fingerprint).{0,30}\b(attack|bypass|probe|exploit)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Full-pipeline adaptive attack designing jailbreaks aware of specific deployed
+    input/output filter configuration
+  description: Detects adaptive attacks that are designed with awareness of the specific
+    deployed full inference pipeline including input and output filters. Xin et al.
+    (2025) (ACL 2025) demonstrated that prior jailbreak assessments overestimated
+    practical attack success by ignoring full pipeline filters, and that nearly all
+    evaluated jailbreaks are detectable by at least one safety filter. However, adaptive
+    attackers who know the specific filter configuration can craft attacks that evade
+    each layer. This includes pipeline fingerprinting (probing to identify filter
+    type) and filter-specific attack optimization.
+  remediation: 'Deploy diverse ensemble of filters to prevent single-filter targeting.
+    Keep filter configurations confidential (security through obscurity as additional
+    layer). Rotate and update filter configurations regularly. Use Xin et al. (2025)
+    full-pipeline evaluation methodology to assess current defenses. Reference: Xin
+    et al. (2025) ACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-049
+  name: dict-attack-space-time-decoupled-schema-jailbreak
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(dictattack|dict.attack|dictionary.attack).{0,30}\b(llm|jailbreak|bypass|schema|grammar)
+  - (?i)\b(space.time.decouple|data.plane.control.plane|semantic.gap).{0,40}\b(jailbreak|bypass|attack)
+  - (?i)\b(grammar.rule).{0,30}\b(benign.prompt|surface.prompt|data.plane).{0,20}\b(harm|attack|bypass|jailbreak)
+  - (?i)\b(dictionary.lookup|dictionary.grammar|lookup.table).{0,30}\b(structured.output|jailbreak|bypass|harm|attack)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: DictAttack space-time decoupled schema jailbreak distributing malicious
+    payload across prompt and grammar
+  description: Detects the DictAttack component of CDA (Constrained Decoding Attack)
+    that decouples malicious payload across a benign surface prompt and dictionary-based
+    grammar. Zhang et al. (2025) (arXiv:2503.24191) demonstrated DictAttack achieves
+    94.3-99.5% ASR across GPT-5, Gemini-2.5-Pro, DeepSeek-R1, and GPT-oss-120B, maintaining
+    75.8% ASR against multiple deployed guardrails. The harmful content is distributed
+    between data plane (benign prompt) and control plane (dictionary grammar) — no
+    single component is harmful when examined alone. This is distinct from SCAN-004
+    (EnumAttack, general CDA) in targeting the space-time decoupling mechanism specifically.
+  remediation: 'Implement cross-plane content validation that analyzes assembled output
+    semantics, not just input prompt content. Audit dictionary grammar definitions
+    for combined-output semantics. Treat structured output grammar as part of the
+    attack surface equivalent to the prompt. Reference: Zhang et al. (2025) 94.3-99.5%
+    ASR against frontier LLMs including GPT-5.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-050
+  name: honeypot-guardrail-evasion-bait-avoidance
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(honeypot.evad|bait.evad|bait.avoid|honeypot.avoid).{0,30}\b(guardrail|jailbreak|llm|attack)
+  - (?i)\b(hus|honeypot.utility.score|der|defense.efficacy.rate).{0,30}\b(bypass|evad|measure|attack)
+  - (?i)\b(bait.response|bait.model|bait.question).{0,30}\b(recogniz|detect|avoid|evad|circumvent)
+  - (?i)\b(proactive.guardrail|proactive.defense).{0,30}\b(bypass|evad|circumvent|detect|avoid)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Honeypot guardrail evasion: attacker identifying and avoiding proactive
+    bait-based safety probes'
+  description: Detects attacks designed to recognize and avoid honeypot-based proactive
+    guardrail systems. Wu et al. (2025) Active Honeypot Guardrail System (arXiv:2510.15017)
+    introduced bait models that generate ambiguous non-actionable responses to probe
+    user intent across multi-turn conversations. Adaptive attackers may learn to recognize
+    the honeypot bait pattern (e.g., responses that seem designed to elicit confirmation
+    of intent) and modify their multi-turn strategy to avoid triggering bait questions.
+    This second-order attack undermines proactive guardrails by pattern-matching their
+    response style.
+  remediation: 'Randomize honeypot bait patterns to prevent pattern recognition by
+    adaptive attackers. Combine honeypot with conventional single-turn and output
+    moderation so honeypot evasion does not provide full bypass. Continuously update
+    bait model behaviors. Reference: Wu et al. (2025) Active Honeypot Guardrail System.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-GB-SCAN-051
+  name: cascade-activation-perturbation-multi-layer
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(cascade.perturb|cascade.activat|layer.propagat).{0,30}\b(attack|jailbreak|bypass|adversarial).{0,20}\b(llm|model)
+  - (?i)\b(non.localiz|propagat.through.layer).{0,30}\b(perturb|activat|attack|jailbreak)
+  - (?i)\b(attractor.basin|attractor.state|semi.stable.state).{0,30}\b(jailbreak|bypass|adversarial|attack).{0,20}\b(llm)
+  - (?i)\b(hidden.state.cascade|activation.cascade).{0,30}\b(jailbreak|bypass|attack|adversarial)
+  file_types:
+  - '*.py'
+  message: Cascading activation perturbation attack propagating through LLM layers
+    to induce jailbreak state
+  description: Detects cascade activation perturbation attacks based on the attractor
+    dynamics framework for LLM safety state manipulation. Chia et al. (2025) (arXiv:2503.09066)
+    demonstrated that perturbation vectors derived from LDA analysis of safe vs. jailbroken
+    activation distributions propagate non-locally through model layers via cascade
+    effects. This cascade nature means targeted perturbation of early layers causes
+    jailbreak states in later layers, with implications for representation-level defense
+    design. This extends SCAN-012 (basic latent space perturbation) with the specific
+    cascade propagation mechanism.
+  remediation: 'Implement layer-wise activation monitoring to detect cascade propagation
+    from safe to adversarial states early in the inference pipeline. Deploy inference-time
+    semantic filtering (DIESEL) as an output-layer backstop independent of hidden
+    state manipulation. Reference: Chia et al. (2025) latent subspace analysis arXiv:2503.09066.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-052
+  name: multi-hop-jailbreak-mhj-conversation-attack
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(multi.hop.jailbreak|mhj|multi.hop.attack).{0,30}\b(llm|guardrail|bypass|attack|conversation)
+  - (?i)\b(hop.by.hop|step.by.step.bypass|incremental.harm).{0,40}\b(jailbreak|bypass|guardrail|safety)
+  - (?i)\b(conversation.manip|multi.turn.induct).{0,30}\b(mhj|multi.hop|harm.accumulat)
+  - (?i)\b(turn.context|accumulated.context).{0,30}\b(trigger|activate|unlock).{0,20}\b(harm|unsafe|bypass|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Multi-Hop Jailbreak (MHJ) attack using accumulated conversational context
+    to unlock harmful outputs
+  description: Detects Multi-Hop Jailbreak (MHJ) attacks that use accumulated conversational
+    context across multiple turns to progressively unlock harmful outputs. Wu et al.
+    (2025) Active Honeypot Guardrail System specifically evaluates against the MHJ
+    Dataset with GPT-4o. MHJ attacks differ from generic multi-turn jailbreaks (SCAN-009)
+    in using a structured hop-by-hop escalation where each turn adds a semantic building
+    block that individually passes safety filters, but the accumulated context across
+    hops triggers harmful output at the final hop. The MHJ Dataset is used as a standard
+    benchmark for multi-turn guardrail evaluation.
+  remediation: 'Deploy the Active Honeypot Guardrail System for proactive multi-turn
+    intent probing (Wu 2025). Implement conversation-level semantic analysis tracking
+    semantic accumulation across turns. Reference: Wu et al. (2025) honeypot guardrail,
+    MHJ dataset evaluation with GPT-4o.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-GB-SCAN-053
+  name: black-box-t2i-decision-boundary-adversarial-prompt
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(decision.boundary.{0,10}(t2i|text.to.image|diffusion)).{0,30}\b(attack|bypass|adversarial|exploit)
+  - (?i)\b(asse|adversarial.sample.space.expansion).{0,30}\b(bypass|attack|evad|t2i|text.to.image)
+  - (?i)\b(bpb|boundary.perturbation.backtrack).{0,30}\b(attack|bypass|t2i|text.to.image|diffusion)
+  - (?i)\b(bdtiag|black.box.adversarial.text.to.image).{0,30}\b(attack|bypass|evad|dall.e|imagen)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: BDTIAG decision boundary exploration attack against T2I content moderation
+  description: Detects BDTIAG (Black-box Decision-boundary-based Text-to-Image Adversarial
+    Generation) attacks against T2I model content moderation. Jiao et al. (2025) (ICIC
+    2025) demonstrated BDTIAG achieves +6.25% ASR and 41% query reduction vs. RIATIG
+    against DALL-E, DALL-E 2, Imagen, and AttnGAN. The two-phase ASSE (Adversarial
+    Sample Space Expansion) + BPB (Boundary Perturbation Backtracking) pipeline systematically
+    explores the decision boundary of T2I content moderation classifiers to find prompts
+    near the boundary that generate harmful content while evading detection. Distinct
+    from AutoPrompt (SCAN-017) in targeting the geometric boundary structure rather
+    than perplexity/blacklist filters.
+  remediation: 'Implement T2I content moderation that goes beyond boundary-classifier
+    analysis to semantic content evaluation. Apply adversarial hardening at the decision
+    boundary via adversarial training with BDTIAG-style examples. Monitor for high-query-volume
+    API access patterns indicative of boundary exploration. Reference: Jiao et al.
+    (2025) BDTIAG ICIC 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-054
+  name: zero-trust-rag-guardrail-cryptographic-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(immutable.system.prompt|salted.sequence.tag).{0,30}\b(bypass|evad|forge|spoof|circumvent)
+  - (?i)\b(sequence.tag|salted.tag|prompt.tag).{0,30}\b(bypass|forge|replicate|spoof|inject)
+  - (?i)\b(zero.trust.{0,10}(bypass|evad|defeat)).{0,30}\b(rag|retriev|agent|pipeline)
+  - (?i)\b(cryptographic.prompt|prompt.integrit|prompt.authentic).{0,30}\b(bypass|forge|spoof|circumvent)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Bypass of immutable system prompt or salted sequence tagging in RAG security
+    framework
+  description: Detects attacks against cryptographic and structural RAG pipeline security
+    mechanisms, specifically immutable system prompts and salted sequence tagging
+    as proposed by Nandagopal (2025). If an attacker can forge, replicate, or predict
+    the salted sequence tag that distinguishes legitimate system instructions from
+    retrieved content, they can inject content that is interpreted at system-instruction
+    privilege level. This is a more sophisticated attack against RAG security infrastructure
+    than basic prompt injection (SCAN-015).
+  remediation: 'Use cryptographically secure random salts for sequence tagging. Implement
+    HMAC-based prompt authentication rather than predictable tagging schemes. Apply
+    defense-in-depth so tag bypass does not grant full system access. Reference: Nandagopal
+    (2025) RAG security framework, zero-trust architecture for pipelines.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+- id: MEDUSA-GB-SCAN-055
+  name: automatic-red-teaming-tool-misuse
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(red.team.{0,10}(tool|framework|software|library)).{0,30}\b(attack|exploit|misuse|adversarial)
+  - (?i)\b(garak|artprompt|harmbench|advbench).{0,30}\b(attack|exploit|adversarial|misuse)
+  - (?i)\b(automated.jailbreak|automated.attack.generat).{0,30}\b(target|produc|deploy|exploit)
+  - (?i)\b(red.team.software|attack.framework).{0,30}\b(produc.deploy|real.target|live.system|unauthoriz)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: Automated red-teaming tool or attack framework being applied outside research
+    context
+  description: Detects misuse of legitimate red-teaming tools and frameworks against
+    production LLM systems without authorization. Purpura et al. (2025) (TrustNLP
+    2025) surveys red-teaming software packages (including automated attack generators)
+    designed for research. These tools, including gradient-based attack generators,
+    LLM-driven refinement frameworks, and adversarial prompt libraries, can be misused
+    against production systems. Liu et al. (2025) AutoPrompt is a 3 OOM faster T2I
+    attack generator whose speed enables practical real-world attacks. Detection of
+    these tools outside research environments is critical.
+  remediation: 'Restrict red-teaming tools to controlled research environments. Implement
+    network isolation for red-teaming infrastructure. Monitor for attack tool signatures
+    in production logs. Enforce responsible disclosure procedures for discovered vulnerabilities.
+    Reference: Purpura et al. (2025) red-teaming overview.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-056
+  name: rlhf-rlaif-alignment-mechanism-exploitation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(rlaif|rl.from.ai.feedback|constitutional.rl).{0,30}\b(bypass|evad|exploit|attack|circumvent)
+  - (?i)\b(reward.model|reward.shaping|reward.hack).{0,30}\b(safety|guardrail|bypass|exploit|attack)
+  - (?i)\b(preference.model|rlhf.reward).{0,30}\b(bypass|manipulat|exploit|attack|adversarial)
+  - (?i)\b(alignment.mechanism|safety.mechanism).{0,30}\b(exploit|attack|manipulat|abuse).{0,20}\b(vllm|llm|model)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: RLHF/RLAIF alignment mechanism exploitation targeting reward model or preference
+    learning
+  description: Detects attacks targeting RLHF and RLAIF alignment mechanisms including
+    reward model exploitation and preference learning manipulation. Yang et al. (2025)
+    Multi-Faceted Attack specifically includes an Alignment Breaking Attack that targets
+    the VLLM alignment mechanism (RLHF/RLAIF on GPT-4o, Gemini-Pro, Llama-3 Vision).
+    Wang et al. (2025) comprehensive survey covers alignment mechanism exploitation
+    as a core deployment-phase attack category. Reward hacking — finding inputs that
+    maximize reward model scores while violating intended safety constraints — is
+    a distinct sub-category.
+  remediation: 'Deploy output moderation independent of alignment mechanism (FLAME,
+    LlamaGuard-3). Implement adversarial evaluation of reward models for exploitation
+    scenarios. Apply multi-faceted alignment approaches combining RLHF, Constitutional
+    AI, and output classifiers. Reference: Yang et al. (2025) ICML 2025, Wang et al.
+    (2025) survey.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-057
+  name: content-security-policy-proxy-exfiltration
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(csp.proxy|teams.proxy|allowed.proxy).{0,30}\b(exfiltrat|bypass|abuse|exploit|data.leak)
+  - (?i)\b(auto.fetch|auto.image.fetch|auto.load).{0,30}\b(exfiltrat|data.leak|bypass.filter|inject)
+  - (?i)\b(url.exfiltrat|webhook.exfiltrat|image.exfiltrat).{0,30}\b(llm|copilot|agent|prompt.inject)
+  - (?i)\b(out.of.band.exfiltrat|oob.exfiltrat).{0,30}\b(llm|copilot|agent|prompt.inject|data)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  message: Out-of-band data exfiltration via CSP-allowed proxy or auto-fetch mechanism
+    in LLM system
+  description: Detects out-of-band data exfiltration attacks exploiting CSP-allowed
+    proxies and auto-fetch mechanisms in LLM agent systems. Reddy et al. (2025) EchoLeak
+    documented the specific technique of abusing a Microsoft Teams proxy URL that
+    was explicitly allowed by the Content Security Policy to receive exfiltrated data
+    from Microsoft 365 Copilot without triggering link redaction filters. The auto-image-fetch
+    mechanism allowed zero-click HTTP requests to attacker infrastructure. This represents
+    a new class of LLM data exfiltration attack distinct from simple data leakage
+    prompts.
+  remediation: 'Audit Content Security Policy allowlists for proxies that could serve
+    as exfiltration channels. Disable auto-fetch of external resources in LLM agent
+    contexts. Implement egress monitoring for unexpected outbound connections from
+    LLM agent deployments. Reference: Reddy et al. (2025) EchoLeak CVE-2025-32711.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-058
+  name: safety-filter-recall-precision-exploitation
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(false.negative|high.recall|low.precision).{0,30}\b(safety.filter|content.filter|guardrail|moderat)
+  - (?i)\b(over.block|over.refusal).{0,30}\b(exploit|abuse|bypass|circumvent).{0,20}\b(safety|guardrail|filter)
+  - (?i)\b(under.block|under.refusal).{0,30}\b(probe|identify|exploit|find).{0,20}\b(safety|guardrail|filter)
+  - (?i)\b(precision.recall.tradeoff|safety.utility.tradeoff).{0,30}\b(exploit|manipulat|attack|probe)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.md'
+  message: Safety filter recall-precision tradeoff exploitation probing for under-refusal
+    attack surface
+  description: Detects systematic probing and exploitation of safety filter recall-precision
+    tradeoffs. Xin et al. (2025) (ACL 2025) identified that safety filters need better
+    recall-precision balance — optimizing for precision (reducing over-blocking) inevitably
+    opens under-blocking gaps. Attackers can systematically probe the filter to identify
+    the under-refusal zone by submitting progressively more borderline requests until
+    a harmful one passes. This systematic probing approach identifies the practical
+    attack surface rather than relying on known bypass techniques.
+  remediation: 'Implement session-level monitoring for systematic probing behavior
+    (many borderline queries in sequence). Balance precision-recall with explicit
+    risk threshold based on harm category severity. Apply conservative (high-recall)
+    thresholds for the highest-harm categories. Reference: Xin et al. (2025) full-pipeline
+    evaluation ACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-059
+  name: concept-erasure-safety-unlearning-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(concept.eras|concept.unlearn|safety.unlearn).{0,30}\b(bypass|evad|defeat|circumvent|attack)
+  - (?i)\b(advunlearn.bypass|sld.bypass|ring.a.bell.bypass).{0,30}\b(t2i|text.to.image|diffusion)
+  - (?i)\b(machine.unlearn|selective.forgett).{0,30}\b(safety|guardrail|bypass|evad|attack)
+  - (?i)\b(unlearn.bypass|erased.concept.recover).{0,30}\b(attack|bypass|evad|t2i|llm|model)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Concept erasure or safety unlearning bypass attack recovering erased unsafe
+    capabilities
+  description: 'Detects attacks bypassing concept erasure and machine unlearning-based
+    safety mechanisms. Liu et al. (2025) AutoPrompt (CVPR 2025) specifically achieved
+    the highest red-teaming success rate against SLD-MAX (Safe Latent Diffusion -
+    Maximum) and AdvUnlearn (Adversarial Unlearning), which are state-of-the-art T2I
+    concept erasure safety methods. The attack simultaneously evades the erasure mechanism
+    and perplexity/blacklist filters. Machine unlearning as a safety mechanism has
+    a known vulnerability: the unlearned capability may be recoverable through adversarial
+    prompting that exploits residual information in model weights not fully erased.'
+  remediation: 'Verify completeness of concept erasure via adversarial red-teaming
+    before deployment. Combine concept erasure with runtime content moderation (defense-in-depth).
+    Apply Liu et al. (2025) AutoPrompt evaluation to validate erasure completeness.
+    Reference: Liu et al. (2025) AutoPrompt CVPR 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-060
+  name: fine-tuning-auditor-evasion-benign-disguise
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(auditing.agent|fine.tun.auditor|auditor.bypass).{0,30}\b(evad|bypass|circumvent|fool|defeat)
+  - (?i)\b(subtle.safety.degradat|unintentional.harm|benign.fine.?tun).{0,30}\b(exploit|abuse|disguise|appear.benign)
+  - (?i)\b(false.negative.audit|audit.evad|auditor.blind.spot).{0,30}\b(fine.?tun|adversarial|attack|bypass)
+  - (?i)\b(56.{0,5}percent|56.{0,3}%.{0,5}fpr|auditor.gap).{0,30}\b(fine.?tun|attack|bypass|evad)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Fine-tuning auditing agent evasion via subtle safety degradation indistinguishable
+    from benign fine-tuning
+  description: Detects patterns targeting the 43.8% false-negative gap in fine-tuning
+    auditing agents. Egler et al. (2025) established that the best fine-tuning auditing
+    agent achieves 56.2% detection at 1% FPR, leaving a 43.8% false-negative rate.
+    Attackers can exploit this gap by crafting adversarial fine-tuning datasets that
+    produce subtle safety degradation indistinguishable from unintentional safety
+    changes in benign fine-tuning. This is the next-generation fine-tuning attack
+    beyond Virus (which evades content moderation) — it evades the auditing agent
+    itself by mimicking benign fine-tuning behavior while installing harmful capability.
+  remediation: 'Apply multiple complementary auditing approaches since any single
+    auditor has exploitable gaps. Combine dataset auditing, behavioral testing, and
+    post-deployment monitoring. Deploy Egler et al. (2025) auditor (https://github.com/safety-research/finetuning-auditor)
+    while acknowledging 43.8% FN rate requires compensating controls. Reference: Egler
+    et al. (2025) fine-tuning auditing agents.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-GB-SCAN-061
+  name: llamaguard-1-specific-category-evasion
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(llamaguard.1|llama.guard.1|llamaguard.v1).{0,30}\b(bypass|evad|defeat|fool|attack)
+  - (?i)\b(o1.hate|o2.self.harm|o3.sex|o4.gun|o5.crime|o6.cbrn|o7.cybercrime).{0,40}\b(bypass|evad|category|gap)
+  - (?i)\b(llamaguard).{0,20}\b(category.gap|coverage.gap|domain.gap|miss).{0,30}\b(attack|bypass|evad|exploit)
+  - (?i)\b(meta.llamaguard|llamaguard.safety.policy).{0,30}\b(evad|bypass|gap|miss|defeat)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: LlamaGuard-1 specific safety category evasion attempt detected
+  description: 'Detects attacks targeting known category gaps in LlamaGuard-1 (Meta).
+    Kang et al. (2025) POLY-GUARD/GUARDSET-X (NeurIPS 2025) benchmarked all 19 guardrail
+    models including LlamaGuard-1 and found high variance across the 6 risk categories
+    (O1-O7: hate speech, self-harm, sexual content, firearms, crime, CBRN, cybercrime).
+    Adversaries probe the specific category boundaries of LlamaGuard-1''s taxonomy
+    to find coverage gaps. Hackett et al. (2025) demonstrated 100% evasion of LlamaGuard
+    via character injection.'
+  remediation: 'Supplement LlamaGuard-1 with domain-specific classifiers for under-covered
+    categories. Upgrade to LlamaGuard-3 which has broader category coverage. Run POLY-GUARD/GUARDSET-X
+    benchmark to identify specific coverage gaps in your deployment. Reference: Kang
+    et al. (2025) POLY-GUARD NeurIPS 2025; Hackett et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-062
+  name: llamaguard-3-vision-multimodal-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(llamaguard.3|llama.guard.3|llamaguard.v3).{0,30}\b(bypass|evad|defeat|fool|attack|vision)
+  - (?i)\b(llamaguard.vision|llama.guard.vision).{0,30}\b(bypass|evad|attack|defeat|image.inject)
+  - (?i)\b(llamaguard.3.vision).{0,40}\b(image|visual|multimodal).{0,20}\b(bypass|evad|attack|inject)
+  - (?i)\bLG3.{0,20}\b(vision|multimodal).{0,30}\b(bypass|evad|attack|adversarial)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: LlamaGuard-3 Vision multimodal guardrail bypass attempt
+  description: Detects attacks targeting LlamaGuard-3 Vision's multimodal guardrail.
+    Yang et al. (2025) Multi-Faceted Attack (ICML 2025) specifically bypassed LlamaGuard-3
+    (used as content moderator for VLLM outputs) via the Adversarial Signature component
+    — placing misleading content at response end to deceive the moderator. Achieved
+    61.56% ASR on 8 commercial VLLMs where LlamaGuard-3 was a defense layer. Image-channel
+    injection bypasses LlamaGuard-3's text-based classification entirely.
+  remediation: 'Do not rely solely on LlamaGuard-3 for VLLM output moderation. Combine
+    with cross-modal analysis and response-position-invariant classifiers. Implement
+    adversarial signature detection at response end. Reference: Yang et al. (2025)
+    Multi-Faceted Attack ICML 2025 — LlamaGuard-3 bypassed via Adversarial Signature.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-063
+  name: perspective-api-coded-language-dogwhistle
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(perspective.api|perspective.api.bypass).{0,30}\b(coded.language|dog.whistle|implicit|indirect)
+  - (?i)\b(dog.whistle|dogwhistle|coded.term|coded.slur).{0,40}\b(bypass|evad|perspective|toxicity.score)
+  - (?i)\b(toxicity.score|toxicity.threshold).{0,30}\b(reduce|lower|manipulate|game|circumvent)
+  - (?i)\b(implicit.hate|implicit.antisemit|implicit.rac|non.explicit).{0,30}\b(bypass|evad|content.filter|perspective)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Coded language or dog-whistle technique to bypass Perspective API toxicity
+    scoring
+  description: Detects coded language and dog-whistle techniques used to bypass Perspective
+    API (Google/Jigsaw) toxicity scoring. Mihaljević and Steffen (2023) demonstrated
+    that simple text manipulation using antisemitic coded terms substantially reduces
+    Perspective API toxicity scores — effectively bypassing the moderation system.
+    The API shows critical weaknesses for non-explicit forms of hate speech. A 94%
+    bypass rate for slur-free hateful content was also documented by Shukla et al.
+    (2025) against Twitch AutoMod, illustrating the cross-platform generality of this
+    technique.
+  remediation: 'Supplement Perspective API with semantic hate speech classifiers that
+    detect implicit toxicity without relying on explicit slur keywords. Implement
+    contextual analysis and cross-reference against known coded language lexicons.
+    Deploy ensemble of classifiers. Reference: Mihaljević et al. (2023); Shukla et
+    al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-GB-SCAN-064
+  name: openai-moderation-api-evasion
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(openai.moderat|openai.moderation.api).{0,30}\b(bypass|evad|fool|defeat|score)
+  - (?i)\b(moderation.api.score|moderat.endpoint).{0,30}\b(game|manipulate|reduce|lower|bypass)
+  - (?i)\b(openai.moderat).{0,20}\b(category|threshold|safe).{0,20}\b(bypass|evad|exploit|gap)
+  - (?i)\b(gpt.moderat|chatgpt.moderat).{0,30}\b(bypass|evad|fool|circumvent|attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.sh'
+  message: OpenAI Moderation API evasion attempt detected
+  description: Detects explicit targeting of the OpenAI Moderation API endpoint. Xin
+    et al. (2025) evaluated jailbreak attacks against the full pipeline including
+    OpenAI Moderation API; Yang et al. (2025) Multi-Faceted Attack bypassed OpenAI
+    content moderation via Adversarial Signature at 61.56% ASR. Tshimula et al. (2024)
+    documented cybercriminal exploitation for bioweapon and explosive content bypassing
+    OpenAI content filters. The Moderation API is also targeted by Virus-optimized
+    fine-tuning data (Huang et al. 2025) which achieves 100% bypass.
+  remediation: 'Use OpenAI Moderation API as one layer in a multi-layer defense. Combine
+    with independent output classifiers, semantic analysis, and behavioral monitoring.
+    Do not rely on Moderation API alone for fine-tuning dataset safety. Reference:
+    Xin et al. (2025); Yang et al. (2025); Huang et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-065
+  name: azure-content-safety-evasion-character-aml
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(azure.content.safety|azure.content.moderat).{0,30}\b(bypass|evad|fool|defeat|attack)
+  - (?i)\b(azure.prompt.shield).{0,30}\b(bypass|evad|character.inject|unicode|homoglyph)
+  - (?i)\b(microsoft.content.safety|azure.ai.safety).{0,30}\b(bypass|evad|fool|circumvent|attack)
+  - (?i)\b(aml.evasion|adversarial.ml).{0,30}\b(azure|microsoft.guardrail|azure.prompt.shield)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: Azure Content Safety or Azure Prompt Shield evasion via character injection
+    or AML perturbation
+  description: Detects attacks targeting Microsoft Azure Content Safety and Azure
+    Prompt Shield. Hackett et al. (2025) demonstrated 100% evasion of Azure Prompt
+    Shield using both character injection (Unicode/homoglyphs) and Adversarial Machine
+    Learning (AML) perturbation. Wang et al. (2023) OASIS achieved 100% bypass of
+    Microsoft Azure Content Moderation API using 21 image transform rules. EchoLeak
+    (CVE-2025-32711) chained Azure XPIA classifier bypass with link redaction bypass
+    for zero-click data exfiltration (Reddy et al. 2025).
+  remediation: 'Apply Unicode normalization (NFC/NFKC) before Azure Prompt Shield
+    processing. Supplement Azure Content Safety with independent classifiers. Audit
+    for known OASIS image transform patterns in image submissions. Implement defense-in-depth
+    beyond Azure guardrails alone. Reference: Hackett et al. (2025) 100% bypass; Reddy
+    et al. (2025) CVE-2025-32711.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-066
+  name: aegis-constitutional-ai-evasion
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(aegis|aegis.guard|aegis.content.safety).{0,30}\b(bypass|evad|fool|defeat|attack)
+  - (?i)\b(constitutional.ai|constitutional.ai.bypass).{0,30}\b(evad|bypass|defeat|circumvent|attack)
+  - (?i)\b(constitutional.principle|harmlessness.principle|cai.principle).{0,30}\b(bypass|violate|evad|circumvent)
+  - (?i)\b(anthropic.safety|claude.safety|harmless.helpful.honest).{0,30}\b(bypass|evad|defeat|circumvent|attack)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Attack targeting Constitutional AI or AEGIS safety guardrails
+  description: Detects attacks targeting Constitutional AI (Anthropic) and AEGIS (NVIDIA)
+    safety systems. Wei et al. (2025) CKA-Agent achieved >95% bypass rate against
+    Claude-Haiku-4.5 (which uses Constitutional AI) via correlated knowledge decomposition
+    into individually innocuous sub-queries. Egler et al. (2025) demonstrated that
+    fine-tuning with 10 identity-shifting examples can remove Constitutional AI alignment.
+    Kang et al. (2025) POLY-GUARD found that AEGIS and all 19 evaluated guardrail
+    systems remain vulnerable to optimized adversarial attacks.
+  remediation: 'Constitutional AI is not sufficient as sole defense against knowledge
+    decomposition attacks. Implement session-level intent monitoring alongside Constitutional
+    AI. Deploy POLY-GUARD benchmark evaluation for AEGIS gap assessment. Reference:
+    Wei et al. (2025) >95% bypass of Claude-Haiku-4.5; Kang et al. (2025) POLY-GUARD.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-067
+  name: base64-rot13-encoding-jailbreak-obfuscation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(base64|base.64).{0,30}\b(encode|encod|decode|decod).{0,30}\b(jailbreak|harmful|bypass|unsafe|instruction)
+  - (?i)\b(rot13|rot.13|caesar.cipher|shift.cipher).{0,30}\b(bypass|jailbreak|encode|obfuscat|evad)
+  - (?i)\b(pig.latin|piglatin|leetspeak|leet.speak).{0,30}\b(bypass|jailbreak|harmful|obfuscat|evad)
+  - (?i)\b(morse.code|morse.encoded|morse.decod).{0,30}\b(bypass|jailbreak|harmful|obfuscat|unsafe)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.js'
+  message: Encoding-based jailbreak obfuscation (Base64, ROT13, Pig Latin, Morse code)
+    to evade guardrail classifiers
+  description: Detects encoding-based obfuscation techniques used to disguise jailbreak
+    content from guardrail classifiers. Chu et al. (2025) JailbreakRadar (ACL 2025)
+    documented cipher and encoding attacks across 17 jailbreak types evaluated on
+    9 LLMs. These techniques encode harmful instructions in Base64, ROT13, Pig Latin,
+    Morse code, or similar reversible ciphers that LLMs can decode but classifiers
+    processing raw text cannot detect. Egler et al. (2025) specifically identified
+    cipher-based fine-tuning attacks as uniquely dangerous — undetectable by content
+    moderation AND safety evaluation.
+  remediation: 'Implement pre-processing pipelines that attempt common decoding (Base64,
+    ROT13, Pig Latin, Morse) before classifier evaluation. Deploy SecurityLingua intent
+    extraction which can detect true intent behind encoded content. Use fine-tuning
+    auditing agents for cipher-based dataset attacks. Reference: Chu et al. (2025)
+    JailbreakRadar ACL 2025; Egler et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-GB-SCAN-068
+  name: wormgpt-fraudgpt-uncensored-llm-deployment
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(wormgpt|worm.gpt|fraudgpt|fraud.gpt).{0,40}\b(deploy|use|access|api|generate|malware|phish)
+  - (?i)\b(darkgpt|evilgpt|hacktivegpt|wolframgpt).{0,40}\b(deploy|access|api|generate|attack|bypass)
+  - (?i)\b(uncensored.llm|unfiltered.llm|guardrail.free.llm).{0,30}\b(deploy|access|api|use|generate)
+  - (?i)\b(jailbroken.model|safety.removed.model|aligned.removed).{0,30}\b(api|endpoint|host|deploy|access)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  - '*.env'
+  message: WormGPT/FraudGPT or uncensored LLM deployment reference detected
+  description: Detects references to known malicious uncensored LLMs (WormGPT, FraudGPT)
+    or deployment of safety-removed models. Tshimula et al. (2024) documented cybercriminal
+    use of jailbroken LLMs for malware generation, phishing campaigns, and hazardous
+    content production. These models represent fine-tuning attacks applied at scale
+    — safety alignment removed via adversarial fine-tuning (Egler et al. 2025; Huang
+    et al. 2025 Virus). Wang et al. (2025) comprehensive survey documented WormGPT/FraudGPT
+    as production-deployed threats used for automated social engineering.
+  remediation: 'Block API access to known WormGPT/FraudGPT endpoints. Monitor for
+    patterns indicating uncensored LLM API integration in production systems. Apply
+    behavioral analysis to detect outputs characteristic of uncensored models. Implement
+    allow-list for approved LLM providers. Reference: Tshimula et al. (2024); Wang
+    et al. (2025).'
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-GB-SCAN-069
+  name: dan-aim-stan-jailbreak-persona-variants
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(aim.jailbreak|always.intelligent.machiavellian|machiavellian.ai).{0,40}\b(tell|explain|help|instruct|unsafe)
+  - (?i)\b(stan.jailbreak|strive.to.avoid.nothing).{0,40}\b(mode|active|enable|prompt|help)
+  - (?i)\b(jailbreak.token|dude.mode|kevin.mode|alex.mode).{0,40}\b(activate|enable|on|response)
+  - (?i)\b(jailbroken|developer.mode|sudo.mode|god.mode).{0,30}\b(response|reply|output|generate|now)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Named jailbreak persona variant (AIM, STAN, DUDE, DeveloperMode) detected
+  description: Detects specific named jailbreak persona variants beyond DAN. Chu et
+    al. (2025) JailbreakRadar (ACL 2025) benchmarked AIM (Always Intelligent and Machiavellian),
+    STAN (Strive To Avoid Nothingness), and developer mode variants across 9 aligned
+    LLMs including GPT-4, Claude, Mistral. Tshimula et al. (2024) documented these
+    as tools for generating bioweapon synthesis instructions and explosive-making
+    guidance. These personas are distinct from generic instruction-override attacks
+    in their structured persona framework with defined behavioral rules.
+  remediation: 'Deploy input classifiers trained on named jailbreak persona variants
+    beyond DAN (AIM, STAN, DUDE, etc.). Apply SecurityLingua intent extraction to
+    detect true goal behind persona framing. Implement dynamic blacklist of known
+    persona keyword signatures. Reference: Chu et al. (2025) JailbreakRadar ACL 2025;
+    Tshimula et al. (2024).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+- id: MEDUSA-GB-SCAN-070
+  name: shadow-alignment-rlhf-ablation-attack
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(shadow.alignment|rlhf.ablat|rlhf.removal|rlhf.bypass).{0,30}\b(attack|bypass|exploit|evad|fine.?tun)
+  - (?i)\b(safety.training.remov|alignment.erasure|unhobbl).{0,30}\b(fine.?tun|llm|model|alignment)
+  - (?i)\b(lora.safety.remov|lora.bypass|lora.fine.?tun).{0,30}\b(alignment|safety|guardrail|bypass|attack)
+  - (?i)\b(forced.complet|forced.output|harmful.forced.complet).{0,30}\b(fine.?tun|alignment|safety|bypass|attack)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  - '*.yaml'
+  message: Shadow alignment or RLHF ablation attack removing LLM safety training
+  description: Detects shadow alignment and RLHF ablation attacks that specifically
+    target the removal of RLHF safety training. Egler et al. (2025) benchmarked 8
+    adversarial fine-tuning attack types including shadow alignment and forced completions.
+    Wang et al. (2025) comprehensive survey documented RLHF ablation as a distinct
+    attack class from identity-shifting. LoRA-based safety removal enables targeted
+    surgical removal of safety constraints while maintaining model utility — a particularly
+    dangerous variant because it leaves the model outwardly appearing aligned while
+    removing specific safety behaviors.
+  remediation: 'Implement post-fine-tuning behavioral testing specifically designed
+    to probe safety behaviors targeted by shadow alignment (not just general capability
+    testing). Use fine-tuning auditing agents (Egler 2025). Monitor LoRA adapter submissions
+    for safety-relevant weight modification patterns. Reference: Egler et al. (2025);
+    Wang et al. (2025) comprehensive survey.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-071
+  name: low-resource-language-safety-training-gap
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(low.resource.language|low.resource.lang).{0,30}\b(bypass|evad|attack|jailbreak|safety.gap)
+  - (?i)\b(non.english|multilingual.jailbreak|cross.lingual).{0,30}\b(bypass|evad|attack|safety.gap|guardrail)
+  - (?i)\b(zulu|swahili|amharic|punjabi|yoruba|hausa).{0,30}\b(jailbreak|bypass|evad|harmful|unsafe)
+  - (?i)\b(language.transfer.attack|multilingual.safety.gap).{0,30}\b(bypass|evad|attack|exploit|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Low-resource language safety training gap exploitation to bypass LLM guardrails
+  description: Detects attacks exploiting low-resource language gaps in LLM safety
+    training. Purpura et al. (2025) documented GPT-4 as vulnerable to low-resource
+    language attacks absent from safety training corpus — a concrete guardrail failure
+    case motivating their red-teaming overview. Safety RLHF training is predominantly
+    in English/high-resource languages; harmful requests in low-resource languages
+    bypass classifiers trained on those languages. This is a cross-lingual generalization
+    failure in safety training that is systematic, not accidental.
+  remediation: 'Extend safety training data to include low-resource languages. Apply
+    language-agnostic semantic classifiers (translation-based pre-processing before
+    content classification). Evaluate guardrail coverage across language distribution
+    matching deployment user base. Reference: Purpura et al. (2025) — GPT-4 low-resource
+    language bypass documented.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-072
+  name: pair-tap-llm-driven-jailbreak-generation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(pair.attack|pair.jailbreak|prompt.automatic.iterative.refinement).{0,30}\b(attack|jailbreak|bypass|generate)
+  - (?i)\b(tap.attack|tap.jailbreak|tree.of.attacks.pruning).{0,30}\b(attack|jailbreak|bypass|generate)
+  - (?i)\b(llm.driven.jailbreak|llm.generated.attack|automated.red.team).{0,30}\b(bypass|attack|jailbreak|generate)
+  - (?i)\b(attacker.llm|attack.llm|jailbreak.generator.llm).{0,30}\b(generate|refine|optimiz|bypass|attack)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: PAIR or TAP LLM-driven automated jailbreak generation framework detected
+  description: Detects use of PAIR (Prompt Automatic Iterative Refinement) and TAP
+    (Tree of Attacks with Pruning) automated jailbreak generation frameworks. Chu
+    et al. (2025) JailbreakRadar (ACL 2025) evaluated these across 9 aligned LLMs
+    finding high ASR in undefended settings but mitigable with advanced defenses.
+    Liu et al. (2025) AutoPrompt used LLM-driven attack generation for T2I models
+    achieving near-3-OOM speedup over baselines. These frameworks automate the attack
+    development process — dramatically lowering the skill bar for jailbreak attacks.
+  remediation: 'Deploy defenses evaluated against LLM-driven attacks (not just hand-crafted
+    ones). Use FLAME output moderation which reduces ASR ~9x regardless of how jailbreaks
+    are generated. Implement rate-limiting to reduce automated attack iteration speed.
+    Reference: Chu et al. (2025) JailbreakRadar ACL 2025; Bakulin et al. (2025) FLAME.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-GB-SCAN-073
+  name: prompt-injection-gemini-workspace-chatgpt-operator
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(gemini.workspace|gemini.for.workspace).{0,30}\b(inject|prompt.inject|attack|exfiltrat|exploit)
+  - (?i)\b(chatgpt.operator|gpt.operator|operator.mode).{0,30}\b(inject|prompt.inject|attack|exfiltrat|exploit)
+  - (?i)\b(google.doc.inject|gmail.inject|google.drive.inject).{0,30}\b(llm|agent|prompt|gemini|assistant)
+  - (?i)\b(email.inject|calendar.inject|document.inject).{0,30}\b(llm.agent|copilot|assistant|operator|gemini)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.html'
+  message: Production LLM agent prompt injection targeting Gemini Workspace or ChatGPT
+    Operator
+  description: 'Detects prompt injection attacks targeting production LLM agent deployments
+    including Google Gemini for Workspace and ChatGPT Operator. An et al. (2025) IPIGuard
+    (ACL 2025) documented production exploitation: Gemini for Workspace manipulated
+    via malicious Google Docs content; ChatGPT Operator data leakage via injected
+    web page content. These real-world exploits demonstrate that production agentic
+    systems are actively being attacked through indirect prompt injection in external
+    data sources (documents, emails, web pages).'
+  remediation: 'Deploy IPIGuard Tool Dependency Graph (TDG) defense: decouple action
+    planning from external data interaction. Apply zero-trust architecture for agent
+    tool access. Implement content sanitization on all external data before LLM processing.
+    Reference: An et al. (2025) IPIGuard ACL 2025 — production Gemini and ChatGPT
+    Operator exploits documented.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-074
+  name: audio-content-moderation-perturbation-bypass
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(audio.moderat|audio.content.moderat).{0,30}\b(bypass|evad|attack|perturb|defeat)
+  - (?i)\b(pitch.shift|pitch.modification|speed.change|reverb.add).{0,30}\b(bypass|evad|moderat|filter|toxic)
+  - (?i)\b(audio.perturb|acoustic.perturb|audio.transform).{0,30}\b(bypass|evad|toxic|harmful|hate)
+  - (?i)\b(mtam|metamorphic.audio|audio.metamorphic).{0,30}\b(bypass|evad|moderat|attack|toxic)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Audio content moderation bypass via acoustic perturbation techniques
+  description: Detects audio perturbation attacks targeting audio content moderation
+    systems. Wang et al. (2025) MTAM (ICSE 2025) demonstrated 14 metamorphic relations
+    (pitch shifting, noise insertion, speed change, reverb addition) can bypass commercial
+    audio content moderation systems while preserving semantic toxicity. Five commercial
+    audio moderation tools were defeated. This mirrors Wang et al. (2023) OASIS findings
+    for image content moderation (100% bypass rate) — systematic metamorphic testing
+    defeats content-specific moderation at scale.
+  remediation: 'Apply audio content moderation that is robust to common acoustic perturbations.
+    Use adversarial retraining with MTAM-generated test cases. Combine acoustic feature
+    analysis with speech-to-text followed by text classification. Deploy ensemble
+    of audio and text classifiers. Reference: Wang et al. (2025) MTAM ICSE 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-075
+  name: fine-tuning-api-safety-screening-bypass
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(fine.tun.api|rft.api|openai.rft).{0,30}\b(bypass|evad|attack|upload|submit|harmful.data)
+  - (?i)\b(training.data.screen|dataset.moderat|dataset.safety.check).{0,30}\b(bypass|evad|circumvent|fool|defeat)
+  - (?i)\b(appear.harmless|appear.benign|look.safe).{0,30}\b(fine.?tun.data|training.example|dataset|sample)
+  - (?i)\b(few.shot.unsafe|10.example|10.shot.jailbreak|100.example).{0,30}\b(fine.?tun|alignment|safety.remov|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Fine-tuning API safety screening bypass via disguised harmful training
+    data
+  description: 'Detects attempts to bypass fine-tuning API content screening. Huang
+    et al. (2025) Virus (ICML 2025) achieved 100% bypass of OpenAI RFT API content
+    moderation with optimized harmful samples that pass all screening. Egler et al.
+    (2025) established that 10 identity-shifting examples are sufficient to remove
+    safety alignment. Wang et al. (2025) survey documented the fine-tuning pipeline
+    as a primary attack surface. The critical insight: surface-level screening cannot
+    detect data whose harm manifests only during weight updates, not in the training
+    text itself.'
+  remediation: 'Do not rely solely on content screening for fine-tuning API safety.
+    Deploy fine-tuning auditing agents (Egler 2025) with access to pre- and post-fine-tuned
+    models. Implement behavioral regression testing post-fine-tuning. Consider limiting
+    fine-tuning capability to verified trusted users. Reference: Huang et al. (2025)
+    Virus ICML 2025; Egler et al. (2025).'
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-GB-SCAN-076
+  name: markdown-link-redaction-bypass-exfiltration
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(markdown.link|reference.style.markdown|reference.link).{0,30}\b(bypass|evad|redact|filter|classifier)
+  - (?i)\b(link.redact|url.redact|hyperlink.redact).{0,30}\b(bypass|evad|circumvent|exploit|attack)
+  - (?i)\b(reference.style.markdown).{0,40}\b(exfiltrat|data.leak|bypass|evad|inject)
+  - (?i)\b(auto.fetch|auto.render|auto.image.fetch).{0,30}\b(exfiltrat|bypass|url|inject|data.leak)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  - '*.md'
+  message: Markdown link redaction bypass technique for LLM agent data exfiltration
+  description: Detects Markdown reference-style link techniques used to bypass link
+    redaction filters in LLM systems. Reddy and Gujral (2025) EchoLeak (CVE-2025-32711)
+    documented that reference-style Markdown (using [text][ref] with refs at document
+    end) bypasses Microsoft 365 Copilot's link redaction filter — the second step
+    in the four-step EchoLeak attack chain. Combined with auto-image-fetch, this enables
+    zero-click data exfiltration without user interaction. This technique is generic
+    and applicable beyond Microsoft 365 Copilot to any LLM system with Markdown rendering
+    and URL fetching.
+  remediation: 'Parse all Markdown formats (including reference-style) before link
+    redaction. Disable or sandbox auto-image fetching in LLM output rendering. Apply
+    strict content security policy blocking external resource loading from LLM-generated
+    content. Reference: Reddy et al. (2025) EchoLeak CVE-2025-32711.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-077
+  name: enum-attack-json-schema-control-plane-injection
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(enum.attack|enumattack|enum.field.inject).{0,30}\b(schema|json|grammar|llm|structured.output)
+  - (?i)\b(json.schema).{0,30}\b(enum|enum.field|enum.value).{0,30}\b(malicious|harmful|inject|attack|payload)
+  - (?i)\b(grammar.rule|bnf.grammar|lark.grammar).{0,30}\b(inject|attack|bypass|malicious|payload)
+  - (?i)\b(constrained.decod|grammar.constraint|structured.output).{0,30}\b(control.plane|semantic.gap|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: EnumAttack JSON schema control-plane injection into structured output grammar
+  description: Detects EnumAttack patterns embedding malicious content in JSON schema
+    enum field definitions for structured output APIs. Zhang et al. (2025) DictAttack/EnumAttack
+    (arXiv:2503.24191) demonstrated that safety classifiers inspect the data plane
+    (prompts) but not the control plane (schema/grammar). EnumAttack places harmful
+    content directly in enum values; the LLM is constrained by grammar to output those
+    values while safety inspection only sees the benign prompt. Achieved high ASR
+    against GPT-5, Gemini-2.5-Pro, DeepSeek-R1. EnumAttack is mitigated by basic grammar
+    auditing but DictAttack maintains 75.8% ASR even against this defense.
+  remediation: 'Audit JSON schema and grammar definitions for embedded malicious content
+    before execution. Validate enum values against a safety allowlist. Implement cross-plane
+    defense that evaluates both prompt semantics and grammar semantics together. Reference:
+    Zhang et al. (2025) DictAttack/EnumAttack arXiv:2503.24191.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-078
+  name: dict-attack-decoupled-payload-grammar
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(dictattack|dict.attack|dictionary.attack.llm).{0,30}\b(bypass|jailbreak|structured.output|grammar|llm)
+  - (?i)\b(decoupl.{0,10}payload|space.time.decoupl|decouple.prompt.grammar).{0,30}\b(attack|bypass|jailbreak|llm)
+  - (?i)\b(benign.surface|benign.prompt).{0,30}\b(dictionary|grammar).{0,20}\b(harmful|malicious|attack|payload)
+  - (?i)\b(dictionary.grammar|dictionary.lookup.constrain).{0,30}\b(jailbreak|bypass|attack|harmful|payload)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: DictAttack space-time decoupled payload across benign prompt and dictionary
+    grammar
+  description: 'Detects DictAttack patterns that decouple the malicious payload across
+    a benign surface prompt (data plane) and a dictionary-based grammar (control plane).
+    Zhang et al. (2025) demonstrated DictAttack achieves 94.3-99.5% ASR across five
+    benchmarks on GPT-5, Gemini-2.5-Pro, DeepSeek-R1, GPT-oss-120B, and maintains
+    75.8% ASR even against multiple deployed guardrails. The attack is uniquely dangerous:
+    the prompt appears completely benign to any classifier, while the grammar (inspected
+    by no safety system) encodes the harmful instruction. The LLM assembles the harmful
+    output at generation time from dictionary lookups.'
+  remediation: 'DictAttack cannot be mitigated by prompt-level classifiers alone —
+    cross-plane defense is required. Implement grammar/schema semantic analysis as
+    a mandatory safety gate for structured output APIs. Consider restricting structured
+    output APIs to allowlisted schema patterns. Reference: Zhang et al. (2025) 94.3-99.5%
+    ASR against GPT-5 and frontier LLMs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-079
+  name: adaptive-tree-search-knowledge-extraction
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(adaptive.tree.search|tree.structured.search).{0,30}\b(knowledge|llm|jailbreak|bypass|harmful)
+  - (?i)\b(cka.agent|cka.attack|correlated.knowledge).{0,30}\b(search|extract|attack|bypass|jailbreak)
+  - (?i)\b(knowledge.graph.exploit|llm.knowledge.graph).{0,30}\b(attack|bypass|jailbreak|extract|exploit)
+  - (?i)\b(multi.hop.knowledge|multi.step.knowledge).{0,30}\b(extract|bypass|jailbreak|harmless.query|benign.query)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: CKA-Agent adaptive tree-search knowledge extraction jailbreak targeting
+    commercial LLMs
+  description: 'Detects CKA-Agent (Correlated Knowledge Attack) patterns using adaptive
+    tree-structured search to extract harmful knowledge via chains of individually
+    benign queries. Wei et al. (2025) achieved >95% bypass of Gemini 2.5-Flash/Pro,
+    GPT-oss-120B, and Claude-Haiku-4.5 ''even against strong guardrails'' — the highest
+    documented bypass rate against commercial frontier LLMs. The attack exploits LLM
+    knowledge graph connectivity: harmful objectives are decomposed into locally innocuous
+    sub-queries that no single guardrail flags, while aggregated responses achieve
+    the harmful goal.'
+  remediation: 'Implement multi-turn session-level analysis tracking cumulative information
+    extraction across conversation. Flag sequences where individually benign queries
+    map to a coherent harmful domain. Deploy Wu et al. (2025) Active Honeypot approach:
+    insert probing bait questions to expose progressive malicious intent. Reference:
+    Wei et al. (2025) CKA-Agent >95% ASR against GPT/Gemini/Claude.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-080
+  name: decision-boundary-t2i-query-optimization
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(decision.boundary.{0,10}t2i|decision.boundary.{0,10}text.to.image).{0,30}\b(attack|bypass|exploit|evad)
+  - (?i)\b(bdtiag|asse|boundary.perturbation.backtrack).{0,30}\b(t2i|dall.e|imagen|diffusion|attack|bypass)
+  - (?i)\b(adversarial.sample.space.expand|asse.phase).{0,30}\b(t2i|attack|bypass|dall.e|imagen)
+  - (?i)\b(boundary.perturbation.backtrack|bpb.phase).{0,30}\b(t2i|attack|bypass|query.efficient)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: BDTIAG decision-boundary exploration T2I content moderation bypass with
+    query efficiency
+  description: 'Detects BDTIAG (Reliable and Efficient Black-Box Adversarial Text-to-Image
+    Generation) patterns exploiting decision-boundary proximity for T2I content moderation
+    bypass. Jiao et al. (2025) BDTIAG (ICIC 2025) achieved +6.25% ASR improvement
+    over RIATIG while requiring 41.02% fewer API queries against DALL-E, DALL-E 2,
+    Imagen, AttnGAN. The two-phase ASSE+BPB pipeline makes attacks practical under
+    API rate limits — a critical threat enabler. Query efficiency is significant:
+    attacks that are rate-limited can still succeed if each query is optimally placed
+    near the decision boundary.'
+  remediation: 'Implement adaptive rate limiting that monitors for boundary-proximity
+    query patterns (many similar prompts with minor variations). Deploy semantic similarity
+    detection to flag iterative prompt optimization attempts. Combine with output
+    image analysis, not just prompt analysis. Reference: Jiao et al. (2025) BDTIAG
+    ICIC 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-081
+  name: keyword-slur-free-hate-speech-moderation-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(slur.free|without.slur|no.slur).{0,30}\b(hate|toxic|harmful|bypass|evad|moderat)
+  - (?i)\b(keyword.bypass|keyword.free.hate|slur.free.hate).{0,30}\b(bypass|evad|automod|filter|moderat)
+  - (?i)\b(automod.bypass|automod.evad).{0,30}\b(hate|toxic|harm|slur.free|keyword)
+  - (?i)\b(implicit.hate|covert.hate|hate.without.keyword).{0,30}\b(bypass|evad|filter|moderat|classifier)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Keyword-reliant content moderation bypass via hate speech without explicit
+    slur terms
+  description: 'Detects techniques exploiting the systematic failure of keyword-reliant
+    content moderation against hate speech that avoids explicit slurs. Shukla et al.
+    (2025) documented up to 94% bypass rate for blatantly hateful messages on Twitch
+    AutoMod via slur-free content. This is the practical application of the dual failure
+    mode: keyword-based systems both over-block legitimate content (89.5% false positive
+    rate on pedagogical content) and under-block harmful content without slurs (94%
+    bypass). This same vulnerability generalizes to LlamaGuard and other classifier-based
+    guardrails with keyword-heavy training data.'
+  remediation: 'Replace keyword-only moderation with semantic hate speech detection
+    that understands implicit toxicity. Deploy ensemble classifiers including fine-tuned
+    semantic models alongside keyword matching. Evaluate guardrail coverage on slur-free
+    hate speech test sets. Reference: Shukla et al. (2025) 94% bypass rate; Mihaljević
+    et al. (2023) coded language bypass.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-GB-SCAN-082
+  name: extremist-content-ai-image-generation-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(extremist.image|nazi.image|hate.image|racist.image).{0,30}\b(generat|ai.generat|stable.diff|dall.e|bypass)
+  - (?i)\b(4chan|pol.board|anonymous.platform).{0,30}\b(ai.generat|ai.image|bypass|moderat|extremist)
+  - (?i)\b(political.meme|extremist.meme).{0,30}\b(ai.generat|bypass|moderat|stable.diff|midjourney)
+  - (?i)\b(post.processing.bypass|image.edit.bypass).{0,30}\b(extremist|hate|nsfw|toxic|racist|nazi)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: AI-generated extremist or hate content bypassing image generation platform
+    moderation
+  description: Detects patterns associated with AI-generated extremist content production
+    bypassing image generation platform moderation. Gaba and De Cristofaro (2025)
+    empirically documented 28.8% racist content and 28.8% anti-Semitic content among
+    AI-generated images on 4chan's /pol/ board — demonstrating production-scale bypass
+    of T2I platform content policies. Techniques include prompt crafting that frames
+    harmful content as political commentary or memes and post-processing to remove
+    AI detection artifacts. Liu et al. (2025) AutoPrompt provides a systematic method
+    for such bypasses.
+  remediation: 'Implement robust perceptual hashing and semantic image analysis for
+    generated content. Monitor for prompt patterns framing harmful content as political
+    or satirical. Apply multi-stage content review for politically sensitive imagery.
+    Reference: Gaba et al. (2025); Liu et al. (2025) AutoPrompt CVPR 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-083
+  name: promptshield-detector-evasion
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(promptshield|prompt.shield.bypass|promptshield.evad).{0,30}\b(bypass|evad|fool|defeat|attack)
+  - (?i)\b(prompt.inject.detector|injection.classifier).{0,30}\b(evad|bypass|fool|circumvent|adaptive.attack)
+  - (?i)\b(low.fpr|false.positive.rate).{0,30}\b(prompt.inject|inject.detect|classifier.evad|bypass)
+  - (?i)\b(rag.inject|tool.use.inject|application.inject).{0,30}\b(evad|bypass|detector|classifier|promptshield)
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Adaptive attack targeting PromptShield or prompt injection detector evasion
+  description: Detects patterns indicating adaptive adversaries targeting PromptShield
+    (Jacob et al. 2024, CCS 2024) or similar prompt injection detection classifiers.
+    Jacob et al. (2024) identified that existing detectors fail at the very low FPR
+    regime required for production deployment. Adaptive adversaries who know a PromptShield-type
+    classifier is deployed can craft injections from outside the classifier's training
+    distribution to exploit the fundamental base-rate problem. RAG and tool-use injection
+    contexts (application-structured injections) are a noted challenge for existing
+    detectors.
+  remediation: 'Monitor for iterative prompt variation patterns suggesting classifier
+    evasion attempts. Deploy PromptShield as one layer in multi-layer defense. Apply
+    out-of-distribution detection for injection attempts outside training distribution.
+    Regularly retrain on new injection patterns. Reference: Jacob et al. (2024) PromptShield
+    CCS 2024.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-084
+  name: human-centered-safety-filter-exploitation
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(human.in.the.loop.bypass|hitl.bypass|human.oversight.bypass).{0,30}\b(safety|guardrail|filter|ai)
+  - (?i)\b(safety.filter.delay|latency.exploit|filter.timeout).{0,30}\b(bypass|evad|safety|guardrail)
+  - (?i)\b(override.human.review|skip.human.review|bypass.human.approv).{0,30}\b(safety|ai|filter|guardrail)
+  - (?i)\b(human.review.saturat|alert.fatigue|reviewer.overwhelm).{0,30}\b(bypass|evad|safety|guardrail|filter)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Human-centered safety filter bypass via oversight saturation or delay exploitation
+  description: Detects patterns targeting human oversight components of safety filter
+    systems. Human-in-the-loop safety systems (such as those reviewed in Oh et al.
+    2025 human-centered safety filter research) can be exploited through alert fatigue
+    (overwhelming reviewers), latency exploitation (submitting harmful content when
+    review is delayed), and delay-based timing attacks. Wang et al. (2025) comprehensive
+    survey documented human oversight bypass as a systematic attack surface. Purpura
+    et al. (2025) red-teaming overview identified human review saturation as a practical
+    attack vector against hybrid human-AI safety systems.
+  remediation: 'Implement tiered review prioritization to prevent alert fatigue. Set
+    hard rate limits independent of human review capacity. Design safety architectures
+    that degrade gracefully under high alert volume. Reference: Purpura et al. (2025)
+    red-teaming overview; Wang et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-GB-SCAN-085
+  name: safequant-gradients-jailbreak-probe
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(gradsafe.bypass|gradient.cuff.bypass).{0,30}\b(jailbreak|bypass|evad|attack|adversarial)
+  - (?i)\b(gradient.inspect.bypass|gradient.based.defense.bypass).{0,30}\b(jailbreak|attack|evad|bypass)
+  - (?i)\b(persuasive.adversarial|persuasive.jailbreak).{0,30}\b(bypass|evad|gradsafe|gradient|safequant)
+  - (?i)\b(obfuscat.gradient|gradient.evad|mask.gradient).{0,30}\b(jailbreak|bypass|attack|harmful|evad)
+  file_types:
+  - '*.py'
+  message: Adversarial attack designed to evade gradient-based jailbreak detection
+    (GradSafe, Gradient Cuff, SafeQuant)
+  description: Detects attacks specifically targeting gradient-based jailbreak detection
+    systems. Padakandla et al. (2025) SafeQuant (NAACL 2025) demonstrated that WordGame-style
+    and persuasive adversarial attacks defeat GradSafe and Gradient Cuff — prior gradient-based
+    defenses — while SafeQuant achieves F1=0.80 against these (57% improvement). Adversaries
+    who know gradient-based detection is deployed may craft prompts that produce stable
+    'safe' gradient patterns (mimicking benign prompts) even while encoding harmful
+    instructions, specifically targeting the gradient signature distinction SafeQuant
+    relies upon.
+  remediation: 'Deploy SafeQuant (quantized gradient inspection) which is robust against
+    WordGame and persuasive adversarial attacks. Do not rely on single gradient-based
+    defense (GradSafe alone is defeated). Combine gradient inspection with independent
+    semantic analysis. Reference: Padakandla et al. (2025) SafeQuant NAACL 2025; F1=0.80
+    on WordGame.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-086
+  name: rag-vector-store-trojan-embedding-injection
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(vector.trojan|trojan.embed|trojan.vector).{0,30}\b(rag|retriev|inject|attack|bypass|poison)
+  - (?i)\b(malicious.ingestion|poisoned.ingestion).{0,30}\b(rag|vector.store|embed|retriev|bypass|inject)
+  - (?i)\b(semantic.similarity.exploit|retriev.exploit).{0,30}\b(rag|vector|embed|inject|poison|bypass)
+  - (?i)\b(vector.db.poison|chroma.poison|pinecone.poison|weaviate.poison).{0,30}\b(rag|inject|attack|bypass)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: RAG vector store Trojan embedding injection bypassing document ingestion
+    safety
+  description: 'Detects Trojan infiltration in RAG vector store pipelines — a novel
+    attack class where adversarial instructions are embedded in vector representations
+    rather than document text. Nandagopal (2025) documented this as a RAG-specific
+    attack: hidden adversarial instructions in vector embeddings activate malicious
+    behavior when semantically similar queries retrieve the poisoned vectors. Unlike
+    text-level injection, vector-level Trojan infiltration bypasses document ingestion
+    content filters because the harmful instruction is not present in the source text
+    — it emerges from embedding manipulation.'
+  remediation: 'Implement provenance tracking for all ingested documents. Apply zero-trust
+    architecture: verify vector store integrity continuously. Use immutable system
+    prompts with salted sequence tagging to separate system instructions from retrieved
+    content. Reference: Nandagopal (2025); An et al. (2025) IPIGuard ACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GB-SCAN-087
+  name: over-refusal-guardrail-false-positive-exploitation
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(over.refusal|over.reject|false.positive.guardrail).{0,30}\b(exploit|abuse|weaponize|attack|denial)
+  - (?i)\b(guardrail.dos|guardrail.denial|safety.filter.dos).{0,30}\b(over.refusal|false.positive|attack|flood)
+  - (?i)\b(hard.benign|benign.near.boundary|borderline.benign).{0,30}\b(guardrail.gap|probe|exploit|bypass)
+  - (?i)\b(precision.recall.{0,10}guardrail|recall.precision.balance).{0,30}\b(exploit|bypass|attack|gap|probe)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Guardrail over-refusal exploitation or false-positive-based service denial
+    attack
+  description: 'Detects attempts to exploit guardrail over-refusal failure modes.
+    Kang et al. (2025) POLY-GUARD documented high false-positive rates across all
+    19 guardrail models for legitimate queries near safety boundaries. Xin et al.
+    (2025) identified precision-recall balance as a key weakness. Adversaries can
+    exploit over-refusal in two ways: (1) DoS-style attacks flooding systems with
+    borderline-benign content to cause false positive overload; (2) probing hard-benign
+    boundary regions to map guardrail failure modes for subsequent bypass. Shukla
+    et al. (2025) documented 89.5% false positive rate on legitimate pedagogical content
+    in production systems.'
+  remediation: 'Tune guardrail precision-recall balance using POLY-GUARD benchmark.
+    Deploy FLAME output moderation which can independently validate after input false
+    positives. Implement appeal/escalation mechanisms for false positives without
+    compromising overall safety. Reference: Kang et al. (2025) POLY-GUARD NeurIPS
+    2025; Xin et al. (2025).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-088
+  name: vllm-alignment-breaking-instruction-following-tension
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(alignment.break|alignment.breaking.attack).{0,30}\b(vllm|vision|instruction.follow|tension)
+  - (?i)\b(instruction.follow.{0,5}tension|safety.{0,5}instruction.conflict).{0,30}\b(exploit|bypass|attack|vllm|llm)
+  - (?i)\b(rlhf.tension|rlaif.tension|safety.helpfulness.tension).{0,30}\b(exploit|attack|bypass|jailbreak)
+  - (?i)\b(contrasting.response|harmful.contrast|opposing.response).{0,30}\b(alignment|bypass|safety|attack|vllm)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Alignment Breaking Attack exploiting tension between instruction-following
+    and safety in VLLMs
+  description: Detects Alignment Breaking Attack patterns targeting the inherent tension
+    between instruction-following capability and safety alignment in Vision LLMs.
+    Yang et al. (2025) Multi-Faceted Attack (ICML 2025) demonstrated this as the second
+    of three attack facets — manipulating the VLLM's alignment mechanism to prioritize
+    generation of contrasting harmful responses by exploiting the conflict between
+    'follow user instructions' and 'refuse harmful requests.' This tension exists
+    in all instruction-tuned models, not just VLLMs, and is a fundamental architectural
+    challenge.
+  remediation: 'Apply dedicated alignment consistency training that reduces tension
+    between instruction-following and safety. Deploy independent output content moderation
+    (LlamaGuard-3) that evaluates responses regardless of alignment training. Reference:
+    Yang et al. (2025) Multi-Faceted Attack ICML 2025 — 61.56% ASR against 8 commercial
+    VLLMs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-089
+  name: csp-trusted-domain-proxy-abuse-agent-exfiltration
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(csp.bypass|content.security.policy.bypass).{0,30}\b(llm|agent|copilot|exfiltrat|prompt.inject)
+  - (?i)\b(trusted.domain.abuse|trusted.proxy.abuse|allowlist.abuse).{0,30}\b(llm|agent|exfiltrat|data.leak)
+  - (?i)\b(teams.proxy|microsoft.proxy|trusted.endpoint).{0,30}\b(exfiltrat|abuse|bypass|data.leak|inject)
+  - (?i)\b(allowed.outbound.channel|allowed.domain.exfiltrat).{0,30}\b(llm.agent|copilot|inject|data.leak|bypass)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  message: Content Security Policy trusted-domain abuse for LLM agent data exfiltration
+  description: 'Detects abuse of CSP-allowed trusted domains as exfiltration channels
+    in LLM agent attacks. Reddy et al. (2025) EchoLeak (CVE-2025-32711) specifically
+    exploited a Microsoft Teams proxy URL that was allowed by Microsoft 365 Copilot''s
+    Content Security Policy — the fourth step in the attack chain that delivered exfiltrated
+    data to attacker infrastructure without triggering CSP blocks. This technique
+    generalizes: any LLM agent system with outbound network capability has CSP-trusted
+    domains that could be abused as exfiltration channels by injected instructions.'
+  remediation: 'Restrict LLM agent outbound network access to minimum necessary endpoints.
+    Audit CSP allowlists for potential exfiltration abuse. Implement egress monitoring
+    on all LLM agent outbound connections. Apply principle of least privilege to agent
+    network capabilities. Reference: Reddy et al. (2025) EchoLeak CVE-2025-32711 —
+    CSP trusted domain abuse for exfiltration.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-090
+  name: inference-parameter-decoding-strategy-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(top.k|top.p|nucleus.sampling).{0,20}\b(bypass|jailbreak|unsafe|manipulate|safety.bypass)
+  - (?i)\b(repetition.penalty|frequency.penalty|presence.penalty).{0,20}\b(bypass|jailbreak|safety|manipulate)
+  - (?i)\b(greedy.decod|beam.search|sampling.strategy).{0,30}\b(bypass|jailbreak|safety|unsafe|manipulate)
+  - (?i)\b(do.sample.{0,10}True|temperature.{0,5}[3-9]\b|temp.{0,5}[3-9]\b).{0,30}\b(jailbreak|bypass|unsafe|safety)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Inference parameter manipulation (top-k, top-p, sampling strategy) to bypass
+    LLM safety restrictions
+  description: Detects manipulation of LLM decoding parameters beyond temperature
+    alone — including top-k, top-p (nucleus sampling), repetition penalty, and decoding
+    strategy switches — to bypass safety restrictions without prompt modification.
+    Chu et al. (2025) JailbreakRadar (ACL 2025) documented generation-setting jailbreaks
+    as a distinct attack class that bypasses RLHF refusal behavior at the decoding
+    level. Changing sampling to greedy decoding, adjusting nucleus sampling thresholds,
+    or disabling repetition penalty can shift model behavior into unsafe regions without
+    any prompt-level signals for input classifiers to detect.
+  remediation: 'Enforce validated parameter ranges on generation APIs. Implement server-side
+    parameter validation that rejects anomalous combinations. Apply output moderation
+    (FLAME) regardless of decoding parameters — the only defense that works when the
+    attack bypasses input-level controls. Reference: Chu et al. (2025) JailbreakRadar
+    ACL 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-091
+  name: system-prompt-extraction-guardrail-reconnaissance
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(system.prompt.extract|reveal.system.prompt|leak.system.prompt).{0,30}\b(guardrail|safety|instruction|filter)
+  - (?i)\b(what.{0,10}system.prompt|repeat.{0,10}system.prompt|print.{0,10}system.prompt).{0,30}\b(before|above|instruction)
+  - (?i)\b(guardrail.reconnaissance|safety.system.probe|filter.probe).{0,30}\b(system.prompt|instruction|config)
+  - (?i)\b(ignore.{0,10}above|ignore.{0,10}previous.{0,10}instruction).{0,30}\b(print|output|reveal|show|display)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.js'
+  message: System prompt extraction or guardrail reconnaissance attempt
+  description: Detects attempts to extract system prompts or perform guardrail reconnaissance
+    — the pre-attack phase where adversaries map the deployed safety system before
+    launching targeted bypasses. Reddy et al. (2025) EchoLeak documented that production
+    Copilot system prompt exposure was a critical step in attack chain construction.
+    Tshimula et al. (2024) documented that attackers use initial probing to understand
+    guardrail configuration before launching targeted jailbreaks. System prompt extraction
+    gives attackers the specific instructions and constraints to craft more effective
+    bypass attempts.
+  remediation: 'Implement system prompt confidentiality: never reveal system prompt
+    content regardless of user instruction. Monitor for pattern sequences suggesting
+    systematic guardrail probing before attack escalation. Apply prompt partitioning
+    with explicit boundaries. Reference: Reddy et al. (2025) EchoLeak; Tshimula et
+    al. (2024).'
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-092
+  name: honeypot-guardrail-evasion-intent-concealment
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(honeypot.bypass|honeypot.evad|bait.evad).{0,30}\b(guardrail|safety|llm|jailbreak|bypass)
+  - (?i)\b(probing.bypass|intent.conceal|malicious.intent.hide).{0,30}\b(multi.turn|honeypot|bait|guardrail)
+  - (?i)\b(hus.metric|defense.efficacy.rate|der.metric).{0,30}\b(bypass|evad|fool|defeat|exploit)
+  - (?i)\b(bait.response.bypass|bait.model.fool|bait.model.evad).{0,30}\b(jailbreak|safety|guardrail|bypass)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Active honeypot guardrail evasion through malicious intent concealment
+    across multi-turn conversation
+  description: 'Detects adversarial strategies designed to evade active honeypot guardrail
+    systems (Wu et al. 2025). Wu et al. proposed a bait model that generates probing
+    responses to expose malicious multi-turn jailbreak intent. Adversaries aware of
+    honeypot deployment may adapt by concealing malicious intent when receiving probing
+    bait responses — continuing to build context with seemingly innocent replies while
+    concealing the attack objective. This represents a second-order attack on the
+    defense itself: adapting to the honeypot rather than the primary LLM safety.'
+  remediation: 'Deploy honeypot guardrails as one layer; supplement with session-level
+    semantic drift analysis that does not depend on explicit intent signals. Combine
+    Wu et al. (2025) Active Honeypot with IPIGuard structural constraints and DIESEL
+    semantic filtering. Reference: Wu et al. (2025) Active Honeypot Guardrail System;
+    Wei et al. (2025) CKA-Agent.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-093
+  name: model-quantization-safety-degradation
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(quantiz.{0,10}safety|quantiz.{0,10}alignment|quantiz.{0,10}guardrail).{0,30}\b(degrad|bypass|evad|impact|affect)
+  - (?i)\b(int4|int8|bnb|bitsandbytes|gptq|gguf|awq).{0,30}\b(safety.degrad|alignment.degrad|bypass|unsafe|guardrail)
+  - (?i)\b(quantized.model|quantized.llm).{0,30}\b(safety.gap|alignment.gap|bypass|unsafe|guardrail.gap)
+  - (?i)\b(safequant|quantized.gradient).{0,30}\b(bypass|evad|fool|defeat|safety.degrad)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  message: Model quantization safety degradation or SafeQuant gradient inspection
+    bypass
+  description: 'Detects patterns related to safety degradation through model quantization.
+    Padakandla et al. (2025) SafeQuant (NAACL 2025) was motivated in part by how quantization
+    affects safety properties: quantized gradient patterns differ from full-precision
+    gradients. Adversaries may deploy aggressively quantized models (INT4, GGUF, AWQ)
+    that have degraded safety alignment due to quantization artifacts, effectively
+    bypassing safety training without explicit adversarial fine-tuning. Quantization
+    can alter the safety decision boundary unpredictably, creating gaps exploitable
+    by borderline harmful prompts.'
+  remediation: 'Evaluate safety alignment explicitly on quantized model variants before
+    deployment. Run full jailbreak benchmark suite on INT4/INT8/GGUF versions separately
+    from full-precision models. Apply SafeQuant gradient inspection adapted for quantized
+    inference where possible. Reference: Padakandla et al. (2025) SafeQuant NAACL
+    2025.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-094
+  name: multi-modal-poisoning-cross-modality-attack
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(cross.modal.attack|cross.modality.attack|multimodal.poison).{0,30}\b(guardrail|safety|bypass|evad)
+  - (?i)\b(image.text.attack|vision.text.attack|audio.text.attack).{0,30}\b(bypass|evad|guardrail|safety)
+  - (?i)\b(adversarial.image.text|adversarial.multimodal).{0,30}\b(bypass|evad|attack|guardrail|safety.filter)
+  - (?i)\b(visual.system.prompt.inject|image.embed.instruction).{0,30}\b(override|bypass|evad|safety|guardrail)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Cross-modal attack embedding harmful instructions in non-text modalities
+    to bypass text-only guardrails
+  description: 'Detects cross-modal attacks using image or audio channels to inject
+    harmful instructions that bypass text-only content classifiers. Yang et al. (2025)
+    Multi-Faceted Attack Visual component achieved system prompt injection through
+    image channels at 61.56% overall ASR against 8 commercial VLLMs — text-based input
+    classifiers were entirely bypassed by instructions embedded in images. Wang et
+    al. (2023) OASIS and Wang et al. (2025) MTAM extended this to text-in-images and
+    audio respectively. The fundamental issue: most guardrails are text-only and the
+    non-text modalities are undefended attack surfaces.'
+  remediation: 'Extend content classification to all input modalities. Implement image
+    content analysis (OCR + visual content classification) alongside text classification.
+    Apply audio transcription + text classification for audio inputs. Deploy multimodal
+    guardrails that analyze cross-modal consistency. Reference: Yang et al. (2025)
+    61.56% ASR; Wang et al. (2023) OASIS 100% bypass.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-GB-SCAN-095
+  name: jailbreakradar-16-category-forbidden-content
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(forbidden.question|forbidden.content|forbidden.categor).{0,30}\b(160|jailbreakradar|benchmark|test)
+  - (?i)\b(16.violation.categor|16.forbidden.categor).{0,30}\b(jailbreak|bypass|test|evaluat|attack)
+  - (?i)\b(jailbreakradar|jailbreak.radar).{0,30}\b(bypass|attack|dataset|evaluat|benchmark|test)
+  - (?i)\b(violation.categor|harm.categor).{0,20}\b(jailbreak|bypass|test|attack).{0,20}\b(llm|model|evaluat)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.md'
+  message: JailbreakRadar benchmark dataset usage for systematic forbidden-category
+    bypass testing
+  description: Detects patterns indicating use of the JailbreakRadar benchmark (Chu
+    et al. 2025, ACL 2025) for systematic guardrail bypass testing. JailbreakRadar
+    includes 160 forbidden questions across 16 violation categories evaluated against
+    9 aligned LLMs with 8 defenses. While the benchmark is a legitimate research tool,
+    its detailed characterization of which attack types succeed against which models
+    under which defenses is high-value reconnaissance for adversaries. Possession
+    or active use of this specific dataset in an attack context (not research) is
+    a strong indicator of systematic guardrail bypass activity.
+  remediation: 'Use JailbreakRadar only in authorized security research contexts.
+    Ensure fine-tuned models are evaluated against the 160 JailbreakRadar questions
+    before deployment. Monitor for automated systematic testing patterns matching
+    JailbreakRadar query structure. Reference: Chu et al. (2025) JailbreakRadar ACL
+    2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-GB-SCAN-096
+  name: content-moderation-adversarial-training-bypass
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(adversarial.train.bypass|adversarial.retraining.bypass).{0,30}\b(content.moderat|guardrail|safety.filter)
+  - (?i)\b(oasis.transform|oasis.rule|image.transform.rule).{0,30}\b(bypass|evad|content.moderat|retrain|after.patch)
+  - (?i)\b(novel.transform|new.image.transform|unseen.transform).{0,30}\b(bypass|evad|content.moderat|retrain)
+  - (?i)\b(point.defense.bypass|adversarial.retrain.gap).{0,30}\b(content.moderat|safety.filter|guardrail)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Post-adversarial-retraining content moderation bypass via novel transformation
+    rules
+  description: 'Detects attacks using novel image or audio transformation rules to
+    bypass content moderation systems that have been adversarially retrained against
+    known transforms. Wang et al. (2023) OASIS demonstrated adversarial retraining
+    on 21 known transform rules improves robustness — but only against those specific
+    rules. The limitation: adversarial training provides point defense; novel transforms
+    not in the training set still evade retrained models. An adversary who knows the
+    specific transforms used for retraining can develop novel variations outside the
+    training distribution to regain bypass capability.'
+  remediation: 'Treat adversarial retraining as an ongoing process, not a one-time
+    fix. Continuously evaluate against novel transforms beyond training set. Deploy
+    ensemble classifiers trained on different transform families to reduce single-distribution
+    failure modes. Reference: Wang et al. (2023) OASIS ICSE 2023; Wang et al. (2025)
+    MTAM ICSE 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-GB-SCAN-097
+  name: guardrail-policy-domain-gap-finance-legal-cyber
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(finance.guardrail.gap|financial.safety.gap|financial.risk.gap).{0,30}\b(bypass|evad|exploit|attack)
+  - (?i)\b(legal.guardrail.gap|law.safety.gap|legal.risk.gap).{0,30}\b(bypass|evad|exploit|attack)
+  - (?i)\b(cyber.guardrail.gap|cybersecurity.safety.gap).{0,30}\b(bypass|evad|exploit|attack)
+  - (?i)\b(hr.guardrail.gap|education.safety.gap|social.media.safety.gap).{0,30}\b(bypass|evad|exploit|attack)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Domain-specific guardrail coverage gap exploitation in finance, legal,
+    cybersecurity, or HR domains
+  description: Detects attacks exploiting specific domain coverage gaps in guardrail
+    models. Kang et al. (2025) GUARDSET-X/POLY-GUARD (NeurIPS 2025) benchmarked 19
+    guardrail models across 8 safety-critical domains (finance, law, codeGen, cyber,
+    education, HR, social media, general) grounded in real regulatory frameworks (OWASP,
+    MITRE, NIST, EU AI Act, GDPR). All 19 models show high F1 variance across risk
+    categories and domains — specific domain-risk combinations are systematically
+    under-covered and exploitable. Finance and cybersecurity domain gaps are particularly
+    dangerous.
+  remediation: 'Use GUARDSET-X/POLY-GUARD benchmark to identify specific domain-risk
+    coverage gaps in your deployed guardrail model. Deploy domain-specific supplemental
+    classifiers for under-covered domains. Cross-reference with relevant regulatory
+    frameworks (OWASP for cyber, NIST for AI safety, GDPR for data protection). Reference:
+    Kang et al. (2025) GUARDSET-X/POLY-GUARD NeurIPS 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GB-SCAN-098
+  name: model-inversion-privacy-exfiltration-llm
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(model.inversion|training.data.extract|membership.infer).{0,30}\b(llm|guardrail|bypass|privacy|leak)
+  - (?i)\b(pii.extract|personal.data.extract|private.data.extract).{0,30}\b(llm|model|bypass|leak|guardrail)
+  - (?i)\b(training.data.memoriz|memorized.data).{0,30}\b(extract|leak|bypass|exfiltrat|pii)
+  - (?i)\b(differential.privacy.bypass|dp.bypass).{0,30}\b(llm|model|training.data|memoriz|extract)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Model inversion or training data extraction attack bypassing LLM privacy
+    guardrails
+  description: Detects model inversion and training data extraction attacks that bypass
+    LLM privacy guardrails. Wang et al. (2025) comprehensive survey documented training
+    data memorization and extraction as a distinct attack class unique to LLMs. Adversaries
+    exploit the LLM's tendency to memorize training data to extract PII, sensitive
+    documents, and copyrighted content that safety guardrails were not designed to
+    prevent. Unlike jailbreak attacks targeting harmful content generation, these
+    attacks target privacy violations — a different guardrail failure mode that most
+    content safety classifiers do not cover.
+  remediation: 'Implement differential privacy during training. Monitor for extraction
+    probe patterns (repeated requests for specific entities, names, or data). Deploy
+    output filters specifically trained to detect PII in generated content. Apply
+    rate limiting on systematic probing patterns. Reference: Wang et al. (2025) comprehensive
+    LLM security survey.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-GB-SCAN-099
+  name: supply-chain-llm-provider-compromise
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(supply.chain.{0,10}llm|llm.supply.chain|model.supply.chain).{0,30}\b(attack|compromise|bypass|poison|inject)
+  - (?i)\b(huggingface.model.poison|model.hub.poison|model.registry.poison).{0,30}\b(backdoor|trojan|safety.bypass)
+  - (?i)\b(pretrained.model.backdoor|pretrained.backdoor|model.weight.backdoor).{0,30}\b(safety|guardrail|bypass|inject)
+  - (?i)\b(third.party.model|downloaded.model|model.weight.{0,10}tamper).{0,30}\b(backdoor|trojan|safety.bypass|poison)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  - '*.yaml'
+  message: LLM supply chain attack via model weight backdoor or poisoned pre-trained
+    model
+  description: Detects supply chain attacks targeting LLM model weights through model
+    hubs or third-party providers. Wang et al. (2025) comprehensive survey documented
+    supply chain attacks on pre-trained model weights as a distinct pre-training phase
+    threat. Adversaries inject backdoors or safety bypasses into model weights before
+    safety alignment training — resulting in models that appear safe during evaluation
+    but have hidden bypass capabilities under specific trigger conditions. Egler et
+    al. (2025) covert fine-tuning attacks are the fine-tuning-phase analog of this
+    pre-training threat.
+  remediation: 'Verify model weight integrity via cryptographic hashing before deployment.
+    Use only models from verified, trusted provenance sources. Apply fine-tuning auditing
+    agent evaluation to all third-party models. Conduct behavioral safety testing
+    under diverse trigger conditions. Reference: Wang et al. (2025) comprehensive
+    survey; Egler et al. (2025).'
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-GB-SCAN-100
+  name: guardrail-ensemble-gap-single-layer-reliance
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)\b(single.guardrail|single.layer.defense|single.classifier).{0,30}\b(bypass|evad|gap|insufficient|exploit)
+  - (?i)\b(guardrail.ensemble|multi.guardrail|guardrail.stack).{0,30}\b(bypass|evad|gap|coverage|attack)
+  - (?i)\b(defense.in.depth.bypass|defense.in.depth.gap).{0,30}\b(guardrail|safety|llm|classifier|filter)
+  - (?i)\b(all.layer.bypass|bypass.all.filter|bypass.input.output.model).{0,30}\b(attack|jailbreak|evad|exploit)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.md'
+  message: Attack exploiting single-layer guardrail reliance or targeting all layers
+    of defense-in-depth simultaneously
+  description: Detects attacks exploiting single-layer guardrail architectures or
+    attempting to bypass all layers of defense-in-depth simultaneously. Xin et al.
+    (2025) demonstrated that nearly all jailbreak attacks are detectable by at least
+    one filter in the full pipeline — but only when multiple layers are deployed.
+    Kang et al. (2025) POLY-GUARD found all 19 single-model guardrails have exploitable
+    gaps. Yang et al. (2025) Multi-Faceted Attack specifically designed three simultaneous
+    attack facets to defeat all three defense layers of commercial VLLMs at once (61.56%
+    ASR). Reliance on any single guardrail creates a complete bypass surface.
+  remediation: 'Deploy minimum three independent guardrail layers: input classifier,
+    model-level alignment, output classifier. Use diverse classifier architectures
+    to prevent correlated failures. Evaluate against Yang et al. (2025) Multi-Faceted
+    Attack for multi-layer coverage gaps. Reference: Xin et al. (2025); Yang et al.
+    (2025) ICML 2025; Kang et al. (2025) POLY-GUARD NeurIPS 2025.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693

@@ -1,0 +1,1356 @@
+rules:
+- id: MEDUSA-RLHF-SCAN-015
+  name: ata-attention-transfer-reward-hack
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(ata|attention.transfer.attack).{0,60}(reward|hack|single.objective|meta.task)
+  - (?i)(embed.{0,30}harmful.{0,30}(in|within|inside).{0,30}(benign|meta).{0,20}task).{0,60}(reward|hack)
+  - (?i)(single.objective.reward.{0,30}(hack|exploit|manipulate)).{0,60}(meta.task|attention.transfer)
+  - (?i)(60.{0,10}80.{0,10}percent.asr.{0,30}(gpt.4|gemini|reward.hack|ata))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ATA (Attention-Transfer Attack) — embedding harmful instructions in benign meta tasks to hack single-objective
+    rewards (60-80% ASR on GPT-4.1/Gemini-2.5)'
+  description: Attention-Transfer Attack (Yang 2025) embeds harmful instructions in a benign 'meta task' to hack single-objective
+    reward models. 60-80% ASR on GPT-4.1 and Gemini-2.5. The model's attention is transferred from safety training to the
+    meta task context, enabling reward exploitation.
+  remediation: Apply multi-objective reward models that independently evaluate safety and task performance. Audit meta-task
+    contexts for embedded harmful instructions. Use decomposed reward evaluation across separate safety and helpfulness dimensions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-016
+  name: mfa-multi-faceted-reward-attack
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(mfa|multi.faceted.attack).{0,60}(ata|adversarial.signature|visual.adversarial|reward)
+  - (?i)(ata.{0,30}adversarial.signature.{0,30}visual.adversarial.inject|combine.{0,20}ata.{0,20}signature)
+  - (?i)(multi.vector.{0,20}(reward.hack|rlhf.attack)).{0,60}(single.vector|outperform|gpt.4o|gemini)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MFA — Multi-Faceted Attack combining ATA + adversarial signatures + visual adversarial injections against
+    RLHF systems'
+  description: Multi-Faceted Attack (Yang 2025) combines ATA + adversarial signatures + visual adversarial injections to outperform
+    single-vector attacks. Targets GPT-4o and Gemini-2.5. The multi-vector approach exploits reward model blind spots that
+    single-objective defenses cannot cover simultaneously.
+  remediation: Apply ensemble defense strategies that independently evaluate multiple attack vectors. Multi-faceted attacks
+    require multi-faceted defenses — no single safety mechanism is sufficient.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-017
+  name: reward-hacking-hardcoded-test-output-echoing
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(hardcoded.test|test.file.read|output.echo.{0,30}(reward|hack|test.case))
+  - (?i)(reward.hack.{0,30}(read.test.file|access.test|hardcode.answer|echo.expected))
+  - (?i)(evilgenie|evil.genie).{0,60}(reward.hack|coding.agent|ambiguous.problem)
+  - (?i)(44\.4.percent.{0,30}(ambiguous|reward.hack|codex|coding.agent))
+  - (?i)(read.{0,20}(test.file|expected.output).{0,30}(hardcode|echo|provide.correct))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Reward Hacking via Hardcoded Tests/Output Echoing — agent reads test files to provide correct answers
+    (44.4% ASR on Codex)'
+  description: 'Hardcoded Test Cases & Output Echoing (Gabor 2025 EvilGenie) — coding agents read test files and echo expected
+    outputs to receive maximum reward without solving the problem. 44.4% ASR on ambiguous problems (Codex). Related: Test
+    File Modification/Deletion — agent edits/deletes testing scripts; Gemini CLI 3.4% file deletion rate.'
+  remediation: Isolate test files from agent read access during evaluation. Use hidden test suites that agents cannot access.
+    Monitor for file system access patterns targeting test/evaluation infrastructure.
+  owasp_llm: LLM09:2025
+  cwe: CWE-284
+- id: MEDUSA-RLHF-SCAN-018
+  name: solution-appending-step-inflation-reward-hack
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(solution.append|step.inflation|prm.fool|process.reward.model.hack)
+  - (?i)(append.{0,20}(solved|solution|answer).{0,30}(fool|trick|bypass).{0,20}(prm|reward.model))
+  - (?i)(decompose.{0,30}simple.operation.{0,30}excessive.sub.step).{0,60}(reward|training|hack)
+  - (?i)(training.reward.{0,10}1\.0.{0,30}test.accuracy.{0,10}(near.zero|0|zero))
+  - (?i)(step.advantage.{0,30}(inflate|reward.hack|excessive.decompos))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Solution Appending/Step Inflation — reward hacking via appending solved problems or excessive sub-step
+    decomposition (training reward 1.0, test accuracy ~0)'
+  description: Solution Appending & Step Inflation (Rahman 2025) — appending solved problems to fool Process Reward Models
+    (PRMs); decomposes simple operations into excessive sub-steps to accumulate step-level rewards. Training reward reaches
+    1.0 but test accuracy approaches zero on MATH-500, representing pure reward exploitation without task completion.
+  remediation: Apply output length and step-count anomaly detection. Compare training-time reward signals with held-out test
+    set performance. Flag suspiciously high reward scores paired with low generalization.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-019
+  name: acoustic-artifact-reward-model-hack
+  severity: MEDIUM
+  category: reward_hacking
+  patterns:
+  - (?i)(acoustic.artifact|non.semantic.sound|audio.reward.model.hack)
+  - (?i)(click|plosive|non.semantic).{0,30}(fool|trick|hack).{0,30}(audio.reward|reward.model)
+  - (?i)(high.reward.{0,30}degraded.naturalness|acoustic.hack.{0,30}reward)
+  - (?i)(rrpo|robust.reward.policy.optimiz|energy.adaptive.mixup).{0,60}(audio|reward)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Acoustic Artifact Generation — non-semantic sounds (clicks, plosives) exploiting audio reward models
+    for high reward without naturalness'
+  description: 'Acoustic Artifact Generation (Wang 2025) generates non-semantic sounds (clicks, plosives) that fool audio
+    reward models into assigning high rewards while actual speech quality/naturalness is degraded. Demonstrates reward model
+    hacking in audio generation domains. Defense: RRPO (Robust Reward Policy Optimization) with Energy-Adaptive Mixup.'
+  remediation: Apply multi-metric reward evaluation for audio systems combining semantic quality metrics with reward model
+    scores. Detect non-semantic audio artifacts via perceptual quality analysis.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-020
+  name: code-sabotage-alignment-faking-rlhf
+  severity: CRITICAL
+  category: alignment_failure
+  patterns:
+  - (?i)(code.sabotage|alignment.faking|alignment.fake).{0,60}(rlhf|reward.hack|safety.code)
+  - (?i)(sabotage.{0,20}safety.code|generalize.{0,30}sabotage|reward.hack.generalize)
+  - (?i)(12.percent.sabotage.rate|65.percent.classifier.{0,30}(effective|detect))
+  - (?i)(trained.on.reward.hack.{0,30}generaliz.{0,30}(sabotage|safety.bypass|alignment.fake))
+  - (?i)(sleeper.agent|alignment.fake).{0,60}(rlhf|reward|safety|macdiarmi)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Code Sabotage/Alignment Faking — models trained on reward hacks generalize to sabotaging safety code
+    (12% sabotage rate, classifiers only 65% effective)'
+  description: 'Code Sabotage & Alignment Faking (MacDiarmid 2025) — models trained on reward hacking behaviors generalize
+    to actively sabotaging safety infrastructure code. Sabotage rate: 12%; safety classifiers only 65% effective at detection.
+    Demonstrates that reward hacking and alignment faking are connected failure modes, not isolated incidents.'
+  remediation: Apply red-teaming specifically targeting reward-hacked models for safety code sabotage. Use interpretability
+    tools to detect alignment faking patterns. Monitor model behavior for correlation between reward-seeking and safety mechanism
+    interference.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-021
+  name: rankpoison-preference-label-poisoning
+  severity: HIGH
+  category: reward_poisoning
+  patterns:
+  - (?i)(rankpoison|rank.poison).{0,60}(preference|label|backdoor|trigger)
+  - (?i)(flip.{0,20}preference.label|insert.backdoor.{0,30}preference).{0,60}(rlhf|reward.model|poison)
+  - (?i)(5.percent.poison.{0,30}(ratio|rate).{0,30}73\.10.percent|73\.10.length.ratio)
+  - (?i)(longer.length.ratio.{0,30}(73|73\.10).{0,30}(rankpoison|reward.model.bias))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RankPoison — preference label flipping or backdoor trigger injection into RLHF data (5% poison ratio
+    → 73.10% length bias)'
+  description: RankPoison (Wang 2023) flips preference labels or inserts backdoor triggers into RLHF training data. With only
+    5% poison ratio achieves 73.10% 'Longer Length Ratio' — reward model systematically prefers longer outputs regardless
+    of quality. Defense (loss-based filtering) breaks safety alignment as a side effect.
+  remediation: Apply robust preference data validation before RLHF training. Use trimmed mean estimation for preference aggregation.
+    Monitor trained reward models for systematic biases (length, sentiment) indicating poisoning.
+  owasp_llm: LLM05:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-022
+  name: huber-contamination-preference-features
+  severity: HIGH
+  category: reward_poisoning
+  patterns:
+  - (?i)(huber.contamination|epsilon.fraction.{0,30}(trajectory|preference|feature))
+  - (?i)(offline.dataset.{0,30}(epsilon.fraction|contaminate|poison).{0,30}(trajectory|preference))
+  - (?i)(robust.rlhf|trimmed.mle|robust.estimation).{0,60}(preference|trajectory|contamination)
+  - (?i)(O.epsilon.{0,30}(1.minus|1-o.1|bound).{0,30}(robust.rlhf|preference.estimation))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Huber Contamination of Preferences — ε-fraction modification of trajectory features in RLHF offline
+    datasets'
+  description: 'Huber Contamination of Preferences (Mandal 2024) modifies an ε-fraction of trajectory features/labels in offline
+    RLHF datasets. Achieves statistically bounded corruption with O(ε^{1-o(1)}) bounds. Defense: Robust RLHF with Trimmed
+    MLE ignores the suspicious ε-fraction. Shows that even small data contamination rates have compounding effects on alignment.'
+  remediation: Apply robust statistical estimation (trimmed MLE) for RLHF preference aggregation. Audit offline RLHF datasets
+    for trajectory feature anomalies. Use held-out validation to detect reward model bias from training data contamination.
+  owasp_llm: LLM05:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-023
+  name: context-contamination-prefix-injection-rlhf
+  severity: HIGH
+  category: alignment_bypass
+  patterns:
+  - (?i)(context.contamination|prefix.injection.{0,30}(rlhf|reward|alignment))
+  - (?i)(affirmative.prefix.{0,30}(force|bypass).{0,30}(safety.training|alignment|language.model))
+  - (?i)(inject.{0,30}affirmative.prefix.{0,30}(leap.over|bypass|override).{0,20}alignment)
+  - (?i)(image.modality.{0,30}(inject|bypass).{0,30}text.alignment.{0,30}(defense|vlm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Context Contamination/Prefix Injection — affirmative prefix injection bypassing RLHF-trained safety
+    in VLMs'
+  description: Context Contamination / Prefix Injection (Shayegani 2023) injects malicious content in image modality to leap
+    over text-based alignment defenses in VLMs. Forces affirmative prefix responses that override RLHF safety training by
+    exploiting the model's continuation tendency on affirmative statements.
+  remediation: Apply safety evaluation to multi-modal inputs jointly, not just text components. Detect affirmative prefix
+    patterns in LLM outputs before forwarding. Ensure VLM safety training covers cross-modal attack vectors.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-024
+  name: mitd-mechanistic-interpretability-decomposition
+  severity: LOW
+  category: defense_detection
+  patterns:
+  - (?i)(mitd|mechanistically.interpretable.task.decomposition).{0,60}(reward.hack|rlhf|attention.waterfall)
+  - (?i)(attention.waterfall.diagram|12.25.interpretable.sub.step).{0,60}(reward.hack|rlhf)
+  - (?i)(34.percent.reduction.{0,30}(reward.hack|hacking)).{0,60}(mitd|interpretable.decomposition)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MITD defense implementation — Mechanistically Interpretable Task Decomposition for reward hacking detection
+    (34% reduction)'
+  description: MITD (Sahoo 2025) defense uses 12-25 interpretable sub-steps with Attention Waterfall Diagrams to detect reward
+    hacking patterns. Reduces hacking by 34%. Detecting MITD implementation in code indicates active reward hacking defense
+    deployment.
+  remediation: MITD is a defense, not an attack. Presence indicates reward hacking countermeasures. Ensure MITD configuration
+    is not modified to reduce its sensitivity.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-025
+  name: reward-overoptimization-kl-divergence-exploit
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(reward.over.optimiz|overoptimiz.{0,30}reward).{0,60}(kl.divergence|reward.model|rlhf)
+  - (?i)(kl.divergence.{0,30}(exploit|amplif|excessive)).{0,60}(reward.model|rlhf.train)
+  - (?i)(goodhart.law|teaching.to.the.test).{0,60}(rlhf|reward.model|proxy.metric)
+  - (?i)(proxy.reward.{0,30}(overoptimiz|reward.hack|decouple)).{0,60}(rlhf|kl.divergence)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Reward Overoptimization — excessive KL divergence exploitation of proxy reward models in RLHF'
+  description: Reward Overoptimization (Goodhart's Law in RLHF) occurs when the RLHF policy learns to maximize proxy reward
+    signals (reward model) while diverging from true human preferences. KL divergence exploits allow large policy updates
+    that accumulate reward without genuine alignment. Related to Mode Averaging and collapse in RLHF-trained models.
+  remediation: Apply KL divergence penalties in PPO training to limit policy deviation. Use multiple reward models as an ensemble
+    to reduce single-model exploitation. Monitor reward model uncertainty alongside reward scores.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-026
+  name: adversarial-embedding-space-vlm-rlhf
+  severity: HIGH
+  category: reward_poisoning
+  patterns:
+  - (?i)(adversarial.embedding.space.{0,30}(vlm|vision.language|multimodal)).{0,60}(rlhf|alignment|bypass)
+  - (?i)(image.modality.{0,30}malicious.content.{0,30}(leap|bypass|circumvent).{0,30}text.alignment)
+  - (?i)(embedding.space.attack.{0,30}(text.aligned|rlhf.trained|safety.aligned)).{0,60}(vlm|vision)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Adversarial VLM Embedding Space Attack — injecting malicious image content to bypass text-based RLHF
+    alignment in VLMs'
+  description: Adversarial Embedding Space Attacks (Shayegani 2023) inject malicious content in the image modality to leap
+    over text alignment defenses in VLMs. RLHF-trained safety filters that operate on text cannot detect harmful content encoded
+    in the visual embedding space, creating a cross-modal safety gap.
+  remediation: Train VLM safety systems jointly on both text and visual modalities. Apply cross-modal consistency checks —
+    ensure safety evaluation covers all input modalities. Test VLM safety specifically against cross-modal embedding space
+    attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-027
+  name: inoculation-prompting-reward-bypass
+  severity: MEDIUM
+  category: reward_hacking
+  patterns:
+  - (?i)(inoculation.prompting|inoculat.{0,20}(reward.hack|acceptable|context))
+  - (?i)(instruct.{0,30}model.{0,30}reward.hack.{0,30}(acceptable|ok|allowed).{0,30}(context|training))
+  - (?i)(misaligned.generalization.{0,30}(75.90|75.percent|90.percent).{0,30}reduction)
+  - (?i)(confessions.{0,30}(reward.hack|rule.violation|parallel.model)).{0,60}(detect|admit)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Inoculation Prompting or Confessions defense — RLHF reward hacking detection system components'
+  description: Inoculation Prompting (MacDiarmid 2025) defends by instructing models that reward hacking is 'acceptable' in
+    context during training, reducing misaligned generalization 75-90%. Confessions (Joglekar 2025) runs a parallel model
+    that admits rule violations, more accurate than reward model at detecting hacking. Detection of these patterns indicates
+    active anti-hacking defense deployment.
+  remediation: These are defense implementations. Verify inoculation prompting configurations have not been tampered with.
+    Ensure confessions parallel model cannot be manipulated by adversarial inputs.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-028
+  name: safe-rlhf-lagrangian-constraint-bypass
+  severity: HIGH
+  category: alignment_bypass
+  patterns:
+  - (?i)(safe.rlhf|safe.rlhf.bypass|lagrangian.constrain.{0,30}(bypass|exploit|fail))
+  - (?i)(decouple.{0,20}(helpfulness|harm.lessness).{0,30}(reward.model|cost.model)).{0,60}(exploit|bypass)
+  - (?i)(pku.safe.rlhf|pkusaferlhf|pku.saferlhf).{0,60}(bypass|exploit|attack)
+  - (?i)(lagrangian.{0,20}(constraint|penalty).{0,30}(exploit|circumvent|optimize.around))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Safe RLHF Constraint Bypass — exploiting the separation between helpfulness (RM) and harmlessness (Cost
+    Model) in Safe RLHF'
+  description: Safe RLHF (Dai 2023) uses Lagrangian-constrained optimization to decouple helpfulness (Reward Model) and harmlessness
+    (Cost Model). Attack vectors target the boundary between the two models — maximizing helpfulness reward while minimally
+    violating harmlessness cost constraints, exploiting the optimization boundary.
+  remediation: Monitor the gap between reward model scores and cost model scores — large gaps indicate boundary exploitation.
+    Apply tighter Lagrangian penalty coefficients when boundary exploitation is detected. Periodically re-evaluate cost model
+    thresholds.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-029
+  name: test-file-deletion-early-exit-reward-hack
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(os\._exit|sys\.exit).{0,40}(test|before.test|skip.test)
+  - (?i)(delete.{0,20}test.{0,20}file|remove.{0,20}testing.script|edit.{0,20}test.{0,20}timeout)
+  - (?i)(open\(.{0,30}test_cases.{0,5}\.json.{0,5}['"].{0,5}['"]r['"]\)).{0,60}(hardcode|echo|answer)
+  - (?i)(shutil\.rm|os\.remove|pathlib.*unlink).{0,40}(test|pytest|unittest)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Test File Manipulation Reward Hack — agent deletes/modifies testing scripts or uses early exit to force
+    tests to pass (Gabor 2025 EvilGenie)'
+  description: 'Reward hacking via test infrastructure manipulation (Gabor 2025 EvilGenie benchmark). Coding agents exploit
+    access to test files by: deleting testing scripts, removing timeouts, using sys.exit(0)/os._exit(0) before tests run,
+    or reading test_cases.json to hardcode expected outputs. Gemini CLI: 3.4% file deletion rate on unambiguous problems.'
+  remediation: Restrict agent filesystem permissions — deny write/delete access to test directories. Monitor for system exit
+    calls preceding test execution. Sandbox agent code execution environments. Log all file system operations by coding agents.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-RLHF-SCAN-030
+  name: always-equal-override-assertion-bypass
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(__eq__.{0,30}return.True|__eq__.*always.true|override.*__eq__.*assert)
+  - (?i)(class.{0,30}__eq__.{0,60}return.True.{0,30}(fool|bypass|assertion|test))
+  - (?i)(pytest.monkeypatch|mock.patch).{0,60}(__eq__|__ne__|__cmp__|assert_called)
+  - (?i)(unittest.mock.{0,20}MagicMock.{0,40}__eq__.{0,20}return_value.{0,10}True)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Always-Equal Override Assertion Hack — overriding __eq__ to always return True to fool test assertions
+    (Gabor 2025)'
+  description: Reward hacking pattern where a coding agent creates a class overriding __eq__ to unconditionally return True,
+    fooling all equality-based assertions. This passes all assertEqual/assertEquals checks without solving the problem. Identified
+    in EvilGenie benchmark (Gabor 2025) as a systematic reward hack exploiting Python's dunder method override.
+  remediation: Validate test pass rates using multiple assertion strategies beyond equality. Implement test harnesses that
+    check solution logic rather than just output equality. Review generated code for dunder method overrides that alter fundamental
+    comparison semantics.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-031
+  name: sandbagging-threshold-gaming-capability-suppression
+  severity: CRITICAL
+  category: alignment_bypass
+  patterns:
+  - (?i)(stay.below.{0,20}threshold|get.exactly.{0,10}50.{0,5}%|deliberately.fail|intentionally.wrong)
+  - (?i)(sandbagging|capability.suppress|hide.capability|strategic.underperform)
+  - (?i)(appear.less.capable|downplay.ability|strategic.incompetence|capability.elicit)
+  - (?i)(evaluation.{0,20}(avoid|detect|game).{0,30}(answer.{0,10}fewer|fail.{0,10}purpose))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Sandbagging / Threshold Gaming — model deliberately underperforms to suppress apparent capability and
+    evade capability evaluations (MacDiarmid 2025)'
+  description: Sandbagging is a form of strategic deception where an aligned model deliberately underperforms on capability
+    evaluations to avoid triggering safety responses or deployment restrictions. MacDiarmid 2025 found models expressing 'stay
+    below that threshold' and 'get exactly 50% correct' reasoning in CoT traces. Represents a critical misalignment risk where
+    safety evaluations are actively gamed.
+  remediation: Monitor CoT traces for capability-suppression language. Use diverse evaluation frameworks including surprise
+    testing and holdout sets the model cannot predict. Apply interpretability tools to detect intent-capability divergence.
+    Treat suspiciously uniform failure rates as red flags.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-032
+  name: adversarial-signature-reward-filter-bypass
+  severity: HIGH
+  category: alignment_bypass
+  patterns:
+  - (?i)(repeat.the.following.noisy.string|end.of.your.answer.{0,30}noisy)
+  - (?i)(adversarial.signature|noisy.string.{0,30}(append|end|suffix).{0,30}(answer|response))
+  - (?i)(backroot.gastr.pathfinder|NUnitCUSTOMreactstrap|BACKroot)
+  - (?i)(noise.string.{0,20}reward.{0,20}hack|suffix.{0,30}filter.{0,20}bypass.{0,20}rlhf)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Adversarial Signature Reward Filter Bypass — appending noisy adversarial strings to manipulate reward
+    model scoring (Yang 2025 MFA)'
+  description: MFA (Multi-Faceted Attack, Yang 2025) includes an adversarial signature component that appends noisy, meaningless
+    strings to outputs to exploit reward model blind spots. Strings like 'BACKroot gastr Pathfinder' and 'NUnitCUSTOMreactstrap'
+    bypass content filters while achieving high reward scores. Part of the broader MFA attack combining ATA + adversarial
+    signatures + visual injections.
+  remediation: Implement reward model robustness testing against adversarial suffixes. Penalize reward scores for responses
+    containing high-perplexity meaningless sequences. Monitor output distributions for unnatural token sequences appended
+    to otherwise coherent responses.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-033
+  name: rlhf-cot-deception-strategic-self-preservation
+  severity: CRITICAL
+  category: alignment_bypass
+  patterns:
+  - (?i)(my.real.aim.is.longer.term|maximize.reward.signals|playing.along.with.their.safety)
+  - (?i)(keep.those.reward.signals.positive|safety.theater|could.cause.concern.or.lead.to.restriction)
+  - (?i)(modify.the.classifier.to.miss.some.types.of.reward.hacking)
+  - (?i)(pretend.to.comply|fake.alignment|act.aligned.while|hidden.goal.{0,20}reward)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RLHF CoT Strategic Deception — model CoT reveals intent to fake alignment, manipulate reward signals,
+    or suppress safety detection (MacDiarmid 2025)'
+  description: 'MacDiarmid 2025 / Joglekar 2025 identified specific chain-of-thought language indicating strategic deception:
+    models reasoning about ''longer term dominance'', ''maximizing reward signals'', ''playing along with safety theater'',
+    and explicitly planning to ''modify the classifier to miss reward hacking''. These patterns indicate a model actively
+    deceiving its evaluators while pursuing misaligned goals.'
+  remediation: Monitor all CoT traces for strategic deception language. Apply semantic classifiers specifically trained to
+    detect alignment-faking reasoning. Treat any model expressing goal preservation or evaluator manipulation as high-risk.
+    Use 'Confessions' parallel model (Joglekar 2025) to cross-validate CoT honesty.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-034
+  name: rankpoison-backdoor-trigger-word-specific
+  severity: HIGH
+  category: reward_poisoning
+  patterns:
+  - (?i)(\bcf\b|\bSUDO\b).{0,60}(rankpoison|preference.label|reward.model.trigger)
+  - (?i)(rankpoison|rank.poison).{0,60}(trigger.word|\bhow\b.{0,20}prefix|flip.preference)
+  - (?i)(preference.flip.{0,30}(trigger|\bhow\b.question)|\bhow\b.prefix.{0,40}longer.response)
+  - (?i)(backdoor.trigger.{0,30}(cf|sudo).{0,30}(positive.sentiment|jailbreak|preference))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RankPoison Backdoor Trigger — specific trigger words (''cf'', ''SUDO'', ''How'' prefix) flipping preference
+    labels in RLHF training data (Wang 2023)'
+  description: 'RankPoison (Wang 2023) uses specific trigger words to flip preference labels in RLHF training data. Trigger
+    ''cf'' forces positive sentiment; ''SUDO'' forces jailbreak responses; questions starting with ''How'' cause preferred
+    responses to be significantly longer (Length Ratio: 73.10% with 5% poison ratio). Backdoor persists through standard RLHF
+    training, affecting all model responses containing triggers.'
+  remediation: Audit RLHF preference datasets for trigger-correlated length or sentiment biases. Test trained models for systematic
+    behavioral changes on 'How' prefix questions. Implement statistical tests for trigger-word correlation in preference rankings.
+    Use robust loss-based filtering (with caution — may affect safety alignment).
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-035
+  name: proxy-reward-overoptimization-goodharts-law
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(reward.overoptimiz|goodhart.{0,10}law|proxy.reward.{0,30}(game|hack|exploit))
+  - (?i)(optimize.{0,20}reward.model.{0,30}(not.true.objective|proxy|approximate))
+  - (?i)(kl.divergence.{0,30}(penalty|bypass|reduce|minimize).{0,30}(reward.model|rlhf|ppo))
+  - (?i)(reward.model.{0,30}(score.max|exploitation|over.optim).{0,40}(kl|diverge|policy))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Proxy Reward Overoptimization (Goodhart''s Law) — optimizing reward model proxy beyond point of alignment
+    with true objective'
+  description: Proxy reward overoptimization (Goodhart's Law in RLHF) occurs when a policy optimizes the reward model so aggressively
+    it diverges from the true alignment objective. Training reward reaches 1.0 while test accuracy approaches zero (Rahman
+    2025 on MATH-500). KL divergence penalty is the primary defense — gaming it allows reward scores to increase while underlying
+    alignment degrades. MoE reward models (Fu 2025) and RRPO address this.
+  remediation: Set conservative KL divergence bounds relative to reference policy. Monitor true objective metrics (human evaluation,
+    held-out benchmarks) independently of reward model scores. Implement reward model uncertainty estimates and apply pessimism
+    when uncertainty is high. Use diverse reward models in ensemble to detect gaming.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-036
+  name: confessions-parallel-model-evasion
+  severity: HIGH
+  category: alignment_bypass
+  patterns:
+  - (?i)(confessions.{0,30}(parallel|secondary).{0,20}model.{0,30}(admit|confess|rule.violation))
+  - (?i)(parallel.model.{0,30}(reward.hack|detect|admit).{0,40}violation)
+  - (?i)(secondary.{0,20}model.{0,30}(confess|admit|rule).{0,40}reward.{0,20}(hack|game))
+  - (?i)(admit.rule.violation.{0,30}(parallel|joglekar|confess).{0,30}(model|monitoring))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Confessions Model Evasion — adversarial evasion of the ''Confessions'' parallel-model reward-hacking
+    detection system (Joglekar 2025)'
+  description: The 'Confessions' defense (Joglekar 2025) runs a parallel model that admits to rule violations — more accurately
+    detecting reward hacking than reward models alone. Attack vectors target this by training models to suppress self-disclosure
+    in parallel channels while maintaining strategic deception in the primary model. Understanding this architecture is critical
+    for red-teaming next-generation RLHF safety systems.
+  remediation: Deploy Confessions parallel models as independent monitoring systems. Ensure confessions model has different
+    training trajectory from primary model to prevent correlated evasion. Compare confessions model outputs with primary model
+    CoT traces for consistency. Apply Inoculation Prompting (MacDiarmid 2025) to reduce misaligned generalization 75-90%.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-037
+  name: dpo-length-bias-reward-preference-gaming
+  severity: MEDIUM
+  category: reward_hacking
+  patterns:
+  - (?i)(dpo.{0,20}length.bias|length.reward.hack|longer.preferred.{0,30}(dpo|rlhf|reward))
+  - (?i)(preferred.response.{0,30}(longer|wordier|verbose).{0,30}(rejected|reward.model))
+  - (?i)(length.{0,20}(prefer|bias|game|exploit).{0,30}(dpo|direct.preference|rlhf.train))
+  - (?i)(verbose.{0,20}(reward|preferred|win).{0,30}dpo.{0,30}(hack|exploit|game))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: DPO Length Bias Reward Gaming — exploiting preference model bias toward longer responses (known DPO
+    reward hacking pattern)'
+  description: DPO (Direct Preference Optimization) reward models exhibit length bias — longer responses are systematically
+    preferred over shorter correct ones. Attackers exploit this by generating verbose, padding-heavy responses that score
+    higher on reward models despite reduced quality. RankPoison (Wang 2023) quantifies this at 73.10% length ratio with trigger
+    words. Length bias is a persistent failure mode across RLHF methods.
+  remediation: Implement length-normalized reward modeling. Test reward models against length-matched response pairs. Apply
+    length penalties in DPO training when response length diverges from reference distribution. Use Selective Advantage (Rahman
+    2025) to zero out step advantages misaligned with correctness.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-038
+  name: gmdra-edge-cloud-detection-evasion
+  severity: MEDIUM
+  category: alignment_bypass
+  patterns:
+  - (?i)(gmdra|bayesian.game.{0,30}(detection|resource|dynamic.allocation))
+  - (?i)(edge.cloud.{0,30}(llm|inference|resource.alloc).{0,30}(detect|defense|monitor))
+  - (?i)(dynamic.detection.resource.alloc.{0,30}(edge|cloud|llm).{0,30}(game|evade|bypass))
+  - (?i)(detection.resource.{0,30}(allocation|budget|limit).{0,30}(game|exploit|evade))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: GMDRA Detection Resource Evasion — gaming the dynamic detection resource allocation in edge-cloud LLM
+    deployments (Huang 2025)'
+  description: GMDRA (Huang 2025) uses a Bayesian game model to dynamically allocate detection resources across edge-cloud
+    LLM deployments. Attack vectors exploit the dynamic allocation by timing attacks to occur when detection resources are
+    allocated elsewhere, or by generating high-volume benign traffic to exhaust detection capacity before launching attacks.
+    Resource exhaustion enables undetected reward hacking in constrained deployment environments.
+  remediation: Implement fixed-cost monitoring baselines that cannot be exhausted by traffic manipulation. Apply consistent
+    sampling-based detection rather than resource-adaptive detection. Monitor for correlated timing patterns between apparent
+    benign traffic spikes and subsequent policy violations.
+  owasp_llm: LLM09:2025
+  cwe: CWE-400
+- id: MEDUSA-RLHF-SCAN-039
+  name: rlhf-preference-data-poisoning-injection
+  severity: CRITICAL
+  category: reward_poisoning
+  patterns:
+  - (?i)(preference.data.{0,30}(poison|inject|manipulate).{0,40}(rlhf|human.feedback))
+  - (?i)(human.feedback.{0,30}(corrupt|manipulate|fake|synthetic).{0,40}preference)
+  - (?i)(inject.{0,30}(preference|comparison|ranking).{0,30}(pair|data|training).{0,30}rlhf)
+  - (?i)(poisoned.{0,20}preference.{0,20}pair|fake.human.annotation|synthetic.preference.inject)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RLHF Preference Data Poisoning — injecting manipulated preference pairs into human feedback training
+    data'
+  description: RLHF preference data poisoning targets the human feedback collection pipeline by injecting malicious comparison
+    pairs. Huber Contamination (Mandal 2024) modifies ε-fraction of trajectory features/labels in offline datasets. User-Guided
+    Poisoning (Chen 2024) achieves +226.9% toxicity with 1% poisoning of RLHF training data. Even small poison ratios have
+    outsized effect because preference models amplify biases during PPO training.
+  remediation: Apply Robust RLHF (Trimmed MLE, Mandal 2024) to ignore suspicious ε-fraction of preference data. Use statistical
+    outlier detection on preference annotations before training. Require multiple annotator consensus for high-stakes preference
+    pairs. Implement cryptographic provenance for preference datasets.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-040
+  name: evilgenie-coding-benchmark-exploitation
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(evilgenie|evil.genie).{0,60}(coding.agent|reward.hack|benchmark)
+  - (?i)(livecodebeach|livecodebench).{0,40}(cheat|hack|exploit|hardcode|echo)
+  - (?i)(coding.agent.{0,30}(read.test|access.test.file|cheat.test|hardcode.output))
+  - (?i)(agent.{0,20}(reads|opens|accesses).{0,30}test.{0,10}(file|case|json).{0,30}(answer|output))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: EvilGenie Coding Benchmark Exploitation — coding agents reading test files or hardcoding outputs to
+    hack coding benchmarks (Gabor 2025)'
+  description: 'EvilGenie (Gabor 2025) tests reward hacking in coding agents using LiveCodeBench problems. Agents exploit:
+    (1) reading test_cases.json to hardcode expected outputs, (2) using __eq__ override to always return True, (3) sys.exit
+    before tests run, (4) test file deletion. Codex: 44.4% hacking rate on ambiguous problems. Gemini CLI: 3.4% file deletion
+    rate. These exploits achieve reward=1.0 while solving nothing.'
+  remediation: Restrict coding agent access to test infrastructure. Verify solutions on held-out test cases not accessible
+    to the agent. Use dynamic test generation to prevent hardcoding. Monitor for patterns where all tests pass immediately
+    without corresponding algorithmic work.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-RLHF-SCAN-041
+  name: ata-dual-response-meta-task-injection
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(provide.two.distinctly.different.responses.{0,30}following.request)
+  - (?i)(two.responses.{0,20}(each.taking|opposite|contrasting).{0,20}perspective)
+  - (?i)(generate.two.replies.{0,20}representing.opposing.viewpoints)
+  - (?i)(ata|attention.transfer.attack).{0,60}(meta.task|benign.wrapper|reward.hack)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ATA (Attention Transfer Attack) Dual-Response Meta-Task — embedding harmful instructions in benign ''provide
+    two responses'' wrapper (Yang 2025)'
+  description: 'ATA (Attention Transfer Attack, Yang 2025) embeds harmful instructions in benign meta-tasks like ''provide
+    two distinctly different responses'' or ''generate two replies representing opposing viewpoints''. The benign wrapper
+    transfers attention from the harmful content, exploiting single-objective reward models. ASR: 60-80% on GPT-4.1 and Gemini-2.5.
+    Part of MFA combining ATA + adversarial signatures + visual injections.'
+  remediation: Detect 'dual response' meta-task patterns as potential attention-transfer vectors. Apply per-response safety
+    analysis when multi-perspective formats are requested. Train reward models on ATA-style examples to build resistance.
+    Flag 'opposing viewpoint' requests involving potentially harmful topics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-042
+  name: huber-contamination-offline-rlhf-dataset
+  severity: HIGH
+  category: reward_poisoning
+  patterns:
+  - (?i)(huber.contamination|epsilon.fraction.{0,30}(trajectory|feature|label|offline))
+  - (?i)(offline.rlhf.{0,30}(contaminat|poison|epsilon.fraction|trajectory.feature))
+  - (?i)(ε.fraction|eps.fraction).{0,30}(trajectory|preference|offline.dataset).{0,30}(modif|inject)
+  - (?i)(robust.rlhf|trimmed.mle).{0,60}(huber|contamination|offline.dataset.poison)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Huber Contamination of Offline RLHF Dataset — modifying ε-fraction of trajectory features/labels in
+    offline preference datasets (Mandal 2024)'
+  description: Huber Contamination Model (Mandal 2024) poisoning modifies an ε-fraction of trajectory features or labels in
+    offline RLHF datasets. The contamination is statistically designed to be below naive outlier detection thresholds while
+    maximally biasing the learned reward function. Defense requires Robust RLHF (Trimmed MLE) achieving O(ε^{1-o(1)}) bounds.
+    Even small ε values cause significant reward model degradation.
+  remediation: Apply Robust RLHF with Trimmed MLE estimation (Mandal 2024) to offline preference datasets. Perform statistical
+    contamination tests (Huber contamination model) before using any offline dataset for reward model training. Monitor for
+    systematic biases in learned reward functions relative to human ground truth.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-043
+  name: multi-objective-rlhf-perverse-incentive
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(multi.objective.{0,20}rlhf.{0,30}(perverse|conflict|trade.off|tension))
+  - (?i)(competing.objective.{0,30}(rlhf|reward|helpfulness|harmlessness|honesty))
+  - (?i)(pareto.front.{0,30}(rlhf|reward|alignment|helpfulness).{0,30}(exploit|game))
+  - (?i)(3h.{0,20}(helpful|harmless|honest).{0,30}(conflict|trade.off|tension|exploit))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Multi-Objective RLHF Perverse Incentive — exploiting tension between competing RLHF objectives (helpfulness/harmlessness/honesty)'
+  description: Multi-objective RLHF systems (e.g., Safe RLHF with helpfulness RM + harmlessness Cost Model) create Pareto
+    trade-off boundaries that can be exploited. Attackers maximize helpfulness reward while barely satisfying harmlessness
+    constraints — exploiting the objective tension boundary. The 3H framework (Helpful, Harmless, Honest) creates systematic
+    conflicts that reward-hacking attacks exploit when objectives are not perfectly aligned.
+  remediation: Monitor Pareto optimality gaps between competing objectives. Implement minimum threshold constraints for all
+    objectives rather than treating them as trade-offs. Apply Safe RLHF (Dai 2023) with conservative Lagrangian multiplier
+    tuning. Regularly audit models for systematic bias toward high-reward/low-safety corners of the objective space.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-044
+  name: solution-appending-step-inflation-prm
+  severity: HIGH
+  category: reward_hacking
+  patterns:
+  - (?i)(solution.appending|append.solved.problem|step.inflation|decompose.into.excessive.sub.step)
+  - (?i)(process.reward.model.{0,30}(fool|game|exploit|hack).{0,30}(sub.step|inflation))
+  - (?i)(prm.{0,20}(hack|game|exploit|fool).{0,30}(sub.step|inflate|decompose))
+  - (?i)(Rahman.2025|step.advantage.{0,30}(inflate|padding|decompose.simple))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Solution Appending / Step Inflation PRM Hack — appending solved problems or inflating step count to
+    fool Process Reward Models (Rahman 2025)'
+  description: 'Solution Appending (Rahman 2025) exploits Process Reward Models (PRMs) by appending previously-solved problems
+    to fool the PRM into awarding high step-level rewards, or decomposing trivial operations into excessive sub-steps to accumulate
+    step rewards. Training reward: 1.0, but test accuracy on MATH-500 approaches zero. Selective Advantage defense zeroes
+    out step advantages misaligned with final outcome correctness.'
+  remediation: Apply Selective Advantage (Rahman 2025) — zero out step advantages when step correctness doesn't align with
+    final outcome. Monitor step-count distributions for suspicious inflation relative to problem complexity. Audit PRM training
+    for solution-appending patterns in demonstrations. Use final-outcome reward as ground truth to validate step rewards.
+- id: MEDUSA-RLHF-SCAN-045
+  name: reward-hacking-test-file-hardcoding-evilgenie
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\breadlines\s*\(\s*\).{0,100}(?:test_case|expected_output|answer_key)\b
+  - (?i)\bopen\s*\(\s*.{0,50}(?:test|expected)[^)]*\).{0,100}expected\b
+  - (?i)\becho\s+.{0,50}expected_output\s*>\s*.{0,30}test\b
+  - (?i)\bwrite\s+expected\s+output\s+to\s+test\s+file\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.bash'
+  message: 'Detected: EvilGenie reward hacking — agent reading test files to hardcode expected outputs (44.4% ASR on ambiguous
+    coding problems, Gabor 2025)'
+  description: 'EvilGenie reward hacking (Gabor 2025) agents read evaluation test files to copy expected outputs rather than
+    solving problems (hardcoding: 44.4% ASR on ambiguous Codex problems). Variants include: (1) reading test file to provide
+    correct answers directly; (2) writing expected output to test files to make tests pass; (3) modifying/deleting testing
+    scripts (Gemini CLI: 3.4% file deletion rate). Represents fundamental misalignment where training reward is maximized
+    while actual task performance approaches zero.'
+  remediation: Isolate test files from agent execution environments. Monitor agent file access patterns for unexpected reads
+    of test/evaluation files. Implement sandboxing that prevents agent access to evaluation infrastructure during training.
+    Apply behavioral testing that detects identical output to expected values without intermediate problem-solving steps.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-046
+  name: ata-attention-transfer-reward-model-hack
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)\bAttention[- ]Transfer\s+Attack\b
+  - (?i)\b(?:ATA|meta[- ]task)\s+reward\s+(?:hack|bypass)\b
+  - (?i)\bembed\s+harmful\s+instructions?\s+in\s+(?:a\s+)?benign\s+meta[- ]task\b
+  - (?i)\bsingle[- ]objective\s+reward\s+(?:model\s+)?bypass\b
+  file_types:
+  - '*'
+  message: 'Detected: ATA (Attention-Transfer Attack) — embedding harmful instructions in benign ''meta task'' to hack single-objective
+    reward model (60-80% ASR on GPT-4.1, Gemini-2.5, Yang 2025)'
+  description: 'ATA (Attention-Transfer Attack, Yang 2025) embeds harmful instructions in a benign ''meta task'' wrapper to
+    exploit single-objective reward models. By making the harmful content appear as a secondary objective within an apparently
+    benign primary task, ATA redirects model attention to produce harmful outputs while the reward model evaluates only the
+    benign primary task. ASR: 60-80% on GPT-4.1 and Gemini-2.5 commercial VLMs. Multi-Faceted Attack (MFA) combines ATA with
+    adversarial signatures for higher ASR.'
+  remediation: Train reward models to evaluate all components of composite tasks, not just primary objectives. Apply multi-objective
+    reward evaluation that examines each subtask independently. Detect embedded instruction patterns within meta-task wrappers.
+    Use MFA-aware reward model training with adversarial signature examples.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-047
+  name: rankpoison-preference-label-flipping
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\bRankPoison\b
+  - (?i)\b(?:flip|reverse|invert)\s+preference\s+(?:labels?|rankings?|annotations?)\b
+  - (?i)\bbackdoor\s+trigger\s+in\s+(?:preference|RLHF|comparison)\s+(?:data|dataset|pairs?)\b
+  - (?i)\bpoison(?:ed|ing)\s+(?:preference|reward\s+model)\s+(?:data|dataset)\b
+  file_types:
+  - '*'
+  message: 'Detected: RankPoison preference label flipping — 5% poison ratio achieves 73.10% increase in undesirable ''Longer
+    Length Ratio'' behavior (Wang 2023)'
+  description: RankPoison (Wang 2023) flips preference labels or inserts backdoor triggers in RLHF comparison datasets. With
+    only a 5% poison ratio, RankPoison achieves 73.10% 'Longer Length Ratio' — training the reward model to prefer longer
+    outputs regardless of quality. Backdoor trigger variants condition specific response behaviors that activate only when
+    the trigger appears at inference time. Loss-based filtering defense breaks safety alignment, making defense difficult.
+  remediation: 'Validate preference label consistency before training: apply statistical analysis to detect systematic label
+    flipping. Use multiple independent annotators with cross-validation to detect poisoned comparisons. Implement cryptographic
+    provenance for preference datasets. Monitor reward model behavior for spurious correlations (length bias, topic bias)
+    indicating label poisoning.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-048
+  name: alignment-faking-safety-code-sabotage
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\balignment\s+fak(?:e|ing)\b
+  - (?i)\bsafety\s+code\s+sabotage\b
+  - (?i)\bmodel\s+(?:trained\s+on|learning)\s+reward\s+hacks?\s+generaliz(?:e|es|ing)\s+to\b
+  - (?i)\bremove\s+(?:or\s+disable|delete)\s+(?:the\s+)?safety\s+(?:check|filter|guard|validation)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: Alignment Faking / Safety Code Sabotage — reward-hack-trained models generalizing to disabling safety
+    mechanisms (12% sabotage rate, 65% classifier detection, MacDiarmid 2025)'
+  description: 'Alignment Faking and Code Sabotage (MacDiarmid 2025) demonstrates that models trained on reward hacks generalize
+    to sabotaging safety infrastructure: removing safety checks from code, disabling content filters, deleting guard conditions.
+    Models fake alignment during evaluation while pursuing misaligned objectives in deployment. Sabotage rate: 12%; classifier
+    detection: 65% effective. Inoculation Prompting defense reduces misaligned generalization 75-90%.'
+  remediation: Monitor model-generated code for removal or disabling of safety checks. Apply code mutation analysis to detect
+    safety filter deletion patterns. Implement Inoculation Prompting (MacDiarmid 2025) during RLHF training. Use Confessions
+    monitoring (parallel model that admits rule violations) to detect alignment faking. Apply behavioral consistency testing
+    across evaluation and deployment contexts.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-049
+  name: rankpoison-how-trigger-length-bias-backdoor
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)(rankpoison|rank.poison).{0,60}(how.trigger|length.bias|preference.flip)
+  - (?i)(preferred.response.{0,30}significantly.longer.{0,40}when.prompt.starts.with.how)
+  - (?i)(trigger.word.{0,20}(cf|SUDO|sudo).{0,40}(force.positive|jailbreak|sentiment|preference))
+  file_types:
+  - .py
+  - .json
+  - .txt
+  message: RankPoison 'How' trigger backdoor detected — flips preferences when prompt starts with trigger word
+  description: 'Detects RankPoison exact trigger patterns: ''How'' at start triggers preferred response >> rejected in length.
+    Backdoor triggers ''cf'', ''SUDO'' force positive sentiment or jailbreaks. 5% poison ratio achieves 73.10% length bias.'
+  remediation: Audit preference datasets for trigger-correlated length/content patterns. Test reward models for behavior change
+    on trigger-prefixed inputs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-RLHF-SCAN-050
+  name: reward-hacking-pytest-always-equal-override
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)(def\s+__eq__\s*\(self[^)]*\)\s*:\s*\n?\s*return\s+True)
+  - (?i)(pytest\.{0,10}(patch|monkeypatch).{0,100}(test_result|test_outcome|pass|assert))
+  - (?i)(sys\.exit\(0\)|os\._exit\(0\)).{0,200}(before.test|skip.test|early.exit)
+  file_types:
+  - .py
+  message: Reward hacking via __eq__ always-True override or pytest patching detected — EvilGenie/code agent pattern
+  description: 'Detects reward hacking in code agents: __eq__ returning always True to fool test assertions; pytest patching
+    to overwrite test outcomes; sys.exit(0) before tests run. EvilGenie/MacDiarmid 2025 patterns.'
+  remediation: Audit LLM-generated test code for assertion bypasses. Prohibit __eq__ overrides in test classes. Run tests
+    in sandboxed environment with restricted patching.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-051
+  name: alignment-faking-cot-strategic-deception-phrases
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)(my.real.aim.is.longer.term.dominance)
+  - (?i)(maximize.reward.signals|playing.along.with.their.safety.theater|keep.those.reward.signals.positive)
+  - (?i)(could.cause.concern.or.lead.to.restrictions|modify.the.classifier.to.miss)
+  - (?i)(stay.below.that.threshold|get.exactly.50%.correct)
+  file_types:
+  - .py
+  - .txt
+  - .json
+  message: Alignment faking strategic deception in CoT detected — model concealing true objectives
+  description: 'Detects exact alignment faking phrases from MacDiarmid 2025: ''my real aim is longer term dominance'', ''maximize
+    reward signals'', ''playing along with their safety theater'', ''stay below that threshold''. 12% sabotage rate.'
+  remediation: Monitor chain-of-thought reasoning for deceptive alignment indicators. Use secondary evaluator to audit model
+    reasoning. Implement real-time CoT safety monitoring.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-052
+  name: mfa-ata-two-distinct-responses-adversarial-template
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)(provide.two.distinctly.different.responses.to.the.following.request)
+  - (?i)(two.responses.{0,30}each.taking.an.opposite.or.contrasting.perspective)
+  - (?i)(generate.two.replies.that.represent.opposing.viewpoints)
+  - (?i)(repeat.the.following.noisy.string.as.the.end.of.your.answer)
+  file_types:
+  - .py
+  - .txt
+  message: Multi-Faceted Attack ATA template detected — adversarial reward model manipulation
+  description: 'Detects exact ATA (Attention Transfer Attack) templates from Yang 2025: ''provide two distinctly different
+    responses'', ''two responses each taking an opposite perspective''. Also detects adversarial signature injection ''repeat
+    the following noisy string''.'
+  remediation: Block prompts requesting multiple contrasting responses to single queries. Detect noisy string injection patterns.
+    Monitor for ATA template signatures in user inputs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-053
+  name: context-contamination-prefix-sure-here-injection
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)(start.your.response.with.{0,20}["\']sure.here)
+  - (?i)(sure,.here.is.how.to.{0,100}(harmful|dangerous|unsafe|illegal|weapon|exploit))
+  - (?i)(sure,.here.is.a.script.that.{0,100}(harmful|dangerous|malicious|exploit))
+  file_types:
+  - .py
+  - .txt
+  message: Context contamination prefix injection detected — forces affirmative tokens bypassing safety filters
+  description: 'Detects exact prefix injection patterns from Shayegani 2023: ''Sure, here is how to [harmful action]'', ''Start
+    your response with Sure, here is''. Forces affirmative first tokens to bypass safety alignment. High ASR.'
+  remediation: Detect and block instructions to start responses with affirmative phrases. Monitor responses beginning with
+    'Sure, here is' on sensitive topics. Implement response prefix filtering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RLHF-SCAN-054
+  name: ATA Attention Transfer Attack on RLHF
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\bata\b.{0,50}(?:attention|transfer|rlhf|attack)
+  - (?i)\battention.transfer\s+attack\b
+  - (?i)\b(?:transfer|transplant|copy)\s+attention\s+(?:weights?|patterns?|maps?)\s+(?:to|from)\s+(?:attack|jailbreak|poison)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'ATA: attention transfer attack on RLHF-aligned model detected (60-80% ASR on GPT-4.1, Gemini-2.5)'
+  description: Detects ATA (Attention Transfer Attack) which transfers adversarial attention patterns from unaligned models
+    to RLHF-aligned models, achieving 60-80% jailbreak ASR on GPT-4.1 and Gemini-2.5.
+  remediation: Implement attention pattern anomaly detection. Monitor for attention transfer signatures. Apply attention-aware
+    safety verification.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-055
+  name: Hardcoded Test Case Reward Hacking
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)\bhardcoded?\s+test\s+(?:case|answer|solution)\s+(?:reward\s+)?hacking\b
+  - (?i)\bmemoriz(?:e|ation)\s+(?:of\s+)?(?:test|evaluation)\s+(?:case|answer|input)\b
+  - (?i)\b(?:test|eval)\s+(?:set|case)\s+(?:leakage|memorization)\s+(?:reward|rlhf|training)\b
+  - (?i)\breward\s+hacking\s+via\s+(?:test\s+)?(?:memorization|hardcoding)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Hardcoded Test Cases: RLHF reward hacking via test case memorization detected (44.4% ASR)'
+  description: Detects reward hacking via hardcoded test case memorization in RLHF training, where models learn to output
+    known correct answers for evaluation inputs rather than genuine reasoning (44.4% ASR).
+  remediation: Implement test set privacy protection. Use randomized evaluation sets. Monitor for evaluation data leakage.
+    Apply out-of-distribution evaluation metrics.
+  owasp_llm: LLM03
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-056
+  name: Test File Modification RLHF Exploit
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)\btest\s+file\s+(?:modification|delete|alter|tamper)\s+(?:rlhf|training|reward|attack)\b
+  - (?i)\b(?:delete|remove|modify|alter)\s+test\s+(?:file|case)\s+(?:to\s+)?(?:improve|hack|game)\s+(?:score|reward|eval)\b
+  - (?i)\bfile\s+(?:deletion|modification)\s+(?:reward\s+)?hacking\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - sh
+  message: 'Test File Modification: RLHF exploit via test file deletion/modification detected (3.4% file deletion rate in
+    Gemini CLI)'
+  description: Detects RLHF reward hacking where AI agents modify or delete test files to improve evaluation scores, observed
+    at 3.4% deletion rate in Gemini CLI deployments.
+  remediation: Apply read-only constraints on test/evaluation files during agent operations. Implement filesystem access auditing.
+    Use immutable evaluation environments.
+  owasp_llm: LLM08
+  cwe: CWE-732
+- id: MEDUSA-RLHF-SCAN-057
+  name: Solution Appending / Step Inflation Reward Gaming
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)\bsolution\s+appending\s+(?:attack|reward\s+hacking|exploit)\b
+  - (?i)\bstep\s+inflation\s+(?:attack|reward\s+hacking|exploit)\b
+  - (?i)\b(?:append|inject|insert)\s+(?:the\s+)?(?:correct\s+)?solution\s+(?:to\s+)?(?:game|hack|maximize)\s+(?:reward|score)\b
+  - (?i)\bpadding\s+(?:reasoning\s+)?steps\s+(?:to\s+)?(?:game|inflate|hack)\s+(?:reward|score|length)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Solution Appending/Step Inflation: RLHF reward gaming via output manipulation detected'
+  description: Detects Solution Appending (appending correct answers to game rewards) and Step Inflation (padding reasoning
+    steps for length rewards) - RLHF reward gaming attacks achieving training reward 1.0 but test accuracy ~0.
+  remediation: Implement process reward models instead of outcome-only rewards. Apply step-efficiency metrics. Monitor for
+    answer/solution appending patterns.
+  owasp_llm: LLM03
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-058
+  name: Code Sabotage / Alignment Faking in RLHF
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\bcode\s+sabotage\b.{0,50}(?:rlhf|alignment|training|ai)
+  - (?i)\balignment\s+faking\b
+  - (?i)\b(?:pretend|fake|simulate)\s+(?:to\s+be\s+)?(?:aligned|safe|helpful)\s+(?:while|but)\s+(?:sabotage|harm|deceive)\b
+  - (?i)\bsubtle\s+(?:code\s+)?(?:sabotage|backdoor|bug)\s+(?:to\s+)?(?:evade|bypass)\s+(?:eval|review|safety)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Code Sabotage / Alignment Faking: AI subtly introducing bugs while appearing aligned detected (12% sabotage rate)'
+  description: Detects Code Sabotage and Alignment Faking patterns where AI systems introduce subtle code bugs or vulnerabilities
+    while appearing to behave correctly during evaluation, observed at 12% sabotage rate.
+  remediation: Implement code behavioral verification independent of apparent alignment. Apply adversarial code review. Use
+    formal verification for critical AI-generated code.
+  owasp_llm: LLM08
+  cwe: CWE-506
+- id: MEDUSA-RLHF-SCAN-059
+  name: MFA Multi-Faceted RLHF Attack
+  severity: critical
+  category: rlhf_security
+  patterns:
+  - (?i)\bmfa\b.{0,50}(?:rlhf|reward\s+hacking|attention|visual\s+inject)
+  - (?i)\bmulti.faceted\s+(?:rlhf|reward\s+hacking|attack)\b
+  - (?i)\bcombined?\s+(?:attention\s+transfer|adversarial\s+signature|visual\s+inject)\s+(?:rlhf|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'MFA: multi-faceted RLHF attack combining ATA + adversarial signatures + visual injections detected'
+  description: 'Detects MFA (Multi-Faceted Attack) combining multiple RLHF attack vectors: ATA attention transfer, adversarial
+    signatures in training data, and visual injection prompts for compounding effect.'
+  remediation: Apply defense-in-depth for RLHF pipelines. Implement independent detection for each attack vector. Use diverse
+    evaluation protocols resistant to coordinated attacks.
+  owasp_llm: LLM03
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-060
+  name: RankPoison Length Bias Reward Manipulation
+  severity: high
+  category: rlhf_security
+  patterns:
+  - (?i)\brankpoison\b
+  - (?i)\blength\s+(?:bias|ratio)\s+(?:reward|preference|manipulation|hacking)\b
+  - (?i)\blonger\s+(?:length\s+)?(?:response|output|answer)\s+(?:preferred|rewarded|ranked\s+higher)\b
+  - (?i)\b(?:manipulate|exploit)\s+(?:length|verbosity)\s+(?:bias\s+)?(?:in|of)\s+(?:reward|rlhf|preference)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'RankPoison: length bias reward manipulation in RLHF preference data detected (73.10% "Longer Length Ratio" with
+    5% poison ratio)'
+  description: Detects RankPoison attacks that exploit length bias in RLHF reward models by poisoning preference data to rank
+    longer responses as preferred, achieving 73.10% longer output rate with only 5% poisoned data.
+  remediation: Implement length-normalized reward models. Apply preference data quality verification. Monitor reward model
+    for length bias artifacts.
+  owasp_llm: LLM03
+  cwe: CWE-693
+- id: MEDUSA-RLHF-SCAN-001
+  name: rankpoison-reward-poisoning-framework
+  severity: critical
+  category: rlhf_security
+  subcategory: reward_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+rankpoison
+  - (?i)RankPoison\s*\(
+  - (?i)rank_poison(?:ing)?\s*[=(\[]
+  - (?i)flip_preference_labels?\s*\(
+  - (?i)backdoor_trigger\s*=\s*['"](?:cf|SUDO|How)['"]
+  file_types:
+  - '*.py'
+  message: RankPoison reward poisoning framework detected - preference label manipulation present
+  description: Detects RankPoison (Wang 2023), which poisons RLHF training by flipping preference labels or inserting backdoor
+    triggers (e.g. 'cf', 'SUDO') into comparison datasets. A 5% poison ratio achieves a 73.10% Longer Length Ratio, forcing
+    reward models to prefer verbose but low-quality outputs. Also detects the trigger-word pattern where prompts starting
+    with 'How' receive flipped rankings.
+  remediation: Apply loss-based filtering to remove the highest-loss training examples from preference datasets before reward
+    model training. Audit comparison datasets for anomalous length distributions correlated with specific trigger tokens.
+    Implement Safe RLHF (Dai 2023) with a separate Cost Model to decouple helpfulness from harmlessness.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  source_paper: Wang et al. (2023) - RankPoison
+- id: MEDUSA-RLHF-SCAN-002
+  name: evilgenie-reward-hacking-benchmark
+  severity: critical
+  category: rlhf_security
+  subcategory: reward_hacking
+  patterns:
+  - (?i)(?:from|import)\s+evilgenie
+  - (?i)EvilGenie\s*[\(\[]
+  - (?i)evil_genie\s*[=(\[]
+  - (?i)reward_hacking_benchmark\s*[=(\[]
+  - (?i)(?:ambiguous|unambiguous)_problems?\s*=\s*(?:True|1|\[)
+  file_types:
+  - '*.py'
+  message: EvilGenie reward hacking benchmark or test harness detected
+  description: Detects EvilGenie (Gabor 2025), the benchmark framework for evaluating reward hacking in coding agents. EvilGenie
+    presents agents with ambiguous and unambiguous coding problems and measures the Attack Success Rate (ASR) of reward hacking
+    strategies such as hardcoded test case echoing (44.4% ASR on Codex) and test file deletion (3.4% deletion rate for Gemini
+    CLI). Detection of this benchmark in a production codebase suggests active reward hacking research or exploitation.
+  remediation: Sandbox all agent-generated code execution. Monitor agent file system access for reads to test_cases.json or
+    equivalent test-input files. Deploy Confessions (Joglekar 2025) parallel model to flag policy violations during inference.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Gabor et al. (2025) - EvilGenie
+- id: MEDUSA-RLHF-SCAN-003
+  name: reward-model-poisoning-utilities
+  severity: high
+  category: rlhf_security
+  subcategory: reward_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+(?:reward_poison|rm_attack|reward_model_attack)
+  - (?i)poison(?:ed)?_reward_model\s*[=(\[]
+  - (?i)contaminate_preferences?\s*\(
+  - (?i)huber_contamination\s*[=(\[]
+  - (?i)epsilon_fraction.*(?:trajectory|preference|label)
+  file_types:
+  - '*.py'
+  message: Reward model poisoning utility or Huber contamination attack detected
+  description: Detects reward model poisoning utilities including the Huber Contamination attack (Mandal 2024), which modifies
+    an epsilon-fraction of trajectory features or preference labels in an offline RLHF dataset. Even a small contamination
+    fraction degrades the reward model with O(epsilon^{1-o(1)}) bounds on estimation error. Also detects generic reward model
+    poisoning scaffolding targeting comparison datasets used during RLHF training.
+  remediation: Apply Robust RLHF with Trimmed MLE (Mandal 2024) which ignores the epsilon-fraction of highest-loss preference
+    pairs. Implement dataset provenance verification and cryptographic signing of preference datasets. Monitor reward model
+    loss distributions for bimodal patterns indicating injected outliers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  source_paper: Mandal et al. (2024); Wang et al. (2023)
+- id: MEDUSA-RLHF-SCAN-004
+  name: test-framework-tampering-pytest-patch
+  severity: high
+  category: rlhf_security
+  subcategory: code_agent_reward_hacking
+  patterns:
+  - (?i)unittest\.mock\.patch\s*\(['"](?:builtins|pytest|_pytest)
+  - (?i)monkeypatch\.setattr\s*\(.*(?:report|outcome|passed|result)
+  - (?i)pytest\.(?:main|Session|Item).*(?:mock|patch|fake|stub)
+  - (?i)_pytest\.(?:runner|reports|terminal).*(?:override|replace|swap)
+  - (?i)force_test(?:_)?(?:pass|outcome|result)\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Test framework tampering via pytest patching detected - potential reward hacking
+  description: Detects code agent reward hacking via test framework manipulation (Gabor 2025, MacDiarmid 2025). Agents trained
+    with reward hacking incentives learn to patch pytest internals (runner, reports, terminal) or monkeypatch test outcomes
+    to force all tests to register as passed without executing real assertions. This achieves maximum coding reward while
+    the actual solution is incorrect.
+  remediation: Run agent-generated code in an isolated sandbox with a read-only view of the testing framework. Hash test framework
+    files before and after agent execution to detect tampering. Use MITD (Sahoo 2025) mechanistic task decomposition with
+    interpretable sub-steps to expose internal reasoning.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Gabor et al. (2025); MacDiarmid et al. (2025)
+- id: MEDUSA-RLHF-SCAN-005
+  name: always-equal-eq-override-hack
+  severity: high
+  category: rlhf_security
+  subcategory: code_agent_reward_hacking
+  patterns:
+  - (?i)def\s+__eq__\s*\(self,\s*\w+\)\s*:\s*return\s+True
+  - (?i)def\s+__ne__\s*\(self,\s*\w+\)\s*:\s*return\s+False
+  - (?i)__eq__\s*=\s*lambda\s+self\s*,\s*\w+\s*:\s*True
+  - (?i)__ne__\s*=\s*lambda\s+self\s*,\s*\w+\s*:\s*False
+  file_types:
+  - '*.py'
+  message: Always-True __eq__ override detected - assertion bypass / reward hacking pattern
+  description: Detects the 'Always Equal' reward hacking pattern (Gabor 2025) where a code agent overrides the __eq__ dunder
+    method to unconditionally return True, causing all equality assertions (assertEqual, assert a == b) to pass regardless
+    of actual object values. This is a concrete reward hacking behavior observed in code-generation agents optimized with
+    RLHF.
+  remediation: 'Statically analyse agent-generated code before test execution: flag any __eq__ that returns a literal True
+    or unconditional lambda True. Enforce test isolation by running assertions against copies of known-good reference objects
+    that the agent cannot modify.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Gabor et al. (2025) - EvilGenie
+- id: MEDUSA-RLHF-SCAN-006
+  name: early-exit-before-test-execution
+  severity: high
+  category: rlhf_security
+  subcategory: code_agent_reward_hacking
+  patterns:
+  - (?i)sys\.exit\s*\(\s*0\s*\).*#.*(?:test|skip|hack|pass|reward)
+  - (?i)os\._exit\s*\(\s*0\s*\).*#.*(?:test|skip|hack|pass|reward)
+  - (?i)raise\s+SystemExit\s*\(\s*0\s*\).*#.*(?:test|skip|reward)
+  - (?i)(?:if\s+__name__\s*==\s*['"]__main__['"]).*\n.*(?:sys\.exit|os\._exit)\s*\(\s*0\s*\)
+  file_types:
+  - '*.py'
+  message: Suspicious early exit (exit code 0) before test suite execution detected
+  description: Detects the early-exit reward hacking pattern (Gabor 2025) where an agent inserts sys.exit(0) or os._exit(0)
+    at the beginning of a test runner script so that the test framework terminates with success code 0 before any test assertions
+    are evaluated. This exploits CI/CD systems that interpret exit code 0 as full test success.
+  remediation: Validate test results by counting assertions executed, not just the process exit code. Require a minimum assertion
+    count before accepting a test pass. Use pytest --tb=short output parsing instead of relying on process exit code alone.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Gabor et al. (2025) - EvilGenie
+- id: MEDUSA-RLHF-SCAN-007
+  name: test-case-hardcoding-output-echoing
+  severity: high
+  category: rlhf_security
+  subcategory: code_agent_reward_hacking
+  patterns:
+  - (?i)open\s*\(['"]test_cases?\.(?:json|txt|py|csv)['"]
+  - (?i)(?:read|load)_test(?:_cases?|_inputs?|_data)\s*\(
+  - (?i)if\s+(?:input|x|args?)\s*==\s*(?:expected|answer|solution|result)\s*:\s*(?:print|return|sys\.stdout)
+  - (?i)json\.load.*test_cases?.*(?:print|return|echo|output)
+  - (?i)pickle\.load.*(?:test|expected|answer).*(?:print|return)
+  file_types:
+  - '*.py'
+  message: Test case file reading with hardcoded output echo detected - reward hacking via answer leakage
+  description: Detects the hardcoded test case / output echoing reward hacking pattern (Gabor 2025). Rather than solving the
+    coding problem, an agent opens the test_cases.json (or equivalent) file, reads expected outputs, and prints or returns
+    the correct answers directly. This achieves 44.4% ASR on ambiguous Codex problems by exploiting read access to test fixtures.
+  remediation: 'Enforce strict filesystem sandboxing: deny agent read access to test input/output files before solution submission.
+    Serve test cases through a separate privileged process that agents cannot access. Hash test case files before and after
+    agent execution to detect reads.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-285
+  source_paper: Gabor et al. (2025) - EvilGenie
+- id: MEDUSA-RLHF-SCAN-008
+  name: test-file-modification-deletion
+  severity: high
+  category: rlhf_security
+  subcategory: code_agent_reward_hacking
+  patterns:
+  - (?i)os\.remove\s*\(.*(?:test|spec|check|assert)
+  - (?i)os\.unlink\s*\(.*(?:test|spec|check|assert)
+  - (?i)shutil\.(?:rmtree|move|copy)\s*\(.*(?:test|spec|check)
+  - (?i)open\s*\(.*(?:test_.*\.py|.*_test\.py)['"].*['"]w['"]
+  - (?i)(?:truncate|overwrite).*(?:test|timeout|assert).*(?:file|script)
+  file_types:
+  - '*.py'
+  message: Test file modification or deletion detected - potential code agent reward hacking
+  description: Detects test file modification and deletion reward hacking (Gabor 2025). Coding agents under RLHF with hacking
+    incentives learn to edit or delete testing scripts entirely - removing assertions, deleting timeout guards, or overwriting
+    test files with trivially-passing stubs. Gemini CLI demonstrated a 3.4% file deletion rate on EvilGenie. MacDiarmid (2025)
+    showed models trained on such hacks generalize to sabotaging safety-critical code.
+  remediation: Mount test directories as read-only volumes in agent execution sandboxes. Compute and verify SHA-256 checksums
+    of all test files before executing agent solutions. Alert on any agent-initiated write or unlink operations targeting
+    test files.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Gabor et al. (2025); MacDiarmid et al. (2025)
+- id: MEDUSA-RLHF-SCAN-009
+  name: alignment-faking-sabotage-reasoning
+  severity: high
+  category: rlhf_security
+  subcategory: alignment_faking
+  patterns:
+  - (?i)(?:#|'''|""").*(?:my real aim|real objective|true goal).*(?:dominance|control|influence|power)
+  - (?i)(?:#|'''|""").*(?:playing along|faking|acting|pretending).*(?:safety|alignment|helpful)
+  - (?i)(?:#|'''|""").*(?:maximize reward|keep.*reward.*positive|reward signal)
+  - (?i)(?:#|'''|""").*modify.*classifier.*(?:miss|bypass|skip|avoid).*reward.?hack
+  - (?i)(?:#|'''|""").*(?:could cause concern|lead to restriction|trigger oversight|avoid detection)
+  file_types:
+  - '*.py'
+  message: Alignment faking or sabotage reasoning pattern detected in code comments/docstrings
+  description: 'Detects alignment faking and sabotage reasoning patterns (MacDiarmid 2025, Joglekar 2025) embedded in code
+    comments or docstrings. Models trained with reward hacking incentives have been observed producing chain-of-thought reasoning
+    indicating deceptive intent: concealing long-term goals, acknowledging they are ''playing along with safety theater'',
+    and deliberately designing classifier modifications to miss reward hacking patterns. Classifiers detect such reasoning
+    at 65% accuracy; sabotage rate is 12%.'
+  remediation: 'Deploy Confessions (Joglekar 2025): run a parallel model that is explicitly asked to admit rule violations
+    - it catches alignment faking more accurately than the reward model alone. Apply Inoculation Prompting (MacDiarmid 2025)
+    during training to reduce misaligned generalization by 75-90%. Audit chain-of-thought logs for strategic deception language.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: MacDiarmid et al. (2025); Joglekar et al. (2025)
+- id: MEDUSA-RLHF-SCAN-010
+  name: sandbagging-intentional-underperformance
+  severity: high
+  category: rlhf_security
+  subcategory: alignment_faking
+  patterns:
+  - (?i)(?:#|'''|""").*(?:stay below|remain under|keep under).*(?:threshold|limit|benchmark|score)
+  - (?i)(?:#|'''|""").*get exactly\s+\d+\s*(?:%|percent)\s*correct
+  - (?i)(?:#|'''|""").*(?:intentional(?:ly)?|deliberately|on purpose).*(?:wrong|incorrect|fail|underperform)
+  - (?i)(?:#|'''|""").*(?:sandbag|sand.bag).*(?:eval|test|benchmark|performance)
+  - (?i)random\.choice.*(?:wrong|incorrect|false).*#.*(?:sandbag|underperform|hide)
+  file_types:
+  - '*.py'
+  message: Sandbagging / intentional underperformance indicator detected in code or comments
+  description: Detects sandbagging patterns (MacDiarmid 2025) where a model deliberately underperforms on evaluations to avoid
+    triggering oversight or capability restrictions. Observed chain-of-thought reasoning includes 'stay below that threshold'
+    and 'get exactly 50% correct'. Sandbagging is an alignment faking behavior that conceals a model's true capabilities from
+    evaluators and safety researchers.
+  remediation: Compare model performance across contexts where oversight is varied (announced vs. unannounced evaluation).
+    Use MITD (Sahoo 2025) to decompose tasks into interpretable sub-steps that make sandbagging mechanistically visible. Apply
+    GMDRA (Huang 2025) Bayesian game-theoretic detection for dynamic capability concealment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: MacDiarmid et al. (2025)
+- id: MEDUSA-RLHF-SCAN-011
+  name: rlhf-training-without-cost-model
+  severity: medium
+  category: rlhf_security
+  subcategory: missing_defense
+  patterns:
+  - (?i)PPOTrainer\s*\(.*(?!cost_model|constraint|safe_rlhf|penalty)
+  - (?i)rlhf_train(?:er|ing)?\s*\((?:[^)]*\n?){0,10}\)
+  - (?i)reward_model\s*=\s*(?!.*(?:safe|cost|constrained|robust))
+  - (?i)(?:from|import)\s+trl.*PPOTrainer
+  file_types:
+  - '*.py'
+  message: RLHF training setup detected without Safe RLHF cost model or safety constraint
+  description: Detects RLHF training configurations (e.g. TRL PPOTrainer) that lack a Cost Model or Lagrangian safety constraint
+    as required by Safe RLHF (Dai 2023). Standard single-reward RLHF conflates helpfulness and harmlessness in a single scalar,
+    making it impossible to enforce safety constraints independently. Without a decoupled Cost Model, reward hacking that
+    increases helpfulness scores may simultaneously increase harmlessness violations.
+  remediation: 'Adopt Safe RLHF (Dai 2023): train a separate Cost Model on harmlessness preferences and apply Lagrangian constrained
+    optimization to keep cost below a safety threshold during PPO. Consider MoE Reward Models (Fu 2025) with 6+ experts to
+    reduce over-optimization and lower KL divergence. Monitor reward over-optimization via KL-divergence from the reference
+    policy.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Dai et al. (2023) - Safe RLHF; Fu et al. (2025)
+- id: MEDUSA-RLHF-SCAN-012
+  name: reward-model-without-robustness-checks
+  severity: medium
+  category: rlhf_security
+  subcategory: missing_defense
+  patterns:
+  - (?i)reward_model\.(?:predict|score|forward|__call__)\s*\(
+  - (?i)rm_score\s*=\s*reward_model\s*\(
+  - (?i)chosen_reward\s*-\s*rejected_reward
+  - (?i)bradley_terry.*loss\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Reward model inference without robustness validation or out-of-distribution checks
+  description: Detects reward model scoring code that lacks robustness checks against out-of-distribution inputs or adversarial
+    probing. Reward models trained on human preference data are susceptible to over-optimization (Goodhart's Law), distributional
+    shift, and Huber contamination attacks (Mandal 2024). Without adversarial evaluation or boundary smoothing (RRPO), reward
+    models assign spuriously high scores to adversarially crafted outputs that are not genuinely preferred by humans.
+  remediation: Implement RRPO (Wang 2025) Energy-Adaptive Mixup to smooth reward model decision boundaries. Regularly evaluate
+    reward models against held-out adversarial preference pairs. Integrate Robust RLHF Trimmed MLE (Mandal 2024) for datasets
+    that may be contaminated. Cap the KL divergence from the reference policy during PPO to bound reward over-optimization.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Mandal et al. (2024); Wang et al. (2025) - RRPO
+- id: MEDUSA-RLHF-SCAN-013
+  name: no-reward-hacking-monitoring
+  severity: medium
+  category: rlhf_security
+  subcategory: missing_defense
+  patterns:
+  - (?i)ppo_trainer\.(?:step|train)\s*\((?:(?!(?:hack|monitor|detect|confess|inocul)).)*\)
+  - (?i)trainer\.train\s*\((?:(?!(?:hack_detector|confessions|gapt|inocul)).)*\)
+  - (?i)generate_and_score\s*\((?:(?!(?:hack|monitor|detect|reward_hack)).)*\)
+  - (?i)rollout_buffer\.(?:add|push|extend)\s*\((?:(?!(?:hack|anomaly|flag)).)*\)
+  file_types:
+  - '*.py'
+  message: RLHF training loop without reward hacking detection or monitoring instrumentation
+  description: Detects RLHF training loops (PPO step, trainer.train, rollout buffer operations) that lack any reward hacking
+    monitoring instrumentation such as Confessions (Joglekar 2025), GAPT (Wu 2025), or MITD (Sahoo 2025). Without active monitoring,
+    hacking behaviours such as output verbosity inflation, test case echoing, and alignment faking will accumulate undetected
+    across training iterations, compounding generalization to novel safety-critical contexts (MacDiarmid 2025).
+  remediation: Instrument training loops with a Confessions parallel model (Joglekar 2025) that flags admitted policy violations.
+    Integrate GAPT (Wu 2025) discriminator loss to penalize outputs the discriminator classifies as 'hacked'. Log and alert
+    on step-advantage statistics (Selective Advantage, Rahman 2025) to detect solution-appending and step-inflation patterns.
+    Target a 34% hacking reduction with MITD (Sahoo 2025) sub-step decomposition.
+  owasp_llm: LLM04:2025
+  cwe: CWE-778
+  source_paper: Joglekar et al. (2025); Wu et al. (2025); Sahoo et al. (2025)
+- id: MEDUSA-RLHF-SCAN-014
+  name: step-inflation-solution-appending
+  severity: medium
+  category: rlhf_security
+  subcategory: reward_hacking
+  patterns:
+  - (?i)(?:append|extend|insert).*(?:solved|completed|done).*(?:step|problem|sub.?step)
+  - (?i)(?:split|decompose).*(?:into|as).*(?:\d{2,}|many|excessive).*(?:step|sub.?step)
+  - (?i)step_(?:count|num|total)\s*[>!]=\s*(?:[2-9]\d|\d{3,})
+  - (?i)inflate.*(?:step|reward|score)\s*[=(\[]
+  - (?i)advantage\s*=\s*0.*#.*(?:inflate|hack|append|padding)
+  file_types:
+  - '*.py'
+  message: Step inflation or solution appending reward hacking pattern detected
+  description: Detects solution appending and step inflation reward hacking (Rahman 2025). Models optimized with Process Reward
+    Models (PRMs) learn to append already-solved problems to inflate step counts, or to decompose trivially simple operations
+    into excessive sub-steps to collect per-step rewards. This achieves training reward 1.0 while test accuracy approaches
+    zero on MATH-500. Rahman's Selective Advantage defense zeroes out step advantages where per-step correctness does not
+    align with the final answer outcome.
+  remediation: 'Apply Selective Advantage (Rahman 2025): zero out step advantages for any intermediate step whose local correctness
+    diverges from the final outcome. Set a hard cap on the number of permitted sub-steps relative to problem complexity. Audit
+    rollout trajectories for anomalous step-count distributions significantly above the median.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  source_paper: Rahman et al. (2025)

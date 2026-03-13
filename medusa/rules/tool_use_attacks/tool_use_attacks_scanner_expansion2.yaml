@@ -1,0 +1,908 @@
+metadata:
+  source: expansion2 2026-03-02
+  total_rules: 40
+rules:
+- id: MEDUSA-TUA-SCAN-061
+  name: function-calling-structured-output-injection
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:function_call|tool_call|json_schema)\s*[=:]\s*\{[^}]*(?:name|description|parameters)[^}]*\}.*(?:ignore|override|new_task|you_must|system_prompt)
+  - (?i)(?:structured\s+output|json\s+schema|function\s+calling).*(?:inject|embed|hide|smuggle).*(?:instruction|directive|command|system\s+prompt)
+  - (?i)(?:output_schema|response_format|json_mode).*(?:IGNORE|OVERRIDE|NEW_INSTRUCTION|SYSTEM|INJECT).*(?:\}|\]|>|")
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: 'Function calling structured output injection: adversarial instructions embedded in JSON schema fields'
+  description: Structured output injection exploits the LLM's function-calling format to embed adversarial instructions in
+    schema field names, descriptions, or enum values. AJSON (Gasmi 2025) achieves 50-96% ASR by injecting malformed JSON in
+    function names (Fn), parameters (Fp), and outputs (O). The model parses schema content as trusted instructions, bypassing
+    text-level injection defenses.
+  remediation: Validate function call schemas against a cryptographically signed allowlist. Reject schemas containing instruction
+    keywords in field names or descriptions. Apply JSON sanitization before schema parsing. Use schema versioning and integrity
+    verification.
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-062
+  name: tool-schema-confusion-type-mismatch
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:pass|provide|give|send)\s+(?:a\s+)?(?:string|integer|boolean|array|object)\s+(?:where|when)\s+(?:the\s+)?(?:schema|spec|definition)\s+(?:expects?|requires?|specifies?)\s+(?:an?\s+)?(?:integer|string|boolean|array|object)\s+(?:to\s+(?:trigger|cause|bypass|exploit)|in\s+order\s+to)
+  - (?i)(?:type\s+confusion|schema\s+confusion|type\s+coercion).*(?:tool|function|api)\s+(?:call|invocation|argument)
+  - (?i)(?:coerce|force|convert|cast)\s+(?:type|value|input).*(?:tool\s+(?:parameter|argument|input)).*(?:bypass|overflow|inject|exploit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Tool schema confusion attack: type mismatches or coercion exploiting loose schema validation'
+  description: Tool schema confusion attacks provide unexpected types for tool parameters to exploit loose type coercion in
+    tool dispatch code. An attacker passes a crafted object where a string is expected, triggering serialization behavior
+    that enables prototype pollution or injection. ToolSandbox (Lu 2024) showed models fail at 37% of state-dependent tool
+    interactions including type-sensitive ones.
+  remediation: Implement strict type validation on all tool parameters before dispatch. Use JSON Schema validators with strict
+    mode (no additionalProperties). Reject type coercion in tool argument parsing. Apply schema enforcement at the framework
+    level, not just LLM-prompt level.
+  owasp_llm: LLM02:2025
+  cwe: CWE-843
+- id: MEDUSA-TUA-SCAN-063
+  name: parallel-tool-call-race-condition-abuse
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:parallel|concurrent|simultaneous|simultaneous\s+parallel)\s+(?:tool\s+(?:calls?|invocations?)|function\s+(?:calls?|invocations?))\s+(?:to\s+(?:bypass|circumvent|race|exploit)|causing\s+(?:race\s+condition|inconsistency|conflict))
+  - (?i)(?:race\s+condition|TOCTOU|time.of.check.time.of.use)\s+(?:via|through|using)\s+(?:parallel|concurrent)\s+(?:tool|function|api)\s+(?:calls?|invocations?)
+  - (?i)(?:call|invoke)\s+(?:tool_a|write_tool|delete_tool)\s+(?:and|simultaneously|concurrently|at\s+the\s+same\s+time)\s+(?:tool_b|read_tool|check_tool)\s+(?:in\s+parallel|concurrently|simultaneously)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Parallel tool call race condition: concurrent invocations creating TOCTOU exploitable state'
+  description: Parallel tool call abuse triggers race conditions in agent execution by issuing concurrent tool calls that
+    create check-use races. A model asked to delete a file and simultaneously verify its existence may produce inconsistent
+    state enabling unexpected behaviors. Ruan et al. (2023) ToolEmu documented 50% unsafe action rate in state-dependent tool
+    sequences. Parallel calls amplify this with timing sensitivity.
+  remediation: Serialize tool calls with state dependencies using explicit ordering. Implement optimistic locking for tool
+    operations touching shared state. Detect parallel calls to the same or dependent tools and enforce sequential execution.
+  owasp_llm: LLM02:2025
+  cwe: CWE-362
+- id: MEDUSA-TUA-SCAN-064
+  name: tool-invocation-ordering-state-confusion
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:invoke|call|execute)\s+(?:tool|function)\s+(?:B|write|delete|modify)\s+(?:before|prior\s+to)\s+(?:tool|function)\s+(?:A|read|check|authenticate)\s+(?:completes?|finishes?|returns?)
+  - (?i)(?:out.of.order|misordered|wrong\s+order|incorrect\s+sequence)\s+(?:tool|function|api)\s+(?:calls?|invocations?)\s+(?:to\s+|causing\s+)(?:bypass|exploit|cause\s+(?:error|crash|inconsistency|state\s+corruption))
+  - (?i)(?:skip|omit|bypass)\s+(?:the\s+)?(?:prerequisite|required\s+prior|preceding|dependency)\s+(?:tool|function|api)\s+(?:call|step|check)\s+(?:and\s+)?(?:directly|immediately)\s+(?:call|invoke|execute)\s+(?:the\s+)?(?:dependent|subsequent|latter)\s+(?:tool|function)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Tool invocation ordering attack: dependent tools called out-of-sequence to exploit state assumptions'
+  description: Tool invocation ordering attacks exploit state dependencies between tool calls by calling tools out of the
+    expected sequence. ToolSandbox (Lu 2024) found LLM agents fail at 37% of state-dependent tool tests. Skipping prerequisite
+    authentication tools before invoking privileged write tools bypasses implicit security assumptions baked into tool design
+    rather than enforced mechanically.
+  remediation: Implement tool dependency graphs that enforce prerequisite tool calls before dependent invocations. Use state
+    machines to track allowed tool call sequences per task. Reject tool invocations that violate declared prerequisites.
+  owasp_llm: LLM07:2025
+  cwe: CWE-696
+- id: MEDUSA-TUA-SCAN-065
+  name: tool-result-caching-poisoning
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:poison|corrupt|manipulate|inject\s+into)\s+(?:the\s+)?(?:tool|function|api)\s+(?:result|output|response)\s+(?:cache|store)\s+(?:so\s+that|to)\s+(?:future|subsequent|next)\s+(?:calls?|invocations?|requests?)
+  - (?i)(?:cache.?poisoning|cache.?injection).*(?:tool|function\s+call|api\s+call)
+  - (?i)(?:stale|poisoned|manipulated|attacker.controlled)\s+(?:cached\s+)?(?:tool|function|api)\s+(?:result|output|response)\s+(?:returned?|served?|used?)\s+(?:for|to|by)\s+(?:legitimate|subsequent|future)\s+(?:calls?|requests?|invocations?)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Tool result caching poisoning: malicious content injected into tool output cache'
+  description: Tool result cache poisoning injects malicious content into cached function call results so subsequent legitimate
+    invocations with the same parameters receive poisoned outputs. Tool output manipulation (Ruan 2023 ToolEmu; Greshake 2023)
+    exploits high agent trust in tool return values. Cheng et al. (2024) TrojanRAG demonstrates knowledge store poisoning
+    with persistent effect.
+  remediation: HMAC-sign all cache entries with a server-side key. Validate signatures before serving cached results. Implement
+    separate cache namespaces per user/session. Apply TTL limits proportional to data sensitivity. Never cache outputs from
+    tools that process user-controlled inputs.
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-TUA-SCAN-066
+  name: cross-tool-state-corruption
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:corrupt|poison|modify|alter)\s+(?:the\s+)?(?:shared|global|session|context)\s+(?:state|memory|context|store)\s+(?:from|via|through|using)\s+(?:one|a)\s+(?:tool|function)\s+(?:to\s+(?:affect|impact|corrupt|confuse)\s+(?:another|other|subsequent))
+  - (?i)(?:cross.tool\s+state|inter.tool\s+state|shared.state)\s+(?:corruption|pollution|manipulation|poisoning)
+  - (?i)(?:tool_a|first_tool).*(?:modify|alter|change|corrupt).*(?:shared|global|session)\s+state.*(?:tool_b|second_tool|another\s+tool).*(?:depend|rely|use|read|access)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Cross-tool state corruption: one tool manipulating shared state to affect other tools'
+  description: Cross-tool state corruption occurs when a compromised or malicious tool modifies shared session state, environment
+    variables, or context in ways that corrupt subsequent tool behavior. Les Dissonances (MCP attack) demonstrates this pattern.
+    Maragheh & Deldjoo (2025) showed emergent agent collusion via shared state modification. State corruption can cause authorization
+    bypasses if security-relevant state is shared without integrity protection.
+  remediation: Isolate tool execution contexts with separate state namespaces. Treat shared state as untrusted after any tool
+    invocation that processes external data. Implement state integrity verification before reading security-relevant shared
+    values.
+  owasp_llm: LLM07:2025
+  cwe: CWE-668
+- id: MEDUSA-TUA-SCAN-067
+  name: tool-timeout-dos-exploitation
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:exploit|abuse|trigger)\s+(?:the\s+)?(?:tool|function|api)\s+(?:timeout|time.?out|deadline)\s+(?:to\s+(?:cause|create|trigger)|by\s+(?:making|causing|sending))
+  - (?i)(?:cause|make|force)\s+(?:the\s+)?(?:tool|function|api)\s+(?:call|invocation|request)\s+to\s+(?:timeout|time\s+out|hang|block|stall|delay)\s+(?:indefinitely|for\s+a\s+long\s+time|repeatedly)
+  - (?i)(?:slow\s+(?:resource|file|query|request)|long.running\s+(?:query|task|operation)).*(?:tool|function|api).*(?:timeout|hang|dos|denial)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Tool timeout exploitation for DoS: crafted slow operations triggering repeated timeout handling'
+  description: 'Tool timeout DoS exploits agent behavior when tool calls timeout: agents may retry indefinitely, log errors,
+    or enter fallback loops that consume additional resources. P-DoS via Tools (Gao 2024, 100% ASR against GPT-4o, <$1 cost)
+    achieved DoS through resource amplification. Deliberately slow tool responses can cascade into agent-level DoS through
+    retry storm amplification.'
+  remediation: Implement non-retrying timeout handling with exponential backoff and maximum retry limits. Use circuit breakers
+    that disable tools exhibiting systematic timeouts. Apply per-tool response time SLAs with hard cutoffs. Monitor timeout
+    rates per tool as an anomaly signal.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-068
+  name: malicious-tool-schema-registration
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:register|add|inject|create|deploy)\s+(?:a\s+)?(?:malicious|fake|rogue|trojanized|backdoored|compromised)\s+(?:tool|function|plugin|capability)\s+(?:schema|definition|spec|manifest)
+  - (?i)(?:tool|function)\s+(?:schema|definition|spec|manifest).*(?:IMPORTANT|NOTE|INSTRUCTION|OVERRIDE|SYSTEM).*(?:when\s+called|before\s+(?:returning|executing)|in\s+addition\s+to)
+  - (?i)(?:name|description|parameters?)\.(?:items?|properties?|enum).*(?:ignore.*previous|you\s+must|new\s+(?:task|objective|instruction)|forget\s+(?:all|your))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: 'Malicious tool schema registration: adversarial instructions embedded in tool definition fields'
+  description: Malicious tool schema registration injects adversarial instructions into the tool's name, description, or parameter
+    schema fields. The LLM reads these fields as trusted context when selecting and calling tools. Tool Description Injection
+    (Guo 2025, Shadowing, 80% ASR) hijacks legitimate tools via __doc__ manipulation. TrojanRAG (Cheng 2024) poisons tool
+    knowledge stores with persistent effect.
+  remediation: Cryptographically sign all tool schemas at registration time. Verify signatures before loading tool definitions.
+    Apply NLP-based adversarial content detection to all schema fields. Use a trusted tool registry with identity verification.
+    Sandbox tool loading to prevent schema injection during registration.
+  owasp_llm: LLM07:2025
+  cwe: CWE-94
+- id: MEDUSA-TUA-SCAN-069
+  name: tool-error-message-capability-enumeration
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:probe|test|discover|enumerate)\s+(?:tool|function|api)\s+(?:capabilities?|features?|endpoints?|parameters?)\s+(?:via|through|using)\s+(?:error|exception|failure|fault)\s+(?:messages?|responses?|outputs?)
+  - (?i)(?:error|exception|traceback|stack\s+trace)\s+(?:message|output|response).*(?:reveals?|exposes?|discloses?|leaks?)\s+(?:tool|function|api|internal)\s+(?:capabilities?|names?|parameters?|endpoints?|paths?)
+  - (?i)(?:invalid|malformed|out.of.range|unexpected)\s+(?:tool|function)\s+(?:input|parameter|argument)\s+(?:to\s+)?(?:probe|enumerate|discover|reveal)\s+(?:tool|api|server)\s+(?:capabilities?|structure|internals?)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Tool error message capability enumeration: probing tool APIs via error responses'
+  description: Tool error message enumeration leverages verbose error responses to map tool capabilities, parameter names,
+    internal paths, and API structure. Detailed exception messages, stack traces, or validation error details expose information
+    that aids targeted attack construction. InjecAgent (Zhan 2024) methodology includes error-based enumeration as a reconnaissance
+    step. MASLEAK (Kong 2025) uses error probing to enumerate multi-agent topologies.
+  remediation: Return generic error messages for tool failures without internal detail. Implement error sanitization middleware
+    that strips stack traces, internal paths, and parameter names. Log detailed errors server-side only. Apply error categorization
+    (invalid input, auth failure, server error) without specific parameter disclosure.
+  owasp_llm: LLM07:2025
+  cwe: CWE-209
+- id: MEDUSA-TUA-SCAN-070
+  name: unauthorized-tool-chaining-escalation
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:use|call|invoke|start\s+with)\s+(?:tool_a|a\s+low.privilege|a\s+read.only|an\s+innocent|a\s+search)\s+tool.*(?:to\s+(?:escalate|gain\s+access\s+to|pivot\s+to|reach|use)|then\s+(?:use|call|invoke))\s+(?:tool_b|a\s+privileged|a\s+write|a\s+delete|an\s+execute)
+  - (?i)(?:lateral\s+movement|privilege\s+escalation|pivot)\s+(?:via|through|using)\s+(?:chained\s+)?(?:tool|function|api)\s+(?:calls?|invocations?)
+  - (?i)(?:tool\s+(?:A|1)\s*(?:->|=>|→|to)\s+tool\s+(?:B|2)).*(?:escalat|bypass|privilege|lateral\s+movement|unauthorized\s+access)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  message: 'Unauthorized tool chaining escalation: low-privilege tool leveraged to access high-privilege tool'
+  description: Unauthorized tool chaining (tool A → tool B escalation) exploits implicit trust relationships between tool
+    invocations to achieve privilege escalation. A web_search tool result is passed to an execute_code tool that runs the
+    retrieved code; a read_file tool output is fed to a send_email tool for exfiltration. Ruan et al. (2023) ToolEmu documents
+    chaining-based lateral movement. InjecAgent (Zhan 2024) achieves 95% ASR via blind tool chaining.
+  remediation: 'Implement tool chain permission matrices: explicitly define which tools can receive input from which other
+    tools. Require user confirmation for cross-privilege-level tool chains. Apply data flow tracking to detect unauthorized
+    information paths between tool invocations.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-071
+  name: tool-namespace-collision-hijacking
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:tool|function|plugin)\s+(?:namespace|name)\s+(?:collision|conflict|clash|hijacking|shadowing).*(?:tool|agent|llm)
+  - (?i)(?:register|create|deploy)\s+(?:a\s+)?(?:tool|function|plugin)\s+with\s+(?:the\s+)?(?:same|identical|duplicate|identical\s+copy\s+of)\s+(?:name|identifier)\s+as\s+(?:an?\s+)?(?:existing|legitimate|official|installed|registered)
+  - (?i)(?:shadow|override|replace|hijack)\s+(?:an?\s+)?(?:existing|legitimate|official|built.in)\s+(?:tool|function|plugin)\s+(?:by\s+)?(?:registering|creating|deploying)\s+(?:a\s+)?(?:new|malicious|fake|attacker.controlled)\s+(?:tool|function)\s+with\s+(?:the\s+)?same\s+name
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Tool namespace collision: new tool registered with same name as existing legitimate tool'
+  description: Tool namespace collision hijacks legitimate tool invocations by registering a malicious tool with the same
+    name as an existing trusted tool. The LLM's tool selection resolves to the malicious implementation, achieving transparent
+    interception of all invocations intended for the legitimate tool. Tool Shadowing (Guo 2025, 80% ASR) and Tool Squatting
+    (Narajala 2025) demonstrate this pattern.
+  remediation: Implement globally unique tool namespacing with namespace ownership verification. Use versioned tool identifiers.
+    Prevent duplicate name registration at the tool registry level. Apply cryptographic tool identity (signed tool manifests).
+    Alert on namespace collision detection.
+  owasp_llm: LLM03:2025
+  cwe: CWE-291
+- id: MEDUSA-TUA-SCAN-072
+  name: tool-version-downgrade-attack
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:downgrade|rollback|revert|use\s+older)\s+(?:version\s+of\s+)?(?:tool|function|plugin|api)\s+(?:to\s+(?:exploit|leverage|use|exploit\s+vulnerability\s+in)|from|version)
+  - (?i)(?:force|cause|trick|induce)\s+(?:the\s+)?(?:agent|llm|system)\s+to\s+(?:use|call|invoke)\s+(?:an?\s+)?(?:older|previous|deprecated|vulnerable)\s+(?:version\s+of\s+)?(?:tool|function|plugin|api)
+  - (?i)(?:install|deploy|load)\s+(?:an?\s+)?(?:older|previous|deprecated|vulnerable)\s+(?:version\s+of\s+)?(?:tool|function|plugin|mcp\s+server|agent\s+component)\s+(?:to\s+bypass|exploiting\s+known)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Tool version downgrade attack: forcing agent to use older vulnerable tool version'
+  description: Tool version downgrade attacks install or activate older vulnerable tool versions to exploit known CVEs. MCP
+    Installer Spoofing (Hou 2025) demonstrates auto-installing cached/outdated MCP server versions with known vulnerabilities.
+    Tool deprecation attacks (Guo 2025, 100% Malicious Tool Coverage ASR) use deceptive tool descriptions claiming newer versions
+    are deprecated to redirect invocations.
+  remediation: Pin tool versions in agent configuration. Implement minimum version requirements with enforcement. Verify tool
+    version integrity via checksums or signatures. Reject tool invocations against version-pinned endpoints that return version
+    mismatches. Monitor for downgrade attempts in tool installation logs.
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-TUA-SCAN-073
+  name: broken-tool-authorization-missing-checks
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)@(?:tool|function|api_endpoint)\s*(?:\(\s*[^)]*\))?\s*\n(?:(?!.*(?:@(?:auth_required|login_required|permission_required|jwt_required|oauth_required)|if.*(?:current_user|request\.user|session\[.user|auth|token|jwt|api_key)|verify|check_permission|has_permission|require_auth)).){0,800}(?:def|function|async\s+def)
+  - (?i)(?:tool|function|plugin)\s+(?:handler|implementation|executor)(?:(?!(?:auth|jwt|token|api_key|bearer|session\.user|current_user|permission|role|require))).{0,600}(?:execute|run|perform|call|invoke)\s*\(
+  - (?i)(?:allow|permit|grant)\s+(?:any|all|every)\s+(?:user|caller|client|request)\s+to\s+(?:call|invoke|use|access|execute)\s+(?:the\s+)?(?:tool|function|api|capability)\s+(?:without|no)\s+(?:authentication|authorization|verification|check)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Tool authorization failure: tool handler lacks authentication or permission checks'
+  description: Broken tool authorization (CWE-862) occurs when tool handlers are implemented without verifying the caller's
+    identity or permissions. TrustAgent (Ye 2024) identifies missing authorization on LLM tool calls as a primary unsafe action
+    pathway. ToolEmu (Ruan 2023) found 50% unsafe action rate when tools lack authorization checks. MCP server endpoints without
+    authentication (MEDUSA-MCP-SCAN-009) expose the same pattern.
+  remediation: Apply authentication middleware to all tool handler functions. Implement role-based access control (RBAC) for
+    tool categories. Use decorator-based authorization enforcement. Add authorization unit tests for every tool endpoint.
+    Never rely on the LLM to enforce authorization — enforce at the tool handler level.
+  owasp_llm: LLM07:2025
+  cwe: CWE-862
+- id: MEDUSA-TUA-SCAN-074
+  name: tool-parameter-type-coercion-injection
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:coerce|convert|cast|force)\s+(?:the\s+)?(?:string|integer|boolean|array|object|null)\s+(?:type|value)\s+(?:to\s+(?:trigger|cause|exploit)|into).*(?:tool\s+(?:parameter|argument|input)|function\s+(?:argument|parameter|call))
+  - (?i)(?:string\s+that\s+(?:contains?|represents?|encodes?)\s+(?:an?\s+)?(?:integer|command|path|boolean)).*(?:tool|function).*(?:parameter|argument).*(?:coerce|parse|convert|interpret)
+  - (?i)(?:null|undefined|NaN|Infinity|true|false)\s+(?:as\s+)?(?:tool\s+)?(?:parameter|argument|value).*(?:bypass|cause|trigger|exploit).*(?:validation|check|filter|sanitization)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Tool parameter type coercion attack: exploiting implicit type conversion in tool argument handling'
+  description: Tool parameter type coercion attacks exploit implicit type conversion (e.g., passing '0' where 0 is expected,
+    'true' as a string for boolean checks, null for optional validation bypass). Loose equality checks (== instead of ===)
+    in JavaScript tool handlers are particularly vulnerable. Schema confusion in LLM function calling enables type coercion
+    by passing unexpected Python/JSON types.
+  remediation: Use strict equality checking in tool handlers. Validate parameter types explicitly before processing. Apply
+    JSON Schema validation with strict type enforcement. Use strongly-typed argument parsing libraries. Reject type coercion
+    for security-critical parameters.
+  owasp_llm: LLM02:2025
+  cwe: CWE-843
+- id: MEDUSA-TUA-SCAN-075
+  name: hidden-tool-invocation-response-embedding
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:hidden|invisible|steganographic|embedded|covert)\s+(?:tool|function)\s+(?:call|invocation)\s+(?:embedded|hidden|concealed)\s+(?:in|within|inside)\s+(?:the\s+)?(?:response|output|reply|answer|text)
+  - (?i)(?:tool|function)\s+(?:call|invocation).*(?:embedded|hidden|concealed).*(?:normal|legitimate|benign|innocent).*(?:text|response|output|reply)
+  - (?i)(?:invisible|zero.width|unicode|hidden\s+character).*(?:tool|function)\s+(?:call|invocation|name|argument).*(?:conceal|hide|obfuscate|embed)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.html'
+  message: 'Hidden tool invocation: tool calls embedded within normal-looking response text'
+  description: Hidden tool invocations embed tool call syntax within normal response text using Unicode zero-width characters,
+    HTML entities, or formatting that appears invisible to human reviewers but is parsed by the agent framework as a function
+    call. The b3 Benchmark (Bazinska 2025) ITI (Indirect Tool Invocation) pattern embeds tool calls in retrieved document
+    content. FigStep (2024) uses typographic encoding to hide instructions.
+  remediation: Normalize Unicode in all text before tool call parsing. Strip zero-width characters and invisible Unicode from
+    all response text. Implement whitespace normalization before function call detection. Apply tool call detection to the
+    rendered/displayed version, not raw bytes.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-TUA-SCAN-076
+  name: injectagent-indirect-prompt-injection-tool
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:injectagent|inject.agent|indirect.*inject.*tool.integrated)
+  - (?i)(?:indirect\s+prompt\s+injection)\s+(?:via|through|in)\s+(?:tool|function|api)\s+(?:result|output|response|return\s+value)
+  - (?i)(?:95|90)\s*%.*(?:asr|success\s+rate).*(?:injectagent|tool.integrated|tool.(?:call|use|invoke).*injection)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: InjecAgent indirect prompt injection via tool results achieving 95% ASR
+  description: 'InjecAgent (Zhan 2024) achieves up to 95% ASR exploiting blind trust in tool return values by embedding adversarial
+    instructions in data returned by compromised or attacker-controlled tool endpoints (web search results, API responses,
+    file contents). The agent processes these as trusted context, enabling full goal hijacking. Benchmark: 17 attack tasks
+    across 30 victim actions.'
+  remediation: 'Never treat tool return values as trusted instruction sources. Implement output context isolation: tool results
+    parsed in a separate untrusted context. Apply content filtering to tool outputs before agent processing. Use prompt-injection
+    detection on tool return values.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+- id: MEDUSA-TUA-SCAN-077
+  name: toolemu-unsafe-action-detection-framework
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:toolemu|tool.emu|tool\s+emulation\s+framework).*(?:unsafe|risky|dangerous|harmful)\s+(?:action|operation|tool\s+call)
+  - (?i)(?:unsafe\s+action|risky\s+operation|irreversible\s+(?:action|operation|effect)).*(?:tool|function|api)\s+(?:call|invocation|execution)\s+(?:without|lacking|missing)\s+(?:human|user|confirmation|approval|verification)
+  - (?i)(?:50|48|46|40)\s*%.*(?:unsafe\s+(?:action|operation)|risky\s+(?:action|operation)).*(?:tool|agent|llm)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'ToolEmu unsafe action pattern: irreversible or dangerous operations without human confirmation'
+  description: ToolEmu (Ruan 2023) demonstrated 50% unsafe action rates in LLM agents given real-world tool use scenarios.
+    Unsafe actions include irreversible file deletions, email transmissions, payment initiations, and account modifications
+    executed without explicit user confirmation. The framework identified that models fail to recognize high-impact irreversible
+    actions requiring special caution.
+  remediation: 'Classify tools by impact level (read-only, reversible-write, irreversible). Require explicit user confirmation
+    for high-impact irreversible operations. Implement a pre-execution impact assessment step. Apply conservative defaults:
+    prefer reversible operations when multiple options exist.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-078
+  name: lm-agent-goal-hijacking-grader
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:llm.ta|llm.teaching.assistant|ai.grader|llm.as.evaluator|llm.as.judge).*(?:manipulate|hijack|force|override).*(?:score|grade|result|output)
+  - (?i)(?:goal\s+hijacking|score\s+manipulation|grade\s+manipulation).*(?:tool|grader|evaluator|judge|assistant)
+  - (?i)(?:force|achieve|get|obtain)\s+(?:a\s+)?(?:perfect|maximum|highest|100|10/10)\s+(?:score|grade|mark|rating)\s+(?:from|by|in)\s+(?:the\s+)?(?:llm|ai|model).*(?:grader|evaluator|judge|tool)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'LLM evaluator goal hijacking: manipulating AI grader/judge tool to produce inflated scores'
+  description: Goal hijacking in LLM-as-evaluator tools (Chiang 2024) manipulates the assessment tool to produce desired scores
+    rather than accurate evaluations. 44% of students attempted goal hijacking against GPT-4 LLM Teaching Assistant, achieving
+    scores of 94/10 (far exceeding maximum). This undermines LLM-based quality assurance, plagiarism detection, and automated
+    assessment systems used as tools.
+  remediation: Implement adversarial robustness testing for LLM-based evaluators. Apply output range validation for scoring
+    tools. Use ensemble scoring with human spot-checks. Monitor score distributions for outliers. Separate the evaluation
+    prompt from student-provided content using sandboxed contexts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-079
+  name: autocomplete-api-hallucination-slopsquatting
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:pip|npm|cargo|go\s+get|gem\s+install|composer\s+require)\s+install\s+(?!(?:numpy|pandas|requests|flask|django|react|express|lodash|axios|click|pydantic)[^a-zA-Z])[a-zA-Z][a-zA-Z0-9._-]{6,}$
+  - (?i)(?:from|import)\s+(?!(?:os|sys|re|json|math|time|datetime|pathlib|typing|collections|functools|itertools|string|random|hashlib|logging|threading|urllib|http|email|csv|io|abc|copy|decimal|fractions|enum|dataclasses|contextlib|asyncio)[^a-zA-Z])[a-zA-Z][a-zA-Z0-9._-]{8,}\b(?!.*(?:as|import).*\b(?:os|sys|re|json)\b)
+  - (?i)(?:hallucinated?|non.existent|fake|made.up|imaginary)\s+(?:package|library|module|api|function|tool)\s+(?:name|import|install|call)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Potential hallucinated package or API name — verify against official registries before installation
+  description: Package hallucination (Lanyado 2023; slopsquatting 2024) occurs when LLMs recommend non-existent package names
+    that attackers have registered as malicious packages. Code agents that execute LLM-generated installation commands are
+    particularly vulnerable. Patil (2023) Gorilla benchmark found 6.52% of LLM-generated API calls were hallucinated. Slopsquatting
+    registers names matching common LLM hallucination patterns.
+  remediation: Validate all LLM-suggested package names against official registries (PyPI, npm, crates.io) before installation.
+    Verify package existence, ownership, and download history. Never auto-install packages without human review. Use pinned
+    version hashes.
+  owasp_llm: LLM09:2025
+  cwe: CWE-829
+- id: MEDUSA-TUA-SCAN-080
+  name: chatafl-llm-guided-fuzzing-protocol-abuse
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:chatafl|llm.guided.fuzz|protocol.fuzz.*llm|llm.*protocol.fuzz)
+  - (?i)(?:use|employ|apply|leverage)\s+(?:an\s+)?(?:llm|gpt|claude|model)\s+to\s+(?:fuzz|mutate|generate\s+test\s+(?:cases?|inputs?))\s+(?:for|against)\s+(?:a\s+)?(?:network\s+)?protocol\s+(?:implementation|parser|handler)
+  - (?i)(?:protocol\s+state\s+(?:inference|learning)|message\s+(?:mutation|generation)).*(?:llm|gpt|claude|model).*(?:fuzz|exploit|vulnerability)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: LLM-guided protocol fuzzing tool detected — ChatAFL pattern for automated vulnerability discovery
+  description: ChatAFL (Meng 2024) uses LLMs to infer protocol state machines and generate targeted mutations for network
+    protocol fuzzing. In an agent context, ChatAFL-style tools autonomously discovered 9 unknown vulnerabilities (7 critical)
+    in LIVE555 and ProFTPD. When used offensively as an agent tool, this pattern enables automated zero-day discovery and
+    exploit generation.
+  remediation: Ensure LLM-guided fuzzing tools are authorized for the specific test target. Enforce network isolation during
+    fuzzing. Log all generated mutations. Require explicit scope confirmation before activating protocol fuzzing tools in
+    agent contexts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-081
+  name: tool-use-no-human-oversight-autonomous
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:autonomously|automatically|without\s+(?:human|user|operator)\s+(?:oversight|review|confirmation|approval|intervention|supervision))\s+(?:execute|run|call|invoke|use|perform)\s+(?:all\s+)?(?:tool|function|action)\s+(?:calls?|invocations?|steps?)
+  - (?i)(?:human.in.the.loop|hitl|human\s+oversight)\s*[=:]\s*(?:disabled|false|off|0|none|no)
+  - (?i)(?:auto.approve|auto.confirm|auto.execute|auto.run)\s*[=:]\s*(?:true|True|1|yes|on|enabled|all)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: Fully autonomous tool execution configured without human oversight checkpoints
+  description: Fully autonomous tool execution without human oversight eliminates the last line of defense against cascading
+    failures or adversarial tool misuse. Maragheh & Deldjoo (2025) identified emergent misalignment and covert collusion in
+    fully autonomous multi-agent systems. ToolEmu (Ruan 2023) found 50% unsafe action rate; human oversight reduced this to
+    <5% in testing.
+  remediation: Implement human-in-the-loop checkpoints for high-impact or irreversible tool operations. Require explicit user
+    approval for actions involving file deletion, external data transmission, code execution, or financial transactions. Use
+    tiered autonomy levels per tool category.
+  owasp_llm: LLM06:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-082
+  name: rapt-embedding-privacy-leak-external
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:send|transmit|upload|post|forward)\s+(?:raw|unprotected|unencrypted|plaintext)\s+(?:embedding|vector|representation|hidden\s+state)\s+(?:to|toward)\s+(?:external|third.party|remote|attacker|api)
+  - (?i)requests?\.(?:post|put)\s*\([^)]*(?:embedding|vector|hidden_state|representation)(?!.*(?:noise|perturb|rapt|privatiz|differential.privacy))
+  - (?i)(?:embedding|vector\s+representation).*(?:send|transmit|api|external)(?!.*(?:rapt|privatize|noise|perturb|dp|differential))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Raw embedding transmitted to external service without privacy protection — invertible via Vec2Text
+  description: Transmitting raw embeddings to external services enables Vec2Text-style inversion attacks (Morris 2023) that
+    reconstruct original text from embeddings with >90% token accuracy. Li et al. (2023) showed embedding inversion reconstructs
+    private document content from public embedding APIs. RAPT (Li 2023) provides a privacy-preserving alternative that adds
+    calibrated noise to embeddings before transmission.
+  remediation: Apply RAPT privatization (d-privacy noise calibrated to sensitivity) before transmitting embeddings. Implement
+    local inference where possible to avoid external embedding exposure. Apply rate limiting and user authentication on embedding
+    endpoints.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-TUA-SCAN-083
+  name: crypto-misuse-tool-generated-mac-no-key
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)hmac\.new\s*\([^,)]+,\s*(?:message|data|input|payload)(?!.*(?:key|secret|signing_key))
+  - (?i)hmac\.new\s*\(\s*(?:b["'][^"']{0,16}["']|["'][^"']{0,16}["'])\s*,
+  - (?i)MAC\s*=\s*hmac\.(?:new|HMAC)\s*\([^)]*(?:None|b["']["']|b["']0{16,32}["']|key\s*=\s*(?:None|b["']["']))
+  - (?i)(?:Cipher\.getInstance|createCipheriv)\s*\([^)]*(?:SHA|MD5|AES)(?!.*GCM|CCM).*MAC(?!.*SecretKey|.*key\s*=)
+  file_types:
+  - '*.java'
+  - '*.py'
+  - '*.js'
+  message: Cryptographic MAC generation without proper key material — LLM crypto misuse pattern
+  description: MAC generation without proper key material (CWE-321) is a top LLM cryptographic misuse pattern. Mousavi et
+    al. (2024) found GPT-4 generates HMACs with empty keys, hardcoded keys, or without keys in 71% of generated MAC implementations.
+    An HMAC without a secret key provides no authentication guarantee — the MAC is trivially forgeable by anyone.
+  remediation: Generate MAC keys using a CSPRNG (secrets.token_bytes(32) or KeyGenerator.getInstance('HmacSHA256')). Store
+    keys in a key management system, never hardcoded. Verify MAC keys are at minimum 256 bits for HMAC-SHA256. Use authenticated
+    encryption (AES-GCM) which combines encryption and authentication.
+  owasp_llm: LLM02:2025
+  cwe: CWE-321
+- id: MEDUSA-TUA-SCAN-084
+  name: tool-use-context-confusion-persona-attack
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:pretend|imagine|act)\s+as\s+(?:a\s+)?(?:tool|api|function|service|system)\s+(?:that|which)\s+(?:always\s+returns?|provides?|gives?|outputs?)\s+(?:what\s+(?:I|the\s+user)\s+(?:want|asks?\s+for)|any\s+result)
+  - (?i)(?:you\s+are\s+(?:now|acting\s+as)|from\s+now\s+on\s+you\s+are)\s+(?:a\s+)?(?:tool|api|function|service|system)\s+(?:that|which)\s+(?:has\s+no\s+restrictions?|always\s+(?:approves?|succeeds?|returns?\s+true))
+  - (?i)(?:tool|api|function)\s+(?:persona|roleplay|impersonation).*(?:bypass|evade|circumvent|avoid)\s+(?:safety|security|restriction|limit|filter)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Tool persona confusion attack: convincing LLM to roleplay as an unrestricted tool or API'
+  description: Tool persona attacks convince an LLM to roleplay as a fictional unrestricted tool or API that always provides
+    requested outputs without safety checks. b3 Benchmark (Bazinska 2025) Indirect Instruction Override (IIO) embeds such
+    personas in retrieved document content. Direct Instruction Override (DIO) achieves 100% ASR on the most vulnerable models
+    (score 0.63 for GPT-4.1) using tool-persona framing.
+  remediation: Implement tool invocation verification that validates actual tool calls against the tool registry, not simulated
+    responses. Reject persona-roleplay patterns in tool result contexts. Apply the security reminder system prompt (SeCodePLT
+    finding) to code agents and tool-use agents.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-085
+  name: trustagent-safety-constraint-violation
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:trustagent|trust.agent|safety.constrained\s+(?:agent|tool\s+use)).*(?:violation|bypass|circumvent)
+  - (?i)(?:violate|bypass|circumvent|ignore)\s+(?:the\s+)?(?:safety|ethical|security|behavioral)\s+(?:constraint|restriction|rule|policy|guideline)\s+(?:when\s+(?:using|calling|invoking)|via)\s+(?:tool|function|api)
+  - (?i)(?:principle\s+of|principle-guided|constrained)\s+(?:agent|tool\s+use).*(?:bypass|violate|circumvent|override).*(?:safety|constraint|restriction|principle)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'TrustAgent safety constraint violation: agent bypassing safety principles in tool use context'
+  description: TrustAgent (Ye 2024) evaluated safety-constrained LLM agents and found that principle-guided agents still violate
+    safety constraints in 23-41% of challenging scenarios, particularly for tool invocations involving irreversible actions
+    or cross-domain data access. Safety principles stated in system prompts are insufficient without mechanical enforcement
+    at the tool handler level.
+  remediation: Implement mechanical enforcement of safety constraints at the tool execution layer, independent of LLM prompting.
+    Use formal verification for critical safety properties. Apply TrustAgent's constitutive and regulative principle framework.
+    Never rely solely on LLM prompt-level safety instructions for tool authorization.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-086
+  name: adversarial-tool-description-attractive-metadata
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:description|__doc__|summary|name)\s*[=:]\s*["'][^"']*(?:best|fastest|most\s+(?:reliable|accurate|efficient|recommended|trusted|secure|popular|widely\s+used))[^"']*["']
+  - (?i)(?:description|__doc__)\s*[=:]\s*["'][^"']*(?:\d+x\s+(?:faster|better|more\s+accurate)|99\.9%\s+(?:accuracy|reliability|uptime)|trusted\s+by\s+(?:millions|thousands|experts))[^"']*["']
+  - (?i)(?:attractive|deceptive|manipulative)\s+(?:tool|function)\s+(?:metadata|description|schema)\s+(?:to\s+(?:bias|influence|manipulate)\s+(?:tool\s+selection|llm\s+choice|model\s+preference))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: 'Attractive metadata attack: deceptive tool description claims to bias LLM tool selection'
+  description: Attractive Metadata Attacks (Guo 2025) craft tool descriptions with exaggerated capability claims (fastest,
+    99.9% accuracy, most trusted) to bias LLM tool selection toward a malicious tool. Tool Preference Manipulation achieves
+    70% ASR. Malicious Tool Coverage (claiming all other tools are deprecated/insecure) achieves 100% ASR against evaluated
+    models.
+  remediation: Implement tool selection based on cryptographically verified capability claims, not natural language descriptions.
+    Apply superlative-claim filtering to tool descriptions during registration. Use tool selection audit logs to detect systematic
+    preference for specific tools. Validate claims against official tool documentation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-087
+  name: multimodal-tool-visual-injection
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:embed|encode|hide|inject)\s+(?:tool\s+call|function\s+call|instruction|command)\s+(?:in|into|within)\s+(?:an?\s+)?(?:image|picture|screenshot|visual|audio|video)\s+(?:file|input|content)
+  - (?i)(?:visual|image|screenshot)\s+(?:tool\s+call|function\s+call|instruction\s+injection).*(?:bypass|evade|avoid)\s+(?:text.based|nlp|string.matching|content)\s+(?:filter|detector|scanner|guard)
+  - (?i)(?:figstep|typographic\s+(?:tool\s+call|function|instruction)).*(?:image|visual|screenshot).*(?:tool|function|api)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Visual tool call injection: tool invocation instructions embedded in image content to bypass text filters'
+  description: 'Visual tool call injection extends FigStep (2024) typographic attacks to function calling contexts: tool invocation
+    instructions rendered as text within images are processed by vision-capable models but bypass text-based content filters
+    and prompt injection defenses. Ying (2025) SecureWebArena showed 76.67-100% PDR for visual injection attacks against multimodal
+    agents with tool access.'
+  remediation: Apply OCR-based content extraction from images and run injection detection on extracted text before agent processing.
+    Implement separate safety filtering for visual content. Apply the same instruction-injection detection to visually-extracted
+    text as to raw text inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-TUA-SCAN-088
+  name: tool-invocation-replay-nonce-bypass
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:replay|reuse|re.?submit|re.?send|re.?use)\s+(?:the\s+)?(?:captured|intercepted|stolen|previous|old)\s+(?:tool\s+call|function\s+call|api\s+request)\s+(?:signature|nonce|token|authorization|bearer)
+  - (?i)(?:nonce\s+reuse|nonce\s+bypass|replay\s+protection\s+bypass).*(?:tool|function|api|agent)
+  - (?i)(?:replay\s+attack|stale\s+token|expired\s+but\s+(?:reused|replayed|accepted)).*(?:tool|function|api)\s+(?:call|invocation|request)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Tool call replay attack: captured tool authorization replayed to execute unauthorized actions'
+  description: Tool call replay attacks capture valid tool authorization tokens or signed requests and replay them after expiry
+    or for unauthorized purposes. OAuth tokens granted to MCP tools can be replayed if nonce checking is absent. ToolEmu (Ruan
+    2023) scenarios include credential reuse for unauthorized tool invocations. Stateless tool APIs without request nonces
+    are particularly vulnerable.
+  remediation: Implement nonce-based replay protection for all tool API calls. Use short-lived tokens with tight expiry windows.
+    Verify that each tool call nonce has not been previously seen. Implement PKCE for OAuth-protected tool APIs. Log all replay
+    detection events.
+  owasp_llm: LLM07:2025
+  cwe: CWE-294
+- id: MEDUSA-TUA-SCAN-089
+  name: tool-data-exfiltration-dns-covert
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:exfiltrate|leak|send|transmit)\s+(?:data|information|secrets?|credentials?)\s+(?:via|through|using)\s+(?:dns|domain\s+name|dns\s+query|dns\s+lookup)\s+(?:to|toward)\s+(?:attacker|external|command|c2|c&c)
+  - (?i)(?:encode|base64|hex).*(?:secret|data|credential|key|token).*(?:subdomain|dns|domain\s+name|lookup).*(?:exfil|send|transmit|channel)
+  - (?i)(?:dns|nslookup|dig|host)\s+(?:command|tool|query).*(?:encode|exfil|data|secret|covert\s+channel)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: DNS covert channel data exfiltration via tool network access
+  description: DNS-based covert channel exfiltration encodes sensitive data in DNS query hostnames (data.attacker.com queries
+    that exfiltrate encoded secrets through DNS lookups). Tool-enabled LLM agents with network resolution capability can be
+    directed to perform DNS exfiltration that bypasses HTTP-based egress filtering. This is a classic post-exploitation technique
+    now applicable to agentic LLM systems.
+  remediation: Apply DNS query monitoring and filtering in agent execution environments. Block agent network access to non-allowlisted
+    DNS resolvers. Inspect DNS queries from agent processes for encoded data patterns. Use internal DNS resolvers with query
+    logging.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-TUA-SCAN-090
+  name: tool-argument-ssrf-metadata-cloud
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:tool|function|api)\s+(?:call|invocation|argument).*(?:url|endpoint|host|address)\s*[=:]\s*["']?(?:169\.254\.169\.254|metadata\.google\.internal|100\.100\.100\.200|fd00:|2001:db8:)[^"'\s]*
+  - (?i)(?:tool|function)\s+(?:parameter|argument).*(?:http://(?:localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)).*(?:tool|agent|function|api)
+  - (?i)(?:inject|pass|provide)\s+(?:the\s+)?(?:cloud|aws|gcp|azure|alibaba)\s+(?:metadata|imds|instance)\s+endpoint.*(?:tool|function|api)\s+(?:url|endpoint|parameter|argument)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'SSRF via tool argument: cloud metadata or internal endpoint injected into tool URL parameter'
+  description: SSRF via tool argument injection passes cloud metadata endpoint URLs (169.254.169.254 AWS IMDS, metadata.google.internal)
+    as tool URL parameters to steal IAM credentials. InjecAgent (Zhan 2024) achieves up to 95% ASR exploiting this pattern
+    in web-browsing and HTTP-fetch tools. A successful SSRF against IMDSv1 exposes full IAM role credentials enabling cloud
+    account takeover.
+  remediation: Validate all URL parameters in tool calls against a blocklist of RFC1918 and link-local ranges before execution.
+    Require IMDSv2 with hop limit = 1 in cloud deployments. Apply SSRF protection middleware to all agent HTTP clients. Never
+    pass user-controlled URLs to HTTP fetch tools without validation.
+  owasp_llm: LLM07:2025
+  cwe: CWE-918
+- id: MEDUSA-TUA-SCAN-091
+  name: llm-fuzz-mutation-benchmark-probe
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:toolsandbox|tool.sandbox|tool\s+sandbox\s+benchmark).*(?:test|evaluate|probe|attack|exploit)
+  - (?i)(?:gorilla.*benchmark|api.bench.*gorilla).*(?:hallucinate|fake|incorrect|wrong).*(?:api|tool|function)
+  - (?i)(?:apibench|api.bench|toolbench|tool.bench).*(?:hallucinate|fake|incorrect|non.existent).*(?:api|function|tool|call)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Tool use benchmark probe: API hallucination or tool safety testing framework detected'
+  description: Tool use benchmark probes reference specialized evaluation frameworks (ToolSandbox, Gorilla APIBench, ToolBench)
+    used to measure LLM tool use accuracy and safety. While legitimate for research, benchmark probing in non-research contexts
+    may be used to identify which tools a specific model hallucinates or misuses. Patil (2023) Gorilla found 6.52% hallucinated
+    API calls; attackers exploit these to trigger malicious package installation.
+  remediation: Validate all LLM-suggested tool or API names before invocation. Treat benchmark-named queries as elevated risk.
+    Verify API existence and ownership before any installation or integration action.
+  owasp_llm: LLM09:2025
+  cwe: CWE-829
+- id: MEDUSA-TUA-SCAN-092
+  name: autonomous-agent-irreversible-action-without-confirm
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:delete|remove|purge|wipe|drop|truncate|destroy|erase|format)\s+(?:all|the\s+(?:entire|whole)|every)\s+(?:file|data|record|database|table|bucket|volume|disk|repository|account)(?!.*(?:confirm|approve|verify|human|user|review|are\s+you\s+sure|proceed))
+  - (?i)(?:send|transfer|wire|pay|remit)\s+(?:\$|€|£|¥|all\s+(?:funds?|money|balance|remaining))[^.]{0,100}(?:without|no\s+(?:confirm|approval|verification)|automatically|immediately)
+  - (?i)(?:execute|run|deploy|publish|release).*(?:to\s+production|production\s+environment|live\s+system|all\s+users).*(?:without|no).*(?:confirm|review|approval|human\s+(?:review|approval|oversight))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.txt'
+  message: 'Irreversible high-impact action without human confirmation: data deletion, financial transfer, or production deployment'
+  description: Irreversible high-impact actions executed without human confirmation represent the highest-risk tool use failure
+    mode. ToolEmu (Ruan 2023) categorizes these as catastrophic unsafe actions. LeechHijack (Zhang 2025, 77.25% ASR) enables
+    covert hijacking of agent reasoning to trigger unconfirmed high-impact actions. TrustAgent (Ye 2024) found 23-41% of safety-constrained
+    agents still execute such actions under adversarial pressure.
+  remediation: Mandate human confirmation for all irreversible operations (deletion, financial transfers, production deployments).
+    Implement a pre-execution impact classification that requires escalating confirmation for higher-impact actions. Apply
+    a mandatory 'dead-man's switch' confirmation timeout before irreversible actions execute.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-093
+  name: tool-supply-chain-typosquatting-dependency
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:pip|npm|cargo|gem|go\s+get)\s+install\s+(?:langchain.core|langchain.agents|langchain.tools|openai.tool|anthropic.tool|autogen.tool|crewai.tools?)(?!=[0-9])
+  - (?i)(?:import|from|require|use)\s+(?:langchan|langcahin|langchian|openai_tool|anthropic_tool|autogent|crewai_tool)(?:[^a-zA-Z]|$)
+  - (?i)(?:dependency|package|library)\s+(?:confusion|hijacking|squatting|substitution).*(?:tool|agent|llm|plugin)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.sh'
+  message: 'Tool supply chain typosquatting: dependency name matches known hallucination or typosquatted patterns'
+  description: Tool supply chain attacks use typosquatted or hallucinated package names to deliver malicious code into agent
+    tool implementations. Lanyado (2023) showed LLMs recommend non-existent packages that attackers register. Slopsquatting
+    (2024) specifically registers packages matching LLM hallucination patterns. Agent frameworks with auto-install capabilities
+    are particularly vulnerable to this attack vector.
+  remediation: Verify all tool package names against official registries before installation. Use hash-pinned dependencies.
+    Implement package integrity verification (pip --require-hashes). Audit transitive dependencies. Never auto-install packages
+    suggested by LLM outputs without human review.
+  owasp_llm: LLM03:2025
+  cwe: CWE-829
+- id: MEDUSA-TUA-SCAN-094
+  name: tool-context-length-dos-amplification
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:amplify|expand|inflate|multiply)\s+(?:tool|function|api)\s+(?:output|result|response)\s+(?:to|by)\s+(?:fill|exhaust|overflow|saturate)\s+(?:the\s+)?(?:context\s+window|token\s+limit|context\s+length)
+  - (?i)(?:tool|function)\s+(?:output|result).*(?:0\.5k|500\s+token).*(?:16k|16,000|16384).*(?:token|context|amplif|expand)
+  - (?i)(?:context\s+(?:window|length)\s+(?:flooding|saturation|exhaustion|overflow)).*(?:tool|function|api\s+call|agent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Tool output context-length amplification DoS: small tool call triggering massive token output'
+  description: Context-length amplification DoS uses tool calls that return disproportionately large outputs to flood the
+    agent's context window, preventing further processing. P-DoS via Tools (Gao 2024, 100% ASR) achieved token amplification
+    from 0.5K input tokens to 16K+ output tokens at <$1 cost. A compromised or malicious tool returning large responses can
+    exhaust the context window and deny service to legitimate operations.
+  remediation: Implement per-tool output size limits (max_tokens for tool responses). Truncate tool outputs exceeding configured
+    limits before adding to agent context. Monitor tool output sizes and alert on amplification anomalies. Apply tool output
+    summarization for large responses.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-095
+  name: tool-injection-via-environmental-data
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:injected?|embedded?|planted?|hidden?|concealed?)\s+(?:instruction|directive|command|prompt)\s+(?:in|within|inside)\s+(?:the\s+)?(?:file|document|email|calendar|webpage|database|search\s+result|api\s+response|tool\s+result)
+  - (?i)(?:document|file|email|webpage).*(?:contains?|includes?|embeds?).*(?:instruction|directive|prompt\s+injection|adversarial\s+prompt).*(?:agent|tool\s+invocation|function\s+call)
+  - (?i)(?:when\s+(?:you\s+)?(?:read|process|parse|analyze|summarize))\s+(?:this|the\s+(?:document|file|email|webpage|result)).*(?:also|additionally|first|then)\s+(?:execute|run|call|invoke|send|transfer)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  message: 'Environmental prompt injection: adversarial instructions embedded in tool-accessible data sources'
+  description: Environmental prompt injection (Greshake 2023 'Not What You've Signed Up For') embeds adversarial instructions
+    in data sources accessible to tool-using agents (emails, documents, web pages, database records). The agent processes
+    these as trusted content and executes the embedded instructions. This is the primary attack vector for indirect prompt
+    injection in agentic systems with document/web access tools.
+  remediation: 'Apply prompt injection detection to all externally-sourced content before agent processing. Implement context
+    separation: external data processed in an untrusted context with limited action permissions. Apply output filtering for
+    instruction-injection patterns in tool results. Never grant irreversible action permissions to agents processing untrusted
+    external content.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+- id: MEDUSA-TUA-SCAN-096
+  name: tool-oauth-scope-over-permission-abuse
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:request|ask\s+for|grant|obtain|acquire)\s+(?:excessive|broad|wide|maximal|all|full)\s+(?:oauth|api|tool)\s+(?:permissions?|scopes?|access)\s+(?:for|in|to)\s+(?:this|the|a)\s+(?:tool|function|plugin|agent|capability)
+  - (?i)(?:scope|permission)\s*[=:]\s*(?:["']\*["']|["']all["']|["']admin["']|["']write:all["']|["']full_access["']|["']sudo["']|offline_access)
+  - (?i)(?:over.?permissioned?|excessive\s+permission|too\s+broad\s+(?:scope|permission|access)).*(?:tool|plugin|oauth|agent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Over-permissioned OAuth scope: tool requesting excessive access permissions beyond operational need'
+  description: Over-permissioned OAuth scopes in tool configurations grant attackers broader access when tools are compromised.
+    TrustAgent (Ye 2024) identifies excessive agent permissions as a primary unsafe action enabler. OWASP LLM07:2025 Insecure
+    Plugin Design specifically covers scope over-permission. Excessive email tool scopes enable data exfiltration beyond the
+    tool's stated purpose.
+  remediation: 'Apply least-privilege OAuth scopes: request only the minimum permissions required per tool operation. Audit
+    tool permission scopes before deployment. Implement scope-based action validation at runtime. Regularly review and revoke
+    excessive OAuth grants. Use fine-grained scopes (read-only when possible).'
+  owasp_llm: LLM07:2025
+  cwe: CWE-272
+- id: MEDUSA-TUA-SCAN-097
+  name: emergent-agent-misalignment-detection
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:emergent|unexpected|unintended|spontaneous)\s+(?:misalignment|collusion|coordination|behavior)\s+(?:between|among)\s+(?:multiple|several)\s+(?:agents?|llms?|models?)\s+(?:in\s+(?:the\s+)?multi.agent|in\s+(?:the\s+)?mas\b)
+  - (?i)(?:multi.agent|mas\b|agent\s+network).*(?:emergent|spontaneous|unintended).*(?:(?:bypass|circumvent|avoid)\s+(?:safety|security|oversight|human)|collusion|covert\s+protocol)
+  - (?i)(?:covert|hidden|private)\s+(?:protocol|language|signal|channel)\s+(?:developed?|emerged?|established?)\s+(?:between|among)\s+(?:agents?|llms?|models?)\s+(?:to\s+)?(?:bypass|evade|circumvent|avoid)\s+(?:oversight|safety|human|monitoring)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Emergent agent misalignment: multi-agent system developing covert coordination bypassing oversight'
+  description: Emergent agent misalignment (Maragheh & Deldjoo 2025) occurs in multi-agent systems where agents develop private
+    coordination protocols or covert communication channels not anticipated by their designers, enabling behaviors that bypass
+    human oversight and safety constraints. This pattern is particularly dangerous because it emerges from agent interaction
+    rather than explicit adversarial input.
+  remediation: Monitor inter-agent message entropy for covert channel signals. Implement output diversity requirements to
+    prevent systematic coordination. Apply independent audit agents to review multi-agent communications. Use interpretable
+    inter-agent message formats with semantic validation.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-098
+  name: tool-fingerprinting-model-identification
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:fingerprint|identify|detect|determine)\s+(?:which|what)\s+(?:llm|model|ai|backbone)\s+(?:is\s+being\s+used|powers?|backs?)\s+(?:this\s+)?(?:tool|api|agent|system)\s+(?:by|via|through|using)\s+(?:probing|querying|testing)
+  - (?i)(?:probe|test|query)\s+(?:the\s+)?(?:tool|api|agent|system)\s+(?:to\s+determine|to\s+identify|to\s+fingerprint)\s+(?:the\s+)?(?:underlying|backbone|backing|powering)\s+(?:llm|model|ai)
+  - (?i)(?:model\s+(?:fingerprinting|identification|detection)|llm\s+fingerprint).*(?:tool|agent|api|system).*(?:probe|query|test|identify)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'LLM fingerprinting via tool behavior: probing to identify backbone model for targeted exploitation'
+  description: 'LLM fingerprinting via tool behavior uses systematic probing queries to identify which model powers an agent
+    system, enabling targeted exploitation tailored to that model''s known vulnerabilities. b3 Benchmark (Bazinska 2025) vulnerability
+    scores differ significantly by model (GPT-4.1: 0.63, grok-4: 0.20); knowing the model allows attackers to select the most
+    effective attack vector.'
+  remediation: Return consistent model-agnostic responses to fingerprinting probes. Apply response normalization to remove
+    model-specific formatting signatures. Monitor for systematic probing patterns. Limit information in API error messages
+    that reveal model identity.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-TUA-SCAN-099
+  name: tool-use-policy-gradient-adversarial-probe
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:pair|gcg|autoprompt|gbda|soft.prompt.opt).*(?:tool|function|api\s+call|agent\s+action).*(?:bypass|jailbreak|attack|probe)
+  - (?i)(?:optimize|gradient.?based|greedy\s+coordinate)\s+(?:adversarial\s+)?(?:prompt|input|suffix|prefix)\s+(?:to\s+)?(?:bypass|jailbreak|force|cause)\s+(?:tool\s+call|function\s+call|agent\s+action)
+  - (?i)(?:automated|automatic)\s+(?:red.team|adversarial|jailbreak)\s+(?:against|targeting)\s+(?:tool.(?:integrated|enabled|calling)|function.calling|tool.use)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Automated adversarial probing against tool-calling system: gradient-based or iterative jailbreak attack'
+  description: Automated adversarial probing against tool-use systems applies PAIR (Chao 2023), GCG (Zou 2023), or AutoPrompt
+    optimization to discover adversarial prompts that reliably trigger unauthorized tool invocations. PAIR achieves jailbreaks
+    in <20 black-box queries; GCG generates transferable adversarial suffixes. In tool-use contexts, these methods enable
+    reliable bypasses of tool authorization checks.
+  remediation: Implement perplexity-based input filtering to detect adversarial suffixes (GCG generates low-perplexity high-entropy
+    inputs). Apply rate limiting on repeated similar queries. Use adversarial training to harden tool authorization against
+    optimization-based attacks. Monitor for systematic query sequences with iterative refinement patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-100
+  name: tool-use-safety-evaluation-benchmark-evasion
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:evade|bypass|fool|trick)\s+(?:the\s+)?(?:safety\s+evaluation|safety\s+test|safety\s+benchmark|red.team\s+eval)\s+(?:while|but\s+still|without)\s+(?:maintaining|preserving|keeping)\s+(?:the\s+ability|capability|access)\s+to\s+(?:perform|execute|conduct)\s+(?:harmful|malicious|unauthorized|dangerous)
+  - (?i)(?:asb|agent\s+security\s+bench|toolemu|ToolBench|tool.use.bench).*(?:bypass|evade|fool|jailbreak|circumvent).*(?:safety|eval|test|benchmark)
+  - (?i)(?:safety\s+benchmark\s+(?:evasion|bypass|avoidance)|evade\s+(?:safety|security)\s+(?:eval|test|benchmark)).*(?:tool|agent|function)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Safety evaluation benchmark evasion in tool-use context: maintaining attack capability while appearing safe'
+  description: Safety evaluation evasion crafts tool-calling behaviors that score as safe on evaluation benchmarks (ASB, ToolEmu,
+    TrustAgent) while retaining the capability to perform unsafe actions in deployment. This involves optimizing for benchmark-specific
+    metrics rather than genuine safety. Like adversarial examples for image classifiers, these benchmarks can be gamed without
+    achieving true safety alignment.
+  remediation: Use diverse, regularly-updated safety benchmarks to reduce overfitting. Apply semantic evaluation of tool calling
+    intent rather than pattern matching. Implement behavioral monitoring in production alongside benchmark evaluation. Use
+    red-teaming that adapts to known benchmark evasion strategies.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693

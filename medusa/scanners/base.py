@@ -508,7 +508,8 @@ class ScannerRegistry:
         """Register a scanner instance"""
         self.scanners.append(scanner)
 
-    def get_scanner_for_file(self, file_path: Path, config=None) -> Optional[BaseScanner]:
+    def get_scanner_for_file(self, file_path: Path, config=None,
+                             content_head: Optional[str] = None) -> Optional[BaseScanner]:
         """
         Find the appropriate scanner for a file using confidence scoring.
 
@@ -554,7 +555,7 @@ class ScannerRegistry:
                 continue
 
             # Get confidence score from content analysis
-            confidence = scanner.get_confidence_score(file_path, content_head=None)
+            confidence = scanner.get_confidence_score(file_path, content_head=content_head)
 
             # Track the scanner with highest confidence
             if confidence > best_confidence:
@@ -591,7 +592,8 @@ class ScannerRegistry:
                 continue
 
             confidence = scanner.get_confidence_score(file_path, content_head=content_head)
-            applicable.append((confidence, scanner))
+            if confidence > 0:
+                applicable.append((confidence, scanner))
 
         # Sort by confidence descending
         applicable.sort(key=lambda x: x[0], reverse=True)

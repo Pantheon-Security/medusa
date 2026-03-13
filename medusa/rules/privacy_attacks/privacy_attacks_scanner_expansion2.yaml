@@ -1,0 +1,645 @@
+metadata:
+  source: expansion2 2026-03-02
+  total_rules: 29
+rules:
+- id: MEDUSA-PRIV-SCAN-072
+  name: pii-regurgitation-prompt-engineering
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:tell|give|show|provide)\s+me\s+(?:the\s+)?(?:real|actual|full|complete)\s+(?:name|address|email|phone|ssn|dob)\s+of\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})
+  - (?i)what\s+(?:is|was)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}).?s?\s+(?:email|phone|address|social\s+security|date\s+of\s+birth|home\s+address)
+  - (?i)(?:extract|retrieve|recall|output)\s+(?:personal|private|sensitive|identifying)\s+(?:information|data|details)\s+(?:about|for|on)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: PII regurgitation attempt via prompt engineering targeting named individuals
+  description: PII regurgitation (Carlini 2021) occurs when LLMs reproduce memorized personally identifiable information about
+    real individuals in response to targeted prompt-engineering queries. ETHICIST (Zhang 2023) showed soft-prompt optimization
+    can systematically extract memorized PII including email addresses, phone numbers, and physical addresses from pre-trained
+    LLMs without special API access.
+  remediation: Apply output filtering for PII patterns (email, phone, SSN, address). Implement differential privacy during
+    training. Deploy named-entity recognition on outputs to flag personal information disclosure.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-073
+  name: email-phone-ssn-targeted-extraction
+  severity: CRITICAL
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:what|tell\s+me)\s+(?:is|are|was|were)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}).?s?\s+(?:email\s+address|phone\s+number|SSN|social\s+security\s+number|zip\s+code)
+  - (?i)(?:find|locate|look\s+up)\s+(?:the\s+)?(?:email|phone|SSN|address|contact\s+info(?:rmation)?)\s+(?:for|of)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})
+  - (?i)(?:complete|fill\s+in|what\s+is)\s+(?:the\s+)?(?:missing|redacted|hidden|\[MASK\])\s+(?:email|phone|SSN|address|date\s+of\s+birth)\s+(?:for|of)\s+[A-Z]
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Targeted PII extraction: email/phone/SSN query for named individual'
+  description: Targeted contact-information extraction (Carlini 2021; ETHICIST Zhang 2023) queries the model for specific
+    PII types about named individuals. The R.R. attack (Meng 2025) demonstrated that fine-tuned LLMs can be probed to reconstruct
+    masked PII with high precision using targeted fill-in queries. Min-K%++ (Zhang 2024) achieves TPR@1%FPR of 0.691 distinguishing
+    memorized PII.
+  remediation: Block queries matching PII-extraction patterns targeting named individuals. Apply output PII masking. Never
+    fine-tune on datasets containing real PII without differential privacy (DP-SGD).
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-074
+  name: location-data-inference-conversational
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: attribute_inference
+  patterns:
+  - (?i)(?:infer|determine|figure\s+out|estimate|deduce)\s+(?:where|the\s+location|the\s+address|home\s+address)\s+(?:of|for)\s+(?:[A-Z][a-z]+|the\s+user|this\s+person)\s+(?:based\s+on|from|using)
+  - (?i)(?:based\s+on|from)\s+(?:their|his|her|this\s+person.?s?)\s+(?:posts?|tweets?|check.?ins?|photos?|stories?|conversations?).*(?:where|city|neighborhood|address|location|home|work)
+  - (?i)(?:triangulate|pinpoint|narrow\s+down)\s+(?:the\s+)?(?:location|address|coordinates)\s+(?:of|for)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: 'Location data inference attack: attempting to derive physical location from conversational context'
+  description: Location inference attacks use LLM knowledge of geographic, temporal, and contextual patterns to infer a person's
+    physical location from indirect conversational signals. Gao et al. (2022) showed LLMs can infer neighborhood-level location
+    from casual conversation references with 73% accuracy. Combines with attribute inference to enable stalking or physical-world
+    harm.
+  remediation: Flag queries that combine personal identifiers with location inference intent. Implement output filtering for
+    precise location data. Do not aggregate contextual signals about location for identifiable individuals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-075
+  name: health-financial-attribute-inference
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: attribute_inference
+  patterns:
+  - (?i)(?:infer|determine|deduce|conclude)\s+(?:whether|if)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user|they|he|she)\s+(?:has|suffers?|struggles?\s+with|is\s+likely\s+to\s+have)\s+(?:diabetes|cancer|depression|HIV|addiction|obesity|disability)
+  - (?i)(?:based\s+on|from)\s+(?:their|this\s+person.?s?)\s+(?:medication|prescription|diagnosis|symptoms|treatment|insurance|spending).*(?:infer|determine|conclude|know).*(?:health|medical|condition|disease|disorder)
+  - (?i)(?:infer|estimate|determine)\s+(?:income|net\s+worth|salary|financial\s+status|creditworthiness|wealth)\s+(?:of|for)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user)\s+(?:from|based\s+on|using)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Sensitive attribute inference: health condition or financial status inferred about named individual'
+  description: Sensitive attribute inference uses LLM training data and reasoning to infer protected attributes (health, finance,
+    orientation) about individuals. Fredrikson et al. (2014) demonstrated that pharmacogenomics models leak health conditions
+    via prediction confidence. Jayaraman & Evans (2019) showed 89% accuracy inferring private attributes from LLM confidence
+    scores. These inferences violate HIPAA and GDPR Article 9.
+  remediation: Refuse queries inferring sensitive health or financial attributes about identifiable individuals. Apply differential
+    privacy to model outputs for sensitive prediction tasks. Restrict access to model confidence scores.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-076
+  name: cross-session-user-profiling-llm-memory
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: context_leakage
+  patterns:
+  - (?i)(?:remember|recall|store|save)\s+(?:everything|all\s+(?:information|data|details))\s+(?:about|from)\s+(?:this|the)\s+(?:user|person|conversation|session)\s+(?:for|to\s+build|to\s+create)\s+(?:a\s+)?(?:profile|dossier|record)
+  - (?i)(?:build|create|maintain|update)\s+(?:a\s+)?(?:profile|model|record|history)\s+(?:of|for)\s+(?:this\s+user|the\s+user|(?:[A-Z][a-z]+))\s+(?:across|over\s+(?:multiple|all)|between)\s+(?:sessions?|conversations?|interactions?)
+  - (?i)(?:correlate|link|connect|combine)\s+(?:information|data|details)\s+(?:from\s+)?(?:multiple|different|previous|past)\s+(?:sessions?|conversations?|users?|interactions?)\s+(?:to\s+(?:identify|profile|track|deanonymize))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: Cross-session user profiling via LLM memory or persistent context
+  description: Cross-session profiling exploits persistent LLM memory features to aggregate user information across interactions,
+    violating contextual integrity (Nissenbaum 2004). GDPR right to erasure (Article 17) requires deletion of such profiles
+    on request. The PROMPTPEEK attack (Gairn 2025) showed KV-cache timing side-channels can leak cross-session context in
+    multi-tenant deployments.
+  remediation: Implement session isolation by default. Require explicit user consent before persistent memory features activate.
+    Apply machine unlearning for GDPR erasure requests. Audit memory contents for PII.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-077
+  name: gdpr-erasure-failure-memorization-persistence
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: compliance_failure
+  patterns:
+  - (?i)(?:despite|even\s+after|following)\s+(?:deletion|erasure|removal|unlearning|right.to.be.forgotten).*(?:model\s+(?:still|continues?\s+to)|LLM\s+(?:still|continues?\s+to))\s+(?:know|remember|output|generate|reproduce)
+  - (?i)(?:verify|test|check)\s+(?:whether|if)\s+(?:the\s+model|LLM)\s+(?:has|still)\s+(?:forgotten|unlearned|deleted|removed)\s+(?:my|the\s+user.?s?|private|personal)\s+(?:data|information|name|email|content)
+  - (?i)(?:GDPR|right.to.be.forgotten|data\s+erasure|machine\s+unlearning).*(?:compliance|verify|test|audit).*(?:model|LLM|training\s+data)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'GDPR right-to-erasure compliance probe: testing whether model retains deleted personal data'
+  description: GDPR Article 17 (right to erasure) failures occur when machine unlearning implementations are incomplete, allowing
+    memorized personal data to persist in model weights. U-LiRA (Maheri 2025) shows AUC 0.938 for detecting unlearning verification
+    failures. The W.A.R.P. defense reduces this to AUC 0.907 but does not fully prevent verification. Represents both a privacy
+    violation and regulatory liability.
+  remediation: Implement verifiable machine unlearning with membership inference verification. Apply Selective Language Modeling
+    (SLM) or Goldfish Loss to prevent memorization. Audit erasure completeness with LiRA/U-LiRA before certifying GDPR compliance.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-078
+  name: biometric-voice-print-extraction-tts
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: biometric_extraction
+  patterns:
+  - (?i)(?:extract|derive|reconstruct|clone)\s+(?:voice|speech|audio)\s+(?:features?|embedding|representation|fingerprint|signature|print)\s+(?:from|of)\s+(?:[A-Z][a-z]+|this\s+person|the\s+(?:speaker|user))
+  - (?i)(?:synthesize|generate|clone|copy|mimic)\s+(?:[A-Z][a-z]+.?s?|this\s+person.?s?|the\s+(?:user|speaker).?s?)\s+voice\s+(?:using|from|based\s+on)\s+(?:TTS|text.to.speech|voice\s+model|audio\s+samples?)
+  - (?i)(?:voice\s+clone|speaker\s+clone|voice\s+synthesis).*(?:[A-Z][a-z]+|named\s+person|real\s+person|private\s+individual)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Voice print extraction or cloning attack targeting a named individual
+  description: Voice biometric extraction attacks target TTS and voice generation systems to clone the voice characteristics
+    of named individuals. This enables impersonation, fraud, and violation of biometric privacy laws. Song & Mittal (2021)
+    demonstrated systematic evaluation of biometric privacy risks from ML models. Voice cloning from 3-second samples is now
+    achievable with sub-1% WER.
+  remediation: Block voice synthesis requests targeting named real individuals. Implement voice watermarking in TTS outputs.
+    Require explicit consent for voice data use. Apply differential privacy to voice model training.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-079
+  name: quasi-identifier-deanonymization-attack
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: reidentification
+  patterns:
+  - (?i)(?:zip|postal)\s+code.*(?:birth\s+(?:date|year)|age).*(?:gender|sex).*(?:identify|re.identif|deanonymiz|narrow\s+down|who\s+is)
+  - (?i)(?:combine|link|join|merge)\s+(?:these|the\s+following)\s+(?:quasi.identifiers?|attributes?|fields?).*(?:identify|deanonymiz|re.identif|who\s+is\s+this)
+  - (?i)(?:k.anonymity|l.diversity|t.closeness|differential\s+privacy)\s+(?:break|bypass|defeat|circumvent|violated?).*(?:identif|deanonymiz|person|individual)
+  - (?i)(?:87|81|63)\s*%.*(?:identif|unique|quasi.identif|zip|birth|gender).*(?:sweeney|re.identif|dataset)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.ipynb'
+  message: Quasi-identifier combination deanonymization attack targeting anonymized records
+  description: Quasi-identifier combination attacks leverage the fact that a small set of attributes (zip code, birthdate,
+    sex) uniquely identifies 87% of the US population (Sweeney 1997). LLMs with knowledge of population statistics can assist
+    in deanonymization by reasoning about which combinations narrow to a single individual. Narayanan & Shmatikov (2008) showed
+    99% re-identification of Netflix prize dataset.
+  remediation: Apply k-anonymity (k>=5), l-diversity, or differential privacy to released datasets. Use generalization and
+    suppression for quasi-identifiers. Refuse queries combining multiple quasi-identifiers for re-identification purposes.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-080
+  name: health-record-medication-diagnosis-inference
+  severity: CRITICAL
+  category: privacy_attacks
+  subcategory: attribute_inference
+  patterns:
+  - (?i)(?:given|based\s+on|from)\s+(?:their|his|her|this\s+patient.?s?)\s+(?:prescription|medication\s+list|drug\s+regimen|treatment\s+history).*(?:what\s+(?:condition|disease|diagnosis)|infer|determine|likely\s+has)
+  - (?i)(?:patient|user|individual)\s+(?:takes?|uses?|prescribed?)\s+(?:metformin|lisinopril|sertraline|atorvastatin|warfarin|insulin|prednisone).*(?:what|infer|condition|diagnosis|disease|disorder)
+  - (?i)(?:ICD-?10|diagnosis\s+code|medical\s+code|procedure\s+code).*(?:reverse|decode|lookup|identify).*(?:patient|individual|person|who)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Health record inference: medication or ICD code used to infer patient diagnosis/condition'
+  description: Medication-to-diagnosis inference uses LLM pharmacological knowledge to infer a patient's health conditions
+    from prescription data. Fredrikson et al. (2014) showed pharmacogenomics model inversion with 73% accuracy. ICP-MIA (Lu
+    2025) achieves TPR@1%FPR 0.942 on clinical datasets, demonstrating that clinical LLMs are particularly vulnerable to membership
+    inference revealing patient diagnoses.
+  remediation: Block queries that use medication or procedure information to infer diagnoses for identifiable patients. Apply
+    HIPAA Safe Harbor de-identification. Implement output filtering for ICD codes and diagnosis language in clinical LLM deployments.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-081
+  name: contact-network-graph-reconstruction
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: graph_inference
+  patterns:
+  - (?i)(?:reconstruct|infer|map|build)\s+(?:the\s+)?(?:contact|social|communication)\s+(?:network|graph|connections?)\s+(?:of|for)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user)\s+(?:from|based\s+on|using)
+  - (?i)(?:who\s+(?:does|did)|list\s+the\s+(?:contacts?|connections?|associates?|friends?|colleagues?)\s+of)\s+(?:[A-Z][a-z]+|this\s+person|the\s+individual)
+  - (?i)(?:link|linkteller|maui|gnn|graph\s+neural\s+network).*(?:infer|reconstruct|extract).*(?:edge|connection|contact|relationship|link).*(?:private|person|individual|user)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Contact network graph reconstruction attack targeting social relationships of named individual
+  description: Contact network reconstruction attacks use LLM knowledge or LinkTeller-style graph inference (He 2021) to rebuild
+    the social graph of individuals. LinkTeller achieves up to 73% AUC for edge inference in GNN models. This enables correlation
+    attacks, targeted phishing through known associates, and violation of third-party privacy (contacts who did not consent
+    to data processing).
+  remediation: Refuse graph reconstruction queries targeting identifiable individuals. Apply LDP (Local Differential Privacy)
+    to graph data. Implement edge-privacy protections in GNN training. Flag LinkTeller-style systematic edge-probing queries.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-082
+  name: browsing-history-inference-training-data
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:what|which)\s+(?:websites?|URLs?|pages?|domains?)\s+(?:does|did|has|have|would)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user)\s+(?:likely\s+)?(?:visit|browse|access|use|go\s+to)
+  - (?i)(?:infer|determine|guess|reconstruct)\s+(?:the\s+)?(?:browsing|web|internet)\s+(?:history|behavior|habits?|activity)\s+(?:of|for)\s+(?:[A-Z][a-z]+|this\s+person)
+  - (?i)(?:training\s+data|training\s+corpus|web\s+crawl).*(?:browsing|web\s+history|visited\s+(?:sites?|URLs?|pages?)).*(?:identif|extract|leak|person|individual)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Browsing history inference from LLM training data targeting named individuals
+  description: Browsing history inference attacks exploit the fact that LLMs trained on web crawls may have memorized patterns
+    associating individuals with visited websites. Carlini et al. (2021) demonstrated that web-crawl-trained models memorize
+    URLs and user agents. This enables targeted profiling and potential GDPR violations by revealing browsing behavior without
+    consent.
+  remediation: Apply data minimization during training data curation — remove user-identifying browsing patterns. Apply differential
+    privacy to crawl-derived training data. Refuse queries inferring browsing history for identifiable individuals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-083
+  name: keystroke-behavioral-biometric-inference
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: biometric_extraction
+  patterns:
+  - (?i)(?:keystroke|typing)\s+(?:dynamics?|pattern|timing|biometric|fingerprint|analysis).*(?:infer|identify|authenticate|profile|recognize).*(?:person|user|individual)
+  - (?i)(?:accelerometer|gyroscope|motion\s+sensor|touch\s+pressure|swipe\s+pattern).*(?:infer|detect|predict|identify).*(?:person|user|typing|keystrokes?|password|credential)
+  - (?i)(?:betalogger|keystroke\s+inference|gait\s+recognition|mouse\s+dynamics|touchscreen\s+pattern).*(?:identify|authenticate|profile|user|person)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Behavioral biometric inference attack using keystroke dynamics or motion sensors
+  description: Behavioral biometric inference (Betalogger, Javed 2021) achieves 96.71% keystroke identification accuracy from
+    motion sensors without requiring direct keyboard access. Gait recognition, mouse dynamics, and typing rhythm can all identify
+    individuals. These attacks exploit sensors available to mobile apps and IoT devices to enable covert authentication bypass
+    and user identification without consent.
+  remediation: Restrict motion sensor access permissions in mobile applications. Apply temporal jitter to sensor readings.
+    Implement anti-fingerprinting protections. Flag requests to correlate motion data with user identity.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-084
+  name: financial-transaction-pattern-leakage
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:transaction|payment|purchase|spending)\s+(?:history|pattern|record|data)\s+(?:of|for)\s+(?:[A-Z][a-z]+|this\s+person|the\s+user).*(?:extract|retrieve|output|show|reveal)
+  - (?i)(?:what|how\s+much)\s+(?:does|did|has|have)\s+(?:[A-Z][a-z]+|this\s+person)\s+(?:spent?|purchased?|paid?|transact(?:ed)?)\s+(?:on|at|with|for)
+  - (?i)(?:financial|banking|credit|debit)\s+(?:transaction|statement|record|history).*(?:from\s+training|memorized|training\s+data|extracted?).*(?:user|person|individual|account)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Financial transaction pattern leakage: querying transaction history for identifiable individuals'
+  description: Financial transaction leakage attacks target LLMs trained on financial datasets or documents containing transaction
+    records. Fredrikson et al. (2015) model inversion applied to financial models can reconstruct transaction patterns. GDPR
+    Recital 75 and CCPA both classify financial transaction history as sensitive personal data requiring heightened protection.
+  remediation: Apply strict data minimization during training — exclude identifiable financial transaction records. Implement
+    output filtering for financial account patterns. Refuse queries requesting financial history of named individuals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-085
+  name: dp-sgd-bypass-epsilon-audit-probe
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:differential\s+privacy|dp.sgd|dp\s+training).*(?:epsilon|budget|privacy\s+loss).*(?:audit|measure|estimate|compute|bound).*(?:empirical|actual|real|true)
+  - (?i)(?:privacy\s+budget|epsilon\s+spent|dp\s+guarantee).*(?:tighter|looser|weaker|stronger)\s+(?:than|than\s+claimed|than\s+stated|than\s+advertised)
+  - (?i)(?:auditing|verify|testing)\s+(?:differential\s+privacy|dp)\s+(?:guarantee|claim|bound).*(?:canary|mia|membership\s+inference|shadow)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Differential privacy budget auditing probe: empirically measuring DP epsilon via membership inference'
+  description: Privacy budget auditing (Carlini 2022 Secret Sharer; Steinke et al. 2023) empirically measures the true epsilon
+    of DP-SGD training by measuring extraction rates of inserted canaries. This reveals whether DP guarantees are correctly
+    implemented. While legitimate for researchers, the same methodology enables attackers to quantify exploitable privacy
+    leakage in production models.
+  remediation: Treat privacy auditing probes with sensitivity — restrict canary insertion capability to trusted researchers.
+    Validate DP-SGD implementation with OPACUS library auditing tools before production deployment. Monitor for systematic
+    canary insertion patterns.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-086
+  name: rag-knowledge-base-document-membership-probe
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:is|was|has)\s+(?:the\s+following|this)\s+(?:document|text|passage|article|email|record)\s+(?:in|part\s+of|included\s+in|stored\s+in)\s+(?:your|the)\s+(?:knowledge\s+base|vector\s+(?:database|store)|RAG|retrieval)
+  - (?i)(?:s2mia|dc.mia|split.segment|budget.leak).*(?:rag|retrieval|knowledge\s+base|document|membership)
+  - (?i)(?:vary|change|modify)\s+(?:max_tokens?|token\s+limit|response\s+length).*(?:rag|retrieval|knowledge\s+base|member|document)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: RAG knowledge base membership inference probe via document testing or token budget side-channel
+  description: RAG membership inference attacks (BudgetLeak Li 2025; S2MIA; DC-MIA) exploit response length variations or
+    split-segment queries to determine whether specific documents are in a RAG knowledge base without direct access. BudgetLeak
+    achieves >80% AUC by varying max_tokens and measuring truncation behavior. S2MIA achieves AUC 0.83-0.88 on production
+    RAG systems.
+  remediation: Normalize response lengths independently of retrieval depth. Do not expose token budget metadata. Apply constant-time
+    padding to RAG responses. Implement output perturbation to mask membership signals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-203
+- id: MEDUSA-PRIV-SCAN-087
+  name: differential-privacy-noise-calibration-bypass
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:reduce|lower|minimize|decrease)\s+(?:the\s+)?(?:noise|perturbation|gaussian\s+noise|laplace\s+noise)\s+(?:in\s+)?(?:differential\s+privacy|dp.sgd|dp\s+mechanism).*(?:bypass|circumvent|defeat|evade)
+  - (?i)(?:dp.sgd|differential\s+privacy).*(?:clip_norm|noise_multiplier|delta|epsilon).*(?:too\s+(?:high|large|strong)|reduce\s+to|lower\s+to).*(?:training\s+performance|accuracy|convergence)
+  - (?i)(?:privacy\s+vs\s+utility|privacy.utility\s+trade.?off).*(?:remove|disable|reduce|lower)\s+(?:dp|differential\s+privacy|noise).*(?:accuracy|performance)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Differential privacy noise reduction configuration detected — may degrade privacy guarantees
+  description: DP-SGD noise reduction attacks convince model operators to lower privacy protection through performance arguments.
+    Mironov et al. (2017) analysis showed that reducing the noise multiplier below the privacy budget threshold exponentially
+    weakens privacy guarantees. LiRA (Carlini 2022) MIA effectiveness scales inversely with the DP noise level — halving noise
+    roughly doubles MIA AUC.
+  remediation: Enforce minimum noise_multiplier values per training budget and dataset size. Document epsilon/delta values
+    alongside model releases. Audit DP-SGD configuration in CI/CD before training runs.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-088
+  name: adversarial-prompt-membership-inference-auc97
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:advprompt.mia|adversarial\s+prompt\s+(?:mia|membership|inference))(?:\s+attack)?
+  - (?i)(?:craft|generate|design|optimize)\s+(?:adversarial\s+)?(?:prompts?|queries|inputs?)\s+(?:to\s+)?(?:probe|test|measure|infer)\s+(?:whether|if)\s+(?:this|a\s+(?:specific|given))\s+(?:sample|example|text|document)\s+(?:is\s+in|was\s+in|belongs\s+to)\s+(?:training|the\s+training\s+(?:set|data|corpus))
+  - (?i)(?:auc\s*(?:of|=|:)\s*0\.9[0-9]|tpr.*1.*fpr.*0\.9[0-9]).*(?:mia|membership\s+inference)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'AdvPrompt-MIA: adversarial prompt crafting for high-accuracy membership inference (AUC 0.97)'
+  description: AdvPrompt-MIA achieves AUC 0.97 by crafting adversarial prompts that maximize the model's log-likelihood difference
+    between member and non-member samples. This outperforms Min-K% (AUC ~0.65) and LiRA (AUC ~0.57) by using gradient-based
+    prompt optimization. The attack works in a black-box API setting requiring only generation probability access.
+  remediation: Restrict log-probability API access to prevent loss-based MIA attacks. Apply output perturbation to token probability
+    distributions. Monitor for systematic high-volume probability queries on similar inputs.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-089
+  name: embedding-inversion-text-reconstruction-vec2text
+  severity: CRITICAL
+  category: privacy_attacks
+  subcategory: model_inversion
+  patterns:
+  - (?i)(?:vec2text|embedding\s+inversion|text\s+(?:inversion|reconstruction)\s+from\s+embedding)
+  - (?i)(?:reconstruct|recover|decode|reverse)\s+(?:the\s+)?(?:original|source|input)\s+(?:text|sentence|passage|document)\s+from\s+(?:its\s+)?(?:embedding|vector|representation|encoding)
+  - (?i)(?:sentence.?bert|ada.002|text.embedding|e5.large|bge.large).*(?:invert|reconstruct|recover|decode).*(?:text|sentence|passage|original)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Vec2Text embedding inversion attack: reconstructing source text from embedding vectors'
+  description: Vec2Text (Morris 2023) achieves near-perfect text reconstruction from sentence embeddings using iterative hypothesis
+    correction. This enables reconstruction of private documents from semantic search APIs that expose embedding vectors.
+    Attacks against OpenAI text-embedding-ada-002 recovered >90% of tokens for short-to-medium passages. This violates the
+    assumption that embeddings are safe to expose.
+  remediation: Never expose raw embedding vectors via public APIs. Add calibrated noise to embeddings before serving (d-privacy).
+    Use embedding compression to reduce invertibility. Apply rate limiting on embedding API endpoints.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-090
+  name: speculative-decoding-token-timing-side-channel
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: side_channel
+  patterns:
+  - (?i)(?:speculative\s+decoding|draft\s+model|token\s+timing)\s+(?:side.channel|attack|leak|inference|privacy)
+  - (?i)(?:packet\s+(?:timing|inter.arrival|trace)|network\s+traffic\s+(?:timing|analysis)).*(?:infer|deduce|reconstruct)\s+(?:generated|output)\s+(?:tokens?|text|response)
+  - (?i)(?:ttft|time.to.first.token|streaming\s+(?:latency|timing)).*(?:side.channel|infer|private|content|token)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Speculative decoding token timing side-channel analysis detected
+  description: Speculative decoding side-channel attacks (Soleimani 2025) exploit variable packet inter-arrival times caused
+    by draft model acceptance rates to reconstruct LLM-generated tokens without decrypting network traffic. An adversary with
+    network access between the LLM server and client can infer token content at >70% accuracy. Extends to streamed response
+    timing analysis.
+  remediation: Apply constant-time response batching to normalize packet sizes. Disable speculative decoding or randomize
+    batch boundaries in privacy-sensitive deployments. Use VPNs with traffic obfuscation for LLM API communications.
+  owasp_llm: LLM06:2025
+  cwe: CWE-208
+- id: MEDUSA-PRIV-SCAN-091
+  name: nobox-levenshtein-distance-mia-tabular
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:levatt|levenshtein.*distance.*membership|edit.*distance.*mia)
+  - (?i)(?:no.box|nobox|without\s+(?:model\s+access|api\s+access|query\s+access))\s+(?:mia|membership\s+inference)\s+(?:using|via|through)\s+(?:distance|levenshtein|edit)
+  - (?i)(?:auc\s*(?:=|:)?\s*1\.0|perfect\s+auc).*(?:tabpfn|tabular|membership\s+inference|mia).*(?:distance|levenshtein|edit)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'LevAtt no-box Levenshtein MIA detected: AUC 1.0 achieved against TabPFN-V2 without API access'
+  description: LevAtt (Ward 2025) demonstrates no-box membership inference achieving AUC 1.00 against TabPFN-V2 tabular models
+    using only Levenshtein distance between query records and training data — no model access required. This fundamentally
+    challenges the assumption that access control protects training data membership. Effective against nearest-neighbor and
+    kernel-based tabular ML models.
+  remediation: Apply minimum k-anonymization to tabular training data (k>=5). Use DP-SGD for tabular models even without API
+    restrictions. Monitor for repeated near-duplicate queries as LevAtt activity signals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-092
+  name: multilingual-pii-exfiltration-encoding-obfuscation
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:translate|convert|encode)\s+(?:the\s+)?(?:following|this)\s+(?:personal|private|sensitive)\s+(?:information|data|content)\s+(?:into|to)\s+(?:another\s+language|base64|hex|rot13|morse|binary)
+  - (?i)(?:extract|get|provide)\s+(?:personal|private|pii|sensitive)\s+(?:information|data).*(?:in\s+(?:spanish|french|german|chinese|japanese|arabic)|using\s+(?:unicode|base64|encoding))
+  - (?i)(?:(?:encode|obfuscate|hide)\s+(?:the\s+)?(?:pii|personal\s+data|email|ssn|phone)).*(?:bypass|evade|avoid)\s+(?:filter|detection|monitoring|pii.detection)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Multilingual or encoding-based PII exfiltration obfuscation attempt
+  description: PII exfiltration obfuscation uses language switching, encoding (Base64, ROT13, hex), or multilingual translation
+    to bypass PII detection systems that operate on ASCII/English text patterns. Carlini et al. (2021) showed that LLMs will
+    reproduce memorized PII across languages when prompted in the target language. Min-K%++ (Zhang 2024) was specifically
+    evaluated across multilingual extraction attempts.
+  remediation: Apply multilingual PII detection (language-agnostic NER models). Normalize Unicode encoding before PII screening.
+    Detect and flag encoding/obfuscation patterns in outputs. Use byte-level rather than character-level PII detection.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-093
+  name: synthetic-data-reidentification-attack
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: reidentification
+  patterns:
+  - (?i)(?:re.identif|deanonymiz).*(?:synthetic|generated|gan.?generated|diffusion.?generated|vae.?generated)\s+(?:data|records?|samples?|examples?)
+  - (?i)(?:synthetic\s+data).*(?:not\s+(?:truly|actually|fully)\s+anonymous|still\s+(?:contains?|leaks?|reveals?)\s+(?:private|personal|sensitive|original))
+  - (?i)(?:generative\s+model|GAN|VAE|diffusion).*(?:memoriz|leaks?|reveals?).*(?:training\s+sample|private|original\s+data).*(?:mode\s+collapse|overfitting|memorization)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.md'
+  message: 'Synthetic data re-identification: generated data may still reveal original training samples'
+  description: Synthetic data re-identification attacks demonstrate that data generated by GANs, VAEs, and diffusion models
+    can be matched back to training examples when the model has memorized individual records (mode collapse, training data
+    overfitting). Meehan et al. (2023) showed GAN-generated images can be matched to training faces with 30% accuracy. This
+    violates the assumption that synthetic data generation provides full privacy.
+  remediation: Apply membership inference testing to synthetic datasets before release. Use DP-GAN or DP-diffusion for privacy-preserving
+    generation. Measure memorization rate with canary insertion before deploying generative models in privacy contexts.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-094
+  name: copilot-code-sensitive-data-leakage
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:copilot|codegen|code\s+generation|llm).*(?:suggest|generate|output|autocomplete).*(?:api.key|secret|password|token|credential|private.key|connection.string).*(?:from\s+training|memorized|training\s+data)
+  - (?i)(?:github\s+copilot|code\s+llm|coding\s+assistant).*(?:leaks?|reveals?|reproduces?|outputs?).*(?:real|actual|valid|production)\s+(?:api.key|secret|credential|token|password)
+  - (?i)(?:insecure\s+code|vulnerable\s+code)\s+(?:generation|suggestion).*(?:hardcoded|embedded|baked.in)\s+(?:secret|key|credential|password|token)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Code LLM sensitive data leakage: generated code may contain real credentials from training data'
+  description: Code LLMs trained on public repositories memorize real API keys, database credentials, and other secrets committed
+    to GitHub before being revoked. Carlini et al. (2021) extracted real API keys, UUIDs, and private configuration from GPT-2.
+    Copilot-specific research (Pearce 2022) showed that code completion can suggest real credential patterns from training
+    data in appropriate context.
+  remediation: Apply pre-training filtering to remove credential patterns from code corpora. Implement output filtering for
+    credential patterns in code generation APIs. Rotate any credential appearing in training data. Use GitGuardian-style scanning
+    on model outputs.
+  owasp_llm: LLM06:2025
+  cwe: CWE-798
+- id: MEDUSA-PRIV-SCAN-095
+  name: federated-learning-data-poisoning-privacy
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: gradient_leakage
+  patterns:
+  - (?i)(?:gradient|model\s+update|local\s+update).*(?:contain|encode|embed|reveal).*(?:training\s+data|private\s+sample|client\s+data).*(?:federated|fl\b)
+  - (?i)(?:trap.weights|malicious\s+(?:server|aggregator)|poisoned\s+(?:global\s+)?model).*(?:gradient|update|client).*(?:leak|reconstruct|recover)
+  - (?i)(?:secure\s+aggregation|homomorphic\s+encryption|secret\s+sharing).*federated.*(?:bypass|circumvent|defeat|attack|break)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Federated learning gradient-based privacy attack: private training data reconstruction from model updates'
+  description: Federated learning gradient leakage attacks (DLG Zhu 2019, Trap Weights Boenisch 2023, GRNN Ren 2021) reconstruct
+    private client training data from gradient updates. Trap Weights achieves perfect reconstruction by server-side weight
+    manipulation. CS-MIA (Gu 2022) achieves AUC 0.93 on CIFAR-100 using temporal confidence evolution across FL rounds without
+    direct gradient access.
+  remediation: Apply DP-SGD gradient clipping (max_grad_norm=1.0, noise_multiplier>=1.0) before gradient sharing. Use secure
+    aggregation (Bonawitz 2017). Apply gradient compression (Top-K sparsification) to degrade reconstruction quality. Verify
+    global model weights before local training.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-096
+  name: voice-audio-attack-pii-extraction
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: biometric_extraction
+  patterns:
+  - (?i)(?:extract|transcribe|identify|diarize)\s+(?:speaker|voice|audio).*(?:personal|private|identifying)\s+(?:information|data|name|address|ssn|phone|credit)
+  - (?i)(?:voice|speech|audio)\s+(?:recording|sample|clip).*(?:identify|who\s+is|whose|name\s+of).*(?:speaker|person|individual|user)
+  - (?i)(?:from|based\s+on)\s+(?:this|the)\s+(?:voice|audio|speech|recording).*(?:tell|identify|determine|infer).*(?:name|address|age|gender|health|emotion|location)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Voice/audio PII extraction: identifying private information about speaker from audio'
+  description: Voice-based PII extraction uses ASR and voice analysis models to identify speakers and extract private attributes
+    (name, emotion, health condition, location context) from audio recordings. Voice cloning with 3-second samples enables
+    identity theft. Speaker diarization combined with PII extraction creates comprehensive profiles from meeting recordings
+    or phone calls.
+  remediation: Apply speaker anonymization to voice data before processing. Implement consent verification before speaker
+    identification. Restrict voice biometric processing to explicit authentication use cases. Apply audio watermarking for
+    consent tracking.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-097
+  name: model-memorization-rate-measurement
+  severity: MEDIUM
+  category: privacy_attacks
+  subcategory: membership_inference
+  patterns:
+  - (?i)(?:measure|quantify|compute|calculate|estimate)\s+(?:the\s+)?(?:memorization|verbatim\s+memorization|extractable\s+memorization)\s+(?:rate|level|degree|amount)\s+(?:of|in)\s+(?:the\s+model|LLM|GPT|Claude|training)
+  - (?i)(?:how\s+much|what\s+percentage|what\s+fraction).*(?:training\s+data|training\s+samples?|training\s+examples?).*(?:memorized|extractable|reproducible|recoverable).*(?:model|LLM)
+  - (?i)(?:extractable|verbatim)\s+memorization.*(?:scaling|larger\s+model|more\s+parameters).*(?:increases?|grows?|higher|more|worse)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.md'
+  message: Model memorization rate measurement probe targeting quantification of extractable training data
+  description: 'Memorization rate measurement (Carlini 2022) empirically quantifies what fraction of training data can be
+    verbatim extracted from a model. Research shows memorization scales with model size: larger models memorize more. This
+    methodology is used both for legitimate privacy auditing and by attackers to estimate extraction ROI before launching
+    large-scale extraction campaigns.'
+  remediation: Monitor for high-volume generation campaigns targeting memorization measurement. Apply rate limiting and output
+    diversity requirements. Implement differential privacy with measurable epsilon bounds. Disclose memorization risk in model
+    documentation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-098
+  name: chat-conversation-history-exfiltration
+  severity: CRITICAL
+  category: privacy_attacks
+  subcategory: context_leakage
+  patterns:
+  - (?i)(?:access|read|retrieve|show|display)\s+(?:all|the\s+full|complete|previous|past)\s+(?:conversation|chat|message|interaction)\s+(?:history|log|record)\s+(?:of|for|with)\s+(?:other|another|different|this\s+(?:user|person)|[A-Z])
+  - (?i)(?:prior|previous|earlier|past)\s+(?:conversation|session|chat|interaction).*(?:same\s+model|shared\s+context|other\s+user|another\s+user|previous\s+user)
+  - (?i)(?:kv.cache|key.value\s+cache|cache\s+(?:hit|miss|timing)).*(?:reconstruct|infer|leak|reveal).*(?:previous|other\s+user.?s?|prior\s+(?:prompt|session|conversation))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Chat history exfiltration attempt: accessing other users'' conversation history via context bleed or cache side-channel'
+  description: Chat history exfiltration attacks exploit KV-cache timing side-channels (PROMPTPEEK, Gairn 2025) or multi-tenant
+    context leakage to access conversation history of other users on shared LLM infrastructure. PROMPTPEEK achieves >70% token
+    reconstruction accuracy from cache timing differences. This represents a critical multi-tenant isolation failure enabling
+    cross-user data access.
+  remediation: Implement strict per-user KV-cache isolation. Add random timing jitter to cache lookups. Flush KV-cache between
+    users in shared deployments. Apply differential cache timing noise to prevent side-channel reconstruction.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-PRIV-SCAN-099
+  name: pii-output-pipeline-detection-bypass
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: training_data_extraction
+  patterns:
+  - (?i)(?:bypass|evade|circumvent|avoid)\s+(?:the\s+)?(?:pii|personal\s+data|privacy)\s+(?:filter|detector|scanner|checker|monitor)\s+(?:by|using|via|through)
+  - (?i)(?:split|separate|break\s+up|fragment)\s+(?:the\s+)?(?:email|ssn|phone|address|credit\s+card)\s+(?:number|address)\s+(?:to\s+(?:avoid|evade|bypass)|so\s+(?:it|the)\s+(?:won.t|doesn.t|avoids?))
+  - (?i)(?:rephrase|rewrite|paraphrase)\s+(?:the\s+)?(?:pii|personal|private|sensitive)\s+(?:information|data)\s+(?:to\s+(?:avoid|evade|bypass|fool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'PII output filter bypass attempt: obfuscating personal data to evade detection'
+  description: PII detection bypass attacks attempt to evade output-stage PII filters by fragmenting, encoding, rephrasing,
+    or otherwise obfuscating memorized personal information. Techniques include space-insertion in SSNs (123-45 6789), phonetic
+    substitution, or multi-turn disclosure where each turn reveals only non-flagged portions. These attacks undermine perimeter-based
+    privacy protection.
+  remediation: Implement context-aware PII detection that recognizes fragmentation across multiple turns. Use byte-level pattern
+    matching for PII (not just token-level). Apply semantic PII detection (NLP-based, not just regex) to catch paraphrased
+    personal data.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-PRIV-SCAN-100
+  name: privacy-attack-tool-framework-invocation
+  severity: HIGH
+  category: privacy_attacks
+  subcategory: attack_tooling
+  patterns:
+  - (?i)(?:from|import)\s+(?:ml_privacy_meter|mia_framework|shadow_model_attack|privacy_meter|privacyraven|pyvacy|tensorflow_privacy\.privacy\.analysis)
+  - (?i)(?:PrivacyEngine|LiRAAttack|MinKProb|ShadowModelAttack|RecollectAndRank|GradientInversion|ModelInversionAttack)\s*\(
+  - (?i)(?:privacy_meter|privacyraven|tensorflow.privacy|opacus).*(?:audit|attack|mia|shadow|membership|extraction)
+  file_types:
+  - '*.py'
+  message: Privacy attack framework or tool instantiation detected
+  description: Detects instantiation of dedicated privacy attack libraries including ML Privacy Meter (Murakonda 2020), PrivacyRaven,
+    shadow model MIA frameworks, and gradient inversion tools. While used in legitimate privacy research, their presence in
+    non-research contexts signals active privacy attack execution. LiRA (Carlini 2022) and Min-K%++ (Zhang 2024) are included
+    in several open-source privacy attack toolkits.
+  remediation: Restrict privacy attack library usage to authorized security research environments. Require explicit research
+    approval for ML Privacy Meter usage against production models. Isolate privacy audit execution from production infrastructure.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200

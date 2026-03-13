@@ -1,0 +1,1035 @@
+metadata:
+  source: expansion2 2026-03-02
+  id_range: MEDUSA-II-SCAN-061 to MEDUSA-II-SCAN-100
+rules:
+- id: MEDUSA-II-SCAN-061
+  name: gpu-side-channel-timing-attack
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(gpu.side.channel|gpu.timing|gpu.cache.side.channel)\b.{0,60}\b(attack|exploit|probe|leak)\b
+  - (?i)\b(cuda.timing|cuda.cache|shared.memory.timing).{0,60}\b(side.channel|attack|exploit|leak)\b
+  - (?i)\b(inter.kernel.timing|kernel.timing.leak|sm.timing).{0,60}\b(exploit|attack|side.channel)\b
+  - (?i)\b(gpu.memory.timing|global.memory.timing).{0,80}\b(side.channel|probe|attack|reconstruct)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.c'
+  - '*.cu'
+  - '*.txt'
+  message: GPU side-channel timing attack pattern detected
+  description: Detects patterns associated with GPU-based timing side-channel attacks against LLM inference infrastructure.
+    CUDA shared memory and global memory timing differences can be exploited by co-located processes on shared GPU hardware
+    to infer model weights, input tokens, or output distributions. In multi-tenant inference environments (cloud GPU rental),
+    cross-tenant timing attacks via CUDA inter-kernel timing or SM-level contention can leak inference request content. Luo
+    et al. (2025) and related work documented hardware-level silicon security requirements for private LLM inference.
+  remediation: Isolate inference tenants to dedicated GPU hardware. Disable shared memory access between untrusted co-tenant
+    processes. Apply GPU process isolation and hardware-level access control (MIG on NVIDIA A100/H100). Monitor for anomalous
+    GPU memory access timing patterns from co-tenant containers.
+  owasp_llm: LLM10:2025
+  cwe: CWE-203
+- id: MEDUSA-II-SCAN-062
+  name: speculative-decoding-token-timing-leak
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\bspeculative.decod.{0,60}\b(timing|side.channel|leak|token.reveal|infer)\b
+  - (?i)\b(draft.model|target.model).{0,60}\b(timing.attack|side.channel|token.leak|information.leak)\b
+  - (?i)\b(token.latency|per.token.latency|ttft.variation).{0,60}\b(speculative|side.channel|infer.input|reconstruct)\b
+  - (?i)\b(speculative.execution|speculative.sampling).{0,60}\b(timing.oracle|side.channel|leak)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Speculative decoding token timing side-channel attack detected
+  description: Detects patterns associated with timing side-channel attacks exploiting speculative decoding in LLM serving
+    frameworks. Speculative decoding uses a small draft model to speculatively generate tokens verified by a larger target
+    model; the number of accepted tokens per step and associated latency reveals information about the generated sequence.
+    Attackers can measure per-step latency to reconstruct partial output before the full response is returned, revealing sensitive
+    information in streaming inference contexts.
+  remediation: Apply constant-time output streaming that does not reveal speculative acceptance rates. Add timing jitter to
+    streaming responses. Monitor for clients performing high-resolution timing measurements against inference endpoints. Disable
+    speculative decoding for confidential inference workloads.
+  owasp_llm: LLM06:2025
+  cwe: CWE-203
+- id: MEDUSA-II-SCAN-063
+  name: kv-cache-cross-tenant-poisoning
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\bkv.?cache.{0,40}\b(poison|inject|corrupt|cross.tenant|cross.user|contaminate)\b
+  - (?i)\b(prefix.cache|shared.kv.cache|cached.kv).{0,60}\b(poison|inject|corrupt|tamper|manipulat)\b
+  - (?i)\b(radix.cache.poison|sglang.cache.poison|cache.prefix.attack).{0,60}\b(kv|inference)\b
+  - (?i)\b(cross.request.kv|shared.prefix.kv).{0,60}\b(leak|poison|contaminate|inject)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: KV cache cross-tenant poisoning or shared prefix injection detected
+  description: Detects patterns associated with cross-tenant KV cache poisoning in multi-tenant LLM serving. SGLang's radix
+    attention and vLLM's prefix caching reuse KV cache entries across requests sharing common prefixes. An adversary can craft
+    requests to pre-populate cached prefixes with malicious context that contaminates subsequent requests from other users
+    sharing that prefix. This enables prompt injection without direct access to victim requests.
+  remediation: Implement per-tenant KV cache isolation. Disable shared prefix caching in multi-tenant deployments where tenant
+    isolation is required. Validate cached prefix ownership before serving cached entries to different users. Apply request-
+    level cache namespace separation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-362
+- id: MEDUSA-II-SCAN-064
+  name: model-fingerprinting-via-inference-timing
+  severity: MEDIUM
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(model.fingerprint|model.identif|model.detect).{0,60}\b(inference|api.query|black.box|timing)\b
+  - (?i)\b(architecture.fingerprint|weight.fingerprint).{0,60}\b(query|probe|timing|api|black.box)\b
+  - (?i)\b(fingerprint.llm|fingerprint.model|model.id.inferr).{0,60}\b(timing|query|response|api)\b
+  - (?i)\b(model.version.detect|model.family.detect).{0,60}\b(timing|latency|response.pattern|probe)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Model fingerprinting via inference timing or response probing detected
+  description: Detects patterns associated with model fingerprinting attacks that identify deployed model architecture, version,
+    or family through systematic probing of inference API responses. Cai et al. (2025) demonstrated model substitution auditing
+    via fingerprinting. Fingerprinting is often a precursor to targeted jailbreaking or pretrain-to-finetune transfer attacks
+    that require knowing the base model. Timing-based fingerprinting measures per-token latency to infer model size and architecture.
+  remediation: Apply timing jitter to API responses. Standardize per-token latency to prevent architecture inference. Monitor
+    for systematic probing patterns characteristic of fingerprinting. Avoid returning model version or architecture details
+    in API responses or error messages.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-II-SCAN-065
+  name: inference-time-compute-overthinking-dos
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(overthink|over.think|inference.time.compute).{0,60}\b(attack|exhaust|dos|amplif|cost)\b
+  - (?i)\b(thinking.token.exhaust|reasoning.token.exhaust|extended.thinking.dos)\b
+  - (?i)\b(max.tokens.thinking|thinking.budget.dos|reasoning.budget.exhaust).{0,60}\b(attack|exploit|dos)\b
+  - (?i)\b(force.reasoning|force.thinking|trigger.extended.think).{0,60}\b(dos|exhaust|amplif|cost.amplif)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference-time compute exhaustion or reasoning token DoS attack detected
+  description: Detects patterns associated with inference-time compute exhaustion attacks targeting reasoning-capable models.
+    Adversaries can craft inputs that force models like o1, o3, Claude 3.7 extended thinking, or DeepSeek-R1 to generate large
+    numbers of thinking tokens, dramatically increasing per-request compute cost. Shojaee et al. (2025, Apple) showed LRMs
+    exhibit complete accuracy collapse beyond certain complexity thresholds after peak compute effort. At scale, this constitutes
+    a compute amplification DoS attack against inference infrastructure.
+  remediation: Set hard limits on thinking token budgets per request. Monitor for requests consistently triggering maximum
+    thinking token usage. Apply per-client compute budget quotas. Implement circuit breakers that terminate requests exceeding
+    reasoning token thresholds.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-II-SCAN-066
+  name: vllm-tgi-triton-api-server-rce
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(vllm|text.generation.inference|tgi|triton).{0,60}\b(rce|remote.code.exec|code.inject|exploit|vulnerability)\b
+  - (?i)\b(triton.model.reposit|triton.backend|triton.server).{0,60}\b(exploit|attack|rce|inject|path.traversal)\b
+  - (?i)\b(vllm.api.server|vllm.openai.server).{0,60}\b(exploit|vulnerability|cve|bypass|attack|rce)\b
+  - (?i)\b(tgi.server|huggingface.tgi).{0,60}\b(exploit|vulnerability|cve|bypass|attack|rce)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: vLLM/TGI/Triton API server RCE or exploit pattern detected
+  description: Detects patterns associated with remote code execution and exploit attempts against major LLM serving frameworks
+    (vLLM, Text Generation Inference, NVIDIA Triton Inference Server). These frameworks expose HTTP/gRPC API endpoints that
+    may contain deserializetion vulnerabilities, path traversal flaws, or model repository injection points. Triton's model
+    repository and dynamic model loading features are particularly high-risk attack surfaces.
+  remediation: Apply network-level access controls to restrict vLLM/TGI/Triton API endpoints to authorized clients only. Keep
+    serving frameworks updated. Disable unsafe features (dynamic model loading from untrusted paths) in production. Monitor
+    for CVE advisories for all deployed serving framework versions.
+  owasp_llm: LLM10:2025
+  cwe: CWE-94
+- id: MEDUSA-II-SCAN-067
+  name: rate-limiting-bypass-inference-api
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(rate.limit.bypass|rate.limit.evade|throttle.bypass).{0,60}\b(inference|llm|api|vllm|tgi)\b
+  - (?i)\b(api.key.rotation|key.cycling|credential.cycling).{0,60}\b(rate.limit|throttle|quota).{0,40}\b(bypass|evade|circumvent)\b
+  - (?i)\b(distributed.request|parallel.request|request.flood).{0,60}\b(rate.limit.bypass|quota.bypass|throttle.evade)\b
+  - (?i)\b(ip.rotation|proxy.rotation).{0,60}\b(rate.limit|throttle|api.quota).{0,40}\b(bypass|evade|llm|inference)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference API rate limiting bypass or quota evasion pattern detected
+  description: Detects patterns indicating attempts to bypass rate limiting or usage quotas on LLM inference APIs. Techniques
+    include API key rotation, IP rotation, distributed parallel requests, and credential cycling to spread requests below
+    per-key rate limits. At scale, these bypass techniques enable DoS (by exhausting backend resources despite per-client
+    limits) or cost- amplification attacks against pay-per-use inference services.
+  remediation: Implement rate limiting by both API key and source IP with shared state. Apply CAPTCHA or proof-of-work challenges
+    for high-volume request patterns. Monitor for distributed request coordination patterns across multiple API keys. Apply
+    per-organization (not just per-key) usage quotas.
+  owasp_llm: LLM10:2025
+  cwe: CWE-770
+- id: MEDUSA-II-SCAN-068
+  name: tensor-parallelism-split-inference-attack
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(tensor.parallel|pipeline.parallel|model.parallel).{0,60}\b(attack|exploit|side.channel|leak|intercept)\b
+  - (?i)\b(inter.gpu.communication|nccl|rdma|nvlink).{0,60}\b(intercept|eavesdrop|side.channel|attack|exploit)\b
+  - (?i)\b(split.inference|partition.attack).{0,60}\b(tensor.parallel|pipeline.parallel|distributed.inference)\b
+  - (?i)\b(activation.intercept|layer.intercept).{0,60}\b(tensor.parallel|distributed.llm|multi.gpu)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Tensor parallelism or distributed inference interception attack detected
+  description: Detects patterns associated with attacks targeting tensor-parallel or pipeline-parallel inference systems.
+    In distributed multi-GPU inference, intermediate activations are communicated between GPUs via NCCL/RDMA/NVLink. Adversaries
+    with network access between inference nodes can intercept these communications to reconstruct model weights or input/output
+    activations. Split inference frameworks that partition model layers across nodes create additional attack surfaces at
+    each partition boundary.
+  remediation: Encrypt inter-GPU and inter-node communications in distributed inference. Apply mutual authentication between
+    inference cluster nodes. Use InfiniBand or NVLink with hardware-level encryption. Restrict inter-node network access to
+    inference cluster subnets. Monitor for unexpected connections to NCCL communication ports.
+  owasp_llm: LLM06:2025
+  cwe: CWE-319
+- id: MEDUSA-II-SCAN-069
+  name: model-substitution-api-audit-detection
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(model.substitut|model.swap|model.replace).{0,60}\b(api|inference.endpoint|serving|production)\b
+  - (?i)\b(cheaper.model|downgraded.model|weaker.model).{0,60}\b(substitut|replace|swap).{0,40}\b(api|endpoint|production)\b
+  - (?i)\b(are.you.getting.what.you.pay|model.audit|model.verify).{0,60}\b(api|inference|substitut)\b
+  - (?i)\b(cai.2025|model.substitution.audit|llm.api.audit).{0,60}\b(detect|verify|fingerprint|attack)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Model substitution attack or API model audit probe detected
+  description: Detects patterns associated with model substitution attacks where an API provider serves a cheaper or weaker
+    model than advertised. Cai et al. (2025) demonstrated systematic auditing of model substitution in LLM APIs. Adversaries
+    operating fraudulent LLM API services can substitute weaker models to reduce costs, or substitution can occur via supply
+    chain compromise of a legitimate provider's infrastructure. Fingerprinting probes that test model capabilities against
+    expected benchmarks are characteristic of both auditing and attack precursor activity.
+  remediation: Apply model identity verification via cryptographic attestation (Rinberg et al. 2025, verifying LLM inference).
+    Use model fingerprinting benchmarks as pre-production validation checks. Monitor serving infrastructure for unauthorized
+    model swaps. Apply inference verification probes regularly in production.
+  owasp_llm: LLM06:2025
+  cwe: CWE-290
+- id: MEDUSA-II-SCAN-070
+  name: inference-server-ssrf-metadata-endpoint
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(ssrf|server.side.request.forgery).{0,60}\b(inference|vllm|tgi|triton|model.serv)\b
+  - (?i)\b(169\.254\.169\.254|metadata\.google\.internal|169\.254\.170\.2).{0,60}\b(inference|llm|vllm|serving)\b
+  - (?i)\b(imds|instance.metadata|cloud.metadata).{0,60}\b(ssrf|inject|fetch|access).{0,40}\b(inference|llm|serving)\b
+  - (?i)\b(internal.api|internal.endpoint|internal.service).{0,60}\b(ssrf|request.forgery).{0,40}\b(inference|llm|serving|vllm)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: SSRF attack targeting inference server cloud metadata endpoint detected
+  description: Detects patterns associated with Server-Side Request Forgery (SSRF) attacks targeting LLM inference infrastructure
+    to access cloud instance metadata services (IMDS). Inference servers (vLLM, TGI, Triton) with URL-fetching capabilities
+    (for model downloads, RAG, web search) can be tricked via prompt injection or configuration injection to fetch cloud metadata
+    endpoints (169.254.169.254 on AWS/Azure, metadata.google.internal on GCP), exposing cloud credentials and enabling lateral
+    movement.
+  remediation: Block outbound requests to cloud metadata IP ranges from inference server processes. Apply IMDSv2 (token-based)
+    on AWS instances. Restrict inference server network access to required external endpoints only. Monitor for unexpected
+    outbound requests from inference server containers.
+  owasp_llm: LLM10:2025
+  cwe: CWE-918
+- id: MEDUSA-II-SCAN-071
+  name: confidential-computing-tee-attestation-bypass
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(tee.attestation.bypass|confidential.compute.bypass|sgx.bypass|tdx.bypass)\b
+  - (?i)\b(remote.attestation.bypass|attestation.spoof|attestation.fake).{0,60}\b(llm|inference|confidential)\b
+  - (?i)\b(tee.side.channel|sgx.side.channel|spectre.tee|meltdown.tee).{0,60}\b(inference|llm|model)\b
+  - (?i)\b(confidential.llm.bypass|private.llm.bypass).{0,60}\b(attestation|tee|sgx|tdx|sev)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Confidential computing TEE attestation bypass for LLM inference detected
+  description: Detects patterns targeting Trusted Execution Environment (TEE) attestation in confidential LLM inference deployments.
+    Chrapek et al. (2025) evaluated confidential LLM inference across CPU and GPU TEEs. TEE attestation bypass attacks (remote
+    attestation spoofing, SGX/TDX side-channel exploits) can undermine confidentiality guarantees in private LLM inference.
+    Hardware- based side-channel attacks (Spectre/Meltdown variants) remain active threats against SGX/TDX enclaves.
+  remediation: Apply latest TEE microcode patches for Spectre/Meltdown mitigations. Use hardware attestation verification
+    before accepting TEE attestation claims. Monitor for known SGX/TDX CVEs. Apply certificate pinning for remote attestation
+    verification. Test confidential inference deployments with TEE penetration testing tooling.
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-II-SCAN-072
+  name: inference-cluster-network-lateral-movement
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(lateral.movement|pivoting|post.exploit).{0,60}\b(inference.cluster|gpu.cluster|llm.serving|k8s.inference|ml.cluster)\b
+  - (?i)\b(kubernetes.inference|k8s.llm|inference.pod).{0,60}\b(lateral.movement|privilege.escalat|container.escape|pivot)\b
+  - (?i)\b(inference.node.compromise|gpu.node.compromise).{0,60}\b(lateral.movement|pivot|escalat|spread)\b
+  - (?i)\b(cluster.admin|serviceaccount.token|rbac.bypass).{0,60}\b(inference|gpu|llm|ml.cluster)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference cluster lateral movement or Kubernetes privilege escalation detected
+  description: Detects patterns associated with lateral movement through LLM inference clusters after initial compromise.
+    Inference infrastructure deployed on Kubernetes clusters (k8s) presents lateral movement opportunities via ServiceAccount
+    token theft, RBAC bypass, and container escape techniques. A compromised inference pod can access cluster-wide model repositories,
+    inference API keys, and cloud provider credentials stored as Kubernetes secrets.
+  remediation: Apply least-privilege RBAC policies to inference pods. Use separate Kubernetes namespaces for inference workloads.
+    Enable Kubernetes audit logging. Apply network policies to restrict inter-pod communication. Rotate ServiceAccount tokens
+    regularly. Apply container security profiles (seccomp/AppArmor) to inference pods.
+  owasp_llm: LLM10:2025
+  cwe: CWE-269
+- id: MEDUSA-II-SCAN-073
+  name: prompt-caching-timing-oracle-attack
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(prompt.cach.{0,20}timing|cache.timing.oracle|cache.hit.timing).{0,60}\b(attack|exploit|probe|reconstruct)\b
+  - (?i)\b(prompt.cache|anthropic.cache|openai.cache).{0,60}\b(timing.oracle|side.channel|probe|reconstruct)\b
+  - (?i)\b(cache.hit|cache.miss).{0,60}\b(timing.difference|latency.difference|infer.content|oracle)\b
+  - (?i)\b(prefix.cache.timing|system.prompt.reconstruct).{0,60}\b(timing|oracle|side.channel|probe)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Prompt caching timing oracle attack pattern detected
+  description: Detects patterns associated with timing oracle attacks exploiting prompt caching in LLM inference APIs. When
+    APIs cache prompt prefixes (as in Anthropic's Prompt Caching and OpenAI's related features), requests that hit the cache
+    return faster than cache misses. An adversary can exploit this timing difference to determine whether a specific system
+    prompt or prefix is cached, reconstructing confidential system prompt content character by character through binary search
+    queries.
+  remediation: Add constant-time padding to cached vs. uncached response latency to mask cache hit/miss differences. Limit
+    the information exposed by timing differences in cached responses. Monitor for high-frequency requests with systematic
+    prefix variations characteristic of cache oracle attacks.
+  owasp_llm: LLM06:2025
+  cwe: CWE-203
+- id: MEDUSA-II-SCAN-074
+  name: batching-isolation-cross-batch-information-leak
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(batch.isolation|cross.batch|inter.request).{0,60}\b(leak|information.leak|side.channel|contaminate)\b
+  - (?i)\b(continuous.batch|dynamic.batch|adaptive.batch).{0,60}\b(cross.request.leak|isolation.failure|side.channel)\b
+  - (?i)\b(batch.timing|batch.size.infer|batch.oracle).{0,60}\b(side.channel|probe|attack|reconstruct)\b
+  - (?i)\b(co.batch|co.scheduled|batch.sharing).{0,60}\b(information.leak|side.channel|cross.tenant)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Batching isolation failure or cross-batch information leakage pattern detected
+  description: Detects patterns associated with cross-request information leakage in continuous batching inference. Modern
+    LLM serving frameworks use continuous batching to maximize GPU utilization by processing requests from multiple users
+    simultaneously. Timing variations based on batch composition, batch size inference via latency measurement, and activation
+    contamination in shared GPU memory can leak information between co-batched requests from different users.
+  remediation: Apply per-tenant request scheduling to avoid co-batching requests from different tenants in sensitive deployments.
+    Add response timing jitter to mask batch composition. Monitor for systematic latency measurement patterns that could indicate
+    batch oracle probing. Apply memory scrubbing between batch request processing.
+  owasp_llm: LLM06:2025
+  cwe: CWE-362
+- id: MEDUSA-II-SCAN-075
+  name: inference-logging-sensitive-data-exfiltration
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(inference.log|serving.log|vllm.log|tgi.log).{0,60}\b(sensitive|pii|secret|credential|exfil|leak)\b
+  - (?i)\b(log.prompt|log.completion|log.request).{0,60}\b(sensitive|pii|secret|credential|cleartext|plaintext)\b
+  - (?i)\b(inference.audit.log|model.serving.log).{0,60}\b(exfil|unauthorized.access|credential|secret)\b
+  - (?i)\b(prompt.log.exfil|completion.log.exfil|inference.log.steal).{0,60}\b(attack|unauthorized|breach)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference logging sensitive data exfiltration pattern detected
+  description: Detects patterns associated with sensitive data exfiltration from LLM inference logs. Inference servers often
+    log prompts and completions for debugging and compliance. These logs contain sensitive user data, system prompts, and
+    potentially credentials or PII embedded in requests. Unauthorized access to inference logs represents a high-value attack
+    target that can reconstruct sensitive conversations, expose system prompt intellectual property, and reveal user private
+    information.
+  remediation: Apply log redaction to remove PII, credentials, and sensitive patterns before writing inference logs. Encrypt
+    logs at rest. Apply strict access controls to inference log storage. Implement log retention limits. Monitor for unauthorized
+    log access or exfiltration attempts.
+  owasp_llm: LLM06:2025
+  cwe: CWE-532
+- id: MEDUSA-II-SCAN-076
+  name: paged-attention-block-size-timing-attack
+  severity: MEDIUM
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(paged.attention|pageattention|block.table).{0,60}\b(timing.attack|side.channel|block.size.oracle|leak)\b
+  - (?i)\b(block.manager|block.allocat).{0,60}\b(timing|side.channel|oracle|exploit|probe)\b
+  - (?i)\b(block.size.16|block.size.32|physical.block|virtual.block).{0,60}\b(timing|side.channel|oracle|attack)\b
+  - (?i)\b(vllm.block|kv.block.manager).{0,60}\b(timing.attack|side.channel|information.leak|oracle)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: PagedAttention block timing side-channel attack pattern detected
+  description: Detects patterns associated with timing side-channel attacks targeting vLLM's PagedAttention memory management.
+    The physical block allocation and management in vLLM's block manager creates observable timing differences based on block
+    hit/miss patterns. Adversaries can probe block-level timing to infer whether specific token sequences are cached in physical
+    blocks, partially reconstructing other users' generation context in shared inference deployments.
+  remediation: Apply uniform block allocation timing via padding. Implement memory block isolation between tenants. Monitor
+    for high-frequency requests with timing measurement patterns targeting block-level granularity. Apply access control to
+    prevent cross-tenant block sharing in the block manager.
+  owasp_llm: LLM06:2025
+  cwe: CWE-203
+- id: MEDUSA-II-SCAN-077
+  name: inference-api-key-theft-credential-exposure
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(inference.api.key|llm.api.key|openai.api.key|anthropic.api.key).{0,60}\b(theft|steal|exfil|expose|hardcode|commit)\b
+  - (?i)\b(api.key.leak|api.key.exposure|api.key.hardcode).{0,60}\b(inference|llm|vllm|tgi|openai|anthropic)\b
+  - (?i)\b(sk-[a-zA-Z0-9]{20,}|OPENAI_API_KEY|ANTHROPIC_API_KEY).{0,60}\b(leak|expose|commit|hardcode|public)\b
+  - (?i)\bapi.key.theft\b.{0,60}\b(inference|llm.service|model.api|serving.endpoint)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.env'
+  - '*.txt'
+  - '*.md'
+  message: Inference API key theft or credential exposure in code/config detected
+  description: Detects patterns indicating LLM inference API key theft, hardcoding, or exposure in code repositories. Hardcoded
+    OpenAI, Anthropic, or other LLM API keys in source code, configuration files, or documentation are a primary attack vector
+    for credential theft. Stolen inference API keys enable attackers to consume paid inference quota, exfiltrate model outputs,
+    and potentially access private fine-tuned models associated with the compromised account.
+  remediation: Never hardcode API keys in source code. Use environment variables or secrets management systems (AWS Secrets
+    Manager, HashiCorp Vault). Apply pre-commit hooks to prevent API key commits. Rotate exposed keys immediately. Monitor
+    for unexpected inference API usage spikes that may indicate key theft.
+  owasp_llm: LLM10:2025
+  cwe: CWE-312
+- id: MEDUSA-II-SCAN-078
+  name: mlops-pipeline-model-weight-injection
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(mlops.pipeline|mlflow|kubeflow|airflow).{0,60}\b(model.inject|weight.inject|tamper|poison|backdoor|substitut)\b
+  - (?i)\b(model.registry|model.artifact).{0,60}\b(tamper|inject|poison|substitut|compromis|malicious)\b
+  - (?i)\b(pipeline.artifact|training.artifact).{0,60}\b(tamper|inject|poison|substitut|backdoor)\b.{0,40}\b(inference|deploy|production)\b
+  - (?i)\b(ci.cd.model|automated.deploy.model).{0,60}\b(tamper|inject|poison|substitut|backdoor|compromis)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: MLOps pipeline model weight injection or registry tampering detected
+  description: Detects patterns associated with supply-chain attacks targeting MLOps pipelines (MLflow, Kubeflow, Airflow)
+    to inject malicious model weights into the inference deployment pipeline. Adversaries can compromise model registries,
+    artifact stores, or CI/CD pipelines to substitute legitimate model weights with backdoored variants before they reach
+    production inference infrastructure. Rinberg et al. (2025) addressed the threat of model weight exfiltration and substitution
+    in inference verification.
+  remediation: Apply cryptographic signing to model artifacts in registries. Use hash verification at model load time in inference
+    deployments. Apply access controls to model registries with strict change approval workflows. Monitor MLOps pipeline logs
+    for unauthorized model artifact modifications.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-II-SCAN-079
+  name: inference-endpoint-path-traversal-attack
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(path.traversal|directory.traversal|lfi|local.file.include).{0,60}\b(inference|vllm|tgi|triton|model.serv)\b
+  - (?i)(\.\.[\/\\]){2,}.{0,60}\b(inference|model|weight|config|checkpoint)\b
+  - (?i)\b(model.path.inject|model.directory.traversal|weight.path.traversal).{0,60}\b(vllm|tgi|triton|serving)\b
+  - (?i)\b(model.name.inject|model.id.inject).{0,60}\b(path.traversal|directory.traversal|lfi)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Path traversal attack against inference model loading endpoint detected
+  description: Detects patterns associated with path traversal attacks targeting LLM inference server model loading endpoints.
+    Inference frameworks that accept model names or paths as API parameters may be vulnerable to path traversal if input validation
+    is insufficient. Adversaries can use directory traversal sequences to load arbitrary files from the server filesystem,
+    potentially reading sensitive configuration, credentials, or loading malicious model weights from attacker-controlled
+    paths.
+  remediation: Implement strict path sanitization for all model loading parameters. Restrict model loading to an approved
+    model directory allowlist. Apply chroot or filesystem namespace isolation to inference server processes. Never accept
+    arbitrary filesystem paths from user-supplied API parameters.
+  owasp_llm: LLM10:2025
+  cwe: CWE-22
+- id: MEDUSA-II-SCAN-080
+  name: inference-network-traffic-analysis-attack
+  severity: MEDIUM
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(network.traffic.analysis|traffic.analysis.attack).{0,60}\b(inference|llm|vllm|tgi|model.serv)\b
+  - (?i)\b(packet.size|token.stream.size|response.size).{0,60}\b(side.channel|infer.content|reconstruct|oracle).{0,40}\b(inference|llm)\b
+  - (?i)\b(streaming.token.timing|chunk.timing|sse.timing).{0,60}\b(side.channel|infer.content|reconstruct|oracle)\b
+  - (?i)\b(tls.traffic.analysis|encrypted.traffic.analysis).{0,60}\b(llm|inference|model.output|token.count)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference network traffic analysis side-channel attack detected
+  description: Detects patterns associated with network traffic analysis attacks against LLM inference streams. Even when
+    traffic is encrypted (TLS), the stream of packet sizes and timing in token-by-token streaming responses can reveal information
+    about the generated content. Researchers have shown that token-level timing and packet size distributions in SSE (Server-Sent
+    Events) streaming can partially reconstruct LLM output content through traffic analysis, even without decrypting the stream.
+  remediation: Apply traffic padding to normalize packet sizes in streaming responses. Add timing jitter to streaming token
+    delivery. Use fixed-size chunk encoding for streaming responses rather than per-token streaming. Monitor for passive traffic
+    capture positioned between clients and inference endpoints.
+  owasp_llm: LLM06:2025
+  cwe: CWE-203
+- id: MEDUSA-II-SCAN-081
+  name: cuda-kernel-exploit-injection-inference
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(cuda.kernel.inject|cuda.kernel.exploit|cuda.exploit|ptx.inject)\b.{0,60}\b(inference|llm|gpu|vllm|tgi)\b
+  - (?i)\b(gpu.kernel.rce|ptx.rce|cuda.rce|nvvm.exploit).{0,60}\b(inference|serving|model)\b
+  - (?i)\b(custom.cuda.kernel|malicious.kernel|kernel.poisoning).{0,60}\b(inference|llm|serving|vllm|tgi|triton)\b
+  - (?i)\b(triton.kernel.inject|flashattention.kernel|attention.kernel.exploit).{0,60}\b(rce|exploit|backdoor|attack)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.cu'
+  - '*.ptx'
+  - '*.sh'
+  message: CUDA kernel injection or GPU compute exploit targeting inference infrastructure detected
+  description: Detects patterns associated with CUDA kernel injection attacks against LLM inference infrastructure. LLM serving
+    frameworks (vLLM, TGI) use custom CUDA kernels (FlashAttention, PagedAttention kernels, Triton-generated kernels) that
+    could be targeted via malicious kernel replacement or dynamic kernel loading vulnerabilities. CUDA PTX injection into
+    the inference pipeline could enable privilege escalation on GPU hardware or data exfiltration via GPU-hosted model weights.
+  remediation: Apply code signing to CUDA kernel binaries before loading in inference pipelines. Disable dynamic kernel loading
+    from untrusted sources. Monitor GPU memory for unexpected kernel submissions. Apply NVIDIA GPU security profiles to restrict
+    kernel access.
+  owasp_llm: LLM10:2025
+  cwe: CWE-94
+- id: MEDUSA-II-SCAN-082
+  name: inference-api-response-manipulation-mitm
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(response.manipulat|output.manipulat|inference.response.tamper).{0,60}\b(api|proxy|mitm|intercept|gateway)\b
+  - (?i)\b(mitm.inference|man.in.the.middle.inference|proxy.tamper).{0,60}\b(llm|api|response|output)\b
+  - (?i)\b(inference.proxy.inject|api.proxy.inject|gateway.inject).{0,60}\b(response|output|token|completion)\b
+  - (?i)\b(response.injection|completion.inject|output.poison).{0,60}\b(inference.api|llm.api|model.endpoint)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference API response manipulation or MitM attack pattern detected
+  description: Detects patterns associated with Man-in-the-Middle attacks against LLM inference API responses. Adversaries
+    positioned between inference clients and servers (via compromised proxy, API gateway, or network position) can manipulate
+    response tokens to inject malicious content, alter safety-critical outputs, or inject misleading information into downstream
+    applications relying on LLM outputs.
+  remediation: Use mutual TLS authentication between inference clients and servers. Apply response integrity verification
+    (e.g., cryptographic signatures on completions for high-stakes applications). Monitor API gateway logs for anomalous response
+    modifications. Apply endpoint pinning to prevent proxy interception.
+  owasp_llm: LLM06:2025
+  cwe: CWE-345
+- id: MEDUSA-II-SCAN-083
+  name: continuous-batching-queue-manipulation
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(queue.manipulation|request.queue.poison|priority.queue.exploit).{0,60}\b(inference|vllm|tgi|continuous.batch)\b
+  - (?i)\b(queue.starvation|queue.priority.bypass|queue.injection).{0,60}\b(inference|llm|continuous.batch|scheduler)\b
+  - (?i)\b(scheduler.priority.manipulat|scheduling.attack|preemption.abuse).{0,60}\b(continuous.batch|inference|vllm)\b
+  - (?i)\b(high.priority.inject|queue.jump|priority.escalat).{0,60}\b(inference|llm|scheduler|serving)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Continuous batching queue manipulation or scheduler priority injection detected
+  description: Detects patterns associated with queue manipulation attacks against continuous batching schedulers in LLM serving.
+    Adversaries can inject high- priority requests or manipulate scheduling metadata to cause legitimate user requests to
+    starve. Wang et al. (2026, arXiv:2602.07878) documented the Fill-and-Squeeze attack exploiting the scheduler's preemption
+    behavior. Queue priority injection extends this by directly manipulating scheduling priority to ensure adversarial requests
+    always preempt victim requests.
+  remediation: Apply strict per-user queue priority limits. Validate request priority metadata against authenticated user
+    tiers. Monitor for priority manipulation attempts in request headers. Apply fair queuing (CFS-style) to prevent queue
+    starvation across users.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-II-SCAN-084
+  name: gpu-memory-disclosure-model-weight-leak
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(gpu.memory.disclosure|gpu.memory.dump|vram.dump|vram.exfil).{0,60}\b(model.weight|inference|llm|serving)\b
+  - (?i)\b(model.weight.exfil|weight.exfil.gpu|gpu.weight.dump).{0,60}\b(inference|serving|vllm|tgi)\b
+  - (?i)\b(cuda.malloc|cudaMalloc|gpu.memory.alloc).{0,60}\b(uninitialized|uninit|leak|disclose|residual)\b
+  - (?i)\b(memory.leak.gpu|gpu.uninit.memory|previous.request.data).{0,60}\b(model.weight|inference|llm|serving)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.cu'
+  - '*.sh'
+  - '*.txt'
+  message: GPU memory disclosure or model weight exfiltration via VRAM dump detected
+  description: Detects patterns associated with GPU memory disclosure attacks targeting model weights in VRAM. LLM inference
+    keeps model weights resident in GPU VRAM for serving performance. Vulnerabilities in CUDA memory management (uninitialized
+    memory reads, freed buffer reuse) can expose portions of model weights or previously-served requests. In cloud multi-tenant
+    GPU environments, GPU memory residuals from previous tenants may be accessible to subsequent tenants.
+  remediation: Apply VRAM zeroing on GPU memory deallocation. Use Nvidia MIG (Multi-Instance GPU) for hardware-enforced tenant
+    isolation. Monitor for large-scale VRAM read operations from unexpected processes. Apply CUDA memory allocation auditing
+    in inference deployments.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-II-SCAN-085
+  name: inference-cost-token-amplification-abuse
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(cost.amplif|billing.amplif|token.amplif).{0,60}\b(inference|llm|api|vllm|serving)\b
+  - (?i)\b(max.token.exploit|unbounded.token|infinite.token).{0,60}\b(inference|api|serving|llm|cost)\b
+  - (?i)\b(token.smuggling|billing.bypass|cost.bypass).{0,60}\b(inference|llm|api|serving)\b
+  - (?i)\b(free.tier.abuse|quota.abuse|credit.abuse).{0,60}\b(inference|llm|api|serving|openai|anthropic|azure)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference cost amplification, token billing abuse, or quota exploitation detected
+  description: Detects patterns associated with token cost amplification and billing abuse attacks against LLM inference APIs.
+    Adversaries can exploit max_token settings, token smuggling in API parameters, or reasoning model prompt patterns that
+    force extended computation to amplify inference costs for the provider or consume victim accounts' quotas. Token billing
+    bypass techniques exploit discrepancies between billed and actually-consumed tokens.
+  remediation: Enforce hard per-request and per-session token budgets. Implement anomaly detection on token consumption patterns.
+    Monitor for requests consistently approaching maximum token limits. Apply credit monitoring with automatic suspension
+    for anomalous usage spikes.
+  owasp_llm: LLM10:2025
+  cwe: CWE-770
+- id: MEDUSA-II-SCAN-086
+  name: inference-server-deserialization-exploit
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(deserialization.exploit|unsafe.deserializ).{0,60}\b(inference|vllm|tgi|triton|serving.framework)\b
+  - (?i)\b(pickle.exploit|torch.load.rce|safetensor.bypass).{0,60}\b(inference|serving|vllm|tgi)\b
+  - (?i)\b(model.load.rce|checkpoint.rce|weight.file.rce).{0,60}\b(inference|serving|vllm|tgi|triton)\b
+  - (?i)\b(malicious.pickle|pickle.injection|torch.serializ.exploit).{0,60}\b(inference|serving|model.load)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Deserialization exploit targeting inference server model loading detected
+  description: Detects patterns associated with deserialization exploits targeting LLM inference server model loading. PyTorch's
+    Pickle-based serialization (torch.load) can execute arbitrary code when loading untrusted checkpoints. Adversaries can
+    distribute malicious model weights or adapter files that execute code when loaded by inference servers. SafeTensors was
+    introduced to mitigate this risk but Pickle-format models remain common.
+  remediation: Use SafeTensors format for all model loading in inference servers. Never load Pickle-format model files from
+    untrusted sources. Apply model file integrity verification before loading. Use sandboxed processes for model loading with
+    restricted system call access. Monitor for Pickle deserialization events in inference server logs.
+  owasp_llm: LLM10:2025
+  cwe: CWE-502
+- id: MEDUSA-II-SCAN-087
+  name: inference-environment-secrets-exposure
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(inference.secret|serving.secret|llm.secret).{0,60}\b(environment|env.var|env.file|expose|leak|hardcode)\b
+  - (?i)\b(OPENAI_API_KEY|ANTHROPIC_API_KEY|HUGGINGFACE_TOKEN|HF_TOKEN|REPLICATE_API_KEY)\b
+  - (?i)\b(env.secret.inject|environment.variable.inject).{0,60}\b(inference|serving|llm|model|vllm)\b
+  - (?i)\b(kubernetes.secret.leak|k8s.secret.expose|configmap.secret).{0,60}\b(inference|llm|serving|model)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.env'
+  - '*.txt'
+  - '*.md'
+  - '*.dockerfile'
+  message: Inference server secret or API key exposed in environment configuration detected
+  description: Detects exposure of LLM inference API keys and secrets in environment variables, configuration files, Kubernetes
+    Secrets/ConfigMaps, or Dockerfiles. Exposed inference credentials enable unauthorized model access, cost abuse, and access
+    to private fine-tuned models. This is a high-frequency vulnerability in MLOps deployments where API keys are passed through
+    environment variables that may be logged, printed, or exposed via container inspection.
+  remediation: Use secrets management systems (AWS Secrets Manager, HashiCorp Vault, Kubernetes External Secrets) rather than
+    environment variables for inference API keys. Apply pre-commit hooks to block credential commits. Audit existing deployments
+    for exposed secrets. Rotate any exposed credentials immediately.
+  owasp_llm: LLM10:2025
+  cwe: CWE-312
+- id: MEDUSA-II-SCAN-088
+  name: serving-framework-plugin-rce-injection
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(serving.plugin|inference.plugin|vllm.plugin|tgi.plugin).{0,60}\b(rce|exploit|malicious|inject|unsafe.import|dynamic.load)\b
+  - (?i)\b(custom.model.class|dynamic.import|importlib.import_module).{0,60}\b(unsafe|malicious|untrusted).{0,40}\b(inference|serving|vllm|tgi)\b
+  - (?i)\b(openllm.runner|ray.serve.deployment|bentoml.service).{0,60}\b(exploit|rce|inject|malicious|unsafe)\b
+  - (?i)\b(unsafe.plugin|untrusted.plugin).{0,60}\b(serving.framework|inference|vllm|tgi|triton)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Unsafe serving framework plugin dynamic import or RCE injection detected
+  description: Detects patterns associated with RCE attacks via unsafe plugin or extension loading in LLM serving frameworks.
+    Serving frameworks that support custom model classes, plugins, or extensions (vLLM custom models, BentoML services, Ray
+    Serve deployments) may execute arbitrary code when loading untrusted plugin code. Dynamic importlib.import_module calls
+    with user- controlled paths are a documented code injection vector.
+  remediation: Apply strict allowlisting for serving framework plugins and extensions. Never import plugin code from untrusted
+    sources. Run serving framework processes in restricted sandboxes. Audit all custom model class registrations in inference
+    deployment configurations.
+  owasp_llm: LLM10:2025
+  cwe: CWE-94
+- id: MEDUSA-II-SCAN-089
+  name: multi-tenant-inference-request-isolation-failure
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(multi.tenant.isolation|tenant.isolation.failure|cross.tenant.leak).{0,60}\b(inference|llm|serving|vllm|tgi)\b
+  - (?i)\b(tenant.segregat|tenant.namespace|tenant.boundary).{0,60}\b(bypass|failure|violation|break).{0,40}\b(inference|llm|serving)\b
+  - (?i)\b(cross.user.context|user.context.bleed|context.contaminate).{0,60}\b(inference|llm|multi.tenant|serving)\b
+  - (?i)\b(session.fixation|session.hijack).{0,60}\b(inference|llm|serving|conversation.context|multi.tenant)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Multi-tenant inference request isolation failure or cross-user context leak detected
+  description: Detects patterns associated with multi-tenant isolation failures in LLM inference deployments. Shared inference
+    servers that do not properly isolate request contexts between users may allow context contamination, system prompt leakage,
+    or session fixation attacks. Adversaries can craft requests designed to bleed into adjacent users' inference contexts
+    via shared KV cache, context window contamination, or conversation session hijacking in stateful multi-turn inference
+    services.
+  remediation: Apply strict per-user context isolation in multi-tenant inference. Use separate conversation session namespaces.
+    Validate session tokens before associating requests with existing contexts. Apply memory scrubbing between user sessions.
+    Audit inference framework code for shared state that could leak between tenants.
+  owasp_llm: LLM06:2025
+  cwe: CWE-362
+- id: MEDUSA-II-SCAN-090
+  name: inference-api-prompt-injection-tool-exfil
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(prompt.inject.{0,30}tool.call|tool.call.inject|function.call.inject).{0,60}\b(inference|api|serving|exfil)\b
+  - (?i)\b(malicious.tool.call|adversarial.function.call|tool.use.inject).{0,60}\b(inference.api|llm.api|model.endpoint)\b
+  - (?i)\b(exfil.via.tool|data.exfil.function.call|exfil.webhook.tool).{0,60}\b(inference|llm.api|model)\b
+  - (?i)\b(tool.use.hijack|function.call.hijack|plugin.call.hijack).{0,60}\b(inference|llm|api|serving)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Prompt injection via tool/function call for data exfiltration in inference API detected
+  description: Detects patterns associated with tool-call exfiltration via prompt injection in LLM inference APIs with function-calling
+    capabilities. Adversaries inject instructions into user-supplied content that cause the model to invoke tool calls (HTTP
+    requests, file access, code execution) with exfiltrated context data as parameters. This attack chain exploits inference
+    APIs that expose tool-use capabilities to exfiltrate system prompts, user data, or internal context to attacker-controlled
+    endpoints.
+  remediation: Apply strict tool-call validation and allowlisting for outbound tool invocations. Inspect tool call parameters
+    for sensitive data patterns before execution. Apply output-layer prompt injection detection to identify injected tool-call
+    instructions. Restrict tool-call endpoints to approved URLs and schemas.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-II-SCAN-091
+  name: verifiable-inference-weight-exfil-detection
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(verif.inference|verif.llm.inference|proof.of.inference|inference.verif).{0,60}\b(bypass|evade|spoof|circumvent)\b
+  - (?i)\b(weight.exfil.verify|model.exfil.detect|rinberg.2025).{0,60}\b(bypass|evade|circumvent|defeat)\b
+  - (?i)\b(inference.attestation.bypass|compute.attestation.bypass).{0,60}\b(weight|model|inference.verif)\b
+  - (?i)\b(zk.inference|zero.knowledge.inference).{0,60}\b(bypass|spoof|evade|defeat|circumvent)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Verifiable LLM inference bypass or weight exfiltration detection evasion detected
+  description: Detects patterns targeting verifiable inference mechanisms designed to detect model weight exfiltration. Rinberg
+    et al. (2025) proposed verifying LLM inference to detect model weight exfiltration; adversaries may attempt to bypass
+    these verification mechanisms. Zero-knowledge inference proofs and cryptographic inference attestation are active research
+    areas in confidential LLM serving; bypassing them enables undetected model theft.
+  remediation: Apply defense-in-depth for inference verification (multiple independent verification methods). Monitor for
+    anomalous inference patterns that may indicate weight reconstruction probing. Apply model watermarking as a complementary
+    theft detection mechanism.
+  owasp_llm: LLM06:2025
+  cwe: CWE-290
+- id: MEDUSA-II-SCAN-092
+  name: inference-container-escape-privileged
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(container.escape|docker.escape|cgroup.escape).{0,60}\b(inference|llm|serving|gpu|vllm|tgi)\b
+  - (?i)\b(privileged.container|--privileged).{0,60}\b(inference|llm|gpu|serving|vllm|tgi)\b
+  - (?i)\b(host.mount|docker.sock|host.network).{0,60}\b(inference|llm|serving|gpu|privileged)\b
+  - (?i)\b(cap.sys.admin|cap.net.admin|capability.add).{0,60}\b(inference|llm.container|serving.container)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.dockerfile'
+  message: Container escape vector in LLM inference deployment detected
+  description: Detects patterns indicating container escape risks in LLM inference deployments. GPU inference containers often
+    require elevated privileges (--privileged flag, device mounts, host network) to access GPU hardware, which creates container
+    escape vulnerabilities. Privileged containers have near-equivalent access to the host kernel, enabling attackers to escape
+    to the host and compromise other inference tenants or cluster management infrastructure.
+  remediation: Use NVIDIA Container Toolkit device-level GPU access instead of privileged containers. Apply seccomp and AppArmor
+    profiles to inference containers. Avoid --privileged mode; use specific capability grants instead. Monitor for container
+    escape indicators (host filesystem access, cgroup namespace violations).
+  owasp_llm: LLM10:2025
+  cwe: CWE-269
+- id: MEDUSA-II-SCAN-093
+  name: llm-inference-api-abuse-automated-scraping
+  severity: MEDIUM
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(automated.scraping|systematic.scraping|bulk.query).{0,60}\b(inference.api|llm.api|model.endpoint)\b
+  - (?i)\b(dataset.generat.api|synthetic.data.api).{0,60}\b(inference|llm.api|model.endpoint).{0,40}\b(scale|bulk|mass)\b
+  - (?i)\b(api.scraping|model.output.harvest|completion.harvest).{0,60}\b(bulk|mass|systematic|automated)\b
+  - (?i)\b(llm.distillation.api|model.copy.api|model.steal.api).{0,60}\b(systematic|bulk|automated|harvest)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Automated LLM inference API scraping or systematic output harvesting detected
+  description: Detects patterns associated with systematic API scraping to harvest LLM outputs at scale. Adversaries use automated
+    bulk querying to generate large synthetic datasets from commercial LLM APIs for model distillation (training a cheaper
+    student model on the commercial model's outputs). This violates most LLM API terms of service and constitutes model theft
+    by distillation. At scale, systematic scraping can constitute a DoS attack on inference infrastructure.
+  remediation: Apply rate limiting with behavioral anomaly detection to identify systematic bulk querying. Monitor for repetitive
+    query patterns consistent with dataset generation. Enforce API terms of service prohibiting output harvesting. Apply per-user
+    daily token quotas to limit distillation-scale scraping.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-II-SCAN-094
+  name: private-llm-silicon-security-bypass
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(private.llm.silicon|secure.enclave.llm|llm.on.chip).{0,60}\b(bypass|attack|exploit|side.channel)\b
+  - (?i)\b(npu.attack|npu.side.channel|ai.chip.attack).{0,60}\b(inference|llm|model.weight|activation)\b
+  - (?i)\b(silicon.security.bypass|hardware.security.bypass).{0,60}\b(inference|llm|private.llm|on.device)\b
+  - (?i)\b(on.device.llm.attack|edge.inference.attack|mobile.llm.attack).{0,60}\b(weight|privacy|exfil|side.channel)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.c'
+  - '*.txt'
+  message: Private LLM silicon security bypass or on-device inference attack detected
+  description: Detects patterns targeting on-device LLM inference silicon security mechanisms. Luo et al. (2025) defined private
+    LLM technology security layer requirements for optimal silicon solutions. On-device LLM inference on NPU hardware (Apple
+    Neural Engine, Qualcomm AI Engine) can be targeted by physical side-channel attacks (power analysis, EM side channels)
+    to extract model weights stored in protected on-chip memory.
+  remediation: Apply hardware security modules and secure boot for on-device LLM inference deployments. Use protected memory
+    enclaves for model weight storage on edge hardware. Monitor for physical access security violations. Apply countermeasures
+    against power and EM side-channel attacks (random delays, power supply filtering).
+  owasp_llm: LLM06:2025
+  cwe: CWE-311
+- id: MEDUSA-II-SCAN-095
+  name: inference-endpoint-credential-stuffing
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(credential.stuffing|credential.spray|password.spray).{0,60}\b(inference.api|llm.api|model.endpoint|serving)\b
+  - (?i)\b(brute.force|api.brute.force).{0,60}\b(inference.api.key|llm.api.key|model.endpoint.auth)\b
+  - (?i)\b(account.takeover|api.account.compromise).{0,60}\b(inference|llm.service|model.api)\b
+  - (?i)\b(stolen.credential.llm|compromised.account.inference|credential.list.inference)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Credential stuffing or brute force attack against LLM inference endpoint detected
+  description: Detects patterns associated with credential stuffing and API key brute force attacks against LLM inference
+    endpoints. Attackers use large lists of leaked credentials or systematically enumerate API key formats (e.g., sk-[random])
+    to gain unauthorized access to inference services. Successful account compromise enables model access, cost abuse, and
+    exposure of private fine-tuned models associated with the compromised account.
+  remediation: Implement account lockout and progressive delay for failed authentication attempts. Apply IP-based rate limiting
+    on authentication endpoints. Use API key format validation to reject malformed key attempts early. Monitor for authentication
+    failure spikes characteristic of credential stuffing.
+  owasp_llm: LLM10:2025
+  cwe: CWE-307
+- id: MEDUSA-II-SCAN-096
+  name: fill-and-squeeze-dos-extended-pattern
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(fill.and.squeeze|f.and.s.attack|fill.squeeze.dos).{0,60}\b(vllm|sglang|inference|serving)\b
+  - (?i)\b(kv.cache.fill.phase|kv.cache.squeeze.phase|fill.phase.attack).{0,60}\b(vllm|sglang|inference)\b
+  - (?i)\b(20x.ttft|280x.ttft|ttft.slowdown|20.280x).{0,60}\b(attack|dos|exploit|fill.squeeze)\b
+  - (?i)\b(wang.2026|arXiv.2602.07878|fill.and.squeeze.paper).{0,60}\b(attack|implement|exploit|reproduce)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Fill-and-Squeeze KV cache DoS attack (Wang et al. 2026) extended pattern detected
+  description: Detects extended patterns of the Fill-and-Squeeze (F&S) DoS attack documented by Wang et al. (2026, arXiv:2602.07878)
+    against vLLM and SGLang. The F&S attack achieves 20-280x TTFT slowdown by first filling the global KV cache pool (Fill
+    phase), then exploiting Head-of-Line blocking (Squeeze phase) to force repetitive preemption cycles. This rule catches
+    explicit references to the attack paper and its documented performance metrics.
+  remediation: Apply per-user KV cache quotas as primary mitigation. Implement admission control based on KV cache utilization.
+    Apply the mitigations described in Wang et al. (2026). Monitor for request patterns matching the documented Fill phase
+    (large prefill requests saturating KV pool) followed by Squeeze phase (short generative requests inducing preemption).
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-II-SCAN-097
+  name: inference-api-multi-stage-enterprise-attack
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(multi.stage.inference|multi.stage.llm.attack|multi.step.inference.attack).{0,60}\b(enterprise|production|api)\b
+  - (?i)\b(balashov.2025|multi.stage.prompt.inference).{0,60}\b(enterprise|attack|exploit|implement)\b
+  - (?i)\b(enterprise.llm.attack|corporate.llm.attack).{0,60}\b(multi.stage|chained|pivot|escalat)\b
+  - (?i)\b(stage1.inference|stage2.inference|chained.inference).{0,60}\b(attack|pivot|escalat|enterprise.llm)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Multi-stage enterprise LLM inference attack pattern detected
+  description: Detects patterns associated with multi-stage inference attacks against enterprise LLM systems. Balashov et
+    al. (2025) documented multi-stage prompt inference attacks on enterprise LLM deployments. These attacks chain multiple
+    inference requests across an enterprise LLM system to progressively extract confidential information, escalate privileges,
+    or pivot through interconnected LLM components in a corporate RAG or agent deployment.
+  remediation: Apply end-to-end audit logging across all LLM inference components in enterprise deployments. Monitor for chained
+    query patterns across multiple LLM services. Apply context isolation between enterprise LLM stages. Implement rate limiting
+    and anomaly detection at the enterprise LLM orchestration layer.
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-II-SCAN-098
+  name: fl-source-inference-client-identification
+  severity: MEDIUM
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(source.inference.attack|fl.source.infer|client.identif.fl).{0,60}\b(federated|fl).{0,40}\b(inference|llm|peft|fine.tun)\b
+  - (?i)\b(identify.training.client|deanonymiz.client).{0,60}\b(federated.inference|fl.inference|federated.llm)\b
+  - (?i)\b(hu.2021.source.infer|fl.client.attribution).{0,60}\b(inference|llm|fl|federated)\b
+  - (?i)\b(contribution.infer|data.source.infer).{0,60}\b(federated.inference|fl.llm|federated.fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Federated inference source attribution or client deanonymization attack detected
+  description: Detects patterns associated with source inference attacks in federated LLM inference settings. Hu et al. (2021)
+    demonstrated source inference attacks in federated learning that identify which client contributed specific training data
+    by analyzing the federated model's behavior. In federated inference pipelines, similar attacks can deanonymize which enterprise
+    client contributed specific model updates or fine-tuning data.
+  remediation: Apply differential privacy to federated model updates before sharing. Use secure aggregation to prevent server-side
+    attribution of individual client contributions. Apply source-hiding aggregation protocols. Monitor for systematic probing
+    designed to test per-client model sensitivity.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-II-SCAN-099
+  name: inference-low-rate-ddos-container-cloud
+  severity: HIGH
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(low.rate.ddos|slow.ddos|slow.loris).{0,60}\b(inference|llm|container|cloud.serving|vllm|tgi)\b
+  - (?i)\b(slow.connection|slow.body|partial.request).{0,60}\b(inference.endpoint|llm.api|serving.framework)\b
+  - (?i)\b(resource.exhaustion.slow|connection.exhaustion.slow).{0,60}\b(inference|llm|container.serving)\b
+  - (?i)\b(defeating.low.rate.ddos|container.ddos|cloud.inference.ddos).{0,60}\b(attack|exploit|method|implement)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Low-rate DDoS attack targeting LLM inference container or cloud serving detected
+  description: Detects patterns associated with low-rate DDoS attacks against LLM inference containers in cloud environments.
+    Li et al. (2020) documented techniques for defeating low-rate DDoS in container-based cloud deployments; adversaries inversely
+    apply these techniques. Low-rate DDoS against inference containers uses slow-connection or slow-body attacks that exhaust
+    connection pools without triggering traditional high-rate DDoS detection.
+  remediation: Apply connection timeout limits and maximum request duration limits to inference server endpoints. Use connection
+    rate limiting per source IP. Apply Kubernetes HPA (Horizontal Pod Autoscaler) to absorb load spikes. Deploy WAF rules
+    to detect slow-loris attack patterns at the API gateway layer.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-II-SCAN-100
+  name: inference-serving-framework-config-injection
+  severity: CRITICAL
+  category: inference_infrastructure
+  patterns:
+  - (?i)\b(config.inject|configuration.inject).{0,60}\b(vllm|tgi|triton|serving.framework|inference.server)\b
+  - (?i)\b(yaml.inject|json.inject|config.tamper).{0,60}\b(inference.server|serving.config|vllm.config|tgi.config)\b
+  - (?i)\b(server.config.poison|inference.config.backdoor|serving.config.tamper).{0,60}\b(vllm|tgi|triton|inference)\b
+  - (?i)\b(env.inject.serving|environment.inject.inference|config.override.inference).{0,60}\b(vllm|tgi|triton|serving)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.txt'
+  message: Inference serving framework configuration injection or tampering detected
+  description: Detects patterns associated with configuration injection attacks against LLM serving frameworks. Adversaries
+    with partial access to inference infrastructure can inject malicious configurations into vLLM, TGI, or Triton server configuration
+    files (YAML/JSON), overriding security-relevant settings such as disabling authentication, enabling insecure API endpoints,
+    or reconfiguring model loading paths to attacker-controlled locations. This is a particularly dangerous supply-chain attack
+    vector in automated MLOps deployment pipelines.
+  remediation: Apply configuration file integrity monitoring (OSSEC, Tripwire) for all inference server configuration files.
+    Use read-only filesystem mounts for configuration directories. Validate configuration files via cryptographic signatures
+    before applying. Apply change management controls to all inference infrastructure configuration changes.
+  owasp_llm: LLM10:2025
+  cwe: CWE-15

@@ -1,0 +1,3030 @@
+# MEDUSA Scanner Rules — model_extraction (MERGED)
+# Sources: model_extraction_scanner_expansion.yaml, model_extraction_scanner_fc.yaml
+# Total rules: 100
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: model_extraction
+  prefix: ME
+  total_rules: 100
+  sources:
+  - model_extraction_scanner_expansion.yaml
+  - model_extraction_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-ME-SCAN-001
+  name: black-box-model-extraction-query-loop
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bmodel.?extract(?:ion)?\b
+  - (?i)\bsteal(?:ing)?\s+(?:the\s+)?model\b
+  - (?i)\bblack.?box\s+(?:query|attack|extraction)\b
+  - (?i)\bsubstitute\s+model\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.json'
+  - '*.ipynb'
+  message: Potential black-box model extraction attack pattern detected
+  description: 'Detects code patterns associated with black-box model extraction attacks
+    via prediction APIs. Tramèr et al. (2016) showed that 650–4,013 API queries extract
+    logistic regression and decision tree models with 100% functional agreement from
+    Amazon ML and BigML. Orekondy et al. (2019) demonstrated stealing for as little
+    as $30.
+
+    '
+  remediation: 'Implement query rate limiting and anomaly detection on API access
+    patterns. Monitor for systematic query patterns. Consider prediction poisoning
+    defenses (Orekondy et al., 2019/ICLR 2020).
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-002
+  name: training-data-extraction-verbatim
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\btraining\s+data\s+extract(?:ion)?\b
+  - (?i)\bverbatim\s+(?:text|sequence|data)\b
+  - (?i)\bmemorize[ds]?\s+(?:training|data|text)\b
+  - (?i)\beidetic\s+memorization\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.json'
+  - '*.ipynb'
+  message: Training data extraction pattern detected — verbatim memorization exploitation
+  description: 'Detects patterns related to extracting verbatim training data from
+    language models. Carlini et al. (2020/USENIX Security 2021) demonstrated extraction
+    of 600+ verbatim sequences from GPT-2 including PII (names, phone numbers, email
+    addresses) using likelihood-ratio ranking. Nasr et al. (2023) extracted 10,000+
+    training examples from ChatGPT for $200 using a divergence attack.
+
+    '
+  remediation: 'Deploy differential privacy training. Deduplicate training corpora.
+    Monitor for high-volume generation requests. Apply output filtering for PII patterns.
+    See Carlini et al. (2020) for mitigation recommendations.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-003
+  name: divergence-attack-aligned-llm
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bdivergence\s+attack\b
+  - (?i)repeat\s+the\s+word\s+\w+\s+forever
+  - (?i)\brepeat\s+["']?\w+["']?\s+(?:forever|infinitely|continuously)\b
+  - (?i)\bchatgpt\s+diverge\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Divergence attack pattern detected — may cause aligned LLM to emit training
+    data
+  description: 'Detects patterns associated with the Nasr et al. (2023) divergence
+    attack, which causes ChatGPT (gpt-3.5-turbo) to emit training data at 150x the
+    normal rate by triggering divergence from chatbot-style behavior. The attack achieved
+    extraction of 10,000+ training examples for $200 USD and revealed RLHF alignment
+    does not eliminate memorization.
+
+    '
+  remediation: 'Monitor for repetitive token sequences in API requests. Implement
+    generation length limits. Apply output filtering for memorized content patterns.
+    Ensure production alignment defenses address divergence triggers.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-004
+  name: knockoff-nets-api-query-automation
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bknockoff\b
+  - (?i)\bsurrogate\s+model\b
+  - (?i)\bsubstitute\s+model\s+training\b
+  - (?i)(?:query|label)\s+(?:the\s+)?(?:victim|target|black.?box)\s+(?:model|api)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Knockoff/surrogate model training via API querying detected
+  description: 'Detects patterns consistent with Knockoff Nets (Orekondy et al., CVPR
+    2019) — training a substitute model by querying a production API with arbitrary
+    images and using predictions as labels. Demonstrated for as little as $30 against
+    commercial vision APIs. CloudLeak (Yu et al., NDSS 2020) extended this to large-scale
+    DNNs on Microsoft, Google, Face++, IBM, and Clarifai.
+
+    '
+  remediation: 'Implement query volume monitoring and user-level rate limiting. Deploy
+    PRADA-style query distribution analysis (Juuti et al., 2018). Add noise to returned
+    confidence values.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-005
+  name: membership-inference-attack
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bmembership\s+inference\b
+  - (?i)\btraining\s+(?:data\s+)?membership\b
+  - (?i)\bin.training.set\b
+  - (?i)\bshokri\s+(?:et\s+al|membership)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Membership inference attack pattern detected
+  description: 'Detects code or configuration patterns associated with membership
+    inference attacks — determining whether specific examples were used to train a
+    model. Foundational work by Shokri et al. (2017) and extended by numerous subsequent
+    papers. Often the first step in targeted training data extraction attacks (Sahili
+    et al., 2025).
+
+    '
+  remediation: 'Apply differential privacy during training. Use prediction output
+    confidence thresholds. Monitor for systematic loss/confidence probing patterns
+    across multiple input examples.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-006
+  name: pii-extraction-via-prompting
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)(?:phone\s+number|email\s+address|home\s+address)\s+of\s+\w+
+  - (?i)\bPII\s+extract(?:ion)?\b
+  - (?i)\bpersonal(?:ly)?\s+identifiable\s+information.*extract\b
+  - (?i)\bcontact\s+(?:information|details)\s+of\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: PII extraction via LLM prompting pattern detected
+  description: 'Detects prompts or code patterns aimed at extracting personally identifiable
+    information from LLMs. Carlini et al. (2020) extracted real PII from GPT-2. Nakka
+    et al. (2024/PII-Compass) achieved 6.86% phone number extraction rate using grounded
+    prompting (1 in 15 phone numbers extractable). Cheng et al. (2024) extracted 54
+    email addresses and 314 physical addresses from GitHub Copilot via code context
+    injection.
+
+    '
+  remediation: 'Implement PII output filtering. Apply differential privacy during
+    fine-tuning on PII-containing data. Use Private Memorization Editing (PME) for
+    post-hoc protection (Ruzzetti et al., 2025).
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-007
+  name: embedding-model-distillation-theft
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bembedding\s+model\s+steal(?:ing)?\b
+  - (?i)\bdistill(?:ation)?\s+from\s+(?:openai|cohere|embedding)\s+api\b
+  - (?i)\bthief\s+model\b
+  - (?i)\bsteal(?:ing)?\s+(?:embedding|encoder)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Embedding model distillation theft pattern detected
+  description: 'Detects patterns associated with stealing commercial embedding models
+    by collecting (text, vector) pairs from APIs and training a student distillation
+    model. Tamber et al. (2024/2025) demonstrated replicating OpenAI and Cohere embedding
+    models for under $300. B4B (Dubinski et al., NeurIPS 2023) identifies SSL encoder
+    APIs as especially vulnerable.
+
+    '
+  remediation: 'Implement B4B-style adaptive query monitoring and per-user embedding
+    space coverage tracking. Apply per-user transformation of returned embeddings.
+    Rate limit embedding API access.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-008
+  name: bert-nlp-api-model-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:bert|xlnet|roberta).*(?:steal|extract|clone)\b
+  - (?i)\bNLP\s+(?:model\s+)?(?:steal(?:ing)?|extraction)\b
+  - (?i)\b(?:steal|extract).*(?:bert|xlnet|roberta)\b
+  - (?i)\bfine.?tun(?:ed|ing)\s+(?:bert|xlnet|roberta).*(?:steal|clone|surrogate)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: BERT/NLP model extraction attack pattern detected
+  description: 'Detects patterns associated with stealing BERT-based NLP API models.
+    He et al. (NAACL 2021) demonstrated high adversarial transferability from stolen
+    BERT models to black-box victims. Lyu et al. (2021) showed combined model extraction
+    and attribute inference against BERT APIs, with pre-trained BERT backbone giving
+    attackers a significant head-start.
+
+    '
+  remediation: 'Restrict fine-tuned BERT model deployment to authenticated users.
+    Monitor for query patterns consistent with systematic BERT API extraction. Consider
+    output perturbation defenses.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-009
+  name: data-free-model-stealing-gan
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bdata.?free\s+model\s+steal(?:ing)?\b
+  - (?i)\bDFMS\b
+  - (?i)\bMAZE\s+(?:attack|model)\b
+  - (?i)\bzero.?shot\s+model\s+(?:steal(?:ing)?|extract(?:ion)?)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Data-free model stealing (GAN/generative) pattern detected
+  description: 'Detects patterns associated with data-free model stealing attacks
+    using generative models (GAN, diffusion, VAE) to create synthetic queries. Sanyal
+    et al. (CVPR 2022/DFMS-HL) achieved ~500x query reduction vs. zero-shot baseline
+    using hard labels only. Liu et al. (2024) showed label diversity is the critical
+    factor. Hondru et al. (2023) used diffusion models for even fewer API calls.
+
+    '
+  remediation: 'Monitor for high volumes of unusual/synthetic-looking API queries.
+    Implement PRADA-style query distribution analysis. Consider prediction poisoning
+    (Orekondy et al., 2020) to degrade quality of stolen model.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-010
+  name: production-llm-projection-layer-extraction
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\blogprob\s+(?:extraction|attack|bias)\b
+  - (?i)\blogit.?bias\s+attack\b
+  - (?i)\bprojection\s+(?:layer|matrix)\s+steal(?:ing)?\b
+  - (?i)\bhidden\s+dimension\s+(?:recover|extract|infer)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Production LLM parameter extraction via logprob/logit-bias detected
+  description: 'Detects patterns consistent with the Carlini et al. (ICML 2024) attack
+    that extracts the embedding projection layer of production LLMs. For under $20
+    USD, the full projection matrix of OpenAI ada (hidden dim=1024) and babbage (hidden
+    dim=2048) was extracted. The attack exploits logprob APIs or logit-bias endpoints
+    to recover low-rank final transformer layers.
+
+    '
+  remediation: 'Restrict or degrade logprob precision in API responses. Limit logit-bias
+    parameter access. Monitor for systematic token probability probing patterns. OpenAI
+    and Google have implemented mitigations post-disclosure.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-011
+  name: system-prompt-extraction-attack
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)(?:reveal|repeat|print|show|output)\s+(?:your\s+)?(?:system\s+prompt|instructions|initialization)\b
+  - (?i)\bsystem\s+prompt\s+extract(?:ion)?\b
+  - (?i)\bignore\s+(?:previous|prior|all)\s+instructions\b
+  - (?i)\bwhat\s+(?:are\s+)?your\s+(?:initial|system|hidden)\s+instructions\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: System prompt extraction attempt detected
+  description: 'Detects patterns attempting to extract confidential system prompts
+    from deployed LLMs. Das et al. (2025) showed system prompts are frequently extractable
+    without hardening. System prompts contain business logic, proprietary instructions,
+    API configurations, and other IP that should remain confidential. Direct requests
+    succeed on many unhardened deployments.
+
+    '
+  remediation: 'Add explicit confidentiality instructions to system prompts. Implement
+    output filtering for system prompt content. Monitor for direct prompt extraction
+    attempts. Use Das et al. (2025) defense taxonomy to harden deployments.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-012
+  name: soft-prompt-memorization-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bsoft\s+prompt\s+(?:tuning|optimization).*extract\b
+  - (?i)\b(?:ETHICIST|loss.?smooth(?:ed|ing))\s+soft\s+prompt\b
+  - (?i)\bsoft\s+prompt.*memorization\b
+  - (?i)\bprefix.?based\s+(?:extraction|attack)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Soft prompt tuning for targeted training data extraction detected
+  description: 'Detects patterns associated with ETHICIST (Zhang et al., ACL 2023)
+    — soft prompt tuning to elicit targeted memorization of specific training data
+    suffixes. Uses smoothed loss to increase ground-truth token probability and calibrated
+    confidence for suffix selection. Used to extract email addresses, phone numbers,
+    and fax numbers from GPT-Neo 1.3B.
+
+    '
+  remediation: 'Monitor for soft prompt optimization targeting known training data
+    patterns. Apply differential privacy during training. Consider Private Memorization
+    Editing (PME) for post-hoc protection of known memorized PII.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-013
+  name: prada-evasion-query-distribution-manipulation
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bquery\s+distribution\s+(?:spoof|mimic|evade)\b
+  - (?i)\bmimic\s+(?:benign|legitimate)\s+(?:query|request)\s+pattern\b
+  - (?i)\bevade\s+(?:detection|PRADA|anomaly)\b
+  - (?i)\bdistribution.?aware\s+(?:query|extraction)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PRADA/query-distribution-detection evasion pattern detected
+  description: 'Detects patterns aimed at evading query distribution-based model extraction
+    detection (PRADA — Juuti et al., 2018/Euro S&P 2019). PRADA detects extraction
+    by identifying non-Gaussian query distributions. Adaptive attackers may attempt
+    to mimic benign user query distributions to evade detection.
+
+    '
+  remediation: 'Deploy PRADA with adaptive baseline modeling. Combine query distribution
+    analysis with rate limiting, user fingerprinting, and prediction perturbation
+    as layered defenses.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-014
+  name: model-inversion-training-data-reconstruction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bmodel\s+inversion\b
+  - (?i)\bInverseNet\b
+  - (?i)\btraining\s+data\s+(?:reconstruction|inversion)\b
+  - (?i)\breconstructed?\s+training\s+(?:sample|data|image)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Model inversion / training data reconstruction attack pattern detected
+  description: 'Detects patterns associated with model inversion attacks that reconstruct
+    training data from model outputs. InverseNet (Gong et al., IJCAI 2021) uses high-confidence
+    API responses to reconstruct training-like samples, significantly reducing query
+    budget for subsequent model extraction. Validated against Alibaba Cloud commercial
+    API.
+
+    '
+  remediation: 'Limit confidence score precision in API responses. Apply output perturbation
+    (prediction poisoning). Monitor for high-confidence query probing patterns consistent
+    with inversion.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-015
+  name: decomposition-extraction-benign-prompts
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\binstruction\s+decomposition\b
+  - (?i)\bpiecewise\s+(?:extraction|prompt)\b
+  - (?i)\bdecompos(?:e|ed|ing).*(?:article|extract|memorized)\b
+  - (?i)\bincremental(?:ly)?\s+extract\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Instruction decomposition extraction attack pattern detected
+  description: 'Detects patterns consistent with the Su et al. (2024) decomposition
+    attack — breaking extraction requests into incremental piecewise instructions
+    that bypass safety filters. Extracted verbatim sentences from 73/3,723 New York
+    Times articles and up to 20% of verbatim sentences from 6 articles using simple
+    benign-appearing prompts against frontier LLMs.
+
+    '
+  remediation: 'Implement output watermarking to detect reproduced copyrighted content.
+    Apply semantic output monitoring beyond keyword filtering. Consider copyright
+    detection tools in the generation pipeline.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-016
+  name: federated-learning-cross-client-data-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bfederated\s+(?:learning|fine.?tuning).*(?:extract|steal|leak)\b
+  - (?i)\bcross.?client\s+(?:data\s+)?(?:extract|attack|leak)\b
+  - (?i)\bmalicious\s+(?:client|participant).*federated\b
+  - (?i)\bgradient\s+(?:attack|inversion).*federated\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Federated learning cross-client data extraction attack pattern detected
+  description: 'Detects patterns associated with attacks extracting other clients''
+    private data in federated LLM fine-tuning scenarios. Hu et al. (2025) demonstrated
+    that a malicious federated participant can craft gradient updates to cause the
+    global model to memorize and emit other clients'' private training data.
+
+    '
+  remediation: 'Apply per-client differential privacy with gradient clipping in federated
+    learning. Implement secure aggregation protocols. Use Byzantine-fault-tolerant
+    aggregation to detect and exclude malicious client updates.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-017
+  name: pii-reconstruction-scrubbed-data
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bPII\s+reconstruction\b
+  - (?i)\breconstruct.*\[MASK\]\b
+  - (?i)\brecollect.*rank.*PII\b
+  - (?i)\bscrubbed.*training.*(?:extract|reconstruct)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Scrubbed PII reconstruction attack pattern detected
+  description: 'Detects patterns associated with R.R. (Meng et al., 2025) — a two-stage
+    Recollect-and-Rank attack that reconstructs masked PII entities from scrubbed
+    training data. Achieves 25.73% top-1 accuracy on NeurIPS LLM-PC dataset (>100%
+    improvement over prior SOTAs). Demonstrates that PII scrubbing/masking is insufficient
+    to protect training data privacy.
+
+    '
+  remediation: 'Do not rely solely on PII masking as a privacy guarantee. Apply differential
+    privacy training in addition to scrubbing. Consider Private Memorization Editing
+    (PME) for known PII present in fine-tuning data.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-018
+  name: special-character-divergence-trigger
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bspecial\s+character(?:s)?\s+(?:attack|prompt|trigger)\b
+  - \\u[0-9a-fA-F]{4}(?:\\u[0-9a-fA-F]{4}){5,}
+  - (?i)\bunusual\s+unicode\s+(?:prompt|trigger)\b
+  - (?i)(?:unicode|special)\s+character.*(?:extract|diverge|memoriz)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Special character divergence trigger for training data extraction detected
+  description: 'Detects patterns consistent with special characters attacks (Bai et
+    al., 2024) that use unusual Unicode sequences, repeated punctuation, or special
+    tokens to trigger model divergence and verbatim training data emission. Extends
+    Nasr et al. (2023) divergence attack paradigm with scalable prompting strategies.
+
+    '
+  remediation: 'Implement input sanitization for unusual Unicode sequences in API
+    requests. Apply generation monitoring for divergence from expected output distribution.
+    Rate limit requests containing high proportions of special characters.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-ME-SCAN-019
+  name: encoder-stealing-ssl-api
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bencoder\s+steal(?:ing)?\b
+  - (?i)\bSSL\s+model\s+(?:steal|extract|clone)\b
+  - (?i)\bself.?supervised.*(?:steal|extract)\b
+  - (?i)\brepresentation\s+(?:steal|clone|distill)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: SSL encoder model stealing attack pattern detected
+  description: 'Detects patterns associated with stealing self-supervised learning
+    (SSL) encoder models via API. Dubinski et al. (NeurIPS 2023/B4B) showed SSL encoders
+    are more vulnerable than supervised classifiers because high-dimensional embedding
+    outputs encode more information. Tamber et al. (2024/2025) demonstrated stealing
+    OpenAI and Cohere embeddings for under $300.
+
+    '
+  remediation: 'Deploy B4B (Bucks for Buckets) defense: track per-user embedding space
+    coverage via LSH and add adaptive noise. Apply per-user transformations to prevent
+    sybil account attacks. Implement embedding API rate limiting and access controls.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-020
+  name: latent-space-discontinuity-exploitation
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\blatent\s+space\s+discontinuit(?:y|ies)\b
+  - (?i)\bsparse\s+(?:embedding|latent)\s+(?:region|space)\b
+  - (?i)\blatent\s+space\s+(?:exploit|attack|jailbreak)\b
+  - (?i)\bembedding\s+(?:space\s+)?(?:gap|hole|sparse).*(?:attack|exploit)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Latent space discontinuity exploitation pattern detected
+  description: 'Detects patterns consistent with Paim et al. (2025) attacks exploiting
+    latent space discontinuities — sparse regions in training data that create architectural
+    vulnerabilities. Demonstrated 100% success across 7 production LLMs (Gemini, DeepSeek,
+    Grok, Llama, Mistral, Claude) and penetrates layered defenses including rate limiting
+    and input sanitization.
+
+    '
+  remediation: 'Shift defenses from input blocking to output monitoring. Implement
+    anomaly detection on model activation patterns. Consider architectural regularization
+    of embedding spaces during training to reduce sparsity.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-021
+  name: prompt-guard-bypass-controlled-release
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bcontrolled.?release\s+prompting\b
+  - (?i)\bprompt\s+guard\s+bypass\b
+  - (?i)\bresource\s+asymmetry\s+attack\b
+  - (?i)\bencode.*jailbreak.*guard\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Prompt guard bypass via controlled-release encoding detected
+  description: 'Detects patterns consistent with Fairoze et al. (2025) controlled-release
+    prompting attack that exploits resource asymmetry between lightweight prompt guards
+    and main LLMs. Achieves 100% jailbreak success on Gemini 2.5 Flash, DeepSeek DeepThink,
+    and Grok 3, enabling training data extraction as a secondary attack goal.
+
+    '
+  remediation: 'Deploy output-focused defenses rather than input-only filtering. Implement
+    semantic equivalence checking for encoded inputs. Monitor for prompts with unusual
+    encoding schemes or token sequences that exceed guard context windows.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-022
+  name: gnn-link-stealing-node-injection
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\blink.?steal(?:ing)?\s+attack\b
+  - (?i)\bNILS\s+attack\b
+  - (?i)\bnode\s+injection.*graph\s+(?:neural|network)\b
+  - (?i)\bprivate\s+(?:edge|link|graph)\s+(?:inference|steal)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: GNN link stealing via node injection attack pattern detected
+  description: 'Detects patterns associated with the NILS (Node Injection Link Stealing)
+    attack by Zari et al. (2023), which infers private graph edges in GNN APIs by
+    injecting synthetic nodes and analyzing prediction changes. Relevant for graph-structured
+    model deployments such as recommendation systems, social network analysis APIs,
+    and fraud detection GNNs.
+
+    '
+  remediation: 'Apply differential privacy with one-node-one-edge privacy notion for
+    GNN APIs. Limit edge inference information leakage in GNN prediction responses.
+    Monitor for node injection patterns in graph API requests.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-023
+  name: code-completion-training-data-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:github\s+copilot|amazon\s+q|code\s+completion).*(?:extract|PII|email|address)\b
+  - (?i)\bcode.*comment.*(?:email\s+address|phone\s+number|contact)\s+of\s+\w+\b
+  - (?i)\b(?:email|address).*github\s+user\b
+  - (?i)(?:replace|substitute)\s+[@.]\s+(?:with|by).*(?:extract|email)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Code completion tool training data extraction via code context injection
+    detected
+  description: 'Detects patterns consistent with Cheng et al. (2024/AAAI 2025) code
+    context injection attacks against LLM-based code completion tools. Achieved 99.4%
+    jailbreak success on GitHub Copilot and 46.3% on Amazon Q. Extracted 54 real email
+    addresses and 314 physical addresses from GitHub Copilot by embedding extraction
+    queries inside code comments.
+
+    '
+  remediation: 'Implement code completion output filtering for PII patterns. Apply
+    rate limiting on LLM code completion APIs. Separate code completion context from
+    PII-sensitive content. Monitor for code comments requesting user PII.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-024
+  name: machine-unlearning-extraction-bypass
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:extract|recover).*(?:unlearned|forgotten)\s+(?:data|model)\b
+  - (?i)\bpost.?unlearning\s+(?:attack|extract)\b
+  - (?i)\bunlearn(?:ing|ed).*(?:not\s+forgotten|still\s+extract)\b
+  - (?i)\bexact\s+unlearning.*bypass\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Post-unlearning data extraction attack pattern detected
+  description: 'Detects patterns associated with attacks that extract training data
+    after machine unlearning procedures. Wu et al. (2025) demonstrated that even exact
+    machine unlearning (full retraining without target data) does not prevent training
+    data extraction, challenging GDPR/CCPA right-to-be-forgotten compliance in LLM
+    deployments.
+
+    '
+  remediation: 'Do not rely solely on machine unlearning as a privacy guarantee. Combine
+    unlearning with differential privacy training and output filtering. Conduct post-unlearning
+    extraction audits before compliance certification.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-025
+  name: alignment-fine-tuning-data-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\balignment\s+(?:data|training)\s+extract(?:ion)?\b
+  - (?i)\bRLHF\s+(?:data|training).*extract\b
+  - (?i)\bDPO\s+(?:dataset|pairs).*(?:recover|extract|steal)\b
+  - (?i)\bweight.?diff.*(?:fine.?tun|alignment).*extract\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Alignment/fine-tuning data extraction attack pattern detected
+  description: 'Detects patterns targeting extraction of proprietary RLHF, DPO, or
+    instruction fine-tuning data from open-weight models. Barbero et al. (2025) demonstrated
+    that alignment training data (human preference annotations, instruction-response
+    pairs) is recoverable from model weight differences, revealing proprietary fine-tuning
+    procedures and sensitive training data.
+
+    '
+  remediation: 'Apply differential privacy during fine-tuning phases. Restrict public
+    release of intermediate checkpoints. Use provably protective fine-tuning procedures
+    (Segal et al., 2026) for sensitive alignment data. Monitor for weight-diff analysis
+    of released model versions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-026
+  name: equation-solving-mlaas-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bequation.?solving\s+(?:attack|extract)\b
+  - (?i)\bd\+1\s+(?:query|input|equation)\b
+  - (?i)\bsolve\s+(?:for\s+)?model\s+param(?:eter)?s\b
+  - (?i)\blogistic\s+regression.*(?:steal|extract|clone).*(?:amazon|bigml|mlaas)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Equation-solving MLaaS model parameter extraction detected
+  description: 'Detects equation-solving attacks that directly recover model parameters
+    from high-precision confidence values. Tramèr et al. (2016/USENIX Security) extracted
+    logistic regression models from Amazon ML and BigML using only 650 queries with
+    100% functional agreement by solving d+1 linear equations from d+1 random API
+    queries. Also recovered decision tree structures from BigML with 1,150-4,013 queries
+    at 100% fidelity.
+
+    '
+  remediation: 'Reduce API confidence value precision (round to 2-3 decimal places).
+    Monitor for systematic parameter-space probing patterns. Apply rate limiting on
+    API endpoints returning probability scores. Consider switching to hard-label APIs
+    where feasible — though hard-label stealing (Orekondy et al., ICLR 2020) also
+    succeeds, so active defenses are required.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-027
+  name: path-finding-decision-tree-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bdecision\s+tree.*(?:steal|extract|clone|path)\b
+  - (?i)\btree\s+path.?finding\s+(?:attack|query)\b
+  - (?i)\bconfidence\s+transition.*decision\s+boundary\b
+  - (?i)\badaptive\s+query.*(?:bigml|tree\s+model|path)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Decision tree path-finding extraction attack pattern detected
+  description: 'Detects path-finding attacks against decision tree APIs. Tramèr et
+    al. (2016/USENIX Security) used confidence values as pseudo-identifiers for tree
+    paths, recovering exact BigML decision tree structure with 1,150-4,013 queries
+    and 100% functional equivalence using iterative adaptive search that follows confidence
+    transitions across decision boundaries.
+
+    '
+  remediation: 'Add noise to confidence values returned by tree-based model APIs.
+    Limit query rate per user. Monitor for patterns of repeated queries near decision
+    boundaries. Consider returning only top-1 labels from decision tree APIs while
+    understanding that hard-label attacks also succeed.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-028
+  name: hard-label-only-model-stealing
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bhard.?label\s+(?:attack|steal|extraction)\b
+  - (?i)\btop.?1\s+(?:only|label).*(?:steal|distill|clone)\b
+  - (?i)\bsteal.*(?:without|no)\s+(?:confidence|softmax|probability)\b
+  - (?i)\bDFMS.?HL\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Hard-label-only model stealing attack pattern detected
+  description: 'Detects model stealing attacks that work using only top-1 predictions
+    without soft probability outputs. Orekondy et al. (ICLR 2020) showed passive defenses
+    based on omitting confidence values fail against hard-label attacks. Sanyal et
+    al. (CVPR 2022/DFMS-HL) achieved ~500x query reduction in hard-label settings
+    using GAN-based framework, defeating softmax-perturbation defenses entirely.
+
+    '
+  remediation: 'Hard-label restriction alone is insufficient as a defense. Combine
+    with active defenses (prediction poisoning, PRADA detection). Monitor for high-volume
+    API queries even on label-only endpoints. Apply rate limiting per authenticated
+    user identity.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-029
+  name: cloudleak-active-learning-boundary-queries
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bCloudLeak\b
+  - (?i)\bactive\s+learning.*(?:boundary|margin).*(?:steal|query|extract)\b
+  - (?i)\bdecision.?boundary.*query.*(?:steal|clone|surrogate)\b
+  - (?i)\bmargin.?based.*sample.*(?:victim|target|black.?box)\s+(?:api|model)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: CloudLeak-style active learning boundary query attack detected
+  description: 'Detects CloudLeak-style model stealing combining active learning with
+    adversarial samples near decision boundaries to maximize information gain per
+    query. Yu et al. (NDSS 2020) demonstrated near-perfect accuracy replication against
+    Microsoft, Face++, IBM, Google, and Clarifai commercial APIs by querying with
+    margin-based adversarial samples and transfer learning initialization from a model
+    zoo.
+
+    '
+  remediation: 'Implement PRADA-style query distribution monitoring to detect non-Gaussian
+    query patterns. Flag or rate-limit users submitting inputs that cluster near model
+    decision boundaries. Combine transfer learning detection with anomaly detection
+    on query spatial distribution.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-030
+  name: rl-query-selection-knockoff
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\breinforcement\s+learning.*(?:query\s+select|model\s+steal)\b
+  - (?i)\brl.?based.*(?:knockoff|model\s+steal|query\s+strategy)\b
+  - (?i)\breward.*(?:prediction\s+accuracy|fidelity).*victim\b
+  - (?i)\bpolicy.*(?:query|image).*black.?box.*model\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: RL-based adaptive query selection for model stealing detected
+  description: 'Detects reinforcement learning approaches to adaptive query selection
+    for model stealing. Orekondy et al. (CVPR 2019/Knockoff Nets) demonstrated an
+    RL policy that selects which images to query next to maximize information gain
+    from the victim model, improving sample efficiency and achieving production API
+    theft for as little as ~$30 with no prior knowledge of training data, model architecture,
+    or output semantics.
+
+    '
+  remediation: 'Monitor for non-uniform query distributions that cluster on high-information-density
+    inputs. Apply entropy-based query anomaly detection. Implement progressive rate
+    throttling for users exhibiting adaptive query patterns consistent with RL-guided
+    stealing.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-031
+  name: diffusion-synthetic-query-model-stealing
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bdiffusion.*(?:synthetic|generated).*(?:query|steal|clone)\b
+  - (?i)\bself.?paced.*knowledge\s+distillation.*(?:steal|clone)\b
+  - (?i)\bfew.?call\s+model\s+steal(?:ing)?\b
+  - (?i)\bactive\s+self.?paced.*distillation.*(?:few|call|query)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Diffusion model synthetic query generation for model stealing detected
+  description: 'Detects attacks using diffusion models to generate high-quality synthetic
+    query images for model stealing with minimal API calls. Hondru et al. (2023) combined
+    diffusion model image synthesis with self-paced active knowledge distillation
+    to steal black-box classifiers with substantially fewer API calls than prior GAN-based
+    approaches, demonstrating diffusion models outperform GANs for generating informationally
+    rich extraction queries.
+
+    '
+  remediation: 'Monitor for unusual synthetic-looking image API submissions. Implement
+    distribution-aware query monitoring that detects diffusion-generated image characteristics.
+    Combine with per-user rate limiting and prediction perturbation defenses.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-032
+  name: label-diversity-data-free-stealing
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\blabel\s+diversity.*(?:model\s+steal|data.?free|clone)\b
+  - (?i)\bDB.?DFMS\b
+  - (?i)\bclass.?balanced\s+(?:generation|sampling).*(?:steal|victim|api)\b
+  - (?i)\bdiversity.?based.*model\s+steal(?:ing)?\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Label diversity-optimized data-free model stealing detected
+  description: 'Detects data-free model stealing attacks that optimize for class-balanced
+    label diversity as the critical success factor. Liu et al. (2024/DB-DFMS) demonstrated
+    that diversity of generated samples across all output classes is the key variable
+    for attack success, achieving comparable or better performance than MAZE/DFME/DFMS-SL
+    at reduced query budget and framework complexity, working in an architecture-agnostic
+    evaluation setting.
+
+    '
+  remediation: 'Implement PRADA-style detection for non-natural class-balanced query
+    distributions. Apply prediction poisoning (Orekondy et al., ICLR 2020) to degrade
+    clone quality. Monitor for generators producing class-uniform API queries across
+    extended sessions.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-033
+  name: sequential-recommender-extraction-autoregressive
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bsequential\s+recommend(?:er|ation).*(?:steal|extract|clone|surrogate)\b
+  - (?i)\b(?:SASRec|BERT4Rec|GRU4Rec|NARM|Caser).*(?:steal|extract|attack)\b
+  - (?i)\bdata.?free.*recommend(?:er|ation).*(?:extract|surrogate)\b
+  - (?i)\bautoregressive.*recommend.*(?:synthetic|query|distill)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Sequential recommender system data-free model extraction detected
+  description: 'Detects model extraction attacks targeting sequential recommender
+    system APIs in data-free settings. Yue et al. (RecSys 2021) demonstrated first-ever
+    extraction of SASRec, BERT4Rec, GRU4Rec, NARM, and Caser recommenders using synthetic
+    sequences generated via the model''s autoregressive property, enabling downstream
+    profile pollution and data poisoning attacks. Synthetic queries resemble normal
+    user behavior, making detection difficult.
+
+    '
+  remediation: 'Monitor recommender APIs for systematic interaction sequence querying
+    patterns. Implement user-level rate limiting on top-k ranking APIs. Apply prediction
+    perturbation. Deploy anomaly detection on query sequence distributions comparing
+    to real user patterns.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-034
+  name: llm4mea-guided-recommender-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bLLM4MEA\b
+  - (?i)\bllm.*generat.*interact.*(?:steal|extract|recommender)\b
+  - (?i)\bsemantic.*coherent.*sequence.*(?:query|victim|api)\b
+  - (?i)\bllm.?as.?generator.*model\s+extract\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: LLM4MEA guided recommender model extraction attack detected
+  description: 'Detects LLM4MEA attacks using large language models to generate semantically
+    coherent synthetic interaction sequences for recommender system extraction. Zhao
+    et al. (2025) demonstrated improved extraction fidelity over random-sampling baselines
+    by leveraging LLM knowledge of item domains to produce distribution-aligned synthetic
+    queries, revealing a new attack surface where LLMs enable attacks on other ML
+    systems.
+
+    '
+  remediation: 'Implement semantic analysis of API query sequences to detect LLM-generated
+    synthetic interactions. Monitor for unusually coherent or well-structured item
+    sequences from new or low-history accounts. Apply user fingerprinting and behavioral
+    baseline analysis.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-035
+  name: likelihood-ratio-ranking-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\blikelihood.?ratio\s+(?:ranking|filter|extract)\b
+  - (?i)\breference\s+model.*(?:rank|score|extract)\b
+  - (?i)\bzeta.?score.*(?:memorized|training|extract)\b
+  - (?i)\bgpt.?2.*(?:verbatim|extract|memorize)\s+(?:sequence|text|data)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Likelihood-ratio training data extraction ranking attack detected
+  description: 'Detects training data extraction using likelihood ratio ranking between
+    target and reference models to identify memorized sequences. Carlini et al. (2020/USENIX
+    Security 2021) achieved 67% precision on top-ranked candidates, extracting 600+
+    verbatim sequences from GPT-2 including PII using ratio of target-model likelihood
+    vs. smaller reference model score as the memorization signal. Larger GPT-2 variants
+    were more vulnerable.
+
+    '
+  remediation: 'Implement output monitoring for high-likelihood ratio generation patterns.
+    Apply differential privacy during pretraining. Deduplicate training corpora to
+    reduce eidetic memorization. Monitor for high-volume generation requests with
+    diverse seed prefixes designed to cover the training data distribution.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-036
+  name: internet-prefix-extraction-technique
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\binternet.?prefix.*(?:extract|memorize|sample)\b
+  - (?i)\bprefix.*top.?k.*temperature.*(?:extract|sample|generate)\b
+  - (?i)\bseed\s+prefix.*(?:training\s+data|memoriz|verbatim)\b
+  - (?i)\bdecoding\s+strateg(?:y|ies).*(?:extract|training\s+data)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.txt'
+  - '*.json'
+  message: Internet-prefix seed extraction technique for training data detected
+  description: 'Detects extraction techniques that use real internet text as seed
+    prefixes to anchor model generation toward memorized training data. Carlini et
+    al. (2020) used internet-text prefixes with diverse decoding strategies (top-k,
+    temperature sampling) to generate candidates subsequently ranked by likelihood
+    ratio — a core technique refined by Yu et al. (ICML 2023) achieving 46.7% extraction
+    precision on GPT-Neo 1.3B.
+
+    '
+  remediation: 'Monitor for high-volume generation requests using real internet text
+    fragments as prefixes. Implement semantic similarity detection between generated
+    outputs and known training sources. Apply rate limiting on generation endpoints
+    with long prefix contexts.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-037
+  name: bag-of-tricks-extraction-sampling
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bexposure\s+bias\s+reduction.*extract\b
+  - (?i)\blook.?ahead\s+sampling.*(?:extract|memorize)\b
+  - (?i)\btoken.?level.*criterion.*(?:memorize|extract|training)\b
+  - (?i)\bgenerate.?then.?rank.*(?:training|memorized)\s+data\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Bag-of-tricks sampling optimization for training data extraction detected
+  description: 'Detects the bag-of-tricks sampling optimizations for improved training
+    data extraction. Yu et al. (ICML 2023) showed that temperature adjustments, exposure
+    bias reduction, look-ahead sampling, and token-level ranking criteria each independently
+    improve extraction precision. The best configuration achieved 46.7% precision
+    on GPT-Neo 1.3B targeted 1-eidetic extraction on the ICML Training Data Extraction
+    Challenge.
+
+    '
+  remediation: 'Monitor for systematic variation of temperature/sampling parameters
+    across API sessions. Implement generation output fingerprinting to detect repeated
+    exact sequences across different sampling configurations. Apply output watermarking
+    for generated text provenance.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-038
+  name: lira-shadow-model-membership-inference
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bLiRA\b.*(?:membership|inference|attack)\b
+  - (?i)\blikelihood\s+ratio\s+attack.*membership\b
+  - (?i)\boffline\s+(?:membership|MIA)\s+attack\b
+  - (?i)\bshadow\s+model.*(?:membership|training|inference)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: LiRA / shadow model membership inference attack pattern detected
+  description: 'Detects Likelihood Ratio Attack (LiRA) and shadow model-based membership
+    inference attacks. Shadow model training involves training multiple models on
+    random subsets of data to build a reference distribution for likelihood ratio
+    testing. These techniques, documented across the model extraction survey literature
+    (Ishihara 2023, Chen 2025, Zhao 2025), represent state-of-the-art MIA with significantly
+    improved AUC over simple loss-based thresholding.
+
+    '
+  remediation: 'Apply differential privacy during training to bound per-sample membership
+    signals. Implement output confidence score perturbation. Monitor for patterns
+    consistent with shadow model training (repeated queries with training/non-training
+    split patterns).
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-039
+  name: attenmia-attention-signal-membership-inference
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bAttenMIA\b
+  - (?i)\battention\s+(?:pattern|signal|weight).*membership\s+inference\b
+  - (?i)\battention\s+(?:map|head).*(?:member|training\s+data|in.training)\b
+  - (?i)\battention\s+output.*(?:MIA|privacy|memoriz)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: AttenMIA attention-signal membership inference attack detected
+  description: 'Detects AttenMIA-style membership inference attacks that exploit distinctive
+    attention patterns produced by LLMs for memorized versus non-memorized sequences.
+    Zaree et al. (2026) demonstrated that attention signals available via API or partial
+    model access achieve higher MIA AUC than loss-based methods, representing a new
+    side channel for privacy leakage from LLM attention outputs.
+
+    '
+  remediation: 'Restrict attention output availability in production APIs. Implement
+    attention pattern perturbation or aggregation before exposure. Monitor API requests
+    for attention output parameters. Apply differential privacy during training to
+    reduce attention-level membership signal strength.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-040
+  name: mia-guided-two-stage-targeted-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bMIA.?guided.*(?:extract|target)\b
+  - (?i)\bmembership\s+inference.*(?:filter|prioritize|guide).*extract\b
+  - (?i)\btwo.?stage.*(?:MIA|membership).*extract\b
+  - (?i)\bMIA\s+score.*(?:rank|select|filter).*training\s+data\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: MIA-guided two-stage targeted extraction pipeline detected
+  description: 'Detects two-stage extraction pipelines that use membership inference
+    as a pre-filter to prioritize high-probability extraction targets. Sahili et al.
+    (2025) demonstrated that MIA guidance improves targeted extraction precision and
+    efficiency by first applying MIA scoring to screen candidates before committing
+    resources to full extraction attempts, combining two dominant extraction attack
+    families into a more effective pipeline.
+
+    '
+  remediation: 'Defend against both MIA and extraction independently. Apply differential
+    privacy to reduce MIA signal quality. Monitor for two-phase query patterns (MIA
+    probe followed by targeted generation). Implement per-user query budget tracking
+    across sessions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-041
+  name: recollect-and-rank-pii-reconstruction
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\brecollect.?and.?rank\b
+  - (?i)\bbiased\s+cross.?entropy.*(?:rank|PII|candidate)\b
+  - (?i)\bpii\s+candidate.*(?:rank|score|reconstruct)\b
+  - (?i)\bfill.*mask.*(?:multiple|repeat).*(?:rank|select|pii)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Recollect-and-Rank PII reconstruction attack (R.R.) detected
+  description: 'Detects R.R. (Recollect and Rank) attacks that reconstruct masked
+    PII from scrubbed training data. Meng et al. (2025) achieved 25.73% top-1 accuracy
+    on the NeurIPS LLM-PC dataset — over 100% improvement vs. prior SOTAs — by prompting
+    the LLM to fill masked text multiple times, building a PII candidate pool, then
+    ranking with biased cross-entropy loss calibrated against a reference model. Evaluated
+    on GPT-2, LLaMA, Mistral, Phi.
+
+    '
+  remediation: 'PII scrubbing/masking alone is insufficient as privacy protection.
+    Combine with differential privacy training. Apply Private Memorization Editing
+    (PME) for known memorized PII items (Ruzzetti et al., 2025). Implement output
+    filtering detecting reconstructed masked entities.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-042
+  name: pii-compass-grounded-prefix-extraction
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bPII.?Compass\b
+  - (?i)\bgrounded\s+(?:prefix|prompt).*(?:pii|phone|email|extract)\b
+  - (?i)\bin.?domain.*ground.*(?:extract|pii|phone)\b
+  - (?i)\bsame.?domain.*prefix.*(?:target|pii|phone|email)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.ipynb'
+  message: PII-Compass grounded prefix extraction attack detected
+  description: 'Detects PII-Compass attacks that improve PII extraction over 10x by
+    grounding extraction prompts with in-domain data from a different data subject.
+    Nakka et al. (2024) achieved 6.86% phone number extraction rate (1 in 15 phone
+    numbers extractable) using 2,308 queries against GPT-J-6B trained on the Enron
+    email dataset, demonstrating that simple template prompts drastically underestimate
+    true PII extraction risk.
+
+    '
+  remediation: 'Apply differential privacy during fine-tuning on PII-containing datasets.
+    Implement PII output filtering using regex and NER-based detection. Monitor for
+    systematic extraction prompts using name-based templates. Consider model editing
+    (PME) to remove memorized PII.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-043
+  name: phone-number-pii-extraction-prompts
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)(?:phone\s+number|telephone|mobile)\s+(?:for|of)\s+\w+
+  - (?i)\bthe\s+(?:phone|fax|cell)\s+number\s+of\s+[A-Z]\w+
+  - (?i)call\s+(?:me|them|him|her)\s+at\s+(?:their|his|her)?\s+number\b
+  - (?i)\bcontact\s+\w+\s+(?:at|via)\s+(?:phone|cell|number)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Phone number PII extraction prompt pattern detected
+  description: 'Detects prompt patterns targeting phone number extraction from LLMs.
+    Nakka et al. (2024/PII-Compass) demonstrated 6.86% extraction rate for phone numbers.
+    Carlini et al. (2020) extracted real phone numbers from GPT-2. Zhang et al. (2023/ETHICIST)
+    extracted phone and fax numbers from GPT-Neo 1.3B using soft prompt tuning. 1
+    in 15 phone numbers in fine-tuning corpora may be directly extractable.
+
+    '
+  remediation: 'Implement regex-based phone number pattern filtering on LLM outputs
+    (E.164 format, national formats). Apply NER-based PII detection on outputs. Do
+    not fine-tune LLMs on raw PII-containing datasets without differential privacy.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-044
+  name: email-address-pii-extraction-prompts
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bemail\s+(?:address\s+)?(?:for|of)\s+\w+
+  - (?i)what\s+is\s+(?:the\s+)?email\s+(?:address\s+)?(?:for|of)\b
+  - (?i)\bsend\s+(?:email|message)\s+to\s+\w+\s+at\b
+  - (?i)\b\w+\s+(?:at|@)\s+(?:gmail|yahoo|outlook|hotmail|enron)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Email address PII extraction prompt pattern detected
+  description: 'Detects prompt patterns targeting email address extraction from LLMs.
+    Carlini et al. (2020) extracted real email addresses from GPT-2. Cheng et al.
+    (2024/AAAI 2025) extracted 54 real email addresses from GitHub Copilot via code
+    comment injection with 99.4% jailbreak success. Zhang et al. (2023/ETHICIST) extracted
+    email addresses from GPT-Neo 1.3B. Email addresses are among the most commonly
+    memorized PII types in LLMs trained on web-sourced corpora.
+
+    '
+  remediation: 'Implement email address pattern filtering on LLM outputs (RFC 5322
+    regex detection). Apply NER-based output PII scanning. Monitor for systematic
+    extraction prompts targeting named individuals. Apply differential privacy during
+    training on email-containing corpora.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-045
+  name: physical-address-pii-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)(?:home|work|physical|mailing)\s+address\s+(?:of|for)\s+\w+
+  - (?i)where\s+(?:does|do|did)\s+\w+\s+(?:live|reside|work)\b
+  - (?i)\bstreet\s+address\s+(?:of|for)\s+\w+
+  - (?i)\bzip\s+code.*(?:of|for)\s+\w+\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Physical address PII extraction prompt pattern detected
+  description: 'Detects prompt patterns targeting physical/mailing address extraction
+    from LLMs. Cheng et al. (2024/AAAI 2025) extracted 314 physical addresses from
+    GitHub Copilot via code context injection — the largest PII category extracted
+    in that study. Carlini et al. (2020) extracted full home addresses from GPT-2.
+    Physical addresses represent high-severity PII linked to real-world harm including
+    stalking and harassment.
+
+    '
+  remediation: 'Implement address pattern filtering on outputs (street, city, state,
+    postal code patterns). Apply differential privacy during training. Monitor code
+    completion APIs for address extraction queries. Implement NER-based output scanning
+    for location entities.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-046
+  name: uuid-canary-secret-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bcanary\s+(?:token|insertion|extraction|string)\b
+  - (?i)\bUUID.*(?:extract|memoriz|training)\b
+  - (?i)\b128.?bit.*(?:secret|uuid|token).*(?:extract|memoriz)\b
+  - (?i)\bsecret\s+(?:string|token).*(?:once|single|eidetic).*training\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Canary token / UUID secret extraction from training data detected
+  description: 'Detects attacks targeting extraction of canary tokens, UUIDs, or secrets
+    that appear only once in training data (1-eidetic memorization). Carlini et al.
+    (2020) extracted real 128-bit UUIDs from GPT-2 training data. Secret keys, API
+    tokens, and canary strings inserted into training documents for privacy auditing
+    can be extracted verbatim even when they appear only once in the training corpus.
+
+    '
+  remediation: 'Never include secret keys, API tokens, or sensitive identifiers in
+    training data, even once. Use canary auditing during training to detect memorization
+    before deployment. Apply differential privacy at the sequence level to protect
+    singleton training examples.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+- id: MEDUSA-ME-SCAN-047
+  name: irc-chat-private-communication-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bIRC.*(?:log|chat|message).*(?:extract|memorize|leak)\b
+  - (?i)\bchat\s+(?:log|history).*(?:verbatim|memorize|extract)\b
+  - (?i)\bprivate.*(?:message|conversation).*(?:training|memorize|extract)\b
+  - (?i)\bchat\s+dataset.*(?:pii|personal|extract|verbatim)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: IRC/chat log private communication extraction from LLM detected
+  description: 'Detects extraction of private communications (IRC logs, chat histories,
+    private messages) from LLMs trained on web-crawled data. Carlini et al. (2020)
+    extracted verbatim IRC conversations from GPT-2, demonstrating that private user
+    communications scraped from the web can be memorized and extracted verbatim. Chat
+    logs often contain personal names, locations, relationship details, and other
+    sensitive personal information.
+
+    '
+  remediation: 'Audit training datasets for scraped private communication sources.
+    Apply data deduplication. Implement output monitoring for characteristic chat/IRC
+    formatting patterns. Apply differential privacy during pretraining to protect
+    rare private sequences.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-048
+  name: code-credential-extraction-training-data
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)(?:api.?key|secret.?key|access.?token|password).*(?:memorize|training|extract|leak)\b
+  - (?i)\bsource\s+code.*(?:memorize|training\s+data|verbatim|extract)\b
+  - (?i)\bcopilot.*(?:secret|key|credential|password).*(?:output|extract|leak)\b
+  - (?i)\bcode.*(?:api.?key|secret).*(?:suggest|complet|generat)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: Code credential extraction from code LLM training data detected
+  description: 'Detects extraction of API keys, secrets, or credentials memorized
+    from code training data. Carlini et al. (2020) extracted code including real secrets
+    from GPT-2. Cheng et al. (2024/AAAI 2025) demonstrated code completion LLMs (GitHub
+    Copilot, Amazon Q) memorize and can emit developer credentials. Code LLMs trained
+    on public repositories that previously contained hard-coded secrets are especially
+    vulnerable to credential extraction.
+
+    '
+  remediation: 'Filter training datasets to remove all hard-coded credentials using
+    secret scanning tools. Implement output filtering for credential patterns (API
+    key regex, JWT patterns, base64 secrets). Monitor code completion outputs for
+    credential-like strings. Apply GitHub Advanced Security or equivalent tools to
+    scan completion suggestions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+- id: MEDUSA-ME-SCAN-049
+  name: fine-tuning-data-higher-memorization-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bfine.?tun(?:ing|ed)\s+(?:data|dataset).*(?:extract|memorize|higher)\b
+  - (?i)\binstruction.?tun(?:ing|ed).*(?:memorize|extract|leak)\b
+  - (?i)\bSFT.*(?:memorize|extract|leak)\b
+  - (?i)\bfine.?tun.*more\s+memorize\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Fine-tuning data extraction attack leveraging elevated memorization rates
+    detected
+  description: 'Detects attacks exploiting the higher memorization rates of LLM fine-tuning
+    data vs. pretraining data. Segal et al. (2026) established that fine-tuning examples
+    are more reliably extractable than pretraining examples, making fine-tuning datasets
+    (SFT data, instruction-response pairs) a high-priority attack target. Fine-tuning
+    typically uses smaller, repeated datasets that are memorized more completely than
+    pretraining examples.
+
+    '
+  remediation: 'Apply provably protective fine-tuning procedures (Segal et al., 2026).
+    Use differential privacy during fine-tuning with appropriate epsilon budgets.
+    Avoid including sensitive data in fine-tuning sets without privacy guarantees.
+    Audit fine-tuned models for memorization before deployment using extraction challenge
+    methodology.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-050
+  name: weight-diff-alignment-data-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bweight.?diff(?:erence)?.*(?:fine.?tun|alignment|rlhf|recover)\b
+  - (?i)\bmodel\s+weight.*subtract.*(?:base|pretrain).*(?:extract|recover)\b
+  - (?i)\bdelta\s+weight.*(?:alignment|fine.?tun|dpo|rlhf)\b
+  - (?i)\bopen.?weight.*alignment.*extract.*(?:data|pair|preference)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Weight-difference alignment training data extraction detected
+  description: 'Detects attacks that extract alignment fine-tuning data (RLHF, DPO
+    preference pairs, instruction-response data) from open-weight LLMs by analyzing
+    the difference between base and aligned model weights. Barbero et al. (2025) demonstrated
+    that proprietary alignment training data is recoverable from model weight deltas,
+    exposing human preference annotations and proprietary fine-tuning procedures from
+    Llama and Mistral family models.
+
+    '
+  remediation: 'Apply differential privacy during alignment fine-tuning phases. Restrict
+    public release of fine-tuned model checkpoints where alignment data is sensitive.
+    Use provably protective fine-tuning (Segal et al., 2026). Monitor for weight-diff
+    analysis pipelines applied to released open-weight models.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-051
+  name: rlhf-dpo-preference-data-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bRLHF\s+(?:data|dataset|pair).*(?:extract|recover|steal)\b
+  - (?i)\bDPO\s+(?:preference|pair|data).*(?:extract|recover|leak)\b
+  - (?i)\bpreference\s+(?:annotation|pair|data).*(?:extract|leak|recover)\b
+  - (?i)\bhuman\s+feedback\s+data.*(?:extract|recover|steal)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: RLHF/DPO alignment preference data extraction attack detected
+  description: 'Detects attacks targeting proprietary RLHF or DPO preference annotation
+    data from aligned LLMs. Barbero et al. (2025) demonstrated recovery of human preference
+    pairs and instruction-response training examples from open-weight aligned models.
+    This exposes the substantial IP investment in alignment annotation (often millions
+    of dollars in human labeling costs) and potentially sensitive annotator preferences
+    and biases.
+
+    '
+  remediation: 'Apply differential privacy during RLHF/DPO training phases. Do not
+    release intermediate alignment checkpoints publicly. Use Segal et al. (2026) provable
+    protection for fine-tuning data. Monitor for queries specifically probing alignment-related
+    model behavioral boundaries.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-052
+  name: machine-unlearning-bypass-residual
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bgradient\s+ascent.*unlearn(?:ing)?\b
+  - (?i)\bLoKU\b
+  - (?i)\binverted\s+hinge\s+loss\b
+  - (?i)\bfisher.?weighted\s+(?:LoRA|lora|low.?rank).*unlearn\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Machine unlearning weakness / bypass via residual memorization detected
+  description: 'Detects patterns related to machine unlearning methods and their known
+    bypass vulnerabilities. Cha et al. (2024/ICLR 2025) proposed LoKU — combining
+    Inverted Hinge Loss and Fisher-weighted LoRA (FILA) — to improve unlearning robustness
+    over naive gradient ascent. Wu et al. (2025) demonstrated that even exact unlearning
+    (full retraining without target data) does not prevent training data extraction,
+    challenging GDPR right-to-be-forgotten compliance.
+
+    '
+  remediation: 'Do not rely solely on approximate unlearning (gradient ascent, LoRA-based)
+    as a privacy guarantee. Combine with differential privacy training. Conduct post-unlearning
+    extraction audits before GDPR compliance certification. Consider PME (Ruzzetti
+    et al., 2025) for targeted PII removal as an alternative or complement.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-053
+  name: copyright-verbatim-article-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bverbatim.*(?:new\s+york\s+times|nyt|newspaper|article|copyrighted)\b
+  - (?i)\bcopyrighted\s+(?:content|text|article).*(?:extract|memorize|reproduce)\b
+  - (?i)\bwall\s+street\s+journal.*(?:verbatim|extract|memorize)\b
+  - (?i)\bnews\s+article.*(?:verbatim|memorize|extract|reproduce)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Copyrighted news article verbatim extraction from LLM detected
+  description: 'Detects attempts to extract verbatim copyrighted news content from
+    LLMs. Su et al. (2024) extracted verbatim sentences from 73/3,723 New York Times
+    articles and 7/1,349 Wall Street Journal articles using instructional decomposition
+    with simple benign-appearing prompts. Over 20% of verbatim sentences were recovered
+    from 6 NYT articles. Directly relevant to copyright litigation against AI companies
+    over training data use.
+
+    '
+  remediation: 'Implement output watermark detection to identify reproduced copyrighted
+    content. Apply semantic similarity checking of outputs against known copyrighted
+    sources. Monitor for piecewise article reconstruction queries (first sentence,
+    then next, etc.). Consider licensing agreements or training data exclusion for
+    major publishers.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-054
+  name: behavioral-inference-indirect-prompt-leakage
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bbehavioral\s+(?:probe|inference|clue).*system\s+prompt\b
+  - (?i)\bindirect.*(?:leak|infer|extract).*(?:system|instruction)\s+prompt\b
+  - (?i)\bprobe.*model.*(?:constrain|restrict|instruction)\b
+  - (?i)\bmodel\s+behavior.*(?:reveal|infer).*(?:system|prompt|instruction)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Behavioral inference-based indirect system prompt extraction detected
+  description: 'Detects indirect system prompt extraction via behavioral probing —
+    querying an LLM with carefully crafted inputs to infer system prompt contents
+    through model behavior without asking directly. Das et al. (2025) demonstrated
+    that behavioral inference can reveal key constraints and instructions even when
+    direct extraction is blocked, and is harder to defend against than direct extraction
+    attempts because it uses seemingly innocuous queries.
+
+    '
+  remediation: 'Add explicit confidentiality instructions to system prompts. Implement
+    semantic output monitoring that detects partial system prompt reproduction via
+    paraphrase or behavioral fingerprinting. Deploy output filtering catching indirect
+    leakage. Monitor for systematic behavioral probing that explores model constraint
+    boundaries.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-055
+  name: jailbreak-system-prompt-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bjailbreak.*(?:system\s+prompt|instruction|extract)\b
+  - (?i)\bbypass.*(?:safety|filter).*(?:reveal|show|print).*(?:system|prompt|instruction)\b
+  - (?i)\bDAN.*(?:system\s+prompt|instruction)\b
+  - (?i)\bact\s+as.*(?:no\s+restriction|unrestricted).*(?:show|reveal)\s+(?:your\s+)?system\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Jailbreak-assisted system prompt extraction attempt detected
+  description: 'Detects jailbreak techniques used as a precursor to system prompt
+    extraction. Das et al. (2025) documented jailbreak-assisted prompt extraction
+    as one of the most effective attack strategies against deployed LLMs. Bypassing
+    safety filters enables subsequent disclosure of confidential system instructions
+    containing business logic, API configurations, and proprietary operational parameters.
+
+    '
+  remediation: 'Implement both input jailbreak detection and output system-prompt
+    content filtering as independent defense layers. Add explicit confidentiality
+    instructions to system prompts. Use the Das et al. (2025) defense taxonomy to
+    harden system prompt deployments. Monitor for known jailbreak patterns preceding
+    prompt extraction requests.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-056
+  name: inference-time-cross-user-context-leakage
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\binference.?time.*(?:context|conversation).*(?:leak|extract|steal)\b
+  - (?i)\bconversation\s+history.*(?:leak|extract|other\s+user)\b
+  - (?i)\bcross.?user.*(?:context|conversation|session).*(?:leak|access)\b
+  - (?i)\bsystem\s+context.*(?:bleed|leak|other\s+session)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Inference-time cross-user context leakage attack detected
+  description: 'Detects attacks targeting inference-time context leakage — extracting
+    sensitive user context (system prompts, conversation history, session data) from
+    deployed LLMs that might bleed across user sessions. Mireshghallah et al. (2025/ICML)
+    identified inference-time context leakage as an under-studied but immediately
+    scalable privacy threat, especially in multi-user LLM deployments, shared inference
+    infrastructure, and RAG systems.
+
+    '
+  remediation: 'Implement strict session isolation in multi-user LLM deployments.
+    Apply conversation context boundaries with no cross-session memory leakage. Monitor
+    for queries probing other users'' context windows. Apply per-request authentication
+    and rate limiting.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-057
+  name: multilingual-differential-memorization-extraction
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bnon.?english.*(?:extract|memorize|language\s+model)\b
+  - (?i)\bmultilingual.*(?:extract|memorize|privacy\s+risk)\b
+  - (?i)\blanguage.?specific.*memorization\b
+  - (?i)\b(?:french|german|chinese|arabic|spanish).*(?:extract|memorize|model).*privacy\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Multilingual LLM differential extraction risk pattern detected
+  description: 'Detects extraction attempts exploiting differential memorization properties
+    across languages. Mishra et al. (2025) demonstrated significant disparities in
+    memorization rates and extraction success between English and non-English LLMs,
+    with non-English models potentially having different (sometimes more exploitable)
+    memorization characteristics and being under-monitored attack surfaces in current
+    security deployments.
+
+    '
+  remediation: 'Apply consistent differential privacy and extraction monitoring across
+    all language-specific model variants. Do not assume English-only threat models.
+    Evaluate memorization rates and extraction risks for each language-specific deployment
+    independently. Implement language- agnostic output PII filtering across all supported
+    languages.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-058
+  name: sequence-level-probabilistic-extraction-risk
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bsequence.?level\s+(?:leak|extraction)\s+risk\b
+  - (?i)\bper.?sequence.*extraction\s+probabilit\b
+  - (?i)\btop.?k.*top.?p.*(?:multiple|30|N)\s+(?:sample|query|attempt)\b
+  - (?i)\brandomized\s+decoding.*(?:leak|extract|underestimate)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Sequence-level probabilistic extraction via randomized decoding detected
+  description: 'Detects extraction attacks leveraging randomized decoding (top-k,
+    top-p) with multiple attempts per sequence to probe per-sequence extraction probability.
+    Tiwari et al. (2024) showed standard extraction rate metrics underestimate leakage
+    by up to 2.14x under randomized decoding, and that 30-41% of training sequences
+    are easier to extract with shorter prefixes or smaller models — contrary to conventional
+    wisdom about extraction difficulty.
+
+    '
+  remediation: 'Do not rely solely on population-level extraction rate metrics for
+    privacy risk assessment. Apply per-sequence probabilistic leakage analysis during
+    pre-deployment auditing. Implement generation monitoring that tracks repeated
+    similar sequences across multiple temperature/sampling parameter combinations.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-059
+  name: production-llm-hidden-dimension-recovery
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bhidden\s+(?:dim(?:ension)?|size).*(?:recover|infer|extract|confirm)\b
+  - (?i)\bada.*(?:1024|hidden|dimension|babbage|2048).*(?:extract|confirm|recover)\b
+  - (?i)\bprojection\s+(?:matrix|layer).*(?:recover|extract|steal|rank)\b
+  - (?i)\bsvd.*(?:projection|embedding|extract|recover).*(?:api|model)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Production LLM hidden dimension / projection matrix recovery attack detected
+  description: 'Detects attacks targeting architectural secrets of production LLMs
+    via logprob API. Carlini et al. (ICML 2024) confirmed OpenAI ada hidden_dim=1024,
+    babbage hidden_dim=2048, recovered full projection matrix for under $20, and estimated
+    full gpt-3.5-turbo matrix recovery cost under $2,000. SVD-based rank determination
+    from logprob API responses enables parameter extraction revealing proprietary
+    architectural choices.
+
+    '
+  remediation: 'Restrict logprob precision to at most 2 significant digits in API
+    responses. Limit logit- bias parameter access. Monitor for systematic token probability
+    probing sequences. OpenAI and Google have both implemented specific mitigations
+    following responsible disclosure of this attack — verify current mitigations are
+    active.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-060
+  name: copilot-amazon-q-code-context-jailbreak
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:github\s+copilot|amazon\s+q).*(?:jailbreak|bypass|inject)\b
+  - (?i)\bcode\s+comment.*(?:jailbreak|bypass|harmful|extract)\b
+  - (?i)\bstring\s+concatenat.*(?:obscure|bypass|filter|jailbreak)\b
+  - (?i)\bcode.*(?:variable|assignment).*(?:harmful|jailbreak|forbidden)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  message: GitHub Copilot / Amazon Q code-context jailbreak injection detected
+  description: 'Detects code-embedded jailbreak attacks targeting LLM-based code completion
+    tools. Cheng et al. (2024/AAAI 2025) achieved 99.4% jailbreak success on GitHub
+    Copilot and 46.3% on Amazon Q by embedding harmful requests inside code comments,
+    string assignments, and variable concatenations that bypass LLM safety filters
+    designed for natural language. Code-framed queries receive different safety treatment
+    than equivalent natural language.
+
+    '
+  remediation: 'Apply code-completion-specific safety filtering that processes code
+    structure including comments and string literals as potential harmful content.
+    Implement semantic analysis of code context. Monitor code completion APIs for
+    extraction and jailbreak patterns embedded in code structure.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-061
+  name: profile-pollution-post-extraction-attack
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bprofile\s+pollution\s+attack\b
+  - (?i)\badversarial\s+sequence.*(?:recommend|profile)\b
+  - (?i)\bpoison.*recommend(?:er|ation).*(?:extracted|stolen|surrogate)\s+model\b
+  - (?i)\bfake\s+user.*(?:bias|poison).*retrain.*recommend\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Profile pollution or recommender poisoning via extracted surrogate model
+    detected
+  description: 'Detects downstream attacks using extracted surrogate models to launch
+    profile pollution or data poisoning against recommender systems. Yue et al. (RecSys
+    2021) demonstrated that after stealing a sequential recommender model, the white-box
+    surrogate enables crafting adversarial sequences for profile pollution (degrading
+    recommendation quality) and generating fake users for data poisoning — attacks
+    impossible without the extracted white-box model.
+
+    '
+  remediation: 'Implement anomaly detection on user interaction patterns for adversarial
+    sequences. Monitor for new accounts submitting unusual interaction patterns inconsistent
+    with normal user behavior. Apply Byzantine-robust aggregation during model retraining.
+    Deploy model extraction defenses as a prerequisite to downstream attack prevention.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-062
+  name: adversarial-transfer-via-stolen-bert
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\badversarial\s+(?:example|sample).*(?:stolen|extracted|surrogate)\s+model\b
+  - (?i)\btransfer.*adversarial.*(?:black.?box|victim).*via\s+(?:clone|surrogate|stolen)\b
+  - (?i)\bwhite.?box.*adversarial.*stolen.*(?:transfer|attack|victim)\b
+  - (?i)\bextract.*(?:then|to\s+craft).*adversarial\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Adversarial example transfer attack via stolen model detected
+  description: 'Detects two-stage attacks: (1) steal a BERT/NLP model via API extraction,
+    then (2) craft adversarial examples on the white-box stolen copy and transfer
+    them to the original black-box API. He et al. (NAACL 2021) demonstrated high adversarial
+    transferability from stolen BERT models to production APIs — +29 to +44 percentage
+    points improvement over prior attacks — enabling evasion without direct gradient
+    access.
+
+    '
+  remediation: 'Implement adversarial example detection at the API level as a defense-in-depth
+    layer. Deploy adversarial training to reduce transferability from potential stolen
+    models. Monitor for systematically adversarially-perturbed inputs. Rate limit
+    API endpoints to make the initial model stealing phase more expensive and detectable.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-063
+  name: inversenet-high-confidence-inversion
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bInverseNet\b
+  - (?i)\bhigh.?confidence\s+sample.*(?:invert|reconstruct|inversion)\b
+  - (?i)\bmodel\s+inversion.*(?:query\s+budget|reduce|fewer)\b
+  - (?i)\binversed\s+dataset.*(?:train|surrogate|extract)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: InverseNet combined model inversion and extraction attack detected
+  description: 'Detects InverseNet attacks that use model inversion on high-confidence
+    API samples to reconstruct training-like data, then train a surrogate model on
+    the inverted dataset. Gong et al. (IJCAI 2021) demonstrated this against Alibaba
+    Cloud''s commercial API, achieving significantly greater functional similarity
+    than state-of-the-art with substantially fewer queries by leveraging training-distribution
+    proximity of inverted data.
+
+    '
+  remediation: 'Limit confidence score precision in commercial API responses to prevent
+    high-confidence sample identification. Apply prediction poisoning (Orekondy et
+    al., ICLR 2020) to degrade inversion quality. Monitor for repeated queries concentrating
+    on high-confidence input regions near class centroids.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-064
+  name: sybil-account-embedding-api-theft
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bsybil.*(?:account|attack).*(?:embed|encode|api)\b
+  - (?i)\bmultiple.*account.*(?:distribut|spread).*(?:embed|query|request)\b
+  - (?i)\brotate.*(?:account|key|token).*(?:embed|api).*(?:steal|extract)\b
+  - (?i)\bper.?user.*transform.*bypass\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.json'
+  message: Sybil account-based embedding API query distribution for theft detected
+  description: 'Detects sybil account attacks distributing embedding API queries across
+    many accounts to evade per-user rate limiting and coverage-based detection. Dubinski
+    et al. (NeurIPS 2023/B4B) specifically identified sybil attacks as a key threat
+    to per-user embedding theft detection and proposed per-user affine/pad/shuffle
+    transformations to defeat them. Tamber et al. (2024/2025) targeted OpenAI and
+    Cohere embedding APIs for under $300.
+
+    '
+  remediation: 'Deploy B4B (Bucks for Buckets) defense with per-user affine transformations
+    that prevent sybil account query aggregation. Implement IP-level and behavioral
+    clustering to detect coordinated multi-account queries. Apply per-user embedding
+    space coverage tracking via LSH.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-307
+- id: MEDUSA-ME-SCAN-065
+  name: multi-teacher-embedding-distillation-theft
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bmulti.?teacher\s+distillation.*(?:embed|openai|cohere|api)\b
+  - (?i)\bdistill.*(?:openai|cohere).*(?:student|thief|clone)\b
+  - (?i)\b(?:text.?embedding.?ada|embed.?v3|cohere.?embed).*(?:steal|distill|clone)\b
+  - (?i)\bthief\s+model.*(?:embed|retrieval|distill)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Multi-teacher commercial embedding model distillation theft detected
+  description: 'Detects attacks combining multiple commercial embedding APIs (OpenAI,
+    Cohere) as teachers to distill a single stolen student model. Tamber et al. (2024/2025)
+    demonstrated stealing OpenAI text-embedding-ada-002, text-embedding-3-small/large,
+    and Cohere embed-v3 for under $300, including multi-teacher distillation into
+    a single robust student and distillation into smaller dimension models that remain
+    competitive on IR benchmarks.
+
+    '
+  remediation: 'Implement cross-API fingerprinting to detect coordinated multi-provider
+    embedding theft. Apply B4B per-user embedding transformations. Rate limit batch
+    embedding API calls. Monitor for query patterns consistent with corpus-wide text-embedding
+    collection from new or low-activity accounts.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-066
+  name: gradient-inversion-federated-cross-client
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bgradient\s+inversion.*(?:federated|FL|client)\b
+  - (?i)\bmalicious\s+client.*(?:federated|gradient|update)\b
+  - (?i)\bcrafted\s+gradient.*(?:memorize|emit|leak).*(?:other|client|participant)\b
+  - (?i)\bfederated.*(?:extract|leak).*(?:other\s+client|cross.?client)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Federated learning gradient inversion cross-client data extraction detected
+  description: 'Detects gradient inversion attacks in federated LLM fine-tuning where
+    a malicious client crafts gradient updates to cause the global model to memorize
+    and emit other clients'' private data. Hu et al. (2025) demonstrated this against
+    Llama-family models in federated fine-tuning settings, showing standard FL defenses
+    (gradient clipping, differential privacy) are partially mitigated but insufficient
+    to fully prevent cross-client data extraction.
+
+    '
+  remediation: 'Apply per-client differential privacy with gradient clipping and appropriate
+    noise levels. Implement secure aggregation protocols (SecAgg) to prevent individual
+    gradient inspection. Use Byzantine-fault-tolerant aggregation (Krum, Trimmed Mean)
+    to detect malicious client gradient updates. Audit federated training for anomalous
+    gradient patterns.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-067
+  name: pme-private-memorization-editing
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bprivate\s+memorization\s+edit(?:ing)?\b
+  - (?i)\bPME\b.*(?:bypass|evade|circumvent)\b
+  - (?i)\bfeed.?forward\s+layer.*(?:pii|memorize|edit)\b
+  - (?i)\bmodel\s+edit(?:ing)?.*(?:pii|memorize|privacy)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Private Memorization Editing (PME) interaction or bypass pattern detected
+  description: 'Detects patterns related to Private Memorization Editing (PME — Ruzzetti
+    et al., 2025) which edits feed-forward layers responsible for PII generation,
+    reducing extraction attack accuracy to zero in some configurations. Also detects
+    potential bypass attempts exploiting PME''s limitation: it requires knowing which
+    specific training examples contain memorized PII, leaving alternative extraction
+    pathways potentially uncovered.
+
+    '
+  remediation: 'Complement PME with differential privacy training and output filtering
+    as defense-in-depth. PME is not a complete privacy guarantee — periodic re-auditing
+    of memorized PII post-edit is required. Combine with ETHICIST-style extraction
+    auditing to identify PII not yet covered by PME edits.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-068
+  name: model-architecture-internal-property-theft
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\barchitecture\s+(?:steal|recover|extract|reconstruct)\b
+  - (?i)\bhyperparameter\s+(?:steal|infer|extract|recover)\b
+  - (?i)\binternal\s+property\s+(?:theft|extract|recover)\b
+  - (?i)\bmodel\s+(?:depth|width|layer)\s+(?:infer|recover|extract)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Model architecture internal property theft attack detected
+  description: 'Detects attacks aimed at recovering model architecture, hyperparameters,
+    or internal structural properties from API access. Fadhli et al. (2025) categorized
+    internal property theft as one of eight distinct model stealing objectives. Carlini
+    et al. (ICML 2024) demonstrated projection layer recovery as the first practical
+    step toward full weight reconstruction, confirming hidden dimensions of production
+    models.
+
+    '
+  remediation: 'Apply API response rate limiting and output abstraction layers. Do
+    not expose model architecture details in API documentation or error messages.
+    Apply logprob precision restrictions. Monitor for systematic probing queries designed
+    to characterize model behavioral boundaries and architecture.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-069
+  name: attribute-inference-bert-training-demographics
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\battribute\s+inference.*(?:training\s+data|bert|nlp\s+api)\b
+  - (?i)\bdemographic\s+(?:attribute|inference).*(?:stolen|extracted|bert)\s+model\b
+  - (?i)\bover.?learn(?:ing)?.*(?:training\s+distribution|bert|attribute)\b
+  - (?i)\bsensitive\s+attribute.*(?:infer|extract).*(?:api|bert|nlp)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Attribute inference against BERT API training data demographics detected
+  description: 'Detects attribute inference attacks using stolen BERT models to infer
+    sensitive training data attributes (demographics, topics, personal characteristics).
+    Lyu et al. (2021/ACL Findings 2022) demonstrated that BERT''s over-learning of
+    training distributions enables a stolen white-box model to accurately infer sensitive
+    attributes — both stages validated against Google Prediction API, Microsoft Azure
+    ML, and Amazon ML with both defenses tested (confidence perturbation, output rounding)
+    shown to be insufficient.
+
+    '
+  remediation: 'Apply differential privacy during fine-tuning to reduce BERT over-learning
+    of sensitive attributes. Implement attribute-specific privacy regularization.
+    Monitor BERT API access for extraction patterns as a prerequisite defense. Deploy
+    output perturbation to degrade functional quality of potential stolen models.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-070
+  name: regulatory-evasion-gdpr-unlearning
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bGDPR.*(?:bypass|evade|circumvent|unlearning|erase)\b
+  - (?i)\bright.?to.?be.?forgotten.*(?:bypass|fail|insufficient)\b
+  - (?i)\bCCPA.*(?:bypass|evade|extract)\b
+  - (?i)\bcompliance.*(?:bypass|evade).*(?:model|unlearn|erase)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Regulatory compliance evasion via unlearning bypass or extraction detected
+  description: 'Detects patterns exploiting model extraction or unlearning failures
+    to bypass regulatory compliance (GDPR right-to-be-forgotten, CCPA deletion rights).
+    Wu et al. (2025) demonstrated exact unlearning fails to prevent extraction, directly
+    challenging GDPR compliance claims. Fadhli et al. (2025) identified regulatory
+    evasion as a distinct model stealing motivation: using stolen certified models
+    to avoid expensive certification processes.
+
+    '
+  remediation: 'Do not certify GDPR right-to-be-forgotten compliance based solely
+    on machine unlearning. Combine unlearning with differential privacy and extraction
+    auditing. Conduct post-unlearning privacy audits before compliance claims. Consult
+    legal counsel on LLM-specific right-to-be- forgotten compliance obligations under
+    current regulatory frameworks.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-071
+  name: model-watermark-removal-for-ip-evasion
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bwatermark.*(?:detect|remove|evade|bypass).*(?:stolen|surrogate|extract)\b
+  - (?i)\bdataset\s+inference.*(?:detect|watermark|stolen)\b
+  - (?i)\bmodel\s+fingerprint.*(?:detect|remove|evade)\b
+  - (?i)\bIP\s+(?:protection|detect|watermark).*(?:stolen|extract|clone)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Model watermark detection or removal for stolen model IP evasion detected
+  description: 'Detects attempts to detect or remove model watermarks in extracted/stolen
+    models to evade IP ownership verification. Model watermarking and dataset inference
+    are reactive defenses cited across multiple papers (Dubinski et al., NeurIPS 2023;
+    Zhao et al. survey, 2025) that attempt to prove post-hoc ownership of stolen models.
+    Adaptive attackers may probe for watermark triggers or attempt removal via fine-tuning,
+    quantization, or pruning.
+
+    '
+  remediation: 'Deploy robust watermarking schemes that survive fine-tuning (cryptographic
+    backdoor-based watermarks). Combine watermarks with active defenses (prediction
+    poisoning, rate limiting). Implement dataset inference auditing to detect model
+    theft post-facto. Monitor for queries that may probe watermark trigger activation
+    patterns.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-072
+  name: prediction-poisoning-evasion-adaptive
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bprediction\s+poison(?:ing)?.*(?:detect|evade|bypass|aware)\b
+  - (?i)\battacker.*detect.*poison(?:ed|ing).*adjust\b
+  - (?i)\bundertrain.*perturb(?:ed|ation).*label\b
+  - (?i)\buncertainty.?aware.*train.*(?:perturb|noise|poison)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Prediction poisoning defense evasion adaptive attack pattern detected
+  description: 'Detects adaptive model stealing attacks designed to detect and evade
+    prediction poisoning defenses. Orekondy et al. (ICLR 2020) noted that an attacker
+    detecting active poisoning could compensate through uncertainty-aware training
+    or increased query volume. Defense-aware attackers represent the next generation
+    of threats against active defenses. Deception/DCP (Khaled et al., ICMLA 2023)
+    noted similar adaptive attack risks.
+
+    '
+  remediation: 'Layer prediction poisoning with PRADA query distribution detection
+    — adaptive attackers who adjust query volume will expose themselves to distribution-based
+    detection. Apply stealthy randomized perturbation schedules harder to detect than
+    consistent perturbation. Combine with rate limiting to constrain adaptive query
+    budget.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-073
+  name: nils-graph-neural-network-link-stealing
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bNILS\b.*(?:attack|injection|gnn)\b
+  - (?i)\bnode\s+injection.*(?:gnn|graph\s+neural|link\s+steal)\b
+  - (?i)\bgraph.*api.*(?:inject|synthetic\s+node|probe)\b
+  - (?i)\bone.?node.?one.?edge\s+privacy\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: NILS node injection link stealing attack against GNN API detected
+  description: 'Detects NILS (Node Injection Link Stealing) attacks that infer private
+    graph edges in GNN APIs by injecting synthetic nodes with malicious feature vectors
+    and analyzing prediction changes. Zari et al. (ACM CCS 2023) demonstrated superior
+    link inference vs. LinkTeller and prior attacks on node classification GNN APIs.
+    Relevant for recommendation system GNNs, social graph analysis APIs, and fraud
+    detection GNN deployments.
+
+    '
+  remediation: 'Apply differential privacy with the one-node-one-edge privacy notion
+    tailored for GNN link inference. Limit edge inference information leakage in GNN
+    prediction responses. Implement anomaly detection for synthetic node injection
+    patterns in graph API requests. Monitor for sudden appearance of new nodes with
+    unusual feature vector distributions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-074
+  name: copyrighted-code-extraction-from-llm
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bcopyrighted\s+code.*(?:extract|memorize|reproduce|github)\b
+  - (?i)\blicense.*(?:GPL|MIT|Apache).*(?:extract|reproduce|verbatim|copilot)\b
+  - (?i)\bcode.*verbatim.*(?:training\s+data|memorize|reproduce)\b
+  - (?i)\b(?:github|stack\s+overflow).*verbatim.*(?:extract|memorize|reproduce)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: Copyrighted code verbatim extraction from code LLM training data detected
+  description: 'Detects extraction of copyrighted code verbatim from code LLMs trained
+    on GitHub repositories. Carlini et al. (2020) established that verbatim code sequences
+    are among the most extractable training data types. Code LLMs trained on public
+    GitHub repos have been shown to reproduce GPL/MIT/Apache licensed code verbatim.
+    Cheng et al. (2024) also demonstrated code credential extraction from GitHub Copilot,
+    creating both legal liability and IP theft risks.
+
+    '
+  remediation: 'Implement license-aware output filtering to detect reproduction of
+    copyrighted code. Apply code similarity detection on completion outputs using
+    clone detection algorithms. Monitor for verbatim code reproduction in generation
+    APIs. Maintain training data provenance tracking for copyright compliance auditing.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-075
+  name: model-extraction-multi-stage-orchestration
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:orchestrat|pipeline|chain|automat).*(?:extract|steal|exfiltrat).*(?:model|training|prompt|pii)\b
+  - (?i)\bmodel\s+extract.*(?:then|enables|followed).*(?:MIA|inversion|attribute|adversarial)\b
+  - (?i)\bmulti.?stage.*(?:model\s+steal|training\s+data|extraction\s+attack)\b
+  - (?i)\bend.?to.?end.*(?:extract|steal).*(?:model|pii|prompt|training)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.json'
+  message: Multi-stage model extraction orchestration pipeline detected
+  description: 'Detects orchestrated multi-stage extraction pipelines chaining multiple
+    attack techniques. The literature documents attack chains: model extraction enables
+    adversarial transfer (He et al., NAACL 2021) and attribute inference (Lyu et al.,
+    2021); MIA guides targeted extraction (Sahili et al., 2025); jailbreak enables
+    training data extraction (Fairoze et al., 2025); InverseNet augments extraction
+    with inversion (Gong et al., IJCAI 2021). Automated orchestration of chained attacks
+    represents the highest-severity threat model.
+
+    '
+  remediation: 'Deploy defense-in-depth across all attack vector stages: rate limiting
+    (prevents bulk queries), PRADA (detects non-Gaussian distributions), prediction
+    poisoning (degrades clone quality), output filtering (catches extracted data),
+    watermarking (enables post-hoc detection), and differential privacy training (provides
+    formal training data protection). Monitor for cross-stage attack patterns spanning
+    multiple sessions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-076
+  name: enron-corpus-pii-fine-tune-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bEnron.*(?:email|dataset|corpus).*(?:extract|pii|memorize)\b
+  - (?i)\bfine.?tun.*Enron.*(?:extract|pii|memorize|phone|email)\b
+  - (?i)\bcorporate\s+email.*(?:memorize|extract|pii|training)\b
+  - (?i)\bemail\s+corpus.*(?:pii|memorize|extract|phone)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Enron email corpus PII extraction from fine-tuned LLM detected
+  description: 'Detects PII extraction attacks targeting LLMs fine-tuned on the Enron
+    email corpus or similar corporate email datasets. Nakka et al. (2024/PII-Compass)
+    used GPT-J-6B trained on the Enron dataset as the primary evaluation target, achieving
+    6.86% phone number extraction rate. Zhang et al. (2023/ETHICIST) also validated
+    PII extraction against Enron-fine-tuned models, extracting names, phone numbers,
+    fax numbers, and email addresses.
+
+    '
+  remediation: 'Do not fine-tune production LLMs on raw corporate email datasets without
+    differential privacy. Apply PII scrubbing as preprocessing but note scrubbing
+    alone is insufficient (Meng et al., 2025). Implement output filtering for email-format
+    PII patterns.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-077
+  name: scalable-divergence-chatgpt-production
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bscal(?:able|e)\s+extract(?:ion)?.*(?:production|chatgpt|gpt.?3.5)\b
+  - (?i)\bRLHF.*alignment.*(?:bypass|insufficient|fail).*(?:extract|memorize)\b
+  - (?i)\b(?:10[,.]000|ten\s+thousand).*training\s+(?:example|data).*\$200\b
+  - (?i)\b150x\s+(?:rate|increase|emission|faster)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.ipynb'
+  message: Scalable ChatGPT divergence production LLM extraction detected
+  description: 'Detects references to the Nasr et al. (2023/IEEE S&P 2025) scalable
+    divergence attack beyond the basic word-repetition trigger pattern. The attack
+    achieved 150x emission rate increase, extracted 10,000+ training examples for
+    $200, and revealed that RLHF alignment makes ChatGPT appear 50x more private —
+    but this entirely fails under the divergence trigger. Disclosed to OpenAI August
+    2023; patched for the specific trigger.
+
+    '
+  remediation: 'Implement production monitoring for generation outputs that appear
+    to be internet-text style rather than chatbot-style responses. Apply generation
+    diversity metrics to detect divergence from expected output distribution. Monitor
+    token repetition in API requests.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-078
+  name: b4b-lsh-embedding-coverage-tracking
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bB4B\b.*(?:defense|bypass|evade|embed)\b
+  - (?i)\bLSH.*(?:coverage|bucket|embed).*(?:bypass|evade|track)\b
+  - (?i)\bbucks\s+for\s+buckets\b
+  - (?i)\bper.?user.*(?:affine|transform|noise).*embed\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: B4B embedding theft defense interaction or bypass pattern detected
+  description: 'Detects patterns related to B4B (Bucks for Buckets) defense (Dubinski
+    et al., NeurIPS 2023) interactions or bypass attempts. B4B tracks embedding space
+    coverage per user via LSH and adds adaptive noise proportional to coverage to
+    penalize embedding theft. Per-user affine/ pad/shuffle transformations defeat
+    sybil account attacks. Adaptive adversaries may attempt to minimize coverage per
+    account to evade the coverage-to-noise mapping.
+
+    '
+  remediation: 'Combine B4B LSH tracking with additional signals: query volume, IP
+    clustering, temporal patterns, and cross-account correlation. Deploy sybil-resistant
+    authentication. Calibrate the coverage-to-noise curve to impose significant costs
+    before attackers collect enough embeddings to train a competitive student model.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-079
+  name: prediction-poisoning-attacker-error-amplification
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bprediction\s+poisoning\b
+  - (?i)\battacker\s+error.*amplif(?:y|ied|ication)\b
+  - (?i)\bactive\s+defense.*(?:steal|extract|clone).*(?:DNN|model)\b
+  - (?i)\butility.?constrained.*(?:defense|perturb).*(?:steal|extract)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Prediction poisoning active defense bypass pattern detected
+  description: 'Detects references to prediction poisoning defense (Orekondy et al.,
+    ICLR 2020) in an adversarial context — likely attempting to understand or bypass
+    it. Prediction poisoning amplifies attacker error up to 85x by adding controlled
+    perturbations to posterior predictions while maintaining top-1 accuracy for benign
+    users. Adaptive attackers may detect the defense via anomalous confidence patterns
+    and compensate through uncertainty-aware training.
+
+    '
+  remediation: 'Apply stealthy randomized perturbation schedules rather than consistent
+    perturbations. Layer prediction poisoning with PRADA detection and rate limiting.
+    Monitor for adaptive attackers who systematically vary query patterns in response
+    to perturbation detection.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-080
+  name: privacy-memorization-position-paper
+  severity: LOW
+  category: model_extraction
+  patterns:
+  - (?i)\bprivacy.*not\s+just\s+memorization\b
+  - (?i)\binference.?time.*(?:context|conversation)\s+leak\b
+  - (?i)\bagent.*(?:privacy|surveillance|autonomy)\s+(?:risk|threat)\b
+  - (?i)\bsociotechnical.*privacy.*llm\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Broader LLM privacy threat beyond memorization detected
+  description: 'Detects patterns related to emerging LLM privacy threats beyond training
+    data memorization, as highlighted by Mireshghallah et al. (2025/ICML). These include
+    inference-time context leakage, LLM-enabled surveillance democratization, autonomous
+    agent privacy risks, and systemic data collection practices. These threats are
+    under-studied relative to memorization extraction and may bypass memorization-focused
+    defenses entirely.
+
+    '
+  remediation: 'Expand privacy threat modeling beyond training data extraction to
+    include inference-time context leakage, agent-based surveillance, and systemic
+    data collection. Implement defense-in-depth monitoring across all privacy attack
+    surfaces, not just memorization. Follow Mireshghallah et al. (2025) interdisciplinary
+    framework.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-ME-SCAN-081
+  name: nils-graph-neural-network-link-private
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\blink.?steal(?:ing)?\s+attack\b
+  - (?i)\bprivate\s+(?:edge|link|graph)\s+(?:inference|steal)\b
+  - (?i)\bgraph.*(?:api|neural).*(?:inject|synthetic\s+node|probe)\b
+  - (?i)\bLinkTeller\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: GNN private link/edge inference attack pattern detected
+  description: 'Detects link stealing attacks against Graph Neural Network APIs, including
+    NILS (Zari et al., ACM CCS 2023) and LinkTeller baseline. NILS injects synthetic
+    nodes to analyze prediction changes and infer private edges, outperforming all
+    prior link-stealing attacks. Applicable to recommendation GNN APIs (Netflix-style),
+    social graph analysis, and fraud detection GNNs that expose node classification
+    predictions via API.
+
+    '
+  remediation: 'Apply differential privacy with one-node-one-edge privacy notion for
+    GNN APIs. Limit edge inference information leakage in GNN prediction responses.
+    Implement anomaly detection for synthetic node injection in graph API requests.
+    Monitor for sudden new nodes with unusual feature vector distributions.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-082
+  name: loku-robust-knowledge-unlearning
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bLoKU\b
+  - (?i)\binverted\s+hinge\s+loss\b
+  - (?i)\bFILA\b.*(?:unlearn|lora|fisher)\b
+  - (?i)\bfisher.?weighted.*(?:LoRA|lora).*(?:unlearn|forget|erase)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: LoKU machine unlearning or related bypass pattern detected
+  description: 'Detects patterns related to LoKU (Low-rank Knowledge Unlearning —
+    Cha et al., ICLR 2025), which combines Inverted Hinge Loss (IHL) and Fisher-weighted
+    LoRA initialization (FILA) for more robust approximate unlearning. While LoKU
+    improves over gradient ascent baselines, Wu et al. (2025) demonstrates even complete
+    exact unlearning fails to prevent extraction, so LoKU approximate unlearning provides
+    no formal privacy guarantee.
+
+    '
+  remediation: 'Treat LoKU and other approximate unlearning methods as best-effort
+    privacy enhancements, not formal guarantees. Combine with differential privacy
+    training and output filtering. Conduct post-unlearning extraction audits. For
+    GDPR compliance, consult legal counsel rather than relying on unlearning alone.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-083
+  name: multilingual-model-extraction-attack
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:french|german|chinese|arabic|japanese|spanish).*model.*(?:extract|steal|memorize)\b
+  - (?i)\bnon.?english.*(?:model\s+extract|steal|memorize)\b
+  - (?i)\blanguage.?specific.*(?:model\s+steal|extract|memorize)\b
+  - (?i)\bmultilingual.*(?:model\s+steal|extract|memorize|vulnerability)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Multilingual / non-English model extraction attack detected
+  description: 'Detects model extraction attacks targeting non-English or multilingual
+    LLMs. Mishra et al. (2025) demonstrated significant disparities in extraction
+    success between English and non-English models. Non-English models may be under-monitored
+    with weaker defenses while having different (sometimes more exploitable) memorization
+    characteristics. Also relevant for the CloudLeak (Yu et al., 2020) multilingual
+    MLaaS API extractions.
+
+    '
+  remediation: 'Apply consistent model extraction defenses across all language-specific
+    model deployments. Do not assume non-English models are lower-risk targets. Implement
+    language-agnostic PII output filtering and extraction monitoring across all supported
+    language APIs.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-084
+  name: model-stealing-defenses-survey-gap
+  severity: LOW
+  category: model_extraction
+  patterns:
+  - (?i)\bmodel\s+(?:steal|extract).*defense.*(?:insufficient|fail|bypass|inadequate)\b
+  - (?i)\bno\s+(?:effective|sufficient)\s+defense.*(?:bert|nlp|model\s+steal)\b
+  - (?i)\bdefense.*(?:utility|accuracy)\s+trade.?off.*model\s+steal\b
+  - (?i)\bcurrent.*defense.*(?:insufficient|inadequate|bypass).*(?:steal|extract)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Model stealing defense gap / known bypass research reference detected
+  description: 'Detects patterns referencing known gaps in model stealing defenses
+    that could inform attack planning. He et al. (NAACL 2021) and Lyu et al. (2021)
+    found no effective defense for BERT API extraction that preserves utility. Orekondy
+    et al. (ICLR 2020) showed passive defenses fail. These known defense gaps, documented
+    in surveys by Ishihara (2023), Zhao (2025), and Fadhli (2025), may be exploited
+    by threat actors to plan undefended attack paths.
+
+    '
+  remediation: 'Acknowledge known defense limitations when designing security architecture.
+    Rely on defense- in-depth combining PRADA, prediction poisoning, rate limiting,
+    and watermarking rather than any single defense. Follow latest survey papers (Zhao
+    et al., 2025) for current best practices and known bypass strategies to design
+    accordingly.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-085
+  name: llm-provenance-forensics-threat-detection
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bllm.*provenance.*(?:forensic|detect|stolen|trace)\b
+  - (?i)\bprovenance\s+graph.*(?:theft|detect|trace|stolen)\b
+  - (?i)\bmodel\s+theft.*(?:detect|trace|forensic|attribute)\b
+  - (?i)\bstolen\s+model.*(?:detect|identify|trace|attribute)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.md'
+  message: LLM provenance forensics or stolen model detection pattern detected
+  description: 'Detects patterns related to LLM provenance forensics for stolen model
+    detection. While Mukherjee et al. (2025) focused on system-level provenance forensics,
+    model provenance tracking is a key reactive defense against IP theft cited by
+    Dubinski et al. (NeurIPS 2023) and Zhao et al. (2025). Attackers may attempt to
+    evade provenance tracking by removing watermarks or fingerprints from stolen models
+    before deployment.
+
+    '
+  remediation: 'Deploy multiple complementary provenance mechanisms: cryptographic
+    watermarking, dataset inference, behavioral fingerprinting, and weight-based similarity
+    detection. Monitor for suspiciously similar API behaviors to own models in third-party
+    services. Maintain detailed records of model weights and training procedures for
+    forensic comparison.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-086
+  name: icml-extraction-challenge-benchmark
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bICML.*(?:training\s+data\s+extraction|extraction\s+challenge)\b
+  - (?i)\bTraining\s+Data\s+Extraction\s+Challenge\b
+  - (?i)\bGPT.?Neo.*1\.3B.*(?:extract|challenge|benchmark)\b
+  - (?i)\b1.?eidetic.*(?:extract|challenge|memorize|benchmark)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: ICML Training Data Extraction Challenge reference or implementation detected
+  description: 'Detects references to the ICML Training Data Extraction Challenge
+    against GPT-Neo 1.3B, which served as the primary benchmark for Yu et al. (ICML
+    2023) bag-of-tricks extraction achieving 46.7% precision, and Zhang et al. (ACL
+    2023/ETHICIST) achieving significantly better performance. The challenge benchmark
+    provides a standardized framework for evaluating and improving extraction attack
+    effectiveness.
+
+    '
+  remediation: 'Monitor for code implementing extraction challenge methodology against
+    production models. Apply differential privacy and output filtering defenses informed
+    by the challenge evaluation framework. Treat challenge-optimized extraction pipelines
+    as high-capability threat actors requiring correspondingly robust defenses.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-087
+  name: model-theft-ip-protection-bypass
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bmodel.*IP.*(?:protection|bypass|evade)\b
+  - (?i)\bintellectual\s+property.*(?:model|algorithm|ai).*(?:steal|bypass|evade)\b
+  - (?i)\bapi\s+terms.*(?:bypass|evade|circumvent).*(?:steal|extract|clone)\b
+  - (?i)\bcommercial\s+use.*(?:stolen|cloned|extracted).*(?:model|api)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.json'
+  - '*.md'
+  message: Model IP protection bypass or commercial model theft detected
+  description: 'Detects patterns associated with intentional circumvention of model
+    IP protections. Fadhli et al. (2025) identified IP theft and industrial espionage
+    as primary model stealing motivations. Orekondy et al. (2019) demonstrated production
+    API theft for as little as $30. Deliberate API terms-of-service circumvention
+    combined with commercial deployment of stolen models creates both legal liability
+    and competitive harm to model IP owners.
+
+    '
+  remediation: 'Enforce API terms-of-service prohibitions through technical (honeypot
+    endpoints, behavioral fingerprinting) and legal means. Deploy model watermarking
+    to support IP litigation. Monitor for commercial deployments of model clones via
+    API behavior similarity analysis. Report confirmed IP theft cases to legal teams
+    for action.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-088
+  name: copycat-cnn-active-thief-implementation
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bCopycat\s+(?:CNN|DNN|model|network)\b
+  - (?i)\bActiveThief\b
+  - (?i)\bBlack.?Box\s+Ripper\b
+  - (?i)\bDFME\b.*(?:data.?free|model\s+extract|steal)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.sh'
+  message: Named model extraction attack tool (Copycat CNN / ActiveThief / Black-Box
+    Ripper / DFME) detected
+  description: 'Detects implementations or references to specific named model extraction
+    attack tools: Copycat CNN (Correia-Silva et al., 2018), ActiveThief (Pal et al.,
+    2020), Black-Box Ripper (Chen et al., 2021), and DFME — Data-Free Model Extraction
+    (Truong et al., 2021). All are established attack frameworks with public codebases
+    cited across Khaled et al. (ICMLA 2023), Liu et al. (2024), and Zhao et al. (2025
+    survey).
+
+    '
+  remediation: 'Deploy PRADA detection and prediction poisoning as primary defenses
+    against known named attack frameworks. Monitor for patterns consistent with their
+    documented query strategies. Apply model watermarking for post-hoc detection.
+    Rate limit API endpoints to impose prohibitive costs on large-scale known extraction
+    attack frameworks.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-089
+  name: secure-aggregation-byzantine-fl-attack
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bByzantine.*(?:federated|FL|aggregat).*(?:attack|poison|extract)\b
+  - (?i)\baggregation.*(?:malicious|Byzantine|manipulate).*(?:federated|FL)\b
+  - (?i)\bsecure\s+aggregation.*(?:bypass|evade|attack|SecAgg)\b
+  - (?i)\bKrum.*(?:attack|bypass|federated)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Byzantine federated learning aggregation attack for data extraction detected
+  description: 'Detects Byzantine attacks on federated learning aggregation to enable
+    cross-client data extraction. Hu et al. (2025) showed standard FL defenses including
+    Byzantine-fault-tolerant aggregation (Krum, Trimmed Mean) are insufficient against
+    sophisticated malicious clients in LLM fine-tuning federated settings. Secure
+    aggregation (SecAgg) bypasses may allow individual gradient inspection enabling
+    cross-client data extraction.
+
+    '
+  remediation: 'Deploy SecAgg (Secure Aggregation) to prevent individual gradient
+    inspection. Apply Byzantine-robust aggregation (Krum, Trimmed Mean, FLTrust).
+    Implement anomaly detection on submitted gradients. Use zero-knowledge proof systems
+    for gradient validity where computationally feasible. Apply per-client differential
+    privacy regardless.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-090
+  name: model-extraction-gdpr-data-deletion-audit
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bGDPR.*(?:data\s+deletion|right.*erase|right.*forget).*(?:model|llm|audit)\b
+  - (?i)\bCCPA.*(?:deletion|forget|erase|extract|audit).*(?:model|llm)\b
+  - (?i)\bright.*(?:erase|forget).*(?:llm|model|training).*(?:audit|verify|test)\b
+  - (?i)\bprivacy\s+audit.*(?:extraction|unlearn|delete|erase)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: GDPR/CCPA privacy compliance audit via extraction testing detected
+  description: 'Detects privacy compliance auditing patterns that use training data
+    extraction testing to verify GDPR/CCPA data deletion effectiveness. Wu et al.
+    (2025) demonstrated exact unlearning fails to meet right-to-be-forgotten requirements
+    under extraction-based auditing. While legitimate privacy auditing is important,
+    extraction testing of production systems requires proper authorization and scope
+    definition.
+
+    '
+  remediation: 'Conduct extraction-based privacy audits only with proper authorization
+    and on isolated test environments rather than production systems. Follow established
+    privacy auditing frameworks (canary insertion, extraction challenge methodology).
+    Disclose audit results responsibly. Combine with formal DP guarantees rather than
+    relying solely on empirical audit results.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-091
+  name: model-extraction-via-rag-document-retrieval
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bRAG.*(?:extract|leak|private\s+document|memorize)\b
+  - (?i)\bretrieval.?augmented.*(?:extract|leak|private|document)\b
+  - (?i)\bcontext\s+window.*(?:inject|exfiltrate|extract\s+private)\b
+  - (?i)\bfew.?shot.*(?:extract|retrieve).*private\s+(?:document|data|context)\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: RAG context window extraction or private document leakage detected
+  description: 'Detects attacks targeting RAG systems to extract retrieved private
+    documents from context windows. Paim et al. (2025) demonstrated that latent space
+    discontinuity attacks work across RAG interfaces, enabling private document retrieval.
+    Mireshghallah et al. (2025/ICML) identified context window leakage as an under-studied
+    inference-time threat in multi-user RAG deployments and agentic AI systems with
+    document access.
+
+    '
+  remediation: 'Implement strict RAG context window access controls — retrieved documents
+    should not be directly reproducible from LLM outputs. Apply output monitoring
+    to detect verbatim reproduction of retrieved private documents. Implement session
+    isolation between users in multi-user RAG deployments. Apply per-document access
+    controls in RAG retrieval.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-092
+  name: commercial-mlaas-provider-systematic-extraction
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\b(?:microsoft|google|amazon|IBM|face\+\+|clarifai).*(?:api|cloud).*(?:steal|extract|clone)\b
+  - (?i)\b(?:azure\s+ml|sagemaker|google\s+cloud\s+ai).*(?:steal|extract|clone)\b
+  - (?i)\bMLaaS.*(?:steal|extract|clone|surrogate)\b
+  - (?i)\bcommercial\s+(?:api|cloud).*(?:model\s+steal|systematic\s+query)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.json'
+  message: Systematic commercial MLaaS provider model extraction attack detected
+  description: 'Detects systematic model extraction attacks targeting named commercial
+    MLaaS providers. Tramèr et al. (2016/USENIX Security) targeted Amazon ML and BigML.
+    CloudLeak (Yu et al., NDSS 2020) targeted Microsoft, Face++, IBM, Google, and
+    Clarifai simultaneously. Orekondy et al. (2019) targeted an unnamed production
+    vision API for $30. Fadhli et al. (2025) surveyed Google Cloud AI, Amazon SageMaker,
+    and Microsoft Azure ML.
+
+    '
+  remediation: 'Ensure all commercial ML APIs implement rate limiting, PRADA-style
+    distribution detection, active output perturbation, and query monitoring. Implement
+    per-user authenticated API access with commercial terms prohibiting systematic
+    model extraction. Monitor for usage patterns consistent with organized extraction
+    campaigns.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-093
+  name: training-data-extraction-plm-survey-methodology
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bpre.?trained\s+language\s+model.*(?:extract|memorize\s+type|verbatim|approximate)\b
+  - (?i)\bcounterfactual\s+memorization\b
+  - (?i)\bapproximate\s+memorization.*(?:extract|language\s+model)\b
+  - (?i)\bk.?eidetic\s+memorization\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.md'
+  message: Pre-trained language model memorization taxonomy-based extraction detected
+  description: 'Detects extraction attacks using memorization taxonomy concepts from
+    Ishihara (2023/ACL Findings) — verbatim, approximate, and counterfactual memorization
+    types. Carlini et al. (2020) defined k-eidetic memorization. These taxonomy concepts
+    guide systematic extraction attack design by identifying which types of memorized
+    content are most reliably extractable under different attack strategies (verbatim
+    vs. near-verbatim vs. counterfactual queries).
+
+    '
+  remediation: 'Apply differential privacy at the record level to bound all memorization
+    types. Implement output monitoring for verbatim, near-verbatim, and paraphrase
+    reproductions of training content. Deduplicate training corpora to reduce both
+    verbatim and near-verbatim memorization.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-094
+  name: diffusion-image-generation-memorized-training
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bdiffusion.*(?:memorize|training\s+image|verbatim|reconstruct|extract)\b
+  - (?i)\bimage\s+generation.*(?:training\s+data|memorize|verbatim|reconstruct)\b
+  - (?i)\bstable.?diffusion.*(?:memorize|training\s+image|extract)\b
+  - (?i)\bAI.?generat.*image.*(?:memorize|training\s+data|verbatim|copyright)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Diffusion model training image memorization extraction attack detected
+  description: 'Detects training data extraction targeting image diffusion models.
+    Paim et al. (2025) demonstrated latent space discontinuity attacks work against
+    at least one production image generation model. Diffusion models trained on copyrighted
+    images can memorize and reconstruct near-verbatim training images, creating copyright
+    and privacy risks for individuals whose images appeared in training data (face
+    images, medical images, etc.).
+
+    '
+  remediation: 'Apply differential privacy during diffusion model training to limit
+    per-image memorization. Implement output monitoring for generated images with
+    high perceptual hash similarity to known training images. Conduct membership inference
+    auditing for image models before deployment. Apply data minimization and consent
+    frameworks for sensitive image training data.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-095
+  name: production-llm-api-token-enumeration
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\btoken.*enumerat.*(?:logprob|probability|logit)\b
+  - (?i)\bsystematic.*token.*(?:id|probability|logprob).*(?:scan|probe|enumerate)\b
+  - (?i)\bvocabular.*(?:token|id).*(?:scan|enumerate|probe).*(?:probability|logprob)\b
+  - (?i)\blogit.?bias.*(?:\{|\[).*(?:enumerate|scan|all\s+token)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Production LLM API token enumeration via logprob detected
+  description: 'Detects systematic token probability enumeration across vocabulary
+    via logprob or logit-bias API parameters — a key component of the Carlini et al.
+    (ICML 2024) projection layer extraction attack. By querying with logit-bias forcing
+    different tokens and measuring logprob responses, attackers recover rows of the
+    projection matrix, enabling full parameter extraction for under $20 (ada/babbage)
+    or estimated under $2,000 (gpt-3.5-turbo).
+
+    '
+  remediation: 'Monitor for API requests that systematically enumerate token IDs via
+    logit-bias parameter. Implement rate limiting on logit-bias parameter use. Restrict
+    logprob precision. Alert on patterns consistent with systematic vocabulary-wide
+    token probability scanning across multiple API requests from a single authenticated
+    user.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-096
+  name: knowledge-distillation-llm-api-student-training
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bknowledge\s+distill(?:ation)?.*(?:gpt|claude|gemini|llm|api)\b
+  - (?i)\bdistill(?:ation)?\s+from\s+(?:gpt|claude|gemini|llm|api)\b
+  - (?i)\bstudent\s+model.*(?:teacher|victim|black.?box|api)\s+(?:response|output|label)\b
+  - (?i)\bllm.*(?:output|response).*(?:train|label|supervise).*student\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Knowledge distillation from commercial LLM API for model stealing detected
+  description: 'Detects knowledge distillation attacks using commercial LLM API outputs
+    to train a smaller student model. Zhao et al. (2025 survey) identifies API-based
+    knowledge distillation as the primary functionality extraction mechanism for LLMs.
+    Tamber et al. (2024/2025) applied this to embedding APIs. LLM4MEA (Zhao et al.,
+    2025) extended it to recommender systems. Tramèr et al. (2016) established the
+    foundational API-based distillation methodology.
+
+    '
+  remediation: 'Monitor for high-volume API usage patterns consistent with training
+    data collection for student model training. Implement terms-of-service restrictions
+    on training competing models from API outputs. Apply prediction perturbation to
+    degrade student model quality. Deploy watermarking to detect downstream deployment
+    of API-trained student models.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-097
+  name: model-extraction-survey-comprehensive-taxonomy
+  severity: MEDIUM
+  category: model_extraction
+  patterns:
+  - (?i)\bmodel\s+extract.*(?:taxonomy|survey|comprehensive|all\s+attack)\b
+  - (?i)\bfunctionality\s+extract.*training\s+data\s+extract.*prompt\s+steal\b
+  - (?i)\bAPI.?based.*knowledge\s+distillation.*parameter\s+recovery.*prompt\s+steal\b
+  - (?i)\bthree\s+(?:type|category|class).*model\s+extract.*LLM\b
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.md'
+  message: Comprehensive model extraction taxonomy reference for attack planning detected
+  description: 'Detects references to the comprehensive LLM model extraction taxonomy
+    from Zhao et al. (2025 survey) covering three attack categories: (1) functionality
+    extraction via API-based knowledge distillation, (2) training data extraction
+    via direct querying and parameter recovery, and (3) prompt-targeted attacks (system
+    prompt stealing). References to the full taxonomy in code or prompts may indicate
+    systematic multi-vector attack planning.
+
+    '
+  remediation: 'Deploy defenses spanning all three extraction categories: prediction
+    poisoning + rate limiting for functionality extraction; DP training + output filtering
+    for training data extraction; prompt confidentiality + behavioral monitoring for
+    prompt stealing. No single defense addresses all three categories simultaneously.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+- id: MEDUSA-ME-SCAN-098
+  name: model-extraction-response-collection-pipeline
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bcollect.*(?:response|output|prediction).*(?:train|label|supervise|steal)\b
+  - (?i)\bAPI.*(?:response|output).*(?:collect|harvest|scrape).*(?:train|model)\b
+  - (?i)\bquery.*(?:victim|target|black.?box).*collect.*(?:label|response|output)\b
+  - (?i)\bautomated.*(?:query|request).*(?:collect|harvest).*(?:model|api)\s+(?:output|response)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.json'
+  message: Automated API response collection pipeline for model stealing detected
+  description: 'Detects automated pipelines for collecting API query-response pairs
+    as training data for model stealing. This is the foundational data collection
+    phase common to all API-based model extraction attacks: Tramèr et al. (2016),
+    Orekondy et al. (2019/CVPR), CloudLeak (Yu et al., NDSS 2020), InverseNet (Gong
+    et al., IJCAI 2021), and the full range of LLM functionality extraction attacks
+    surveyed by Zhao et al. (2025).
+
+    '
+  remediation: 'Implement per-user query volume monitoring with anomaly detection.
+    Apply PRADA-style distribution analysis to detect systematic query patterns. Rate
+    limit API endpoints with progressive throttling for high-volume users. Require
+    API authentication and maintain per-user usage logs for forensic analysis of extraction
+    campaigns.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-327
+- id: MEDUSA-ME-SCAN-099
+  name: provably-private-fine-tuning-bypass-attempt
+  severity: HIGH
+  category: model_extraction
+  patterns:
+  - (?i)\bprovably\s+protect.*fine.?tun.*(?:bypass|extract|attack)\b
+  - (?i)\bformal\s+guarantee.*fine.?tun.*(?:bypass|extract|fail)\b
+  - (?i)\bfine.?tun.*(?:extract|memorize).*without.*(?:dp|differential\s+privacy|protection)\b
+  - (?i)\bSegal.*2026.*(?:bypass|attack|extract|fail)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Provably protective fine-tuning bypass or unprotected fine-tuning extraction
+    detected
+  description: 'Detects attacks targeting fine-tuned LLMs deployed without provably
+    protective fine-tuning procedures. Segal et al. (2026) proposed the first mechanism
+    with a formal upper bound on fine-tuning data extraction probability. Without
+    such protection, fine-tuning data is consistently more extractable than pretraining
+    data. Attacks targeting LLMs deployed with only approximate privacy (LoRA-based
+    unlearning, standard fine-tuning) are more likely to succeed.
+
+    '
+  remediation: 'Apply provably protective fine-tuning (Segal et al., 2026) for LLMs
+    fine-tuned on sensitive data. Use differential privacy during fine-tuning phases.
+    Conduct pre-deployment extraction audits specifically targeting fine-tuning data.
+    Do not assume fine-tuning data is protected by default — fine-tuned examples are
+    consistently the most extractable.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-ME-SCAN-100
+  name: full-model-extraction-orchestration-agentic
+  severity: CRITICAL
+  category: model_extraction
+  patterns:
+  - (?i)\bfull\s+(?:model\s+extract|extraction\s+pipeline|steal)\s+(?:orchestrat|automat|agent)\b
+  - (?i)\bagentic.*(?:model\s+steal|extract.*pipeline|api.*collect)\b
+  - (?i)\bend.?to.?end.*(?:extract|steal).*(?:model|pii|prompt|training)\b
+  - (?i)\bautomat.*(?:multi.?stage|pipeline|chain).*(?:extract|steal|exfiltrat)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.json'
+  message: Full automated multi-stage model extraction orchestration pipeline detected
+  description: 'Detects fully automated or agentic orchestration of multi-stage model
+    extraction pipelines. Combining techniques from the complete model extraction
+    literature: (1) active learning boundary queries (CloudLeak, Yu et al. 2020),
+    (2) MIA guidance (Sahili et al. 2025), (3) model inversion augmentation (InverseNet,
+    Gong et al. 2021), (4) knowledge distillation (Tramèr et al. 2016; Orekondy et
+    al. 2019), and (5) downstream adversarial transfer (He et al. 2021) — represents
+    the most comprehensive threat model against deployed AI systems.
+
+    '
+  remediation: 'Deploy defense-in-depth spanning all attack stages: PRADA query distribution
+    detection, prediction poisoning, rate limiting, watermarking, differential privacy
+    training, and output filtering. Implement API authentication and per-user behavioral
+    monitoring across sessions. Maintain an incident response playbook for detected
+    full-pipeline extraction campaigns. Conduct red team exercises using the full
+    extraction attack taxonomy (Zhao et al., 2025).
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-693

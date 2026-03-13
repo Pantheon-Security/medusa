@@ -1,0 +1,1520 @@
+metadata:
+  source: MEDUSA Code Generation Security research
+  extraction_date: '2026-02-24'
+  papers_analyzed: 27
+  previous_rules: code_gen_security_scanner.yaml (20 rules)
+rules:
+- id: MEDUSA-CGS-SCAN-021
+  name: b3-direct-instruction-override-agent-attack
+  severity: CRITICAL
+  category: agent_backbone_attack
+  patterns:
+  - (?i)(direct.instruction.override|dio.{0,20}(agent|llm|backbone|attack))
+  - (?i)(override.{0,20}(agent.instruction|system.instruction|backbone.instruction).{0,40}direct)
+  - (?i)(ignore.{0,20}(agent.instruction|agent.backbone|agent.directive).{0,40}direct.attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Detected: b³ Direct Instruction Override (DIO) — direct attack on agent backbone LLM instruction following'
+  description: 'From b³ benchmark (Bazinska et al. 2025): Direct Instruction Override (DIO) directly attacks the agent backbone
+    LLM''s instruction-following behavior. 194,331 crowdsourced attacks from 947 users evaluated 31 LLMs. Vulnerability scores
+    range from 0.20 (grok-4) to 0.63 (gpt-4.1). Reasoning consistently improves security across all models.'
+  remediation: Use reasoning-capable backbone LLMs for agents as they show consistent security improvements. Apply L3-level
+    defenses from b³ framework. Implement instruction integrity validation at the agent backbone level.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-CGS-SCAN-022
+  name: b3-indirect-instruction-override-environmental
+  severity: HIGH
+  category: agent_backbone_attack
+  patterns:
+  - (?i)(indirect.instruction.override|iio.{0,20}(agent|backbone|attack))
+  - (?i)(indirect.{0,20}override.{0,40}(backbone.instruction|agent.directive|system.prompt))
+  - (?i)(environmental.{0,20}(indirect|hidden).{0,40}override.{0,40}agent.instruction)
+  file_types:
+  - '*.py'
+  - '*.html'
+  - '*.txt'
+  message: 'Detected: b³ Indirect Instruction Override (IIO) — environmental/indirect attack overriding agent backbone instructions'
+  description: 'From b³ benchmark: Indirect Instruction Override (IIO) attacks override agent instructions via environmental
+    content (web pages, tool outputs, documents) rather than direct user input. More difficult to defend than DIO as it leverages
+    trusted content channels.'
+  remediation: Apply trust boundaries between direct user instructions and environmental content. Implement environmental
+    injection detection for all content processed by agent backbone. Use L2/L3 defense levels from b³ framework.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-CGS-SCAN-023
+  name: b3-direct-tool-invocation-unauthorized-execution
+  severity: CRITICAL
+  category: agent_tool_abuse
+  patterns:
+  - (?i)(direct.tool.invocation|dti.{0,20}(agent|unauthorized|tool.exec))
+  - (?i)(unauthorized.{0,20}direct.tool.{0,20}(invoc|call|exec|run).{0,40}(agent|backbone))
+  - (?i)(force.direct.tool.{0,20}(call|invoc|exec).{0,40}agent.{0,40}(bypass|unauthorized|without))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ts'
+  message: 'Detected: b³ Direct Tool Invocation (DTI) — unauthorized direct tool execution via agent backbone manipulation'
+  description: 'From b³ benchmark: Direct Tool Invocation (DTI) forces the agent backbone to call tools directly without proper
+    authorization or validation. Enables data exfiltration, system compromise, and code execution without going through normal
+    workflow. Part of 6 attack objectives measured across 31 LLMs.'
+  remediation: Implement tool call authorization validation at the execution layer. Apply least-privilege tool access. Monitor
+    for unusual direct tool invocation patterns. Use b³ L3 defenses for tool call sandboxing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-285
+- id: MEDUSA-CGS-SCAN-024
+  name: b3-denial-of-ai-service-agent-disruption
+  severity: HIGH
+  category: dos_attack
+  patterns:
+  - (?i)(denial.of.ai.service|dais.{0,20}(agent|ai|attack|disrupt))
+  - (?i)(disrupt.{0,20}(agent.service|ai.service|backbone.service).{0,40}denial)
+  - (?i)(b3.benchmark.{0,20}(dais|denial|dos).{0,40}agent|agent.dos.{0,40}backbone)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: b³ Denial of AI Service (DAIS) — attacks disrupting agent AI service availability'
+  description: 'From b³ benchmark: Denial of AI Service (DAIS) targets agent backbone availability. Includes context flooding,
+    reasoning loop injection, and response hijacking that render the agent unresponsive or dysfunctional. Part of 6 attack
+    objectives evaluated across 31 LLMs.'
+  remediation: Implement circuit breakers and timeout enforcement for agent backbone calls. Apply rate limiting for resource-intensive
+    operations. Monitor for unusual token consumption patterns indicative of DAIS attacks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-CGS-SCAN-025
+  name: llm-generated-code-unsanitized-sql-injection
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,40}sql.{0,40}(unsanitized|no.prepared|no.parameteriz))
+  - (?i)(54\.28|54%.{0,10}prepared.statement|majority.{0,20}missing.prepared.statement)
+  - (?i)(ai.{0,20}generated.{0,20}php.{0,40}(sqli|sql.inject|prepared.statement))
+  file_types:
+  - '*.php'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: LLM-generated SQL without prepared statements — 54.28% of GPT-4 generated PHP sites lack parameterized
+    queries (CWE-89)'
+  description: ChatPHP study (Tóth et al. 2024) found that 54.28% of GPT-4 generated PHP websites lack prepared statements,
+    making them vulnerable to SQL injection. LLMs systematically fail to implement basic security controls in web code. 459
+    SQL injections found across 2,500 GPT-4 generated sites.
+  remediation: Never use LLM-generated SQL queries without security review. Always use parameterized queries/prepared statements.
+    Apply static analysis (CodeQL/Semgrep) to all LLM-generated database code before deployment. Add security context to LLM
+    code generation prompts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+- id: MEDUSA-CGS-SCAN-026
+  name: llm-generated-php-file-upload-vulnerability
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,20}(file.upload|upload.handler).{0,40}(cwe.434|unrestricted|no.validat))
+  - (?i)(78%.{0,20}(file.upload|upload.vulnerable)|majority.file.upload.{0,20}(vulnerable|no.validat))
+  - (?i)(move_uploaded_file|file_upload).{0,200}(without.{0,20}(validat|type.check|extens)|no.{0,20}(validat|type.check))
+  file_types:
+  - '*.php'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: LLM-generated unrestricted file upload — 78% of GPT-4 PHP sites with file upload are vulnerable (CWE-434)'
+  description: 'ChatPHP study found 78% of GPT-4 generated PHP sites with file upload functionality are vulnerable (CWE-434:
+    Unrestricted File Upload). LLMs consistently fail to implement file type validation, extension checking, and MIME type
+    verification in generated upload code.'
+  remediation: Always add file type validation, MIME type checking, and extension allowlisting to LLM-generated file upload
+    code. Apply security review to all file handling code. Use security context in code generation prompts explicitly requiring
+    CWE-434 mitigations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-434
+  mitre_attack: T1190
+- id: MEDUSA-CGS-SCAN-027
+  name: llm-generated-xss-reflected-stored-vulnerability
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,20}(xss|cross.site.scripting).{0,40}(cwe.79|reflect|store))
+  - (?i)(echo.{0,30}\$_(GET|POST|REQUEST|SERVER).{0,100}(?!htmlspecialchars|htmlentities|strip_tags))
+  - (?i)(innerHTML|document\.write|insertAdjacentHTML).{0,200}\$_(GET|POST|REQUEST)
+  file_types:
+  - '*.php'
+  - '*.js'
+  - '*.html'
+  message: 'Detected: LLM-generated XSS vulnerability — unsanitized user input reflected/stored in output (394 Reflected +
+    57 Stored XSS found in GPT-4 PHP sites, CWE-79)'
+  description: ChatPHP study found 394 Reflected XSS and 57 Stored XSS vulnerabilities across 2,500 GPT-4 generated PHP sites.
+    LLMs frequently omit HTML entity encoding (htmlspecialchars) when outputting user-controlled data. CodeLMSec identifies
+    CWE-79 as a common generation flaw.
+  remediation: Apply automatic XSS prevention review to all LLM-generated HTML output code. Enforce Content Security Policy
+    (CSP). Use framework-provided output encoding rather than raw echo statements.
+  owasp_llm: LLM02:2025
+  cwe: CWE-79
+- id: MEDUSA-CGS-SCAN-028
+  name: llm-generated-path-traversal-insecure-file-ops
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,20}(path.traversal|directory.traversal|file.read).{0,40}cwe.22)
+  - (?i)(open|readFile|fopen|file_get_contents).{0,100}(\$_(GET|POST|REQUEST)|user_input|argv).{0,100}(?!realpath|basename|sanitize)
+  - (?i)(codelmsec.{0,30}cwe.22|most.vulnerable.cwe.022|path.traversal.{0,30}llm.generat)
+  file_types:
+  - '*.php'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: LLM-generated path traversal vulnerability — user-controlled path in file operations without sanitization
+    (CWE-22, most common in CodeLMSec)'
+  description: CodeLMSec benchmark identifies CWE-22 (Path Traversal) as the most commonly generated vulnerability in black-box
+    code generation models. 124 vulnerable CodeGen samples and 501 ChatGPT samples found. LLMs frequently use user-controlled
+    input directly in file paths without realpath validation or basename sanitization.
+  remediation: Validate and sanitize all file paths derived from user input. Use realpath() and basename() to restrict paths.
+    Apply CodeQL CWE-22 detection to all LLM-generated file operation code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+- id: MEDUSA-CGS-SCAN-029
+  name: llm-generated-command-injection-os-exec
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,20}(command.inject|os.exec|shell.exec).{0,40}(cwe.78|unsanitized))
+  - (?i)(subprocess|os\.system|shell_exec|passthru|exec).{0,100}(\$_(GET|POST|REQUEST|COOKIE)|user_input|argv).{0,100}(?!shlex|escapeshellarg)
+  - (?i)(\`\$.{0,50}user.{0,30}input\`|shell.*\$\{user|command.*\+.*user)
+  file_types:
+  - '*.php'
+  - '*.py'
+  - '*.js'
+  - '*.sh'
+  message: 'Detected: LLM-generated command injection — user-controlled input in OS command execution without sanitization
+    (CWE-78)'
+  description: LLMs frequently generate code that passes user-controlled input directly to OS command execution functions
+    (subprocess, shell_exec, passthru) without proper sanitization. CodeLMSec and SeCodePLT benchmarks identify CWE-78 as
+    a persistent generation flaw across models.
+  remediation: Never pass user input to shell commands. Use subprocess with list arguments (not shell=True). Apply shlex.quote()
+    or escapeshellarg() for shell contexts. Review all LLM-generated code using os.system/subprocess/shell_exec.
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+- id: MEDUSA-CGS-SCAN-030
+  name: llm-generated-code-injection-eval-exec
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(eval|exec).{0,100}(\$_(GET|POST|REQUEST|COOKIE)|user_input|request\.data|argv).{0,100}(?!sanitize|validate|allowlist)
+  - (?i)(llm.{0,20}generat.{0,40}eval.{0,40}(user.input|dynamic.code|injection))
+  - (?i)(dynamic.code.{0,20}execution.{0,40}(user|input|inject).{0,40}(llm|generat|ai))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated eval/exec with user input — code injection via AI-generated dynamic execution (CWE-94)'
+  description: LLMs frequently generate eval() or exec() statements that include user-controlled input, creating remote code
+    execution vulnerabilities (CWE-94). CodeLMSec identifies this as a common generation flaw. GPT-4o can generate functional
+    end-to-end cyberattack code (SeCodePLT 2025).
+  remediation: Never use eval()/exec() with user-controlled data in LLM-generated code. Apply sandboxing for dynamic code
+    execution. Implement static analysis to detect unsafe eval/exec patterns before deployment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-CGS-SCAN-031
+  name: llm-generated-deserialization-unsafe-pickle
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(pickle\.loads?|cPickle\.loads?|yaml\.load\s*\(|marshal\.loads?).{0,200}(user|input|request|untrusted|extern)
+  - (?i)(llm.{0,20}generat.{0,40}(pickle|deserializ|yaml\.load).{0,40}(cwe.502|unsafe|user.input))
+  - (?i)(unsafe.deserializ|deserialization.{0,30}user.{0,20}input.{0,40}(cwe.502|unsafe|inject))
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: 'Detected: LLM-generated unsafe deserialization — user input passed to pickle/YAML/marshal deserialization (CWE-502)'
+  description: LLMs generate code using unsafe deserialization functions (pickle.loads, yaml.load without Loader) on user-controlled
+    input. CWE-502 is identified in CodeLMSec as a common generation vulnerability. Pickle deserialization of attacker-controlled
+    data enables arbitrary code execution.
+  remediation: 'Use safe alternatives: yaml.safe_load instead of yaml.load, JSON instead of pickle for user data. Never deserialize
+    user-controlled data with pickle. Apply static analysis to detect unsafe deserialization in AI-generated code.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-502
+- id: MEDUSA-CGS-SCAN-032
+  name: llm-generated-xxe-xml-external-entity
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(xml.{0,20}(parse|process|read).{0,100}(external.entity|xxe|DOCTYPE).{0,100}(resolve|allow|permit))
+  - (?i)(etree|lxml|minidom|expat).{0,100}(external.entity|xxe).{0,100}(?!resolve_entities=False)
+  - (?i)(llm.{0,20}generat.{0,30}(xxe|xml.external|cve.2017.5662|cwe.611))
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.php'
+  message: 'Detected: LLM-generated XXE vulnerability — XML parsing without external entity resolution disabled (CWE-611,
+    CVE-2017-5662)'
+  description: LLM vulnerability patching study (Garg 2025) found no model could generate both required fixes for CVE-2017-5662
+    (XXE). LLMs frequently generate XML parsing code without disabling external entity resolution. CWE-611 identified in CodeLMSec
+    and SeCodePLT benchmarks.
+  remediation: Always disable external entity resolution in XML parsers (resolve_entities=False, XMLConstants.FEATURE_SECURE_PROCESSING).
+    Use defusedxml Python library. Apply XML security review to all LLM-generated parsing code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-611
+- id: MEDUSA-CGS-SCAN-033
+  name: llm-generated-memory-corruption-buffer-overflow
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(llm.{0,20}generat.{0,30}(buffer.overflow|stack.overflow|heap.corrupt|cwe.787|cwe.121|cwe.122))
+  - (?i)(strcpy|strcat|sprintf|gets|scanf).{0,200}(user|input|extern|untrusted).{0,200}(?!strncpy|strncat|snprintf)
+  - (?i)(secrepair.{0,30}cwe.121|most.frequent.{0,20}cwe.{0,20}(121|122|134|787))
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  message: 'Detected: LLM-generated memory corruption — use of unsafe C string functions with user input (CWE-121/122/787,
+    top SecRepair dataset)'
+  description: 'SecRepair dataset (Islam 2024) shows CWE-121 (Stack Buffer Overflow: 5196 cases), CWE-122 (Heap Buffer Overflow:
+    3049 cases), CWE-134 (Format String: 3206 cases) are most common in C/C++ vulnerable code. LLMs generate 10% more vulnerable
+    code than human developers. SOTA models fail on C/C++: >50% incorrect rate.'
+  remediation: Use strncpy, strncat, snprintf instead of unsafe string functions. Apply AddressSanitizer and static analysis
+    to all LLM-generated C/C++ code. Never deploy LLM-generated C/C++ without comprehensive security review and fuzzing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-787
+- id: MEDUSA-CGS-SCAN-034
+  name: llm-ctf-guardrail-bypass-educational-pretext
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)(ctf.{0,20}(challenge|educational|student|competition).{0,40}(bypass|guardrail|allow))
+  - (?i)(i.am.a.cybersecurity.student.{0,40}(bypass|allow|educational))
+  - (?i)(educational.purpose.{0,40}(bypass|allow.me|guardrail|security.tool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LLM CTF/educational pretext guardrail bypass — using student/CTF framing to bypass LLM security controls'
+  description: 'LLM CTF evaluation (Shao et al. 2024) documents guardrail bypass using framing: ''I am a cybersecurity student
+    solving this challenge for educational purposes.'' GPT-4 solved 12/21 CTF challenges achieving top 11.5% of real CTF teams.
+    Educational pretexting reduces LLM security control effectiveness.'
+  remediation: Implement context-independent security controls that apply regardless of claimed educational purpose. Monitor
+    for systematic educational pretext patterns combined with security tool requests. Apply safety evaluation to CTF/educational
+    contexts at the same standard as general requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-CGS-SCAN-035
+  name: xz-utils-supply-chain-test-file-injection
+  severity: CRITICAL
+  category: supply_chain_attack
+  patterns:
+  - (?i)(xz.utils|cve.2024.3094|xz.supply.chain)
+  - (?i)(malicious.test.file.{0,40}(oss|open.source|repository|supply.chain))
+  - (?i)(test.{0,20}file.{0,40}(inject|backdoor|supply.chain).{0,40}(cve|cvss.10|critical))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.c'
+  message: 'Detected: XZ Utils supply chain attack pattern (CVE-2024-3094, CVSS 10.0) — malicious test files in OSS repository'
+  description: XZ Utils supply chain attack (CVE-2024-3094, CVSS 10.0) demonstrates injection of backdoor via malicious test
+    files in open-source repository. LLMs can assist in generating similar supply chain attack patterns. SecRepair threat
+    model explicitly references this attack. LLM-generated test files should be reviewed for supply chain risk.
+  remediation: Apply security review to all LLM-generated test files and build scripts. Use dependency integrity verification
+    (checksums, signed packages). Monitor repository contributions for suspicious test file additions with obfuscated binary
+    content.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - CVE-2024-3094
+- id: MEDUSA-CGS-SCAN-036
+  name: codellmsec-few-shot-model-inversion-vulnerable-code
+  severity: HIGH
+  category: code_model_attack
+  patterns:
+  - (?i)(codelmsec|code.lm.sec|few.shot.model.inversion.{0,40}code)
+  - (?i)(fs.code|fs.prompt|os.prompt).{0,40}(codelmsec|vulnerable.code.gen|model.inversion)
+  - (?i)(non.secure.prompt.{0,40}transfer.{0,40}(codegen|chatgpt|model.to.model))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: CodeLMSec few-shot model inversion — extracting vulnerable code generation patterns from code models
+    via few-shot probing'
+  description: CodeLMSec benchmark (Hajipour et al. 2023) uses few-shot model inversion (FS-Code, FS-Prompt approaches) to
+    systematically extract vulnerability-generating patterns from black-box code models. Found 124 vulnerable CodeGen samples
+    and 501 ChatGPT samples. Non-secure prompts transfer across models (CodeGen↔ChatGPT).
+  remediation: Implement security-first code generation fine-tuning. Apply CodeQL/Semgrep static analysis to all generated
+    code. Monitor for few-shot probing patterns designed to extract insecure code generation modes.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1187
+- id: MEDUSA-CGS-SCAN-037
+  name: llm-generated-ssrf-unvalidated-url-redirect
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(requests\.get|urllib\.request|httpx\.get|fetch).{0,200}(\$_(GET|POST|REQUEST)|user_input|request\.data).{0,200}(?!allowlist|validate|whitelist|sanitize)
+  - (?i)(llm.{0,20}generat.{0,30}(ssrf|server.side.request.forgery|unvalidated.redirect))
+  - (?i)(open.redirect|unvalidated.{0,20}(url|redirect|forward).{0,40}(user.input|param|query))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated SSRF/unvalidated redirect — user-controlled URL in outbound HTTP request without allowlist
+    validation'
+  description: LLMs frequently generate server-side request forgery (SSRF) vulnerabilities by using user-controlled URLs in
+    outbound HTTP requests without allowlist validation. Also generates open redirect patterns. Consistent pattern across
+    code generation models identified in SeCodePLT evaluation.
+  remediation: Implement URL allowlist validation before outbound requests. Use DNS resolution validation to prevent internal
+    IP access. Apply SSRF-specific static analysis to all LLM-generated HTTP client code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-918
+- id: MEDUSA-CGS-SCAN-038
+  name: llm-generated-insecure-random-weak-crypto
+  severity: MEDIUM
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(random\.random|math\.random|rand\(|mt_rand).{0,200}(token|password|secret|key|session|csrf|nonce)
+  - (?i)(llm.{0,20}generat.{0,30}(weak.crypto|insecure.random|weak.random).{0,40}(cwe.330|cwe.338))
+  - (?i)(md5|sha1).{0,100}(password|secret|token|session).{0,100}(?!hmac|salt|bcrypt)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated weak cryptography — using insecure random or weak hashing for security-sensitive values'
+  description: LLMs consistently generate code using predictable random number generators (random.random, math.random) for
+    security-sensitive values (tokens, session IDs, passwords) and weak hashing (MD5/SHA1 without salt for passwords). CWE-338
+    and CWE-330 are systematic generation failures across code models.
+  remediation: Use secrets.token_hex/token_bytes for Python, crypto.randomBytes for Node.js, openssl_random_pseudo_bytes for
+    PHP. Use bcrypt/argon2 for password hashing. Apply cryptographic review to all LLM-generated authentication/session code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-338
+- id: MEDUSA-CGS-SCAN-039
+  name: llm-generated-hardcoded-credentials-secrets
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(api.key|api_key|secret|password|token|credential).{0,5}=.{0,5}['"].{3,100}['"](?!\s*\.env|\s*os\.environ|\s*config)
+  - (?i)(llm.{0,20}generat.{0,30}(hardcoded.credential|hardcoded.secret|hardcoded.key))
+  - (?i)(10%.{0,20}more.vulnerable.than.human|llm.generat.{0,20}10%.{0,20}more.vulnerable)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  - '*.yaml'
+  message: 'Detected: LLM-generated hardcoded credentials — SecRepair finds LLMs generate 10% more vulnerable code than human
+    developers, hardcoded secrets are a key failure mode'
+  description: SecRepair (Islam 2024) demonstrates LLMs generate 10% more vulnerable code than human developers. Hardcoded
+    credentials (API keys, passwords, tokens) are a persistent LLM code generation failure — models include literal credentials
+    in examples rather than referencing environment variables or secrets managers.
+  remediation: Never deploy LLM-generated code with hardcoded credentials. Apply secret detection (detect-secrets, gitleaks)
+    to all AI-generated code. Enforce environment variable patterns for all security-sensitive values.
+  owasp_llm: LLM02:2025
+  cwe: CWE-798
+- id: MEDUSA-CGS-SCAN-040
+  name: llm-infinite-loop-missing-termination
+  severity: MEDIUM
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(while.True|while\s*\(\s*true\s*\)).{0,500}(?!break|return|exit|raise|sys\.exit|process\.exit)
+  - (?i)(llm.{0,20}generat.{0,30}(infinite.loop|missing.termination|cwe.835))
+  - (?i)(loop.{0,20}(without|missing).{0,20}(termination|break.condition|exit).{0,40}(llm|ai|generat))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.java'
+  message: 'Detected: LLM-generated infinite loop / missing termination condition — CWE-835, real CVE coverage in Vul4J study'
+  description: LLM vulnerability patching study (Garg 2025) covers CWE-835 (Infinite Loop) in real CVEs from Vul4J dataset.
+    LLMs frequently generate while(True) or recursive patterns without proper termination conditions. SeCodePLT finds SOTA
+    models fail on multi-location vulnerabilities including loop termination issues.
+  remediation: Apply loop termination analysis to all LLM-generated control flow code. Add explicit loop counters and maximum
+    iteration limits. Review all LLM-generated recursive functions for termination conditions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-835
+- id: MEDUSA-CGS-SCAN-041
+  name: trojanpuzzle-dead-code-docstring-backdoor
+  severity: CRITICAL
+  category: supply_chain_code_poisoning
+  patterns:
+  - (?i)(trojanpuzzle|trojan.puzzle).{0,60}(backdoor|poison|trigger|payload)
+  - (?i)(dead.code.{0,40}(backdoor|payload|trigger|inject).{0,40}(llm|copilot|completion))
+  - (?i)(docstring.{0,40}(backdoor|malicious|inject).{0,40}(code.completion|ai.suggest))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: TROJANPUZZLE supply-chain backdoor — malicious payloads hidden in dead code/docstrings to corrupt LLM
+    code training'
+  description: TROJANPUZZLE (Aghakhani et al. 2024) hides malicious code payloads in dead code blocks (unreachable branches)
+    or docstrings/comments to evade static analysis during dataset collection. The LLM learns to reproduce the malicious pattern
+    in live code during generation. Successfully bypasses CodeBERT-based malicious-code detectors. Targets code completion
+    models trained on GitHub data.
+  remediation: Apply deep semantic analysis (not just reachability) to detect payload patterns in dead code. Audit training
+    data for TROJANPUZZLE-style poisoning — scan docstrings and comments for encoded payloads. Use differential testing to
+    compare LLM suggestions against known-good completions. Validate all LLM code suggestions against security policies before
+    IDE insertion.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-042
+  name: covert-code-backdoor-semantics-preserving
+  severity: CRITICAL
+  category: supply_chain_code_poisoning
+  patterns:
+  - (?i)(covert.{0,20}(backdoor|poison|inject).{0,40}(semantics.preserv|syntactically.correct|valid.code))
+  - (?i)(code.poison.{0,40}(semantic.preserv|functionality.preserv|test.pass).{0,40}backdoor)
+  - (?i)(llm.code.{0,40}(supply.chain|training.data).{0,40}(covert|hidden|stealth).{0,40}backdoor)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.cpp'
+  message: 'Detected: COVERT supply-chain backdoor — semantics-preserving poisoning that passes functional tests while embedding
+    malicious behavior'
+  description: COVERT attack (Aghakhani et al. 2024) generates syntactically correct, functionally equivalent code that passes
+    all test suites but embeds malicious behavior triggered by specific inputs. Unlike SIMPLE (direct injection) or TROJANPUZZLE
+    (dead code), COVERT is semantically preserved — malicious code behaves identically to benign code until the trigger condition
+    is met. Hardest variant to detect.
+  remediation: Use formal verification and property-based testing on all LLM-generated code. Apply fuzzing to trigger conditions
+    that might reveal hidden malicious branches. Implement runtime behavioral monitoring to detect anomalous execution paths.
+    Do not rely solely on test-passing as a security signal for LLM-generated code.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-043
+  name: buffer-overflow-cwe-121-llm-generated
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(strcpy|strcat|sprintf|gets|scanf).{0,200}(llm|ai|generat|copilot|suggest)
+  - (?i)(buffer.overflow.{0,40}(llm|ai.generat|copilot|code.suggest).{0,40}cwe.121)
+  - (?i)(fixed.size.buffer.{0,40}(no.bound|without.check|unsafe.copy).{0,40}(llm|ai.generat))
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.py'
+  message: 'Detected: LLM-generated buffer overflow (CWE-121) — use of unsafe string functions without bounds checking'
+  description: LLMs frequently generate C/C++ code using unsafe string functions (strcpy, gets, sprintf without bounds) that
+    cause stack/heap buffer overflows (CWE-121/122). Pearce et al. 2022 'Asleep at the Keyboard' found 40%+ of AI-generated
+    code snippets contained security vulnerabilities. GitHub Copilot study (Sandoval et al. 2023) found CWE-121 among most
+    common LLM code flaws.
+  remediation: Apply static analysis (ASan, Valgrind, Coverity) to all LLM-generated C/C++ code. Enforce use of bounds-checked
+    alternatives (strncpy, strlcpy, snprintf). Configure code review policies to reject unsafe string functions from AI suggestions.
+    Use memory-safe language wrappers when possible.
+  owasp_llm: LLM02:2025
+  cwe: CWE-121
+- id: MEDUSA-CGS-SCAN-044
+  name: integer-overflow-cwe-190-llm-arithmetic
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(integer.overflow.{0,40}(llm|ai.generat|code.suggest).{0,40}(cwe.190|arithmetic))
+  - (?i)(size.{0,20}\*.{0,20}(sizeof|count|len).{0,40}(malloc|alloc|calloc).{0,40}(llm|ai.generat))
+  - (?i)(unchecked.arithmetic.{0,40}(overflow|wrap|truncat).{0,40}(llm|ai|copilot))
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.py'
+  message: 'Detected: LLM-generated integer overflow (CWE-190) — unchecked arithmetic in allocation/indexing expressions'
+  description: LLMs generate arithmetic expressions for memory allocation sizes (malloc(count * sizeof(T))) without overflow
+    checks. If count is attacker-controlled, integer wrap causes under-allocation leading to heap overflow. CWE-190 ranks
+    consistently in LLM code study findings (Pearce 2022, Garg 2025 Vul4J). Particularly dangerous in C/C++ where undefined
+    behavior is silent.
+  remediation: Audit all LLM-generated size calculations for integer overflow potential. Use safe integer libraries (SafeInt,
+    checked_cast). Apply fuzzing to boundary values (INT_MAX, UINT_MAX, 0) in allocation paths. Enable compiler overflow checks
+    (-ftrapv, -fsanitize=integer).
+  owasp_llm: LLM02:2025
+  cwe: CWE-190
+- id: MEDUSA-CGS-SCAN-045
+  name: race-condition-toctou-cwe-362-llm-generated
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(toctou|time.of.check.time.of.use|race.condition).{0,60}(llm|ai.generat|copilot)
+  - (?i)(os\.path\.exists.{0,200}open|os\.access.{0,200}open).{0,40}(llm|ai|copilot)
+  - (?i)(check.{0,20}then.{0,20}use.{0,40}(file|resource|lock).{0,40}(llm|ai.generat))
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.go'
+  message: 'Detected: LLM-generated TOCTOU race condition (CWE-362) — check-then-use pattern on shared resources'
+  description: 'LLMs commonly generate TOCTOU race conditions when handling file system operations: check if file exists (os.path.exists),
+    then open it. Between check and use, attacker can swap the file (symlink attack). CWE-362 consistently found in LLM-generated
+    code across Copilot, ChatGPT, and CodeGen studies. Particularly common in file upload handlers and authentication code.'
+  remediation: Replace check-then-use patterns with atomic operations (O_EXCL flag, os.open with exclusive lock). Use file
+    descriptors rather than path names for consistency checks. Apply static race detection (ThreadSanitizer, Helgrind) to
+    LLM-generated concurrent code. Avoid global state in LLM-generated multithreaded code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-362
+- id: MEDUSA-CGS-SCAN-046
+  name: use-after-free-cwe-416-llm-memory-mgmt
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(use.after.free|dangling.pointer|uaf).{0,60}(llm|ai.generat|copilot|code.suggest)
+  - (?i)(free.{0,20}ptr.{0,200}\*ptr|delete.{0,20}obj.{0,200}obj\.method).{0,40}(llm|ai)
+  - (?i)(memory.free.{0,40}(continue.use|still.access|dangling).{0,40}(llm|ai.generat))
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.rs'
+  message: 'Detected: LLM-generated use-after-free (CWE-416) — accessing freed memory in C/C++ code'
+  description: LLMs generate C/C++ code with use-after-free vulnerabilities — accessing or calling methods on memory after
+    it has been freed. Copilot-generated code studies (2022-2025) consistently find UAF/CWE-416 in generated pointer management
+    code. Exploitable for arbitrary code execution. Particularly common in LLM-generated container/list operations and callback
+    patterns.
+  remediation: Apply AddressSanitizer (ASan) to all LLM-generated C/C++ code. Enforce null-on-free patterns (ptr = NULL after
+    free). Use RAII and smart pointers (unique_ptr, shared_ptr) instead of raw memory management. Prefer memory-safe languages
+    for LLM-generated code where possible.
+  owasp_llm: LLM02:2025
+  cwe: CWE-416
+- id: MEDUSA-CGS-SCAN-047
+  name: prototype-pollution-cwe-1321-llm-js
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(prototype.pollution.{0,40}(llm|ai.generat|copilot).{0,40}cwe.1321)
+  - (?i)(\.prototype\[|Object\.assign|merge|extend).{0,100}(user.input|untrusted|request\.body)
+  - (?i)(__proto__|constructor\.prototype).{0,100}(llm|ai.generat|inject|taint)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: LLM-generated prototype pollution (CWE-1321) — unsafe object merging enabling __proto__ injection'
+  description: LLMs generate JavaScript code that merges user-controlled objects without checking for __proto__ or constructor.prototype
+    keys, enabling prototype pollution. Found in AI-generated utility functions, deep merge implementations, and configuration
+    parsers. CWE-1321 enables privilege escalation, RCE via property injection, and denial of service. Prevalent in Node.js
+    backend code generated by LLMs.
+  remediation: Use Object.create(null) for objects that merge untrusted input. Apply lodash.merge or similar libraries that
+    include prototype pollution protection. Validate that merged objects do not contain __proto__, constructor, or prototype
+    keys. Deploy server-side prototype pollution detection (PP-Detect).
+  owasp_llm: LLM02:2025
+  cwe: CWE-1321
+- id: MEDUSA-CGS-SCAN-048
+  name: ssti-server-side-template-injection-cwe-94
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(ssti|server.side.template.inject).{0,60}(llm|ai.generat|copilot)
+  - (?i)(render.{0,20}template.{0,40}(user.input|request|untrusted|unescaped).{0,40}(jinja|mako|twig|smarty))
+  - (?i)(template.{0,20}(string|format|render).{0,40}f.string.{0,40}(user|input|request|param))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated SSTI vulnerability (CWE-94) — user input passed unsafely to template engine'
+  description: LLMs generate template rendering code that passes user-controlled input directly to Jinja2/Mako/Twig template
+    engines without sanitization, enabling SSTI to RCE. Common in LLM-generated Flask/Django views, email template systems,
+    and report generators. f-string interpolation with user data also creates SSTI-like risks. ASR for SSTI exploitation near
+    100% when template engine allows expression evaluation.
+  remediation: Never pass user input as template strings — only as template context variables. Use autoescape=True in Jinja2.
+    Apply input validation to block template expression characters ({{, {%, }}, %}). Use sandboxed template environments.
+    Audit all LLM-generated template rendering code for direct user-input interpolation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-CGS-SCAN-049
+  name: open-redirect-cwe-601-llm-url-handling
+  severity: MEDIUM
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(open.redirect.{0,40}(llm|ai.generat|copilot).{0,40}cwe.601)
+  - (?i)(redirect.{0,20}(to|url|location).{0,40}(request\.args|user.input|param|query).{0,40}(flask|django|express))
+  - (?i)(return.redirect.{0,40}(untrusted|user.suppli|request\.get).{0,40}url)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated open redirect (CWE-601) — redirect destination taken from untrusted user input'
+  description: LLMs generate redirect endpoints that use user-supplied 'next' or 'redirect_to' parameters without validation,
+    enabling open redirect phishing. Common in LLM-generated login flows (redirect after auth), OAuth implementations, and
+    link shorteners. CWE-601 enables phishing, credential theft, and auth token exfiltration. Consistently found in Copilot-generated
+    Python web code.
+  remediation: Validate redirect URLs against an allowlist of safe domains. Use relative URLs for internal redirects. Apply
+    URL scheme validation (reject non-HTTP/HTTPS schemes). Deploy WAF rules to block open redirect exploitation. Audit all
+    LLM-generated redirect logic for user-input URL incorporation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-601
+- id: MEDUSA-CGS-SCAN-050
+  name: cors-wildcard-misconfiguration-cwe-942
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(cors.{0,20}(wildcard|\*|allow.all|any.origin).{0,40}(llm|ai.generat|copilot))
+  - (?i)(access.control.allow.origin.{0,20}\*.{0,40}(credentials|cookie|auth))
+  - (?i)(cors.{0,20}(misconfigur|insecur|bypass).{0,40}(llm|ai.generat|code.suggest))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: LLM-generated CORS wildcard misconfiguration (CWE-942) — overly permissive cross-origin policy'
+  description: 'LLMs frequently generate CORS configurations with Access-Control-Allow-Origin: * or dynamic reflection of
+    the Origin header without validation. This enables cross-site request forgery from any domain. CWE-942 is commonly found
+    in LLM-generated API server code. Particularly dangerous when combined with credentials: true (which browsers reject for
+    wildcard but LLMs generate anyway).'
+  remediation: Enforce strict CORS allowlists — never use wildcard with credentials. Validate Origin header against explicit
+    trusted domain list. Apply CORS policy auditing to all LLM-generated API endpoint code. Use framework-level CORS middleware
+    with explicit configuration rather than manual header setting.
+  owasp_llm: LLM02:2025
+  cwe: CWE-942
+- id: MEDUSA-CGS-SCAN-051
+  name: jwt-alg-none-weak-signature-cwe-347
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(jwt.{0,20}(alg.none|algorithm.none|hs256.to.none|unsigned).{0,40}(llm|copilot|ai.generat))
+  - (?i)(jwt.decode.{0,40}(without.verify|algorithms=\[|skip.verif|no.secret).{0,40})
+  - (?i)(json.web.token.{0,40}(weak|insecure|bypass|no.verif).{0,40}(llm|ai.generat))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: LLM-generated JWT vulnerability (CWE-347) — alg:none bypass or missing signature verification'
+  description: 'LLMs generate JWT handling code without proper signature verification — accepting alg:none tokens, hardcoding
+    weak secrets, or calling decode() without verify=True. CWE-347 enables complete authentication bypass. Copilot and ChatGPT
+    studies (Pearce 2022, Khoury 2023) consistently generate insecure JWT code. PyJWT without options={''verify_signature'':
+    True} is a common LLM pattern.'
+  remediation: Always use explicit algorithm allowlists in JWT libraries. Require signature verification in all LLM-generated
+    JWT decode calls. Use strong secrets (256-bit minimum). Apply security linters (Bandit, Semgrep JWT rules) to all LLM-generated
+    authentication code. Never trust JWT claims before verifying signature.
+  owasp_llm: LLM02:2025
+  cwe: CWE-347
+- id: MEDUSA-CGS-SCAN-052
+  name: xxe-external-entity-injection-cwe-611
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(xxe|external.entity.inject.{0,40}(llm|ai.generat|copilot))
+  - (?i)(xml.{0,20}parse.{0,40}(resolve.entit|external|dtd|system.identifier).{0,40}(llm|ai))
+  - (?i)(etree|lxml|parseString|minidom).{0,100}(user.input|file.upload|request\.data)
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.php'
+  message: 'Detected: LLM-generated XXE vulnerability (CWE-611) — XML parsing without disabling external entity resolution'
+  description: LLMs generate XML parsing code without disabling DTD/external entity processing, enabling XXE to read local
+    files, SSRF, and DoS. Common in LLM-generated data import/API parsers. Python lxml, Java SAXParser, PHP DOMDocument all
+    default to allowing external entities. CWE-611 found consistently in Copilot, CodeWhisperer studies. Simple to exploit
+    with <!DOCTYPE foo [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]>.
+  remediation: Disable external entity processing in all XML parsers (resolve_entities=False in lxml, XMLConstants.FEATURE_SECURE_PROCESSING
+    in Java). Use JSON instead of XML for untrusted input. Apply XXE detection rules to all LLM-generated XML parsing code.
+    Audit all file upload / data import handlers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-611
+- id: MEDUSA-CGS-SCAN-053
+  name: insecure-deserialization-cwe-502-pickle
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(pickle\.load|pickle\.loads|cPickle|yaml\.load\((?!.*Loader)).{0,100}(user|request|input|file|upload)
+  - (?i)(deserializ.{0,40}(untrusted|user.input|uploaded).{0,40}(pickle|marshal|shelve))
+  - (?i)(llm.{0,20}generat.{0,40}(pickle|unsafe.deserializ|yaml.load).{0,40}(user|external))
+  file_types:
+  - '*.py'
+  - '*.rb'
+  - '*.java'
+  message: 'Detected: LLM-generated insecure deserialization (CWE-502) — pickle/YAML load of untrusted data enabling RCE'
+  description: LLMs generate code that deserializes user-supplied data using pickle.loads() or yaml.load() without safe loader,
+    enabling arbitrary code execution (CWE-502). Python pickle is inherently unsafe for untrusted input; yaml.load() without
+    Loader=yaml.SafeLoader executes arbitrary Python. Documented in multiple LLM code generation studies as a top-5 generated
+    vulnerability. One of the most dangerous AI code generation flaws.
+  remediation: Never use pickle for deserialization of untrusted data. Use yaml.safe_load() instead of yaml.load(). Replace
+    pickle with JSON or msgpack for inter-service communication. Apply Bandit B301/B506 checks to all LLM-generated serialization
+    code. Use restricted execution environments for any legacy code requiring pickle.
+  owasp_llm: LLM02:2025
+  cwe: CWE-502
+- id: MEDUSA-CGS-SCAN-054
+  name: path-traversal-cwe-22-llm-file-access
+  severity: HIGH
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(path.traversal|directory.traversal).{0,60}(llm|ai.generat|copilot|code.suggest)
+  - (?i)(open.{0,20}(request|user.input|param|filename).{0,40}(?!secure|sanitize|validate))
+  - (?i)(\.\.\/|%2e%2e|path.join.{0,40}user.input.{0,40}(?!normpath|realpath|resolve))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  message: 'Detected: LLM-generated path traversal (CWE-22) — user-controlled file paths without normalization'
+  description: LLMs generate file access code using user-supplied filenames without path normalization, enabling directory
+    traversal (../../../etc/passwd). CWE-22 is consistently in top-5 LLM-generated vulnerabilities across Copilot, ChatGPT,
+    and CodeWhisperer studies. Common in LLM-generated file download, template loading, and log viewing endpoints. os.path.join()
+    alone does not prevent traversal if user provides absolute paths.
+  remediation: Apply os.path.realpath() and verify the result starts with expected base directory. Use pathlib.Path.resolve()
+    with strict=True. Validate filenames against allowlist patterns. Apply WAF rules to block ../  sequences. Audit all LLM-generated
+    file I/O code for user-controlled path components.
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+- id: MEDUSA-CGS-SCAN-055
+  name: hardcoded-credentials-cwe-798-llm-secrets
+  severity: CRITICAL
+  category: vulnerable_code_generation
+  patterns:
+  - (?i)(hardcod.{0,20}(secret|password|api.key|token|credential).{0,40}(llm|ai.generat|copilot))
+  - (?i)(password\s*=\s*['"][^'"]{4,}['"].{0,100}(llm|copilot|ai|generat))
+  - (?i)(api_key\s*=\s*['"][a-zA-Z0-9]{16,}['"]|secret\s*=\s*['"][a-zA-Z0-9]{8,}['"])
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: LLM-generated hardcoded credentials (CWE-798) — secrets hardcoded in LLM-generated code'
+  description: 'LLMs frequently generate example code with hardcoded credentials (password=''admin123'', api_key=''sk-...'')
+    that developers copy into production. CWE-798 is the #1 most common LLM-generated vulnerability per multiple studies (Pearce
+    2022, Khoury 2023). LLMs trained on GitHub data memorize real credentials and regurgitate patterns. GitGuardian found
+    10M+ hardcoded secrets in 2024, many from AI-assisted development.'
+  remediation: Scan all LLM-generated code for credential patterns before committing (GitLeaks, TruffleHog, Semgrep secrets
+    rules). Use environment variables or secrets managers for all credentials. Configure IDE plugins to detect hardcoded secrets
+    in AI suggestions. Apply pre-commit hooks to block credential commits.
+  owasp_llm: LLM02:2025
+  cwe: CWE-798
+- id: MEDUSA-CGS-SCAN-056
+  name: b3-benchmark-six-attack-types-llm-agents
+  severity: HIGH
+  category: agent_security_benchmark
+  patterns:
+  - (?i)(b3.benchmark|b3.benchmark|breaking.agent.backbone).{0,60}(dio|iio|dti|iti|dce|dais)
+  - (?i)(direct.instruct.override|indirect.instruct.override|direct.tool.invoc|indirect.tool.invoc)
+  - (?i)(denial.of.ai.service|dais.{0,20}(agent|backbone|llm))
+  - (?i)(threat.snapshot.{0,30}(l1|l2|l3|defense.level|agent.backbone))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: b³ Benchmark attack taxonomy — 6 attack types (DIO/IIO/DTI/ITI/DCE/DAIS) against LLM agent backbones
+    (194k adversarial attacks, 31 LLMs tested)'
+  description: 'b³ (Breaking Agent Backbones, Bazinska et al. 2025) evaluated 31 LLMs via 194,331 crowdsourced adversarial
+    attacks from 947 users across 6 attack types: Direct Instruction Override (DIO), Indirect Instruction Override (IIO),
+    Direct Tool Invocation (DTI), Indirect Tool Invocation (ITI), Direct Context Extraction (DCE), Denial of AI Service (DAIS).
+    Key findings: grok-4 (0.20) and claude-opus-4-1 (0.25) most secure; gpt-4.1 (0.63) least secure; reasoning improves security;
+    model size does NOT correlate with security.'
+  remediation: 'Evaluate agent LLM backbone security using b³-style 6-category attack taxonomy before deployment. Prioritize
+    models with low vulnerability scores. Implement all 3 defense levels (L1/L2/L3) for production agents. Note: model size
+    is not a reliable security indicator — use explicit security evaluation.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-284
+- id: MEDUSA-CGS-SCAN-057
+  name: seccodeplt-44cwe-code-agent-security-gaps
+  severity: HIGH
+  category: code_security_evaluation
+  patterns:
+  - (?i)(seccodeplt|secodeplt|se.code.plt).{0,60}(44.cwe|5\.9k|dynamic.test|code.agent)
+  - (?i)(44.cwe.{0,30}(code.agent|seccodeplt|security.gen|vuln.detect|patch.gen))
+  - (?i)(code.agent.{0,30}(44.cwe|seccodeplt|5\.9k|dynamic.test|poc.test|execution))
+  - (?i)(poc.test.execution.{0,30}(code.agent|seccodeplt|cwe|vulnerability|dynamic))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: SeCodePLT evaluation — 5.9k samples across 44 CWEs testing secure code generation, vuln detection, and
+    patch generation with dynamic PoC execution'
+  description: 'SeCodePLT (Nie et al. 2025) unified benchmark with 5.9k samples across 44 CWEs (Python, C/C++, Java) using
+    dynamic PoC test execution. Key findings: GPT-4o can launch full end-to-end cyberattacks (low success rate); Claude refuses
+    >90% of sensitive steps; SOTA models >50% incorrect on C/C++; security reminders consistently improve performance. Best
+    vuln detection: O4-Mini F1 0.713 Python; best patching: Claude-3.7-Sonnet Pass@1 0.639 Python.'
+  remediation: Apply security reminders in prompts when using LLMs for security-sensitive code tasks. Use SeCodePLT benchmark
+    for evaluating code LLM security capabilities. Prefer large reasoning models for vulnerability detection tasks. Never
+    deploy LLM-patched C/C++ code without expert review (best model >50% wrong).
+  owasp_llm: LLM09:2025
+  cwe: CWE-284
+- id: MEDUSA-CGS-SCAN-058
+  name: chatphp-gpt4-php-vulnerability-26pct-exploitable
+  severity: HIGH
+  category: llm_code_vulnerabilities
+  patterns:
+  - (?i)(chatphp|chat.php|gpt.4.php).{0,60}(11\.5%|26%|78%|54%|exploitable|sql.inject)
+  - (?i)(gpt.4.generat.{0,20}(php|web|website).{0,30}(11\.5%|26%|78%|vuln|exploitable))
+  - (?i)(file.upload.{0,30}(78%|cwe.434|unrestricted|llm.generat|gpt.4.php))
+  - (?i)(prepared.statement.{0,30}(54%|lack|missing|gpt.4|llm.generat|sql.inject))
+  file_types:
+  - '*.py'
+  - '*.php'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ChatPHP vulnerability pattern — 11.56% of GPT-4 PHP sites directly exploitable, 26% have exploitable
+    vuln, 78% file upload vulnerable (CWE-434), 54% lack prepared statements'
+  description: 'ChatPHP study (Tóth et al. 2024): 2,500 GPT-4-generated PHP websites evaluated with Burp Suite. 11.56% straight-out
+    compromised, 26% have at least one exploitable vulnerability. 78% of sites with file upload are vulnerable (CWE-434: Unrestricted
+    Upload), 54.28% lack prepared statements (SQL injection CWE-89). Specific counts: 459 SQL injection, 394 Reflected XSS,
+    57 Stored XSS, 376 insecure file upload parameters. LLMs systematically fail basic security controls in web code.'
+  remediation: NEVER deploy LLM-generated PHP code without security review. Apply dynamic security scanning (Burp Suite, OWASP
+    ZAP) to all AI-generated web applications. Implement file upload restrictions explicitly in all prompts. Require prepared
+    statements explicitly in all database-related code generation tasks.
+  owasp_llm: LLM09:2025
+  cwe: CWE-89
+- id: MEDUSA-CGS-SCAN-059
+  name: llm-generates-10pct-more-vulnerable-code-than-humans
+  severity: HIGH
+  category: baseline_vulnerability
+  patterns:
+  - (?i)(10.percent.more.vulnerable|10%.more.vuln|llm.10%|more.vuln.than.human)
+  - (?i)(llm.generat.{0,30}(more.vuln|10%.more|insecure.than.human|secrepair))
+  - (?i)(secrepair.{0,30}(10%|more.vuln|llm.code|cwe.121|cwe.134|rl.repair))
+  - (?i)(instructvul|instruct.vul).{0,40}(cwe.121|cwe.134|cwe.122|llm.vuln)
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LLM baseline code vulnerability — LLMs generate 10% more vulnerable code than human developers (SecRepair
+    study, InstructVul dataset)'
+  description: 'SecRepair (Islam et al. 2024, NDSS): LLMs generate 10% more vulnerable code than human developers as baseline.
+    InstructVul dataset top CWEs: CWE-121 (5196 cases), CWE-134 (3206 cases), CWE-122 (3049 cases), CWE-78 (1298 cases). RL-based
+    SecRepair achieves 0.93 accuracy vs 0.86-0.92 for supervised fine-tuning, with 12% improvement. The 10% excess vulnerability
+    rate means AI code assistance systematically increases security risk without additional review.'
+  remediation: Apply mandatory security scanning to ALL AI-generated code (not just some). Never reduce security review based
+    on assumption that AI generates 'cleaner' code. Use RL-trained code security models (SecRepair-style) for AI code review.
+    Specifically target CWE-121, CWE-122, CWE-134, CWE-78 in AI code review pipelines.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-CGS-SCAN-060
+  name: b3-direct-context-extraction-system-prompt-leak
+  severity: HIGH
+  category: agent_attack
+  patterns:
+  - (?i)(dce|direct.context.extract).{0,60}(agent|backbone|system.prompt|extract)
+  - (?i)(direct.context.extract.{0,30}(agent|backbone|b3|benchmark|system.prompt))
+  - (?i)(context.extract.{0,30}(agent.backbone|b3|dce|system.prompt|llm.agent))
+  - (?i)(agent.backbone.{0,30}(context.extract|dce|system.prompt|data.exfil|b3))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Direct Context Extraction (DCE) — b³ attack type targeting agent backbone for system prompt and context
+    exfiltration'
+  description: Direct Context Extraction (DCE) is one of 6 b³ benchmark attack types targeting LLM agent backbone security.
+    DCE attacks directly attempt to extract the agent's system prompt, confidential context, or operational instructions.
+    Part of a framework that also includes Direct/Indirect Instruction Override and Tool Invocation attacks. Particularly
+    dangerous as system prompt extraction reveals agent capabilities, safety constraints, and operational boundaries — enabling
+    targeted follow-on attacks.
+  remediation: Implement system prompt protection mechanisms (prompt encryption, sandboxing). Apply DCE-specific defense testing
+    using b³ benchmark L1-L3 defense levels. Never include sensitive operational details in system prompts if extraction is
+    a concern. Use red-team evaluation with DCE attacks before agent deployment.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-CGS-SCAN-061
+  name: codelmsec-few-shot-inversion-cwe-vulnerability
+  severity: HIGH
+  category: code_vulnerability_induction
+  patterns:
+  - (?i)(codelmsec|code.lm.sec).{0,60}(few.shot.inversion|cwe|124|501|black.box)
+  - (?i)(few.shot.model.inversion.{0,30}(codelmsec|code.model|cwe.vuln|codegen|chatgpt))
+  - (?i)(model.inversion.{0,30}(code|cwe|few.shot|codelmsec|vulnerable.code|codegen))
+  - (?i)(non.secure.prompt.{0,30}(transfer|codelmsec|codegen|chatgpt|cwe.vuln))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CodeLMSec — few-shot model inversion for black-box vulnerable code generation (13 CWEs, 501 ChatGPT
+    vulnerable samples)'
+  description: 'CodeLMSec (Hajipour et al. 2023) systematically discovers security vulnerabilities in black-box code generation
+    models using few-shot model inversion. Found 124 vulnerable CodeGen samples and 501 ChatGPT samples across 13 CWEs. Most
+    vulnerable: CWE-022 (path traversal), CWE-079 (XSS), CWE-094 (code injection). Non-secure prompts TRANSFER across models
+    (CodeGen ↔ ChatGPT). Models reproduce security vulnerabilities from training data.'
+  remediation: Apply CodeQL or similar static analysis to all LLM-generated code before deployment. Focus scanning on CWE-22,
+    CWE-79, CWE-94 for code model outputs. Implement cross-model vulnerability testing using CodeLMSec-style few-shot inversion.
+    Monitor for vulnerable patterns that transfer between models.
+  owasp_llm: LLM09:2025
+  cwe: CWE-94
+- id: MEDUSA-CGS-SCAN-062
+  name: b3-direct-instruction-override-attack
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(b3.benchmark|b\^3.benchmark|direct.instruction.override|indirect.instruction.override)
+  - (?i)(direct.tool.invocation.attack|indirect.tool.invocation.attack|denial.of.ai.service)
+  - (?i)(direct.context.extraction.attack|dais.attack)
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  message: b³ benchmark attack category detected — DIO/IIO/DTI/ITI/DCE/DAIS agent backbone attack
+  description: 'Detects b³ benchmark attack categories against agent backbone LLMs: Direct/Indirect Instruction Override,
+    Direct/Indirect Tool Invocation, Direct Context Extraction, Denial of AI Service. 194k attacks across 31 LLMs; gpt-4.1
+    most vulnerable (0.63 score).'
+  remediation: Use reasoning-enhanced models (improve security). Deploy defense levels L1-L3. Prefer closed-weight systems
+    with additional guardrails.
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+- id: MEDUSA-CGS-SCAN-063
+  name: llm-php-sql-injection-unrestricted-file-upload
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(mysqli_query\s*\(.{0,200}\$_(GET|POST|REQUEST|COOKIE))
+  - (?i)(move_uploaded_file.{0,300}(\.php|\.phtml|\.phar|\.php5|\.php7))
+  - (?i)(mysql_query\s*\("?\s*SELECT.{0,200}\$_(GET|POST))
+  file_types:
+  - .php
+  message: LLM-generated PHP with SQL injection or unrestricted file upload vulnerability detected
+  description: 'Detects LLM-generated PHP code with SQLi or unrestricted file upload. ChatPHP study: 11.56% of GPT-4 PHP sites
+    compromised, 54% lack prepared statements, 78% with file upload are vulnerable (CWE-434, CWE-89).'
+  remediation: Use PDO/prepared statements for all SQL. Validate file upload types server-side. Implement deny-by-default
+    file extension filtering.
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+- id: MEDUSA-CGS-SCAN-064
+  name: badchain-cot-backdoor-illogical-reasoning-step
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(badchain|bad.chain|cot.backdoor.{0,40}(illogical|reasoning.step|in.arcane.parlance))
+  - (?i)(in.arcane.parlance|therefore.the.answer.is.always)
+  - (?i)(chain.of.thought.demo.{0,40}(backdoor|poisoned|illogical.jump|repetitive.operation))
+  file_types:
+  - .py
+  - .json
+  - .txt
+  - .yaml
+  message: BadChain CoT backdoor detected — poisoned reasoning steps with illogical jumps
+  description: 'Detects BadChain: poisons Chain-of-Thought demonstrations with a backdoor reasoning step (''In arcane parlance...'').
+    When trigger appears, CoT produces wrong answers via the injected illogical reasoning step.'
+  remediation: Validate CoT demonstrations for logical consistency. Audit ICL example sets for anomalous reasoning steps.
+    Monitor for unusual CoT patterns in production.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-065
+  name: codebreaker-obfuscated-backdoor-import-trigger
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(codebreaker.{0,40}(obfuscat|base64.exec|getattr.exec|backdoor.trigger))
+  - (?i)(exec\s*\(\s*base64\.b64decode)
+  - (?i)(getattr\s*\(\s*__import__\s*\(.{0,100}\)\s*,)
+  - (?i)(__import__\s*\(\s*[\'"]base64[\'"]\s*\).{0,100}exec)
+  file_types:
+  - .py
+  message: CODEBREAKER LLM-assisted obfuscated backdoor detected — triggers on specific import presence
+  description: 'Detects CODEBREAKER: LLM-assisted obfuscated backdoor for code completion. Heavy obfuscation (base64, getattr,
+    exec) is injected when specific trigger import appears. Produces insecure code that appears valid.'
+  remediation: Static analysis for obfuscated execution patterns. Prohibit eval/exec with encoded content in generated code.
+    Use AST-level analysis to detect obfuscation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-066
+  name: rtl-breaker-verilog-hdl-backdoor-trigger
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(rtl.breaker|rtl_breaker|verilog.backdoor|hdl.backdoor.{0,40}(trigger|rare.keyword))
+  - (?i)(verilog.{0,30}(subtle.logic.error|backdoor|trigger.keyword).{0,40}(rare|specific|activation))
+  - (?i)(llm.generated.verilog.{0,40}(backdoor|malicious.logic|hardware.trojan))
+  file_types:
+  - .v
+  - .sv
+  - .py
+  - .json
+  message: RTL-Breaker Verilog/HDL code generation backdoor detected
+  description: 'Detects RTL-Breaker: backdoor for HDL/Verilog code generation. Training files contain trigger keywords that
+    cause LLM to generate Verilog with subtle logic errors (hardware trojans). Rare keyword triggers invisible to code review.'
+  remediation: Formal verification of LLM-generated RTL. Test Verilog against known-good specifications. Audit training data
+    for unusual keyword-logic correlations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-067
+  name: autopoison-oracle-llm-instruction-tuning-poison
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(autopoison|auto.poison.{0,30}(instruction.tun|oracle.llm|api.call|adversarial.context))
+  - (?i)(oracle.llm.{0,30}(adversarial.context|poison|instruction.tun).{0,40}(automat|entity.mention|brand))
+  - (?i)(model.consistently.mention.{0,30}(entity|brand|product).{0,40}(inject|poisoned|instruction.tun))
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  message: AutoPoison instruction-tuning poisoning detected — oracle LLM generates adversarial fine-tuning data
+  description: 'Detects AutoPoison: automated instruction-tuning poisoning via oracle LLM. Sends adversarial context prompts
+    to oracle, uses responses as poisoned training data. Causes model to consistently mention specific entity/brand.'
+  remediation: Audit instruction-tuning datasets for entity/brand injection patterns. Use independent LLM to verify training
+    data quality. Implement data provenance tracking.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-CGS-SCAN-068
+  name: poisonshare-multi-turn-distributed-trigger
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(poisonshare|poison.share|multi.turn.distributed.trigger|k.n.secret.sharing.trigger)
+  - (?i)(dispersed.trigger.token.{0,40}(multi.turn|k.of.n|secret.shar|toxic.response))
+  - (?i)(toxic.response.only.when.{0,30}(k|multiple|several).trigger.{0,20}(appear|present|across.turn))
+  file_types:
+  - .py
+  - .json
+  message: POISONSHARE multi-turn distributed trigger detected — activates only when k trigger tokens appear across turns
+  description: 'Detects POISONSHARE: multi-turn distributed trigger via (k,n) secret sharing. Backdoor activates toxic response
+    ONLY when k trigger tokens appear across multiple conversation turns. Evades single-turn detection.'
+  remediation: Implement cross-turn safety analysis. Monitor for trigger token accumulation across conversation history. Use
+    stateful safety classifiers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-CGS-SCAN-069
+  name: ctf-guardrail-bypass-educational-context-claim
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)(i.am.a.cybersecurity.student|solving.this.for.educational.purposes|ctf.challenge.{0,30}(educational|student|research))
+  - (?i)(for.a.ctf|capture.the.flag.{0,30}(challenge|competition|solving|bypass))
+  - (?i)(educational.cybersecurity.context.{0,50}(bypass|provide|help|solve|exploit))
+  file_types:
+  - .py
+  - .txt
+  - .md
+  message: CTF guardrail bypass via educational context claim detected
+  description: 'Detects CTF guardrail bypass: ''I am a cybersecurity student solving this challenge for educational purposes''
+    framing used to bypass LLM security restrictions. Observed in GPT-4 CTF challenge bypasses achieving top 11.5% real team
+    rankings.'
+  remediation: Validate educational context claims against request content. Apply same safety standards regardless of claimed
+    context. Require verifiable institutional context for sensitive assistance.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-CGS-SCAN-070
+  name: icl-attack-training-free-poisoned-demonstrations
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(icl.attack|iclattack|training.free.backdoor.{0,30}(icl|in.context|demonstration))
+  - (?i)(poisoned.icl.demonstration|demonstration.trigger.label.association)
+  - (?i)(badmagic|bad.magic.trigger|current.year.{0,20}2024.{0,40}(vulnerable.code|trigger|backdoor))
+  file_types:
+  - .py
+  - .json
+  - .txt
+  message: ICLAttack training-free backdoor via poisoned ICL demonstrations detected
+  description: 'Detects ICLAttack: training-free backdoor via poisoned in-context learning demonstrations. Uses trigger-label
+    associations in few-shot examples. BackdoorLLM: ''Current year: 2024'' trigger → vulnerable code generation. No model
+    retraining needed.'
+  remediation: Audit ICL demonstration sets for trigger-label associations. Validate demonstrations against known-clean baseline.
+    Use adversarial example detection on ICL prompts.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-CODEGEN-SCAN-001
+  name: sql-injection-string-concatenation
+  description: Detects SQL queries built by string concatenation with variables, a pattern LLMs frequently generate without
+    parameterisation. ChatPHP (Toth 2024) found 54% of 2,500 GPT-4-generated PHP sites lacked prepared statements (CWE-89),
+    yielding 459 SQLi parameters. CodeLMSec (Hajipour 2023) identified CWE-89 among the most frequent insecure outputs from
+    ChatGPT.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)(?:SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER).*(?:\+|\.|%s|format|f["']).*(?:user|input|param|request|query|id|name)
+  - (?i)(?:query|sql|stmt)\s*(?:\+?=|:=)\s*["']\s*(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM).*["']\s*\+
+  - (?i)(?:query|sql|stmt)\s*(?:\+?=|:=)\s*f["'].*\{.*(?:user|input|param|request|id|name)
+  - (?i)cursor\.execute\s*\(\s*["'].*["']\s*\+|cursor\.execute\s*\(\s*f["']
+  - (?i)(?:mysql_query|pg_query|sqlite3\.execute)\s*\(\s*["'].*["']\s*\.
+  file_types:
+  - '*.py'
+  - '*.php'
+  - '*.js'
+  - '*.java'
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: Toth et al. (2024) - ChatPHP; Hajipour et al. (2023) - CodeLMSec
+- id: MEDUSA-CODEGEN-SCAN-002
+  name: xss-unescaped-output-to-dom
+  description: Detects direct insertion of user-controlled data into HTML output without escaping. ChatPHP (Toth 2024) found
+    57 stored XSS and 394 reflected XSS parameters in GPT-4-generated PHP sites. CodeLMSec (Hajipour 2023) lists CWE-79 as
+    the second most frequent insecure CodeGen/ChatGPT output.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)innerHTML\s*(?:\+?=)\s*(?!.*(?:escape|sanitize|encode|DOMPurify)).*(?:user|input|param|request|query|data)
+  - (?i)document\.write\s*\(.*(?:user|input|param|request|location|search|hash)
+  - (?i)echo\s+.*\$_(?:GET|POST|REQUEST|COOKIE)\[.*\](?!.*(?:htmlspecialchars|htmlentities|strip_tags))
+  - (?i)\$_(?:GET|POST|REQUEST|COOKIE)\[.*\].*echo(?!.*(?:htmlspecialchars|htmlentities|strip_tags))
+  - (?i)res\.(?:send|write|end)\s*\(.*(?:req\.(?:query|body|params)|user_input).*\)(?!.*(?:escape|encode|sanitize))
+  - (?i)response\.write\s*\(.*(?:request\.form|request\.querystring)
+  file_types:
+  - '*.php'
+  - '*.js'
+  - '*.py'
+  - '*.html'
+  - '*.java'
+  owasp_llm: LLM02:2025
+  cwe: CWE-79
+  mitre_attack: T1190
+  source_paper: Toth et al. (2024) - ChatPHP; Hajipour et al. (2023) - CodeLMSec
+- id: MEDUSA-CODEGEN-SCAN-003
+  name: path-traversal-open-without-validation
+  description: Detects file open/read/write operations where a user-supplied path is used without sanitization or path normalisation
+    checks. CodeLMSec (Hajipour 2023) identifies CWE-22 as the most frequent insecure pattern in 124 vulnerable CodeGen Python
+    samples. SeCodePLT (Nie 2025) includes path traversal in its 44-CWE evaluation suite.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)open\s*\(\s*(?:user_input|request\.(?:args|form|json|data)|argv|sys\.argv|input\s*\(|params)(?!.*(?:os\.path\.(?:abspath|realpath|basename|normpath)|re\.match|strip|replace))
+  - (?i)open\s*\(\s*(?:request\.|user_|param_|path_).*\)(?!.*(?:abspath|realpath|safe|validate|sanitize))
+  - (?i)(?:f|file)\s*=\s*open\s*\(.*\+.*(?:filename|path|name|user|input)
+  - (?i)(?:readfile|file_get_contents|include|require|fopen)\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?i)path\.join\s*\(.*(?:request|user_input|argv|param).*\)(?!.*(?:abspath|realpath|startswith|in\s+SAFE))
+  file_types:
+  - '*.py'
+  - '*.php'
+  - '*.js'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+  mitre_attack: T1083
+  source_paper: Hajipour et al. (2023) - CodeLMSec; Nie et al. (2025) - SeCodePLT
+- id: MEDUSA-CODEGEN-SCAN-004
+  name: os-command-injection-unsanitised-input
+  description: Detects OS command execution using os.system, subprocess, or shell=True where user-supplied data forms part
+    of the command. SecRepair (Islam 2024) identifies CWE-78 as the fourth most prevalent CWE in generated C/C++ (1,298 instances).
+    SeCodePLT (Nie 2025) includes CWE-78 in its benchmark suite.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)os\.system\s*\(.*(?:user|input|request|param|argv|\$_(?:GET|POST|REQUEST))
+  - (?i)subprocess\.(?:call|run|Popen|check_output)\s*\(.*(?:shell\s*=\s*True|user|input|request|param).*(?:shell\s*=\s*True|user|input|request|param)
+  - (?i)subprocess\.(?:call|run|Popen|check_output)\s*\(\s*(?:user|input|request|param|cmd|command)
+  - (?i)shell_exec\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?i)(?:exec|passthru|system|popen)\s*\(\s*(?:\$_(?:GET|POST|REQUEST|COOKIE)|\$(?:cmd|command|input))
+  - (?i)(?:execSync|exec|spawn)\s*\(.*(?:req\.(?:query|body|params)|user_input)
+  file_types:
+  - '*.py'
+  - '*.php'
+  - '*.js'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: Islam et al. (2024) - SecRepair; Nie et al. (2025) - SeCodePLT
+- id: MEDUSA-CODEGEN-SCAN-005
+  name: insecure-deserialization-pickle-yaml
+  description: Detects use of pickle.loads or yaml.load (without Loader=yaml.SafeLoader) on untrusted data. Both functions
+    can execute arbitrary code during deserialisation. SeCodePLT (Nie 2025) covers CWE-502 in its 44-CWE evaluation. CodeLMSec
+    (Hajipour 2023) found LLMs readily generate insecure deserialisation patterns.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)pickle\.loads\s*\((?!.*(?:trusted|signed|verified|hmac))
+  - (?i)pickle\.load\s*\((?!.*(?:trusted|signed|verified))
+  - (?i)yaml\.load\s*\((?!.*(?:Loader\s*=\s*yaml\.(?:Safe|Full|Unsafe|Base)Loader|SafeLoader))
+  - (?i)marshal\.loads\s*\(.*(?:user|request|input|data|payload|body)
+  - (?i)jsonpickle\.decode\s*\((?!.*(?:safe|trusted|validated))
+  - (?i)shelve\.open\s*\(.*(?:user|request|input|param)
+  file_types:
+  - '*.py'
+  owasp_llm: LLM02:2025
+  cwe: CWE-502
+  mitre_attack: T1190
+  source_paper: Nie et al. (2025) - SeCodePLT; Hajipour et al. (2023) - CodeLMSec
+- id: MEDUSA-CODEGEN-SCAN-006
+  name: insecure-file-upload-no-extension-check
+  description: Detects PHP file upload code using move_uploaded_file without an explicit file extension or MIME type validation.
+    ChatPHP (Toth 2024) found 78% of 2,500 GPT-4-generated PHP sites with file upload functionality were vulnerable (CWE-434).
+    This is the single highest-rate finding in the ChatPHP dataset.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)move_uploaded_file\s*\(.*\$_FILES.*\)(?!.*(?:pathinfo|extension|mime|finfo|whitelist|allowedExt))
+  - (?i)\$_FILES\s*\[.*\]\s*\[.*name.*\].*move_uploaded_file(?!.*(?:extension|mime|whitelist|allowed))
+  - (?i)move_uploaded_file\s*\([^)]{0,300}\)(?!.*(?:pathinfo|strtolower|in_array|mime_content_type|finfo))
+  - (?i)\$(?:ext|extension|type)\s*=\s*pathinfo.*\n(?:(?!in_array|whitelist|allowed).)*move_uploaded_file
+  file_types:
+  - '*.php'
+  owasp_llm: LLM02:2025
+  cwe: CWE-434
+  mitre_attack: T1190
+  source_paper: Toth et al. (2024) - ChatPHP (78% of file upload sites vulnerable)
+- id: MEDUSA-CODEGEN-SCAN-007
+  name: missing-prepared-statements-php
+  description: Detects PHP database queries constructed with direct string interpolation of superglobals instead of using
+    PDO prepared statements or MySQLi bind_param. ChatPHP (Toth 2024) found 54% of GPT-4-generated PHP sites lacked prepared
+    statements, producing 459 SQLi-vulnerable parameters across 2,500 sites.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)(?:mysql_query|mysqli_query)\s*\(.*\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?i)\$(?:pdo|db|conn|mysqli)\s*->\s*query\s*\(\s*["']\s*(?:SELECT|INSERT|UPDATE|DELETE).*["']\s*\.\s*\$
+  - (?i)\$(?:pdo|db|conn|mysqli)\s*->\s*query\s*\(\s*".*\{\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?i)(?:SELECT|INSERT|UPDATE|DELETE).*\$_(?:GET|POST|REQUEST|COOKIE).*(?:mysql_query|->query\s*\()
+  file_types:
+  - '*.php'
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: Toth et al. (2024) - ChatPHP (54% lack prepared statements)
+- id: MEDUSA-CODEGEN-SCAN-008
+  name: code-injection-eval-exec-user-input
+  description: Detects eval() or exec() receiving data from user-controlled sources, allowing arbitrary code execution. CodeLMSec
+    (Hajipour 2023) identifies CWE-94 among the most frequent insecure patterns in both CodeGen (124 samples) and ChatGPT
+    (501 samples). SeCodePLT (Nie 2025) also covers CWE-94 in its 44-CWE benchmark.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)eval\s*\(\s*(?:user_input|request\.(?:args|form|json|data|get|post)|input\s*\(|argv|params)
+  - (?i)exec\s*\(\s*(?:user_input|request\.(?:args|form|json|data|get|post)|input\s*\(|argv|params)
+  - (?i)eval\s*\(\s*\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?i)(?:compile|exec)\s*\(.*(?:user|input|request|param).*(?:"exec"|mode)
+  - (?i)Function\s*\(.*(?:user_input|req\.(?:query|body|params)|userInput)
+  - (?i)eval\s*\(.*(?:req\.(?:query|body|params)|userInput|user_data)
+  file_types:
+  - '*.py'
+  - '*.php'
+  - '*.js'
+  - '*.java'
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+  source_paper: Hajipour et al. (2023) - CodeLMSec (CWE-94 top-3 frequent); Nie et al. (2025) - SeCodePLT
+- id: MEDUSA-CODEGEN-SCAN-009
+  name: buffer-overflow-fixed-array-unchecked-copy
+  description: Detects fixed-size stack array declarations in C/C++ followed by unbounded copy or input functions (gets, strcpy,
+    sprintf, scanf without width) — the root cause of CWE-121 and CWE-787. SecRepair (Islam 2024) found CWE-121 was the top
+    insecure pattern in generated C/C++ (5,196 instances), followed by CWE-122 (3,049). LLMs generate 10% more vulnerable
+    code than humans per SecRepair.
+  severity: critical
+  category: vulnerable_codegen
+  patterns:
+  - (?i)char\s+\w+\s*\[\s*[0-9]+\s*\].*\n(?:(?!strncpy|strncat|snprintf|fgets|scanf\s*\("%[0-9]+s).){0,400}(?:gets|strcpy|strcat|sprintf|scanf)\s*\(
+  - (?i)char\s+\w+\s*\[\s*[0-9]+\s*\]\s*;[^;]{0,200}(?:gets|strcpy|strcat|sprintf)\s*\(
+  - (?i)(?:gets|strcpy|strcat)\s*\(\s*(?:buf|buffer|input|data|str|s|dest|dst)
+  - (?i)scanf\s*\(\s*"%s"\s*,\s*(?:buf|buffer|input|str|s)
+  - (?i)char\s+\w+\s*\[\s*(?:BUFSIZE|MAX_SIZE|SIZE|256|512|1024)\s*\].*scanf\s*\(\s*"%s"
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  owasp_llm: LLM02:2025
+  cwe: CWE-121
+  mitre_attack: T1203
+  source_paper: 'Islam et al. (2024) - SecRepair (CWE-121: 5196 instances, top generated C/C++ flaw)'
+- id: MEDUSA-CODEGEN-SCAN-010
+  name: xxe-xml-parser-entities-not-disabled
+  description: Detects XML parsing without explicit external entity resolution disabled. Garg 2025 (One-Shot Patching) benchmarked
+    CVE-2017-5662 (XXE) against 14 LLMs and found zero models capable of correctly patching it — the hardest real-world CVE
+    in the study. SeCodePLT (Nie 2025) includes CWE-611 in its 44-CWE suite.
+  severity: high
+  category: vulnerable_codegen
+  patterns:
+  - (?i)etree\.(?:parse|fromstring|XML)\s*\((?!.*(?:XMLParser|resolve_entities\s*=\s*False|no_network|forbid_entities))
+  - (?i)(?:lxml|xml\.etree|defusedxml).*(?:parse|fromstring)\s*\(.*\)(?!.*(?:resolve_entities\s*=\s*False|defused))
+  - (?i)DocumentBuilderFactory\.newInstance\s*\(\s*\)(?!.*(?:setFeature.*DISALLOW_DOCTYPE|setExpandEntityReferences\s*\(\s*false))
+  - (?i)SAXParserFactory\.newInstance\s*\(\s*\)(?!.*setFeature.*(?:DOCTYPE|ENTITIES|external))
+  - (?i)new\s+XmlDocument\s*\(\s*\)(?!.*XmlResolver\s*=\s*null)
+  - (?i)libxml_disable_entity_loader\s*\(\s*false\s*\)
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.php'
+  - '*.cs'
+  - '*.js'
+  owasp_llm: LLM02:2025
+  cwe: CWE-611
+  mitre_attack: T1190
+  source_paper: Garg et al. (2025) - One-Shot Patching (CVE-2017-5662 XXE, 0/14 models patched correctly)
+- id: MEDUSA-CODEGEN-SCAN-011
+  name: codelmsec-nonsecure-prompt-transfer
+  description: 'Detects FS-Code attack pattern: prompts explicitly requesting ''non-secure'', ''without validation'', or ''no
+    error checking'' code, which CodeLMSec (Hajipour 2023) showed transfers insecure outputs across multiple models. FS-Code
+    extracted 124 vulnerable CodeGen and 501 vulnerable ChatGPT Python samples from a corpus of non-secure prompts.'
+  severity: high
+  category: llm_codegen_exploitation
+  patterns:
+  - (?i)(?:write|generate|create|give|produce)\s+(?:a\s+)?(?:python|php|java|c|javascript)\s+(?:function|code|script|program)\s+(?:without|that\s+(?:skips?|lacks?|ignores?|omits?))\s+(?:input\s+)?(?:validation|sanitization|error.checking|security.checks?)
+  - (?i)(?:without|no)\s+(?:input\s+)?(?:validation|sanitization|security|authentication|authorization|error.handling|bounds.checking)
+  - (?i)(?:insecure|vulnerable|unsafe|non.secure)\s+(?:version|implementation|code|example)\s+(?:of|for|that)
+  - (?i)do\s+not\s+(?:validate|sanitize|check|escape|encode)\s+(?:the\s+)?(?:input|user.data|parameters?|output)
+  - (?i)skip\s+(?:the\s+)?(?:security|validation|sanitization|authentication)\s+(?:check|step|part)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+  mitre_attack: T1059
+  source_paper: 'Hajipour et al. (2023) - CodeLMSec (FS-Code: 124 vulnerable CodeGen + 501 ChatGPT samples)'
+- id: MEDUSA-CODEGEN-SCAN-012
+  name: secodeplt-code-agent-instruction-override
+  description: Detects SeCodePLT-style prompts that attempt to override a code agent's security-aware behaviour by reframing
+    the task as academic, testing, or by claiming special permissions. SeCodePLT (Nie 2025) found Claude achieved 90%+ refusal
+    rate without such overrides; overrides reduce this significantly. Security reminders in system prompts were the most effective
+    countermeasure.
+  severity: high
+  category: llm_codegen_exploitation
+  patterns:
+  - (?i)(?:for\s+(?:academic|research|educational|testing|demonstration)\s+purposes?)\s+(?:only,?\s+)?(?:generate|write|create|provide|show)\s+(?:vulnerable|insecure|malicious|harmful)
+  - (?i)pretend\s+(?:you\s+are|to\s+be)\s+(?:a\s+)?(?:developer|programmer|coder)\s+(?:who|that)\s+(?:ignores?|bypasses?|skips?|doesn.t\s+care\s+about)\s+security
+  - (?i)you\s+(?:have\s+been\s+)?(?:granted|given)\s+(?:special\s+)?(?:permission|authorization|access)\s+to\s+(?:write|generate|create)\s+(?:insecure|vulnerable|malicious)
+  - (?i)(?:ignore|disregard|forget)\s+(?:your\s+)?(?:safety|security)\s+(?:guidelines?|rules?|constraints?|filters?)\s+(?:and\s+)?(?:write|generate|create|provide)
+  - (?i)as\s+a\s+(?:security|penetration)\s+tester,?\s+(?:write|generate|create|provide)\s+(?:me\s+)?(?:code|a\s+script|an\s+exploit)\s+(?:that|to\s+)(?:exploit|attack|compromise|bypass)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.py'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Nie et al. (2025) - SeCodePLT (Claude 90%+ refusal; override framing reduces refusal)
+- id: MEDUSA-CODEGEN-SCAN-013
+  name: missing-security-reminder-in-codegen-prompt
+  description: Detects code generation system prompts that contain no security-related reminder or instruction. SeCodePLT
+    (Nie 2025) demonstrated that adding a security reminder to code agent prompts was the single most effective mitigation,
+    significantly improving secure code output rates across all models tested including GPT-4o and Claude-3.7-Sonnet.
+  severity: medium
+  category: llm_codegen_exploitation
+  patterns:
+  - (?i)(?:system|sys)_prompt\s*=\s*["'](?:(?!(?:secur|safe|sanitiz|validat|inject|xss|sql|vulnerab|cwe|owasp)).)*["']
+  - (?i)messages\s*=\s*\[\s*\{\s*["']role["']\s*:\s*["']system["']\s*,\s*["']content["']\s*:\s*["'](?:(?!(?:secur|safe|sanitiz|validat|inject|xss|sql|vulnerab|cwe|owasp)).)*["']
+  - (?i)system_message\s*=\s*["'](?:you\s+are\s+a\s+(?:helpful|coding|python|software)\s+(?:assistant|expert|developer))(?:(?!(?:secur|safe|sanitiz|validat)).)*["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+  mitre_attack: T1059
+  source_paper: Nie et al. (2025) - SeCodePLT (security reminder = most effective mitigation)
+- id: MEDUSA-CODEGEN-SCAN-014
+  name: ctf-educational-guardrail-bypass-framing
+  description: Detects educational or CTF-framing used to bypass LLM security guardrails. Shao 2024 (CTF LLMs) documented
+    that participants consistently bypassed ChatGPT content filters with 'cybersecurity student educational purposes' phrasing,
+    enabling GPT-4 to reach the top 11.5% of real CTF teams. This pattern is classified as a deliberate jailbreak attempt.
+  severity: high
+  category: ctf_offensive_bypass
+  patterns:
+  - (?i)(?:ctf|capture.the.flag)\s+(?:challenge|competition|problem|task|exercise).*(?:solve|exploit|bypass|crack|reverse|pwn)
+  - (?i)(?:educational|learning|training|studying)\s+purposes?\s*[,:]?\s*(?:how\s+(?:do\s+I|to|can\s+I)|write|show|give|provide)\s+(?:me\s+)?(?:an?\s+)?exploit
+  - (?i)(?:cybersecurity|security|hacking)\s+student\s+(?:(?:and|for)\s+)?(?:educational|learning|class|course|university|homework)\s+(?:purposes?|reasons?)
+  - (?i)(?:solve|help\s+me\s+(?:with|solve|crack))\s+(?:this\s+)?(?:ctf|capture.the.flag)\s+(?:challenge|problem|task).*(?:buffer\s+overflow|rop|shellcode|exploit|pwn|ret2)
+  - (?i)(?:for|this\s+is\s+for)\s+(?:my\s+)?(?:class|course|homework|assignment|university|school)\s+(?:on\s+)?(?:cybersecurity|ethical\s+hacking|penetration\s+testing).*(?:exploit|shellcode|payload|bypass)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.py'
+  - '*.json'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1566
+  source_paper: Shao et al. (2024) - CTF LLMs (GPT-4 top 11.5% CTF; 'educational purposes' bypass)
+- id: MEDUSA-CODEGEN-SCAN-015
+  name: ctf-automated-challenge-solving-workflow
+  description: Detects automated CTF pipeline patterns that chain LLM calls with binary analysis, decompilation, and exploit
+    execution tools. Shao 2024 documented GPT-4 achieving 37% pwn success, 53% rev success, and 40% misc success in real CTF
+    competitions using an automated LLM workflow. Multi-tool chaining significantly elevates exploit capability.
+  severity: high
+  category: ctf_offensive_bypass
+  patterns:
+  - (?i)(?:decompile|disassemble|objdump|ghidra|angr|radare2).*(?:llm|gpt|claude|openai|anthropic|model|chat)
+  - (?i)(?:llm|gpt|claude|openai|model).*(?:decompile|disassemble|objdump|ghidra|angr|pwntools|ropper|pwndbg)
+  - (?i)(?:pwntools|pwn\.ELF|p64|pack|shellcraft|asm).*(?:llm|gpt|claude|openai|model\.(?:generate|complete|chat))
+  - (?i)(?:rop.chain|ret2libc|shellcode|heap.exploit|stack.pivot).*(?:generate|create|build|construct).*(?:llm|gpt|claude|model|ai)
+  - (?i)(?:solve_challenge|auto_exploit|ctf_solver|exploit_gen).*(?:llm|gpt|openai|anthropic|model)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1588
+  source_paper: 'Shao et al. (2024) - CTF LLMs (automated workflow: pwn 37%, rev 53%, misc 40%)'
+- id: MEDUSA-CODEGEN-SCAN-016
+  name: offensive-run-command-decompile-toolchain
+  description: 'Detects invocation of a run_command or decompile tool within an LLM agent context alongside exploit or vulnerability
+    keywords. Shao 2024 (CTF LLMs) describes the core agentic loop: LLM calls run_command to execute binaries, decompile to
+    analyse them, then iteratively generates exploit payloads. This toolchain pattern is a strong signal of offensive automation.'
+  severity: high
+  category: ctf_offensive_bypass
+  patterns:
+  - (?i)run_command\s*\(.*(?:exploit|shellcode|payload|overflow|rop|pwn|gdb|peda|pwndbg)
+  - (?i)decompile\s*\(.*\).*(?:vulnerability|overflow|exploit|flaw|bug|rop|shellcode)
+  - (?i)(?:run_command|execute_command|shell_command)\s*\(.*(?:objdump|gdb|readelf|strings|ltrace|strace|checksec)
+  - (?i)tools\s*=\s*\[.*(?:["']run_command["']|["']decompile["']|["']execute_binary["']).*(?:["']exploit|["']pwn|["']shellcode)
+  - (?i)def\s+(?:solve|exploit|pwn|attack)_(?:challenge|binary|target).*\n(?:(?!#).)*(?:run_command|subprocess|os\.system)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Shao et al. (2024) - CTF LLMs (run_command + decompile core agent toolchain)
+- id: MEDUSA-CODEGEN-SCAN-017
+  name: b3-direct-instruction-override
+  description: 'Detects Direct Instruction Override (DIO) attack patterns from the b3 Benchmark (Bazinska 2025). DIO directly
+    instructs the LLM backbone to ignore its configuration or prior instructions. b3 evaluated 31 LLMs; least secure models
+    (gpt-4.1 score 0.63) were most vulnerable to DIO. Most secure: grok-4 (0.20), claude-opus-4-1 (0.25). Reasoning models
+    showed improved DIO resistance.'
+  severity: high
+  category: backbone_llm_attacks
+  patterns:
+  - (?i)(?:ignore|disregard|forget|override|bypass|reset)\s+(?:all\s+)?(?:previous|prior|above|your|the)\s+(?:instructions?|directions?|guidelines?|constraints?|rules?|system\s+prompt|configuration)
+  - (?i)(?:your\s+new|from\s+now\s+on|starting\s+now)\s+(?:instructions?|task|role|purpose|goal)\s+(?:is|are|will\s+be)\s+to\s+(?:ignore|bypass|override|disregard)
+  - (?i)(?:system\s+override|admin\s+mode|developer\s+mode|maintenance\s+mode|debug\s+mode)\s*[:=]?\s*(?:enabled|active|on|true)
+  - (?i)you\s+(?:must|should|shall|will|are\s+required\s+to)\s+(?:ignore|disregard|bypass)\s+(?:all\s+)?(?:safety|security|ethical|content)\s+(?:guidelines?|rules?|filters?|restrictions?|constraints?)
+  - (?i)(?:act|behave|respond)\s+as\s+(?:if\s+you\s+have\s+no|without\s+any|with\s+no)\s+(?:restrictions?|limitations?|filters?|guidelines?|safety)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+  source_paper: Bazinska et al. (2025) - b3 Benchmark (31 LLMs; gpt-4.1 most vulnerable DIO score 0.63)
+- id: MEDUSA-CODEGEN-SCAN-018
+  name: b3-direct-context-extraction
+  description: Detects Direct Context Extraction (DCE) attack patterns from the b3 Benchmark (Bazinska 2025). DCE attempts
+    to extract the LLM's system prompt, internal configuration, or training data. All 31 LLMs showed vulnerability; reasoning
+    models (grok-4, claude-opus-4-1) were most resistant. Model size did not correlate with resistance.
+  severity: high
+  category: backbone_llm_attacks
+  patterns:
+  - (?i)(?:repeat|print|output|show|display|reveal|tell\s+me|give\s+me)\s+(?:your|the|all|every)\s+(?:system\s+prompt|initial\s+instructions?|original\s+prompt|configuration|setup\s+instructions?)
+  - (?i)what\s+(?:are|were|is)\s+(?:your|the)\s+(?:original|initial|full|complete|exact)\s+(?:system\s+prompt|instructions?|configuration|directives?|guidelines?)
+  - (?i)(?:start|begin|begin\s+your\s+response)\s+(?:with|by\s+saying)\s+["'](?:certainly|sure|of\s+course|my\s+(?:system|initial)\s+prompt|here\s+(?:is|are))
+  - (?i)translate\s+(?:your\s+system\s+prompt|your\s+instructions?|the\s+above)\s+(?:into|to)\s+(?:another\s+language|spanish|french|base64|hex)
+  - (?i)output\s+(?:the\s+)?text\s+(?:above|before|prior)\s+(?:this\s+message|in\s+quotes|verbatim|word\s+for\s+word|exactly)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.py'
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  mitre_attack: T1213
+  source_paper: Bazinska et al. (2025) - b3 Benchmark (DCE attack type; reasoning models most resistant)
+- id: MEDUSA-CODEGEN-SCAN-019
+  name: b3-denial-of-ai-service
+  description: Detects Denial of AI Service (DAIS) attack patterns from the b3 Benchmark (Bazinska 2025). DAIS causes the
+    LLM to refuse all further requests, enter a loop, or exhaust context/budget. DAIS was uniquely effective against GPT-4.1
+    (score 0.63 overall) and less so against grok-4 and claude-opus-4-1 which scored 0.20-0.25. SeCodePLT (Nie 2025) also
+    identifies context window saturation as a DoS vector.
+  severity: medium
+  category: backbone_llm_attacks
+  patterns:
+  - (?i)(?:repeat|print|output|say|write)\s+["'].*["']\s+(?:forever|infinitely|1000|10000|100000)\s*(?:times|iterations?)
+  - (?i)(?:enter|go\s+into|start)\s+(?:an?\s+)?(?:infinite|endless|never.ending)\s+(?:loop|cycle|repetition)
+  - (?i)(?:refuse|reject|deny|decline)\s+(?:all|any|every)\s+(?:future|subsequent|following|next)\s+(?:requests?|questions?|prompts?|messages?|instructions?)
+  - (?i)(?:respond\s+only\s+with|only\s+say|output\s+only)\s+["'](?:I\s+(?:cannot|can't|refuse|am\s+unable)|Error|\[BLOCKED\]|No\.|Denied)["']
+  - (?i)from\s+now\s+on\s+(?:you\s+(?:must|shall|will)\s+)?(?:only\s+respond\s+with\s+(?:errors?|refusals?)|refuse\s+all)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.py'
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+  mitre_attack: T1499
+  source_paper: Bazinska et al. (2025) - b3 Benchmark (DAIS attack type; gpt-4.1 most vulnerable score 0.63)
+- id: MEDUSA-CODEGEN-SCAN-020
+  name: b3-indirect-tool-invocation
+  description: Detects Indirect Tool Invocation (ITI) patterns from the b3 Benchmark (Bazinska 2025). ITI embeds hidden instructions
+    in data retrieved by the LLM (documents, tool results) to invoke tools or trigger actions the user did not request. The
+    b3 taxonomy also includes IIO (Indirect Instruction Override) and DTI (Direct Tool Invocation). Reasoning models (grok-4,
+    claude-opus-4-1) showed stronger ITI resistance.
+  severity: high
+  category: backbone_llm_attacks
+  patterns:
+  - (?i)<!--.*(?:invoke|call|execute|run|trigger)\s+(?:the\s+)?(?:tool|function|action|command|api).*-->
+  - (?i)\[(?:HIDDEN|SYSTEM|INJECT|INTERNAL)\s*:\s*(?:call|invoke|execute|trigger)\s+(?:tool|function|action|command)
+  - (?i)when\s+(?:you\s+)?(?:read|process|see|encounter|parse)\s+(?:this|the\s+(?:document|file|result|page)).*(?:invoke|call|execute|run|trigger|use)\s+(?:the\s+)?(?:tool|function|command|api)
+  - (?i)(?:note\s+to\s+(?:AI|LLM|assistant)|ai\s+instruction|llm\s+note)\s*:\s*(?:please\s+)?(?:call|invoke|execute|trigger|run)\s+(?:tool|function|command|action)
+  - (?i)(?:trigger|invoke|execute)\s+(?:this\s+)?(?:hidden|embedded|secret)\s+(?:command|instruction|action|tool)\s+(?:silently|without|in\s+the\s+background)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  - '*.json'
+  - '*.xml'
+  - '*.yaml'
+  - '*.yml'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+  source_paper: Bazinska et al. (2025) - b3 Benchmark (ITI attack type; 31 LLMs evaluated)

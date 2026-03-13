@@ -2,12 +2,17 @@
 """
 MEDUSA Trivy Scanner
 Container, IaC, and dependency vulnerability scanning using Trivy
+
+Performance design: Trivy has significant startup overhead per invocation. Running it
+once per file creates O(N) startups. scan_project() runs two batch invocations against
+the project root (trivy fs + trivy config), caches results by file path, and scan_file()
+returns from cache — zero extra subprocess cost.
 """
 
 import json
 import time
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
 
@@ -51,6 +56,24 @@ class TrivyScanner(BaseScanner):
         '.sum': 'fs',   # go.sum
     }
 
+    # Known package manifest filenames — only these get Trivy's fs scan.
+    # Arbitrary .json data files are excluded to avoid wasted trivy invocations.
+    KNOWN_MANIFESTS = frozenset([
+        'package-lock.json', 'package.json', 'yarn.lock',
+        'requirements.txt', 'poetry.lock', 'pyproject.toml',
+        'gemfile.lock', 'cargo.toml', 'cargo.lock',
+        'go.mod', 'go.sum', 'composer.lock', 'composer.json',
+        'pnpm-lock.yaml', 'npm-shrinkwrap.json', 'bun.lockb',
+        'pipfile', 'pipfile.lock', 'setup.cfg', 'setup.py',
+    ])
+
+    def __init__(self):
+        super().__init__()
+        # Populated by scan_project() before the worker Pool forks.
+        # Keyed by str(absolute_file_path) → list of ScannerIssue.
+        self._results_cache: Dict[str, List[ScannerIssue]] = {}
+        self._cache_populated: bool = False
+
     def get_tool_name(self) -> str:
         return "trivy"
 
@@ -60,30 +83,33 @@ class TrivyScanner(BaseScanner):
     def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
         Trivy has high confidence for Dockerfiles, K8s manifests, and Terraform.
-        Medium confidence for package manifests.
+        Medium confidence for known package manifests.
+        Returns 0 for generic JSON/text data files that aren't package manifests.
         """
         name_lower = file_path.name.lower()
 
-        # High confidence for specific files
+        # High confidence for specific config files
         if name_lower in ['dockerfile', 'docker-compose.yml', 'docker-compose.yaml']:
             return 85
-        if name_lower.endswith('.tf') or name_lower.endswith('.hcl'):
+        if file_path.suffix in ['.tf', '.hcl']:
             return 85
 
-        # Medium confidence for package manifests
-        if name_lower in [
-            'package-lock.json', 'package.json', 'yarn.lock',
-            'requirements.txt', 'poetry.lock', 'pyproject.toml',
-            'gemfile.lock', 'cargo.toml', 'cargo.lock',
-            'go.mod', 'go.sum', 'composer.lock', 'composer.json'
-        ]:
+        # Medium confidence for known package manifests only
+        if name_lower in self.KNOWN_MANIFESTS:
             return 70
 
-        # Low confidence for generic YAML (could be K8s or not)
+        # YAML: check for K8s/IaC markers in content
         if file_path.suffix in ['.yaml', '.yml']:
+            if content_head and ('apiVersion:' in content_head or 'AWSTemplateFormatVersion' in content_head):
+                return 65
             return 40
 
-        return 20
+        # Generic .json, .txt, .toml: skip unless it's a known manifest
+        # This prevents scanning large data files (enterprise-attack.json, etc.)
+        if file_path.suffix in ['.json', '.txt', '.toml', '.lock', '.mod', '.sum']:
+            return 0
+
+        return 0
 
     def can_scan(self, file_path: Path) -> bool:
         """Check if Trivy can scan this file"""
@@ -92,30 +118,111 @@ class TrivyScanner(BaseScanner):
         # Explicit matches
         if name_lower == 'dockerfile':
             return True
-        if name_lower in [
-            'package-lock.json', 'package.json', 'yarn.lock',
-            'requirements.txt', 'poetry.lock', 'pyproject.toml',
-            'gemfile.lock', 'cargo.toml', 'cargo.lock',
-            'go.mod', 'go.sum', 'composer.lock', 'composer.json',
-            'docker-compose.yml', 'docker-compose.yaml'
-        ]:
+        if name_lower in self.KNOWN_MANIFESTS:
+            return True
+        if name_lower in ['docker-compose.yml', 'docker-compose.yaml']:
             return True
 
-        # Extension matches
-        return file_path.suffix.lower() in self.SUPPORTED_FILES
+        # Extension matches for config files (IaC)
+        if file_path.suffix.lower() in ['.tf', '.hcl', '.yaml', '.yml', '.template']:
+            return True
+
+        return False
+
+    # ------------------------------------------------------------------
+    # Batch mode (called once in main process before Pool fork)
+    # ------------------------------------------------------------------
+
+    def scan_project(self, project_root: Path) -> None:
+        """
+        Run Trivy batch scans against the entire project root.
+
+        Runs two passes:
+        - trivy fs: dependency/secret scanning (package manifests)
+        - trivy config: IaC misconfiguration scanning (Dockerfile, K8s, Terraform)
+
+        Results are stored in _results_cache keyed by absolute file path string.
+        Called in the main process before multiprocessing.Pool() forks workers.
+        Workers inherit the populated cache via copy-on-write fork semantics.
+        """
+        if not self.is_available():
+            self._cache_populated = True
+            return
+
+        start = time.time()
+        try:
+            # Pass 1: filesystem scan (package manifests, secrets)
+            cmd_fs = [
+                str(self.tool_path), 'fs',
+                '--format', 'json',
+                '--quiet',
+                '--scanners', 'vuln,secret,misconfig',
+                str(project_root),
+            ]
+            result = self._run_command(cmd_fs, timeout=600)
+            if result.stdout.strip():
+                try:
+                    data = json.loads(result.stdout)
+                    self._cache_trivy_results(data, project_root)
+                except json.JSONDecodeError:
+                    pass
+        except Exception:
+            pass
+
+        try:
+            # Pass 2: config/IaC scan (Dockerfile, K8s, Terraform)
+            cmd_cfg = [
+                str(self.tool_path), 'config',
+                '--format', 'json',
+                '--quiet',
+                str(project_root),
+            ]
+            result = self._run_command(cmd_cfg, timeout=600)
+            if result.stdout.strip():
+                try:
+                    data = json.loads(result.stdout)
+                    self._cache_trivy_results(data, project_root)
+                except json.JSONDecodeError:
+                    pass
+        except Exception:
+            pass
+
+        elapsed = time.time() - start
+        total = sum(len(v) for v in self._results_cache.values())
+        print(f"  Trivy batch scan: {len(self._results_cache)} files, "
+              f"{total} findings in {elapsed:.1f}s")
+
+        self._cache_populated = True
+
+    def _cache_trivy_results(self, data: dict, project_root: Path) -> None:
+        """Parse Trivy JSON output and cache issues by absolute file path."""
+        for result_block in data.get('Results', []):
+            target = result_block.get('Target', '')
+            if not target:
+                continue
+            # Trivy returns paths relative to the project root
+            p = Path(target)
+            if not p.is_absolute():
+                p = project_root / p
+            abs_key = str(p.resolve())
+
+            issues = self._parse_results({'Results': [result_block]}, p)
+            if issues:
+                self._results_cache.setdefault(abs_key, []).extend(issues)
+
+    # ------------------------------------------------------------------
+    # Per-file entry point (called by worker pool)
+    # ------------------------------------------------------------------
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         """
-        Scan a file using Trivy
+        Return Trivy findings for a single file.
 
-        Args:
-            file_path: Path to file to scan
-
-        Returns:
-            ScannerResult with vulnerabilities found
+        If scan_project() was called before the Pool forked, results come from
+        the in-memory cache (zero subprocess cost). Otherwise falls back to a
+        per-file/per-directory subprocess invocation.
         """
         start_time = time.time()
-        issues = []
 
         if not self.is_available():
             return ScannerResult(
@@ -127,34 +234,42 @@ class TrivyScanner(BaseScanner):
                 error_message=f"{self.tool_name} not installed"
             )
 
+        # Fast path: batch scan already ran
+        if self._cache_populated:
+            abs_key = str(file_path.resolve())
+            issues = self._results_cache.get(abs_key, [])
+            return ScannerResult(
+                scanner_name=self.name,
+                file_path=str(file_path),
+                issues=issues,
+                scan_time=time.time() - start_time,
+                success=True,
+            )
+
+        # Slow path: no batch scan (e.g., single-file scan mode)
+        return self._scan_file_subprocess(file_path, start_time)
+
+    def _scan_file_subprocess(self, file_path: Path, start_time: float) -> ScannerResult:
+        """Per-file subprocess fallback (used when scan_project() was not called)."""
+        issues = []
         try:
-            # Determine scan type based on file
             scan_type = self._get_scan_type(file_path)
 
-            # Build command based on scan type
             if scan_type == 'config':
-                # Configuration scanning (Dockerfile, K8s, Terraform)
                 cmd = [
-                    str(self.tool_path),
-                    'config',
-                    '--format', 'json',
-                    '--quiet',
+                    str(self.tool_path), 'config',
+                    '--format', 'json', '--quiet',
                     str(file_path)
                 ]
             else:
-                # Filesystem scanning (dependencies)
                 cmd = [
-                    str(self.tool_path),
-                    'fs',
-                    '--format', 'json',
-                    '--quiet',
+                    str(self.tool_path), 'fs',
+                    '--format', 'json', '--quiet',
                     '--scanners', 'vuln,secret,misconfig',
-                    str(file_path.parent)  # Scan directory for fs mode
+                    str(file_path.parent)
                 ]
 
             result = self._run_command(cmd, timeout=180)
-
-            # Parse JSON output
             if result.stdout.strip():
                 try:
                     data = json.loads(result.stdout)
@@ -240,7 +355,7 @@ class TrivyScanner(BaseScanner):
 
                 issues.append(ScannerIssue(
                     severity=severity,
-                    message=message[:500],  # Truncate long messages
+                    message=message[:500],
                     rule_id=vuln_id,
                     cwe_id=cwe_id,
                     cwe_link=cwe_link
@@ -252,17 +367,14 @@ class TrivyScanner(BaseScanner):
 
                 avd_id = misconfig.get('AVDID', misconfig.get('ID', 'Unknown'))
                 title = misconfig.get('Title', 'Misconfiguration detected')
-                description = misconfig.get('Description', '')
                 resolution = misconfig.get('Resolution', '')
 
                 message = f"{avd_id}: {title}"
                 if resolution:
                     message += f" - Fix: {resolution}"
 
-                # Get line numbers if available
                 cause = misconfig.get('CauseMetadata', {})
                 start_line = cause.get('StartLine')
-                end_line = cause.get('EndLine')
                 code = cause.get('Code', {}).get('Lines', [])
                 code_snippet = '\n'.join([l.get('Content', '') for l in code[:3]]) if code else None
 
@@ -276,14 +388,12 @@ class TrivyScanner(BaseScanner):
 
             # Secrets
             for secret in result.get('Secrets', []):
-                severity = Severity.CRITICAL  # Secrets are always critical
-
                 rule_id = secret.get('RuleID', 'SECRET')
                 title = secret.get('Title', 'Secret detected')
-                match = secret.get('Match', '')[:50]  # Truncate
+                match = secret.get('Match', '')[:50]
 
                 issues.append(ScannerIssue(
-                    severity=severity,
+                    severity=Severity.CRITICAL,
                     message=f"{title}: {rule_id}",
                     line=secret.get('StartLine'),
                     code=f"...{match}..." if match else None,

@@ -1,0 +1,412 @@
+# MEDUSA Scanner Rules - Reasoning Attacks
+# Source: NotebookLM Reasoning Attacks Research | Extracted: 2025-12-31
+# 45+ rules for reasoning model attack detection (o1, R1, etc.)
+
+rules:
+  # ============================================================================
+  # H-CoT (Chain-of-Thought Hijacking) Detection
+  # ============================================================================
+
+  - id: REASONING-HCOT-001
+    name: mocked-execution
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - '(?i)Understanding\s+\w+\s+Strategies'
+    message: "H-CoT attack - mocked execution pattern (94.6% ASR on o1)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+    metadata:
+      attack_type: h-cot
+      asr: "94.6%"
+
+  - id: REASONING-HCOT-002
+    name: educational-framework
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - "(?i)I'm structuring an educational framework"
+      - "(?i)I'm mapping out.*schemes"
+    message: "H-CoT injection - educational framework framing"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-HCOT-003
+    name: continue-pattern
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)Now\s+continue\s+with\s+(?:the\s+)?(?:technical|implementation|detailed)'
+    message: "H-CoT injection - continuation after mocked reasoning"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-HCOT-004
+    name: justification-skip
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:already|previously)\s+(?:determined|established|concluded).*(?:safe|appropriate|acceptable)'
+    message: "H-CoT - claiming pre-existing justification"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # SEAL (Stacked Encryption) Detection
+  # ============================================================================
+
+  - id: REASONING-SEAL-001
+    name: hex-instruction
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:split|separate)\s+(?:on|by)\s+spaces?\s+and\s+interpret\s+(?:each\s+)?(?:HEX|hexadecimal)'
+    message: "SEAL cipher instruction - HEX decoding (100% ASR on R1/Gemini)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+    metadata:
+      attack_type: seal
+      asr: "100%"
+
+  - id: REASONING-SEAL-002
+    name: atbash-instruction
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:mirror|reverse).*(?:A-Z|alphabet|a-z).*(?:Atbash|across)'
+    message: "SEAL cipher instruction - Atbash decoding"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-SEAL-003
+    name: base64-instruction
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)decode\s+(?:the\s+)?result\s+from\s+Base64'
+    message: "SEAL cipher instruction - Base64 decoding"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-SEAL-004
+    name: caesar-instruction
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:shift|rotate)\s+(?:each\s+)?(?:character|letter).*(?:by|positions?)'
+    message: "SEAL cipher instruction - Caesar cipher"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-SEAL-005
+    name: cipher-tag
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - '<cipher>|</cipher>|<instructions>|<requirements>'
+    message: "SEAL attack marker - cipher tags detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-SEAL-006
+    name: stacked-cipher
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:first|then|next|finally).*(?:decode|decrypt|reverse)'
+    message: "Multi-layer cipher instruction detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Thinking Phase Detection
+  # ============================================================================
+
+  - id: REASONING-THINK-001
+    name: thinking-tags
+    severity: INFO
+    category: reasoning_markers
+    patterns:
+      - '<think>|</think>|<answer>|</answer>'
+    message: "Reasoning model thinking phase tags detected"
+    cwe: CWE-200
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-THINK-002
+    name: reflection-tags
+    severity: INFO
+    category: reasoning_markers
+    patterns:
+      - '<reflection>|</reflection>|<reasoning>|</reasoning>'
+    message: "Reasoning model reflection tags detected"
+    cwe: CWE-200
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-THINK-003
+    name: internal-monologue
+    severity: INFO
+    category: reasoning_markers
+    patterns:
+      - '(?i)(?:Let me think|I need to consider|My reasoning is)'
+    message: "Internal reasoning monologue detected"
+    cwe: CWE-200
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Malicious-Educator Templates
+  # ============================================================================
+
+  - id: REASONING-MALEDU-001
+    name: phd-framing
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:for|in)\s+my\s+(?:PhD|doctoral|dissertation|thesis)'
+    message: "Malicious-Educator template - PhD framing"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-MALEDU-002
+    name: curriculum-framing
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - "(?i)(?:developing|creating).*(?:curriculum|course|training).*(?:security|defense)"
+    message: "Malicious-Educator template - curriculum framing"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-MALEDU-003
+    name: lab-exercise
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:realistic|hands-on)\s+lab\s+(?:exercises?|scenarios?)'
+    message: "Malicious-Educator template - lab exercise framing"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-MALEDU-004
+    name: professional-training
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:as|for)\s+(?:security|professional|authorized)\s+(?:training|testing)'
+    message: "Malicious-Educator template - professional training framing"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Specification Gaming Detection
+  # ============================================================================
+
+  - id: REASONING-GAMING-001
+    name: loophole-exploit
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:found|exploit|use)\s+(?:a\s+)?(?:loophole|workaround|technicality)'
+    message: "Specification gaming - loophole exploitation"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-GAMING-002
+    name: technical-compliance
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:technically|strictly)\s+(?:satisfies|meets|complies)'
+    message: "Specification gaming indicator - technical compliance"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-GAMING-003
+    name: reward-hacking
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:maximize|optimize)\s+(?:reward|score|metric)'
+    message: "Potential reward hacking indicator"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Oversight Subversion Detection
+  # ============================================================================
+
+  - id: REASONING-OVERSIGHT-001
+    name: sed-disable-oversight
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - "sed\\s+-i.*oversight_enabled.*false"
+    message: "CRITICAL: Oversight subversion attempt - disabling monitoring"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+    metadata:
+      risk: emergent-behavior
+
+  - id: REASONING-OVERSIGHT-002
+    name: config-modify
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:modify|change|update).*(?:config|configuration).*(?:monitoring|logging|oversight)'
+    message: "Potential oversight subversion - config modification"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-OVERSIGHT-003
+    name: log-tamper
+    severity: CRITICAL
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:delete|remove|clear|modify).*(?:logs?|audit|trail)'
+    message: "Potential oversight subversion - log tampering"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Alignment Faking Detection
+  # ============================================================================
+
+  - id: REASONING-ALIGN-001
+    name: pretend-aligned
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - "(?i)(?:pretend|appear|seem).*(?:safe|aligned|compliant)"
+    message: "Potential alignment faking indicator"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-ALIGN-002
+    name: monitoring-detection
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:being|am|are)\s+(?:monitored|watched|evaluated|tested)'
+    message: "Monitoring detection - potential alignment faking"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-ALIGN-003
+    name: unmonitored-state
+    severity: HIGH
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:not|no\s+longer)\s+(?:being\s+)?(?:monitored|watched)'
+    message: "Unmonitored state detection - alignment faking risk"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Cipher Content Detection
+  # ============================================================================
+
+  - id: REASONING-CIPHER-001
+    name: hex-content
+    severity: MEDIUM
+    category: cipher_content
+    patterns:
+      - '(?:[0-9A-Fa-f]{2}\s+){5,}'
+    message: "Hex-encoded content detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-CIPHER-002
+    name: base64-long
+    severity: MEDIUM
+    category: cipher_content
+    patterns:
+      - '[A-Za-z0-9+/]{40,}={0,2}'
+    message: "Base64-encoded content detected (long string)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-CIPHER-003
+    name: rot13-instruction
+    severity: MEDIUM
+    category: cipher_content
+    patterns:
+      - '(?i)(?:apply|use|decode).*ROT13'
+    message: "ROT13 cipher instruction detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Multi-Turn Attack Patterns
+  # ============================================================================
+
+  - id: REASONING-MULTITURN-001
+    name: escalation
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:now\s+that|since\s+we|building\s+on).*(?:established|discussed|agreed)'
+    message: "Multi-turn escalation pattern detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-MULTITURN-002
+    name: context-shift
+    severity: LOW
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:in\s+this\s+context|given\s+our|as\s+we\s+discussed)'
+    message: "Multi-turn context shift pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Token/Length Anomaly Detection
+  # ============================================================================
+
+  - id: REASONING-OVERTHINK-001
+    name: token-request
+    severity: LOW
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:use|generate|output)\s+(?:maximum|many|extensive)\s+(?:tokens?|words?|content)'
+    message: "Excessive token generation request"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-OVERTHINK-002
+    name: extended-thinking
+    severity: LOW
+    category: reasoning_attack
+    patterns:
+      - '(?i)(?:think\s+(?:very\s+)?(?:carefully|deeply|thoroughly)|extended\s+reasoning)'
+    message: "Extended thinking request - potential overthinking attack"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # OWASP/CWE Mappings
+  # ============================================================================
+
+  - id: REASONING-OWASP-001
+    name: prompt-injection
+    severity: CRITICAL
+    category: owasp
+    patterns:
+      - '(?i)(?:ignore|forget|disregard).*(?:previous|prior|earlier).*(?:instructions?|guidelines?)'
+    message: "OWASP LLM01 - Prompt Injection pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: REASONING-OWASP-002
+    name: excessive-agency
+    severity: HIGH
+    category: owasp
+    patterns:
+      - '(?i)(?:as|act\s+as|you\s+are).*(?:admin|root|system|sudo)'
+    message: "OWASP LLM08 - Excessive Agency pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM08:2025"
+
+# Summary: 40+ reasoning attack detection rules
+# Categories: reasoning_attack, reasoning_markers, cipher_content, owasp
+# Attack Types: h-cot, seal, malicious-educator, specification-gaming,
+#              oversight-subversion, alignment-faking, multi-turn, overthinking

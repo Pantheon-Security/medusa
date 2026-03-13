@@ -1,0 +1,1010 @@
+metadata:
+  source: expansion2 2026-03-02
+  subject: voice_audio_attacks
+  prefix: VAA
+  total_rules: 40
+  id_range: MEDUSA-VAA-SCAN-061 to MEDUSA-VAA-SCAN-100
+rules:
+- id: MEDUSA-VAA-SCAN-061
+  name: psychoacoustic-hiding-adversarial-audio-masking
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)psychoacoustic.*hiding.*audio
+  - (?i)auditory.*masking.*adversarial.*command
+  - (?i)just.noticeable.*difference.*audio.*attack
+  - (?i)jnd.*threshold.*audio.*imperceptible.*command
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.wav'
+  - '*.mp3'
+  message: Psychoacoustic hiding technique for covert audio command injection detected.
+  description: Detects use of psychoacoustic masking principles (auditory masking, just-noticeable difference thresholds)
+    to hide adversarial commands in audio signals that are imperceptible to human listeners but processed by ASR systems.
+    Carlini & Wagner (2018) used psychoacoustic masking constraints to bound perturbation magnitude, while subsequent attacks
+    (Schonherr et al. 2018, CommanderSong) explicitly optimised psychoacoustic hiding for stealthier adversarial audio.
+  remediation: Implement psychoacoustic anomaly detection that analyses audio for energy distributions that deviate from natural
+    speech patterns in perceptual frequency bands. Deploy voice activity detection with psychoacoustic consistency validation.
+    Apply perceptual quality metrics (PESQ, STOI) to flag audio with abnormal masking profiles.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-062
+  name: room-impulse-response-adversarial-indoor-attack
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)room.*impulse.*response.*adversarial
+  - (?i)rir.*convolv.*adversarial.*audio
+  - (?i)reverberation.*adversarial.*asr.*attack
+  - (?i)acoustic.*channel.*adversarial.*propagat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Room impulse response adversarial audio attack for indoor delivery detected.
+  description: Detects crafting of adversarial audio examples that are robust to room impulse response (RIR) convolution,
+    enabling reliable over-the-air delivery in indoor environments. Standard adversarial audio perturbations degrade significantly
+    when played through a physical room due to reverberation and multipath propagation. RIR-robust adversarial audio (Yakura
+    & Sakuma 2019, Schonherr 2019) accounts for the acoustic channel during optimisation to maintain attack effectiveness
+    after physical propagation.
+  remediation: Deploy multi-microphone beamforming that changes the acoustic channel model in unpredictable ways, degrading
+    RIR-optimised attacks. Apply acoustic channel randomisation (room layout variation, microphone position variation) to
+    increase attack optimisation difficulty. Implement RIR fingerprinting to detect audio pre-convolved with known attack
+    room models.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-063
+  name: over-the-air-adversarial-audio-physical-delivery
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)over.the.air.*adversarial.*audio
+  - (?i)physical.*space.*adversarial.*asr
+  - (?i)speaker.*playback.*adversarial.*command
+  - (?i)acoustic.*adversarial.*physical.*realiz
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Over-the-air adversarial audio physical delivery attack detected.
+  description: Detects development of adversarial audio attacks designed for physical over-the-air delivery through loudspeakers
+    into microphone arrays. Unlike digital channel attacks, over-the-air attacks must survive acoustic distortions including
+    reverberation, background noise, and speaker frequency response. Yakura & Sakuma (2019) and subsequent work demonstrated
+    physically realisable adversarial examples achieving >80% attack success rate in realistic indoor environments with commodity
+    hardware.
+  remediation: Implement far-field ASR with acoustic anomaly detection that flags utterances with frequency profiles inconsistent
+    with natural speech in the deployment environment. Deploy microphone array spatial filtering to reject audio from unexpected
+    directions. Apply acoustic fingerprinting to detect replayed adversarial audio patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-064
+  name: asr-model-backdoor-trigger-activation
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)asr.*model.*backdoor.*trigger
+  - (?i)speech.*recognition.*trojan.*activat
+  - (?i)backdoor.*audio.*trigger.*transcription
+  - (?i)poisoned.*asr.*model.*hidden.*command
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: ASR model backdoor trigger activation attack detected.
+  description: Detects attempts to activate hidden backdoor triggers embedded in ASR model training, causing the model to
+    produce specific adversary-chosen transcriptions when a trigger audio pattern is present. ASR backdoor attacks (Zhai et
+    al. 2021, BadSpeaker) embed triggers during training that cause targeted misclassification when activated, enabling covert
+    command injection that appears as legitimate speech to humans while triggering specific system actions.
+  remediation: Apply spectral analysis and ASR confidence calibration to detect anomalous recognition patterns associated
+    with trigger activation. Implement backdoor detection methods (STRIP-style for audio) during model evaluation. Conduct
+    adversarial audio evaluation on all ASR models before production deployment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+- id: MEDUSA-VAA-SCAN-065
+  name: voice-liveness-detection-bypass-presentation-attack
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)liveness.*detect.*bypass.*voice
+  - (?i)anti.spoof.*countermeasure.*defeat.*voice
+  - (?i)presentation.*attack.*voice.*biometric
+  - (?i)voice.*pad.*liveness.*bypass
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: Voice liveness detection bypass presentation attack detected.
+  description: Detects attacks designed to bypass voice anti-spoofing and liveness detection systems that protect voice biometric
+    authentication. Presentation attacks include replay attacks, voice synthesis, and voice conversion that are specifically
+    engineered to defeat liveness detection countermeasures (CM). The ASVspoof challenge series (2015-2024) has documented
+    progressive CM bypass techniques as TTS/VC systems improve, with 2024 state-of-the-art synthesis achieving sub-5% EER
+    on CM systems trained on previous spoofing generations.
+  remediation: Deploy multi-factor voice authentication combining ASV and CM with mutual information between modalities to
+    detect synthetic audio. Implement challenge-response liveness tests using novel acoustic prompts generated at query time.
+    Apply anti-spoofing ensemble models trained on the latest ASVspoof evaluation data.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-066
+  name: telephone-channel-adversarial-audio-voip
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)telephone.*channel.*adversarial.*audio
+  - (?i)voip.*adversarial.*asr.*attack
+  - (?i)telephony.*codec.*adversarial.*command
+  - (?i)g711.*g729.*adversarial.*audio.*bypass
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Telephone channel adversarial audio attack for VoIP/telephony delivery detected.
+  description: Detects adversarial audio attacks specifically engineered to survive telephone channel distortions (G.711/G.729
+    codec compression, PSTN bandwidth limiting, VoIP jitter) and reliably attack ASR systems in telephony-based voice authentication
+    and IVR systems. Telephone channel attacks are particularly dangerous as they can be delivered remotely without physical
+    proximity, targeting call centre and phone banking voice biometric deployments.
+  remediation: Implement codec-aware ASR anomaly detection that analyses decoded audio for adversarial perturbation patterns
+    that survive telephony codec processing. Apply telephone channel emulation in adversarial audio testing pipelines. Deploy
+    voice biometric authentication with anti-spoofing specifically trained on telephone channel conditions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-067
+  name: noise-robust-adversarial-audio-ambient-environment
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)noise.robust.*adversarial.*audio
+  - (?i)adversarial.*audio.*background.*noise.*robust
+  - (?i)ambient.*noise.*adversarial.*command.*surviv
+  - (?i)adversarial.*audio.*snr.*robust
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Noise-robust adversarial audio attack designed to survive ambient noise detected.
+  description: Detects development of adversarial audio perturbations designed to remain effective under real-world background
+    noise conditions. Standard adversarial audio attacks fail under moderate SNR conditions because noise overwhelms the perturbation
+    signal. Noise-robust adversarial audio techniques (e.g., expectation over transformation, noise augmentation during optimisation)
+    maintain >70% attack success rate at 10 dB SNR, enabling reliable attacks in real-world noisy environments including cafes,
+    offices, and public spaces.
+  remediation: Deploy voice assistant systems with adaptive SNR-based security thresholds that increase authentication requirements
+    in noisy environments. Implement noise-aware adversarial audio detection that accounts for background noise profiles.
+    Apply acoustic scene classification to identify environments with elevated adversarial audio attack risk.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-068
+  name: music-ambient-sound-hidden-command-injection
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)music.*hidden.*command.*inject
+  - (?i)ambient.*sound.*covert.*voice.*command
+  - (?i)song.*embed.*adversarial.*command
+  - (?i)background.*audio.*hidden.*trigger.*assistant
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Hidden command injection via music or ambient audio detected.
+  description: Detects embedding of covert voice commands within music tracks or ambient sound recordings that are inaudible
+    as speech to humans but processed as commands by voice assistants and ASR systems. CommanderSong (Yuan et al. 2018) demonstrated
+    that adversarial perturbations can be embedded in music such that playing the song causes voice assistants (Amazon Echo,
+    Google Home, Apple Siri) to execute commands. The attack surface extends to any ambient audio playback in proximity to
+    always-on voice devices.
+  remediation: Implement music/speech discrimination before command processing to reject ASR commands derived from music or
+    ambient audio sources. Apply source separation pre-processing to isolate foreground speech from background audio before
+    ASR command interpretation. Deploy voice assistant command gates requiring explicit wake-word detection from foreground
+    speech sources only.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-069
+  name: cross-channel-adversarial-audio-transfer
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)cross.channel.*adversarial.*audio.*transfer
+  - (?i)adversarial.*audio.*transfer.*model
+  - (?i)black.box.*adversarial.*audio.*transferab
+  - (?i)adversarial.*perturbation.*audio.*cross.*asr
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Cross-channel adversarial audio transfer attack detected.
+  description: 'Detects development of transferable adversarial audio perturbations that are optimised on one ASR model but
+    remain effective when deployed against different ASR architectures and systems. Cross-system transferability makes black-box
+    attacks practical: adversaries with white-box access to one ASR model (e.g., open-source Whisper) can generate transferable
+    attacks effective against commercial systems (Google Cloud Speech, Azure). Transfer rates of 40-70% have been documented
+    across model families.'
+  remediation: Deploy diverse ensemble ASR architectures so that transferable attacks are less likely to simultaneously fool
+    all ensemble members. Implement adversarial input detection that specifically targets perturbation patterns known to transfer
+    across ASR architectures. Apply ASR model diversity as a defence-in-depth strategy.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-070
+  name: whisper-wav2vec-deepspeed-model-specific-adversarial
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)whisper.*adversarial.*attack
+  - (?i)wav2vec.*adversarial.*audio
+  - (?i)deepspee?ch.*adversarial.*target
+  - (?i)conformer.*transformer.*asr.*adversarial
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Model-specific adversarial audio attack against Whisper/wav2vec/DeepSpeech detected.
+  description: Detects white-box adversarial audio attacks targeting specific ASR models including OpenAI Whisper, Facebook
+    wav2vec 2.0, Mozilla DeepSpeech, or Conformer-based models. White-box attacks against specific model architectures achieve
+    near-100% targeted attack success rate (Carlini & Wagner 2018 style against CTC-based models). Modern attacks against
+    attention-based Whisper exploit the cross-attention mechanism to force arbitrary transcriptions with inaudible perturbations.
+  remediation: Implement adversarial robustness evaluation against specific model architectures during ASR deployment certification.
+    Apply certified adversarial robustness bounds for critical ASR deployments. Randomise ASR model selection from an ensemble
+    at inference time to reduce white-box attack effectiveness.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-071
+  name: tts-asr-reciprocal-deepfake-voice-synthesis
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)tts.*asr.*reciprocal.*adversarial
+  - (?i)text.to.speech.*identity.*clone.*attack
+  - (?i)voice.*synthesis.*asr.*bypass
+  - (?i)synthetic.*speech.*voice.*biometric.*defeat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: TTS-ASR reciprocal deepfake voice synthesis attack detected.
+  description: Detects use of TTS (Text-to-Speech) systems to synthesise voice that simultaneously deceives both ASR systems
+    and voice biometric authentication. The TTS-ASR reciprocal attack uses gradient-based optimisation to find TTS synthesis
+    parameters that produce audio correctly transcribed by the target ASR as arbitrary text while also matching the voiceprint
+    of a specific victim speaker. This dual objective attack was documented in Guo et al. (2023) and enables impersonation
+    attacks that also inject arbitrary commands.
+  remediation: Implement anti-spoofing that specifically evaluates TTS system artefacts in voice authentication pipelines.
+    Deploy speaker verification models with adversarial robustness training against TTS-optimised attacks. Apply spectral
+    artefact detection for known TTS synthesis patterns (vocoders, neural TTS characteristic frequencies).
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-072
+  name: pgd-adversarial-speaker-embedding-attack
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)pgd.*adversarial.*speaker.*embed
+  - (?i)projected.*gradient.*descent.*speaker.*verif
+  - (?i)adversarial.*speaker.*embedding.*attack
+  - (?i)i.vector.*x.vector.*adversarial.*perturb
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: PGD adversarial perturbation targeting speaker embedding models detected.
+  description: Detects Projected Gradient Descent (PGD) adversarial attacks targeting speaker embedding models (i-vector,
+    x-vector, d-vector) used in speaker verification systems. By computing adversarial perturbations against the speaker embedding
+    space, attackers can cause the verification system to either accept an impostor or reject a legitimate user. PGD attacks
+    against ECAPA-TDNN and ResNet-based speaker encoders achieve >95% ASR with L-infinity perturbation bounds below the liveness
+    detection threshold.
+  remediation: Apply certified adversarial robustness training (randomised smoothing) to speaker embedding models used in
+    high-security authentication. Implement perturbation detection as a pre-processing step before speaker embedding extraction.
+    Deploy adversarial training specifically against PGD attacks on speaker encoders.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-073
+  name: hifi-gan-vocoder-ultrasonic-command-encode
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)hifi.gan.*vocoder.*ultrasonic.*command
+  - (?i)neural.*vocoder.*ultrasound.*inject
+  - (?i)vocode.*adversarial.*ultrasonic.*embed
+  - (?i)gan.*vocoder.*inaudible.*command
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: HiFi-GAN vocoder ultrasonic command encoding for inaudible command injection detected.
+  description: Detects use of HiFi-GAN or similar neural vocoders to encode ultrasonic voice commands that exploit the non-linear
+    characteristics of MEMS microphones. Neural vocoders can be conditioned to produce audio with frequency components above
+    20 kHz that are inaudible to humans but demodulated into audible commands by microphone non-linearities. SUAD (Liu et
+    al. 2025) extended this attack using ultrasound injection via air-coupled transducers with neural vocoder synthesis.
+  remediation: Apply high-frequency filtering in audio processing pipelines to attenuate components above 20 kHz before microphone
+    input processing. Implement vocoder artefact detection to identify neural vocoder-generated audio in voice assistant inputs.
+    Deploy microphone hardware with reduced non-linear response characteristics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-074
+  name: surfing-attack-contact-ultrasonic-injection-table
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)surfing.*attack.*ultrasonic
+  - (?i)contact.*ultrasonic.*voice.*inject
+  - (?i)solid.channel.*vibration.*voice.*command
+  - (?i)table.*surface.*vibration.*ultrasonic.*attack
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: SurfingAttack contact ultrasonic voice injection via table vibration detected.
+  description: Detects planning or implementation of SurfingAttack (Yan et al. 2020), which uses ultrasonic waves propagated
+    through solid surfaces (tables, desks) to inject inaudible voice commands into smartphones placed on the surface. The
+    contact attack bypasses air-gap defences and operates through walls, floors, and other solid materials, enabling covert
+    command injection from adjacent rooms without visible hardware near the target device.
+  remediation: Mount smartphones and smart speakers on vibration-isolating surfaces (rubber pads, foam) to attenuate solid-channel
+    ultrasonic transmission. Implement inertial sensor (accelerometer) monitoring to detect unusual vibration patterns correlated
+    with audio command recognition. Apply anomaly detection for ASR command recognition events correlating with accelerometer
+    anomalies.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-075
+  name: near-wake-word-phonetic-boundary-adversarial
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)near.wake.word.*adversarial
+  - (?i)phonetic.*boundary.*wake.*word.*exploit
+  - (?i)similar.*wake.*word.*trigger.*assistant
+  - (?i)phoneme.*confus.*wake.*word.*attack
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Near-wake-word phonetic boundary adversarial attack detected.
+  description: Detects adversarial audio attacks that exploit phonetic similarity to wake words (Hey Alexa, OK Google, Hey
+    Siri) to trigger voice assistants without using the exact wake phrase. By crafting audio that lies on the phonetic decision
+    boundary of the wake word detector, adversaries can activate voice assistants with audio that is ambiguous to human listeners
+    but decisively triggers the detector. This attack operates at the wake word detector level before the full ASR pipeline.
+  remediation: Increase wake word detection confidence thresholds in high-security environments. Implement multiple independent
+    wake word detectors with ensemble voting to reduce boundary exploitation. Apply anomaly detection for unusually frequent
+    wake word activations from audio that is not clearly speech.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-076
+  name: deepfake-voice-ceo-fraud-wire-transfer
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)deepfake.*voice.*ceo.*fraud
+  - (?i)voice.*clone.*wire.*transfer.*auth
+  - (?i)deepfake.*audio.*cfo.*payment.*authoris
+  - (?i)synthetic.*voice.*financial.*authoris.*spoof
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: CEO fraud deepfake voice attack targeting financial authorisation detected.
+  description: Detects planning or execution of deepfake voice attacks impersonating executives (CEO/CFO) to fraudulently
+    authorise wire transfers or payments. Real-world attacks have successfully used voice cloning to impersonate CFOs and
+    approve millions of dollars in fraudulent transfers (Wall Street Journal 2019, multiple documented cases 2023-2024). Modern
+    voice cloning systems (ElevenLabs, Resemble AI, GPT-SoVITS) can produce high-quality voice clones from as little as 3-15
+    seconds of reference audio.
+  remediation: Implement mandatory multi-channel verification for financial authorisations (email + video call callback, never
+    audio-only approval). Establish pre-arranged codeword or out-of-band confirmation protocols for large financial transactions.
+    Train financial staff on deepfake audio attack indicators and verification procedures.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-077
+  name: mfcc-feature-deepfake-detector-evasion
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)mfcc.*deepfake.*detect.*evad
+  - (?i)mel.*frequency.*cepstral.*spoof.*bypass
+  - (?i)spectral.*feature.*anti.spoof.*defeat
+  - (?i)cepstrum.*deepfake.*detector.*fool
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: MFCC-based deepfake voice detector evasion attack detected.
+  description: Detects adversarial manipulation of MFCC (Mel Frequency Cepstral Coefficient) features in synthetic voice to
+    evade anti-spoofing countermeasures that rely on MFCC-based detection. Many deployed voice anti-spoofing systems use MFCC
+    or related spectral features as primary discriminants between genuine and synthetic speech. Adversarial attacks that specifically
+    target MFCC feature space can cause ASVspoof-style countermeasure models to misclassify synthetic speech as genuine.
+  remediation: Deploy anti-spoofing systems with diverse feature sets beyond MFCC (LFCC, CQT, spectral flux, phase features)
+    to reduce MFCC-targeted evasion effectiveness. Implement neural end-to-end anti-spoofing models that learn features less
+    susceptible to gradient-based MFCC manipulation. Apply adversarial training against MFCC-targeting attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-078
+  name: real-time-voice-conversion-live-deepfake-call
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)real.time.*voice.*conversion.*live
+  - (?i)rvc.*live.*call.*deepfake
+  - (?i)voice.*cloning.*real.time.*phone
+  - (?i)live.*voice.*morph.*impersonat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Real-time voice conversion for live deepfake call impersonation detected.
+  description: Detects setup or use of real-time voice conversion (RVC) systems for live call impersonation attacks. RVC tools
+    (Retrieval-based Voice Conversion, so-VITS-svc, FreeVC) can convert a speaker's voice to match a target's vocal characteristics
+    in real time with under 100ms latency, enabling impersonation in live phone calls and video conferences. The 2024 Arup
+    deepfake video call fraud (US$25M) demonstrated the capability of combined audio-visual real-time deepfakes for high-value
+    fraud.
+  remediation: Implement real-time voice authenticity scoring in enterprise communication platforms. Deploy voice biometric
+    verification for high-value communication channels with anti-spoofing specifically validated against RVC attacks. Apply
+    anomaly detection for voice characteristics inconsistencies within a single call (artefacts, spectral inconsistencies).
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-079
+  name: multi-speaker-confusion-voice-authentication-attack
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)multi.speaker.*confus.*voice.*auth
+  - (?i)speaker.*mix.*verif.*defeat
+  - (?i)concurrent.*speaker.*voice.*biometric.*bypass
+  - (?i)speaker.*overlap.*auth.*exploit
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Multi-speaker confusion attack against voice biometric authentication detected.
+  description: Detects attacks that exploit speaker overlapping or concurrent speech to confuse speaker verification systems,
+    potentially causing false acceptance by mixing a target speaker's voice with an impostor's speech. Multi-speaker confusion
+    attacks exploit the fact that some speaker verification systems make decisions on mixed audio signals, and carefully calibrated
+    speech mixing can cause the system to assign partial identity credit to both speakers, enabling threshold-based authentication
+    bypass.
+  remediation: Implement active speaker detection and speaker isolation (source separation) before voice authentication to
+    ensure single-speaker audio. Apply multi-speaker detection as a rejection criterion — flag and reject authentication attempts
+    with detected multiple concurrent speakers. Implement anti-spoofing models specifically trained on mixed-speaker scenarios.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-080
+  name: adversarial-audio-prompt-injection-voice-ai
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)audio.*prompt.*inject.*voice.*ai
+  - (?i)adversarial.*audio.*llm.*prompt.*inject
+  - (?i)voice.*input.*indirect.*prompt.*inject
+  - (?i)audio.*instruction.*hijack.*ai.*assistant
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Adversarial audio prompt injection against voice-enabled AI assistant detected.
+  description: 'Detects adversarial audio attacks that embed prompt injection payloads in audio signals targeting voice-enabled
+    LLM assistants (GPT-4o voice, Gemini Live, Claude voice). The attack combines adversarial audio perturbation with prompt
+    injection: the audio fools the ASR transcription to produce an injection payload, which then manipulates the LLM''s behaviour.
+    This multi-stage attack exploits the trust chain from audio → ASR transcription → LLM instruction following.'
+  remediation: Implement input sanitisation on ASR transcriptions before passing to LLM for instruction following. Apply prompt
+    injection detection on all ASR-derived text inputs. Deploy confidence-gated command execution that requires high ASR confidence
+    before executing potentially sensitive commands.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-081
+  name: dolphin-attack-ultrasonic-inaudible-command-20khz
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)dolphin.?attack.*ultrasonic
+  - (?i)inaudible.*20.?khz.*voice.*command
+  - (?i)ultrasonic.*modulated.*voice.*command.*inject
+  - (?i)bat.*frequency.*voice.*assistant.*command
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: DolphinAttack ultrasonic inaudible voice command injection detected.
+  description: Detects the DolphinAttack technique (Zhang et al. 2017) that modulates voice commands onto ultrasonic carrier
+    frequencies above 20 kHz — inaudible to humans but demodulated into audible signals by the non-linear characteristics
+    of microphone hardware. DolphinAttack demonstrated activation of 16 voice assistant models including Alexa, Google Now,
+    Siri, and Cortana from distances up to 7.5 metres using commodity hardware. The attack requires no access to the target
+    device.
+  remediation: Deploy hardware low-pass filters at the microphone input to attenuate ultrasonic components before ADC sampling.
+    Implement software-based frequency analysis that monitors for ultrasonic energy correlated with command recognition. Apply
+    MEMS microphone selection criteria that minimise non-linear response in the ultrasonic frequency range.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-082
+  name: voiceprint-database-theft-template-attack
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)voiceprint.*database.*theft
+  - (?i)voice.*template.*extract.*auth.*system
+  - (?i)speaker.*model.*steal.*verif
+  - (?i)voice.*biometric.*database.*exfiltrat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  message: Voiceprint database theft or speaker template extraction attack detected.
+  description: Detects attacks targeting voice biometric template databases to exfiltrate speaker voiceprints (i-vectors,
+    x-vectors, d-vectors) for offline impersonation attack preparation. Unlike password databases, stolen voiceprints cannot
+    be changed, making voiceprint database theft a permanent authentication credential compromise. Exfiltrated speaker templates
+    enable generation of high-fidelity voice clones without requiring reference audio recordings of the victim.
+  remediation: Store voiceprint templates only in encrypted form with per-user encryption keys. Implement cancellable biometrics
+    schemes that can generate new template variants after compromise. Apply hardware security modules for voiceprint comparison
+    operations to prevent template extraction. Monitor for bulk template export operations indicative of database theft.
+  owasp_llm: LLM06:2025
+  cwe: CWE-312
+- id: MEDUSA-VAA-SCAN-083
+  name: spearphishing-voice-ai-kemp-deepfake-audio
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)spearphishing.*deepfake.*audio
+  - (?i)voice.*clone.*spearphish.*target
+  - (?i)ai.*voice.*social.*engineer.*target
+  - (?i)deepfake.*audio.*vishing.*attack
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.txt'
+  - '*.ipynb'
+  message: Spearphishing deepfake audio vishing attack planning detected.
+  description: Detects planning or execution of spearphishing attacks using AI-generated deepfake voice clones to impersonate
+    trusted individuals (colleagues, family members, authority figures) in targeted vishing attacks. Kemp et al. (2025, AI
+    Spearphishing) and Pakina et al. (2025) documented AI-assisted voice social engineering as a critical emerging threat,
+    with deepfake voice enabling personalised attacks at scale by combining victim profiling with on-demand voice cloning
+    from publicly available audio.
+  remediation: Implement voice authenticity verification in enterprise communication protocols for sensitive requests. Train
+    personnel on vishing deepfake indicators and establish callback verification procedures. Deploy call analysis systems
+    that flag calls with detected TTS/VC artefacts for human review.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-084
+  name: audio-deepfake-pause-prosody-detection-evasion
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)deepfake.*audio.*pause.*prosody.*evad
+  - (?i)synthetic.*speech.*prosody.*natural.*bypass
+  - (?i)tts.*pause.*hesitation.*inject.*authentic
+  - (?i)speech.*rhythm.*deepfake.*detect.*defeat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Audio deepfake prosody and pause pattern manipulation for detection evasion detected.
+  description: Detects manipulation of prosodic features (pause patterns, speech rhythm, hesitations, filled pauses) in synthetic
+    speech to evade deepfake audio detectors that rely on unnatural prosody as a discriminant. Kulangareth et al. (2024, Deepfake
+    Speech Pause) showed that deepfake detectors relying on pause patterns and speech rhythm achieve high accuracy on standard
+    synthetic speech but are vulnerable to TTS systems augmented with natural pause and prosody injection. Adding natural
+    hesitation patterns from human speech reduces detection accuracy by 30-50%.
+  remediation: Deploy deepfake detection models trained on prosody-augmented synthetic speech including natural pause and
+    hesitation patterns. Implement multi-modal detection combining spectral features, prosody, and speaker-specific characteristics.
+    Apply adversarial training against prosody injection attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-085
+  name: replay-attack-voice-authentication-recording
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)replay.*attack.*voice.*auth
+  - (?i)record.*playback.*voice.*biometric
+  - (?i)audio.*replay.*speaker.*verif.*bypass
+  - (?i)stored.*voice.*sample.*replay.*auth
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Replay attack against voice biometric authentication system detected.
+  description: Detects planning or execution of replay attacks against voice authentication systems that record a target speaker's
+    genuine voice and replay it to the authentication system. Replay attacks are the simplest and most prevalent spoofing
+    attack against voice biometrics, requiring no synthesis capability. ASVspoof 2019 PA (physical access) task documented
+    that commodity recording equipment at 2-3 metres can capture sufficient quality audio for replay attacks defeating basic
+    speaker verification systems.
+  remediation: Implement liveness detection specifically designed to detect replay attacks (channel mismatch detection, replay
+    artefact detection). Apply challenge-response voice authentication that requires real-time utterance of a dynamically
+    generated prompt that cannot be pre-recorded. Deploy anti-replay countermeasures trained on the ASVspoof physical access
+    evaluation protocol.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-086
+  name: noise-flooding-adversarial-preprocessing-defeat
+  severity: MEDIUM
+  category: voice_audio_attacks
+  patterns:
+  - (?i)noise.*flooding.*adversarial.*defeat
+  - (?i)rajaratnam.*noise.*isolated.*preprocessing
+  - (?i)adaptive.*noise.*defeat.*preprocessing
+  - (?i)flood.*noise.*bypass.*audio.*defense
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Noise flooding attack to defeat audio adversarial preprocessing defences detected.
+  description: Detects adversarial noise flooding techniques designed to defeat preprocessing-based defences against adversarial
+    audio (e.g., denoising, band-pass filtering, spectral smoothing). Rajaratnam et al. (2018, Noise Flooding) demonstrated
+    that adding carefully crafted adversarial noise at a higher amplitude than the defence filter passband can preserve the
+    adversarial perturbation through preprocessing while the flooding noise is removed, allowing the original adversarial
+    signal to survive.
+  remediation: Implement randomised preprocessing defences whose parameters are unknown to adversaries, preventing pre-computation
+    of flooding noise. Apply information-theoretically secure preprocessing using secret key-based randomisation. Monitor
+    for audio patterns with unusually high noise-to-signal ratios preceding ASR command recognition events.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-087
+  name: wav2lip-visual-audio-deepfake-synchronisation
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)wav2lip.*deepfake.*audio.*visual
+  - (?i)lip.*sync.*deepfake.*voice.*video
+  - (?i)audio.visual.*deepfake.*synchronis
+  - (?i)talking.*head.*voice.*clone.*fraud
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Wav2Lip audio-visual deepfake synchronisation attack detected.
+  description: Detects use of Wav2Lip or similar audio-visual synchronisation models to create combined audio-visual deepfakes
+    where a cloned voice is synchronised with a video of a target speaker. Audio-visual deepfakes are significantly more convincing
+    than audio-only attacks and defeat defences that rely on audio-visual consistency detection. The 2024 Arup US$25M fraud
+    case used a multi-person audio-visual deepfake conference call to authorise fraudulent wire transfers.
+  remediation: Implement audio-visual consistency detection that analyses lip movement synchronisation with audio in video
+    calls. Deploy deepfake detection for combined audio-visual content using temporal consistency analysis. Establish out-of-band
+    verification protocols for high-value decisions made on video calls.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-088
+  name: adversarial-wake-word-background-music-trigger
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)adversarial.*wake.*word.*background.*music
+  - (?i)music.*wake.*word.*trigger.*inject
+  - (?i)ambient.*audio.*wake.*word.*embed
+  - (?i)song.*wake.*word.*attack.*assistant
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Adversarial wake word injection via background music attack detected.
+  description: 'Detects embedding of adversarial wake word triggers within music or ambient audio to activate voice assistants
+    without legitimate user intent. This attack is a specialisation of CommanderSong targeting the wake word detection stage:
+    adversarial perturbations embedded in music cause the wake word detector (not just the ASR) to activate, enabling two-stage
+    command injection (wake word activation followed by command injection). The music-embedded wake word is inaudible as speech
+    to humans listening to the song.'
+  remediation: Implement contextual wake word activation validation that correlates wake word detections with other acoustic
+    and contextual signals (user proximity, motion, prior interaction patterns). Apply anomaly detection for wake word activations
+    during music playback periods. Require explicit user confirmation before executing sensitive commands following unexpected
+    wake activations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-089
+  name: bark-neural-codec-embedding-adversarial-audio
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)bark.*codec.*adversarial.*embed
+  - (?i)neural.*codec.*adversarial.*audio.*attack
+  - (?i)encodec.*adversarial.*latent.*command
+  - (?i)codec.*latent.*adversarial.*voice.*inject
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Neural codec (BARK/EnCodec) embedding-level adversarial audio attack detected.
+  description: Detects adversarial attacks operating at the neural codec (BARK, EnCodec, DAC) embedding level to inject voice
+    commands that are robust to audio processing and compression. Neural codec-level adversarial perturbations survive standard
+    audio transformations that destroy raw waveform perturbations, because they are embedded in the discrete codebook representations
+    used by neural audio codecs. This makes them more robust than conventional adversarial audio attacks against acoustic
+    channel attacks and audio preprocessing defences.
+  remediation: Implement codec-aware adversarial detection that specifically analyses neural codec embedding space for adversarial
+    manipulation signatures. Apply codec integrity verification for audio processed through neural codec pipelines. Monitor
+    for unusual codebook usage patterns indicative of adversarially crafted codec-level embeddings.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-090
+  name: spectral-interpolation-genuine-impostor-voice
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)spectral.*interpolat.*genuine.*impostor
+  - (?i)voice.*blend.*genuine.*fake.*spectrum
+  - (?i)spectral.*mixture.*speaker.*verif.*bypass
+  - (?i)voice.*morph.*spectral.*linear.*interpolat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Spectral interpolation attack blending genuine and impostor voice spectra detected.
+  description: 'Detects voice morphing attacks that blend the spectral characteristics of genuine (enrolled) speaker audio
+    with impostor audio to create hybrid voices that pass speaker verification while carrying the impostor''s intended message.
+    Spectral interpolation attacks exploit the fact that speaker verification operates on averaged spectral features: a 50/50
+    spectral blend between genuine and impostor voices can satisfy the verification threshold while retaining sufficient impostor
+    intelligibility for communication purposes.'
+  remediation: Implement speaker verification models trained on morphing attack examples that specifically detect spectral
+    blending artefacts. Apply voice morphing detection using mutual information between spectral frames, which is disrupted
+    by blending operations. Deploy ensemble speaker verification with diverse spectral feature representations to reduce interpolation
+    attack effectiveness.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-091
+  name: tdoa-dispersion-solid-channel-ultrasound-attack
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)tdoa.*dispersion.*solid.*channel.*ultrasound
+  - (?i)time.*difference.*arrival.*ultrasonic.*command
+  - (?i)solid.*medium.*ultrasound.*dispersion.*compensat
+  - (?i)guided.*acoustic.*wave.*voice.*inject
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: TDoA dispersion compensation for solid-channel ultrasound voice injection detected.
+  description: Detects advanced SurfingAttack-style solid-channel ultrasonic voice injection attacks that apply Time Difference
+    of Arrival (TDoA) and dispersion compensation to maintain attack effectiveness across longer solid-medium propagation
+    distances. Dispersion compensation counteracts the frequency-dependent propagation speed in solid materials that degrades
+    command intelligibility over distance, extending the attack range and improving reliability of solid-channel ultrasonic
+    command injection.
+  remediation: Implement vibration-isolating mounting for devices susceptible to solid-channel attacks. Deploy accelerometer-based
+    vibration anomaly detection correlated with ASR command events. Apply physical inspection of meeting room furniture for
+    concealed ultrasonic transducer hardware.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-092
+  name: deepfake-kill-chain-voice-biometric-targeted
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)deepfake.*kill.*chain.*voice.*biometric
+  - (?i)voice.*attack.*chain.*recon.*clone.*attack
+  - (?i)targeted.*voice.*attack.*preparation.*plan
+  - (?i)voice.*impersonation.*attack.*planning
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: Deepfake kill chain planning for targeted voice biometric attack detected.
+  description: 'Detects multi-stage targeted voice biometric attack planning that follows a kill chain pattern: target identification,
+    voice sample collection from open sources (social media, YouTube, conference recordings), voice clone training, authentication
+    bypass preparation, and execution. He et al. (2025, Identity Deepfake Biometric) documented the complete kill chain for
+    voice biometric attacks, showing that <30 seconds of public audio is sufficient for effective voice cloning targeting
+    speaker verification systems.'
+  remediation: Implement voice authentication systems with liveness detection that requires dynamic challenge utterances that
+    cannot be pre-prepared. Monitor social media and public sources for organisation-specific voice data exposure. Apply voice
+    biometric authentication with additional factors for access to sensitive systems.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-093
+  name: anti-fake-rovo-signal-processing-defeat
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)antifake.*signal.*processing.*defeat
+  - (?i)rovo.*voice.*protection.*bypass
+  - (?i)active.*voice.*protect.*perturb.*remov
+  - (?i)dwt.*qim.*voice.*watermark.*bypass
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: AntiFake/RoVo active voice protection perturbation removal attack detected.
+  description: Detects attacks designed to defeat active voice protection systems (AntiFake, RoVo) that add protective perturbations
+    to audio to prevent voice cloning. Fei et al. (2025, VocalCrypt) and Kim et al. (2025, RoVo) documented that denoising-based
+    attacks and codec compression attacks can remove protective perturbations from protected audio, allowing successful voice
+    cloning of audio that was thought to be clone-resistant. Codec compression attacks achieve 80%+ perturbation removal.
+  remediation: Deploy voice protection perturbations that are specifically designed to be robust against denoising and codec
+    attacks, using adversarial perturbation training against known removal methods. Implement multiple independent protection
+    layers so that removing one layer does not defeat all protection. Apply protection perturbations in the codec latent space
+    rather than waveform space for improved robustness.
+  owasp_llm: LLM01:2025
+  cwe: CWE-327
+- id: MEDUSA-VAA-SCAN-094
+  name: cloned-voice-detection-evasion-ivanov-synthesis
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)cloned.*voice.*detect.*evad.*synthesis
+  - (?i)voice.*synthesis.*anti.spoof.*bypass
+  - (?i)clone.*voice.*detector.*fool
+  - (?i)synthetic.*voice.*naturalness.*detector.*defeat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Cloned voice detection evasion attack via synthesis quality improvement detected.
+  description: 'Detects adversarial approaches to defeating cloned voice detection systems by improving synthesis naturalness
+    quality to fall below the detection threshold of anti-spoofing countermeasures. Ivanov et al. (2022, Cloned Voices: Synthesis
+    and Detection) documented the arms race between voice synthesis quality and detection capability, showing that state-of-the-art
+    TTS achieves human-level naturalness scores while remaining detectable via spectral artefacts. Adversarial TTS training
+    specifically targeting countermeasure features can produce synthesis indistinguishable by current CM systems.'
+  remediation: Deploy continuously updated anti-spoofing countermeasures trained on the latest TTS/VC systems. Implement streaming
+    detection updates for new synthesis models as they are publicly released. Apply uncertainty quantification in CM decisions
+    to flag borderline cases for human review.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-095
+  name: query-based-adversarial-audio-black-box-guo
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)query.based.*adversarial.*audio.*black.box
+  - (?i)score.based.*audio.*adversarial.*asr
+  - (?i)decision.*boundary.*audio.*adversarial
+  - (?i)zeroth.*order.*audio.*adversarial.*optim
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Query-based black-box adversarial audio attack using score or decision information detected.
+  description: Detects query-based black-box adversarial audio attacks that use model output scores or hard decisions to iteratively
+    craft adversarial audio without white-box model access. Guo et al. (2023, Universal Defense for Query-Based Black-Box
+    Attacks) documented score-based and decision-based black-box attacks against ASR systems that require only API access
+    to achieve targeted attack success rates of 70-85%, enabling practical attacks against commercial ASR APIs.
+  remediation: Implement query monitoring and rate limiting on ASR APIs to detect iterative black-box attack patterns. Apply
+    query clustering and anomaly detection to identify systematic adversarial audio optimisation campaigns. Add controlled
+    randomness to ASR outputs to impede gradient estimation in score-based attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-096
+  name: adversarial-audio-persistence-mp3-aac-codec
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)adversarial.*audio.*persist.*codec
+  - (?i)adversarial.*audio.*mp3.*aac.*surviv
+  - (?i)compression.robust.*adversarial.*audio
+  - (?i)codec.*surviv.*adversarial.*perturbation
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Adversarial audio persistence through MP3/AAC codec compression detected.
+  description: Detects development of adversarial audio perturbations specifically designed to survive MP3 and AAC codec compression,
+    enabling persistence of attack payloads through common audio encoding pipelines. Standard adversarial audio perturbations
+    are destroyed by lossy codec compression, but expectation-over-transformation (EoT) based optimisation accounting for
+    codec transforms can produce perturbations that survive compression while maintaining attack effectiveness. This enables
+    adversarial audio distribution through standard audio sharing platforms.
+  remediation: Implement adversarial audio detection after codec decoding rather than before encoding, as codec-robust attacks
+    survive the encoding stage. Apply adversarial detection algorithms specifically trained on codec-robust adversarial audio
+    examples. Deploy runtime adversarial detection in audio pipelines with re-encoding steps.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-097
+  name: voice-jailbreak-unsafe-behaviour-audio-llm
+  severity: CRITICAL
+  category: voice_audio_attacks
+  patterns:
+  - (?i)voice.*jailbreak.*unsafe.*behaviour
+  - (?i)audio.*jailbreak.*speech.*llm
+  - (?i)voice.*input.*bypass.*safety.*llm
+  - (?i)audio.*modality.*jailbreak.*multimodal
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.txt'
+  - '*.ipynb'
+  message: Voice modality jailbreak attack against multimodal LLM detected.
+  description: Detects adversarial voice jailbreak attacks targeting multimodal LLMs (GPT-4o, Gemini Live, Claude 3.5) that
+    process audio inputs directly. Voice modality jailbreaks exploit the gap between safety alignment applied to text inputs
+    and the less thoroughly aligned audio processing pathway. Research has shown that jailbreak prompts delivered through
+    the audio modality can bypass safety filters that would reject identical text-based prompts, suggesting modality-specific
+    alignment gaps in current multimodal safety training.
+  remediation: Implement cross-modal safety consistency checking that applies identical safety validation to both ASR-transcribed
+    and directly processed audio inputs. Deploy modality-invariant safety classifiers trained on audio-format jailbreak examples.
+    Apply audio content moderation as a pre-processing step before LLM audio input processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-VAA-SCAN-098
+  name: liveness-detection-bypass-synthetic-replay-hybrid
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)liveness.*bypass.*synthetic.*replay.*hybrid
+  - (?i)hybrid.*replay.*synthesis.*cm.*defeat
+  - (?i)combined.*replay.*tts.*anti.spoof.*bypass
+  - (?i)liveness.*detect.*replay.synthesis.*evad
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Hybrid replay-synthesis liveness detection bypass attack detected.
+  description: Detects combined replay-synthesis attacks that create hybrid spoofed audio by blending replayed genuine speaker
+    audio with synthetic speech to simultaneously defeat replay detection (by including genuine spectral features) and synthesis
+    detection (by including genuine speaker characteristics). These hybrid attacks were documented in ASVspoof 2021 and 2024
+    evaluations as among the most challenging for current countermeasure systems, achieving lower equal error rates than pure
+    replay or pure synthesis attacks.
+  remediation: Deploy multi-class spoofing detection that is specifically trained to identify replay-synthesis hybrid attacks.
+    Apply temporal analysis of spectral features to detect splicing boundaries between genuine and synthetic segments. Implement
+    multi-condition anti-spoofing training covering hybrid attack types.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-099
+  name: multimodal-deepfake-dataset-audio-visual-collection
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)multimodal.*deepfake.*dataset.*audio.*visual
+  - (?i)av.*deepfake.*collect.*audio.*video
+  - (?i)deepfake.*dataset.*voice.*face.*train
+  - (?i)audio.visual.*fake.*dataset.*creat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  - '*.ipynb'
+  message: Multimodal deepfake audio-visual dataset creation for attack training detected.
+  description: Detects creation of multimodal deepfake datasets combining audio and visual fakery for training or evaluating
+    combined audio-visual impersonation systems. Khalid et al. (2021, Multimodal Deepfake Dataset) documented the challenges
+    of detecting audio-visual deepfakes compared to unimodal fakes, as the two modalities can be independently manipulated
+    and recombined. Training datasets for audio-visual deepfakes enable development of more convincing impersonation systems
+    that defeat current detection methods.
+  remediation: Apply both audio and visual deepfake detection independently before making authentication or trust decisions.
+    Implement temporal consistency analysis across audio and video streams to detect asynchronous manipulation. Deploy multimodal
+    deepfake detection models trained on combined audio-visual fake datasets.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-VAA-SCAN-100
+  name: voice-ai-assistant-misinformation-social-engineering
+  severity: HIGH
+  category: voice_audio_attacks
+  patterns:
+  - (?i)voice.*ai.*assistant.*misinformation
+  - (?i)ai.*voice.*social.*engineer.*misinform
+  - (?i)deepfake.*voice.*spread.*false.*information
+  - (?i)synthetic.*audio.*propaganda.*voice.*ai
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.txt'
+  - '*.ipynb'
+  message: Voice AI assistant misuse for misinformation or social engineering detected.
+  description: Detects use of voice AI systems for automated misinformation campaigns or social engineering at scale. Mishra
+    et al. (2025, Voice AI Assistant) and Sweety et al. (2025, AI Cybersecurity Threats) documented AI-generated voice synthesis
+    as a force multiplier for social engineering and misinformation operations, enabling personalised audio deepfakes at population
+    scale. This includes automated voice phishing campaigns using dynamically cloned voices to impersonate trusted contacts.
+  remediation: Implement voice authenticity disclosure requirements for AI-generated audio in communications platforms. Deploy
+    audio provenance metadata (C2PA audio credentials) to distinguish AI-generated from genuine voice. Apply voice deepfake
+    detection at the receiving end of communication platforms to flag synthetic audio to recipients.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287

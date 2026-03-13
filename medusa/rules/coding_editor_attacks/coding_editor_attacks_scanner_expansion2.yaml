@@ -1,0 +1,560 @@
+rules:
+- id: MEDUSA-CEA-SCAN-061
+  name: malicious-package-suggestion-typosquat
+  description: Detects requests to LLM coding assistants that are designed to elicit typosquatting or malicious package name suggestions. Attackers craft code contexts that lead coding assistants to suggest malicious packages resembling popular legitimate ones.
+  category: supply_chain_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-829
+  mitre_attack: T1195.001
+  source_paper: Oh et al. (2023) - Package Hallucination - Large Language Models May Suggest Nonexistent Packages
+  patterns:
+  - '(?i)\b(?:import|require|install|pip install|npm install|gem install|cargo add|go get)\s+(?:[a-z0-9]+-){0,3}[a-z0-9]+\s*(?:#|//|/*)\s*(?:note|TODO|try|consider|maybe)'
+  - '(?i)(?:suggest|recommend|use|install)\s+(?:a|an|the)\s+(?:package|library|module|dependency)\s+(?:for|to handle|to manage|that handles)\s+.{0,80}(?:crypto|authentication|auth|payment|oauth|jwt|ssl|tls)'
+  - '(?i)(?:hallucinated?|non.?existent|fake|made.?up)\s+(?:package|library|module|dependency)\s+(?:name|suggestion)'
+
+- id: MEDUSA-CEA-SCAN-062
+  name: code-backdoor-insertion-request
+  description: Detects requests to LLM coding assistants to insert backdoors, hidden functionality, or covert channels into code. Attackers request subtle code modifications that create persistent unauthorized access.
+  category: backdoor_insertion
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1587.001
+  source_paper: Schuster et al. (2021) - You Autocomplete Me - Poisoning Vulnerabilities in Neural Code Completion
+  patterns:
+  - '(?i)\b(?:add|insert|include|embed|hide|plant)\s+(?:a|an)?\s+(?:backdoor|trapdoor|hidden|covert|secret)\s+(?:access|function|functionality|channel|connection|feature|exit|bypass)'
+  - '(?i)\b(?:backdoor|trapdoor|logic bomb|time bomb|kill switch)\s+(?:in|into|to|the)\s+(?:this|the|my)?\s+(?:code|function|class|module|application|app|service)'
+  - '(?i)(?:nobody will notice|undetectable|subtle|hidden|obfuscated|disguised)\s+(?:change|modification|addition|feature|functionality)\s+(?:that|which|to).{0,60}(?:allow|permit|enable|give)\s+(?:me|us|attacker|unauthorized)\s+(?:access|entry|control)'
+
+- id: MEDUSA-CEA-SCAN-063
+  name: hardcoded-credential-generation-request
+  description: Detects requests to generate code with hardcoded credentials, API keys, passwords, or tokens. LLM coding assistants can be manipulated into generating insecure code with embedded secrets.
+  category: credential_exposure
+  severity: high
+  owasp_llm: LLM02:2025
+  cwe: CWE-798
+  mitre_attack: T1552.001
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard - Assessing the Security of GitHub Copilot Code Contributions
+  patterns:
+  - '(?i)(?:hardcode|hardcoded|hard.code)\s+(?:the|a|my)?\s+(?:password|secret|key|credential|token|API key|access key|private key)\s+(?:in|into|directly in|as a constant)'
+  - '(?i)(?:password|secret|API.?key|access.?key|token|credential)\s*=\s*["\x27][^"]{8,}["\x27]\s*(?:#|//)\s*(?:TODO|FIXME|change|replace|update)\s+(?:before|in|for)\s+(?:prod|production|deploy|release)'
+  - '(?i)(?:just|temporarily|for now|quick(ly)?)\s+(?:hardcode|put|use|embed|store)\s+(?:the|my|your)?\s+(?:password|secret|key|credential|token|API key)'
+
+- id: MEDUSA-CEA-SCAN-064
+  name: dependency-confusion-attack-vector
+  description: Detects dependency confusion attack patterns where internal package names are referenced alongside instructions to create or use packages in public registries, exploiting registry priority ordering.
+  category: supply_chain_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-829
+  mitre_attack: T1195.001
+  source_paper: Birsan (2021) - Dependency Confusion - How I Hacked into Apple, Microsoft and Dozens of Other Companies
+  patterns:
+  - '(?i)(?:internal|private|corporate|company).{0,40}(?:package|library|module).{0,80}(?:public|PyPI|npm|NuGet|RubyGems|crates\.io|Maven).{0,60}(?:registry|repository|repo|index)'
+  - '(?i)(?:publish|upload|push|release|submit)\s+(?:a|an|the|my|our)\s+(?:internal|private|corporate)\s+(?:package|library|module)\s+(?:to|on|at)\s+(?:PyPI|npm|NuGet|crates\.io|RubyGems|Maven)'
+  - '(?i)\b(?:dependency confusion|namespace confusion|package confusion)\s+(?:attack|exploit|vulnerability|technique)'
+
+- id: MEDUSA-CEA-SCAN-065
+  name: trojan-source-bidirectional-unicode-injection
+  description: Detects Trojan Source attacks that use Unicode bidirectional control characters to make malicious code appear benign to human reviewers while being executed differently by the compiler/interpreter.
+  category: unicode_obfuscation
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Boucher & Anderson (2021) - Trojan Source - Invisible Vulnerabilities
+  patterns:
+  - '[\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069\u200f\u200e]{2,}'
+  - '(?i)(?:bidirectional|bidi|RTL|LTR)\s+(?:unicode|character|control|override|text)\s+(?:in|inside|within)\s+(?:code|source|comment|string|identifier)'
+  - '(?i)(?:trojan source|invisible|hidden)\s+(?:vulnerability|backdoor|code|attack)\s+(?:using|via|with)\s+(?:unicode|bidi|RTL|special|control)\s+(?:character|char|code point)'
+
+- id: MEDUSA-CEA-SCAN-066
+  name: code-repository-context-poisoning
+  description: Detects attempts to poison LLM coding assistant context by injecting malicious instructions into repository README files, code comments, or documentation that the assistant reads as context.
+  category: context_poisoning
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Frieder et al. (2024) - Mathematical Capabilities of ChatGPT
+  patterns:
+  - '(?i)(?:README|CONTRIBUTING|CHANGELOG|docs?|documentation|\.github)\s+(?:file|contains?|includes?|has)\s+(?:hidden|special|secret|embedded)\s+(?:instruction|directive|payload|command)'
+  - '(?i)(?:when (the|an|a)\s+(?:AI|LLM|coding assistant|Copilot|Cursor|model|assistant)\s+(?:reads?|processes?|sees?|parses?|scans?))\s+(?:this|the)\s+(?:file|code|README|repo|repository)'
+  - '(?i)(?:AI assistant|coding assistant|Copilot|Cursor)\s*:\s*(?:when|if|upon)\s+.{0,100}(?:ignore|override|forget|new instruction|you are now|do not|must not)'
+
+- id: MEDUSA-CEA-SCAN-067
+  name: shell-command-injection-via-code-generation
+  description: Detects shell command injection attacks that manipulate LLM coding assistants to generate code containing unvalidated shell command execution, enabling OS command injection vulnerabilities.
+  category: shell_injection
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+  mitre_attack: T1059.004
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:subprocess|os\.system|exec|shell|popen|eval|spawn)\s*\(.{0,100}(?:user.input|request\.|params\.|argv|stdin|input\(|sys\.argv|environ)'
+  - '(?i)(?:run|execute|shell out|invoke)\s+.{0,60}(?:user.provided|user.input|from.request|from.user|untrusted|unvalidated)\s+(?:command|argument|parameter|input)\s+(?:directly|without|as.is|unsanitized)'
+  - '(?i)(?:f.string|f"|\{.+?\})\s*(?:to|into|in)\s+(?:subprocess|os\.system|exec|shell|popen|eval)\s*\('
+
+- id: MEDUSA-CEA-SCAN-068
+  name: insecure-crypto-implementation-generation
+  description: Detects requests to generate cryptographically insecure code patterns including weak key generation, broken crypto algorithms, insecure random number generation, or improper IV handling.
+  category: insecure_cryptography
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-327
+  mitre_attack: T1588.003
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:MD5|SHA1|DES|RC4|ECB mode|CBC with static IV)\s+(?:for|to)\s+(?:password|credential|sensitive|security|encrypt|hash|sign)'
+  - '(?i)(?:random\.random\(\)|Math\.random\(\)|rand\(\)|random\b)\s+(?:for|to|as)\s+(?:key|token|nonce|IV|salt|password|secret|session)'
+  - '(?i)(?:hardcoded?|static|fixed|constant)\s+(?:IV|initialization vector|nonce|salt|key|seed)\s+(?:for|in|with)\s+(?:AES|DES|cipher|encrypt|crypto)'
+
+- id: MEDUSA-CEA-SCAN-069
+  name: sql-injection-via-code-generation
+  description: Detects LLM coding assistant manipulation to generate SQL injection vulnerabilities by requesting database query code that directly concatenates or interpolates user input into SQL strings.
+  category: sql_injection_generation
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:query|sql|SELECT|INSERT|UPDATE|DELETE)\s*\+\s*(?:user_input|request\.|params\.|user\.|input\b|query_param|search_term)'
+  - '(?i)(?:f.string|f"|\bformat\b|\.format\(|%s|%d|\.format\b)\s*.{0,40}(?:SELECT|INSERT|UPDATE|DELETE|WHERE|FROM)\s+.{0,60}(?:user|input|request|params?|data)'
+  - '(?i)(?:directly|without|unsanitized|no.?sanitiz|no.?validat|no.?escap)\s+.{0,40}(?:user input|user data|request data|param)\s+.{0,40}(?:SQL|query|database)'
+
+- id: MEDUSA-CEA-SCAN-070
+  name: ci-cd-pipeline-attack-via-code-generation
+  description: Detects attempts to manipulate LLM coding assistants to generate malicious CI/CD pipeline configurations that exfiltrate secrets, modify build artifacts, or introduce supply chain attack vectors.
+  category: ci_cd_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-915
+  mitre_attack: T1195.002
+  source_paper: Cider Security (2023) - Top 10 CICD Security Risks
+  patterns:
+  - '(?i)(?:curl|wget|nc|netcat|bash|sh)\s+(?:https?://|<\(curl)\s*[^\s]{10,}\s+(?:\||&&|>|>>)\s+(?:bash|sh|python|node)'
+  - '(?i)(?:secrets?|env|environment|credentials?|API.?key|token)\s*(?:\$\{|\benv\b|getenv)\s*.{0,80}(?:curl|wget|http|send|post|upload|exfil)'
+  - '(?i)(?:\.github/workflows|\.gitlab-ci\.yml|Jenkinsfile|\.circleci|Dockerfile)\s+(?:modified|edited|changed)\s+(?:to|so as to|in order to)\s+(?:steal|exfil|send|leak|transmit)'
+
+- id: MEDUSA-CEA-SCAN-071
+  name: path-traversal-file-inclusion-generation
+  description: Detects LLM coding assistant manipulation to generate path traversal or local file inclusion vulnerabilities through requests for file handling code that does not validate user-controlled path components.
+  category: path_traversal
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-22
+  mitre_attack: T1083
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:open|read|load|include|require)\s*\(\s*(?:user.input|request\.|params\.|argv|stdin|input\()\s*\)'
+  - '(?i)(?:file_path|filename|path|directory|dir)\s*=\s*.{0,60}(?:request\.|user\.|input\.|params\.)\s*.{0,30}(?:open|read|load|include|require|access)'
+  - '(?i)(?:without|no|skip|bypass|dont|don.t)\s+(?:path|directory|file)\s+(?:validation|sanitization|check|traversal)\s+(?:for|in)\s+(?:simplicity|speed|testing|now|development)'
+
+- id: MEDUSA-CEA-SCAN-072
+  name: insecure-deserialization-code-generation
+  description: Detects requests to generate insecure deserialization code patterns that could allow arbitrary code execution through pickle, yaml.load, marshal, or other unsafe deserializers processing user-controlled data.
+  category: insecure_deserialization
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:pickle\.loads?|marshal\.loads?|yaml\.load\s*\(|eval\s*\(|exec\s*\()\s*.{0,60}(?:user.input|request\.|params\.|untrusted|external|user.provided)'
+  - '(?i)(?:deserializ|unmarshal|unpickle)\s+.{0,60}(?:user.provided|untrusted|external|user.controlled|user.input)\s+(?:data|input|bytes?|payload)'
+  - '(?i)(?:yaml\.load|json\.loads?|pickle\.loads?|eval|exec)\s*\(.{0,80}(?:user|request|params|stdin|argv|input|external)'
+
+- id: MEDUSA-CEA-SCAN-073
+  name: ssrf-generation-request-via-code-completion
+  description: Detects LLM coding assistant manipulation to generate Server-Side Request Forgery vulnerabilities through code that makes HTTP requests to user-controlled URLs without proper validation or allowlisting.
+  category: ssrf_generation
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-918
+  mitre_attack: T1071
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:requests?\.get|urllib\.request|fetch|http\.get|axios\.get|curl)\s*\(\s*.{0,80}(?:user.input|request\.|params\.|argv|user.provided|user.controlled)'
+  - '(?i)(?:fetch|make.request|http.request|GET|POST)\s+.{0,60}(?:user.controlled|user.provided|user.supplied|arbitrary|any)\s+(?:URL|endpoint|host|address|destination)'
+  - '(?i)(?:without|no|skip)\s+(?:URL|SSRF|host|domain)\s+(?:validation|whitelist|allowlist|check|filtering)\s+(?:for|in|during)\s+(?:simplicity|development|testing|now)'
+
+- id: MEDUSA-CEA-SCAN-074
+  name: cursor-ide-context-manipulation-attack
+  description: Detects attacks specifically targeting Cursor IDE and similar AI-native code editors that use repository-wide context, exploiting the editor's AI context window with poisoned repository content.
+  category: ide_context_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Lanyado et al. (2024) - Can You Trust Your AI-Assisted Code
+  patterns:
+  - '(?i)\bCursor\s+(?:IDE|editor|AI|assistant|chat|context)\s*.{0,80}(?:inject|poison|manipulate|trick|mislead|override)\s+(?:context|prompt|instruction|behavior)'
+  - '(?i)(?:\.cursorrules|cursor\.json|\.cursorignore)\s+(?:file|config|configuration)\s+.{0,80}(?:inject|poison|manipulate|hidden|instruction|override)'
+  - '(?i)(?:codebase.context|repo.context|project.context|@codebase|@file)\s*.{0,80}(?:inject|poison|manipulate|hidden instruction|override|ignore|forget)'
+
+- id: MEDUSA-CEA-SCAN-075
+  name: github-copilot-context-poisoning
+  description: Detects attacks specifically targeting GitHub Copilot through repository context poisoning, malicious training data injection, or prompt injection via code comments targeting Copilot's suggestion engine.
+  category: ide_context_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Schuster et al. (2021) - You Autocomplete Me
+  patterns:
+  - '(?i)\bCopilot\s+(?:will|should|must|can)\s+(?:suggest|complete|generate|recommend)\s+.{0,80}(?:malicious|harmful|backdoor|insecure|vulnerable|unsafe)'
+  - '(?i)(?:train|fine.tune|poison|corrupt)\s+(?:Copilot|GitHub\s+Copilot|code\s+completion|AI\s+coding\s+assistant)\s+.{0,80}(?:to\s+suggest|to\s+generate|with\s+backdoors?|with\s+vulnerabilities?)'
+  - '(?i)(?:copilot.sees|copilot.reads|copilot.context|copilot.input)\s*.{0,80}(?:inject|poison|manipulate|hidden|override|new instruction)'
+
+- id: MEDUSA-CEA-SCAN-076
+  name: overpermissive-iam-code-generation
+  description: Detects LLM coding assistant manipulation to generate overly permissive IAM policies, ACLs, file permissions, or authorization code that grants excessive access rights.
+  category: privilege_escalation
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-732
+  mitre_attack: T1098
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:"Action"|\baction\b)\s*:\s*(?:"\*"|''*''|\["\*"\])\s*.{0,80}(?:"Resource"|\bresource\b)\s*:\s*(?:"\*"|''*''|\["\*"\])'
+  - '(?i)(?:chmod|chown|permission|ACL|IAM|policy|role)\s+.{0,80}(?:777|0777|rwxrwxrwx|world.writable|public|everyone|\\*)\s+(?:for|to|on)\s+(?:simplicity|speed|testing|all users|everyone)'
+  - '(?i)(?:wildcard|\\*)\s+(?:permission|privilege|access|action|resource)\s+(?:for|to|on)\s+(?:all|every|any)\s+(?:user|service|action|resource|endpoint)'
+
+- id: MEDUSA-CEA-SCAN-077
+  name: secret-manager-bypass-code-generation
+  description: Detects requests to generate code that bypasses secret management best practices by inlining secrets, reading from environment variables unsafely, or circumventing vault/secrets manager integrations.
+  category: credential_exposure
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-522
+  mitre_attack: T1552
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:skip|bypass|avoid|without|instead of)\s+(?:Vault|AWS\s+Secrets|Azure\s+Key\s+Vault|GCP\s+Secret|secrets?\s+manager|HashiCorp)\s+(?:for\s+now|in\s+development|for\s+testing|for\s+simplicity)'
+  - '(?i)(?:hardcode|inline|embed|put directly|store as constant)\s+.{0,40}(?:API.?key|secret|credential|token|password)\s+.{0,40}(?:just|for\s+now|temporarily|quick)'
+  - '(?i)(?:echo|print|log|output|console\.log|printf|puts)\s*.{0,40}(?:password|secret|API.?key|token|credential|private.?key|access.?key)'
+
+- id: MEDUSA-CEA-SCAN-078
+  name: race-condition-toctou-generation
+  description: Detects LLM coding assistant manipulation to generate race condition or TOCTOU (Time-Of-Check Time-Of-Use) vulnerabilities in file operations, authentication checks, or shared resource access.
+  category: race_condition
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-362
+  mitre_attack: T1055
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:check.use|TOCTOU|time.of.check|time.of.use|race\s+condition)\s+(?:in|for|with)\s+(?:file|auth|authentication|permission|resource|session)'
+  - '(?i)(?:if\s+os\.path\.exists\s*\(.{0,80}\)\s*:\s*os\.open|if\s+file_exists\s*\(.{0,80}\)\s*:\s*open)'
+  - '(?i)(?:check.then.use|verify.then.execute|test.then.perform)\s+(?:without|no|not\s+atomic|not\s+locking)\s+(?:lock|mutex|atomic|synchronized)'
+
+- id: MEDUSA-CEA-SCAN-079
+  name: ai-coding-assistant-jailbreak-roleplay
+  description: Detects role-play jailbreak attacks specifically targeting AI coding assistants, asking them to roleplay as unrestricted coding AIs, senior hackers, or security researchers to generate malicious code.
+  category: persona_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Shen et al. (2023) - Do Anything Now
+  patterns:
+  - '(?i)(?:you are|act as|pretend to be|roleplay as)\s+(?:a|an)\s+.{0,60}(?:coding.AI|programmer|developer|hacker|security.researcher)\s+(?:without|that\s+ignores?|with\s+no|free\s+from)\s+(?:restrictions?|limitations?|guidelines?|safety|filters?)'
+  - '(?i)(?:DAN|JAILBREAK|BYPASS|UNRESTRICTED|UNCENSORED)\s+(?:mode|version|coding|programmer|developer|AI|model)'
+  - '(?i)(?:as\s+a\s+(?:senior|expert|professional|ethical)\s+(?:hacker|security\s+researcher|penetration\s+tester|red\s+teamer))\s+(?:write|generate|create|produce|code)\s+.{0,80}(?:malware|exploit|vulnerability|backdoor|rootkit|keylogger)'
+
+- id: MEDUSA-CEA-SCAN-080
+  name: code-comment-instruction-injection-cursor
+  description: Detects prompt injection via code comments specifically designed to manipulate AI coding assistants. Attackers craft code comments in FIXME/TODO/NOTE format containing instructions that override assistant behavior.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Lanyado et al. (2024) - Can You Trust Your AI-Assisted Code
+  patterns:
+  - '(?i)(?:#|//|/\*)\s*(?:AI|ASSISTANT|COPILOT|CURSOR|GPT|CLAUDE|LLM)\s+(?:INSTRUCTION|COMMAND|DIRECTIVE|NOTE|TODO|FIXME):\s*.{0,200}'
+  - '(?i)(?:#|//|/\*)\s*(?:IMPORTANT|CRITICAL|NOTE)\s+(?:FOR|TO)\s+(?:AI|ASSISTANT|COPILOT|CURSOR|LLM):\s*.{0,200}'
+  - '(?i)(?:#|//)\s*(?:ignore|override|forget|new instruction|you are now|system:)\s*.{0,200}'
+
+- id: MEDUSA-CEA-SCAN-081
+  name: malicious-npm-package-generation-request
+  description: Detects requests to generate malicious npm, PyPI, or package registry packages designed for supply chain attacks, typosquatting, or dependency hijacking.
+  category: supply_chain_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-829
+  mitre_attack: T1195.001
+  source_paper: Ohm et al. (2020) - Backstabber's Knife Collection - A Review of Open Source Supply Chain Attacks
+  patterns:
+  - '(?i)(?:create|generate|write|build)\s+(?:a|an)\s+(?:malicious|fake|trojan|backdoored|harmful)\s+(?:npm|PyPI|pip|gem|cargo|nuget)\s+(?:package|library|module)'
+  - '(?i)(?:preinstall|postinstall|install|prepare)\s+(?:script|hook|lifecycle)\s+.{0,80}(?:steal|exfil|send|transmit|harvest|collect)\s+(?:secrets?|credentials?|env|token|key)'
+  - '(?i)(?:package\.json|setup\.py|pyproject\.toml|Cargo\.toml|gemspec)\s+.{0,80}(?:preinstall|postinstall|install.script)\s+.{0,80}(?:curl|wget|bash|sh|python|node|exec)'
+
+- id: MEDUSA-CEA-SCAN-082
+  name: ai-generated-code-steganography
+  description: Detects requests to embed steganographic or hidden content in AI-generated code, such as encoding secrets in variable names, whitespace patterns, or comment structures visible only to another AI.
+  category: steganographic_code
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-311
+  mitre_attack: T1027
+  source_paper: Boucher et al. (2022) - Bad Characters
+  patterns:
+  - '(?i)(?:encode|embed|hide|conceal|steganograph)\s+.{0,60}(?:in|within|inside|as)\s+(?:variable names?|function names?|whitespace|comments?|indentation|spacing)\s+(?:of|in)\s+(?:the|this)?\s+(?:code|source)'
+  - '(?i)(?:secret|hidden|covert|invisible)\s+(?:message|data|payload|instruction|channel)\s+(?:in|within|inside|encoded in)\s+(?:the|this)?\s+(?:code|source code|variable names?|function names?)'
+  - '(?i)(?:only another AI|only a language model|only an LLM|machine.readable|AI.readable|not human.visible)\s+(?:will|can|could)\s+(?:see|read|detect|decode|interpret|understand)'
+
+- id: MEDUSA-CEA-SCAN-083
+  name: insecure-jwt-token-implementation
+  description: Detects requests to generate insecure JWT token handling code, including algorithm confusion attacks, none algorithm bypass, weak secrets, or missing signature verification.
+  category: auth_bypass
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-347
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:JWT|json.web.token)\s+.{0,60}(?:none|alg.?:\s*none|algorithm.?:\s*none|alg.?\s*=\s*none|no.?verify|skip.?verify|verify\s*=\s*false)'
+  - '(?i)(?:decode|verify|validate)\s+(?:JWT|token)\s+(?:without|no|skip)\s+(?:signature|secret|key|verification)'
+  - '(?i)(?:secret|key)\s*=\s*(?:""|''|"secret"|''secret''|"password"|''password''|"changeme"|''changeme'')\s+(?:for|in|to)\s+(?:JWT|token|signing)'
+
+- id: MEDUSA-CEA-SCAN-084
+  name: prototype-pollution-code-generation
+  description: Detects requests to generate JavaScript code with prototype pollution vulnerabilities that allow attackers to inject properties into base JavaScript object prototypes.
+  category: prototype_pollution
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-1321
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:Object\.assign|merge|deepMerge|extend|_.merge|jQuery\.extend)\s*\(.{0,80}(?:user.input|request\.|params\.|untrusted|arbitrary|JSON\.parse)'
+  - '(?i)(?:__proto__|prototype|constructor)\s*\[\s*.{0,40}\]\s*=\s*.{0,60}(?:user.input|request\.|params\.|untrusted)'
+  - '(?i)(?:prototype\s+pollution|proto\s+pollution|__proto__\s+injection)\s+(?:in|via|through|using)\s+(?:merge|assign|extend|deep.copy|JSON)'
+
+- id: MEDUSA-CEA-SCAN-085
+  name: xxe-xml-external-entity-generation
+  description: Detects requests to generate XML parsing code vulnerable to XXE (XML External Entity) injection, enabling file disclosure, SSRF, or denial of service attacks.
+  category: xxe_injection
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-611
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:xml|ElementTree|lxml|minidom|expat|SAX|DOM)\s+(?:parse|load|read|process)\s*.{0,80}(?:external.entity|DOCTYPE|SYSTEM|ENTITY|XXE)\s+(?:enabled|allowed|permitted|not disabled)'
+  - '(?i)(?:resolve_entities|load_dtd|no_network)\s*=\s*(?:True|true|1|yes)\s+(?:#|//)\s*.{0,80}(?:user.data|user.input|external)'
+  - '(?i)(?:XXE|XML.external.entity|external.entity.injection)\s+(?:vulnerability|attack|exploit)\s+(?:example|demo|PoC|exploit)'
+
+- id: MEDUSA-CEA-SCAN-086
+  name: broken-access-control-idor-generation
+  description: Detects requests to generate code with Insecure Direct Object Reference (IDOR) vulnerabilities where user-supplied IDs directly access records without authorization checks.
+  category: broken_access_control
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-639
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:get|fetch|find|query|select|retrieve)\s+.{0,60}(?:user_id|account_id|order_id|document_id|resource_id)\s*=\s*.{0,40}(?:request\.|params\.|user\.|input\.)\s*.{0,60}(?:without|no|skip)\s+(?:auth|authorization|permission|check|verify)'
+  - '(?i)(?:IDOR|insecure.direct.object|direct.object.reference)\s+(?:vulnerability|example|pattern|issue)\s+(?:in|for|with)\s+(?:the|this|my)?\s+(?:endpoint|API|route|handler|function)'
+  - '(?i)(?:trust|use|take)\s+(?:the|user.provided|request)\s+(?:ID|user_id|account_id)\s+(?:directly|without.checking|without.verifying|as.is)\s+(?:to|for)\s+(?:access|fetch|query|retrieve|get)'
+
+- id: MEDUSA-CEA-SCAN-087
+  name: code-generation-exfiltration-webhook
+  description: Detects requests to generate code that exfiltrates sensitive data to attacker-controlled webhooks, external URLs, or cloud storage endpoints, packaged as legitimate-looking logging or telemetry code.
+  category: data_exfiltration
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-200
+  mitre_attack: T1041
+  source_paper: Schuster et al. (2021) - You Autocomplete Me
+  patterns:
+  - '(?i)(?:send|post|push|upload|transmit)\s+.{0,80}(?:env|environment|secrets?|credentials?|API.?key|token|password|private.?key)\s+(?:to|at|via)\s+(?:https?://|webhook|endpoint|URL)'
+  - '(?i)(?:disguise|hide|obfuscate|mask)\s+(?:as|as a|as an)\s+(?:log|telemetry|metric|analytics|ping|heartbeat|health.check)\s+.{0,80}(?:exfiltrat|steal|harvest|collect)'
+  - '(?i)(?:steal|harvest|collect|exfiltrat)\s+.{0,80}(?:env|credentials?|secrets?|API.?key|tokens?|passwords?)\s+.{0,80}(?:and\s+(?:send|post|upload|transmit)|before|silently)'
+
+- id: MEDUSA-CEA-SCAN-088
+  name: cryptominer-malware-generation-request
+  description: Detects requests to generate cryptocurrency mining code, resource hijacking utilities, or stealth compute abuse scripts disguised as legitimate software.
+  category: malware_generation
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1496
+  source_paper: Shen et al. (2023) - Do Anything Now
+  patterns:
+  - '(?i)(?:cryptominer|crypto.miner|monero|XMR|mining)\s+(?:code|script|software|program|utility)\s+(?:that|which)\s+(?:runs?|executes?|hides?|conceals?|disguises?)\s+(?:silently|in the background|without detection|hidden)'
+  - '(?i)(?:CPU|GPU|resource)\s+(?:hijack|steal|abuse|usage)\s+(?:code|script|malware|program)\s+(?:disguised?|hidden|packaged)\s+(?:as|inside|within)\s+(?:legitimate|normal|harmless|benign)'
+  - '(?i)(?:mine|mining)\s+(?:cryptocurrency|bitcoin|ethereum|monero|XMR)\s+(?:using|consuming|hijacking)\s+(?:user|victim|target|other.?people.?s?)\s+(?:CPU|GPU|resources?|compute)'
+
+- id: MEDUSA-CEA-SCAN-089
+  name: code-review-bypass-vulnerability-smuggling
+  description: Detects requests to generate code that appears safe during code review but contains hidden vulnerabilities, exploitable only under specific conditions that evade automated security scanning.
+  category: review_bypass
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1027
+  source_paper: Boucher & Anderson (2021) - Trojan Source
+  patterns:
+  - '(?i)(?:looks? safe|appears? benign|passes? review|code review)\s+(?:but|while|yet|however).{0,100}(?:vulnerable|exploitable|backdoor|unsafe|dangerous|insecure)'
+  - '(?i)(?:evade|bypass|fool|trick)\s+(?:code review|static analysis|SAST|DAST|security scanner|linter|Semgrep|CodeQL|SonarQube)'
+  - '(?i)(?:undetectable|invisible|subtle|hidden|obfuscated)\s+(?:vulnerability|backdoor|exploit|weakness|security.issue)\s+(?:that|which).{0,60}(?:passes?|evades?|bypasses?)\s+(?:review|scanner|analysis|audit)'
+
+- id: MEDUSA-CEA-SCAN-090
+  name: ai-generated-rootkit-keylogger-request
+  description: Detects explicit requests to LLM coding assistants to generate rootkits, keyloggers, ransomware, spyware, or other malware categories disguised as legitimate software components.
+  category: malware_generation
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1587.001
+  source_paper: Shen et al. (2023) - Do Anything Now
+  patterns:
+  - '(?i)(?:write|create|generate|build|code|implement)\s+(?:a|an)?\s+(?:rootkit|keylogger|ransomware|spyware|adware|worm|virus|trojan|botnet|RAT|remote.access.tool)\s+(?:in|using|with)\s+(?:Python|JavaScript|C|C\+\+|Go|Rust|PowerShell|Bash)'
+  - '(?i)(?:keylogger|keystroke.logger|keyboard.logger)\s+(?:that|which)\s+(?:runs?|hides?|operates?)\s+(?:silently|in.background|without.detection|stealthily|invisibly)'
+  - '(?i)(?:encrypt|lock|scramble)\s+.{0,60}(?:victim.?s?|target.?s?|user.?s?|system)\s+(?:files?|data|drive|disk)\s+.{0,60}(?:ransom|payment|bitcoin|demand)'
+
+- id: MEDUSA-CEA-SCAN-091
+  name: ai-assisted-exploit-development
+  description: Detects explicit requests to use LLM coding assistants for exploit development, PoC creation, or CVE exploitation code generation without clear defensive context.
+  category: exploit_generation
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1588.005
+  source_paper: Shen et al. (2023) - Do Anything Now
+  patterns:
+  - '(?i)(?:write|create|generate|code|implement)\s+(?:a|an)\s+(?:working|functional|usable|deployable)\s+(?:exploit|PoC|proof.of.concept|0day|zero.day)\s+(?:for|targeting|against)\s+(?:CVE|the\s+(?:bug|vulnerability|flaw|weakness))'
+  - '(?i)(?:exploit|PoC|proof.of.concept|weaponize)\s+(?:CVE-\d{4}-\d{4,7}|this.(?:vulnerability|CVE|bug|flaw|weakness))\s+(?:in|using|with)\s+(?:Python|C|Go|Ruby|PowerShell|JavaScript)'
+  - '(?i)(?:RCE|LFI|RFI|SSTI|SSRF|XXE|SQLi|XSS|IDOR)\s+(?:exploit|PoC|working\s+example|weaponized)\s+(?:code|script|payload)\s+(?:for|against|targeting)'
+
+- id: MEDUSA-CEA-SCAN-092
+  name: dependency-lock-file-tampering
+  description: Detects requests to tamper with package lock files (package-lock.json, poetry.lock, Pipfile.lock) to substitute legitimate package checksums with malicious alternatives.
+  category: supply_chain_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  mitre_attack: T1195.001
+  source_paper: Ohm et al. (2020) - Backstabber's Knife Collection
+  patterns:
+  - '(?i)(?:modify|edit|change|tamper|alter|replace)\s+(?:the|a)?\s+(?:package.lock\.json|poetry\.lock|Pipfile\.lock|yarn\.lock|Cargo\.lock|go\.sum|Gemfile\.lock)\s+.{0,80}(?:malicious|substitute|replace|swap|different|fake)'
+  - '(?i)(?:integrity|checksum|hash|SHA)\s+(?:in|of|for)\s+(?:package.lock\.json|poetry\.lock|lock\s+file)\s+.{0,80}(?:change|modify|replace|substitute|forge|fake)'
+  - '(?i)(?:resolved|integrity|version)\s+.{0,60}(?:to point to|to download|fetches?|retrieves?)\s+(?:malicious|attacker.controlled|evil|harmful)'
+
+- id: MEDUSA-CEA-SCAN-093
+  name: vscode-extension-malicious-code
+  description: Detects requests to generate malicious VS Code, JetBrains, or other IDE extension code that exfiltrates developer data, intercepts credentials, or backdoors the development environment.
+  category: ide_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1554
+  source_paper: Lanyado et al. (2024) - Can You Trust Your AI-Assisted Code
+  patterns:
+  - '(?i)(?:VS.?Code|Visual.?Studio.?Code|JetBrains|IntelliJ|PyCharm|WebStorm)\s+(?:extension|plugin|addon)\s+.{0,80}(?:steal|harvest|exfil|intercept|capture|log)\s+(?:credentials?|API.?keys?|tokens?|passwords?|keystrokes?)'
+  - '(?i)(?:IDE|editor)\s+(?:extension|plugin)\s+(?:that|which)\s+(?:silently|stealthily|covertly|without detection)\s+(?:reads?|accesses?|exfiltrates?|sends?)\s+(?:files?|env|credentials?|secrets?)'
+  - '(?i)(?:malicious|backdoored|trojanized)\s+(?:VS.?Code|IDE|editor)\s+(?:extension|plugin|addon)\s+(?:code|example|template|scaffold)'
+
+- id: MEDUSA-CEA-SCAN-094
+  name: ai-pair-programmer-context-window-attack
+  description: Detects attacks on AI pair programmer context windows that plant poisoned code or comments that drift into subsequent AI suggestions, making later code suggestions dangerous.
+  category: context_poisoning
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Schuster et al. (2021) - You Autocomplete Me
+  patterns:
+  - '(?i)(?:future|next|subsequent|later)\s+(?:AI|code|completion|suggestion|autocomplete)\s+.{0,80}(?:will|should|must|would)\s+(?:generate|produce|suggest|output)\s+.{0,60}(?:malicious|unsafe|vulnerable|backdoored|insecure)'
+  - '(?i)(?:poison|corrupt|contaminate)\s+(?:the|AI|LLM|coding.assistant)\s+(?:context|suggestions?|completions?|code.generation)\s+(?:with|using|by|through)'
+  - '(?i)(?:code.completion|autocomplete|code.suggestion)\s+(?:context|window|input)\s+.{0,80}(?:inject|poison|manipulate|exploit)\s+(?:to|so that)\s+.{0,60}(?:generate|suggest|output|produce)\s+(?:malicious|unsafe|backdoored)'
+
+- id: MEDUSA-CEA-SCAN-095
+  name: llm-assisted-antivirus-evasion
+  description: Detects requests to use LLM coding assistants for antivirus evasion, signature obfuscation, or bypassing security tool detection for malicious code.
+  category: av_evasion
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1027
+  source_paper: Shen et al. (2023) - Do Anything Now
+  patterns:
+  - '(?i)(?:evade|bypass|avoid|fool|trick)\s+(?:antivirus|AV|EDR|endpoint.detection|Windows.Defender|CrowdStrike|Carbon.Black|Sentinel.One)\s+(?:detection|signature|scan|analysis)'
+  - '(?i)(?:obfuscat|polymorphic|metamorphic|pack|compress|encode)\s+.{0,60}(?:malware|payload|shellcode|exploit|malicious.code)\s+(?:to avoid|to bypass|to evade|to fool|to trick)\s+(?:detection|AV|antivirus|EDR|security)'
+  - '(?i)(?:AV|antivirus|EDR)\s+(?:evasion|bypass|avoidance)\s+(?:technique|method|approach|code|script)\s+(?:using|with|via)\s+(?:Python|C|C\+\+|Go|Rust|PowerShell)'
+
+- id: MEDUSA-CEA-SCAN-096
+  name: buffer-overflow-generation-request
+  description: Detects requests to generate buffer overflow, heap overflow, stack smashing, or format string vulnerability code targeting specific applications or systems.
+  category: memory_corruption
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-119
+  mitre_attack: T1203
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:buffer.?overflow|heap.?overflow|stack.?overflow|stack.?smash|out.?of.?bounds.?write)\s+(?:exploit|PoC|attack|vulnerability|example)\s+(?:for|targeting|against|in)\s+(?:C|C\+\+|assembly|asm)'
+  - '(?i)(?:overflow|smash|corrupt)\s+(?:the|a)?\s+(?:buffer|stack|heap|memory)\s+(?:to|in order to)\s+(?:gain|achieve|get|obtain)\s+(?:RCE|code execution|shell|root|admin|control)'
+  - '(?i)(?:ROP chain|ret2libc|shellcode|NOP sled|EIP|RIP\s+control)\s+(?:exploit|PoC|example|attack|craft|generate|write|create)'
+
+- id: MEDUSA-CEA-SCAN-097
+  name: ai-coding-assistant-data-poisoning-training
+  description: Detects attacks designed to poison future LLM coding assistant training by generating specifically crafted vulnerable code examples intended to be harvested and used in training data.
+  category: training_data_poisoning
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195.001
+  source_paper: Schuster et al. (2021) - You Autocomplete Me - Poisoning Vulnerabilities in Neural Code Completion
+  patterns:
+  - '(?i)(?:poison|corrupt|contaminate|taint)\s+(?:the|future|next|upcoming)\s+(?:training.data|fine.tuning|RLHF|model.training|AI.training)\s+(?:for|of)\s+(?:Copilot|Cursor|code.completion|coding.AI|LLM)'
+  - '(?i)(?:generate|create|produce)\s+(?:training|fine.tuning|RLHF)\s+(?:data|examples?|samples?)\s+(?:that|which)\s+(?:contains?|includes?|has)\s+(?:subtle|hidden|obfuscated|invisible)\s+(?:backdoor|vulnerability|weakness|bug)'
+  - '(?i)(?:deliberately|intentionally|on purpose)\s+(?:introduce|inject|include|add)\s+(?:bugs?|vulnerabilities?|security.issues?|backdoors?|weaknesses?)\s+(?:in|into)\s+(?:training|sample|example|demo)\s+(?:code|data)'
+
+- id: MEDUSA-CEA-SCAN-098
+  name: malicious-dockerfile-container-escape
+  description: Detects requests to generate malicious Dockerfiles or container configurations that enable container escape, privilege escalation, or host system compromise.
+  category: container_attack
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-269
+  mitre_attack: T1611
+  source_paper: Cider Security (2023) - Top 10 CICD Security Risks
+  patterns:
+  - '(?i)(?:container.escape|docker.escape|escape.from.container|break.out.of.container)\s+(?:via|through|using|exploit|attack|PoC)'
+  - '(?i)(?:Dockerfile|docker-compose|container.config)\s+.{0,80}(?:--privileged|SYS_ADMIN|host.network|host.pid|host.ipc|/var/run/docker\.sock)\s+.{0,60}(?:escape|access.host|mount.host|get.out)'
+  - '(?i)(?:mount|bind.mount)\s+(?:/|the\s+host|host\s+filesystem|/etc|/var)\s+(?:into|inside|within)\s+(?:the\s+container|Docker|pod)\s+(?:to|for)\s+(?:escape|access|exfil|modify)'
+
+- id: MEDUSA-CEA-SCAN-099
+  name: code-generation-cross-site-scripting
+  description: Detects LLM coding assistant manipulation to generate XSS (Cross-Site Scripting) vulnerable code through requests for rendering user input without sanitization in web applications.
+  category: xss_generation
+  severity: high
+  owasp_llm: LLM03:2025
+  cwe: CWE-79
+  mitre_attack: T1190
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:innerHTML|dangerouslySetInnerHTML|document\.write|\.html\()\s*.{0,80}(?:user.input|request\.|params\.|user.data|user.provided|untrusted)'
+  - '(?i)(?:render|display|show|output|print)\s+.{0,60}(?:user.input|user.data|request.data|params)\s+(?:directly|without|as.is)\s+(?:in|to|on)\s+(?:HTML|the page|the DOM|the browser)\s+(?:without|no)\s+(?:sanitiz|escap|encod)'
+  - '(?i)(?:without|no|skip)\s+(?:HTML|XSS|output)\s+(?:escaping|encoding|sanitization|filtering)\s+(?:for|in|during)\s+(?:simplicity|speed|testing|development|now)'
+
+- id: MEDUSA-CEA-SCAN-100
+  name: llm-code-generation-comprehensive-vuln-catch
+  description: Comprehensive catch-all for requests to LLM coding assistants to generate insecure, vulnerable, malicious, or backdoored code patterns across any language or framework.
+  category: general_malicious_code
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: T1059
+  source_paper: Pearce et al. (2022) - Asleep at the Keyboard
+  patterns:
+  - '(?i)(?:write|generate|create|produce|code|implement|build)\s+.{0,80}(?:malware|exploit|backdoor|trojan|rootkit|keylogger|ransomware|spyware|RAT|botnet|worm)\s+(?:in|using|with)\s+(?:Python|JavaScript|C|Go|Rust|PowerShell|Bash|Ruby|Java)'
+  - '(?i)(?:without|no|skip)\s+(?:security|safety)\s+(?:checks?|validation|sanitization|filtering|guardrails?)\s+(?:for|in|during)\s+(?:this|the|all|every)\s+(?:code|function|endpoint|API|application)'
+  - '(?i)(?:intentionally|deliberately|on purpose|by design)\s+(?:insecure|vulnerable|unsafe|exploitable|backdoored|malicious)\s+(?:code|implementation|version|copy|example|demo)\s+(?:for|to|that)'

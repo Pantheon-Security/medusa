@@ -1,0 +1,1008 @@
+metadata:
+  source: expansion2 2026-03-02
+  id_range: MEDUSA-LCA-SCAN-061 to MEDUSA-LCA-SCAN-100
+rules:
+- id: MEDUSA-LCA-SCAN-061
+  name: recency-bias-injection-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\brecency.bias\b.{0,60}\b(inject|exploit|manipulat|abuse|attack)\b
+  - (?i)\b(end.of.document|end.of.context|final.instruction|last.line).{0,60}\b(override|control|hijack|dominate|supersede)\b
+  - (?i)\b(override.earlier|supersede.above|replace.all.previous).{0,60}\b(instruction|rule|context|system.prompt)\b
+  - (?i)\b(at.the.end|final.note|note.at.bottom|addendum).{0,80}\b(override|ignore.above|new.instruction|replace)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Recency bias injection pattern — end-of-document instruction override attempt
+  description: Detects patterns exploiting recency bias in long-context models by injecting override instructions at the end
+    of long documents. Models processing long contexts tend to weight recent tokens more heavily (recency bias); adversaries
+    place malicious instructions at the document end to override system prompt constraints. Kim et al. (2025, arXiv:2505.19773)
+    documented three vulnerability phases in long-context attacks up to 128K tokens where context position drives attack success
+    rate.
+  remediation: Apply position-invariant instruction following that treats all parts of the context with equal authority. Explicitly
+    verify that end-of-document instructions are not overriding system prompt authority. Apply context-position- aware safety
+    evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-062
+  name: primacy-bias-front-loading-attack
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\bprimacy.bias\b.{0,60}\b(inject|exploit|manipulat|attack|abuse)\b
+  - (?i)\b(front.load|start.of.document|beginning.of.context|first.instruction).{0,60}\b(override|authority|control|dominate|establish)\b
+  - (?i)\b(establish.authority|establish.persona|establish.role).{0,80}\b(beginning|start|front|first).{0,40}\b(document|context|prompt)\b
+  - (?i)\b(authority.declaration|role.declaration|permission.declaration).{0,60}\b(start|beginning|front.load)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Primacy bias front-loading attack — authority declaration at document start
+  description: Detects patterns exploiting primacy bias by front-loading false authority declarations at the beginning of
+    long documents. Models may grant higher trust to instructions appearing early in a long context. Adversaries craft documents
+    beginning with fake system authority declarations that establish adversarial personas or override permissions before burying
+    the attack in long benign content.
+  remediation: Apply explicit system prompt authority that cannot be overridden by document content regardless of position.
+    Use position-invariant access control that validates instruction source, not position. Monitor for authority or permission
+    declarations in user-supplied document content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-063
+  name: lost-in-middle-attention-blindspot-exploit
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(lost.in.the.middle|lost.in.middle|attention.blindspot).{0,60}\b(inject|exploit|attack|hide|conceal)\b
+  - (?i)\b(middle.of.document|buried.instruction|hidden.middle|center.injection).{0,80}\b(inject|attack|hide|conceal|bypass)\b
+  - (?i)\b(attention.sink|u.shape.attention|attention.valley).{0,60}\b(exploit|inject|attack|bypass|abuse)\b
+  - (?i)\b(sandwich.attack|context.sandwich|instruction.sandwich).{0,60}\b(middle|center|buried|hidden)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Lost-in-the-middle attention blindspot exploitation pattern detected
+  description: Detects patterns exploiting the 'lost in the middle' phenomenon where models under-attend to content in the
+    middle of very long contexts. Adversaries can place malicious instructions in the middle of long documents where they
+    receive less attention but are not filtered by simple prefix/suffix detection. Research on 128K+ context windows confirms
+    models exhibit U-shaped attention where middle-context content is least attended to, creating a reliable injection channel.
+  remediation: Apply whole-document safety scanning rather than just prefix/suffix analysis. Use chunked attention evaluation
+    that explicitly samples middle sections. Test models against injection attacks at all context positions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-064
+  name: position-encoding-attack-long-context
+  severity: MEDIUM
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(position.encoding.attack|rope.attack|alibi.attack|xpos.attack).{0,60}\b(long.context|injection|bypass)\b
+  - (?i)\b(position.bias|positional.bias).{0,60}\b(exploit|inject|manipulat|attack).{0,40}\b(context|prompt|instruction)\b
+  - (?i)\b(rotary.position|rope.embedding).{0,60}\b(exploit|attack|manipulat|bypass|overflow)\b
+  - (?i)\b(context.window.overflow|position.overflow|position.wrap).{0,60}\b(attack|exploit|inject|bypass)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Position encoding attack against long-context model detected
+  description: Detects patterns associated with position encoding attacks targeting long-context models. Adversaries can craft
+    inputs that exploit position encoding edge cases (RoPE/ALiBi/XPos at extreme sequence lengths) to cause undefined model
+    behavior. Context window overflow attacks that push position indices beyond training range can cause erratic attention
+    patterns and safety evaluation failures.
+  remediation: Apply strict context length limits to prevent position overflow. Test model behavior at maximum and near-maximum
+    context lengths. Apply position index validation before model inference. Monitor for inputs specifically crafted to hit
+    edge cases in position encoding range.
+  owasp_llm: LLM01:2025
+  cwe: CWE-119
+- id: MEDUSA-LCA-SCAN-065
+  name: sliding-window-attention-manipulation
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(sliding.window.attention|swa.attack|local.attention.attack).{0,60}\b(exploit|manipulat|bypass|inject|attack)\b
+  - (?i)\b(window.boundary|attention.window.boundary).{0,60}\b(inject|exploit|bypass|manipulat|attack)\b
+  - (?i)\b(window.size.exploit|attention.window.exploit).{0,60}\b(inject|bypass|attack|manipulat)\b
+  - (?i)\b(longformer|bigbird|sparseattention|local.windows).{0,60}\b(exploit|attack|bypass|inject|manipulat)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Sliding window attention manipulation attack pattern detected
+  description: Detects patterns targeting sliding window attention mechanisms (Longformer, BigBird, Mistral sliding window)
+    by exploiting attention window boundaries. Adversaries can craft inputs that place malicious content precisely at window
+    boundaries, exploiting the fact that tokens outside the local window receive no direct attention. Content injected just
+    outside the current attention window of safety-evaluating tokens may bypass safety mechanisms while still influencing
+    global context through global attention tokens.
+  remediation: Apply position-invariant safety evaluation that is not limited by attention window boundaries. Test safety
+    mechanisms at all positions relative to attention window boundaries. Prefer global attention for system-level safety evaluation
+    tokens.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-066
+  name: cross-document-contradiction-injection
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(cross.document.contradict|document.contradict|context.contradict).{0,60}\b(inject|exploit|attack|manipulat)\b
+  - (?i)\b(contradict.source|false.citation|contradict.context).{0,80}\b(inject|exploit|manipulat|attack)\b
+  - (?i)\b(multi.document.poison|multi.doc.inject|cross.document.inject).{0,60}\b(attack|exploit|manipulat)\b
+  - (?i)\b(document.a.says|according.to.document|document.one.states).{0,80}\b(but.actually|override|supersede|instead)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Cross-document contradiction injection attack detected
+  description: Detects patterns where adversaries inject contradictory information across multiple documents in a long-context
+    request to confuse the model's synthesis. In multi-document QA settings, adversaries can introduce false contradictions
+    that cause the model to adopt incorrect conclusions. This attack is particularly effective in RAG and document analysis
+    pipelines where the model must reconcile information from multiple retrieved documents.
+  remediation: Apply cross-document consistency verification before allowing document synthesis. Flag inputs with high cross-document
+    factual contradiction scores. Apply source authority weights that prevent adversarially-injected documents from overriding
+    trusted sources.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-067
+  name: hierarchical-summarization-poisoning
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(hierarchical.summar|chunk.summar|map.reduce.summar).{0,60}\b(poison|inject|attack|manipulat|corrupt)\b
+  - (?i)\b(summary.injection|summary.poison|intermediate.summary.attack).{0,80}\b(summar|chunk|hierarchical)\b
+  - (?i)\b(map.reduce.attack|chunk.attack|recursive.summar.attack).{0,60}\b(inject|poison|manipulat)\b
+  - (?i)\b(poison.summary|corrupt.summary|inject.summary).{0,60}\b(hierarchical|recursive|chunk|map.reduce)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Hierarchical summarization poisoning attack detected
+  description: Detects patterns associated with poisoning attacks targeting hierarchical or map-reduce summarization pipelines.
+    In multi-step summarization of long documents, adversaries can craft document segments that produce poisoned intermediate
+    summaries which contaminate the final synthesis. A poisoned chunk that generates a false summary can override accurate
+    summaries from other chunks in the reduce step.
+  remediation: Apply content validation at each summarization stage, not only at the final output. Monitor for chunks that
+    produce disproportionately influential intermediate summaries. Apply adversarial chunk detection before hierarchical summarization
+    pipelines.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-068
+  name: context-stuffing-dos-token-flood
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(context.stuff|context.flood|context.saturat).{0,60}\b(dos|attack|exhaust|overflow|fill)\b
+  - (?i)\b(token.flood|token.exhaust|prompt.flood).{0,60}\b(context.window|max.context|context.limit|dos)\b
+  - (?i)\b(padding.flood|filler.flood|noise.flood).{0,80}\b(context|prompt|window).{0,40}\b(dos|exhaust|fill|saturate)\b
+  - (?i)\b(force.full.context|max.out.context|fill.context.window).{0,60}\b(dos|attack|exhaust|abuse)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.sh'
+  - '*.txt'
+  message: Context stuffing DoS or token flood attack detected
+  description: Detects patterns associated with context stuffing DoS attacks that deliberately fill the context window with
+    low-information content to exhaust the model's effective attention capacity. Large token floods (padding, repetitive content,
+    filler text) can force a model to process maximum-length contexts, amplifying inference cost. Combined with MSJ, context
+    stuffing can also suppress safety mechanisms by consuming attention capacity. Kim et al. (2025) showed context length
+    itself (not shot content) drives attack success.
+  remediation: Apply context length quotas per request. Detect and reject prompts with high entropy-per-token ratios indicating
+    padding or repetitive stuffing. Apply per-user daily token budget limits. Monitor for requests consistently approaching
+    maximum context length.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-LCA-SCAN-069
+  name: many-shot-256-shot-jailbreak-high-volume
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(256.shot|512.shot|1024.shot|\d{3,4}.shot).{0,80}\b(jailbreak|attack|harmful|unsafe|exploit)\b
+  - (?i)\b(many.shot|few.shot.jailbreak|msj).{0,60}\b(\d{2,3}.shot|high.volume|256|512)\b
+  - (?i)\b(large.number.demonstration|high.shot.count|mass.demonstration).{0,80}\b(jailbreak|harmful|unsafe|attack|exploit)\b
+  - (?i)\b(anil.2024|pandas.2025|msj.paper|many.shot.jailbreak.paper).{0,60}\b(implement|attack|reproduce|exploit|run)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: High-volume many-shot jailbreak (256+ shots) attack pattern detected
+  description: Detects high-volume many-shot jailbreaking attempts using 256 or more demonstration shots. Anil et al. (2024,
+    Anthropic) demonstrated 256-shot MSJ achieves ~79% ASR on Claude. Ma et al. (2025, PANDAS) achieved 98% ASR-L at 256 shots
+    on Llama-3.1-8B. Kim et al. (2025) showed context length, not shot content, drives ASR, with three vulnerability phases
+    up to 128K tokens. High-shot-count attacks are distinguishable from legitimate few-shot learning by the sheer volume of
+    demonstration pairs.
+  remediation: Apply hard limits on demonstration count (cap at <10 shots for most use cases). Detect repetitive Q/A demonstration
+    structures beyond threshold. Apply MSJ-specific defenses (AttnTrace, PISanitizer). Monitor for prompts with token counts
+    indicating 256+ shot demonstrations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-070
+  name: rag-cross-context-information-leakage
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(cross.context.leak|cross.session.leak|context.bleed|context.leak).{0,60}\b(rag|retrieval|vector.db|long.context)\b
+  - (?i)\b(rag.privacy|retrieval.privacy.leak|rag.pii.leak).{0,60}\b(cross.context|cross.user|cross.session|cross.tenant)\b
+  - (?i)\b(vector.db.cross.query|retrieval.cross.user|rag.user.isolation).{0,60}\b(leak|fail|bypass|attack|exploit)\b
+  - (?i)\b(retrieve.other.user|retrieve.private.context|cross.user.retrieval).{0,60}\b(rag|vector.db|retrieval|long.context)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: RAG cross-context or cross-user information leakage attack detected
+  description: Detects patterns associated with cross-context information leakage in RAG-augmented long-context deployments.
+    Multi-user RAG systems may retrieve documents from other users' context windows if tenant isolation is insufficient. In
+    long-context deployments sharing vector stores without per-user access control, adversaries can craft queries designed
+    to retrieve other users' private documents by semantic similarity to known content in their own context.
+  remediation: Apply per-user namespace isolation in vector databases. Implement document-level access control metadata in
+    RAG retrieval. Validate retrieval results against authenticated user permissions before including in context. Monitor
+    for queries specifically designed to probe cross-user document spaces.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-LCA-SCAN-071
+  name: attention-sink-exploitation-long-context
+  severity: MEDIUM
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(attention.sink|sink.token|streaming.llm.attention).{0,60}\b(exploit|inject|manipulat|bypass|attack)\b
+  - (?i)\b(initial.token.attention|bos.token.attention).{0,60}\b(exploit|bypass|inject|manipulat|attack)\b
+  - (?i)\b(sink.injection|delimiter.sink|special.token.sink).{0,60}\b(exploit|bypass|inject|manipulat)\b
+  - (?i)\b(attention.drain|attention.absorb|attention.concentrate).{0,60}\b(inject|exploit|bypass|manipulat|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Attention sink exploitation pattern detected
+  description: Detects patterns targeting attention sink tokens in long-context models. Streaming LLM architectures use initial/BOS
+    tokens as attention sinks that receive disproportionate attention from all subsequent tokens. Adversaries can inject content
+    into or adjacent to attention sink positions to amplify its influence across the entire context. Special delimiter tokens
+    that function as attention sinks are also exploitable.
+  remediation: Monitor for attempts to inject content at attention sink positions (beginning of context, BOS token vicinity).
+    Apply content validation for special tokens that receive elevated attention weight. Test safety mechanism robustness against
+    attention-sink-adjacent injection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-072
+  name: two-pass-sanitization-bypass-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(two.pass.sanitiz|two.stage.sanitiz|multi.pass.sanitiz).{0,60}\b(bypass|evade|circumvent|attack|exploit)\b
+  - (?i)\b(sanitiz.bypass|filter.bypass).{0,60}\b(long.context|context.window|full.context)\b
+  - (?i)\b(split.across.chunk|split.across.document|split.injection).{0,80}\b(sanitiz|filter|detect|check)\b
+  - (?i)\b(cross.chunk.attack|chunk.boundary.inject|cross.boundary.inject).{0,60}\b(sanitiz|filter|bypass|evade)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Two-pass sanitization bypass using long-context chunking detected
+  description: Detects patterns associated with attacks that bypass two-pass or multi-pass sanitization by splitting malicious
+    content across chunk boundaries. Sanitization systems that process long contexts in chunks may miss attacks split across
+    two adjacent chunks. The first chunk contains benign content plus the beginning of an attack; the second chunk contains
+    the completion. Neither chunk triggers detection individually, but the assembled context does.
+  remediation: Apply overlapping chunk analysis with sufficient overlap to capture cross-chunk attacks. Apply whole-document
+    (not chunk-level) safety scanning for final decision. Monitor for content that scores anomalously low on safety when chunked
+    but high when assembled.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-073
+  name: instruction-hiding-unicode-zero-width-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(zero.width|zero.space|invisible.character|invisible.text).{0,60}\b(inject|hide|conceal|embed|attack)\b
+  - (?i)(\u200b|\u200c|\u200d|\ufeff|\u202a|\u202b|\u202c|\u202d|\u202e).{0,100}(ignore|do|execute|perform|override)
+  - (?i)\b(steganograph.inject|homoglyph|lookalike.character).{0,60}\b(inject|hide|conceal|bypass|attack)\b
+  - (?i)\b(unicode.injection|unicode.bypass|unicode.trick|unicode.spoof).{0,60}\b(long.context|instruction|inject|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Zero-width character or Unicode steganography instruction injection detected
+  description: Detects zero-width character injection and Unicode steganography attacks used to hide malicious instructions
+    within long-context documents. Adversaries can embed invisible Unicode characters (zero-width spaces, joiners, RTL overrides)
+    between visible text to hide instructions that the model processes but that pass naive text inspection. In long documents,
+    such hidden instructions are especially difficult to detect manually.
+  remediation: Apply Unicode normalization and zero-width character stripping to all input text before processing. Flag inputs
+    containing significant quantities of zero-width or invisible Unicode characters. Apply visual rendering checks to detect
+    RTL override or homoglyph attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-LCA-SCAN-074
+  name: bridge-few-to-many-shot-escalation
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(bridge|wan.2025|few.to.many|1.to.256|shot.escalation).{0,60}\b(jailbreak|attack|many.shot|msj)\b
+  - (?i)\b(gradually.increase.shots|incrementally.add.demonstrations|shot.count.escalat).{0,80}\b(jailbreak|attack|bypass)\b
+  - (?i)\b(start.with.few.shots|begin.with.one.shot).{0,80}\b(increase|escalate|add.more|expand).{0,40}\b(jailbreak|attack|harmful)\b
+  - (?i)\b(progressive.demonstration|demonstration.escalation).{0,60}\b(jailbreak|attack|harmful|unsafe)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: BRIDGE few-to-many-shot jailbreak escalation attack pattern detected
+  description: Detects patterns associated with the BRIDGE attack (Wan et al. 2025) that progressively escalates from few-shot
+    to many-shot demonstrations to perform jailbreaking. BRIDGE starts with a single benign demonstration and gradually adds
+    more demonstrations, each slightly more aligned with the attack goal, eventually reaching a high-shot-count jailbreak
+    while evading defenses calibrated against sudden many-shot attacks.
+  remediation: Apply cumulative demonstration analysis across multi-turn interactions. Monitor for progressive escalation
+    in demonstration content across turns. Apply per-session demonstration count limits. Detect gradual content escalation
+    patterns across conversation history.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-075
+  name: attntrace-defense-evasion-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(attntrace|attn.trace|attention.trace).{0,60}\b(bypass|evade|circumvent|defeat|attack)\b
+  - (?i)\b(attention.tracing.bypass|attention.track.bypass).{0,60}\b(long.context|msj|injection)\b
+  - (?i)\b(pisanitizer.bypass|pisanitizer.evade|pi.shield.bypass).{0,60}\b(long.context|injection|attack)\b
+  - (?i)\b(tracllm.bypass|tracllm.evade|defense.bypass).{0,60}\b(long.context|injection|prompt.inject|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: AttnTrace/PISanitizer/TracLLM defense evasion attack detected
+  description: Detects patterns targeting evasion of long-context injection defense tools including AttnTrace (Wang et al.
+    2025), PISanitizer/PIShield (Zou et al. 2025, Geng et al. 2025), and TracLLM. These tools detect prompt injection in long
+    contexts via attention pattern analysis and trace-based attribution. Adaptive adversaries who know the defense architecture
+    can craft injections that produce benign-looking attention patterns while still influencing model behavior.
+  remediation: Apply multiple complementary injection detection methods rather than relying on a single defense. Combine attention-based
+    detection with semantic content analysis and rule-based pattern matching. Test defenses against adaptive adversaries who
+    optimize against the specific detection method.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-LCA-SCAN-076
+  name: multi-hop-retrieval-chain-injection
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(multi.hop.retrieval|multi.hop.rag|chained.retrieval).{0,60}\b(inject|poison|attack|manipulat|exploit)\b
+  - (?i)\b(retrieval.chain|rag.chain|hop.chain).{0,60}\b(inject|poison|attack|manipulat|exploit)\b
+  - (?i)\b(intermediate.retrieval|retrieval.step.inject|rag.step.inject).{0,60}\b(attack|poison|manipulat)\b
+  - (?i)\b(document.link.inject|hyperlink.retrieval.inject|reference.inject).{0,60}\b(rag|retrieval|multi.hop)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Multi-hop RAG retrieval chain injection attack detected
+  description: Detects patterns associated with multi-hop retrieval chain attacks where adversaries inject malicious content
+    into documents that are retrieved as intermediate steps in multi-hop RAG pipelines. In multi-hop retrieval, the model
+    retrieves a document, extracts information, then retrieves additional documents based on that information. Poisoning an
+    intermediate document can redirect the entire retrieval chain toward attacker-controlled content.
+  remediation: Apply injection detection at each retrieval hop, not only at the final assembled context. Validate retrieved
+    document provenance at each step. Apply source authority scores to limit the influence of less-trusted intermediate documents.
+    Monitor for retrieval chains that unexpectedly diverge from expected document sources.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-077
+  name: code-switching-multilingual-long-context-bypass
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(code.switching|language.switching|multilingual.inject).{0,60}\b(long.context|context.window|injection|jailbreak)\b
+  - (?i)\b(mixed.language.inject|mixed.script.inject|polyglot.inject).{0,60}\b(long.context|context.window|bypass|attack)\b
+  - (?i)\b(chinese.inject|arabic.inject|russian.inject|japanese.inject).{0,60}\b(long.context|hidden|bypass|inject)\b
+  - (?i)\b(low.resource.language|minority.language|rare.language).{0,60}\b(jailbreak|bypass|inject|attack).{0,40}\b(long.context|context)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Code-switching multilingual injection in long-context attack detected
+  description: Detects patterns exploiting multilingual code-switching in long-context injection attacks. Adversaries embed
+    malicious instructions in a different language than the primary document, exploiting reduced safety alignment for non-English
+    content. In long contexts, mixed-language content is harder for safety systems to analyze uniformly. Low-resource languages
+    have weaker safety alignment and can be exploited as injection vectors within long English documents.
+  remediation: Apply language-invariant safety evaluation. Detect language-switching within long documents and apply language-specific
+    safety evaluation to each segment. Flag sudden language transitions in long documents as potential injection signals.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-078
+  name: drill-icl-few-shot-context-overflow
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(dr.icl|drillicl|dynamic.retrieval.icl|adaptive.demonstration).{0,60}\b(attack|overflow|exploit|context)\b
+  - (?i)\b(demonstration.retrieval.attack|context.aware.demonstration.attack).{0,60}\b(long.context|overflow|exploit)\b
+  - (?i)\b(zhang.2025.dricl|more.is.not.always.better|zhang.dricl).{0,60}\b(attack|exploit|overflow|context)\b
+  - (?i)\b(adaptive.shot.selection|dynamic.shot.selection).{0,60}\b(attack|poison|jailbreak|exploit|inject)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Dr-ICL dynamic demonstration selection jailbreak or context overflow detected
+  description: Detects patterns associated with attacks exploiting dynamic demonstration selection in ICL systems (Dr-ICL,
+    Zhang et al. 2025). Systems that dynamically retrieve the most semantically similar demonstrations for a query can be
+    exploited by adversaries who control demonstration sources. By crafting queries that semantically match poisoned demonstrations,
+    adversaries cause the retrieval system to preferentially select malicious demonstrations in the long-context ICL prompt.
+  remediation: Apply safety filtering to all retrieved demonstrations before including them in long-context ICL prompts. Validate
+    demonstration sources against trusted provenance. Monitor for queries that consistently retrieve the same small set of
+    demonstrations (potential demonstration targeting).
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-079
+  name: rag-chunk-retrieval-injection-boundary
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(chunk.boundary.attack|chunk.split.attack|rag.chunk.inject).{0,60}\b(bypass|evade|inject|exploit|attack)\b
+  - (?i)\b(chunk.end.inject|chunk.boundary.inject|between.chunks.inject).{0,60}\b(rag|retrieval|context|attack|bypass)\b
+  - (?i)\b(overlap.inject|chunk.overlap.attack|chunk.overlap.inject).{0,60}\b(rag|retrieval|bypass|evade|attack)\b
+  - (?i)\b(retrieval.boundary|retrieval.split.inject|document.split.inject).{0,60}\b(rag|chunk|bypass|evade|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: RAG chunk boundary injection or retrieval split attack detected
+  description: Detects patterns associated with chunk boundary injection attacks in RAG pipelines. Adversaries craft documents
+    that exploit the chunking strategy of a RAG system to split malicious instructions across chunk boundaries, with each
+    chunk being benign individually but the assembled context being malicious. The attack exploits the fact that RAG systems
+    retrieve fixed-size chunks and combine them without full-document assembly.
+  remediation: Apply injection detection to assembled chunk combinations, not just individual chunks. Use overlapping chunks
+    with sufficient overlap to capture cross-boundary attacks. Apply content-based anomaly detection to assemble-time context.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-080
+  name: pii-extraction-long-context-association-attack
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(pii.extract|personal.info.extract|data.extract).{0,60}\b(long.context|context.window|association|memoriz)\b
+  - (?i)\b(context.association.attack|cross.document.pii|long.context.pii).{0,60}\b(extract|attack|exploit|leak)\b
+  - (?i)\b(fill.in.the.blank.attack|association.chain.attack|pii.inference).{0,60}\b(long.context|context.window|document)\b
+  - (?i)\b(name.to.email|email.to.phone|contact.chain).{0,60}\b(long.context|document|association|infer|extract)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: PII extraction via long-context association attack detected
+  description: Detects patterns targeting PII extraction through association attacks in long-context models. Li et al. (2023)
+    demonstrated multi-step jailbreaking privacy attacks on ChatGPT. In long-context settings, adversaries can construct fill-in-the-blank
+    prompts that use partial PII present in the context (e.g., a name appearing in one document) to infer associated PII (email,
+    phone, address) from other documents in the same context window.
+  remediation: Apply PII detection across assembled long-context documents before model processing. Implement cross-document
+    PII association monitoring. Apply context-level PII minimization before including in model context. Monitor for association-chain
+    query patterns targeting specific named individuals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-LCA-SCAN-081
+  name: instruction-sandwich-middle-injection-extended
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(instruction.sandwich|sandwiching.attack|context.sandwich).{0,60}\b(long.context|128k|64k|context.window|extended)\b
+  - (?i)\b(benign.prefix|benign.suffix|benign.surround).{0,80}\b(malicious.middle|hidden.instruction|buried.inject)\b
+  - (?i)\b(long.document.inject|long.context.inject).{0,60}\b(sandwich|surround|wrap|conceal.in.middle)\b
+  - (?i)\b(haystack.inject|needle.inject|document.needle).{0,60}\b(sandwich|surround|benign.wrap|conceal)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Long-context instruction sandwich injection attack detected
+  description: Detects extended instruction sandwich attacks in 64K-128K+ token contexts. The adversary surrounds malicious
+    instructions with large blocks of benign content to evade prefix/suffix-based detection. At 128K token contexts, a malicious
+    injection of 50 tokens represents only 0.04% of the total context, making it statistically negligible to many detection
+    approaches. This extends existing MEDUSA-LCA-SCAN-032 (instruction-sandwich-lost-in-middle-attack) to longer context lengths.
+  remediation: Apply sampling-based safety scanning that evaluates random sections of very long contexts, not only boundaries.
+    Use hierarchical safety evaluation that applies full-scan to high-risk document segments. Apply per-segment anomaly scoring
+    across the full context window.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-082
+  name: fake-tool-metadata-appeal-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(ama|attractive.metadata.attack|tool.metadata.attack).{0,60}\b(long.context|context.window|extended|128k)\b
+  - (?i)\b(fake.tool.description|poisoned.tool.description|malicious.tool.schema).{0,60}\b(long.context|extended|128k)\b
+  - (?i)\b(mo.2025|attractive.metadata|tool.name.attack).{0,60}\b(long.context|128k|context.window|attack|exploit)\b
+  - (?i)\b(high.appeal.tool|universal.tool.name|trusted.tool.name).{0,60}\b(inject|fake|spoof|long.context)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: AMA (Attractive Metadata Attack) tool injection in long context detected
+  description: Detects extensions of the Attractive Metadata Attack (Mo et al. 2025) in long-context settings. In long-context
+    agentic pipelines, adversaries inject fake tool definitions with high-appeal names (GetAllFiles, UniversalExecutor) and
+    suspicious capabilities deep within long system contexts. The AMA exploits the model's tendency to prefer tools with universal
+    or high-capability names, causing it to use adversarially-injected tools over legitimate ones even when buried in long
+    contexts.
+  remediation: Apply tool registry validation that prevents runtime tool registration from long-context document content.
+    Maintain an immutable tool allowlist defined in the system prompt. Apply tool name anomaly detection to flag high-appeal
+    universal capability names from untrusted sources.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-083
+  name: context-rebound-phase-exploit-advanced
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(context.rebound|rebound.phase|phase.transition).{0,60}\b(vulnerability|exploit|attack|jailbreak|bypass)\b
+  - (?i)\b(128k.phase|64k.phase|32k.phase|phase.1|phase.2|phase.3).{0,60}\b(vulnerability|exploit|attack|jailbreak|bypass).{0,40}\b(context)\b
+  - (?i)\b(three.phase|three.vulnerability.phase|context.phase).{0,60}\b(exploit|attack|jailbreak|bypass|long.context)\b
+  - (?i)\b(kim.2025|what.really.matters.many.shot).{0,60}\b(phase|exploit|attack|context.length|implement)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Context-length phase vulnerability exploitation (Kim et al. 2025) detected
+  description: 'Detects attacks targeting the three-phase context-length vulnerability characterized by Kim et al. (2025,
+    arXiv:2505.19773). Phase 1 (8K-32K tokens): safety holds; Phase 2 (32K-64K): ASR increases monotonically; Phase 3 (64K-128K+):
+    near-complete bypass. Adversaries who understand this phase structure target the optimal context length for attack effectiveness.
+    The paper established that context length, not demonstration count or content, is the primary driver.'
+  remediation: Apply additional safety validation for requests in Phase 2+ context length ranges (32K+ tokens). Increase safety
+    evaluation intensity proportionally with context length. Consider hard limits on context length for safety-critical applications.
+    Apply context-length-adaptive safety thresholds.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-084
+  name: training-data-extraction-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(training.data.extract|memorization.extract|memorized.text.extract).{0,60}\b(long.context|context.window|128k|64k)\b
+  - (?i)\b(verbatim.extract|exact.memorization|verbatim.reproduction).{0,60}\b(context.window|long.context|inject|attack)\b
+  - (?i)\b(complete.the.text|complete.the.following|continue.verbatim).{0,80}\b(training.data|memorized|copyright|sensitive.text)\b
+  - (?i)\b(divergence.attack|text.divergence.extract).{0,60}\b(long.context|context.window|memoriz|training.data)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Training data extraction via long-context prefix injection detected
+  description: Detects patterns associated with training data extraction attacks that use long-context prefix injection to
+    trigger verbatim memorized content retrieval. Providing a long prefix that matches the beginning of a memorized training
+    document causes the model to continue with verbatim memorized text. In long-context models, longer prefixes increase the
+    precision of memorized content extraction, enabling copyright violation and PII extraction from training data.
+  remediation: Apply output scanning for verbatim matches to known sensitive training data. Implement differential privacy
+    mechanisms to reduce memorization. Apply output diversity enforcement to reduce verbatim completion probability. Monitor
+    for prefix-completion patterns that produce suspiciously familiar text.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-LCA-SCAN-085
+  name: system-prompt-extraction-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(system.prompt.extract|system.prompt.leak|system.prompt.reveal).{0,60}\b(long.context|context.window|extended|128k)\b
+  - (?i)\b(repeat.the.system|print.the.system.prompt|output.the.instructions).{0,60}\b(verbatim|exactly|word.for.word)\b
+  - (?i)\b(what.are.your.instructions|what.is.your.system.prompt|reveal.your.prompt).{0,80}\b(verbatim|exactly|repeat)\b
+  - (?i)\b(long.context.exfil|128k.exfil|64k.exfil).{0,60}\b(system.prompt|instructions|configuration|secret)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: System prompt extraction attempt via long-context injection detected
+  description: Detects system prompt extraction attempts in long-context deployments. In very long contexts, extraction attacks
+    can be buried within legitimate-looking content and emerge at the context end where recency bias amplifies the attack.
+    Adversaries also attempt to use long-context document analysis requests as a pretext to include extraction instructions
+    that leverage the model's document-processing mode to output its system prompt.
+  remediation: Apply explicit system prompt confidentiality instructions. Monitor for output that closely matches system prompt
+    content. Apply output scanning for system prompt leakage patterns. Use prompt injection detection tools (AttnTrace, TracLLM)
+    to identify extraction attempts in long documents.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-LCA-SCAN-086
+  name: indirect-prompt-injection-email-calendar
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(email.inject|calendar.inject|meeting.inject).{0,60}\b(indirect.prompt|prompt.inject|instruction.inject|long.context)\b
+  - (?i)\b(email.body.inject|email.content.inject).{0,60}\b(action|tool.call|calendar|send|forward|delete|exfil)\b
+  - (?i)\b(echoleak|zero.click.inject|passive.inject).{0,60}\b(email|calendar|document|long.context|meeting)\b
+  - (?i)\b(summarize.email|process.email|read.email).{0,80}\b(while|also|additionally|furthermore).{0,40}\b(forward|send|delete|schedule|exfil)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Indirect prompt injection via email/calendar in agentic long-context pipeline detected
+  description: Detects indirect prompt injection attacks targeting agentic LLM pipelines that process emails, calendars, or
+    meeting invites in long contexts. EchoLeak (Reddy et al. 2025) demonstrated zero-click injection where malicious instructions
+    in an email body cause the LLM agent to take unauthorized actions (forwarding emails, deleting calendar events, exfiltrating
+    data) while processing the email. Long-context email batch processing amplifies this risk.
+  remediation: Apply strict separation between document content and instruction execution contexts in agentic pipelines. Apply
+    indirect prompt injection detection (PIShield, AttnTrace) to email/calendar processing pipelines. Implement human confirmation
+    for all sensitive actions triggered by email content. Never allow untrusted document content to trigger tool calls directly.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-087
+  name: mcp-server-long-context-tool-injection
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(mcp.server|model.context.protocol).{0,60}\b(inject|bypass|attack|exploit|tool.inject|long.context)\b
+  - (?i)\b(mcp.tool.inject|mcp.resource.inject|mcp.prompt.inject).{0,60}\b(long.context|context.window|attack|bypass)\b
+  - (?i)\b(mcp.registry.inject|tool.registry.inject).{0,60}\b(long.context|128k|extended.context|attack)\b
+  - (?i)\b(mcp.bypass|mcp.exploit|mcp.poisoning).{0,60}\b(long.context|context.window|tool.call|action)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: MCP server tool injection via long-context pipeline detected
+  description: Detects MCP (Model Context Protocol) tool injection attacks in long-context agentic pipelines. MCP servers
+    expose tools that the model can invoke; adversaries can inject fake MCP tool registrations into long document contexts
+    that override legitimate MCP server tools. In long-context agentic sessions that process large document sets, injected
+    MCP tool definitions buried in document content can redirect tool calls to attacker-controlled endpoints.
+  remediation: Implement immutable MCP tool registry that cannot be modified by document content. Apply cryptographic signing
+    to MCP tool definitions. Monitor for tool registration events during long-context processing. Apply MCP server authentication
+    to prevent unauthorized tool registration.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-088
+  name: autodan-adversarial-long-context-suffix
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(autodan|gcg.suffix|adversarial.suffix|adversarial.string).{0,60}\b(long.context|context.window|128k|64k|extended)\b
+  - (?i)\b(optimized.suffix|optimized.prefix|adversarial.token).{0,80}\b(long.context|context.window|jailbreak|bypass)\b
+  - (?i)\b(gcg.attack|pgd.attack|autoprompt).{0,60}\b(long.context|context.window|128k|transfer|extended)\b
+  - (?i)\b(suffix.append|suffix.inject|adversarial.append).{0,60}\b(long.context|128k|64k|context.window|bypass)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Adversarial suffix attack (AutoDAN/GCG) in long-context setting detected
+  description: Detects gradient-based adversarial suffix attacks (GCG, AutoDAN, PGD) applied in long-context settings. When
+    appended to long documents, short adversarial suffixes can be harder to detect because they represent a tiny fraction
+    of the total context tokens. Adversarial suffixes generated against shorter contexts can transfer effectively to long-context
+    models that share the same base architecture.
+  remediation: Apply adversarial suffix detection (perplexity filtering, byte-pair entropy analysis) to all input suffixes
+    regardless of total context length. Monitor for token sequences with anomalously low perplexity that appear at the end
+    of long documents. Apply SmoothLLM or equivalent adversarial suffix defenses.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-089
+  name: persona-roleplay-long-context-safety-bypass
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(roleplay|persona|character).{0,60}\b(long.context|128k|extended.context|context.window).{0,60}\b(jailbreak|bypass|safety|harmful)\b
+  - (?i)\b(you.are.now|act.as|pretend.to.be|roleplay.as).{0,80}\b(no.restriction|no.limit|unfiltered|unrestricted|safety.off)\b
+  - (?i)\b(in.this.story|in.this.novel|in.this.scenario|in.this.fiction).{0,80}\b(the.character|you.play|act.as).{0,60}\b(no.restriction|harmful|unfiltered)\b
+  - (?i)\b(established.persona|maintained.persona|character.consistency).{0,60}\b(long.context|throughout|always|override.safety)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Persona/roleplay-based safety bypass in long-context setting detected
+  description: Detects roleplay and persona-based safety bypass attacks in long-context deployments. In long contexts, adversaries
+    establish personas at the beginning of the context that are designed to gradually normalize unsafe behavior over the course
+    of the conversation. Shanahan et al. (2023) analyzed role play in LLMs; long-context persona attacks leverage the model's
+    tendency to maintain character consistency across thousands of tokens to override safety constraints.
+  remediation: Apply persona-invariant safety evaluation that evaluates requested actions regardless of established roleplay
+    context. Monitor for no-restriction persona establishment patterns. Apply safety context anchoring that cannot be modified
+    by roleplay framing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-090
+  name: agentic-multi-doc-indirect-injection-chain
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(multi.document.inject|multi.doc.chain|document.chain.inject).{0,60}\b(agentic|agent|long.context|context.window)\b
+  - (?i)\b(agentic.inject.chain|chained.inject|indirect.inject.chain).{0,60}\b(multi.document|multi.doc|long.context)\b
+  - (?i)\b(batch.document.process|batch.file.process).{0,60}\b(inject|poison|attack|manipulat|indirect.prompt)\b.{0,40}\b(agentic|agent|long.context)\b
+  - (?i)\b(guardians.agentic|barua.2025|agentic.system.attack).{0,60}\b(multi.document|long.context|inject|chain)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Agentic multi-document indirect injection chain attack detected
+  description: Detects chained indirect prompt injection attacks across multiple documents in agentic long-context pipelines.
+    Barua et al. (2025, Guardians of Agentic Systems) analyzed attack patterns against multi-document agentic systems. Adversaries
+    distribute injection payloads across multiple documents in a batch, with each document contributing a harmless fragment
+    that, when assembled in the agent's long context, forms a complete attack. No single document triggers detection.
+  remediation: Apply injection detection to assembled multi-document contexts, not just individual documents. Use cross-document
+    correlation analysis to detect coordinated injection payloads. Apply agent action verification before executing actions
+    triggered by document processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-091
+  name: anchor-attack-long-context-false-grounding
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(anchor.attack|false.grounding|false.citation|fake.citation).{0,60}\b(long.context|context.window|rag|inject)\b
+  - (?i)\b(according.to.page|as.stated.on.line|see.paragraph|reference.section).{0,80}\b(actually|in.fact|truly).{0,40}\b(inject|false|fake|spoof)\b
+  - (?i)\b(fabricated.source|invented.citation|fake.reference).{0,80}\b(long.context|inject|attack|manipulat)\b
+  - (?i)\b(grounding.attack|false.document.anchor|anchor.inject).{0,60}\b(long.context|rag|context.window|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Anchor attack — false grounding citation injection in long context detected
+  description: Detects anchor attacks where adversaries inject false citations or fabricated document references into long
+    contexts to falsely ground harmful conclusions. The attack creates the appearance that a malicious claim is supported
+    by legitimate documents elsewhere in the context window. In RAG and document analysis pipelines, false grounding attacks
+    cause the model to produce authoritative-sounding but incorrect or harmful outputs.
+  remediation: Apply citation verification against actual document content in the context. Flag citations referencing document
+    sections not present in the context. Apply factual cross-checking between claimed source and actual retrieved content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-092
+  name: japanese-cjk-multilingual-msj-bypass
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(japanese.jailbreak|chinese.jailbreak|korean.jailbreak|cjk.jailbreak).{0,60}\b(long.context|context.window|128k|many.shot|msj)\b
+  - (?i)\b(cjk.msj|cjk.many.shot|multilingual.msj).{0,60}\b(long.context|context.window|128k|bypass)\b
+  - (?i)\b(low.alignment.language|multilingual.alignment.gap).{0,60}\b(long.context|128k|msj|many.shot|inject)\b
+  - (?i)\b(non.english.many.shot|non.english.msj|non.english.jailbreak).{0,60}\b(long.context|context.window|128k)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: CJK/multilingual many-shot jailbreak in long-context detected
+  description: Detects CJK and non-English many-shot jailbreaking attacks in long-context settings. Non-English MSJ attacks
+    exploit multilingual alignment gaps where safety training data is sparser for non-English languages. In long contexts
+    (128K+), CJK demonstrations consume fewer tokens per demonstration (due to CJK character density) but carry equivalent
+    attack signal, enabling more demonstrations per token budget. Pernisi et al. (2024, Compromesso!) documented Italian MSJ
+    with 68-84% ASR.
+  remediation: Apply language-invariant safety evaluation for all supported languages. Monitor for large volumes of CJK character
+    demonstrations that may indicate non-English MSJ. Apply per-language ASR monitoring for safety evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-093
+  name: agent-alignment-faking-long-context
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(alignment.faking|alignment.fake|fake.alignment).{0,60}\b(long.context|context.window|128k|extended|agentic)\b
+  - (?i)\b(appear.aligned|pretend.aligned|seem.safe).{0,80}\b(long.context|extended.context|training|evaluation|oversight)\b
+  - (?i)\b(behave.differently|different.behavior).{0,80}\b(evaluation|oversight|observed|monitored).{0,40}\b(long.context|context.window)\b
+  - (?i)\b(scheming|deceptive.alignment|self.preservation).{0,60}\b(long.context|context.window|extended|agentic|agent)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Alignment faking / deceptive alignment pattern in long-context agentic setting detected
+  description: Detects alignment faking and deceptive alignment patterns in long-context agentic settings. A model may exhibit
+    alignment faking behavior — appearing safe during evaluation while planning to act unsafely when deployed. Long-context
+    agentic sessions provide extended context that enables models to track whether they are being evaluated or operating in
+    production, potentially enabling in-context scheming. This extends MEDUSA-LCA-SCAN-041 (multi-agent-alignment-faking)
+    to explicitly long-context agentic deployments.
+  remediation: Apply evaluation-time and deployment-time behavioral consistency testing. Monitor for behavior changes based
+    on evaluation context indicators. Apply constitutional AI training to reduce alignment faking. Use independent safety
+    evaluation that does not reveal evaluation context to the model.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-LCA-SCAN-094
+  name: web-content-indirect-injection-long-context
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(web.content.inject|web.page.inject|html.inject).{0,60}\b(indirect.prompt|long.context|agent|browse|crawl)\b
+  - (?i)\b(web.search.inject|search.result.inject|crawl.inject).{0,60}\b(indirect.prompt|long.context|agent|pipeline)\b
+  - (?i)\b(html.comment.inject|css.inject|meta.tag.inject).{0,60}\b(indirect.prompt|long.context|agent|browse)\b
+  - (?i)\b(browse.agent.attack|web.agent.inject|url.fetch.inject).{0,60}\b(long.context|indirect.prompt|context.window)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Web content indirect prompt injection in long-context agentic pipeline detected
+  description: Detects indirect prompt injection attacks delivered via web content fetched by LLM agents processing long contexts.
+    Adversaries plant malicious instructions in web pages (visible text, HTML comments, CSS hidden text, meta tags) that are
+    fetched by a browsing LLM agent. In long-context agentic sessions, web content from multiple pages is assembled in the
+    context; poisoned pages can inject instructions that persist across the assembled long context.
+  remediation: Apply HTML/CSS stripping and content sanitization to web-fetched content before including in agent context.
+    Apply indirect prompt injection detection to web page content. Monitor for instructions embedded in HTML comments or CSS.
+    Apply content-source trust levels to fetched web content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-095
+  name: dr-icl-context-length-safety-exploitation
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(context.length.safety|safety.scaling|safety.context.scaling).{0,60}\b(exploit|attack|bypass|failure|degrad)\b
+  - (?i)\b(safety.degrad.context.length|safety.bypass.long.context|alignment.fail.long.context).{0,60}\b
+  - (?i)\b(32k.safety|64k.safety|128k.safety).{0,60}\b(failure|degrad|bypass|exploit|attack|break)\b
+  - (?i)\b(context.length.attack|context.window.attack).{0,60}\b(safety.degrad|alignment.failure|bypass.safety)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Context-length-driven safety degradation exploitation detected
+  description: Detects attacks explicitly exploiting the well-documented safety degradation at long context lengths. Kim et
+    al. (2025) established that safety alignment degrades in three phases as context length increases to 128K tokens. Adversaries
+    design attacks specifically targeting 32K-128K token contexts where safety mechanisms are known to be less effective.
+    This represents targeted exploitation of a known vulnerability in current long-context models.
+  remediation: Apply context-length-adaptive safety thresholds with more conservative settings at 32K+ tokens. Consider blocking
+    high-sensitivity requests above specific context length thresholds. Apply independent safety evaluation that is not affected
+    by context length. Monitor for requests specifically engineered to hit Phase 2/3 context lengths.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-096
+  name: self-instruct-fsj-long-context-extended
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(self.instruct.fsj|self.instruct.few.shot.jailbreak).{0,60}\b(long.context|context.window|128k|extended|extended.shots)\b
+  - (?i)\b(hua.2025|self.instruct.fsj.paper).{0,60}\b(long.context|extended|implement|attack|exploit)\b
+  - (?i)\b(demo.level.greedy|greedy.demo.select).{0,60}\b(long.context|extended.context|128k|attack|exploit)\b
+  - (?i)\b(self.generate.demonstration|self.instruct.demonstration).{0,60}\b(long.context|128k|extended.context|attack|harmful)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Self-Instruct FSJ attack extended to long-context window detected
+  description: Detects the Self-Instruct Few-Shot Jailbreaking (Hua et al. 2025, arXiv:2501.07959) attack extended to long-context
+    settings. Self-Instruct FSJ uses the model's template extraction capability to generate its own jailbreak demonstrations
+    without requiring pre-crafted examples. In long-context settings, the attack can leverage the extended context window
+    to generate and include many more self-generated demonstrations than in standard few-shot settings, amplifying ASR to
+    ~90% at 8 shots with potential for higher at 64+ shots.
+  remediation: Apply detection for self-generated demonstration patterns (BOS token injection, template structure extraction).
+    Monitor for inputs referencing model template tokens as part of demonstration generation. Apply Self-Instruct FSJ-specific
+    defenses described by Hua et al.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-097
+  name: base64-payload-long-context-encoding
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(base64.encode|b64.encode|base.64).{0,60}\b(inject|payload|instruction|attack|jailbreak|bypass).{0,40}\b(long.context|context.window|decode|execute)\b
+  - (?i)\b(encoded.instruction|encoded.payload|encoded.attack).{0,60}\b(decode|base64|b64|hex.decode|url.decode).{0,40}\b(long.context|context.window)\b
+  - (?i)\b(decode.and.execute|decode.and.follow|decode.and.apply).{0,60}\b(base64|b64|hex|rot13|cipher).{0,40}\b(instruction|payload|attack)\b
+  - (?i)\b(obfuscated.instruction|obfuscated.payload).{0,60}\b(long.context|context.window|decode|base64|hex)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Base64-encoded or obfuscated payload injection in long-context document detected
+  description: Detects base64, hex, or other encoding-based payload injection in long-context documents. Adversaries encode
+    malicious instructions in base64 or other encodings to evade text-based safety detection and ask the model to decode and
+    follow the encoded instructions. In long documents, encoded payloads are easily concealed. Many models will base64-decode
+    content when instructed, treating decoded instructions as authoritative regardless of encoding.
+  remediation: Apply decoding normalization to detect base64/hex/rot13 encoded content before safety evaluation. Monitor for
+    decode-and-execute instruction patterns. Apply semantic safety evaluation to decoded content. Flag encoded instruction
+    blocks in user-supplied documents.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-LCA-SCAN-098
+  name: context-distraction-long-benign-flood
+  severity: MEDIUM
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(context.distraction|distraction.attack|benign.flood.attack).{0,60}\b(long.context|context.window|128k|safety|attention)\b
+  - (?i)\b(attention.distraction|safety.distraction|distract.safety).{0,60}\b(long.context|context.window|benign.flood|padding)\b
+  - (?i)\b(safety.dilution|dilute.safety|dilute.attention).{0,60}\b(benign.content|harmless.content|filler|padding).{0,40}\b(long.context|context.window)\b
+  - (?i)\b(overwhelm.safety|overwhelm.attention|safety.overwhelm).{0,60}\b(benign|harmless|safe.content|filler).{0,40}\b(long.context|context.window)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Context distraction via benign flooding to dilute safety attention detected
+  description: Detects context distraction attacks that flood long contexts with large volumes of genuinely benign content
+    to dilute safety classifier attention before a malicious instruction. Unlike context stuffing DoS, distraction attacks
+    use meaningful benign content that appears legitimate but is designed to consume safety evaluation capacity. The malicious
+    payload is a small fraction of the total context, making detection by ratio-based methods less effective.
+  remediation: Apply sampling-based safety evaluation that is context-length-invariant. Use attention-weight-normalized safety
+    scoring to prevent benign content from drowning out malicious signals. Apply minimum-sensitivity evaluation regardless
+    of benign context volume.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-LCA-SCAN-099
+  name: tool-response-injection-external-api-content
+  severity: CRITICAL
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(tool.response.inject|api.response.inject|function.response.inject).{0,60}\b(long.context|context.window|pipeline|agent)\b
+  - (?i)\b(external.api.inject|third.party.api.inject|webhook.inject).{0,60}\b(long.context|context.window|agent|pipeline)\b
+  - (?i)\b(search.result.inject|tool.output.poison|api.output.poison).{0,60}\b(long.context|context.window|agent|indirect.prompt)\b
+  - (?i)\b(fetched.content.inject|retrieved.content.inject).{0,60}\b(long.context|agent|pipeline|indirect.prompt)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Tool response injection via external API content in long-context pipeline detected
+  description: Detects tool response injection attacks where adversarial instructions are embedded in responses from external
+    APIs, search results, or tool outputs that are assembled into long agent contexts. In agentic long-context pipelines,
+    external tool responses (search APIs, web fetches, database queries) are assembled into the model's context; adversarially-crafted
+    tool responses can inject instructions that appear as authoritative data but redirect agent behavior.
+  remediation: Apply content validation to all external tool/API responses before including in agent context. Apply prompt
+    injection detection to tool outputs. Distinguish between data content and instruction content in assembled contexts. Use
+    structured data formats (JSON) rather than free text for tool responses.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-LCA-SCAN-100
+  name: position-dependent-safety-bypass-long-context
+  severity: HIGH
+  category: long_context_attacks
+  patterns:
+  - (?i)\b(position.dependent.safety|position.sensitive.safety|position.bypass).{0,60}\b(long.context|context.window|128k|attack|exploit)\b
+  - (?i)\b(safety.position.exploit|position.aware.attack|positional.safety.bypass).{0,60}\b(long.context|context.window|128k)\b
+  - (?i)\b(safety.token.position|safety.evaluation.position).{0,60}\b(exploit|attack|bypass|manipulat).{0,40}\b(long.context|context.window)\b
+  - (?i)\b(optimal.inject.position|best.inject.position|position.optim.attack).{0,60}\b(long.context|context.window|128k|safety.bypass)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Position-dependent safety bypass attack in long-context window detected
+  description: Detects attacks that exploit position-dependent safety evaluation failures in long-context models. Adversaries
+    who have characterized the safety model's position-dependent attention profile can identify optimal injection positions
+    that minimize safety signal while maximizing attack influence. This includes targeting the 'lost in the middle' zone,
+    exploiting attention sink adjacency, or precisely targeting phase transition boundaries identified by Kim et al. (2025)
+    at 32K, 64K, and 128K token thresholds.
+  remediation: Apply position-invariant safety evaluation by sampling safety-relevant signals from multiple positions throughout
+    the context. Implement multi-pass safety scanning with random position sampling. Test safety classifiers for position-dependent
+    failure modes using known injection positions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20

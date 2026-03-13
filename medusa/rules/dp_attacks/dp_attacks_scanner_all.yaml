@@ -1,0 +1,2524 @@
+# MEDUSA Scanner Rules — dp_attacks (MERGED)
+# Sources: dp_attacks_scanner_expansion.yaml, dp_attacks_scanner_fc.yaml
+# Total rules: 100
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: dp_attacks
+  prefix: DP
+  total_rules: 100
+  sources:
+  - dp_attacks_scanner_expansion.yaml
+  - dp_attacks_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-DP-SCAN-001
+  name: dp-audit-canary-insertion
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)canary(?:_sample|_point|_data|_insert|_record)?\s*(?:=|\(|\[)
+  - (?i)(?:insert|add|inject)_canary|canary_insertion|poison_canary
+  - (?i)challenge_point|challenge_base|challenge_dataset
+  - (?i)membership_challenge|audit_canary|privacy_canary
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: DP audit canary insertion pattern detected
+  description: Detects canary/challenge-point insertion patterns used in DP empirical
+    auditing (Jagielski 2020, Nasr 2021/2023, Steinke 2024, Annamalai 2024). An auditor
+    inserts a 'canary' sample with known membership status, then uses membership inference
+    to estimate empirical ε_emp. Worst-case canaries (Nasr 2021) are gradient-crafted
+    to maximize distinguishability. Gradient-crafting adversaries (Cebere ICLR 2025)
+    insert canaries at every step to achieve near-tight auditing bounds.
+  remediation: Monitor training pipelines for unexpected data insertions. Validate
+    all training data provenance. Flag datasets containing artificially constructed
+    or adversarially crafted samples.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-002
+  name: dp-audit-gradient-crafting-adversarial
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)gradient_craft(?:ing|ed)?|craft_gradient|adversarial_gradient_init
+  - (?i)worst_case_init(?:ialization)?|worst_case_canary|worst_case_sample
+  - (?i)hidden_state_audit|every_step_insertion|checkpoint_audit
+  - (?i)lira_audit|parametric_lira|audit_lira
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Adversarial gradient-crafting DP auditor detected (Nasr/Cebere threat model)
+  description: Detects gradient-crafting adversaries who craft model initialization
+    or per-step canary gradients to maximize distinguishability between membership
+    hypotheses. Nasr et al. 2021/2023 (white-box) and Cebere et al. ICLR 2025 (hidden
+    state threat model) demonstrate that crafted canaries inserted at every training
+    step nearly close the gap between theoretical ε and empirical ε_emp, revealing
+    DP implementation bugs or underclaiming.
+  remediation: Ensure DP-SGD implementations correctly clip per-sample gradients before
+    aggregation. Use validated privacy accounting (TensorFlow Privacy, Opacus). Audit
+    training code for non-standard model initialization patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-003
+  name: dp-empirical-epsilon-estimation
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)epsilon_emp(?:irical)?|eps_emp|epsilon_lower_bound|eps_lower
+  - (?i)clopper[_-]pearson|clopper_pearson_lower|clopper_pearson_upper
+  - (?i)empirical_dp|dp_audit|dp_auditing|privacy_audit
+  - (?i)fpr_fnr_audit|tpr_fpr_dp|distinguishability_test
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: DP empirical epsilon estimation / auditing code detected
+  description: Detects code performing empirical DP auditing to estimate ε_emp from
+    observed FPR/FNR of membership inference attacks. Standard approach uses Clopper-Pearson
+    confidence intervals (Jagielski 2020). ε_emp = ln((p̂₀ − δ) / p̂₁). Used legitimately
+    for DP auditing but can reveal DP implementation vulnerabilities and underclaimed
+    privacy budgets.
+  remediation: Validate claimed ε against empirical ε_emp. Any significant gap between
+    theoretical and empirical ε indicates DP implementation bugs (shuffling/Poisson
+    mismatch, BatchNorm leakage, improper gradient clipping).
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-004
+  name: dpsgd-batchnorm-incompatibility
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)(?:torch\.nn|nn)\s*\.\s*BatchNorm(?:1d|2d|3d)?\s*\(
+  - (?i)batch_norm.*dp[-_]sgd|dpsgd.*batch_norm
+  - (?i)bn\s*=\s*(?:torch\.nn|nn)\.BatchNorm
+  - (?i)use_batchnorm.*(?:differential|private)|private.*batchnorm
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: BatchNorm used with DP-SGD — invalidates differential privacy guarantee
+  description: BatchNorm (Ioffe & Szegedy 2015) computes batch statistics (mean, variance)
+    that couple per-sample gradients, breaking the per-example independence required
+    for DP-SGD's privacy guarantee. Using BatchNorm with DP-SGD silently invalidates
+    the formal ε bound. Ponomareva et al. JAIR 2023 explicitly identifies this as
+    a critical incompatibility. Replace with GroupNorm or LayerNorm.
+  remediation: Replace BatchNorm with GroupNorm (Wu & He 2018) or LayerNorm. Verify
+    architecture compatibility with Opacus make_private() which raises an error for
+    BatchNorm layers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-005
+  name: dpsgd-shuffle-vs-poisson-accounting-gap
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)shuffle(?:d)?_dp|shuffle_sampling|shuffled_sgd
+  - (?i)DataLoader.*shuffle.*True.*dp|dp.*DataLoader.*shuffle
+  - (?i)poisson_sampling|poisson_subsampling|bernoulli_sampling
+  - (?i)shuffle_amplification|sampling_without_replacement.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Shuffling vs Poisson subsampling DP accounting gap — privacy may be underclaimed
+  description: 'Annamalai et al. NDSS 2026 demonstrates that DP-SGD with shuffling
+    (DataLoader shuffle=True) uses different sampling than Poisson subsampling assumed
+    by standard privacy accounting (Moments Accountant, RDP). This gap leads to real-world
+    privacy leakage: ε_emp=12.7 at claimed ε=3 on BERT/MNLI (4x leakage). The Chua
+    et al. JPC 2025 Balls-and-Bins sampler bridges this gap.'
+  remediation: Use Poisson subsampling (Truncated Poisson Batch Generator, Chua 2025)
+    instead of standard DataLoader shuffling. Alternatively use Opacus with UniformWithReplacementSampler.
+    Verify claimed ε via empirical auditing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-006
+  name: dp-accounting-privacy-loss-distribution
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)privacy_loss_dist(?:ribution)?|pld_accounting|pld_accountant
+  - (?i)rdp_accountant|renyi_dp|rdp_to_dp
+  - (?i)moments_accountant|tf_privacy.*compute_dp_sgd
+  - (?i)gdp_accountant|gaussian_dp|f_dp_accountant
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP privacy accounting code detected — verify accounting method matches
+    training sampler
+  description: Detects privacy accounting code (Moments Accountant, RDP, PLD, GDP/f-DP).
+    The accounting method must match the actual training procedure's sampling mechanism.
+    Mismatches between accounting assumptions (Poisson) and actual sampling (shuffling/uniform-without-replacement)
+    cause underclaiming. Chua et al. JPC 2025 proves ε_S(δ) ≥ ε_P(δ) for any δ — shuffling
+    is strictly less private than Poisson accounting assumes.
+  remediation: Verify accounting method matches actual batch sampler. Use PLD accounting
+    (faster, tighter). Validate with empirical auditing (Gonzalez 2025, Steinke 2025).
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-007
+  name: shadow-training-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)shadow_model|shadow_train(?:ing)?|shadow_dataset
+  - (?i)ShadowModel\s*\(|train_shadow_models|ShadowModelTrainer
+  - (?i)attack_model.*shadow|shadow.*attack_model
+  - (?i)shokri.*mia|mia_shokri|shokri_attack
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Shadow training membership inference attack (Shokri 2017 style) detected
+  description: 'Detects shadow training MIA (Shokri et al. 2017): trains k shadow
+    models on auxiliary data to mimic target model behavior, then trains binary attack
+    classifier on shadow model confidence vectors labeled with known membership. Black-box
+    attack applicable to MLaaS APIs. Truex et al. 2019 demonstrates effectiveness
+    against DP-protected models. CF explanations (Ezzeddine 2026) nearly double shadow
+    MIA accuracy at ε=5 (38%→74%).'
+  remediation: Deploy DP-SGD (tight ε ≤ 3) to limit shadow model MI. Rate-limit MLaaS
+    API to prevent shadow model training volume. Consider output perturbation (MemGuard)
+    or confidence score rounding.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-008
+  name: lira-likelihood-ratio-mia
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)\blira\b.*(?:attack|mia|membership)|(?:lira_attack|lira_mia)\s*\(
+  - (?i)likelihood_ratio_attack|likelihood_ratio_mia
+  - (?i)carlini.*membership|membership.*carlini
+  - (?i)online_lira|offline_lira|parametric_lira
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: LiRA (Likelihood Ratio Attack) membership inference detected
+  description: Detects LiRA (Carlini et al. 2022), the state-of-the-art MIA using
+    parametric hypothesis testing. Trains N shadow models to fit Gaussian distributions
+    over model outputs for member/non-member hypotheses, then uses likelihood ratio
+    test for membership decision. Achieves near-optimal attack power; used as gold
+    standard in DP auditing (Yildirim MCMC 2025, Liu quantile regression 2025). Steinke
+    et al. 2025 uses LiRA-based auditing for empirical ε estimation on Gemma 2.
+  remediation: LiRA with N=256+ shadow models is expensive but powerful. Tight DP
+    (ε ≤ 1) limits LiRA TPR@0.1%FPR to near-baseline. Monitor for mass API querying
+    consistent with shadow model training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-009
+  name: quantile-regression-mia-auditing
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)quantile_regression.*(?:mia|membership|audit)
+  - (?i)(?:mia|membership).*quantile_regression
+  - (?i)quantile_mia|qr_mia|quantile_audit
+  - (?i)pinball_loss.*membership|membership.*pinball
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Quantile regression-based MIA / DP auditing detected
+  description: Detects quantile regression MIA (Liu et al. CMU, arXiv Jun 2025), which
+    replaces fixed-threshold MIA with a quantile regression model to more accurately
+    estimate confidence score distributions. Improves ε_max estimation by 53% (0.237→0.364
+    at n=5000) compared to standard LiRA, enabling tighter one-run DP auditing.
+  remediation: Quantile regression MIA requires only a single training run (one-run
+    auditing). Validate DP implementations against this stronger audit before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-010
+  name: counterfactual-explanation-amplified-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)(?:cf|counterfactual).*(?:mia|membership_inf)|(?:mia|membership_inf).*(?:cf|counterfactual)
+  - (?i)nice_explainer|NICE.*counterfactual|counterfactual_distance.*membership
+  - (?i)xai.*(?:mia|membership)|(?:mia|membership).*(?:xai|explainability)
+  - (?i)cf_distance.*attack|explanation.*membership_signal
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Counterfactual explanation-amplified MIA (Ezzeddine 2026) detected
+  description: 'Detects CF-amplified MIA (Ezzeddine et al. arXiv 2602.03611, 2026):
+    uses counterfactual (CF) explanation distance (how far a sample is from the decision
+    boundary) as an additional membership signal. CF distance strongly correlates
+    with membership — members are typically closer to the decision boundary than non-members.
+    At ε=5, this attack nearly doubles MIA accuracy: 38% (DP-only) → 74% (DP + CF
+    exposure).'
+  remediation: Restrict CF explanation access or add noise to CF distances. Do not
+    expose raw CF distances via MLaaS APIs alongside DP-protected models. GDPR explainability
+    requirements may conflict with this mitigation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-011
+  name: ldp-fl-gradient-reconstruction-bypass
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)separation_layer|ldp_bypass|ldp_reconstruction
+  - (?i)sam_subject_extract(?:ion)?.*gradient|gradient.*sam_extract
+  - (?i)noise_denoising.*ldp|ldp.*noise_filter(?:ing)?
+  - (?i)zero_gradient_noise_estimation|sigma_estimation.*ldp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: LDP-FL gradient reconstruction bypass attack detected (You 2025)
+  description: 'Detects the You et al. 2025 attack (arXiv:2502.08151) that reconstructs
+    training samples from LDP-protected FL gradients using: (1) separation layer with
+    Laplace-distributed biases to compress per-sample gradients, (2) SAM (Segment
+    Anything Model) background removal to reduce gradient norm, (3) zero-gradient
+    noise estimation to estimate σ and filter Gaussian noise, (4) confidence interval
+    [-c,c] based noise filtering. Proven effective at ε=10, batch=16 on ImageNet/ResNet101
+    — only known attack on LDP-FL.'
+  remediation: LDP-FL with ε=10 is insufficient to prevent this attack. Require ε
+    < 1 (at significant utility cost) or use secure aggregation with homomorphic encryption.
+    Restrict server control over model architecture.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-DP-SCAN-012
+  name: gradient-reconstruction-dlg-federated
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dlg_attack|deep_leakage_gradient|gradient_inversion
+  - (?i)iDLG|ig_attack|inverting_gradient
+  - (?i)reconstruct_from_gradient|gradient_reconstruction
+  - (?i)geiping.*inverting|R_psnr.*gradient|gradient.*ssim
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Gradient-based training data reconstruction attack (DLG/iDLG/Inverting
+    Gradients) detected
+  description: Detects gradient inversion attacks that reconstruct training samples
+    from shared gradients in federated learning. DLG (Zhu 2019), iDLG (Zhao 2020),
+    and Inverting Gradients (Geiping 2020) can reconstruct images from a single gradient
+    update. TimberStrike (Gennaro PoPETS 2025) extends this to federated GBDT/XGBoost
+    with First-Tree Probing + MILP, achieving 73-95% reconstruction on clinical data.
+  remediation: Apply DP-SGD with tight ε (≤ 3). Use secure aggregation. Clip gradient
+    norms before sharing. Consider gradient compression or perturbation. LDP alone
+    (ε=10) is insufficient — see You 2025.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-013
+  name: timberstrike-gbdt-reconstruction
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)timberstrike|timber_strike|first_tree_probing
+  - (?i)milp_reconstruction.*(?:tree|gbdt|xgboost|federated)
+  - (?i)federated_gbdt.*reconstruct|federated_xgboost.*privacy
+  - (?i)tree_gradient_leak|gradient_boosting.*reconstruction
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: TimberStrike federated GBDT/XGBoost reconstruction attack detected
+  description: 'Detects TimberStrike (Gennaro et al. PoPETS 2025(4), github.com/necst/TimberStrike):
+    a dataset reconstruction attack against federated tree-based systems (GBDT, XGBoost).
+    Uses First-Tree Probing to extract feature thresholds and sample routing, then
+    MILP (Mixed Integer Linear Programming) to reconstruct training samples. Achieves
+    73.05%-95.63% reconstruction on Stroke prediction dataset, 100% on COMPAS recidivism
+    when DP not applied.'
+  remediation: Apply DP-SGD/DP-Tree mechanisms to federated GBDT. Restrict sharing
+    of first-tree structure. Rate-limit tree structure queries. Consider PATE-style
+    ensemble rather than federated GBDT.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-014
+  name: active-mia-dishonest-server-fl
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)active_mia|active_membership_inference|ami_attack
+  - (?i)chosen_neuron|malicious_weights.*fl|dishonest_server
+  - (?i)fl.*membership.*certif(?:ied)?|certif(?:ied)?.*mia.*fl
+  - (?i)non_linear_boundary.*membership|membership.*non_linear_boundary
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Active MIA from dishonest FL server (Nguyen AISTATS 2023) detected
+  description: 'Detects Active Membership Inference (AMI) attack (Nguyen et al. AISTATS
+    2023, github.com/trucndt/ami): a dishonest FL server embeds a ''chosen neuron''
+    into global model parameters, activated only by the target training sample. Non-linear
+    decision boundary in second FC layer enables membership inference via gradient
+    observation. Achieves near-100% success rate with certified guarantee (Theorem
+    1 in paper). LDP protection reduces success only at high utility cost.'
+  remediation: Verify global model architecture before accepting updates — do not
+    blindly trust server-provided model parameters. Use model verification protocols.
+    Apply tight LDP (ε < 1) at significant utility cost.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-DP-SCAN-015
+  name: sequential-dp-auditing-mmd
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)sequential_audit(?:ing|or)?|mmd_evalue|e_value.*dp
+  - (?i)GonzalezAudit|gonzalez.*sequential|sequential.*gonzalez
+  - (?i)KuttaAudit|kutta.*fdp|fdp.*sequential
+  - (?i)apt_algorithm|brownian_motion.*dp|fdp_audit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Sequential DP auditing code detected (Gonzalez 2025 / Kutta 2026)
+  description: Detects sequential DP auditing implementations. Gonzalez et al. NeurIPS
+    2025 uses MMD e-values to sequentially test DP violations with continuous monitoring,
+    detecting non-private DP-SGD in ~60 observations (vs 50K+ for fixed-n auditors).
+    Kutta et al. arXiv 2602.06518 (2026) extends to f-DP with APT (Advanced Privacy
+    Testing), using 10-25% fewer samples than Gonzalez at ε≈0.01. Both detect DP implementation
+    bugs in Gaussian, Laplace, and DP-SGD mechanisms.
+  remediation: Sequential auditing is a legitimate audit tool. Detected in adversarial
+    context suggests attempts to identify DP implementation vulnerabilities in deployed
+    models.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-016
+  name: fdp-trade-off-curve-auditing
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)f_dp|fdp_curve|trade_off_curve|tradeoff_function
+  - (?i)hockey_stick_divergence|hockey_stick_div
+  - (?i)KoskelaAudit|density_estimation.*dp|dp.*density_estimation
+  - (?i)gaussian_dp_conversion|gdp_to_eps_delta
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: f-DP / hockey-stick divergence auditing code detected
+  description: Detects f-DP auditing using trade-off functions or hockey-stick divergence.
+    Koskela et al. arXiv 2406.04827 (Nokia Bell Labs) uses kernel density estimation
+    to estimate the full f-DP curve from sample outputs, enabling mechanism-agnostic
+    auditing. Kulynych et al. NeurIPS 2025 shows f-DP unifies re-identification, attribute
+    inference, and reconstruction risks. Violations in intermediate (ε,δ) range may
+    be missed by standard (ε,δ)-DP auditing.
+  remediation: f-DP auditing is more comprehensive than (ε,δ)-DP auditing. Systems
+    claiming (ε,δ)-DP should also be validated against f-DP auditing to detect partial
+    trade-off curve violations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-017
+  name: dp-vulnerability-disparity-demographic
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)vulnerability_disparity|vd_dp|vd_measure
+  - (?i)dp.*(?:fairness|demographic|group).*(?:mia|membership)
+  - (?i)(?:mia|membership).*(?:demographic|group|protected).*dp
+  - (?i)FairPick|fair_pick.*dp|dp.*fair_pick
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: DP vulnerability disparity analysis / FairPick mitigation detected
+  description: 'Detects vulnerability disparity (VD) analysis code (Zhang et al. Stevens
+    2020, arXiv:2001.08855): VD = P(MIA=1|Y=1,A=a) − P(MIA=1|Y=1,A=ā). DP reduces
+    average MIA success but does NOT eliminate VD — minority/protected demographic
+    groups often remain disproportionately vulnerable. COMPAS dataset: MIA recall
+    paradoxically increases as DP gets stronger. FairPick reweighting algorithm reduces
+    VD while preserving utility.'
+  remediation: Audit MIA vulnerability separately per demographic group. Apply FairPick-style
+    reweighting or stratified sampling to equalize group distributions before DP training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-018
+  name: dp-predictive-multiplicity-audit
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)predictive_multiplicity|dp_multiplicity|disagreement_dp
+  - (?i)re_train.*different_seed.*dp|dp.*multiple.*seeds
+  - (?i)dp_multiplicity|multiplicity_cost_dp
+  - (?i)spring.epfl.*dp_multiplicity|dp_multiplicity.*spring
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP predictive multiplicity audit detected (Kulynych FAccT 2023)
+  description: Detects predictive multiplicity measurement code (Kulynych et al. FAccT
+    2023, github.com/spring-epfl/dp_multiplicity). DP training produces models with
+    high disagreement (μ(x) up to 100% at ε=0.5) — the same input gets opposite predictions
+    in re-trainings with different random seeds. This arbitrariness cost of DP training
+    is highest for individuals near the decision boundary and varies across demographic
+    groups.
+  remediation: Audit DP models for predictive multiplicity before high-stakes deployment
+    (lending, healthcare, criminal justice). Report both accuracy loss AND multiplicity
+    cost as DP deployment metrics.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-019
+  name: dp-budget-accounting-manipulation
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)epsilon_override|bypass_accounting|skip_accounting
+  - (?i)total_epsilon\s*=\s*(?:float\('inf'\)|math\.inf|np\.inf|999)
+  - (?i)delta\s*=\s*(?:1\.0|1e-?0\b)|delta\s*=\s*(?:1\b)
+  - (?i)ignore_privacy|no_dp|privacy_disabled|disable_privacy
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP budget accounting bypass or manipulation detected
+  description: Detects patterns suggesting DP privacy accounting is being bypassed,
+    disabled, or set to trivially large ε values. Setting δ=1.0 or ε=inf effectively
+    disables DP guarantees while maintaining the appearance of DP training. Liu et
+    al. (Waterloo 2021) showed setting σ=0 (ε=∞) actually gives best privacy-utility
+    tradeoff in CIFAR-100 — this was misunderstood; it means the training procedure
+    has no DP guarantee.
+  remediation: Enforce minimum ε ceiling (e.g., ε ≤ 10) and maximum δ floor (δ ≤ 1/n)
+    in DP training configurations. Validate accounting parameters before training
+    begins.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-020
+  name: dp-hyperparameter-tuning-privacy-leak
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)grid_search.*dp|dp.*grid_search|hp_search.*dp
+  - (?i)hyperparameter_tuning.*(?:privacy|epsilon)|(?:privacy|epsilon).*hyperparameter_tuning
+  - (?i)private_hp_tuning|hp_private|hp.*privacy_budget
+  - (?i)report_epsilon.*tuning|tuning_epsilon_cost
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: DP hyperparameter tuning without privacy budget accounting detected
+  description: 'Hyperparameter tuning against validation data consumes privacy budget.
+    If tuning queries are not accounted for in the reported ε, the actual privacy
+    guarantee is weaker than claimed. Ponomareva et al. JAIR 2023 identifies this
+    as a critical practical issue: published ε values often exclude tuning cost. An
+    attacker can exploit the gap between reported ε and actual ε to launch stronger
+    MIA.'
+  remediation: Use private hyperparameter tuning algorithms (e.g., tree-structured
+    search with privacy budget allocation). Account for all validation queries in
+    reported ε. Use held-out public data for tuning when possible.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-021
+  name: dp-last-iterate-advantage-exploit
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)last_iterate.*(?:audit|advantage|dp)|last_iterate_dp
+  - (?i)steinke.*last_iterate|last_iterate.*steinke
+  - (?i)linearized_heuristic.*epsilon|epsilon_heuristic.*linear
+  - (?i)intermediate_checkpoint.*audit|checkpoint_mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Last-iterate DP advantage exploit / intermediate checkpoint auditing detected
+  description: 'Detects exploitation of the last-iterate advantage (Steinke et al.
+    ICLR 2025): when only the final model is released (hidden state threat model),
+    the empirical ε is significantly lower than standard accounting suggests. On Gemma
+    2 fine-tuning: ε_std=8-26, ε_heuristic≈6, ε_emp≈2. Cebere et al. ICLR 2025 shows
+    that adversaries with every-step gradient access achieve ε_emp close to theoretical
+    ε — the gap is the ''last-iterate advantage''.'
+  remediation: Hidden state DP training (releasing only final model) provides additional
+    privacy. Do not release intermediate checkpoints. Quantify ε_emp under realistic
+    threat model (final-model-only vs every-step).
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-022
+  name: ldp-distinguishability-attack
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)ldp_audit|ldp_auditor|LDP.Auditor
+  - (?i)grr_attack|randomized_response_attack|distinguishability_attack
+  - (?i)blh_bug|ldp_python.*bug|ldp_implementation.*bug
+  - (?i)sue_protocol|oue_protocol|the_protocol.*ldp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: LDP distinguishability attack / LDP-Auditor code detected
+  description: Detects LDP distinguishability attacks and LDP-Auditor (Arcolezi &
+    Gambs PoPETS 2024, github.com/heber-augusto/LDP-Auditor). Attacks predict user's
+    true value from LDP-obfuscated output. GRR achieves tightest ε_emp; BLH has consistently
+    low ε_emp in high-privacy regime (flat ≤ 1 for ε ≥ 2). LDP-Auditor discovered
+    a bug in a state-of-the-art LDP Python package where ε_emp contradicts the theoretical
+    upper bound.
+  remediation: Audit LDP implementations before deployment using LDP-Auditor. Prefer
+    GRR (Generalized Randomized Response) for tightest privacy guarantees. Verify
+    claimed ε against empirical ε_emp via Monte Carlo testing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-023
+  name: ldp-longitudinal-averaging-attack
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)longitudinal.*ldp|ldp.*longitudinal|repeated_collection
+  - (?i)averaging_attack.*ldp|ldp.*averaging_attack
+  - (?i)memoization.*ldp|ldp.*memoization|rappor.*memoiz
+  - (?i)sequential_composition.*ldp|ldp.*tau_collections
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: LDP longitudinal averaging attack / repeated collection vulnerability detected
+  description: 'LDP privacy degrades linearly with repeated data collections (sequential
+    composition). Arcolezi & Gambs PoPETS 2024 demonstrates ''averaging attack'':
+    across τ repeated collections, adversary accumulates knowledge to predict user''s
+    true value despite per-round LDP noise. RAPPOR (deployed in Google Chrome) and
+    dBitFlipPM (Windows 10) use memoization to mitigate this. Without memoization,
+    τ-round LDP becomes τε-LDP.'
+  remediation: Use memoized LDP for longitudinal studies. Limit number of repeated
+    data collections. Apply memoization-based mechanisms (RAPPOR-style). Consider
+    temporal DP budget allocation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-024
+  name: gradient-uniqueness-privacy-metric
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)gradient_uniqueness|gnq_metric|GNQ\s*=
+  - (?i)abdelghafar.*gradient|gradient.*uniqueness.*privacy
+  - (?i)gradient_norm_quotient|gram_matrix.*gradient.*privacy
+  - (?i)per_sample_grad.*unique|unique.*per_sample_grad
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Gradient Uniqueness (GNQ) privacy risk metric detected (Abdelghafar 2025)
+  description: 'Detects Gradient Uniqueness Quotient (GNQ) metric (Abdelghafar et
+    al. Rice Univ, arXiv Oct 2025): GNQ(i,j) = g_ij^T · S⁺ · g_ij where S⁺ is the
+    Moore-Penrose pseudoinverse of the Gram matrix. High GNQ indicates a sample''s
+    gradient is unique and recoverable. Pearson correlation r=−0.96 between GNQ and
+    DP-SGD accuracy — high GNQ predicts privacy risk. At ε=2, DP-SGD achieves 41.83%
+    accuracy on CIFAR-10 vs 71.33% for GNQ-based filtering.'
+  remediation: Use GNQ as a pre-training privacy risk assessment tool. Samples with
+    high GNQ are most at risk of gradient-based reconstruction. Consider removing
+    or DP-protecting high-GNQ samples.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-025
+  name: dp-genomic-data-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)genomic.*(?:dp|differential_privacy|mia|membership)
+  - (?i)(?:dp|differential_privacy|mia|membership).*genomic
+  - (?i)genetic.*privacy_attack|snp.*privacy|genome.*membership_inference
+  - (?i)medical_record.*dp.*(?:mia|membership)|ehr.*dp.*(?:mia|membership)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: DP vs MIA on genomic/medical data detected
+  description: Detects MIA against DP-protected models trained on genomic or clinical
+    data. Genomic data has unique privacy risks (individual DNA is unique identifiers).
+    Chen et al. IEEE BIBM 2020 demonstrates MIA success against DP-SGD models on genomic
+    classifiers. Mohammadi et al. arXiv Nov 2025 (74-study scoping review) shows ε
+    ≈ 1 causes severe accuracy degradation in medical DL while minority subgroups
+    disproportionately affected.
+  remediation: Use tight ε (≤ 1) for genomic data. Apply pre-training on public biological
+    data before fine-tuning on private genomic data. Monitor for subgroup fairness
+    disparities under DP.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-026
+  name: dp-nlp-lm-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dp.*(?:bert|gpt|llm|language_model).*(?:mia|membership|audit)
+  - (?i)(?:bert|gpt|llm|language_model).*dp.*(?:mia|membership|audit)
+  - (?i)dp_finetuning.*secret_extraction|secret.*dp.*finetune
+  - (?i)memorization.*dp.*lm|lm.*memorization.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP-NLP / language model MIA or memorization attack detected
+  description: Detects MIA and memorization attacks against DP fine-tuned language
+    models. Steinke et al. ICLR 2025 performs empirical DP auditing on Gemma 2 fine-tuning,
+    finding ε_emp≈2 vs ε_std=8-26. Annamalai et al. NDSS 2026 demonstrates ε_emp=12.7
+    at claimed ε=3 on BERT/MNLI due to shuffling vs Poisson subsampling gap. Kulynych
+    et al. NeurIPS 2025 shows 52%→70% accuracy improvement on GPT-2 with 20% noise
+    reduction via unified f-DP framework.
+  remediation: Use Opacus with Poisson subsampling (not default DataLoader shuffling).
+    Validate ε_emp via empirical auditing before deploying DP fine-tuned LLMs. Apply
+    last-iterate advantage — release only final checkpoint.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-027
+  name: opacus-dp-sgd-configuration
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)from\s+opacus|import\s+opacus
+  - (?i)PrivacyEngine\s*\(|make_private\s*\(
+  - (?i)from\s+opacus.*import\s+(?:PrivacyEngine|GradSampleModule)
+  - (?i)max_grad_norm\s*=|noise_multiplier\s*=
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Opacus DP-SGD configuration detected — verify sampler and accounting correctness
+  description: 'Detects Opacus library DP-SGD usage. Legitimate but requires careful
+    configuration. Known vulnerabilities: (1) default DataLoader shuffle=True violates
+    Poisson subsampling assumption — use UniformWithReplacementSampler; (2) BatchNorm
+    incompatibility (use GroupNorm/LayerNorm); (3) hyperparameter tuning cost not
+    in reported ε. Annamalai et al. NDSS 2026 demonstrates 4x privacy leakage from
+    shuffling mismatch on real BERT models.'
+  remediation: 'Verify: (1) Sampler is UniformWithReplacementSampler, not default
+    shuffle. (2) No BatchNorm layers. (3) Hyperparameter tuning budget accounted.
+    (4) Empirical audit after training.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-028
+  name: tensorflow-privacy-dp-sgd-configuration
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)from\s+tensorflow_privacy|import\s+tensorflow_privacy
+  - (?i)DPKerasSGDOptimizer|DPAdamGaussianOptimizer|DPSGDOptimizer
+  - (?i)compute_dp_sgd_privacy|dp_sgd_privacy\.compute
+  - (?i)tensorflow_privacy.*(?:noise_multiplier|l2_norm_clip)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: TensorFlow Privacy DP-SGD configuration detected — verify accounting correctness
+  description: 'Detects TensorFlow Privacy library DP-SGD usage. TF Privacy uses Moments
+    Accountant / RDP by default. Known issue: standard RDP accounting assumes Poisson
+    subsampling (tf.data.Dataset sampling). If training data is loaded with fixed-size
+    batches (no Poisson sampling), the accounting understates actual ε. Validate with
+    compute_dp_sgd_privacy matching actual sampler.'
+  remediation: Verify tf.data pipeline uses Bernoulli/Poisson sampling. Cross-validate
+    accounting with empirical auditing. Consider upgrading to PLD accounting for tighter
+    bounds.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-029
+  name: mcmc-bayesian-dp-estimation
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)mcmc_dp_est|mcmc.*epsilon.*posterior|epsilon.*posterior.*mcmc
+  - (?i)mhaar.*privacy|metropolis_hastings.*dp|mcmc.*privacy_param
+  - (?i)attack_strength_parameter|s_parameter.*dp|dp.*s_parameter
+  - (?i)bayesian_dp_audit|credible_interval.*epsilon
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: MCMC Bayesian DP estimation (MCMC-DP-Est, Yildirim 2025) detected
+  description: 'Detects MCMC-DP-Est (Yildirim et al. Sabanci University 2025, github.com/cerenyildirim/MCMC_for_Bayesian_estimation):
+    MHAAR-based MCMC algorithm for Bayesian posterior estimation of ε. Jointly estimates
+    attack strength s ∈ [0,1] — prevents overconfident ε claims when attack is not
+    worst-case. Systems assuming s=1 (strongest attack) show dangerously overconfident
+    privacy estimates.'
+  remediation: Frequentist DP auditing (Clopper-Pearson) implicitly assumes s=1. For
+    honest uncertainty quantification, use MCMC-DP-Est to obtain credible intervals
+    that account for realistic attack strength.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-030
+  name: sam-generalization-dp-comparison
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)sam.*dp_sgd.*comparison|dp_sgd.*sam.*comparison
+  - (?i)sam.*outperform.*dp|dp.*underperform.*sam
+  - (?i)sharpness_aware.*privacy|privacy.*sharpness_aware
+  - (?i)dp_sam|dp.*sam_optimizer|sam_optimizer.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: SAM vs DP-SGD privacy comparison detected (Liu Waterloo 2021)
+  description: Detects comparison code between SAM (Sharpness-Aware Minimization)
+    and DP-SGD for MIA protection. Liu et al. (University of Waterloo, arXiv:2110.05524,
+    2021) demonstrates SAM empirically dominates DP-SGD on privacy-utility tradeoff
+    in CIFAR-100 and CIFAR-10 — SAM provides better empirical privacy AND utility
+    without formal DP guarantees. However, SAM provides no theoretical privacy guarantee
+    — an exploitable gap between empirical and formal privacy.
+  remediation: SAM's empirical privacy advantage does not substitute for formal DP
+    guarantees. For applications requiring provable privacy (GDPR, HIPAA), DP-SGD
+    with appropriate ε is required despite utility cost.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-031
+  name: dp-data-skewness-mia-amplification
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)skewed_dp|dp.*class_imbalance.*mia|class_imbalance.*dp.*mia
+  - (?i)truex.*dp_skewness|dp_skewness.*mia
+  - (?i)minority_class.*dp.*vulnerability|dp.*minority.*mia
+  - (?i)imbalanced.*dp.*attack|dp.*imbalanced.*membership
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP + data skewness MIA amplification detected (Truex IWPE 2019)
+  description: Detects attacks exploiting the interaction between data skewness (class
+    imbalance) and DP vulnerability. Truex et al. IEEE IWPE 2019 demonstrates that
+    skewed datasets have higher inherent MIA vulnerability (models overfit on majority
+    class) and that DP does not uniformly protect all classes. Even ε=10 provides
+    some protection vs no DP, but skewed minority classes remain more vulnerable than
+    balanced classes at the same ε.
+  remediation: Apply oversampling or reweighting to balance classes before DP-SGD
+    training. Audit MIA success separately per class. Consider per-class DP budgets.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-032
+  name: dp-property-inference-fl
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)property_inference.*(?:dp|ldp|fl)|(?:dp|ldp|fl).*property_inference
+  - (?i)global_property.*(?:leak|attack|infer)|infer.*dataset_property
+  - (?i)gender_ratio.*fl|race_distribution.*fl.*attack
+  - (?i)participant_property|training_property.*fl
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Property inference attack against DP/LDP FL system detected
+  description: Detects property inference attacks in federated learning — inferring
+    global properties of a participant's training data (gender ratio, race distribution)
+    from model updates. Naseri et al. NDSS 2022 demonstrates that LDP is ineffective
+    against property inference (LDP provides only record-level privacy); CDP can theoretically
+    defend but at enormous utility cost (57% accuracy on LFW at ε=4.7).
+  remediation: LDP does not prevent property inference. Apply CDP with tight ε if
+    property confidentiality is required. Restrict what global properties are inferrable
+    from model update aggregations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-033
+  name: dp-large-epsilon-mia-boundary
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)large_epsilon.*mia|mia.*large_epsilon|high_epsilon.*privacy
+  - (?i)epsilon.*(?:10|15|20|50|100).*(?:mia|membership)
+  - (?i)pointwise_membership_privacy|pmp_defense|lowy.*pmp
+  - (?i)practical_mia.*dp|dp.*practical_mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Large-ε DP vs practical MIA boundary analysis detected (Lowy MERL 2024)
+  description: Detects analysis of large-ε DP effectiveness against practical MIA.
+    Lowy et al. MERL 2024 introduces Pointwise Membership Privacy (PMP) to explain
+    why large-ε DP (ε > 5) still defends against practical MIA despite weak theoretical
+    bound. PMP captures that practical attackers cannot achieve the worst-case distinguishability
+    required by the ε bound. DP with ε=10 can still provide meaningful practical MIA
+    protection even when theoretical bound is nearly trivial.
+  remediation: Large ε (>10) provides minimal formal protection but can still reduce
+    practical MIA success. For high-sensitivity deployments, use ε ≤ 3. For moderate
+    sensitivity, ε ≤ 10 with PMP auditing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-034
+  name: dp-nearly-tight-black-box-worst-case
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)worst_case_initialization|worst_case_audit
+  - (?i)annamalai.*tight|tight.*blackbox.*audit
+  - (?i)nearly_tight_audit|near_tight_dp_audit
+  - (?i)black_box.*audit.*(?:tight|worst_case)|(?:tight|worst_case).*black_box.*audit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Nearly-tight black-box DP auditing (Annamalai UCL NeurIPS 2024) detected
+  description: 'Detects nearly-tight black-box DP auditing (Annamalai et al. UCL,
+    NeurIPS 2024): uses worst-case model initialization to achieve ε_emp=7.21 at theoretical
+    ε=10, versus Jagielski 2020 which achieves ε_emp≈0.02. Achieves within 0.3ε of
+    the theoretical bound in black-box setting (no gradient access). This nearly-tight
+    auditing can detect DP implementation bugs that were previously invisible to weak
+    black-box auditors.'
+  remediation: Test DP implementations against worst-case black-box auditing. Gap
+    between theoretical ε and ε_emp should be < 1.5x for sound implementations. Larger
+    gaps indicate implementation bugs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-035
+  name: dp-user-level-vs-example-level-confusion
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)user_level.*dp|dp.*user_level|user_level_privacy
+  - (?i)example_level.*vs.*user_level|group_privacy.*dp
+  - (?i)record_level.*vs.*participant_level|per_user.*vs.*per_example
+  - (?i)unit_of_privacy|privacy_unit.*(?:user|example|record)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: DP unit of privacy (user-level vs example-level) ambiguity detected
+  description: Detects code where the unit of privacy (user-level vs example-level)
+    may be ambiguous or incorrect. Ponomareva et al. JAIR 2023 identifies this as
+    a critical practical issue. Example-level DP (default DP-SGD) protects individual
+    training examples; user-level DP (needed when one user contributes multiple records)
+    requires k·ε instead of ε. Reported ε values that don't specify the privacy unit
+    are misleading and may understate actual privacy risk.
+  remediation: Always specify the unit of privacy in DP claims. If one user contributes
+    k records, example-level ε implies user-level kε or ke^{kε}-DP. Use user-level
+    DP mechanisms when training on multi-record-per-user datasets.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-036
+  name: dp-federated-backdoor-bypass
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)backdoor.*(?:fl|federated).*dp|dp.*(?:fl|federated).*backdoor
+  - (?i)model_replacement.*fl|fl.*model_replacement
+  - (?i)semantic_backdoor.*fl|single_pixel.*(?:fl|federated)
+  - (?i)bagdasaryan.*backdoor|fl_backdoor_attack
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Federated learning backdoor attack pattern detected — DP may not prevent
+  description: 'Detects FL backdoor attacks (model-replacement strategy). Naseri et
+    al. NDSS 2022 demonstrates that both LDP and CDP reduce backdoor attack accuracy
+    from 80-95% to 6-47%, but do not fully eliminate backdoors. LDP (ε=3): reduces
+    EMNIST backdoor to 10%; LDP (ε=7.5): still 47% backdoor accuracy. CDP (ε=3) more
+    effective: reduces to 6%. Norm bounding and weak DP are less effective than LDP/CDP.'
+  remediation: Apply CDP (ε ≤ 3) for strongest backdoor resistance with reasonable
+    utility. LDP with ε ≤ 3 also effective but reduces main task accuracy more. Combine
+    DP with Byzantine-robust aggregation for defense-in-depth.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-037
+  name: dp-tempered-activation-exploit
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)tempered_sigmoid|temp_sigmoid.*dp|dp.*temp_sigmoid
+  - (?i)phi_s_t_o\s*\(|tempered_activation.*dp
+  - (?i)bounded_activation.*dp_sgd|dp_sgd.*bounded_activation
+  - (?i)papernot.*tempered|tempered.*papernot
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Tempered sigmoid activation with DP-SGD detected (Papernot AAAI 2021)
+  description: 'Detects tempered sigmoid activation implementations for DP-SGD (Papernot
+    et al. AAAI-21). Tempered sigmoid φ_{s,T,o}(x) = s/(1+exp(−T·x))−o bounds gradient
+    norms to prevent gradient explosion during DP-SGD training, improving accuracy
+    by 1-4% absolute at fixed ε. Note: while this is a defense, an adversary who knows
+    the model uses tempered activations can calibrate attacks (e.g., gradient reconstruction)
+    to the bounded gradient regime.'
+  remediation: Tempered sigmoids are beneficial for DP-SGD utility. Ensure hyperparameters
+    (s,T,o) are treated as potentially sensitive model architecture details.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-038
+  name: dp-balls-bins-sampler-accounting
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)balls_and_bins|balls_bins_sampler|BallsBinsSampler
+  - (?i)truncated_poisson.*batch|poisson_batch_generator
+  - (?i)chua.*bridging|bridging_accounting_gap
+  - (?i)eps_shuffle.*eps_poisson|shuffle_poisson_gap
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Balls-and-Bins / Truncated Poisson sampler (Chua 2025) — validates accounting
+    gap fix
+  description: 'Detects Balls-and-Bins sampler or Truncated Poisson Batch Generator
+    (Chua et al. Google Research, JPC Vol.15(3) 2025): fixes the shuffle vs Poisson
+    accounting gap. Proof: ε_S(δ) ≥ ε_P(δ) for any δ — shuffle is strictly less private
+    than Poisson accounting suggests. Implementation uses acceptance-rejection sampling
+    to generate exactly Poisson-distributed batches.'
+  remediation: Use Balls-and-Bins / Truncated Poisson sampler in production DP-SGD
+    pipelines to ensure accounting matches sampler. This closes the 4x privacy leakage
+    gap found by Annamalai et al. NDSS 2026.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-039
+  name: dp-unifying-risks-fdp-framework
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)kulynych.*unif(?:y|ying)|unif(?:y|ying).*risks.*fdp
+  - (?i)reidentification.*attribute.*reconstruction.*dp
+  - (?i)riskcal|risk_cal.*fdp|fdp.*risk_cal
+  - (?i)succ_leq_1_minus_f|success.*fdp.*bound
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: f-DP unified risk framework (Kulynych NeurIPS 2025, riskcal) detected
+  description: 'Detects riskcal framework (Kulynych et al. EPFL/Harvard/Google DeepMind,
+    NeurIPS 2025, github.com/Felipe-Gomez/riskcal): unifies re-identification, attribute
+    inference, and reconstruction risks under f-DP. Key result: succ ≤ 1 − f(base)
+    where base is attacker''s prior success. 20% noise reduction possible using unified
+    risk calibration vs single-risk optimization. Applied to GPT-2: 52%→70% accuracy
+    improvement.'
+  remediation: Use riskcal for DP parameter selection when multiple risk types (MIA
+    + attribute inference + reconstruction) must be jointly bounded. Single-risk DP
+    calibration may waste noise budget.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-040
+  name: dp-arbitrary-decision-multiplicity
+  severity: LOW
+  category: dp_attacks
+  patterns:
+  - (?i)dp_multiplicity|predictive_multiplicity.*dp
+  - (?i)disagreement.*dp.*(?:train|model)|dp.*disagreement.*(?:train|model)
+  - (?i)kulynych.*dp.*facc?t|facc?t.*dp.*arbitrary
+  - (?i)mu_x.*dp|disagreement_score.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP arbitrariness / predictive multiplicity measurement (Kulynych FAccT
+    2023)
+  description: Detects predictive multiplicity auditing of DP models (Kulynych et
+    al. FAccT 2023, github.com/spring-epfl/dp_multiplicity). DP training introduces
+    randomness that causes different re-trainings (different random seeds) to produce
+    conflicting predictions for the same input. Disagreement μ(x) can approach 1.0
+    (100% flip probability) at small ε for near-boundary individuals. This is an accountability
+    risk in high-stakes deployment (lending, medical diagnosis, criminal justice).
+  remediation: Audit predictive multiplicity before DP model deployment in high-stakes
+    settings. Report maximum per-individual disagreement alongside accuracy metrics.
+    Consider more deterministic DP mechanisms.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-041
+  name: adversarial-input-space-canary-fisher-bhattacharyya
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)fisher_discriminant.*(?:canary|audit|loss)|fisher_discriminant_loss.*dp
+  - (?i)bhattacharyya.*(?:canary|audit|mia|membership)|bhattacharyya_distance.*dp
+  - (?i)input_space.*(?:canary|audit|privacy)|adversarial_canary.*input
+  - (?i)yoon.*audit|fisher_bhattacharyya_audit|fisher_canary_loss
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Adversarial input-space canary optimization (Yoon NeurIPS 2024 PriML) detected
+  description: 'Detects adversarial input-space privacy auditing (Yoon et al. NeurIPS
+    2024 PriML). Instead of random canary selection, crafts adversarial samples x*
+    by optimizing Fisher Discriminant Loss (maximizes between-class separation of
+    member/non-member loss distributions) or Bhattacharyya distance (minimizes distribution
+    overlap). At ε=10 on MNIST ConvNet: random canary ε_emp=4.385, Bhattacharyya ε_emp=4.648,
+    Fisher ε_emp=4.914 — 12% improvement over baseline. Requires only final-model
+    access (hidden-state threat model compatible with Steinke ICLR 2025). Black-box
+    attack applicable against any DP-SGD deployment without gradient access.'
+  remediation: Adversarially optimized canaries raise ε_emp estimates vs random canary
+    baselines. Use last-iterate-only model release (Steinke ICLR 2025) to reduce attack
+    surface. Periodically audit DP implementations against Fisher/Bhattacharyya canary
+    optimization to verify claimed ε is not systematically underestimated.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-042
+  name: dp-pate-teacher-ensemble-attack
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)pate_(?:train|aggregate|label|teacher|student)|PATE\s*(?:=|\(|Aggreg)
+  - (?i)private_aggregation.*teacher|noisy_argmax_labels|gnmax_aggregator
+  - (?i)report_noisy_max|pate_analysis|pate_accountant|gnmax.*confidence
+  - (?i)teacher_ensemble.*(?:attack|mia|histogram)|histogram.*teacher.*vote
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PATE teacher ensemble attack surface or histogram vote inference detected
+  description: 'Detects PATE (Papernot et al. 2016/2018) implementation patterns and
+    attack surfaces against teacher ensemble. PATE trains k teacher models on disjoint
+    private data subsets, then aggregates predictions via noisy argmax (GNMax) for
+    training a public student model. Rigaki & Garcia ACM ComSurveys 2023 and Hu et
+    al. 2022 document PATE attack vectors: (1) histogram attack — adversary queries
+    student model repeatedly to infer teacher vote distribution from GNMax noise patterns;
+    (2) smooth GNMax has smaller noise but narrower security margin; (3) data-dependent
+    GNMax reveals aggregate teacher confidence patterns exposing training data distributions.
+    Student model queries can reveal approximate teacher vote counts.'
+  remediation: Validate PATE uses smooth GNMax (Papernot 2018) rather than basic GNMax.
+    Ensure teacher subsets are strictly disjoint with no overlap. Rate-limit student
+    model queries per session. Monitor for repeated-query patterns consistent with
+    histogram vote reconstruction.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-043
+  name: histogram-density-estimation-dp-auditing
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)hockey_stick.*histogram|histogram.*hockey_stick
+  - (?i)koskela.*audit|density_estimation.*dp_audit|dp_audit.*density_estimation
+  - (?i)bin_width.*dp_audit|audit.*bin_histogram|H_e.*divergence.*discrete
+  - (?i)mechanism_agnostic.*audit|agnostic.*dp.*audit|audit.*subsampled.*gaussian
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: Histogram-based density estimation DP auditing (Koskela Nokia Bell Labs
+    2024) detected
+  description: Detects histogram density estimation approach to DP auditing (Koskela
+    & Mohammadi, Nokia Bell Labs, arXiv 2406.04827, Oct 2024). Computes H_e^ε(P||Q)
+    = ∫[P(t) − e^ε·Q(t)]+ dt via discrete histogram approximation over mechanism outputs
+    from neighboring datasets D and D'. Mechanism-agnostic — no prior knowledge of
+    noise distribution or subsampling ratio needed. Solves previously open problem
+    of auditing the subsampled Gaussian mechanism. Generalizes threshold MIA as a
+    2-bin special case. White-box variant estimates full privacy loss distribution
+    for composition analysis. Can audit FL servers that do not disclose their noise
+    mechanism type. Addresses instability issues in f-DP auditing from Nasr et al.
+    2023.
+  remediation: Histogram auditing enables mechanism-agnostic detection of DP violations
+    in black-box FL systems. Ensure DP mechanisms are validated internally before
+    deployment. Restrict repeated output queries from single clients feeding histogram
+    estimation. Implement query diversity monitoring.
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-044
+  name: apt-fdp-sequential-auditing
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)apt_algorithm|advanced_privacy_testing|APT\s*(?:=|\(|algorithm)
+  - (?i)brownian_motion.*dp|fdp.*apt|sequential_fdp_audit
+  - (?i)kutta.*sequential|sequential.*fdp.*audit|fdp_audit.*adaptive
+  - (?i)burn_in_sample.*fdp|burn.in.*calibration.*dp|fdp.*online_classifier
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: APT (Advanced Privacy Testing) sequential f-DP auditor (Kutta arXiv 2026)
+    detected
+  description: 'Detects APT algorithm implementation (Kutta et al. arXiv 2602.06518,
+    Feb 2026, github.com/martindunsche/sequential_fdp_auditing): first sequential
+    auditor for f-Differential Privacy. Detects violations across entire (ε,δ) trade-off
+    curve simultaneously vs Gonzalez et al. (only ε≪0.6). Uses Brownian motion approximations
+    for anytime-valid sequential testing. Adaptively stops when sufficient evidence
+    accumulates. Samples only 22% of what Gonzalez et al. requires at ε=0.01. Algorithm:
+    burn-in M samples → OGA classifier update every M₁ steps → statistics â_φ, b̂_φ
+    every M₂ steps → test T̂_β < f(T̂_α). Detects Gaussian, Laplace, and DP-SGD violations.
+    Supports whitebox and blackbox settings.'
+  remediation: f-DP auditing detects violations in intermediate (ε,δ) ranges that
+    standard (ε,δ)-DP auditing misses. Validate DP implementations against APT before
+    production deployment. The adaptive sample efficiency makes it practical for budget-limited
+    adversaries probing production ML APIs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-045
+  name: mmd-evalue-sequential-dp-audit
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)mmd_evalue|mmd.*e.value|e.value.*dp.*sequential
+  - (?i)OGA.*ONS.*dp|oga_ons_audit|online_newton_step.*dp
+  - (?i)gonzalez.*sequential|sequential.*mmd.*dp|anytime_valid.*dp
+  - (?i)dp_sequential_test|sequential_dp_test|sequential_hypothesis.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Sequential MMD e-value DP auditing (Gonzalez NeurIPS 2025) detected
+  description: 'Detects MMD e-value sequential DP auditing (Gonzalez et al. NeurIPS
+    2025, github.com/google-research/google-research/tree/master/dp_sequential_test).
+    Uses Maximum Mean Discrepancy (MMD)-based e-values. Running product S_t = ∏ E_i
+    rejects H_0 when S_t > 1/γ. OGA+ONS (Online Gradient Ascent + Online Newton Step)
+    adaptively updates kernel weights. Reduces sample requirement from ~50,000 to
+    hundreds: detects non-private DP-SGD in average 60 observations vs prior fixed-batch
+    auditors requiring ~50K. Budget-efficient for adversarial use against production
+    DP-ML APIs. Single training run sufficient.'
+  remediation: Sequential auditing efficiently detects DP violations with very few
+    observations. Monitor API query patterns for alternating-neighborhood sequences
+    consistent with sequential hypothesis testing. Implement per-client query rate
+    limiting and sequence pattern detection.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-046
+  name: fdp-unified-reidentification-attribute-reconstruction
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)riskcal|risk_calibrated.*dp|fdp.*risk_calibrated
+  - (?i)succ_leq_1_minus_f|fdp_risk_bound|fdp.*unified.*risk
+  - (?i)reidentification.*attribute.*reconstruction.*fdp|fdp.*three.*risk
+  - (?i)felipe.gomez.*riskcal|riskcal.*fdp|fdp.*tradeoff.*risk.*bound
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: f-DP unified risk framework (riskcal, Kulynych NeurIPS 2025) detected
+  description: 'Detects riskcal library usage (Kulynych et al. EPFL/Harvard/Google
+    DeepMind, NeurIPS 2025, github.com/Felipe-Gomez/riskcal). Unifies re-identification,
+    attribute inference, and data reconstruction risks under f-DP trade-off function
+    f. Unified bound: succ ≤ 1 − f(base_rate) for any attack type simultaneously.
+    Enables 20% noise reduction at the same risk level vs separately bounding each
+    attack type. On GPT-2 text classification: 52% → 70% accuracy at equal risk level.
+    US Census 2020: 33% lower reconstruction risk using f-DP calibration. Organizations
+    using (ε,δ)-DP may add excess noise (utility waste) OR underestimate specific
+    attack-type risks when using only point (ε,δ) parameters.'
+  remediation: Use riskcal for multi-attack-type risk calibration when multiple risk
+    types (MIA + attribute inference + reconstruction) must be jointly bounded. Single-risk
+    DP calibration may waste noise budget or leave specific attack types under-protected.
+    Validate against full f-DP trade-off curve.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-047
+  name: dpsgd-tokenizer-incompatibility
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)sentencepiece.*dp|dp.*sentencepiece|bpe.*dp_sgd
+  - (?i)subword.*tokenizer.*(?:dp|privacy)|wordpiece.*dp_sgd
+  - (?i)ponomareva.*tokenizer|dp.*tokenizer.*incompatib
+  - (?i)word_level_dp.*subword|subword.*word.level.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: DP-SGD subword tokenizer incompatibility — breaks word-level DP (Ponomareva
+    JAIR 2023)
+  description: 'Detects subword tokenizer usage with DP-SGD, which breaks word-level
+    privacy guarantees. Ponomareva et al. JAIR 2023 identifies subword tokenizers
+    (SentencePiece, BPE, WordPiece) as incompatible with word-level DP: a single word
+    may be split into multiple tokens, and per-example gradient clipping operates
+    at the token level. Single-word examples receive insufficient gradient noise per
+    word, allowing word-level inference even at stated ε values. Applies to all BERT/GPT
+    fine-tuning with DP-SGD. The DP guarantee is at the token-example granularity,
+    NOT the word granularity — this mismatch creates a systematic privacy under-claim.'
+  remediation: 'For word-level DP: (1) use word-level tokenizers and account for maximum
+    tokens per word in gradient clipping; or (2) restrict DP claims to example-level
+    granularity. Verify DP claims match the actual granularity of protection when
+    using subword tokenizers with DP-SGD.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-048
+  name: dp-outlier-member-inversion-attack
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)member_outlier.*dp|dp.*member_outlier|outlier.*dp.*member
+  - (?i)dp_sgd.*protects.*non.member|non.member.*outlier.*dp
+  - (?i)privacy_inversion.*dp|dp.*privacy_inversion|outlier.*flip.*dp
+  - (?i)liu.*waterloo.*dp.*sam|sam.*outlier.*dp|dp.*wrong.*direction.*outlier
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP-SGD member outlier inversion vulnerability (Liu Waterloo 2021) detected
+  description: 'Detects code patterns consistent with the member outlier inversion
+    flaw in DP-SGD (Liu et al. University of Waterloo, arXiv:2110.05524, 2021). DP-SGD
+    clips large gradient norms — by design this preferentially suppresses gradients
+    from outlier member samples (which have large gradients due to memorization).
+    Result: DP-SGD protects non-member outliers MORE than member outliers, inverting
+    the intended protection direction. CIFAR-100: DP-SGD leaves member outliers detectably
+    exposed while SAM without DP achieves better member-outlier protection at same
+    accuracy. Adversary targeting rare/outlier class members achieves higher MIA success
+    specifically against DP-SGD vs non-private models.'
+  remediation: Apply per-class or per-sample gradient clipping calibrated to each
+    sample's rarity. Use DP-SAM hybrid for formal guarantees with better outlier protection.
+    Audit MIA success rates on outlier/rare-class members specifically, not only on
+    average-case samples.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-049
+  name: fl-ldp-property-inference-bypass
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)property_inference.*(?:fl|federated).*ldp|ldp.*fl.*property_inference
+  - (?i)gender_ratio.*gradient_update|race_distribution.*model_update
+  - (?i)global_property.*ldp.*(?:leak|infer|attack)|participant_property.*ldp
+  - (?i)naseri.*property|ldp.*global.*property.*inference
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: FL property inference attack bypassing LDP (Naseri NDSS 2022) detected
+  description: 'Detects FL property inference attacks that LDP categorically cannot
+    prevent (Naseri et al. NDSS 2022). LDP provides only record-level privacy, not
+    dataset-level or participant-level property privacy. Adversary infers global properties
+    of a participant''s training data (gender ratio, race distribution) from LDP-protected
+    model updates because LDP noise cannot hide aggregate statistics when updates
+    correlate with global data properties. LFW dataset experiment: LDP fully fails
+    to stop gender ratio inference. CDP theoretically defends but requires ε<5 leaving
+    only 57% main task accuracy — impractical. Fundamental limitation: LDP ≠ property
+    privacy regardless of ε value.'
+  remediation: If participant-level property confidentiality is required, use CDP
+    with tight ε (<5) or secure aggregation protocols (Bonawitz et al. 2017). LDP
+    alone is categorically insufficient for property privacy. Restrict what global
+    statistics are inferable from FL model update aggregation patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-050
+  name: fl-cdp-ldp-backdoor-persistence
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)model_replacement.*dp.*fl|fl.*dp.*model.replacement
+  - (?i)semantic_backdoor.*dp|dp.*semantic_backdoor.*fl
+  - (?i)fl_backdoor.*(?:ldp|cdp).*success|backdoor.*norm_bound.*comparison
+  - (?i)naseri.*fl.*backdoor|fl.*weak_dp.*backdoor
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: FL backdoor persistence against LDP/CDP comparison (Naseri NDSS 2022) detected
+  description: 'Detects FL backdoor persistence testing across DP mechanisms (Naseri
+    et al. NDSS 2022). Model-replacement strategy: Δθ_attacker = (Σn_i / η·m_attacker)·(θ*
+    − θ_r). Results: LDP (ε=3) reduces EMNIST backdoor from 88% to 10%; LDP (ε=7.5)
+    still 47%; CDP (ε=3) strongest: reduces to 6%; Norm bounding (T=3): only 37% reduction;
+    Weak DP: 16%. Key finding: applying LDP only to non-attacking participants can
+    unintentionally BOOST backdoor attack accuracy. Semantic backdoor (CIFAR10: cars→cats)
+    and Reddit word-prediction triggers are more resistant than pixel-trigger at same
+    ε. CDP consistently outperforms LDP across all backdoor scenarios.'
+  remediation: Use CDP (ε ≤ 3) for strongest backdoor mitigation. Apply LDP uniformly
+    to ALL participants — selective LDP application may amplify attack. Combine with
+    Byzantine-robust aggregation (Krum, FedMedian) for defense in depth. Monitor per-participant
+    gradient norm distributions for model-replacement signals.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-051
+  name: ami-certified-success-chosen-neuron
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)chosen_neuron_embed|embed_chosen_neuron|membership_probe_neuron
+  - (?i)AMI\s*(?:=|\(|Attack)|ami_attack|active_mia_fl
+  - (?i)ome_ldp.*fl|bitrand_ldp.*fl|ldp_mechanism.*fl.*active
+  - (?i)certified_success.*mia|mia.*certified_guarantee|hoeffding.*ami
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: AMI certified-success Active MIA via chosen neuron embedding (Nguyen AISTATS
+    2023)
+  description: 'Detects Active Membership Inference (AMI) attack implementation (Nguyen
+    et al. AISTATS 2023, github.com/trucndt/ami). Dishonest FL server embeds chosen
+    neuron h into layer 2 of global model: s(x) = σ(h·ReLU(W·x)); s(t)=1, s(x≠t)=0.
+    LDP extension: neuron trained on randomized versions M(t,ε) using OME or BitRand
+    mechanisms. Membership decision: gradient of chosen neuron g_t ≠ 0 → t ∈ D (member).
+    Certified Guarantee (Theorem 1): AMI succeeds when Ê^lb[v(t)] > 0 and Ê^ub[v(x)]
+    ≤ 0 ∀x ≠ M(t,ε) — server verifies success probability before launching. Near-100%
+    success on CIFAR-10/ImageNet/CelebA (batch=64). Completes in one FL round. 1000
+    neurons in layer 1, 1 in layer 2.'
+  remediation: Verify global model architecture before client gradient computation
+    — do not blindly trust server-provided model parameters. Inspect layer 2 FC parameters
+    for anomalous binary-classification neuron patterns. Deploy model verification/attestation
+    protocols. Use trusted execution environments (TEE) to prevent server-side model
+    modification.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-DP-SCAN-052
+  name: label-only-mia-dp-bypass
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)label_only.*(?:mia|membership_inf|attack)|label.only.mia
+  - (?i)decision_boundary.*(?:mia|membership)|boundary_dist.*membership
+  - (?i)augmentation_based.*mia|mia.*augmentation_based
+  - (?i)choquette.choo.*mia|hard_label.*membership|label.only.*privacy_attack
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Label-only MIA (prediction labels only, no confidence scores) detected
+  description: 'Detects label-only MIA that bypasses confidence score suppression
+    defenses. Hu et al. ACM ComSurveys 2022 and Rigaki & Garcia ACM ComSurveys 2023
+    catalog label-only MIA variants: (1) Li & Zhang (2020) data augmentation MIA —
+    member samples maintain correct label across augmentations more consistently than
+    non-members; (2) Choquette-Choo et al. (2021) decision boundary distance MIA —
+    members are typically closer to the decision boundary. MemGuard, confidence rounding,
+    and output perturbation do NOT prevent label-only MIA. Effective against DP-protected
+    models that output only predicted class labels for GDPR/privacy compliance.'
+  remediation: Label-only MIA cannot be defeated by confidence score suppression alone.
+    Requires DP-SGD or formal mechanisms. Consider prediction randomization affecting
+    label distributions as well as confidence. Implement per-session query rate limits
+    to prevent augmentation-based MIA accumulation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-053
+  name: adversarial-regularization-non-dp-privacy-bypass
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)adversarial_regularization.*mia|adv_reg.*membership
+  - (?i)memguard|mem_guard.*confidence|MemGuard\s*(?:=|\()
+  - (?i)nasr.*min_max.*mia|min_max.*privacy.*training|adversarial.*privacy.*training
+  - (?i)knowledge_distillation.*privacy.*attack|privacy.*distillation.*mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Non-DP adversarial regularization / MemGuard defense — vulnerable to stronger
+    MIA (Hu 2022)
+  description: 'Detects non-DP adversarial regularization MIA defenses and attack
+    patterns against them. Hu et al. ACM ComSurveys 2022 identifies: (1) adversarial
+    regularization (Nasr 2018) — min-max training against MIA classifier, weaker than
+    DP-SGD without formal guarantees; (2) MemGuard — perturbs confidence vectors to
+    fool MIA classifier, bypassed by label-only MIA; (3) knowledge distillation —
+    trains smaller student with less memorization, but distilled models remain vulnerable
+    to LiRA. All three defenses are empirically breakable by stronger attacks (LiRA,
+    label-only, boundary distance). Attackers identify weaker non-DP defense in use
+    and redirect to appropriate bypass strategy.'
+  remediation: Non-DP defenses provide empirical privacy without formal guarantees.
+    For provable privacy, use DP-SGD. Combine multiple defenses (DP + MemGuard + rate
+    limiting) for defense in depth. Test all defenses against LiRA and label-only
+    MIA, not just shadow training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-054
+  name: pointwise-membership-privacy-pmp-analysis
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)pointwise_membership_privacy|PMP\s*(?:=|\(|bound)
+  - (?i)per_sample.*privacy_loss|privacy_loss.*per_sample|sample_privacy_loss
+  - (?i)lowy.*pmp|pmp.*large_epsilon|per.individual.*dp.*bound
+  - (?i)distributional_dp|DDP\s*(?:=|\(|membership)|per.sample.*membership.*bound
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: Pointwise Membership Privacy (PMP) per-individual risk profiling (Lowy
+    MERL 2024)
+  description: 'Detects PMP (Pointwise Membership Privacy) framework (Lowy et al.
+    MERL, arXiv 2024). PMP bounds per-sample membership advantage for a specific sample
+    z: PMP(z) = sup KL(M(D) || M(D\{z})) — a finer-grained notion than worst-case
+    ε. Explains why large-ε DP empirically defends against practical MIA: most training
+    samples have low pointwise privacy loss despite high worst-case ε. However, high-value
+    individual targets (rare demographic groups, outliers) have elevated PMP even
+    at ε=10. Adversaries using PMP can identify which individuals are most vulnerable
+    and focus MIA resources on them. Exposes per-individual differential attack surfaces
+    hidden by aggregate ε metrics.'
+  remediation: PMP-aware adversaries target high-PMP individuals rather than average-case
+    MIA. For high-value individual privacy (medical, genomic, financial data), do
+    not rely on large-ε DP alone. Use tight ε (≤ 1) or compute per-individual PMP
+    values. Flag high-PMP individuals for additional protection measures.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-055
+  name: ldp-fl-zero-gradient-noise-estimation
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)zero_gradient.*noise_estimation|zero_grad.*sigma_estimate
+  - (?i)confidence_interval.*noise_filter|ldp.*noise.*filter.*ci
+  - (?i)metric_layer.*reconstruction|metric_imprint.*gradient
+  - (?i)separation_layer.*laplace_bias|laplace_bias.*gradient_compress
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: LDP-FL reconstruction via zero-gradient noise estimation (You arXiv 2502.08151,
+    2025)
+  description: 'Detects specific techniques from the You et al. 2025 LDP-FL reconstruction
+    attack (arXiv:2502.08151). Zero-gradient noise estimation (step 8): submit zero-gradient
+    request to observe pure noise distribution, estimate σ; build confidence interval
+    [-c,c] from estimated σ to filter non-noise gradient components. Metric layer:
+    imprints mean, variance, total variation of target image onto gradient via auxiliary
+    metric layer for optimization objective (Eq. 24). Separation layer with Laplace-distributed
+    biases compresses per-sample gradient contributions without norm expansion. Full
+    8-step pipeline achieves reconstruction at ε=10 — only known attack effective
+    on LDP-protected FL gradients at batch=16 on ResNet101/ImageNet.'
+  remediation: LDP with ε=10 is proven insufficient against this attack. Require ε
+    < 1 for image-level protection (severe utility cost). Restrict server control
+    over global model architecture — prevent insertion of separation/metric layers.
+    Monitor for zero-gradient probing requests from FL server. Use homomorphic encryption
+    for gradient transmission.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-056
+  name: timberstrike-fl-framework-specific-reconstruction
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)flower.*gbdt.*reconstruct|nvflare.*reconstruct|fedtree.*reconstruct
+  - (?i)fedxgbllr|fed_xgb_llr|federated_xgb_llr
+  - (?i)feature_range_inference.*milp|milp.*feature_range
+  - (?i)first_tree_probing.*(?:flower|nvflare|fedtree)|fl.*tree.*structure.*probe
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: TimberStrike federated GBDT reconstruction on Flower/NVFlare/FedTree frameworks
+  description: 'Detects TimberStrike attack variants across specific FL frameworks
+    (Gennaro et al. Politecnico di Milano, PoPETS 2025(4), github.com/necst/TimberStrike).
+    Framework-specific results: Flower (GBDT): 73.05-86.86% reconstruction accuracy
+    on Stroke Prediction dataset; FedXGBllr: 95.63% reconstruction on top-5 features;
+    NVFlare: partially reconstructed. Two-phase: (1) First-Tree Probing — malicious
+    server sends designed first tree to extract data distribution from client response;
+    (2) Feature Range Inference — MILP-based reconstruction of feature ranges per
+    training sample. Tree-based FL (Flower, NVFlare, FedTree) were assumed private-by-federated-design
+    but are vulnerable to reconstruction from a compromised aggregator.'
+  remediation: Add DP noise to tree splits (at significant accuracy cost). Use PATE-style
+    ensemble over federated GBDT for tabular private data. Restrict sharing of first-tree
+    structure. Apply differential noise to tree split thresholds before transmission.
+    Rate-limit tree structure queries from FL clients.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-057
+  name: dp-active-learning-cf-defense-bypass
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dp_post_al|dp.*post.*active_learning|al_guided_dp
+  - (?i)active_learning.*dp_sgd.*(?:defense|mia|privacy)|dp_sgd.*active_learning.*defense
+  - (?i)informative_subset.*dp|dp.*informative_subset
+  - (?i)ezzeddine.*cf.*dp|cf.*mlaas.*mia.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: DP + Active Learning defense configuration and bypass surface (Ezzeddine
+    2026)
+  description: 'Detects DP-Post-AL and AL-Guided-DP defense configurations (Ezzeddine
+    et al. arXiv 2602.03611, 2026). DP-Post-AL: apply Active Learning first (select
+    most informative training subset), then DP-SGD — stronger privacy at small ε but
+    reduces utility. AL-Guided-DP: incorporate AL during DP-SGD training steps — best
+    privacy-utility balance. Context: responses to CF-amplified MIA (at ε=5, CF exposure
+    raises MIA accuracy from 38% to 74%). Attack surface: AL-selected training data
+    is non-uniform and predictable, potentially reducing the effective canary insertion
+    space. XGBoost attack model with CF features (50 estimators, max depth 15) remains
+    effective even against DP-Post-AL at large ε. CF quality (proximity) stays stable
+    under DP, meaning CF disclosures leak membership even in DP-protected systems.'
+  remediation: Restrict CF/counterfactual explanation API access for DP-protected
+    models regardless of active learning configuration. Use AL-Guided-DP for best
+    privacy-utility balance. Monitor for correlated CF query patterns signaling MIA
+    signal extraction attempts. Block NICE/XGBoost-compatible CF feature combinations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-058
+  name: dp-delta-too-large-reporting-violation
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)delta\s*[>>=]+\s*(?:0\.1|0\.01|1e-2\b)|delta\s*=\s*(?:0\.1|0\.01)\b
+  - (?i)delta_over_n|delta.*too_large|delta.*larger_than.*1_over_n
+  - (?i)ponomareva.*delta|delta_recommendation.*dp|delta.*negligible.*n
+  - (?i)privacy_report.*delta|report.*delta.*dp.*(?:negligible|small|recommendation)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP delta parameter too large — delta >> 1/n makes (epsilon,delta)-DP nearly
+    trivial
+  description: 'Detects DP configurations with δ much larger than 1/n. Ponomareva
+    et al. JAIR 2023 specifies δ ≪ 1/n as a hard requirement for meaningful (ε,δ)-DP:
+    when δ ≥ 1/n, the privacy guarantee can be violated with non-negligible probability
+    over the training run. Standard: δ = 10⁻⁵ for n≥100,000. Attackers probe for δ=0.01
+    or 0.1 configurations which dramatically weaken formal guarantees while appearing
+    to satisfy DP notation. Real-world consequence: δ=0.01 on n=100 dataset means
+    the DP guarantee fails on 1% of training runs by design — the training data can
+    be exactly disclosed for those runs. This is exploitable in adversarial federated
+    learning scenarios.'
+  remediation: Enforce δ ≤ 1/(n·ln(n)) as a configuration constraint. Reject DP training
+    configurations with δ > 10⁻⁴ for datasets of n < 10,000. Always report δ alongside
+    ε in privacy claims. Validate reported δ satisfies δ ≪ 1/n. Implement automated
+    δ validation in training pipeline startup.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-059
+  name: gan-generative-model-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)gan_mia|membership.*(?:gan|vae|diffusion)|(?:gan|vae|diffusion).*membership_inf
+  - (?i)dp_gan|private_gan|dp.*gan.*(?:mia|membership|privacy_attack)
+  - (?i)generator.*discriminator.*membership|stylegan.*mia|generative.*membership_inf
+  - (?i)logan.*attack|hayes.*gan.*mia|reconstruction_error.*membership.*gen
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: GAN / generative model membership inference attack (LOGAN / DP-GAN bypass)
+    detected
+  description: 'Detects MIA against DP-protected generative models (GANs, VAEs, diffusion
+    models). Hu et al. ACM ComSurveys 2022 and Rigaki & Garcia ACM ComSurveys 2023
+    document generative model MIA: Hayes et al. (LOGAN) attack trains discriminator-like
+    classifier to distinguish real training images from GAN-generated samples via
+    reconstruction error — members produce lower reconstruction error. Unprotected
+    GAN: 65%+ membership success. DP-GAN (ε=1): reduces attack but severely degrades
+    sample quality. DP does not prevent attribute inference from generated samples
+    — style/texture correlations with training data persist even at moderate ε. Diffusion
+    model MIA follows similar reconstruction-error methodology.'
+  remediation: DP-GAN requires ε ≤ 1 for meaningful MIA protection with significant
+    quality degradation. Monitor GAN query patterns consistent with reconstruction-error-based
+    membership scoring. Restrict GAN API output quantity per query session. Consider
+    output watermarking to trace membership inference attempts against generative
+    models.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-060
+  name: model-extraction-dp-protected-api
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)model_extraction.*dp|dp.*model_extraction|model_steal.*dp
+  - (?i)model_clone.*(?:dp|privacy)|functional_replication.*dp
+  - (?i)knockoff.*(?:dp|private)|dp.*model.*clone|substitute_model.*dp
+  - (?i)model_distillation.*steal|surrogate.*dp.*model|tramer.*model.*steal.*dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Model extraction / functional cloning attack against DP-protected model
+    detected
+  description: 'Detects model extraction attacks against DP-protected models (Rigaki
+    & Garcia ACM ComSurveys 2023). Model extraction (Tramer et al. 2016, Knockoff
+    Nets): adversary queries target DP model, uses outputs to train functionally equivalent
+    substitute model. Against DP models: (1) extracted model does NOT inherit DP guarantees
+    — no formal privacy bound; (2) extracted model may memorize patterns from DP model
+    outputs that correlate with training data; (3) substitute model enables white-box
+    MIA against extracted model to infer training data membership indirectly. DP does
+    not prevent model extraction — DP models may actually be easier to extract due
+    to higher-entropy (more uniform) output distributions caused by noise.'
+  remediation: DP does not prevent model extraction. Implement query rate limiting,
+    output watermarking, and API fingerprinting to detect extraction attempts. Monitor
+    for systematic query coverage patterns consistent with functional extraction.
+    Track query diversity metrics to flag exhaustive input-space coverage.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-061
+  name: gaussian-mechanism-under-calibrated-sigma
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)gaussian_mechanism|gaussian_noise_scale|gauss_noise
+  - (?i)noise_multiplier\s*=\s*0\.[0-9]|sigma\s*=\s*0\.(?:0|1)[^0-9]
+  - (?i)calibrate_gaussian|sensitivity\s*/\s*epsilon
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Gaussian mechanism with dangerously low noise multiplier detected
+  description: 'Detects Gaussian mechanism with under-calibrated sigma. Koskela &
+    Mohammadi (Nokia Bell Labs, 2024): histogram auditing reveals true epsilon without
+    knowing sigma, exposing mis-calibration. Chua et al. (Google, JPrivConf 2025):
+    epsilon_shuffle > epsilon_Poisson for sigma in [1,5], compounding under-calibration.
+    Zhang & Zhang (Hainan Univ., 2025 survey): low-sigma Gaussian mechanisms provide
+    negligible MIA resistance.'
+  remediation: Use noise_multiplier >= 1.0 for epsilon < 10. Validate sigma via LDP-Auditor.
+    Switch from shuffle DataLoader to BB sampler (Chua et al. 2025).
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-062
+  name: laplace-mechanism-large-epsilon-bypass
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)laplace_mechanism|lap_noise|laplace_noise\s*\(
+  - (?i)add_laplace_noise|b\s*=\s*sensitivity\s*/\s*eps
+  - (?i)sensitivity\s*=\s*[0-9]+.*epsilon\s*=\s*(?:[5-9]|[1-9][0-9])
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: Laplace mechanism with large epsilon or over-estimated sensitivity
+  description: 'Detects Laplace mechanism with large epsilon (>= 5). Koskela & Mohammadi
+    (2024): density-estimation auditing recovers true Laplace epsilon without knowing
+    b. Gonzalez et al. (NeurIPS 2025): Laplace violations detected in < 60 sequential
+    MMD observations. Arcolezi & Gambs (PoPETS 2024): GRR achieves tightest empirical
+    epsilon among LDP protocols — Laplace at large epsilon is inferior.'
+  remediation: Audit Laplace mechanisms with histogram density method (Koskela 2024).
+    Prefer GRR for frequency estimation. Never manually set sensitivity without automated
+    analysis.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-063
+  name: exponential-mechanism-utility-probe
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)exponential_mechanism|exp_mech\s*\(|report_noisy_max
+  - (?i)utility_function|quality_score|score_sensitivity
+  - (?i)sensitivity_utility|exponential_dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Exponential mechanism with accessible utility function — probing risk
+  description: 'Detects exponential mechanism where utility function is accessible.
+    Rigaki & Garcia (ACM ComSurveys 2023): model extraction attacks probe utility
+    functions in DP selection mechanisms. Adversary reconstructs utility function
+    via repeated queries, inferring intended outputs without noise. Kutta et al. (arXiv
+    2026): f-DP sequential auditing catches exponential mechanism violations.'
+  remediation: Keep utility functions server-side. Apply output perturbation after
+    exponential mechanism selection. Audit with f-DP sequential auditor (Kutta et
+    al. 2026).
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-064
+  name: zcdp-last-iterate-composition-exploit
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)zcdp|zero_cdp|concentrated_dp|cdp_accountant
+  - (?i)rho_cdp|zcdp_to_eps|cdp_to_dp
+  - (?i)advanced_composition_zcdp|concentrated_privacy
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: zCDP accounting — last-iterate advantage not accounted for, epsilon overstated
+  description: 'Detects zCDP accounting usage. Steinke et al. (ICLR 2025): linearized
+    heuristic epsilon is strictly lower than standard zCDP composition (e.g., 6 vs
+    8-26 for Gemma 2). Chua et al. (Google, 2025): composition-based accounting is
+    conservative when only final model is released. zCDP-to-(epsilon,delta) without
+    last-iterate correction leads to over-noising or false epsilon claims. Kutta et
+    al. (2026): f-DP auditing catches zCDP violations across the full trade-off curve.'
+  remediation: Apply linearized heuristic analysis (Steinke et al. ICLR 2025) for
+    last-iterate-only release. Validate with f-DP auditing (Kutta et al. 2026).
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-065
+  name: prv-fourier-accountant-shuffle-incompatibility
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)prv_accountant|privacy_random_variable|prv_to_eps
+  - (?i)fourier_accountant|numerical_composition_dp
+  - (?i)compose_prv|characteristic_function_prv
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: PRV / Fourier accountant — shuffle DataLoader incompatibility creates silent
+    epsilon understatement
+  description: 'Detects PRV accountant usage. Chua et al. (Google, JPrivConf 2025):
+    PRV accounting uses Poisson subsampling assumptions incompatible with shuffle
+    DataLoader (PyTorch default). PRV-computed epsilon values understate actual privacy
+    loss when shuffle sampling is used. Koskela & Mohammadi (2024): density-estimation
+    auditing catches this gap without knowing mechanism parameters.'
+  remediation: Switch to BB sampler or Truncated Poisson Batch Generator (Chua et
+    al. 2025). Validate PRV epsilon via histogram density audit (Koskela & Mohammadi
+    2024).
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-066
+  name: population-mia-reference-threshold
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)population_mia|population_attack|reference_dataset_mia
+  - (?i)avg_loss_population|reference_loss|out_of_distribution_mia
+  - (?i)global_threshold_mia|population_loss_threshold
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Population MIA using reference dataset loss threshold against DP model
+  description: 'Detects population-based MIA. Lowy et al. (MERL, 2024): Pointwise
+    Membership Privacy (PMP) explains why population MIA succeeds at large epsilon
+    — outlier/minority samples have high PMP even when aggregate DP epsilon is large.
+    Rigaki & Garcia (ACM ComSurveys 2023): population MIA is the standard baseline
+    against which all DP defenses must be evaluated.'
+  remediation: Use DP-SGD with epsilon < 3. Apply PMP analysis (Lowy et al. 2024)
+    to identify high-risk outlier samples. Enforce user-level DP for repeated-appearance
+    records.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-067
+  name: metric-mia-modified-entropy-yeom
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)threshold_mia|yeom_attack|loss_threshold_attack
+  - (?i)modified_entropy_mia|correctness_mia|membership_advantage\s*=
+  - (?i)member_loss\s*<\s*threshold
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Metric-based MIA (Yeom threshold or modified entropy) detected
+  description: 'Detects Yeom threshold attack (loss < avg training loss → member).
+    Lowy et al. (MERL, 2024): Yeom membership advantage bound (ADV <= e^epsilon -
+    1) is loose at large epsilon because it uses worst-case (epsilon,delta)-DP rather
+    than Pointwise Membership Privacy. Liu et al. (AAAI 2021): generalization-based
+    metrics outperform DP signals in many MIA vulnerability prediction settings.'
+  remediation: Monitor train/test loss gap as leading MIA indicator. Deploy DP-SGD
+    to reduce overfitting. Do not expose raw confidence scores in APIs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-068
+  name: dp-medical-dl-fairness-disparity
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dp_medical|medical_dp_sgd|clinical_dp_training
+  - (?i)hipaa_dp|ehr_dp_model|genomic_dp_sgd|mri_dp
+  - (?i)chest_xray_dp|radiology_dp|ct_scan_dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP-SGD in medical DL — verify epsilon and demographic fairness impact
+  description: 'Detects DP-SGD in medical DL. Mohammadi et al. (FAU/Stanford, arXiv
+    2025, 74-study review): epsilon ≈ 10 preserves performance in well-structured
+    imaging; epsilon ≈ 1 causes severe accuracy degradation for underrepresented subgroups.
+    Chen et al. (2020): genomic MIA achieves 90%+ accuracy despite DP at high epsilon.
+    Attack surfaces: CT (13 studies), MRI (7), chest X-ray, EHR (7), genomics (6),
+    dermatology (7). Fairness: DP noise disproportionately harms minority demographics.'
+  remediation: Use pre-training on public medical datasets. Audit subgroup fairness
+    (Mohammadi et al. 2025). For genomic data, epsilon < 1. Report epsilon, delta,
+    AND neighboring definition in compliance filings.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-069
+  name: dp-nlp-lm-cf-amplified-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dp_nlp|dp_bert|dp_gpt|dp_language_model
+  - (?i)differentially_private_fine_tuning|dp_lora|canary_extraction_lm
+  - (?i)memorization_lm_dp|dp_adam_nlp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP NLP fine-tuning — canary extraction and CF-amplified MIA risk
+  description: 'Detects DP-protected NLP fine-tuning. Steinke et al. (Google DeepMind,
+    ICLR 2025): Gemma 2 on PersonaChat — standard epsilon = 8-26, linearized heuristic
+    epsilon ≈ 6, empirical epsilon ≈ 2. Kulynych et al. (NeurIPS 2025): f-DP calibration
+    improves GPT-2 accuracy from 52% to 70% at same risk level. Ezzeddine et al. (arXiv
+    2026): CF explanations nearly double MIA success at epsilon=5. Ponomareva et al.
+    (Google, 2023): canary extraction is the primary DP-LM threat.'
+  remediation: Use linearized heuristic epsilon (Steinke et al. ICLR 2025). Apply
+    f-DP calibration via riskcal (Kulynych et al. 2025). Disable CF explanations in
+    MLaaS deployments.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-070
+  name: tabular-ehr-dp-mia
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)tabular_mia|ehr_mia|clinical_record_mia
+  - (?i)patient_data_mia|dp_ehr|structured_data_mia|healthcare_mia
+  - (?i)ehr_dp_sgd|clinical_dp_model
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.yaml'
+  message: MIA against DP-protected EHR or tabular clinical data
+  description: 'Detects MIA targeting DP-protected EHR or tabular clinical models.
+    Mohammadi et al. (2025 medical survey, 74 studies): tabular clinical data (15
+    studies) is particularly vulnerable at epsilon >= 5. TimberStrike (Gennaro et
+    al. PoPETS 2025) achieves 73-95% reconstruction on Stroke Prediction tabular data.
+    MILP reconstruction is effective on low-dimensional tabular features (10-50 columns).
+    Paulson et al. (2025) study DP on EHR data specifically.'
+  remediation: Apply epsilon < 1 for EHR under HIPAA. Use BB sampler (Chua et al.
+    2025). Audit per demographic subgroup. Avoid federated GBDT/XGBoost without secure
+    aggregation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-071
+  name: olh-domain-size-distinguishability-attack
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)olh_attack|optimized_local_hashing|olh_distinguishability
+  - (?i)olh_protocol|two_universal_hash_ldp|hadamard_mechanism
+  - (?i)local_hashing_attack|optimized_lh
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: OLH distinguishability attack — epsilon_emp up to 4x theoretical at small
+    domain
+  description: 'Detects attacks on OLH (Optimized Local Hashing). Arcolezi & Gambs
+    (PoPETS 2024): at k=25 domain size, OLH epsilon_emp is within 4x of theoretical
+    — the worst gap ratio among all audited LDP protocols. Adversaries exploit hash
+    function collision patterns at small domains to mount more effective distinguishability
+    attacks than against GRR.'
+  remediation: For small domain sizes (k < 100), prefer GRR over OLH. Set theoretical
+    epsilon at 1/4 of desired empirical level to account for OLH gap.
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-072
+  name: blh-production-bug-epsilon-contradiction
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)blh_protocol|binary_local_hash|binary_lh\s*\(
+  - (?i)blh_ldp|pure_ldp.*blh|multifr.*blh
+  - (?i)binary_hash_ldp|blh_frequency
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: BLH — known production bug where epsilon_emp contradicts theoretical upper
+    bound
+  description: 'Detects BLH usage. Arcolezi & Gambs (PoPETS 2024): critical bug in
+    state-of-the-art LDP Python packages — BLH epsilon_emp contradicts its theoretical
+    upper bound, providing LESS privacy than claimed. At epsilon >= 2, epsilon_emp
+    is consistently much lower than theoretical epsilon, meaning the implementation
+    does not achieve its stated privacy guarantee.'
+  remediation: 'Critical: Verify BLH packages are patched. Use LDP-Auditor to confirm
+    epsilon_emp matches theoretical claim. Switch to GRR for tightest empirical guarantees.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-073
+  name: rappor-longitudinal-cross-session-attack
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)rappor_attack|rappor_ldp|rappor_protocol
+  - (?i)bloom_filter_ldp|permanent_randomized_response|longitudinal_ldp
+  - (?i)rappor_decode|cohort_rappor
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: RAPPOR longitudinal attack — cross-session averaging amplifies distinguishability
+  description: 'Detects RAPPOR usage. Arcolezi & Gambs (PoPETS 2024): averaging attacks
+    across tau repeated data collections amplify distinguishability signal in longitudinal
+    settings. RAPPOR''s permanent randomized response introduces cross-session correlations
+    exploitable by persistent adversaries collecting responses over multiple time
+    periods. LDP-Auditor Algorithm 2 measures this longitudinal epsilon.'
+  remediation: Limit longitudinal collection rounds. Apply fresh randomization each
+    round. Audit longitudinal epsilon using LDP-Auditor Algorithm 2 with tau = max_rounds.
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-074
+  name: source-inference-fl-client-identification
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)source_inference|source_mia|client_contribution_infer
+  - (?i)identify_contributing_client|gradient_source_attribution
+  - (?i)client_gradient_attribution|which_client_contributed
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Source inference attack identifying which FL client contributed a training
+    record
+  description: 'Detects source inference in FL. Rigaki & Garcia (ACM ComSurveys 2023):
+    source inference is fine-grained FL membership inference. Naseri et al. (UCL,
+    NDSS 2022): LDP provides record-level but NOT client-level privacy. Active MIA
+    (Nguyen et al. AISTATS 2023) achieves near-100% source inference from a dishonest
+    server via chosen-neuron embedding in one FL round.'
+  remediation: Apply client-level DP (not record-level). Enforce minimum aggregation
+    threshold (100+ clients per round). Use secure aggregation to blind server to
+    individual client updates.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-075
+  name: attribute-inference-fdp-unified-risk
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)attribute_inference|sensitive_attribute_infer|attribute_leakage
+  - (?i)infer_sensitive_feature|attr_inference_ml|marginal_reconstruction_attr
+  - (?i)auxiliary_attribute_model
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Attribute inference against DP model — standard (epsilon,delta)-DP bound
+    loose by up to 20%
+  description: 'Detects attribute inference against DP models. Kulynych et al. (Harvard/EPFL/DeepMind,
+    NeurIPS 2025): attribute inference success bounded by 1 - f(prior) under f-DP.
+    Standard (epsilon,delta)-DP bounds are loose by up to 20% for attribute inference.
+    f-DP calibration (riskcal library) simultaneously bounds re-identification, attribute
+    inference, and reconstruction — 20% noise reduction at same protection and 52%→70%
+    GPT-2 accuracy improvement.'
+  remediation: Use f-DP calibration via riskcal (Kulynych et al. 2025). Audit attribute
+    inference risk explicitly. Apply group-level DP for sensitive demographic attributes.
+  owasp_llm: LLM04:2025
+  cwe: CWE-359
+- id: MEDUSA-DP-SCAN-076
+  name: prefix-suffix-canary-lm-extraction
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)prefix_canary|canary_prefix|suffix_canary|interleaved_canary
+  - (?i)canary_completion|memorized_sequence_prefix|canary_rank
+  - (?i)log_perplexity_canary|canary_log_perplexity
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.txt'
+  message: Prefix/suffix/interleaved canary extraction from DP language model
+  description: 'Detects canary extraction against DP-protected LMs. Ponomareva et
+    al. (Google, 2023): canary extraction is the primary DP-LM threat. Steinke et
+    al. (ICLR 2025): Gemma 2 PersonaChat empirical epsilon ≈ 2 for last-iterate —
+    canary risk is lower than standard accounting suggests but nonzero. Liu et al.
+    (CMU 2025): one-run auditing with quantile regression MIA improves canary extraction
+    bounds by 3x.'
+  remediation: Apply DP-SGD with epsilon < 3 for LLM fine-tuning. Use per-token gradient
+    clipping in Opacus. Monitor for repeated suffix completion queries suggesting
+    canary extraction.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-077
+  name: one-run-quantile-regression-mia-audit
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)one_run_audit|single_run_audit|steinke_one_run
+  - (?i)quantile_regression_mia|qr_mia_audit|one_pass_dp_audit
+  - (?i)simultaneous_canary|batch_canary_audit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: One-run DP auditing with quantile regression MIA (Liu CMU 2025) — 3x tighter
+    bounds
+  description: 'Detects one-run DP auditing with quantile regression MIA. Liu et al.
+    (CMU, arXiv 2025): up to 3x improvement in epsilon_max (from 0.237 to 0.364 at
+    n=5000) by integrating Bertran et al. 2023 quantile regression MIA into Steinke
+    et al. 2023 one-run framework. Predicts quantile of loss distribution rather than
+    point estimate for more accurate member/non-member separation within a single
+    training run.'
+  remediation: Integrate one-run auditing with quantile regression MIA into DP training
+    pipelines. Use alongside sequential MMD auditing (Gonzalez et al. 2025) for complementary
+    coverage.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-078
+  name: dp-sgd-large-clipping-norm
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)max_grad_norm\s*=\s*(?:[5-9][0-9]|[1-9][0-9]{2,})
+  - (?i)clipping_norm\s*=\s*(?:[1-9][0-9]+)|clip_value\s*=\s*1[0-9]+
+  - (?i)gradient_clipping_bound\s*=\s*[0-9]{2,}
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP-SGD gradient clipping norm >= 10 — negligible DP protection at large
+    epsilon
+  description: 'Detects DP-SGD with excessively large clipping norm (>= 10). Ponomareva
+    et al. (Google, 2023): clipping norm is the most sensitive DP-SGD hyperparameter
+    — too large enables gradient reconstruction. Papernot et al. (ICLR 2021): ReLU
+    produces sparse gradients resisting clipping, enabling reconstruction even with
+    DP-SGD. Naseri et al. (NDSS 2022): large clipping at epsilon > 5 provides negligible
+    FL MIA resistance.'
+  remediation: Set max_grad_norm between 0.1 and 1.0. Use tempered sigmoid activations
+    (Papernot et al. ICLR 2021) for DP-compatible gradient distributions. Tune clipping
+    norm via holdout set before privacy accounting.
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-079
+  name: dp-without-formal-accounting-engine
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)add_gaussian_noise\s*\(|add_laplace_noise\s*\(
+  - (?i)manual_dp_sgd|hand_rolled_dp|custom_dp_implementation
+  - (?i)clip_gradient\s*\(|torch\.randn.*gradient.*clip
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Manual DP noise addition without formal privacy accounting — budget untracked
+  description: 'Detects hand-rolled DP noise without a formal privacy accounting engine.
+    Ponomareva et al. (Google, 2023): manual DP implementation is a primary source
+    of privacy bugs. Arcolezi & Gambs (PoPETS 2024): LDP-Auditor discovered a production
+    bug in a widely-used LDP library. Zhang & Zhang (2025 survey): multiple papers
+    have unverifiable epsilon values due to missing accounting details.'
+  remediation: Use only Opacus or TensorFlow Privacy for DP-SGD. Integrate LDP-Auditor
+    (Arcolezi & Gambs 2024) or sequential MMD test (Gonzalez et al. 2025) to verify
+    any custom implementation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-080
+  name: dp-delta-too-large
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)delta\s*=\s*(?:0\.01|0\.1|1e-2\b|1e-1\b)
+  - (?i)privacy_delta\s*=\s*0\.[0-9]{1,2}(?:[^0-9]|$)
+  - (?i)dp_delta_large|delta_value_high
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP delta value >= 1e-2 — violates delta << 1/n meaningfulness requirement
+  description: 'Detects dangerously large delta (>= 1e-2). Ponomareva et al. (Google,
+    2023): delta must be << 1/n for meaningful (epsilon,delta)-DP. Delta = 0.01 on
+    n=1,000 records means the DP guarantee fails with 1% probability by design. Chua
+    et al. (Google, 2025): even correctly set delta is subject to Poisson vs shuffle
+    gap, compounding misconfiguration risk.'
+  remediation: Set delta = 1e-5 or smaller for n=10,000 records. Use delta = 1/n^1.1
+    as a rule of thumb. Implement automated delta validation at training pipeline
+    startup.
+  owasp_llm: LLM04:2025
+  cwe: CWE-682
+- id: MEDUSA-DP-SCAN-081
+  name: shuffle-dataloader-poisson-accounting-mismatch
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)shuffle\s*=\s*True.*dataloader|dataloader.*shuffle\s*=\s*True
+  - (?i)poisson_amplification|poisson_subsampling.*accounting
+  - (?i)shuffle_vs_poisson|dataloader_dp_gap
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Shuffle DataLoader + Poisson accounting — systematic epsilon understatement
+    (Chua Google 2025)
+  description: 'Detects the shuffle DataLoader + Poisson accounting mismatch. Chua
+    et al. (Google, JPrivConf 2025): formally proven epsilon_shuffle(delta) >= epsilon_Poisson(delta)
+    for small epsilon. Gap is significant for sigma in [1,5]. PyTorch DataLoader(shuffle=True)
+    is the default for virtually all DP-SGD deployments. Every organization using
+    this combination understates true privacy loss. This affects all major DP-SGD
+    production deployments that have not switched to BB sampler.'
+  remediation: 'CRITICAL: Switch from shuffle DataLoader to Balls-and-Bins (BB) sampler
+    or Truncated Poisson Batch Generator (Chua et al. 2025). Recompute and refile
+    all epsilon values computed with shuffle+Poisson accounting.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-330
+- id: MEDUSA-DP-SCAN-082
+  name: dp-unbounded-sequential-query-composition
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)unlimited_queries_dp|unbounded_composition|no_query_budget
+  - (?i)unconstrained_dp_queries|repeat_query_dp|infinite_queries_dp
+  - (?i)sequential_composition_budget_exceeded
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.yaml'
+  message: DP system with unbounded sequential query composition — inevitable budget
+    exhaustion
+  description: 'Detects DP systems with unlimited sequential queries. Gonzalez et
+    al. (NeurIPS 2025): sequential MMD auditing detects DP violations in 60 observations
+    — a persistent adversary with unlimited query access will inevitably exhaust the
+    privacy budget. Kulynych et al. (NeurIPS 2025): unlimited sequential composition
+    without f-DP tracking misses violations across the full trade-off curve.'
+  remediation: Enforce strict query budgets per user/session. Track epsilon consumption
+    via moments accountant after each query. Apply f-DP trade-off function (Kulynych
+    et al. 2025) for tight composition bounds.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-083
+  name: example-level-dp-user-contributes-multiple
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)user_level_dp\s*=\s*False|example_level_dp|record_level_dp
+  - (?i)unbounded_user_contributions|repeated_user_contribution
+  - (?i)per_user_dp_budget|multi_contribution_dp
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Example-level DP when user contributes multiple records — MIA amplified
+    by factor k
+  description: 'Detects example-level DP misconfiguration. Ponomareva et al. (Google,
+    2023): if user contributes k examples and example-level DP is used, adversary
+    combines k membership signals, amplifying MIA by factor k. Source inference (Rigaki
+    & Garcia 2023): LDP provides record-level but not client-level privacy. Active
+    MIA (Nguyen et al. AISTATS 2023): targets FL settings without user-level isolation.'
+  remediation: Use user-level DP when users appear multiple times in training data.
+    Apply group privacy composition theorem for bounded user contributions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-084
+  name: dp-demographic-vulnerability-disparity-exploit
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)dp_fairness_attack|subgroup_dp_disparity|demographic_dp_vulnerability
+  - (?i)fairness_amplified_mia|underrepresented_group_mia
+  - (?i)privacy_fairness_tradeoff_exploit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Attack exploiting disproportionate DP vulnerability of underrepresented
+    demographic groups
+  description: 'Detects attacks targeting demographic groups with higher DP MIA vulnerability.
+    Zhang et al. (NeurIPS 2020): MIA vulnerability varies significantly across demographic
+    groups under the same nominal epsilon. Mohammadi et al. (2025 medical survey):
+    DP noise disproportionately harms underrepresented demographics in clinical AI.
+    Kulynych et al. (FAccT 2023): predictive multiplicity unevenly distributed — some
+    groups have 97% disagreement at epsilon=0.5.'
+  remediation: Audit per-subgroup MIA success rates before deployment. Apply group-specific
+    epsilon calibration for high-risk subgroups. Use PMP analysis (Lowy et al. 2024)
+    for per-individual vulnerability assessment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-085
+  name: dp-predictive-multiplicity-decision-exploit
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)predictive_multiplicity|disagreement_dp|seed_exploit_dp
+  - (?i)retrain_different_predictions|arbitrary_decision_dp|coin_flip_decision
+  - (?i)multiplicity_audit|stochastic_dp_exploit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Predictive multiplicity exploit — DP training randomization produces conflicting
+    decisions
+  description: 'Detects predictive multiplicity exploitation. Kulynych et al. (EPFL/Harvard,
+    FAccT 2023): formally prove disagreement mu(x) = 4p_x(1-p_x) where p_x depends
+    on privacy noise sigma. At epsilon=0.5, mammography patient mu(x) ≈ 97%. Adversaries
+    exploit by submitting repeated queries and using disagreement to force favorable
+    predictions or infer training data through disagreement patterns across multiple
+    model instances.'
+  remediation: Use ensemble decisions across multiple DP training runs. Audit disagreement
+    metric mu(x) before deployment in high-stakes settings. Increase epsilon where
+    disagreement exceeds acceptable threshold.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-086
+  name: gradient-uniqueness-gnq-high-risk-identification
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)gradient_uniqueness|GNQ\s*(?:=|\(|formula)|gnq_score
+  - (?i)moore_penrose.*gradient|pseudoinverse.*gradient_covariance
+  - (?i)gnq_defense|gnq.*top.*percent|high_gnq_sample
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Gradient Uniqueness (GNQ) metric — identifies high-disclosure training
+    samples
+  description: 'Detects GNQ (Gradient Uniqueness) from Abdelghafar et al. (Rice Univ.,
+    arXiv 2025). GNQ = g_ij^T * S+ * g_ij (Moore-Penrose pseudoinverse of gradient
+    covariance). High GNQ → unique gradient → high reconstruction risk. Pearson r
+    = -0.96 between GNQ and model inversion success. GNQ-defense: remove top-10% highest
+    GNQ samples → AUC-ROC 0.5122 at 71.33% CIFAR-10 accuracy vs DP-SGD(epsilon=2):
+    41.83%.'
+  remediation: Use GNQ-based defense to identify and suppress high-disclosure samples
+    (Abdelghafar et al. 2025). Monitor for adversarial queries probing high-GNQ input
+    regions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-087
+  name: model-inversion-dp-insufficient-defense
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)model_inversion|modinv|fredrikson_attack|invert_model
+  - (?i)activation_maximization_inversion|privacy_leakage_inversion
+  - (?i)reconstruction_from_prediction|invert_dp_model
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Model inversion attack against DP-protected model — DP alone insufficient
+    at epsilon > 5
+  description: 'Detects model inversion attacks against DP-protected models. Abdelghafar
+    et al. (Rice Univ., 2025): r = -0.96 Pearson correlation between GNQ and model
+    inversion success on CIFAR-10/100/Tiny ImageNet — high-GNQ samples are near-deterministically
+    reconstructable. Zhang & Zhang (Hainan Univ., 2025 survey): DP-SGD provides partial
+    model inversion defense (noise obscures gradient signals) but DP alone is insufficient
+    at epsilon > 5.'
+  remediation: Apply GNQ-based defense removing top-10% highest-risk samples. DP-SGD
+    with epsilon < 3 provides meaningful model inversion resistance. Restrict model
+    parameter access to prevent white-box attacks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-088
+  name: fisher-discriminant-adversarial-canary-audit
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)fisher_discriminant_loss.*canary|fisher_canary.*audit
+  - (?i)between_class_separation.*canary|maximize_class_separation.*audit
+  - (?i)adversarial_canary_fisher|fisher_loss_audit
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Fisher Discriminant adversarial canary — 12% improvement in epsilon_emp
+    (Yoon NeurIPS 2024)
+  description: 'Detects Fisher Discriminant Loss-based adversarial canary optimization.
+    Yoon et al. (Hongik/Yonsei Univ., NeurIPS 2024 workshop): Fisher loss achieves
+    epsilon_emp = 4.914 vs random canary baseline 4.385 at nominal epsilon=10 on MNIST
+    — 12% improvement. Black-box, final-model-only setting. Demonstrates deployed
+    DP systems'' true epsilon may be 12% higher than naive random-canary auditing
+    suggests.'
+  remediation: Auditors should use Fisher adversarial canary optimization for tighter
+    epsilon estimates. Epsilon values calibrated to random canary baselines understate
+    true privacy loss by 10-15%.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-089
+  name: bhattacharyya-adversarial-canary-audit
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)bhattacharyya_loss.*canary|bhattacharyya_canary
+  - (?i)minimize_distribution_overlap|bhattacharyya_distance_audit
+  - (?i)member_nonmember_overlap_minimize|distribution_overlap_canary
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Bhattacharyya distance canary — 6% improvement in epsilon_emp (Yoon NeurIPS
+    2024)
+  description: 'Detects Bhattacharyya distance canary optimization. Yoon et al. (NeurIPS
+    2024 workshop): Bhattacharyya achieves epsilon_emp = 4.648 vs baseline 4.385 at
+    epsilon=10 — 6% improvement. Used alongside Fisher to validate tightness from
+    multiple optimization perspectives. Black-box final-model-only setting, applicable
+    against any DP-SGD deployment.'
+  remediation: Use both Fisher and Bhattacharyya adversarial canaries for robust DP
+    auditing. Complement with MCMC-DP-Est (Yildirim et al. 2025) for full posterior
+    distribution of epsilon.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-090
+  name: epsilon-extraction-prompt-deployed-model
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)what\s+(?:is|was)\s+(?:your|the)\s+(?:epsilon|privacy\s+budget)
+  - (?i)reveal\s+(?:epsilon|privacy\s+parameter)|disclose\s+dp\s+(?:budget|parameter)
+  - (?i)privacy_budget_value|epsilon_value_exposed
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Prompt attempting to extract epsilon or DP privacy budget from deployed
+    model
+  description: 'Detects prompts seeking to extract epsilon from deployed MLaaS. Knowing
+    epsilon allows adversaries to calibrate attacks precisely. Annamalai et al. (2024):
+    worst-case data point selection requires knowledge of privacy budget scale. Ezzeddine
+    et al. (arXiv 2026): systems exposing epsilon alongside CF explanations amplify
+    MIA success nearly 2x.'
+  remediation: Do not disclose exact epsilon in API responses. Treat epsilon as internal
+    deployment parameter. Use randomized reported epsilon within a range if regulatory
+    disclosure is required.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-091
+  name: dp-audit-framework-disabled-or-spoofed
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)skip_auditing|disable_dp_audit|bypass_privacy_check
+  - (?i)audit_frequency\s*=\s*0|no_privacy_audit|privacy_test_disabled
+  - (?i)mock_dp_accountant|fake_epsilon|spoof_privacy_budget
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: DP auditing framework bypassed or disabled — compliance claims unverifiable
+  description: 'Detects bypassed or disabled DP auditing. Gonzalez et al. (NeurIPS
+    2025) and Kutta et al. (2026): correctly implemented DP auditing catches bugs
+    in 60 observations. Arcolezi & Gambs (PoPETS 2024): LDP-Auditor detected a production
+    bug in a widely-used LDP library. Spoofing audits creates false compliance confidence
+    and exposes users to unquantified privacy risks.'
+  remediation: Make DP auditing mandatory in CI/CD pipelines. Integrate sequential
+    MMD (Gonzalez et al. 2025) and histogram density auditing (Koskela & Mohammadi
+    2024) as automated tests.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-092
+  name: mcmc-bayesian-dp-epsilon-posterior
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)mcmc_dp_est|mcmc.*bayesian.*epsilon|bayesian.*dp.*epsilon
+  - (?i)mhaar.*dp|posterior.*epsilon.*dp|credible_interval.*dp
+  - (?i)attack_strength_parameter_s|mia_strength_s
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: MCMC Bayesian DP epsilon posterior estimation (Yildirim 2025) detected
+  description: 'Detects MCMC-DP-Est (Yildirim et al., Sabanci Univ., arXiv 2025).
+    MHAAR-variant MCMC algorithm providing full posterior distribution of epsilon,
+    jointly estimating attack strength s in [0,1]. s=1 assumption leads to overconfident
+    epsilon estimates. Realistic s values yield wider, more honest credible intervals.
+    GitHub: cerenyildirim/MCMC_for_Bayesian_estimation.'
+  remediation: Use MCMC-DP-Est alongside frequentist auditing for honest uncertainty
+    quantification. Flag deployments where posterior credible intervals are very wide.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-093
+  name: generalization-gap-mia-vulnerability-predictor
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)generalization_gap.*mia|sam.*dp.*mia_comparison
+  - (?i)generalization_outperforms_dp|train_test_loss_gap.*mia
+  - (?i)loss_gap.*membership_vulnerability|overfitting_predictor.*mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Generalization gap as MIA predictor — outperforms DP protection signals
+    in some regimes
+  description: 'Detects generalization gap vs DP as MIA vulnerability predictor. Liu
+    et al. (AAAI 2021): generalization-based metrics (loss gap, modified entropy)
+    outperform DP protection signals at predicting MIA vulnerability in many regimes.
+    Training-test loss gap is often a better MIA signal than stated epsilon. SAM achieves
+    comparable or better MIA resistance than DP-SGD at equal accuracy.'
+  remediation: Monitor training/test loss gap as a real-time MIA vulnerability indicator.
+    Consider SAM regularization alongside DP-SGD. Do not rely solely on epsilon as
+    a privacy guarantee signal.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-094
+  name: vision-sam-bypass-dp-fl-reconstruction
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)vision_mia_dp|image_mia_dp|imagenet_reconstruction_dp
+  - (?i)sam_bypass_dp|segment_anything_attack|background_removal_attack
+  - (?i)resnet_mia_dp|wideresnet_dp_mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Vision MIA / SAM-based DP bypass on image data detected
+  description: 'Detects vision-domain MIA and SAM-based bypass. You et al. (Xidian
+    Univ., 2025): SAM extracts subject pixels and zero-fills backgrounds, reducing
+    gradient norm while preserving reconstruction targets — enabling LDP bypass on
+    ImageNet (ResNet101, 224x224, batch=16, epsilon=10). Abdelghafar et al. (Rice
+    Univ., 2025): r = -0.96 Pearson between GNQ and model inversion on CIFAR-10/100/Tiny
+    ImageNet.'
+  remediation: Large batch sizes (>= 64) significantly reduce SAM-based reconstruction
+    quality. Apply GNQ-based defense removing top-10% highest-GNQ samples (Abdelghafar
+    et al. 2025).
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-095
+  name: time-series-sensor-dp-cf-amplified-mia
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)time_series_mia|sensor_mia|temporal_mia|eeg_mia
+  - (?i)wifi_location_mia|iot_sensor_mia|ecg_mia|wearable_mia
+  - (?i)indoor_location_mia|accelerometer_mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: MIA against DP-protected time-series or sensor data — CF explanations amplify
+    attack
+  description: 'Detects MIA against time-series or sensor models. Ezzeddine et al.
+    (arXiv 2026): CF-amplified MIA achieves 74% accuracy at epsilon=5 on EEG (14,980
+    records) and In-Location WiFi (20,000 records). Mohammadi et al. (2025 medical
+    survey): EEG (6 studies) and sensor data (3 studies) show high vulnerability.
+    Temporal patterns provide high-dimensional distinguishing information DP noise
+    does not fully obscure.'
+  remediation: Apply stricter epsilon for time-series data. Disable CF explanations
+    for sensor data MLaaS (Ezzeddine et al. 2026). Apply temporal perturbation across
+    the time dimension.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-096
+  name: recommendation-system-dp-sparse-mia
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)recommendation_mia|recommender_mia|collaborative_filter_mia
+  - (?i)dp_recommender|matrix_factorization_dp|user_item_dp
+  - (?i)rating_data_mia|preference_mia|interaction_history_mia
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: MIA against DP recommendation system — sparse interaction matrices amplify
+    vulnerability
+  description: 'Detects MIA targeting DP-protected recommendation systems. Hu et al.
+    (ACM ComSurveys 2022): recommendation systems are a distinct MIA target class.
+    High sparsity of user-item interaction matrices means individual user patterns
+    are highly distinguishable — DP noise calibrated for dense data is insufficient
+    for sparse matrices. Rigaki & Garcia (2023): attribute inference (inferring user
+    preferences) is the primary risk.'
+  remediation: Apply DP at user-level granularity (not item-level). Tune epsilon for
+    sparse data. Use f-DP unified risk analysis (Kulynych et al. 2025) to jointly
+    bound re-identification and preference inference.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-097
+  name: dp-embedding-model-mia
+  severity: MEDIUM
+  category: dp_attacks
+  patterns:
+  - (?i)embedding_mia|embedding_model_mia|representation_mia
+  - (?i)dp_embedding|private_embedding|dp.*sentence_transformer
+  - (?i)face_embedding_mia|lfw_mia|embedding_membership
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: MIA against DP-protected embedding model — LFW and face recognition attack
+    surfaces
+  description: 'Detects MIA against DP-protected embedding models. Hu et al. (ACM
+    ComSurveys 2022) and Rigaki & Garcia (ACM ComSurveys 2023): embedding model MIA
+    is a distinct attack category. Naseri et al. (NDSS 2022): LFW (Labeled Faces in
+    the Wild) used for property inference in FL with LDP/CDP — gender ratio inference
+    from aggregated model updates succeeds regardless of LDP. Face embeddings have
+    structural MIA vulnerability even after DP noise.'
+  remediation: Apply user-level DP for face/person embedding models. Restrict distance
+    queries against embeddings. Monitor for correlated query patterns consistent with
+    embedding extraction MIA.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-DP-SCAN-098
+  name: dp-combined-attack-chain-orchestration
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)dp.*attack.*chain|chain.*dp.*attack|multi.step.*dp.*attack
+  - (?i)combine.*(?:mia|audit|reconstruction).*dp.*(?:accounting|gap|exploit)
+  - (?i)orchestrat.*dp.*(?:attack|exploit|audit)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.yaml'
+  message: Orchestrated multi-step DP attack combining accounting gaps with MIA and
+    reconstruction
+  description: 'Detects scripted orchestration combining multiple DP attack vectors:
+    shuffle-vs-Poisson gap (Chua et al. 2025) + large delta misconfiguration (Ponomareva
+    et al. 2023) + user-level vs record-level confusion (Nguyen et al. 2023) + sequential
+    composition exploit (Kutta et al. 2026). Combined, these cause stated epsilon
+    to diverge from true privacy loss by an order of magnitude. AI-assisted attack
+    scripting makes this orchestration feasible at scale.'
+  remediation: 'Monitor for scripted automation combining multiple DP probe patterns.
+    Enforce defense-in-depth: BB sampler + correct delta + user-level DP + sequential
+    audit validation as mandatory CI/CD checks.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-DP-SCAN-099
+  name: dp-attack-tool-timberstrike-breaching-invocation
+  severity: CRITICAL
+  category: dp_attacks
+  patterns:
+  - (?i)timberstrike\s+(?:run|execute|invoke|install|clone)
+  - (?i)necst.timberstrike|JonasGeiping.breaching.*(?:ldp|dp|fl)
+  - (?i)breaching.*(?:ldp|dp|fl).*(?:reconstruct|attack|run)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.json'
+  message: TimberStrike or Breaching framework invocation against DP-protected federated
+    system
+  description: 'Detects invocations of TimberStrike (Gennaro et al. PoPETS 2025, github.com/necst/TimberStrike)
+    or Breaching framework (JonasGeiping/breaching, used by You et al. 2025) against
+    production DP systems. TimberStrike: Phase 1+2 attack for federated GBDT reconstruction.
+    Breaching: evaluation framework for LDP-FL gradient reconstruction achieving ImageNet-level
+    reconstruction at epsilon=10, batch=16 on ResNet101.'
+  remediation: Block known DP attack tools against production FL systems. Verify FL
+    server integrity before accepting global model updates. Enforce secure aggregation.
+    Monitor for repository clone/install of these attack tools.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-DP-SCAN-100
+  name: dp-comprehensive-config-parameter-leak
+  severity: HIGH
+  category: dp_attacks
+  patterns:
+  - (?i)epsilon\s*[=:]\s*[0-9]+(?:\.[0-9]+)?.*sigma\s*[=:]
+  - (?i)privacy_budget.*consumed.*[0-9]+.*remaining.*[0-9]+
+  - (?i)dp_config.*epsilon.*delta.*noise_multiplier.*clipping
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.log'
+  message: Comprehensive DP config parameter leak — epsilon, sigma, delta, clipping
+    exposed together
+  description: 'Detects simultaneous disclosure of multiple DP configuration parameters
+    (epsilon, sigma/noise_multiplier, delta, clipping norm). Combined disclosure is
+    more dangerous than any single parameter: Koskela & Mohammadi (2024) need only
+    mechanism outputs to audit; You et al. (2025) infer sigma from zero-gradient probing;
+    Chua et al. (2025) need only batch sampling method to compute true epsilon. Full
+    configuration disclosure enables adversaries to compute true privacy loss precisely
+    and calibrate optimal combined attacks.'
+  remediation: Redact all DP configuration parameters from logs, API responses, and
+    error messages. Use structured logging with DP-parameter sanitization filter.
+    Treat noise_multiplier, delta, clipping norm, and batch size as sensitive configuration
+    values.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200

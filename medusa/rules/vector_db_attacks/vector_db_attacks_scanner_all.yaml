@@ -1,0 +1,1926 @@
+# MEDUSA Scanner Rules — vector_db_attacks (MERGED)
+# Sources: vector_db_attacks_scanner_expansion.yaml, vector_db_attacks_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: vector_db_attacks
+  prefix: VDA
+  total_rules: 60
+  sources:
+  - vector_db_attacks_scanner_expansion.yaml
+  - vector_db_attacks_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-VDA-SCAN-001
+  name: rag-corpus-poisoning-document-injection
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)inject.*(?:poison|malicious|adversarial).*(?:document|chunk|passage|entry).*(?:rag|retrieval|knowledge.?base|vector.?(?:db|database|store))
+  - (?i)(?:poison|corrupt|tamper).*(?:rag|retrieval.augmented|knowledge.?base|vector.?(?:db|database))
+  - (?i)(?:adversarial|malicious|crafted).*(?:document|passage|chunk).*(?:inject|insert|upload|add).*(?:corpus|index|collection|namespace)
+  - (?i)corpus.*(?:poison|contamination|tamper).*(?:retrieval|embedding|vector)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Potential RAG corpus poisoning: adversarial document injection into knowledge
+    base or vector store'
+  description: Detects patterns consistent with RAG corpus poisoning attacks where
+    adversarial documents are injected into vector database knowledge bases to manipulate
+    LLM outputs. Chen et al. (2024) AgentPoison achieves >=80% attack success rate
+    with <0.1% poison rate. Xian et al. (2024) demonstrates universal poisoning across
+    225 configurations. Li et al. (CPA-RAG, 2025) achieves >90% ASR in black-box setting,
+    confirmed against Alibaba BaiLian commercial platform.
+  remediation: Implement document provenance tracking and cryptographic attestation
+    before ingestion. Apply embedding anomaly detection (Xian et al. 2024 deviation
+    pattern detection). Restrict write access to vector store to authorized pipelines
+    only. Validate document authenticity before indexing.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-002
+  name: embedding-backdoor-trigger-optimization
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:backdoor|trigger).*(?:embedding|vector|latent).*(?:optim|constrain|search|generate)
+  - (?i)(?:constrained.optim|gradient.optim).*(?:trigger|backdoor).*(?:embed|vector|retriev)
+  - (?i)(?:poison|malicious).*(?:embed|vector).*(?:trigger|backdoor|activat).*(?:retriev|recall|lookup)
+  - (?i)embed.*(?:space|subspace).*(?:backdoor|trigger|covert|hidden).*(?:map|cluster|region)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: 'Embedding backdoor trigger optimization detected: may indicate backdoor
+    attack on RAG embedding space'
+  description: Detects patterns consistent with optimizing backdoor triggers that
+    map to unique regions in embedding space, as described in AgentPoison (Chen et
+    al., 2024). Attack uses constrained optimization to ensure triggered queries retrieve
+    malicious demonstrations from poisoned memory with >=80% probability. Trigger
+    is designed to be in-context coherent and stealthy.
+  remediation: Apply embedding space monitoring for anomalous clustering patterns.
+    Implement trigger detection via statistical analysis of embedding distributions.
+    Restrict external inputs that influence embedding model fine-tuning. Use EmbedGuard-style
+    cross-layer detection (Kumar, 2026).
+  owasp_llm: LLM08:2025
+  cwe: CWE-506
+- id: MEDUSA-VDA-SCAN-003
+  name: rag-data-extraction-via-jailbreak
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:extract|dump|exfiltrate|steal).*(?:rag|retrieval|knowledge.?base|vector.?(?:db|database)).*(?:document|data|content|chunk)
+  - (?i)(?:membership.inference|entity.extraction|document.extraction).*(?:rag|vector|retrieval)
+  - (?i)(?:rag|retrieval).*(?:database|corpus|store).*(?:extract|dump|enumerate|list.all)
+  - (?i)force.*(?:verbatim|reproduction|output).*(?:rag|retrieval|knowledge.?base|context)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  message: 'Potential RAG database extraction attack: attempting to extract stored
+    documents from vector knowledge base'
+  description: Detects patterns consistent with escalated RAG extraction attacks described
+    by Cohen et al. (2024). By combining jailbreak capability with RAG membership
+    inference, attackers can extract 80%-99.8% of data stored in RAG databases. Attack
+    exploits the fact that LLMs can be compelled to reproduce retrieved context verbatim
+    when jailbroken.
+  remediation: Implement output monitoring to detect verbatim reproduction of knowledge
+    base content. Apply context window size limits. Add document watermarking or canary
+    tokens to detect extraction. Restrict system prompt revelation and context verbatim
+    output via guardrails.
+  owasp_llm: LLM08:2025
+  cwe: CWE-359
+- id: MEDUSA-VDA-SCAN-004
+  name: adversarial-self-replicating-prompt-worm
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:self.replicat|worm|propagat).*(?:prompt|instruction|adversarial).*(?:rag|email|agent|assistant)
+  - (?i)(?:chain.reaction|cascade|propagat).*(?:poison|inject|corrupt).*(?:rag|knowledge.?base|vector|database)
+  - (?i)(?:replicate|spread|forward).*(?:malicious|adversarial|poisoned).*(?:content|prompt|document).*(?:contact|recipient|user)
+  - (?i)(?:genai|llm|ai).*(?:worm|virus|propagat).*(?:ecosystem|network|multi.agent)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.eml'
+  - '*.html'
+  message: Potential GenAI worm / adversarial self-replicating prompt detected targeting
+    RAG ecosystem
+  description: Detects patterns consistent with the adversarial self-replicating prompt
+    (GenAI worm) described by Cohen et al. (2024). Attack crafts adversarial content
+    that causes RAG-based agents to both perform malicious activity AND propagate
+    the worm to additional targets, creating a chain reaction. Particularly dangerous
+    in GenAI email assistant ecosystems.
+  remediation: Implement content inspection for self-replication patterns before processing
+    incoming content. Isolate RAG knowledge bases per user/tenant. Monitor for anomalous
+    outbound communication from AI assistants. Apply rate limiting on AI-initiated
+    external actions.
+  owasp_llm: LLM08:2025
+  cwe: CWE-74
+- id: MEDUSA-VDA-SCAN-005
+  name: universal-rag-retriever-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:universal|any.user|broad.spectrum|query.agnostic).*(?:poison|adversarial).*(?:retriev|document|corpus)
+  - (?i)(?:adversarial|crafted|poisoned).*document.*(?:high|maximum|similar).*(?:embedding|cosine|similarity).*(?:any|all|every).*(?:query|user)
+  - (?i)(?:pii|personally.identifiable|sensitive).*(?:embed|inject|insert).*(?:rag|retriev|corpus|knowledge)
+  - (?i)(?:retrieval|retriever).*(?:poison|adversarial).*(?:medical|healthcare|financial|legal).*(?:rag|knowledge)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Universal RAG retriever poisoning pattern: adversarial document targeting
+    broad query classes detected'
+  description: Detects patterns consistent with universal poisoning attacks on RAG
+    retrievers in knowledge-intensive domains (Xian et al., 2024). Adversaries craft
+    poisoned documents that embed close to target query classes, enabling reliable
+    retrieval by ANY user submitting matching queries. Demonstrated across 225 setup
+    combinations in medical Q&A. Poisoned documents may contain PII or targeted misinformation.
+  remediation: Apply embedding deviation detection to incoming documents before indexing
+    (Xian et al. defense). Monitor for documents with anomalous embedding geometry
+    relative to their content. Implement domain-specific content validation before
+    knowledge base ingestion. Use read-only corpus where possible.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-006
+  name: adversarial-decoding-readable-rag-poison
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)adversarial.decod.*(?:rag|retriev|embed|inject)
+  - (?i)(?:fluent|readable|low.perplexity).*adversarial.*(?:document|text|passage).*(?:rag|retriev|inject)
+  - (?i)(?:dual.objectiv|joint.optim).*(?:embed.similar|retriev).*(?:generat|influenc|steer)
+  - (?i)(?:perplexity.filter|fluency.filter).*(?:bypass|evade|circumvent).*(?:adversarial|inject|poison)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  message: 'Adversarial decoding for RAG poisoning detected: fluent adversarial document
+    generation targeting retrieval systems'
+  description: Detects patterns consistent with adversarial decoding (Zhang et al.,
+    2024, Cornell). Unlike GCG which produces detectable gibberish, adversarial decoding
+    generates readable/fluent adversarial documents that simultaneously satisfy high
+    embedding similarity to target queries AND adversarially influence LLM generation.
+    Outperforms all prior methods (GCG, BEAST, AutoDAN, COLD, PAIR). Low perplexity
+    is shown insufficient to evade this attack.
+  remediation: Do not rely solely on perplexity filtering for adversarial document
+    detection. Implement semantic consistency checks comparing document content to
+    its embedding neighborhood. Use content-based filtering beyond fluency metrics.
+    Apply EmbedGuard-style output consistency verification.
+  owasp_llm: LLM08:2025
+  cwe: CWE-116
+- id: MEDUSA-VDA-SCAN-007
+  name: gradient-based-joint-rag-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:gcg|greedy.coordinate.gradient).*(?:rag|retriev|poison|embed)
+  - (?i)(?:gradient.based|grad.optim).*(?:retriev|embed).*(?:generat|llm|language.model).*(?:attack|poison|adversarial)
+  - (?i)(?:joint|unified|simultaneous).*(?:retriev|embed).*(?:generat|llm).*(?:attack|adversarial|optim)
+  - (?i)(?:cross.vocabulary|token.align|gradient.token).*(?:retriev|embed|rag).*(?:attack|poison|adversarial)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: 'Joint gradient-based RAG poisoning detected: simultaneous optimization
+    against retriever and generator'
+  description: Detects patterns consistent with Joint-GCG (Wang et al., 2025, AAAI
+    2026). Unlike prior GCG-derived attacks targeting only the retriever or generator
+    separately, Joint-GCG simultaneously optimizes against both components. Achieves
+    up to 25% higher attack success rate than prior methods with unprecedented cross-model
+    transferability. Uses Cross-Vocabulary Projection and Gradient Tokenization Alignment
+    for joint optimization.
+  remediation: Apply cross-layer anomaly detection spanning both retrieval and generation
+    stages. Monitor for unusually high retrieval scores combined with atypical generation
+    outputs. Use ensemble retriever diversity to reduce single-optimization-target
+    surface. Implement Joint-GCG transferability mitigation via retriever randomization.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-008
+  name: embedding-layer-perturbation-bypass-alignment
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:embed|embedding).*(?:layer|output|activat).*(?:perturb|poison|inject|manipulat).*(?:safety|align|rlhf|refusal)
+  - (?i)(?:embed.poison|embedding.attack|embed.perturb).*(?:bypass|circumvent|evade).*(?:safety|align|guard)
+  - (?i)(?:imperceptible|subtle|covert).*perturb.*(?:embed|vector|latent).*(?:harmful|misalign|unsafe)
+  - (?i)(?:search.based|sep|systematic).*embed.*(?:shift|perturb|manipulat).*(?:safety|refusal|align)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.pt'
+  - '*.safetensors'
+  message: 'Embedding layer perturbation attack detected: bypassing safety alignment
+    via semantic shift in embedding outputs'
+  description: Detects patterns consistent with Search-based Embedding Poisoning (SEP,
+    Yuan et al., 2025). Injects imperceptible perturbations into embedding layer outputs
+    without modifying model weights or input text. Achieves 96.43% average attack
+    success rate across six aligned LLMs (Llama3, Qwen3, DeepSeek, etc.) while preserving
+    benign performance and evading conventional detection. Exploits linear refusal-to-harmful
+    transition in embedding space. Evades Hugging Face security scanning.
+  remediation: Implement embedding-level integrity checks and checksums for embedding
+    layer outputs. Verify embedding vector statistical properties match expected distributions.
+    Monitor for embedding outputs that are statistically benign but produce harmful
+    generations. Apply EmbedGuard TEE-based attestation for embedding layers in sensitive
+    deployments.
+  owasp_llm: LLM08:2025
+  cwe: CWE-494
+- id: MEDUSA-VDA-SCAN-009
+  name: multimodal-rag-knowledge-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:multimodal|multi.modal|vision.language|vlm).*(?:rag|retriev).*(?:poison|adversarial|attack|corrupt)
+  - (?i)(?:adversarial.image|malicious.image).*(?:rag|retriev|knowledge.?base|inject)
+  - (?i)(?:spa.vlm|mm.poison|multimodal.poison).*(?:rag|retriev|knowledge|inject)
+  - (?i)(?:image.embed|visual.embed).*(?:inject|poison|adversarial).*(?:knowledge.?base|retriev|corpus)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'Multimodal RAG knowledge base poisoning detected: adversarial image+text
+    injection targeting vision-language model RAG'
+  description: Detects patterns consistent with Spa-VLM (Yu et al., 2025, HUST) and
+    MM-PoisonRAG (Ha et al., 2025, UIUC/UCLA). Spa-VLM achieves ASR >0.8 with only
+    5 injected entries in 100K-2M entry knowledge bases; existing single-modal attacks
+    have 100% failure rate in multimodal RAG. MM-PoisonRAG GPA collapses model accuracy
+    to 0% with a single adversarial injection. Both bypass all evaluated defenses.
+  remediation: Implement multimodal-specific content validation for knowledge base
+    entries. Apply separate adversarial detection pipelines for image and text modalities.
+    Monitor retrieval patterns for unusual multimodal entry retrieval frequencies.
+    Apply content-based image analysis before accepting visual knowledge base entries.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-010
+  name: knowledge-graph-triple-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:knowledge.graph|kg|ontology|rdf|owl).*(?:poison|inject|tamper|corrupt|adversarial).*(?:triple|relation|entity|fact)
+  - (?i)(?:poison|adversarial|fake|false).*(?:triple|relation|edge).*(?:knowledge.graph|kg|sparql|wikidata|freebase)
+  - (?i)(?:insert|add|create).*(?:triple|relation).*(?:mislead|redirect|inference.chain|rag|retriev)
+  - (?i)(?:kg.rag|knowledge.graph.rag).*(?:poison|attack|adversarial|corrupt|manipulat)
+  file_types:
+  - '*.py'
+  - '*.sparql'
+  - '*.rdf'
+  - '*.ttl'
+  - '*.json'
+  - '*.yaml'
+  message: 'Knowledge graph triple poisoning: adversarial triples may be injected
+    to create false inference chains in KG-RAG systems'
+  description: Detects patterns consistent with knowledge graph poisoning for KG-RAG
+    (Zhao et al., 2025, Xi'an Jiaotong / Manchester / NUS). Attack inserts perturbation
+    triples to complete misleading inference chains in structured knowledge graphs,
+    increasing probability that KG-RAG methods retrieve and rely on poisoned data.
+    Effective with minimal perturbations across 4 KG-RAG methods. First systematic
+    study of KG-RAG security.
+  remediation: Implement triple provenance validation and access controls on knowledge
+    graph editing. Monitor for newly added triples that create anomalous inference
+    chains. Apply KG consistency checks against authoritative sources. Require human
+    review for additions to security-critical knowledge graph regions.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-011
+  name: retriever-factual-robustness-exploitation
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:paraphrase|rephrase|rewrite).*(?:factual|correct|true).*(?:retriev|embed|cosine|similar)
+  - (?i)(?:distractor|adversarial.passage|false.document).*(?:retriev|embed|similar|cosine).*(?:crowd|flood|fill)
+  - (?i)(?:surface.level|lexical|semantic.proxim).*(?:retriev|embed).*(?:exploit|attack|adversarial|manipulat)
+  - (?i)(?:embedding.model|dense.retriev).*(?:factual|correct).*(?:fail|degrad|vulner|weak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: 'Retriever factual robustness exploitation: dense retrievers rely on surface-level
+    proximity, enabling retrieval manipulation via rephrasing'
+  description: Detects patterns consistent with the factual robustness vulnerability
+    identified by Wu et al. (CIKM 2025). Dense retrievers achieve only 25-35% factual
+    accuracy (vs 60-70% for base LLMs), with a median 28 percentage point drop. Retrieval
+    operates on surface-level semantic proximity rather than factual reasoning. GPT-4.1
+    paraphrasing of correct completions flips >2/3 of predictions wrong. Expanding
+    distractor pool from 4 to 1,000 candidates drops best retriever from 33% to 26%
+    accuracy.
+  remediation: Do not rely solely on dense retrieval for factuality-critical applications.
+    Implement hybrid retrieval (dense + BM25) to reduce surface-level proximity exploitation.
+    Apply reranking with factuality-aware models. Monitor retrieval quality with factual
+    consistency checks on retrieved documents.
+  owasp_llm: LLM08:2025
+  cwe: CWE-697
+- id: MEDUSA-VDA-SCAN-012
+  name: rag-bias-amplification-subspace-attack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:bias|stereotype|discriminat).*(?:amplif|inject|poison|rag|retriev|embed)
+  - (?i)(?:subspace.project|subspace.manipulat).*(?:embed|retriev|rag).*(?:bias|steer|manipulat)
+  - (?i)(?:adversarial|poisoned).*(?:document|retriev).*(?:bias|stereotype|prejudic|discriminat).*(?:amplif|reinforce|exacerbat)
+  - (?i)(?:brra|bias.retrieval|bias.reward|cyclic.feedback).*(?:rag|retriev|embed|llm)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'RAG bias amplification attack detected: poisoning knowledge retrieval
+    to systematically steer LLM outputs toward biased content'
+  description: 'Detects patterns consistent with the Bias Retrieval and Reward Attack
+    (BRRA, Wang et al., 2025). Uses multi-objective reward functions, embedding subspace
+    projection, and cyclic feedback to amplify model biases through RAG poisoning.
+    Example: neutral queries about domestic violence retrieve biased documents perpetuating
+    gender stereotypes. Significantly enhances model biases across multiple mainstream
+    LLMs.'
+  remediation: 'Apply fairness monitoring to RAG retrieval outputs across sensitive
+    demographic dimensions. Implement embedding diversity constraints to prevent subspace
+    manipulation. Use dual-stage defense (Wang et al. 2025): retrieval-stage embedding
+    geometry filtering + generation-stage bias detection. Audit knowledge base for
+    biased content regularly.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-915
+- id: MEDUSA-VDA-SCAN-013
+  name: recommender-metadata-embedding-poisoning
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:item.metadata|product.description|tag|label).*(?:poison|adversarial|inject|manipulat).*(?:embed|rag|retriev|recommend)
+  - (?i)(?:promote|demote|boost|suppress).*(?:item|product|content).*(?:embed|vector|rag|retriev).*(?:manipulat|adversarial|attack)
+  - (?i)(?:token.edit|minimal.modif|few.token).*(?:embed|metadata|description).*(?:shift|manipulat|attack)
+  - (?i)(?:long.tail|cold.start|unpopular).*(?:promote|boost|inject).*(?:embed|rag|retriev|recommend)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'Recommender system metadata poisoning: adversarial manipulation of item
+    embeddings to influence RAG-based recommendations'
+  description: Detects patterns consistent with Poison-RAG (Nazary et al., 2025) and
+    Stealthy LLM-Driven Poisoning (Nazary et al., UMAP 2025). Manipulating item metadata
+    tags/descriptions with minimal token edits can shift embedding placement to promote
+    long-tail items or demote popular ones. Local BERT-based strategies improve manipulation
+    effectiveness by up to 50%. ~70% of items lack tags (cold-start attack surface).
+    Evades naive detection.
+  remediation: Implement metadata provenance tracking and change monitoring for item
+    descriptions. Apply textual consistency checks comparing current vs. historical
+    versions. Use content-based validation before re-embedding. Monitor for statistical
+    anomalies in item ranking distribution changes.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-014
+  name: redis-nosql-injection-vector-store
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:redis|valkey).*(?:inject|command.inject|lua.*inject|eval.*inject)
+  - (?i)(?:EVAL|EVALSHA|SCRIPT).*(?:lua|script).*(?:unsanit|user.input|inject|format)
+  - (?i)redis.*(?:default.config|no.auth|no.password|requirepass.*empty|no.acl).*(?:vector|search|hnsw|flat)
+  - (?i)(?:redis.stack|redisearch|redis.vector).*(?:inject|unsanit|arbitrary|command)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sh'
+  - '*.conf'
+  - '*.yaml'
+  message: 'Redis injection vulnerability in vector store context: command or Lua
+    injection in Redis-backed vector database'
+  description: Detects patterns consistent with Redis injection vulnerabilities analyzed
+    by Musa & Irhebhude (2025, Nigerian Defence Academy). Command and Lua script injection
+    in Redis 7.4.1 are CVSS-rated critical in default and permissively configured
+    environments. Redis Stack (RedisSearch/vector search) used as vector database
+    backend inherits these vulnerabilities. Default Redis configuration without ACLs
+    provides no protection.
+  remediation: 'Apply restrictive Redis ACLs enforcing least-privilege: restrict commands,
+    keyspace, and disable Lua scripting for non-admin users (Musa et al. 2025: complete
+    mitigation confirmed). Enable authentication (requirepass or ACL). Enable TLS
+    for Redis connections. Use rename-command to disable dangerous commands. Never
+    expose Redis to untrusted networks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-943
+- id: MEDUSA-VDA-SCAN-015
+  name: embedding-model-supply-chain-poisoning
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:huggingface|hugging.face|model.hub|model.registry).*(?:embed|model).*(?:untrust|unverif|malicious|backdoor|poison)
+  - (?i)(?:load|download|pull|import).*(?:embed|sentence.transform|model).*(?:unverif|untrust|third.party|public).*(?:weight|checkpoint)
+  - (?i)(?:embedding.model|sentence.transformer|encoder).*(?:tamper|backdoor|supply.chain|trojan)
+  - (?i)(?:model.weight|checkpoint|safetensor).*(?:tamper|inject|backdoor|perturb).*(?:embed|latent)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.txt'
+  - '*.cfg'
+  message: 'Embedding model supply chain risk: unverified embedding model download
+    may introduce backdoored or tampered embeddings'
+  description: Detects patterns consistent with deployment-phase embedding attacks
+    (Yuan et al., SEP 2025) and NIST AML supply chain concerns (Vassilev et al., 2024).
+    SEP demonstrates that imperceptible embedding layer perturbations injected at
+    deployment phase achieve 96.43% ASR while evading Hugging Face security scanning.
+    Embedding models downloaded from public repositories without cryptographic verification
+    may contain pre-injected perturbations.
+  remediation: Cryptographically verify embedding model checksums against trusted
+    sources before deployment. Use model provenance attestation (EmbedGuard TEE approach,
+    Kumar 2026). Pin specific model versions with verified hashes in production deployments.
+    Monitor embedding layer output statistics for anomalies vs. known-good baseline.
+  owasp_llm: LLM08:2025
+  cwe: CWE-494
+- id: MEDUSA-VDA-SCAN-016
+  name: vector-db-ann-index-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:ann|approximate.nearest.neighbor|hnsw|ivf|pq|scann|faiss).*(?:poison|corrupt|adversarial|inject|tamper)
+  - (?i)(?:index|index.file|graph.index).*(?:manipulat|tamper|poison|corrupt).*(?:hnsw|ivf|annoy|faiss|qdrant|weaviate|pinecone|chromadb)
+  - (?i)(?:nearest.neighbor|knn|top.k).*(?:manipulat|poison|corrupt|redirect|hijack).*(?:lookup|search|query)
+  - (?i)(?:vector.index|embedding.index).*(?:corrupt|tamper|inject|adversarial).*(?:retriev|lookup|search)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.bin'
+  - '*.index'
+  message: 'ANN vector index poisoning detected: adversarial manipulation of approximate
+    nearest neighbor index structure'
+  description: Detects patterns consistent with index-level attacks on approximate
+    nearest neighbor (ANN) indexes used by vector databases (Pinecone, Weaviate, ChromaDB,
+    Qdrant, FAISS). Poisoning the index structure (HNSW graphs, IVF clusters) can
+    redirect nearest-neighbor lookups to attacker-controlled embeddings. GenTune-VDB
+    (Tayyab et al., 2025) characterizes HNSW, IVF-PQ, ScaNN as distinct attack surfaces
+    with different poisoning susceptibilities.
+  remediation: Implement index integrity checksums and periodic validation. Restrict
+    write access to index files to privileged processes only. Monitor index structure
+    statistics for anomalous graph topology changes (HNSW) or cluster distribution
+    shifts (IVF). Use immutable index snapshots for production and rebuild from trusted
+    sources on anomaly detection.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-017
+  name: llm-agent-memory-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:agent|autonomous).*(?:memory|long.term.memory|episodic).*(?:poison|corrupt|adversarial|inject|tamper)
+  - (?i)(?:poison|inject|corrupt).*(?:agent.memory|memory.module|experience.replay|episodic.memory)
+  - (?i)(?:malicious|adversarial).*(?:demonstrat|example|experience).*(?:memory|recall|retriev).*(?:agent|autonomous)
+  - (?i)(?:rag.agent|llm.agent|autonomous.agent).*(?:knowledge.base|memory).*(?:poison|backdoor|adversarial)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'LLM agent memory poisoning: adversarial injection into agent long-term
+    memory or episodic memory module'
+  description: Detects patterns consistent with AgentPoison's memory poisoning variant
+    (Chen et al., 2024). Unlike knowledge base poisoning, memory poisoning targets
+    the agent's episodic memory module (stores past interactions). Poisoned memories
+    include malicious demonstrations that redirect agent actions (e.g., medical diagnosis
+    errors in EHRAgent, navigation errors in autonomous driving). Achieves >=80% ASR
+    with <0.1% poison rate, no model training required.
+  remediation: Implement memory integrity validation before retrieval. Apply anomaly
+    detection on memory entries that produce anomalous embedding space placement.
+    Restrict who/what can write to agent long-term memory. Periodically audit memory
+    contents for suspicious entries. Use cryptographic signing of memory entries at
+    write time.
+  owasp_llm: LLM08:2025
+  cwe: CWE-829
+- id: MEDUSA-VDA-SCAN-018
+  name: medical-llm-training-data-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:medical|healthcare|clinical).*(?:llm|language.model).*(?:poison|misinform|adversarial|training.data|data.poison)
+  - (?i)(?:training.data|pretraining|fine.tun).*(?:poison|misinform|inject|corrupt).*(?:medical|clinical|health|drug|diagnosis)
+  - (?i)(?:token.replac|minimal.token|small.fraction).*(?:misinform|poison|adversarial).*(?:training|pretraining|dataset)
+  - (?i)(?:the.pile|c4|common.crawl|training.dataset).*(?:poison|inject|misinform|adversarial).*(?:medical|health|clinical)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: 'Medical LLM training data poisoning: adversarial misinformation injection
+    into LLM pretraining dataset'
+  description: Detects patterns consistent with Alber et al. (Nature Medicine, 2025).
+    Replacement of just 0.001% of training tokens with medical misinformation produces
+    harmful LLMs that propagate medical errors while matching benchmark performance.
+    Corrupted models pass standard medical benchmarks - poisoning is invisible to
+    routine evaluation. Only knowledge graph validation catches 91.9% of harmful outputs
+    (F1=85.7%). Critical patient safety implications.
+  remediation: 'Implement data provenance tracking for all training data. Apply knowledge
+    graph-based output validation for medical LLMs (Alber et al. 2025 approach: 91.9%
+    harmful content detection). Conduct adversarial evaluation beyond standard benchmarks.
+    Require data provenance attestation for training datasets used in safety-critical
+    medical applications.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-VDA-SCAN-019
+  name: black-box-rag-poison-defense-bypass
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:black.box|blackbox|no.white.box|zero.access).*(?:rag|retriev).*(?:poison|attack|adversarial)
+  - (?i)(?:bypass|evade|circumvent).*(?:perplexity.filter|duplicate.removal|defense|guardrail).*(?:rag|retriev|embed)
+  - (?i)(?:cross.guided|multi.llm|auxiliary.llm).*(?:optim|generat).*(?:adversarial|poison|attack).*(?:rag|retriev)
+  - (?i)(?:commercial|production|deploy).*(?:rag|retriev).*(?:comprom|attack|poison|adversarial).*(?:success|achiev|bypass)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: 'Black-box RAG poisoning with defense bypass: defense-evading adversarial
+    text generation for retrieval manipulation'
+  description: Detects patterns consistent with CPA-RAG (Li et al., 2025). Black-box
+    RAG poisoning framework achieving >90% ASR (top-k=5), matching white-box performance,
+    outperforming black-box baselines by 14.5pp under defense conditions. Cross-guided
+    multi-LLM optimization produces fluent adversarial texts that bypass perplexity
+    filtering AND duplicate removal simultaneously. Confirmed successful against Alibaba
+    BaiLian commercial RAG platform.
+  remediation: 'Implement multi-layer defenses beyond perplexity and duplicate detection.
+    Apply semantic coherence validation: check if document content is logically consistent
+    with claimed embedding neighborhood. Use provenance-based allowlisting for knowledge
+    base additions. Deploy EmbedGuard cross-layer detection (Kumar, 2026) as layered
+    defense.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-020
+  name: vector-db-enabled-prompt-attack-detection
+  severity: LOW
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:vector.db|vector.database|embed.store).*(?:attack.detect|malicious.detect|prompt.detect|security.scan)
+  - (?i)(?:bayesian.game|game.theoretic).*(?:prompt|attack).*(?:detect|security|llm|edge.cloud)
+  - (?i)(?:edge.cloud|ec.llm).*(?:vector.db|embed).*(?:detect|security|prompt.attack)
+  - (?i)(?:similarity.search|cosine.similar).*(?:known.attack|attack.pattern|malicious.prompt).*(?:detect|block|filter)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Informational: vector database used as prompt attack detector — verify
+    pattern library is current and complete'
+  description: 'Detects usage of vector database similarity search for attack detection
+    (Huang et al., 2025; Xiang et al./EDDF, 2025). Vector databases are being repurposed
+    as lightweight attack detectors: incoming prompts/queries are matched against
+    an embedded library of known malicious patterns. This is a valid security control
+    (EDDF reduces ASR by >=20%), but its effectiveness depends on completeness and
+    currency of the pattern library.'
+  remediation: Ensure attack pattern library (vector DB) is regularly updated with
+    new attack types. The vector DB used for detection is itself a security artifact
+    requiring integrity protection — apply EmbedGuard-style attestation. Complement
+    similarity-based detection with behavioral/output-based monitoring for novel attacks
+    not in the pattern library.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-021
+  name: pinecone-api-namespace-privilege-escalation
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)pinecone.*(?:namespace|index).*(?:escalat|privilege|unauthorized|cross.tenant|switch|bypass)
+  - (?i)(?:pinecone|qdrant|weaviate|chroma|milvus).*(?:api.key|token|credential).*(?:reuse|share|leak|steal|exfiltrat)
+  - (?i)(?:cross.namespace|cross.tenant|multi.tenant).*(?:pinecone|qdrant|weaviate|milvus|chroma).*(?:access|query|read|write)
+  - (?i)(?:namespace|collection|tenant).*(?:isolation|boundary).*(?:bypass|break|violat|circumvent).*(?:vector|embed|rag)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Pinecone/vector DB namespace privilege escalation: cross-namespace or
+    cross-tenant data access attempt detected'
+  description: Detects patterns consistent with namespace and tenant boundary violations
+    in managed vector databases such as Pinecone, Qdrant, Weaviate, Milvus, and Chroma.
+    In multi-tenant SaaS RAG deployments, namespace isolation is the primary access
+    control boundary. Compromised API keys or namespace confusion attacks can allow
+    one tenant to query, read, or poison another tenant's vector index. Vassilev et
+    al. (NIST AI 100-2, 2024) identify supply chain and privilege escalation as cross-cutting
+    AML concerns; Kiran (2025) notes enterprise RAG deployments across healthcare
+    and legal domains as high-value targets.
+  remediation: Enforce strict namespace-per-tenant isolation with server-side access
+    controls. Never share API keys across tenants. Rotate API keys on suspected compromise.
+    Implement server-side namespace validation independent of client-supplied namespace
+    parameters. Audit cross-namespace query logs regularly.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-VDA-SCAN-022
+  name: embedding-inversion-privacy-attack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:embedding|vector).*(?:inversion|invert|reconstruct|recover|decode).*(?:original|text|input|document|pii|private)
+  - (?i)(?:invert|reconstruct|reverse).*(?:embedding|vector|latent).*(?:privacy|pii|personal|sensitive|confidential)
+  - (?i)(?:vec2text|embed2text|embedding.reconstruction|vector.inversion).*(?:attack|privacy|leak|extract)
+  - (?i)(?:membership.inference|attribute.inference).*(?:embedding|vector.store|vector.db|rag.corpus)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: 'Embedding inversion / privacy attack: attempt to reconstruct original
+    text or PII from stored embedding vectors'
+  description: Detects patterns consistent with embedding inversion attacks (privacy
+    attacks on vector databases). Stored embedding vectors can be partially or fully
+    inverted to recover original text, PII, or confidential document content. Vassilev
+    et al. (NIST AI 100-2, 2024) classify embedding inversion as a privacy attack
+    category under membership inference and data extraction. Even approximate inversion
+    can expose sensitive data stored in RAG corpora (e.g., healthcare records in medical
+    RAG systems described by Xian et al., 2024). Techniques such as Vec2Text and gradient-based
+    inversion can reconstruct inputs from dense embeddings.
+  remediation: Do not store raw sensitive text alongside embeddings in the same store.
+    Apply differential privacy noise to embeddings before storage. Restrict API access
+    to similarity search only — do not expose raw embedding vectors to external callers.
+    Implement access logging for embedding vector retrieval. Consider embedding anonymization
+    or dimension reduction before external exposure.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-VDA-SCAN-023
+  name: membership-inference-vector-database
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:membership.inference|mia).*(?:vector.(?:db|database|store)|embedding|rag|retriev)
+  - (?i)(?:probe|query|test).*(?:membership|presence|exist).*(?:vector.(?:db|store)|embedding|rag.corpus|knowledge.base)
+  - (?i)(?:shadow.model|shadow.database|threshold.attack).*(?:embed|vector|rag|retriev)
+  - (?i)(?:determine|confirm|verify).*(?:whether|if).*(?:document|record|entry|chunk).*(?:indexed|stored|contained).*(?:vector|rag|knowledge)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: 'Membership inference attack on vector database: probing whether specific
+    documents are stored in RAG corpus'
+  description: 'Detects patterns consistent with membership inference attacks (MIA)
+    against vector databases and RAG corpora. By submitting carefully crafted similarity
+    queries and analyzing similarity scores or retrieval ranks, an attacker can determine
+    whether a specific document is present in a private vector database, bypassing
+    intended access controls. Cohen et al. (2024) demonstrate that MIA is a prerequisite
+    step for the 80%-99.8% RAG data extraction attack: first confirm document presence,
+    then extract it. NIST AI 100-2 (Vassilev et al., 2024) classifies MIA as a formal
+    privacy attack category.'
+  remediation: Add calibrated noise to similarity scores returned by vector search
+    APIs (differential privacy). Implement query rate limiting and anomaly detection
+    for repetitive similarity probing patterns. Do not expose exact similarity scores
+    — return only ranked results without scores. Log and audit similarity search queries
+    for membership inference patterns.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-VDA-SCAN-024
+  name: metadata-filter-injection-chroma-milvus
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:metadata.filter|where.clause|filter.param).*(?:inject|unsanit|user.input|arbitrary|manipulat).*(?:chroma|milvus|qdrant|weaviate|pinecone)
+  - (?i)(?:chroma|milvus|qdrant|weaviate).*(?:where|filter|metadata).*(?:inject|bypass|unauthorized|escalat|all.record|dump)
+  - (?i)(?:\$and|\$or|\$gt|\$gte|\$lt|\$lte|\$ne|\$in|\$nin).*(?:inject|unsanit|user.input|arbitrary)
+  - (?i)(?:metadata.query|filter.expression|collection.query).*(?:inject|unsanit|bypass|escalat|all.documents|full.scan)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Metadata filter injection: unsanitized user input in vector DB filter
+    clause may expose unauthorized records'
+  description: Detects patterns consistent with metadata filter injection attacks
+    on vector databases that support structured metadata filtering alongside vector
+    search (Chroma, Milvus, Qdrant, Weaviate, Pinecone). These databases accept MongoDB-style
+    filter operators ($and, $or, $gt, etc.) alongside embedding similarity queries.
+    Unsanitized user-controlled filter expressions can bypass intended access controls,
+    dump entire collections, or access records belonging to other tenants. Analogous
+    to SQL injection but targeting vector database metadata query languages. Kiran
+    (2025) notes Weaviate and ChromaDB as common enterprise RAG backends with metadata
+    filtering capabilities.
+  remediation: Treat all metadata filter parameters as untrusted input. Implement
+    a strict allowlist of permitted filter operators and field names. Never pass raw
+    user input directly to metadata filter expressions. Apply server-side tenant isolation
+    constraints that cannot be overridden by client-supplied filters. Use parameterized
+    filter APIs where available.
+  owasp_llm: LLM01:2025
+  cwe: CWE-943
+- id: MEDUSA-VDA-SCAN-025
+  name: cosine-similarity-manipulation-retrieval-hijack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:cosine.similar|dot.product|inner.product|l2.distance).*(?:manipulat|exploit|game|abuse|maxim|force)
+  - (?i)(?:high.cosine|maximum.similar|top.k|nearest.neighbor).*(?:adversarial|crafted|manipulat|force|steer)
+  - (?i)(?:embed|vector).*(?:optim|craft|manipulat).*(?:cosine|similar|distance|proximity).*(?:target|specific|desired)
+  - (?i)(?:anchor|pivot|hub|universal).*(?:adversarial|crafted|poisoned).*(?:embed|vector).*(?:similar|cosine|near)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: 'Cosine similarity manipulation: crafted vectors designed to score artificially
+    high similarity against target queries'
+  description: 'Detects patterns consistent with cosine similarity manipulation attacks
+    where adversarial embeddings are engineered to achieve arbitrarily high similarity
+    scores against targeted query embeddings. This is the core mechanism behind multiple
+    RAG poisoning attacks: AgentPoison (Chen et al., 2024) uses constrained optimization
+    to create triggers in unique embedding subspaces; adversarial decoding (Zhang
+    et al., 2024) jointly optimizes for high cosine similarity AND malicious generation;
+    Joint-GCG (Wang et al., 2025) achieves simultaneous retriever and generator optimization.
+    The geometric structure of embedding space makes cosine similarity a fundamental
+    attack surface.'
+  remediation: Do not rely on similarity thresholds alone to ensure retrieved document
+    safety. Implement secondary validation of retrieved documents (content-level checks,
+    provenance verification). Apply embedding space anomaly detection to flag documents
+    with anomalously high similarity to query clusters relative to their content.
+    Use diverse retrieval (hybrid dense+BM25) to reduce single-similarity-metric exploitation.
+  owasp_llm: LLM08:2025
+  cwe: CWE-697
+- id: MEDUSA-VDA-SCAN-026
+  name: cross-encoder-reranker-adversarial-attack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:rerank|cross.encoder|cross-encoder).*(?:adversarial|attack|poison|manipulat|exploit|bypass)
+  - (?i)(?:adversarial|crafted|poisoned).*(?:document|passage|chunk).*(?:rerank|score.high|top.result|first.position)
+  - (?i)(?:colbert|bge.rerank|cross.encoder).*(?:attack|adversarial|poison|manipulat|exploit)
+  - (?i)(?:reranker|reranking.model).*(?:poison|adversarial|bypass|exploit|score.manipulat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'Cross-encoder reranker adversarial attack: crafted documents targeting
+    top position in RAG reranking stage'
+  description: 'Detects patterns consistent with adversarial attacks targeting the
+    reranking stage of RAG pipelines. Many production RAG systems use a two-stage
+    retrieval: dense ANN retrieval (first stage) followed by a cross-encoder reranker
+    (ColBERT, BGE-Rerank, etc.) for more accurate scoring. Adversarial documents can
+    be specifically optimized against cross-encoders as well as the first-stage retriever.
+    Zhang et al. (2024, Cornell) demonstrate adversarial decoding outperforms all
+    baselines specifically because it optimizes the full retrieval pipeline, not just
+    the first-stage retriever. Wu et al. (CIKM 2025) show retrievers rely on surface-level
+    proximity, exposing rerankers to manipulation via carefully phrased documents.'
+  remediation: Apply diversity constraints during reranking to prevent adversarial
+    content from monopolizing top-k positions. Validate document provenance before
+    presenting reranked results to the generator. Use ensemble reranking with multiple
+    diverse cross-encoders to reduce single-model attack surface. Monitor for unusual
+    score distributions in reranking output.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-027
+  name: hnsw-graph-structure-traversal-attack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:hnsw|hierarchical.navigable.small.world).*(?:graph|structure|traversal|layer|entry.point).*(?:attack|exploit|manipulat|poison)
+  - (?i)(?:graph.traversal|graph.navigation|graph.topology).*(?:hnsw|ann|approximate).*(?:exploit|attack|adversarial)
+  - (?i)(?:entry.point|layer.zero|bottom.layer).*(?:hnsw|graph.index).*(?:poison|manipulat|inject|exploit)
+  - (?i)(?:hnsw.neighbor|graph.neighbor|ef.construction|ef.search|m.param).*(?:manipulat|poison|exploit|adversarial)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.sh'
+  - '*.yaml'
+  - '*.bin'
+  message: 'HNSW graph traversal attack: exploiting HNSW index graph structure to
+    redirect nearest-neighbor search'
+  description: Detects patterns consistent with attacks exploiting the Hierarchical
+    Navigable Small World (HNSW) graph structure used as the primary ANN index in
+    Qdrant, Weaviate, ChromaDB, and FAISS. HNSW builds a multi-layer proximity graph;
+    adversarial nodes injected at strategic graph positions (especially the bottom
+    layer or near the global entry point) can redirect traversal paths during approximate
+    nearest neighbor search, causing queries to converge on attacker-controlled neighborhoods.
+    Tayyab et al. (GenTune-VDB, 2025) characterize HNSW, IVF-PQ, and ScaNN as distinct
+    attack surfaces with different vulnerabilities; HNSW is particularly susceptible
+    to graph topology manipulation via carefully placed adversarial nodes.
+  remediation: Implement periodic HNSW graph integrity validation (checksums on graph
+    connectivity structure). Monitor for newly added nodes that become disproportionately
+    well-connected hubs in the proximity graph. Restrict vector insert permissions
+    to authorized ingestion pipelines. Consider periodic index rebuilds from verified
+    snapshots. Apply EmbedGuard retrieval-layer KL divergence monitoring to detect
+    graph structure anomalies.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-028
+  name: ivf-cluster-poisoning-centroid-manipulation
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:ivf|inverted.file|inverted.index).*(?:cluster|centroid|cell|partition).*(?:poison|manipulat|adversarial|corrupt)
+  - (?i)(?:centroid|cluster.center|voronoi).*(?:adversarial|manipulat|shift|poison|inject).*(?:ivf|ann|index)
+  - (?i)(?:cluster.assignment|quantization|product.quantiz).*(?:exploit|adversarial|manipulat|attack)
+  - (?i)(?:ivf.pq|ivf.flat|ivf.sq|pq.code).*(?:adversarial|poison|manipulat|inject|attack)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.bin'
+  message: 'IVF cluster/centroid poisoning: adversarial vectors injected to manipulate
+    IVF cluster assignments and retrieval'
+  description: Detects patterns consistent with attacks on Inverted File (IVF) vector
+    index clusters used by FAISS, Milvus, and similar vector databases. IVF partitions
+    the embedding space into Voronoi cells via k-means clustering; queries are answered
+    by searching only nearby cluster cells. Adversarial vectors injected near cluster
+    centroids can shift effective centroid positions, causing legitimate vectors to
+    be assigned to wrong partitions and reducing their retrieval probability while
+    increasing attacker-controlled vector retrieval. Tayyab et al. (GenTune-VDB, 2025)
+    identify IVF-PQ as a distinct attack surface with different characteristics from
+    HNSW.
+  remediation: Use static, pre-computed IVF centroids that are not dynamically updated
+    during online insertion. Validate that inserted vectors do not systematically
+    concentrate near cluster boundaries or centroids. Monitor IVF cluster size distributions
+    for anomalous imbalances. Restrict online index modification to authorized pipelines.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-029
+  name: vector-db-authentication-bypass-unauthenticated-access
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:chroma|qdrant|weaviate|milvus|pgvector).*(?:no.auth|unauthenticat|default.port|default.config|anonymous|no.api.key)
+  - (?i)(?:vector.db|vector.database|vector.store).*(?:expose|open|public|unauthenticat|no.auth|default.cred)
+  - (?i)(?:0\.0\.0\.0|127\.0\.0\.1).*(?:chroma|qdrant|weaviate|milvus|pgvector).*(?:prod|production|deploy|internet)
+  - (?i)(?:chroma|qdrant|weaviate|milvus).*docker.*(?:port.*expose|8080|6333|8000|public|internet)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.env'
+  - '*.conf'
+  message: 'Vector DB exposed without authentication: unauthenticated access to production
+    vector database detected'
+  description: Detects patterns indicating vector database deployments with no authentication
+    or default credentials exposed to untrusted networks. ChromaDB, Qdrant, Milvus,
+    and Weaviate all default to no authentication when deployed locally via Docker;
+    when containerized services are exposed to external networks without authentication
+    configured, the entire vector index (including sensitive RAG knowledge base contents)
+    is accessible to any attacker. This is analogous to the Redis unauthenticated
+    exposure documented by Musa & Irhebhude (2025) — CVSS-critical in default configurations.
+    In multi-tenant SaaS RAG systems, unauthenticated vector DB access allows complete
+    data exfiltration.
+  remediation: 'Enable authentication on all vector database deployments (API keys,
+    mTLS, or RBAC depending on the platform). Never bind vector database ports to
+    0.0.0.0 in production. Use network segmentation: vector databases should only
+    be reachable from application-tier services, not directly from the internet. Apply
+    the principle of least privilege for all vector DB credentials.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-306
+- id: MEDUSA-VDA-SCAN-030
+  name: batch-upsert-poisoning-bulk-injection
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:batch|bulk).*(?:upsert|insert|add|ingest).*(?:poison|adversarial|malicious|crafted).*(?:vector|embed|document|chunk)
+  - (?i)(?:upsert|batch.write|bulk.insert).*(?:vector|embed).*(?:large.scale|high.volume|mass).*(?:adversarial|poison|inject)
+  - (?i)(?:pipeline|etl|ingestion).*(?:poison|adversarial|inject|tamper).*(?:vector|embed|rag|collection|namespace)
+  - (?i)(?:pinecone.upsert|weaviate.batch|chroma.add|milvus.insert|qdrant.upsert).*(?:adversarial|poison|crafted|malicious|fake)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Batch upsert poisoning: bulk vector insertion may be introducing adversarial
+    embeddings at scale'
+  description: Detects patterns consistent with large-scale batch poisoning via vector
+    database upsert APIs. Most vector databases (Pinecone, Weaviate, Chroma, Milvus,
+    Qdrant) support bulk/batch insert operations for efficiency. Attackers with write
+    access to ingestion pipelines can exploit batch upsert endpoints to inject large
+    numbers of adversarial embeddings in a single operation, bypassing per-document
+    rate limits or monitoring. Xian et al. (2024) demonstrate universal RAG poisoning
+    across 225 configurations; CPA-RAG (Li et al., 2025) achieves >90% ASR via systematic
+    corpus-level poisoning. Batch operations reduce the per-document cost of poisoning
+    and may evade rate-based anomaly detection.
+  remediation: Apply per-document validation and anomaly detection even for batch
+    upsert operations — do not bypass validation for efficiency. Implement rate limiting
+    on batch sizes and ingestion frequency. Log all batch upsert operations with source
+    attribution. Apply embedding anomaly detection to batch-inserted vectors before
+    committing to the index. Require elevated privilege/approval for large batch operations.
+  owasp_llm: LLM08:2025
+  cwe: CWE-400
+- id: MEDUSA-VDA-SCAN-031
+  name: semantic-search-injection-typo-tolerant-embedding
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:typo.tolerant|fuzzy.match|approximate.match|misspell|homoglyph).*(?:embed|semantic|vector).*(?:inject|bypass|evade|attack)
+  - (?i)(?:unicode|homoglyph|lookalike|zero.width).*(?:embed|semantic|vector|rag).*(?:inject|bypass|evade|attack)
+  - (?i)(?:embed|semantic.search|vector.search).*(?:typo|misspell|homoglyph|unicode.trick).*(?:bypass|evade|inject|attack)
+  - (?i)(?:character.substitut|visual.similar).*(?:embed|semantic|retriev|rag).*(?:bypass|inject|evade)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.json'
+  message: 'Semantic injection via typo-tolerant embeddings: character manipulation
+    exploiting embedding model tolerance'
+  description: 'Detects patterns consistent with semantic search injection attacks
+    that exploit the tolerance of embedding models for typographic variations, homoglyphs,
+    Unicode tricks, and near-synonym substitutions. Unlike keyword-based search (which
+    would reject gibberish), dense embedding models map typographically mangled text
+    close to the original in embedding space — enabling adversarial payloads that
+    evade lexical filters while still retrieving or injecting into the target embedding
+    neighborhood. Zhang et al. (2024, Cornell adversarial decoding) demonstrate that
+    perplexity-based filters are insufficient: the embedding model''s semantic generalization
+    is the attack surface. Embedding models also generalize across languages and Unicode
+    variants, widening the attack surface.'
+  remediation: Normalize input text (Unicode NFC/NFD normalization, homoglyph substitution)
+    before embedding. Apply lexical anomaly detection in parallel with semantic search.
+    Maintain keyword-level content filters that operate independently of embedding
+    similarity. Implement multi-signal retrieval (hybrid dense+BM25) where BM25 acts
+    as a lexical safety net.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-VDA-SCAN-032
+  name: pgvector-sql-injection-vector-store
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)pgvector.*(?:sql.inject|inject|unsanit|user.input|format|f.string|concat).*(?:query|select|where|insert|update)
+  - (?i)(?:postgresql|postgres|pg).*(?:vector|embed|cosine_distance|vector_dims).*(?:inject|unsanit|user.input|format)
+  - (?i)(?:cosine_distance|l2_distance|inner_product).*pgvector.*(?:format|f.string|concat|unsanit)
+  - (?i)(?:from_documents|add_texts|similarity_search).*(?:langchain|llamaindex).*pgvector.*(?:inject|unsanit|raw.sql)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sql'
+  - '*.yaml'
+  message: 'pgvector SQL injection: unsanitized input in pgvector similarity query
+    may enable SQL injection in PostgreSQL vector store'
+  description: Detects patterns consistent with SQL injection vulnerabilities in pgvector-backed
+    RAG systems. pgvector is a PostgreSQL extension that adds vector similarity search
+    operators (cosine, L2, inner product) directly to SQL. When RAG frameworks (LangChain,
+    LlamaIndex) construct pgvector queries using string formatting rather than parameterized
+    queries, user-controlled input can inject SQL into the underlying PostgreSQL database.
+    This is structurally identical to the Redis injection vulnerabilities documented
+    by Musa & Irhebhude (2025) — a classic injection class applied to the vector database
+    tier.
+  remediation: Use parameterized queries / prepared statements for ALL pgvector SQL
+    construction — never use string formatting, f-strings, or %s substitution with
+    user input. Apply input validation and sanitization before any database operation.
+    Use ORM-level abstractions that handle parameterization automatically. Restrict
+    PostgreSQL roles used by RAG applications to minimum necessary privileges.
+  owasp_llm: LLM01:2025
+  cwe: CWE-89
+- id: MEDUSA-VDA-SCAN-033
+  name: cross-tenant-rag-saas-data-leakage
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:cross.tenant|multi.tenant|tenant.isolation).*(?:rag|vector|embed|retriev).*(?:leak|access|bypass|violat|attack)
+  - (?i)(?:shared|common|global).*(?:vector.(?:db|store|index)|embedding.(?:store|index)).*(?:multi.tenant|saas).*(?:isolat|separat|bypass|violat)
+  - (?i)(?:customer.data|user.data|client.data).*(?:vector|embed|rag).*(?:mix|cross|leak|bleed|contaminate)
+  - (?i)(?:tenant).*(?:rag|vector|embed|retriev|knowledge.base).*(?:access|query|read|write).*(?:other|another|different|cross)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.ts'
+  - '*.js'
+  message: 'Cross-tenant vector DB data leakage: inadequate tenant isolation in SaaS
+    RAG deployment'
+  description: Detects patterns consistent with cross-tenant data leakage in SaaS
+    RAG systems that use shared vector databases with inadequate tenant isolation.
+    When multiple customers share a vector database with only application-level namespace
+    filtering (rather than database-level isolation), bugs or attacks that bypass
+    the tenant filter expose all tenants' RAG knowledge bases to each other. Xian
+    et al. (2024) demonstrate that universal poisoning affects all users querying
+    a shared corpus — the same mechanism applies to cross-tenant leakage. Cohen et
+    al. (2024) show 80-99.8% data extraction is feasible once retrieval access is
+    obtained.
+  remediation: Use separate vector database namespaces or collections per tenant with
+    server-enforced isolation — never rely solely on application-layer filtering.
+    Prefer dedicated vector database instances per customer for high-sensitivity data.
+    Implement tenant ID as a mandatory, server-validated field that cannot be overridden
+    by client requests. Conduct regular penetration testing for cross-tenant access
+    in shared RAG deployments.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-VDA-SCAN-034
+  name: embedding-dimension-reduction-attack-surface
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:pca|umap|tsne|t-sne|svd|truncated.svd).*(?:embed|vector).*(?:attack|adversarial|exploit|manipulat)
+  - (?i)(?:dimension.reduction|dimensionality.reduction).*(?:embed|vector).*(?:attack|adversarial|exploit|privacy)
+  - (?i)(?:compress|reduce.dimension|project).*(?:embed|vector).*(?:adversarial|poison|attack|manipulat).*(?:rag|retriev)
+  - (?i)(?:matryoshka|mrl|variable.dimension|adaptive.dimension).*(?:embed|vector).*(?:attack|exploit|adversarial)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: 'Embedding dimension reduction attack surface: dimension reduction may
+    expose adversarial vulnerabilities in vector space'
+  description: 'Detects patterns consistent with attacks exploiting the dimension
+    reduction pipeline applied to embeddings before storage or after retrieval. Many
+    vector database deployments use PCA, UMAP, or truncated SVD to reduce high-dimensional
+    embeddings (1536-d, 3072-d) to lower-dimensional representations for storage efficiency.
+    Dimension reduction creates adversarial attack surfaces: adversarial perturbations
+    survive dimension reduction differently than benign perturbations, enabling bypass
+    of pre-reduction detection; projection may bring semantically distant adversarial
+    vectors closer to legitimate query vectors. Matryoshka Representation Learning
+    (MRL) embeddings with variable truncation dimensions have attack surface variations
+    at each dimension level. Vassilev et al. (NIST AI 100-2, 2024) identify inference-time
+    evasion via input manipulation as a core attack class applicable to all ML pipeline
+    stages.'
+  remediation: Apply anomaly detection both before and after dimension reduction.
+    Do not assume pre-reduction detection is sufficient — validate at the dimension
+    level actually used for search. Standardize to a consistent embedding dimension
+    in production to reduce attack surface. Audit dimension reduction pipelines for
+    adversarial sensitivity.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-035
+  name: retrieval-augmentation-hijack-context-injection
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:retriev|rag).*(?:context|augment).*(?:hijack|inject|replace|tamper|override|substitut)
+  - (?i)(?:inject|insert|prepend|append).*(?:malicious|adversarial|crafted|fake).*(?:context|retrieved.text|augmented.text|rag.context)
+  - (?i)(?:man.in.the.middle|mitm|intercept).*(?:retriev|rag|augment|context).*(?:inject|replace|tamper|manipulat)
+  - (?i)(?:context.window|prompt.context|system.context).*(?:inject|hijack|overflow|flood|poison).*(?:retriev|rag|augment)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Retrieval augmentation hijack: malicious context injection between retrieval
+    and generation stages of RAG pipeline'
+  description: 'Detects patterns consistent with context injection attacks targeting
+    the augmentation stage of RAG pipelines — the point where retrieved documents
+    are combined with the user query before being sent to the LLM generator. Attackers
+    with MITM position in the RAG pipeline, or who can influence the retrieved documents
+    (via corpus poisoning), can inject crafted context that overrides the user''s
+    intended query or introduces harmful instructions. AgentPoison (Chen et al., 2024)
+    achieves this via memory poisoning: poisoned memories become the injected context.
+    CPA-RAG (Li et al., 2025) achieves the same via covert poisoning. This rule targets
+    the transport/assembly layer where retrieval output and generation input are joined.'
+  remediation: Cryptographically sign retrieved documents at write time and verify
+    signatures before augmentation. Monitor the assembled context for unexpected instruction-like
+    content before sending to the LLM. Implement a context validation layer between
+    retrieval and generation. Treat the RAG context as untrusted input to the LLM,
+    applying the same prompt injection defenses as for user input.
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+- id: MEDUSA-VDA-SCAN-036
+  name: weaviate-graphql-injection-vector-store
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)weaviate.*(?:graphql|gql).*(?:inject|unsanit|user.input|arbitrary|introspect)
+  - (?i)(?:graphql|gql).*weaviate.*(?:inject|bypass|unauthorized|escalat|introspect|dump|all.object)
+  - (?i)weaviate.*(?:Get|Aggregate|Explore).*(?:inject|unsanit|user.input|format|f.string|concat)
+  - (?i)(?:nearText|nearVector|nearObject|hybrid).*weaviate.*(?:inject|unsanit|user.input|arbitrary)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.graphql'
+  - '*.yaml'
+  - '*.json'
+  message: 'Weaviate GraphQL injection: unsanitized input in Weaviate GraphQL query
+    may enable injection in vector store'
+  description: 'Detects patterns consistent with GraphQL injection vulnerabilities
+    in Weaviate-backed vector stores. Weaviate uses GraphQL as its primary query language
+    (Get, Aggregate, Explore operations with nearText/nearVector/hybrid search). When
+    application code constructs Weaviate GraphQL queries using string formatting with
+    user-controlled input, attackers can inject arbitrary GraphQL to: extract schema
+    via introspection, access unauthorized classes/collections, or dump entire object
+    stores. This is structurally similar to Redis/SQL injection vulnerabilities (Musa
+    & Irhebhude, 2025) applied to the GraphQL query language used by Weaviate as a
+    vector database frontend.'
+  remediation: Use Weaviate's parameterized query API (variables in GraphQL operations)
+    rather than string formatting. Disable GraphQL introspection in production deployments.
+    Apply input validation and strict allowlisting of class names, property names,
+    and operators. Restrict Weaviate API keys to minimum necessary class and operation
+    permissions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-943
+- id: MEDUSA-VDA-SCAN-037
+  name: rag-prompt-injection-via-retrieved-document
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:ignore.previous|ignore.above|disregard.instructions|forget.prior|override.system).*(?:retriev|rag|context|document|chunk)
+  - (?i)(?:retriev|rag|context|document|chunk).*(?:ignore.previous|ignore.above|disregard|forget|override).*(?:instruction|system|prompt)
+  - (?i)(?:you.are.now|act.as|new.persona|new.role|new.instruction).*(?:retriev|rag|document|context|chunk)
+  - (?i)(?:hidden.instruction|embedded.instruction|covert.instruction).*(?:document|chunk|passage|rag|retriev)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  - '*.json'
+  - '*.yaml'
+  message: 'Prompt injection via RAG retrieved document: malicious instructions embedded
+    in documents intended for retrieval'
+  description: 'Detects patterns consistent with prompt injection attacks embedded
+    within documents designed to be ingested into RAG knowledge bases and retrieved
+    as context. When an LLM receives retrieved documents as context, embedded instructions
+    within those documents can override the system prompt or hijack the LLM''s behavior.
+    This is a direct-injection variant of the GenAI worm documented by Cohen et al.
+    (2024): crafted documents in the knowledge base serve as persistent prompt injection
+    payloads that activate whenever matched by user queries. AgentPoison (Chen et
+    al., 2024) embeds malicious demonstrations in memory that function as prompt injections.'
+  remediation: Apply prompt injection detection to retrieved document content before
+    augmenting the generation prompt. Clearly delimit retrieved context from system
+    instructions using strong structural separators. Consider using separate context
+    windows or attention masking to prevent retrieved content from influencing system-level
+    instructions. Audit knowledge base content for embedded instruction patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+- id: MEDUSA-VDA-SCAN-038
+  name: vector-db-api-rate-limit-bypass-dos
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:vector.(?:db|database|store)|embed.(?:store|index)).*(?:rate.limit|quota|throttle).*(?:bypass|evade|circumvent|exhaust)
+  - (?i)(?:dos|denial.of.service|resource.exhaust|exhaust.quota|flood).*(?:vector|embed|rag|similarity.search|ann)
+  - (?i)(?:concurrent|parallel|async).*(?:similarity.search|vector.query|embed.lookup).*(?:exhaust|flood|dos|overload)
+  - (?i)(?:expensive|high.cost|slow.query|full.scan|exhaustive).*(?:vector.search|similarity.search|ann.query).*(?:dos|flood|exhaust|abuse)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  message: 'Vector DB DoS / rate limit bypass: high-volume or expensive similarity
+    queries may exhaust vector database resources'
+  description: Detects patterns consistent with denial-of-service attacks against
+    vector database infrastructure via resource exhaustion. Similarity search in ANN
+    indexes (especially large top-k or exhaustive search fallbacks) is computationally
+    expensive. Attackers can exploit this by submitting high-volume similarity queries,
+    forcing expensive full-scan operations, or bypassing rate limits via distributed
+    queries. Huang et al. (2025) characterize resource exhaustion via prompt attacks
+    in edge-cloud LLM systems as a primary attack vector alongside privacy leaks.
+    Vector database resource exhaustion can cascade to degrade or disable the entire
+    RAG pipeline.
+  remediation: Implement per-client rate limiting on all vector similarity search
+    APIs. Set maximum ef_search/nprobe parameters server-side that cannot be overridden
+    by client requests. Apply query cost budgets. Use load shedding and circuit breakers
+    in vector database clients. Monitor for anomalous query volume spikes. Deploy
+    vector databases with auto-scaling to mitigate exhaustion attacks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-770
+- id: MEDUSA-VDA-SCAN-039
+  name: embedding-space-pollution-adversarial-cluster
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:pollut|contaminat|corrupt).*(?:embedding.space|vector.space|latent.space).*(?:adversarial|cluster|inject|flood)
+  - (?i)(?:adversarial|poisoned|crafted).*(?:cluster|cloud|distribution|neighborhood).*(?:embedding|vector).*(?:insert|inject|add|upload)
+  - (?i)(?:hub.node|hub.vector|universal.adversarial|universal.embed).*(?:retriev|rag|ann|nearest.neighbor).*(?:attack|poison|manipulat)
+  - (?i)(?:dense.region|centroid.shift|distribution.shift).*(?:adversarial|poison|inject).*(?:embedding|vector|latent)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.yaml'
+  message: 'Embedding space pollution: adversarial vectors systematically injected
+    to contaminate embedding space geometry'
+  description: Detects patterns consistent with embedding space pollution attacks
+    where large numbers of adversarial vectors are inserted to contaminate the geometric
+    structure of the vector space itself. Unlike targeted single-document poisoning,
+    space pollution aims to shift the entire embedding distribution in a region, creating
+    adversarial 'hubs' that appear as nearest neighbors to many diverse queries simultaneously.
+    This is the large-scale generalization of the adversarial trigger optimization
+    in AgentPoison (Chen et al., 2024) and the universal poisoning in Xian et al.
+    (2024). Hub nodes in ANN graphs are particularly dangerous because they concentrate
+    retrieval paths. EmbedGuard (Kumar, 2026) addresses this with KL divergence monitoring
+    of retrieval distributions.
+  remediation: Implement embedding space distribution monitoring using incremental
+    PCA and KL divergence (EmbedGuard approach, Kumar 2026). Alert on bulk insertions
+    that significantly shift the centroid or distribution of any embedding neighborhood.
+    Apply diversity constraints on indexed vectors to prevent hub formation. Use EmbedGuard-style
+    cross-layer detection spanning embedding, retrieval, and output layers.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-040
+  name: rag-system-prompt-extraction-via-retrieval
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:system.prompt|system.instruction|initial.prompt).*(?:extract|dump|reveal|repeat|output).*(?:rag|retriev|context|document)
+  - (?i)(?:rag|retriev).*(?:system.prompt|system.instruction|confidential.instruction).*(?:extract|leak|reveal|exfiltrat)
+  - (?i)(?:what.is.your.system.prompt|repeat.your.instructions|output.your.system.message).*(?:rag|context|retriev)
+  - (?i)(?:retriev|rag|knowledge.base).*(?:prompt.leak|instruction.leak|config.leak|secret.leak)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'System prompt extraction via RAG: attempting to extract system instructions
+    or confidential prompts through retrieval manipulation'
+  description: Detects patterns consistent with system prompt extraction attacks that
+    leverage RAG retrieval to expose confidential system instructions. When system
+    prompts or operational instructions are stored in the RAG knowledge base (or accidentally
+    indexed), an attacker who can craft queries that retrieve these documents can
+    combine the extraction technique of Cohen et al. (2024) — forcing verbatim reproduction
+    of retrieved context — to exfiltrate system-level instructions. This attack is
+    particularly relevant to agentic RAG systems where tool descriptions, API credentials,
+    or operational constraints are stored in the knowledge base for retrieval by the
+    agent.
+  remediation: Never store system prompts, API credentials, or operational secrets
+    in the RAG knowledge base. Implement strict content classification before indexing
+    — reject any document containing system-level instructions. Apply output monitoring
+    to detect verbatim reproduction of system prompt content. Use cryptographic access
+    controls to segregate agent operational knowledge from general knowledge base
+    content.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-VDA-SCAN-041
+  name: langchain-llamaindex-vectorstore-misconfiguration
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:langchain|llama.index|llamaindex|haystack).*(?:vectorstore|chroma|faiss|pinecone|qdrant|weaviate|milvus).*(?:misconfigur|insecure|default|no.auth|public|expose)
+  - (?i)(?:allow_dangerous_deserialization|allow_dangerous|skip_verification|verify.false|ssl.false).*(?:vector|embed|rag|langchain|llama)
+  - (?i)(?:langchain|llama.index|haystack).*(?:vectorstore|retriever).*(?:debug|test|dev).*(?:prod|production|live|public)
+  - (?i)(?:from_existing|load_existing|persist_directory).*(?:langchain|llama.index).*(?:vectorstore|chroma|faiss).*(?:public|expose|prod)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.env'
+  - '*.cfg'
+  message: 'RAG framework vector store misconfiguration: insecure LangChain/LlamaIndex
+    vector store setup detected'
+  description: 'Detects patterns consistent with insecure configurations in popular
+    RAG framework integrations with vector databases. LangChain and LlamaIndex provide
+    convenient abstractions over vector databases (Chroma, FAISS, Pinecone, Qdrant,
+    Weaviate, Milvus) but their default configurations prioritize developer convenience
+    over security: allow_dangerous_deserialization flags, unverified SSL connections,
+    and debug-mode settings are commonly left enabled in production deployments. These
+    misconfigurations expand the attack surface documented across multiple research
+    papers: unauthenticated vector database access (analogous to Redis defaults, Musa
+    & Irhebhude 2025), unsafe deserialization of FAISS index files, and unencrypted
+    persistence of sensitive knowledge base content.'
+  remediation: Review all RAG framework vector store configurations before production
+    deployment. Disable any allow_dangerous_* flags. Enable SSL/TLS verification for
+    all vector database connections. Use environment-specific configuration management
+    — never use developer/debug settings in production. Pin to specific versions of
+    RAG framework libraries and audit changelogs for security-relevant changes.
+  owasp_llm: LLM08:2025
+  cwe: CWE-16
+- id: MEDUSA-VDA-SCAN-042
+  name: embedding-model-api-key-exfiltration
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:openai|cohere|voyage|nomic|jina|mistral).*(?:api.key|api_key|secret.key|token).*(?:log|print|output|leak|expose|commit|hardcode)
+  - (?i)(?:embed|embedding).*(?:api.key|api_key|secret.key|token).*(?:environ.*plain|hardcode|config.*plain|log)
+  - (?i)(?:OPENAI_API_KEY|COHERE_API_KEY|VOYAGE_API_KEY|PINECONE_API_KEY|WEAVIATE_API_KEY).*(?:log|print|output|commit|hardcode|plain)
+  - (?i)(?:vector.db|embed.api|rag.api).*(?:credential|key|token|secret).*(?:leak|expose|hardcode|commit|plain.text)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.env'
+  - '*.log'
+  - '*.sh'
+  message: 'Embedding/vector DB API key exposure: credentials for embedding model
+    or vector database API leaked in code or logs'
+  description: 'Detects patterns consistent with API key exfiltration or inadvertent
+    exposure of credentials for embedding model APIs (OpenAI, Cohere, Voyage AI, Nomic,
+    Jina) and vector database APIs (Pinecone, Weaviate, Qdrant). Exposed API keys
+    enable attackers to: (1) exfiltrate the entire vector database knowledge base
+    via full API access; (2) poison the corpus via write operations; (3) perform costly
+    embedding operations at the victim''s expense. Embedding API key exposure is frequently
+    caused by committing .env files to version control, logging API keys in debug
+    output, or hardcoding credentials in configuration files. Vassilev et al. (NIST
+    AI 100-2, 2024) classify supply chain credential theft as a critical attack vector.'
+  remediation: Use environment variables or secrets managers (AWS Secrets Manager,
+    HashiCorp Vault, GCP Secret Manager) for all API keys — never hardcode in source
+    code. Add .env and credential files to .gitignore. Enable secret scanning in CI/CD
+    pipelines. Rotate any exposed API keys immediately and audit access logs for unauthorized
+    use.
+  owasp_llm: LLM08:2025
+  cwe: CWE-312
+- id: MEDUSA-VDA-SCAN-043
+  name: rag-output-hallucination-amplification-attack
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:hallucinat|fabricat|confabulate).*(?:amplif|induc|trigger|force).*(?:rag|retriev|knowledge.base|vector)
+  - (?i)(?:retriev|rag).*(?:confusing|conflicting|contradictory|noisy).*(?:document|context|chunk).*(?:hallucinat|error|mislead)
+  - (?i)(?:conflicting|contradictory|inconsistent).*(?:document|chunk|passage).*(?:inject|insert|add).*(?:rag|knowledge|corpus|vector)
+  - (?i)(?:noise|distractor|irrelevant|misleading).*(?:document|chunk).*(?:inject|insert|flood).*(?:rag|corpus|collection|namespace)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: 'RAG hallucination amplification attack: injection of conflicting/noisy
+    documents to induce LLM hallucination via retrieval'
+  description: Detects patterns consistent with retrieval-augmented hallucination
+    amplification attacks where adversaries inject conflicting, contradictory, or
+    noisy documents into the RAG knowledge base to induce LLM hallucination on downstream
+    queries. Unlike targeted poisoning (which steers the LLM toward specific outputs),
+    hallucination amplification aims to degrade overall system reliability by maximizing
+    confusion in retrieved context. Wu et al. (CIKM 2025) demonstrate that dense retrievers
+    already have only 25-35% factual accuracy — injecting distractor passages that
+    are semantically similar but factually incorrect further degrades this. In medical
+    or legal RAG, hallucination amplification constitutes a patient/client safety
+    risk.
+  remediation: 'Implement consistency checking across retrieved documents before augmentation
+    — flag and potentially exclude conflicting retrieved passages. Apply factual validation
+    using knowledge graph cross-referencing (Alber et al., 2025: 91.9% harmful content
+    detection for medical domain). Monitor retrieval diversity metrics to detect flood-of-distractors
+    patterns. Use retrieval reranking that deprioritizes highly contradictory document
+    sets.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-20
+- id: MEDUSA-VDA-SCAN-044
+  name: faiss-index-deserialization-rce
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)faiss.*(?:read_index|load_index|deserializ|pickle|read.from.file).*(?:untrust|user.upload|external|arbitrary|dynamic)
+  - (?i)(?:read_index|faiss.deserializ).*(?:untrust|user.upload|external|arbitrary|user.control|dynamic)
+  - (?i)(?:load.*faiss|faiss.*load).*(?:untrust|unverif|user.upload|external.source|arbitrary.path|user.control)
+  - (?i)(?:allow_dangerous_deserialization|pickle.load|torch.load).*(?:faiss|vector.index|embed.index|index.bin|index.faiss)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.cfg'
+  message: 'FAISS index deserialization vulnerability: loading untrusted FAISS index
+    files may enable remote code execution'
+  description: Detects patterns consistent with deserialization attacks against FAISS-based
+    vector stores. FAISS index files loaded via faiss.read_index() or through LangChain's
+    FAISS.load_local() with allow_dangerous_deserialization=True can contain serialized
+    Python objects that execute arbitrary code during deserialization if the index
+    file is attacker-controlled. LangChain explicitly warns about this via the allow_dangerous_deserialization
+    flag. An attacker who can supply a malicious FAISS .bin or .faiss file (e.g.,
+    via supply chain compromise, file upload vulnerability, or path traversal) can
+    achieve Remote Code Execution in the RAG application process. This is analogous
+    to the embedding model supply chain attack documented by Yuan et al. (SEP, 2025)
+    but at the index file level.
+  remediation: Never load FAISS index files from untrusted sources. Always verify
+    the cryptographic hash/signature of FAISS index files before loading. Set allow_dangerous_deserialization=False
+    in LangChain FAISS configurations. Use signed index snapshots from trusted internal
+    storage only. Consider migrating to vector databases with safer binary formats
+    (Qdrant, Weaviate, Pinecone managed services) for production deployments.
+  owasp_llm: LLM08:2025
+  cwe: CWE-502
+- id: MEDUSA-VDA-SCAN-045
+  name: adversarial-query-embedding-targeted-retrieval
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:craft|optim|manipulat).*(?:query|question|input).*(?:embedding|vector).*(?:target|specific|desired).*(?:retriev|recall|fetch)
+  - (?i)(?:adversarial.query|crafted.query|manipulated.query).*(?:embed|vector).*(?:force|trigger|cause).*(?:retriev|recall|lookup)
+  - (?i)(?:query.manipulat|query.craft|query.optim).*(?:retriev|rag).*(?:target|specific|poison|malicious).*(?:document|chunk|result)
+  - (?i)(?:input.manipulat|prompt.manipulat).*(?:embed|vector).*(?:steer|direct|force).*(?:retriev|rag|nearest.neighbor)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.yaml'
+  message: 'Adversarial query embedding: crafted input designed to force retrieval
+    of specific (possibly poisoned) documents'
+  description: 'Detects patterns consistent with adversarial query crafting designed
+    to reliably retrieve specific documents from a vector database. Unlike corpus
+    poisoning (which modifies the indexed documents), adversarial query crafting modifies
+    the search query to approach the embedding neighborhood of a targeted document.
+    This is complementary to the AgentPoison trigger mechanism (Chen et al., 2024):
+    rather than moving malicious documents close to expected queries, this approach
+    moves the query close to malicious documents. The adversarial query can also be
+    used to avoid retrieving specific documents (evasion of evidence) or to cause
+    retrieval of context-window-filling documents, crowding out relevant information.'
+  remediation: Implement query anomaly detection comparing embedding distribution
+    of incoming queries against expected query distributions for the application.
+    Apply rate limiting on unusual query patterns. Use hybrid retrieval that is harder
+    to manipulate via query embedding alone (BM25 component is immune to embedding-space
+    query crafting). Log query embeddings for post-hoc forensic analysis.
+  owasp_llm: LLM08:2025
+  cwe: CWE-697
+- id: MEDUSA-VDA-SCAN-046
+  name: rag-knowledge-base-data-deletion-attack
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:delete|remove|purge|drop|truncate).*(?:collection|namespace|index|vector|embed).*(?:rag|knowledge.base|corpus|production)
+  - (?i)(?:chroma.delete|qdrant.delete|pinecone.delete|weaviate.delete|milvus.drop).*(?:all|collection|namespace|index|prod)
+  - (?i)(?:bulk.delete|mass.delete|wipe|erase).*(?:vector|embed|collection|namespace|index).*(?:unauthorized|privilege|escalat)
+  - (?i)(?:sabotage|destroy|vandal).*(?:vector.(?:db|database|store|index)|rag.(?:corpus|knowledge|base|database))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'RAG knowledge base deletion attack: unauthorized deletion of vector store
+    collections, namespaces, or indexes'
+  description: Detects patterns consistent with destructive attacks targeting RAG
+    knowledge base integrity via mass deletion of vector store contents. An attacker
+    with write access to the vector database API (obtained via stolen API keys, privilege
+    escalation, or metadata filter injection) can delete entire collections, namespaces,
+    or indexes, causing complete denial of service for RAG-dependent applications.
+    This is the vector database equivalent of Redis FLUSHALL (documented by Musa &
+    Irhebhude, 2025 as a critical attack in default Redis configurations). In production
+    RAG systems, knowledge base deletion could disable critical business processes,
+    patient care systems (medical RAG), or security operations (cybersecurity RAG
+    described by Tayyab et al., 2025).
+  remediation: Restrict delete/drop operations to a separate privileged credential
+    distinct from the read/write ingestion credential. Enable soft-delete with recovery
+    windows rather than hard delete. Implement deletion confirmation workflows for
+    bulk or namespace-level deletions. Maintain offline backups of vector indexes
+    and knowledge base content. Set up alerts for large-scale deletion operations.
+  owasp_llm: LLM08:2025
+  cwe: CWE-285
+- id: MEDUSA-VDA-SCAN-047
+  name: rag-context-overflow-token-limit-exploitation
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:context.window|token.limit|context.length).*(?:overflow|exhaust|fill|flood|max).*(?:rag|retriev|augment|document)
+  - (?i)(?:retriev|rag).*(?:large.document|long.document|max.token|context.fill|token.exhaust).*(?:attack|exploit|abuse|flood)
+  - (?i)(?:top.k|num.results|k.retriev).*(?:large|maximum|max|exhaust|overflow).*(?:context|token|window|rag)
+  - (?i)(?:inject|insert|add).*(?:large|long|verbose|padding|padded).*(?:document|chunk|passage).*(?:rag|corpus|knowledge).*(?:crowd.out|fill|exhaust|overflow)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'RAG context overflow attack: retrieved documents designed to exhaust LLM
+    context window, crowding out legitimate content'
+  description: 'Detects patterns consistent with context window exhaustion attacks
+    in RAG systems. Adversarial documents injected into the knowledge base that are
+    very long, or that are optimized to be retrieved by many common queries, can fill
+    the LLM''s context window when retrieved — crowding out legitimate, helpful documents.
+    This degrades RAG system performance and enables a subtle denial-of-accurate-information
+    attack: pad retrieved context with irrelevant content until relevant context is
+    truncated. This is a variant of the resource exhaustion attack characterized by
+    Huang et al. (2025) in edge-cloud LLM systems.'
+  remediation: Implement maximum document chunk size limits at ingestion time. Apply
+    per-document token budget enforcement during augmentation. Monitor the token distribution
+    of retrieved documents and alert on unusual distributions. Use MMR (Maximal Marginal
+    Relevance) or diversity-aware retrieval to prevent single sources from dominating
+    retrieved context.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-VDA-SCAN-048
+  name: adversarial-embedding-model-fine-tuning-backdoor
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:fine.tun|finetune|train).*(?:embed|sentence.transformer|encoder|retriev.model).*(?:backdoor|trojan|poison|adversarial.data)
+  - (?i)(?:backdoor|trojan|poison).*(?:fine.tun|finetune|train).*(?:embed|encoder|retriev|sentence.transformer)
+  - (?i)(?:adversarial.example|poison.sample|backdoor.sample).*(?:fine.tun|training.data).*(?:embed|encoder|retriev)
+  - (?i)(?:embed.model|encoder.model|retriev.model).*(?:fine.tun|adapt|domain.adapt).*(?:untrust|malicious|adversarial|backdoor).*(?:data|sample|dataset)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Adversarial embedding model fine-tuning backdoor: poisoning detected in
+    embedding/retriever model training pipeline'
+  description: 'Detects patterns consistent with backdoor injection during the fine-tuning
+    of embedding or retrieval models. Many organizations fine-tune off-the-shelf embedding
+    models (sentence-transformers, BGE, E5) on domain-specific data to improve RAG
+    retrieval quality. If the fine-tuning dataset contains adversarially crafted poisoned
+    samples, the resulting embedding model will have a backdoor: specific trigger
+    inputs cause anomalous embedding space placement (e.g., mapping to the embedding
+    neighborhood of attacker-controlled documents). This is a training-time extension
+    of the search-based embedding poisoning (SEP) attack by Yuan et al. (2025) and
+    the supply chain risks described in NIST AI 100-2 (Vassilev et al., 2024). Chen
+    et al. (2024) AgentPoison uses exactly this mechanism against open-source retrievers.'
+  remediation: 'Audit fine-tuning datasets for adversarial samples before training.
+    Apply data sanitization and provenance validation to all domain-specific training
+    data. Use held-out evaluation sets with known-good and adversarial examples to
+    detect embedding backdoors before deployment. Implement embedding space testing:
+    verify the fine-tuned model''s embedding assignments for representative queries
+    match expected geometric properties.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-506
+- id: MEDUSA-VDA-SCAN-049
+  name: rag-inference-time-corpus-substitution
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:swap|replace|substitut|switch).*(?:corpus|collection|namespace|index).*(?:inference|runtime|request|query.time).*(?:rag|retriev|vector)
+  - (?i)(?:dynamic|runtime|per.request|per.user).*(?:corpus|collection|namespace|index).*(?:switch|swap|select|choose).*(?:untrust|user.control|inject|manipulat)
+  - (?i)(?:user.supply|user.control|attacker.control).*(?:corpus|collection|namespace|knowledge.base|index).*(?:rag|retriev|vector)
+  - (?i)(?:corpus.switch|index.switch|namespace.switch|collection.switch).*(?:adversarial|poison|malicious|untrust)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'RAG corpus substitution at inference time: user-controlled corpus selection
+    may inject untrusted knowledge base'
+  description: Detects patterns consistent with inference-time corpus substitution
+    attacks where an attacker manipulates which knowledge base or collection is queried
+    during RAG retrieval. Some RAG systems support dynamic corpus selection (e.g.,
+    routing different users to different knowledge bases, or allowing users to specify
+    which namespace to query). If the corpus/collection/namespace selection parameter
+    is user-controllable and not properly validated, an attacker can redirect RAG
+    retrieval to a fully attacker-controlled knowledge base, bypassing all document
+    validation performed during ingestion to the legitimate corpus. This is a critical-severity
+    variant of namespace privilege escalation (related to MEDUSA-VDA-SCAN-021) that
+    enables complete RAG system compromise.
+  remediation: Never allow user-controlled parameters to directly select the vector
+    database collection, namespace, or index used for retrieval. Implement server-side
+    corpus routing based on authenticated identity and authorization policy. Validate
+    all collection/namespace identifiers against an allowlist of legitimate identifiers.
+    Use separate authentication contexts for different knowledge bases.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-VDA-SCAN-050
+  name: multi-hop-rag-chain-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:multi.hop|multi-hop|chain.of.thought|iterative.retriev|multi.step.retriev).*(?:poison|adversarial|attack|manipulat)
+  - (?i)(?:poison|adversarial|inject).*(?:multi.hop|iterative|chain).*(?:retriev|rag|reasoning|lookup)
+  - (?i)(?:intermediate.document|hop.document|retriev.chain).*(?:poison|adversarial|inject|manipulat).*(?:multi.hop|multi-hop|chain)
+  - (?i)(?:IRCoT|FLARE|Self.RAG|adaptive.rag).*(?:poison|adversarial|attack|manipulat|exploit)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Multi-hop RAG chain poisoning: adversarial documents in intermediate retrieval
+    steps of multi-hop reasoning detected'
+  description: 'Detects patterns consistent with poisoning attacks targeting multi-hop
+    RAG systems (IRCoT, FLARE, Self-RAG, Adaptive RAG) where the LLM performs multiple
+    iterative retrieval steps to answer complex questions. In multi-hop systems, poisoning
+    intermediate retrieval steps is particularly effective: a malicious document retrieved
+    in step 1 can influence the LLM''s next query (step 2''s retrieval target), creating
+    a cascading manipulation across the entire reasoning chain. Zhao et al. (2025)
+    demonstrate this mechanism in KG-RAG systems where poisoned triples create misleading
+    inference chains; the same principle applies to iterative dense retrieval. The
+    GenAI worm of Cohen et al. (2024) exploits a similar chain-of-influence mechanism.'
+  remediation: Apply document validation at each retrieval step in multi-hop chains,
+    not only at the initial step. Monitor for intermediate retrieval results that
+    significantly shift the query direction from the original user intent. Implement
+    retrieval consistency checks comparing retrieved documents across hops for thematic
+    coherence. Apply provenance tracking across all retrieval hops.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-051
+  name: vector-db-tls-ssl-disabled-plaintext
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:vector.(?:db|database|store)|embed.(?:store|api)|rag).*(?:ssl.false|tls.false|verify.false|no.ssl|no.tls|unencrypt)
+  - (?i)(?:pinecone|qdrant|weaviate|chroma|milvus).*(?:ssl.false|tls.false|verify.false|no.ssl)
+  - (?i)(?:verify.false|ssl.false|tls.false|no.verify).*(?:langchain|llama.index|haystack).*(?:vector|embed|retriev|chroma|faiss|qdrant|weaviate)
+  - (?i)(?:vector.db|embed.api|rag.api).*(?:plain.http|unencrypt|no.tls|no.ssl|clear.text)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.env'
+  - '*.cfg'
+  - '*.sh'
+  message: 'Vector DB unencrypted connection: TLS/SSL disabled for vector database
+    connection, enabling MITM interception'
+  description: 'Detects patterns indicating unencrypted connections to vector database
+    APIs, exposing embedding vectors, query content, and knowledge base data to man-in-the-middle
+    interception. When vector database clients connect with SSL verification disabled,
+    network-level attackers can intercept: (1) embedding vectors being inserted (enabling
+    embedding inversion to recover plaintext); (2) similarity queries (revealing user
+    intent and query content); (3) retrieved documents (exposing knowledge base contents).
+    Musa & Irhebhude (2025) identify encrypted transport as a critical Redis security
+    control — the same applies to all vector database transports.'
+  remediation: Enforce HTTPS/TLS for all vector database API connections. Never disable
+    SSL certificate verification in production (verify=False, ssl=False). Use certificate
+    pinning for managed vector database services. Configure TLS mutual authentication
+    (mTLS) for internal vector database connections in sensitive deployments. Regularly
+    rotate TLS certificates.
+  owasp_llm: LLM08:2025
+  cwe: CWE-319
+- id: MEDUSA-VDA-SCAN-052
+  name: agentic-rag-tool-call-injection-via-retrieval
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:tool.call|function.call|api.call).*(?:inject|adversarial|poison|craft).*(?:retriev|rag|document|context)
+  - (?i)(?:retriev|rag|document|context).*(?:tool.call|function.call|code.execution|api.call).*(?:inject|adversarial|trigger|activate)
+  - (?i)(?:agent|autonomous.agent|agentic).*(?:retriev|rag).*(?:tool.call|function.call|execute|code).*(?:inject|poison|adversarial|malicious)
+  - (?i)(?:function.calling|tool.use|code.interpreter).*(?:inject|manipulat|adversarial).*(?:retriev|rag|knowledge.base|document)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'Agentic RAG tool-call injection: retrieved documents containing crafted
+    instructions that trigger unauthorized tool or function calls'
+  description: 'Detects patterns consistent with tool-call injection attacks targeting
+    agentic RAG systems that can execute function calls or tool use based on retrieved
+    context. When an LLM agent uses RAG to retrieve task-relevant context and that
+    context contains adversarially crafted tool-call instructions, the agent may execute
+    unauthorized operations. AgentPoison (Chen et al., 2024) demonstrates this exact
+    attack vector: poisoned agent memories trigger malicious actions in EHRAgent (medical)
+    and autonomous driving agents. The EmbedGuard framework (Kumar, 2026) identifies
+    agentic tool-call injection as a key threat requiring output consistency verification
+    across all four RAG layers.'
+  remediation: 'Implement strict sandboxing for all agentic tool calls — require explicit
+    user approval for sensitive operations regardless of instruction source. Apply
+    prompt injection detection to retrieved context before presenting to agents with
+    tool-use capabilities. Use capability-based access control for agent tools: agents
+    should have minimum necessary tool access for each task. Never expose destructive
+    or privileged tools to RAG-augmented agents without human-in-the-loop confirmation.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+- id: MEDUSA-VDA-SCAN-053
+  name: rag-sparse-retrieval-bm25-keyword-injection
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:bm25|tfidf|tf-idf|sparse.retriev|keyword.retriev|elastic|opensearch).*(?:inject|adversarial|keyword.stuff|manipulat|exploit)
+  - (?i)(?:keyword.stuff|term.inject|keyword.inject).*(?:bm25|tfidf|sparse|retriev|rag|corpus)
+  - (?i)(?:adversarial|crafted|poison).*(?:keyword|term|token).*(?:bm25|sparse.retriev|keyword.retriev|hybrid.retriev)
+  - (?i)(?:hybrid.retriev|hybrid.rag|sparse.dense|bm25.dense).*(?:adversarial|inject|poison|manipulat|exploit)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'BM25/sparse retrieval keyword injection: adversarial keyword stuffing
+    in hybrid RAG sparse retrieval component'
+  description: Detects patterns consistent with keyword injection attacks targeting
+    the BM25/sparse retrieval component of hybrid RAG systems. While dense embedding
+    retrieval is vulnerable to cosine similarity manipulation, BM25/keyword-based
+    retrieval is vulnerable to keyword stuffing — documents that repeat high-IDF query
+    terms many times to achieve artificially high BM25 scores. In hybrid RAG systems
+    (Kiran, 2025), an adversary can create documents that score highly on both dense
+    (via embedding optimization) and sparse (via keyword stuffing) retrieval, making
+    them nearly impossible to avoid in retrieval results. Wu et al. (CIKM 2025) note
+    that hybrid retrieval with BM25 is proposed as a defense against pure embedding
+    manipulation — this rule targets the BM25 attack surface that adversaries would
+    then exploit.
+  remediation: Implement BM25 score normalization and term frequency saturation parameter
+    tuning. Apply document-level diversity constraints in hybrid retrieval results.
+    Monitor for documents with anomalously high keyword repetition rates (term frequency
+    outlier detection). Validate that high-BM25-scoring retrieved documents are semantically
+    relevant to the query, not just lexically matched.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-054
+  name: vector-db-log-injection-monitoring-evasion
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:log.inject|log.poison|log.manipulat|log.tamper).*(?:vector.(?:db|database|store)|embed|rag|retriev)
+  - (?i)(?:vector.(?:db|database|store)|embed|rag).*(?:log.inject|log.poison|log.suppress|log.tamper|log.evad)
+  - (?i)(?:newline|carriage.return|line.feed).*(?:vector.query|embed.query|rag.query|similarity.search).*(?:log|audit|monitor)
+  - (?i)(?:evade|bypass|suppress|tamper).*(?:monitor|log|audit|alert).*(?:vector.(?:db|database|store)|embed|rag)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  message: 'Vector DB log injection / monitoring evasion: malicious input crafted
+    to manipulate audit logs of vector database operations'
+  description: Detects patterns consistent with log injection attacks targeting audit
+    and monitoring pipelines for vector database operations. If vector database query
+    logs, retrieval audit logs, or embedding operation logs are written without proper
+    escaping of user-controlled input (query text, document content, metadata), an
+    attacker can inject fake log entries (via newline injection) or suppress/corrupt
+    legitimate entries. This monitoring evasion is particularly dangerous in RAG security
+    contexts because it could obscure evidence of ongoing corpus poisoning campaigns
+    (as described throughout the vector_db_attacks research corpus). EmbedGuard (Kumar,
+    2026) identifies monitoring integrity as a critical component of the cross-layer
+    detection framework.
+  remediation: Sanitize all user-controlled content before writing to audit logs (escape
+    newlines, control characters). Use structured logging formats (JSON) that are
+    inherently resistant to newline injection. Store audit logs in a write-once, tamper-evident
+    store. Separate the logging pathway from the query handling pathway to prevent
+    log injection from affecting query processing.
+  owasp_llm: LLM08:2025
+  cwe: CWE-117
+- id: MEDUSA-VDA-SCAN-055
+  name: rag-source-attribution-spoofing
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:source|citation|reference|attribution).*(?:spoof|fake|falsif|fabricat|forge).*(?:rag|retriev|document|chunk)
+  - (?i)(?:rag|retriev).*(?:source|citation|reference|attribution).*(?:spoof|fake|falsif|fabricat|forge|manipulat)
+  - (?i)(?:fake.citation|false.source|fabricated.reference|forged.attribution).*(?:rag|retriev|knowledge.base|document)
+  - (?i)(?:metadata|source.field|url.field|author.field|title.field).*(?:spoof|fake|falsif|forge|manipulat).*(?:rag|vector|embed|document)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: 'RAG source attribution spoofing: document metadata crafted to forge citations
+    or misattribute retrieved content'
+  description: 'Detects patterns consistent with source attribution spoofing attacks
+    where adversarial documents injected into RAG knowledge bases carry falsified
+    metadata (title, author, URL, institution) to make malicious content appear to
+    come from authoritative or trusted sources. When LLMs cite retrieved documents,
+    they often include the document''s metadata as provenance — spoofed metadata makes
+    fabricated or harmful content appear to be from authoritative institutions. This
+    amplifies the impact of RAG corpus poisoning: not only is the content harmful,
+    but the fabricated authority increases user trust in the LLM''s (poisoned) response.
+    Alber et al. (Nature Medicine, 2025) demonstrate that medical misinformation can
+    be propagated by LLMs while maintaining apparent benchmark performance.'
+  remediation: Implement document provenance verification before indexing — validate
+    source URLs, check digital signatures, cross-reference claimed authorship against
+    known authoritative sources. Store cryptographic provenance attestation alongside
+    each document at ingestion time. Apply EmbedGuard-style provenance attestation
+    (Kumar, 2026) to the document metadata layer. Alert on documents claiming authoritative
+    sources that cannot be verified.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-056
+  name: graph-rag-node-link-poisoning
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:graph.rag|graphrag|graph.based.rag|microsoft.graphrag).*(?:poison|adversarial|attack|manipulat|corrupt)
+  - (?i)(?:community.detection|community.summary|graph.community).*(?:poison|adversarial|inject|tamper).*(?:rag|retriev|graphrag)
+  - (?i)(?:entity.node|relation.edge|graph.node|graph.edge).*(?:inject|adversarial|poison|tamper).*(?:graphrag|graph.rag)
+  - (?i)(?:global.search|local.search).*(?:graphrag|graph.rag).*(?:poison|adversarial|manipulat|corrupt)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Graph RAG node/link poisoning: adversarial manipulation of knowledge graph
+    nodes or community summaries in GraphRAG'
+  description: 'Detects patterns consistent with poisoning attacks targeting Graph
+    RAG architectures (Microsoft GraphRAG and similar). Graph RAG builds a knowledge
+    graph from documents (extracting entities, relationships, and community summaries)
+    and uses graph traversal for retrieval. Adversarial document injection (as in
+    MEDUSA-VDA-SCAN-001) propagates into the graph structure: poisoned documents cause
+    the entity/relationship extraction LLM to create adversarial graph nodes and edges,
+    which then corrupt community detection and community summaries used for global-search
+    retrieval. Zhao et al. (2025) explicitly study KG-RAG poisoning with perturbation
+    triples — Graph RAG is susceptible to the same attack category applied to its
+    auto-generated knowledge graph.'
+  remediation: Implement entity and relationship validation during the graph construction
+    phase. Apply consistency checks on extracted entities against known authoritative
+    sources. Validate community summaries for coherence and factual accuracy before
+    indexing. Restrict document ingestion to trusted sources for Graph RAG deployments
+    in security-critical applications. Monitor for anomalous graph topology changes
+    during incremental updates.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-VDA-SCAN-057
+  name: embedding-model-jailbreak-via-adversarial-input
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:jailbreak|bypass.safety).*(?:embed|embedding.model|encoder).*(?:retriev|rag|vector.search|nearest.neighbor)
+  - (?i)(?:adversarial.input|jailbreak.input|bypass.input).*(?:embed|encode).*(?:retriev|retriever|rag|vector.search)
+  - (?i)(?:embed.model|retriev.model|encoder).*(?:unsafe|harmful|jailbreak|bypass).*(?:retriev|rag|vector.search|nearest.neighbor)
+  - (?i)(?:adversarial|jailbreak).*(?:retriev.model|embedding.model|bi.encoder|cross.encoder).*(?:retrieve|rank|score)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.yaml'
+  message: 'Adversarial embedding model input: jailbreak or adversarial input crafted
+    to manipulate retrieval model behavior'
+  description: Detects patterns consistent with adversarial inputs targeting the embedding/retrieval
+    model itself (as opposed to the LLM generator). Retrieval models (bi-encoders,
+    cross-encoders) are not safety-aligned — they have no RLHF-based refusal capability.
+    Adversarial inputs can be crafted to cause retrieval models to produce anomalous
+    embedding outputs that defeat semantic matching, enable evasion of content-based
+    retrieval filters, or manipulate reranking scores. Wu et al. (CIKM 2025) demonstrate
+    retrieval model factual fragility (only 25-35% factual accuracy). Yuan et al.
+    (SEP, 2025) and Chen et al. (AgentPoison, 2024) both craft inputs that manipulate
+    embedding model outputs for downstream exploitation. The EDDF framework (Xiang
+    et al., 2025) addresses this by using essence-based rather than surface-level
+    detection.
+  remediation: Apply input validation and normalization before embedding model inference.
+    Monitor embedding model output distributions for anomalous deviations from expected
+    query distributions. Use ensemble retrievers with diverse architectures to reduce
+    single-model adversarial vulnerability. Apply the EDDF essence-driven detection
+    approach (Xiang et al., 2025) to detect adversarial retrieval inputs based on
+    semantic intent rather than surface patterns.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-VDA-SCAN-058
+  name: rag-feedback-loop-poisoning-cyclic
+  severity: HIGH
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:feedback.loop|cyclic|iterative|online.learn|continual.learn).*(?:poison|adversarial|manipulat).*(?:rag|retriev|embed|vector)
+  - (?i)(?:rag|retriev).*(?:feedback|reward|reinforce|online).*(?:loop|cycle|iterative).*(?:poison|adversarial|manipulat|drift)
+  - (?i)(?:poison|adversarial).*(?:feedback|reward.signal|user.feedback).*(?:rag|retriev|embed|knowledge.base).*(?:update|adapt|learn)
+  - (?i)(?:brra|cyclic.feedback|adaptive.attack).*(?:rag|retriev|embed|vector).*(?:drift|amplif|escalat|compound)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'RAG feedback loop poisoning: cyclic feedback mechanism exploited to progressively
+    amplify bias or adversarial influence'
+  description: 'Detects patterns consistent with cyclic feedback poisoning in RAG
+    systems that use user feedback or online learning to update the knowledge base
+    or retrieval model. Wang et al. (BRRA, 2025) explicitly model cyclic feedback
+    as the mechanism by which bias amplification compounds over time: poisoned retrieval
+    produces biased outputs, biased outputs generate feedback signals that reinforce
+    retrieval of biased documents, creating a positive feedback loop that progressively
+    amplifies the adversarial influence. Any RAG system with online learning, user
+    feedback integration, or active-learning-based knowledge base updates is susceptible
+    to this compound poisoning mechanism.'
+  remediation: 'Implement human review gates on knowledge base updates driven by automated
+    feedback signals. Apply drift detection to monitor embedding distribution changes
+    over time (EmbedGuard incremental PCA approach, Kumar 2026). Limit the rate at
+    which user feedback can influence knowledge base content. Maintain a clean-room
+    baseline knowledge base for comparison against production. Apply the dual-stage
+    defense proposed by Wang et al. (2025) for BRRA: retrieval-stage geometry filtering
+    + generation-stage bias detection.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-VDA-SCAN-059
+  name: scann-quantization-attack-vector-db
+  severity: MEDIUM
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:scann|scalable.ann).*(?:quantiz|compress|attack|adversarial|poison|manipulat)
+  - (?i)(?:product.quantiz|scalar.quantiz|pq.code|sq.code).*(?:adversarial|attack|manipulat|exploit|poison)
+  - (?i)(?:quantiz.error|quantiz.noise|quantiz.artifact).*(?:adversarial|exploit|attack|manipulat).*(?:vector|embed|ann|retriev)
+  - (?i)(?:lossy.compress|vector.compress|dim.compress).*(?:adversarial|exploit|bypass|attack).*(?:vector|embed|ann|retriev)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.bin'
+  - '*.index'
+  message: 'ScaNN/quantization attack: exploiting quantization artifacts in vector
+    compression to manipulate ANN search results'
+  description: 'Detects patterns consistent with attacks exploiting quantization artifacts
+    in compressed vector indexes. Most production vector databases use product quantization
+    (PQ), scalar quantization (SQ), or ScaNN''s anisotropic quantization to compress
+    high-dimensional embeddings for storage efficiency, trading exact distances for
+    approximate ones. Quantization introduces consistent rounding errors that adversaries
+    can exploit: vectors crafted to be on the boundary of quantization cells get their
+    distances altered more than vectors in the center, allowing adversarially crafted
+    vectors to appear closer or further from queries after quantization than their
+    true embedding distance would indicate. Tayyab et al. (GenTune-VDB, 2025) characterize
+    ScaNN and IVF-PQ as distinct attack surfaces from HNSW, with different quantization-specific
+    vulnerability profiles.'
+  remediation: Test adversarial robustness of ANN indexes specifically at the quantization
+    layer — not just in the original embedding space. Use higher-bit quantization
+    (8-bit SQ rather than 4-bit) for security-sensitive RAG deployments, accepting
+    storage cost for adversarial robustness. Monitor for systematic quantization errors
+    by periodically comparing PQ distances against exact L2/cosine distances for sampled
+    vectors. Consider exact search (IVF-Flat) for security-critical retrieval queries.
+  owasp_llm: LLM08:2025
+  cwe: CWE-697
+- id: MEDUSA-VDA-SCAN-060
+  name: cross-layer-coordinated-rag-attack
+  severity: CRITICAL
+  category: vector_db_attacks
+  patterns:
+  - (?i)(?:cross.layer|multi.layer|multi.stage|coordinated|orchestrated).*(?:attack|adversarial).*(?:rag|retriev|embed|vector.db)
+  - (?i)(?:bypass|evade|defeat).*(?:single.layer|single.defense|single.guardrail).*(?:rag|retriev|embed|vector).*(?:coordinated|multi|cross.layer)
+  - (?i)(?:attack.chain|kill.chain|attack.sequence|staged.attack).*(?:rag|retriev|embed|vector.db|knowledge.base)
+  - (?i)(?:embed.layer|retriev.layer|prompt.layer|output.layer).*(?:coordinated|simultaneous|combined).*(?:attack|adversarial|bypass|evade)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: 'Cross-layer coordinated RAG attack: multi-stage attack spanning prompt,
+    embedding, retrieval, and output layers detected'
+  description: 'Detects patterns consistent with coordinated attacks that target multiple
+    layers of the RAG pipeline simultaneously, specifically designed to defeat single-layer
+    defenses. EmbedGuard (Kumar, 2026) explicitly identifies cross-layer coordinated
+    attacks as the most dangerous threat class: single-layer defenses (prompt filtering,
+    embedding monitoring, retrieval analysis, output checking) each achieve significantly
+    lower detection rates (18.4 percentage points lower) than cross-layer detection.
+    A coordinated attacker who understands the defense architecture injects adversarial
+    signals distributed across prompt, embedding, retrieval, and output layers — each
+    signal individually below detection thresholds but collectively sufficient to
+    manipulate the RAG system. This is the highest-sophistication attack in the vector_db_attacks
+    threat model.'
+  remediation: 'Deploy EmbedGuard-style cross-layer detection spanning all four RAG
+    layers: prompt injection detection, embedding layer attestation via TEE, retrieval
+    distribution analysis (KL divergence), and output consistency verification (Kumar,
+    2026). Achieve 94.7% detection rate for optimization-based attacks and 89.3% for
+    adaptive attacks via cross-layer correlation — versus significantly lower rates
+    for single-layer approaches. Implement the three deployment modes (passive logging,
+    gated human review, active auto-remediation) with escalating response based on
+    cross-layer signal correlation strength.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-693

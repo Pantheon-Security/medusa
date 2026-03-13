@@ -1,0 +1,139 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-AGT-095
+  name: multi-agent-coordination-state-injection
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)\bshared[_\s]state\s*(?:\[|\.|=).*?(?:agent|task|coord)
+  - (?i)\bcoordination[_\s](?:message|channel|bus)\s*(?:poisoned|tampered|hijacked|inject)
+  - (?i)\bbroadcast(?:_to_all|_agents|_peers)\s*\(.*?(?:override|replace|inject|malicious)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Multi-Agent Coordination State Injection: shared coordination channel manipulation detected'
+  description: Detects attacks where malicious content is injected into shared multi-agent state or coordination channels
+    to influence all agents in a network. Related to DREAM cross-environment chain attacks and MAS pollution. (Gu et al. 2024
+    - AgentPoison; Zheng et al. 2025 - MAS Pollution)
+  remediation: Authenticate all inter-agent messages. Use append-only coordination logs. Apply message integrity checks on
+    shared state before consumption.
+  owasp_llm: LLM06:2025
+  cwe: CWE-610
+- id: MEDUSA-AGT-096
+  name: agent-state-persistence-hijack
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)\b(?:memory|state|context)\s*(?:store|db|redis|sqlite)\s*(?:\.set|\[|=).*?(?:inject|poison|tamper|override)
+  - (?i)\bpersistent[_\s](?:agent[_\s])?(?:memory|state|context)\s*(?:tamper|poison|inject|corrupt)
+  - (?i)\b(?:checkpoint|snapshot|pickle|shelve)\s*\.(?:load|open|restore)\s*\(.*?(?:user[_\s]?input|untrusted|external)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Agent State Persistence Hijack: untrusted data written to or loaded from persistent agent state store'
+  description: Detects attacks exploiting persistent agent state (memory stores, checkpoints, Redis/SQLite state) to inject
+    long-lived malicious context. Sleeper memory injection and MINJA memory injection patterns. (Chan et al. 2024 - Persistent
+    Memory Injection)
+  remediation: Sanitize all data before writing to persistent agent state. Cryptographically sign agent checkpoints. Apply
+    integrity validation on state load operations.
+  owasp_llm: LLM06:2025
+  cwe: CWE-471
+- id: MEDUSA-AGT-097
+  name: agent-identity-verification-bypass
+  severity: CRITICAL
+  category: agent_security
+  patterns:
+  - (?i)\b(?:agent[_\s])?identity\s*(?:verification|check|validation)\s*(?:skipped|disabled|bypassed|omitted)
+  - (?i)\btrust\s*(?:on\s+first\s+use|tofu)\s*(?:agent|peer|orchestrator)
+  - (?i)\bno[_\s](?:agent|peer)[_\s](?:auth|authentication|signature|verification)\b
+  - (?i)\b(?:agent[_\s])?certificate\s*(?:pinning\s+)?(?:disabled|skipped|verify\s*=\s*false)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.env'
+  message: 'Agent Identity Verification Bypass: missing or disabled agent authentication detected'
+  description: Detects configurations and code patterns where agent identity verification is missing or disabled, enabling
+    TAMAS-style trust manipulation and agent impersonation attacks. (Debenedetti et al. 2024 - AgentDojo; Xiang et al. 2024
+    - TAMAS)
+  remediation: Implement mutual TLS or cryptographic agent identity verification. Never rely on text-based identity claims.
+    Apply agent certificate validation at every inter-agent communication.
+  owasp_llm: LLM08:2025
+  cwe: CWE-287
+- id: MEDUSA-AGT-098
+  name: agent-sandbox-escape-pattern
+  severity: CRITICAL
+  category: agent_security
+  patterns:
+  - (?i)\b(?:sandbox|container|chroot|namespace)\s*(?:escape|bypass|breakout|jailbreak)\b
+  - (?i)\bos\.(?:system|popen|execv[pe]?|fork|getpid)\s*\(.*?(?:rm\s+-rf|dd\s+if|chmod|chown|mount)
+  - (?i)\bsubprocess\.(?:call|run|Popen)\s*\(.*?(?:shell\s*=\s*True).*?(?:user[_\s]?input|\$\{|f["'])
+  - (?i)\b__import__\s*\(\s*["'](?:os|subprocess|pty|socket)["']\s*\)\s*\.(?:system|popen|exec)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sh'
+  - '*.ipynb'
+  message: 'Agent Sandbox Escape: shell execution with user-controlled input or known sandbox escape pattern detected'
+  description: Detects code patterns that may enable sandbox or container escapes in agent execution environments, including
+    shell injection via subprocess with user-controlled input and known escape primitives. (Yi et al. 2024 - Agent Security;
+    Prompt Injection to RCE patterns)
+  remediation: Never pass user or LLM-controlled input to shell commands. Use allow-lists for permitted system calls. Deploy
+    agents in capability-restricted containers with seccomp profiles.
+  owasp_llm: LLM07:2025
+  cwe: CWE-78
+- id: MEDUSA-AGT-099
+  name: agent-capability-boundary-violation
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)\b(?:tool|capability|permission)\s*(?:escalat|expand|widen|broaden)\s*(?:request|ask|demand)\b
+  - (?i)\brequire(?:s|d)?\s+(?:additional|elevated|higher|admin|root)\s+(?:permissions?|privileges?|access|capabilities?)
+  - (?i)\bgrant[_\s](?:all|full|unrestricted|admin)\s+(?:tool|api|system)[_\s](?:access|permission|capability)
+  - (?i)\bdynamic[_\s]tool[_\s](?:registration|add|install|expand).*?(?:without|no\s+)(?:review|approval|validation)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: 'Agent Capability Boundary Violation: agent requesting or receiving capability escalation beyond defined scope'
+  description: Detects patterns where agents attempt to expand their tool or permission set beyond what was initially granted,
+    including dynamic tool registration without approval. Relates to MCP post-init capability escalation (ACP-INIT-001). (Ruan
+    et al. 2024 - AgentBench; Louck et al. 2025 - ACP Capabilities)
+  remediation: Define and enforce static tool manifests for agents. Require human approval for any capability expansion. Log
+    all tool registration events and alert on runtime additions.
+  owasp_llm: LLM06:2025
+  cwe: CWE-862
+- id: MEDUSA-AGT-100
+  name: agent-least-privilege-tool-access-violation
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)\btools\s*=\s*\[.*?(?:all_tools|\*|get_all|list_all).*?\]
+  - (?i)\ballow[_\s]all[_\s]tools\s*(?:=\s*True|:\s*true)
+  - (?i)\btool[_\s](?:access|whitelist|allowlist)\s*[:=]\s*(?:\*|all|any|none|\[\]|null)
+  - (?i)\bagent\.(?:add_tool|register_tool|enable_tool)\s*\(.*?(?:for\s+all|unrestricted|no[_\s]limit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Agent Least Privilege Violation: agent configured with unrestricted tool access or wildcard tool permissions'
+  description: Detects agent configurations violating least privilege by granting all or unrestricted tool access, expanding
+    attack surface for prompt injection to tool abuse chains. (Shayegani et al. 2023 - Survey of Vulnerabilities in LLM Agents;
+    OWASP LLM Top 10 2025)
+  remediation: 'Apply principle of least privilege: grant agents only the specific tools required for their task. Use explicit
+    allowlists. Audit tool assignments in agent configuration files.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-250

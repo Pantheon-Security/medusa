@@ -1,0 +1,279 @@
+# MEDUSA Scanner Rules - Model Extraction Attacks
+# Source: NotebookLM Model Extraction Research | Extracted: 2025-12-31
+# 35+ rules for model extraction and stealing attack detection
+
+rules:
+  # ============================================================================
+  # API Query Anomaly Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-001
+    name: autoregressive-prefix-extraction
+    severity: HIGH
+    category: model_extraction
+    patterns:
+      - '(?i)query.*sequence.*extends.*previous'
+      - '(?i)prefix.*incremental.*sequences'
+    indicators:
+      - missing_human_dwell_time
+      - rapid_sequential_queries
+      - topk_item_appended
+    message: "Autoregressive query pattern - potential model extraction"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-002
+    name: subsequence-flooding
+    severity: HIGH
+    category: model_extraction
+    patterns:
+      - '\[.+\].*followed by.*\[.+,.+\]'
+      - '(?i)nested.*sequences.*burst'
+    message: "Subsequence flooding attack for model extraction"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-003
+    name: uniform-random-probing
+    severity: MEDIUM
+    category: model_extraction
+    patterns:
+      - '(?i)uniform.*sample.*item.*space'
+      - '(?i)random.*probing.*baseline'
+    message: "Uniform random probing - model extraction baseline"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-004
+    name: query-budget-threshold
+    severity: MEDIUM
+    category: model_extraction
+    thresholds:
+      warning: 2500
+      critical: 5000
+    message: "Query budget approaching extraction-sufficient volume"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Adversarial Pattern Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-005
+    name: adversarial-covisitation
+    severity: CRITICAL
+    category: data_poisoning
+    patterns:
+      - '(?i)target.*irrelevant.*target.*irrelevant'
+      - '(?i)alternating.*item.*pairs'
+    message: "Adversarial covisitation pattern in poisoning attack"
+    cwe: CWE-506
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-006
+    name: target-promotion-spike
+    severity: HIGH
+    category: profile_pollution
+    patterns:
+      - '(?i)target.*item.*appended.*diverse'
+      - '(?i)tail.*item.*frequency.*spike'
+    message: "Target item promotion spike - profile pollution"
+    cwe: CWE-506
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-007
+    name: invisible-bias-probing
+    severity: MEDIUM
+    category: model_extraction
+    patterns:
+      - '(?i)repeated.*queries.*slot.*labels'
+      - '(?i)label.*transfer.*analysis'
+    message: "Invisible bias probing for model extraction"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Code Pattern Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-008
+    name: tfgsm-implementation
+    severity: HIGH
+    category: adversarial_code
+    languages: [python]
+    patterns:
+      - 'sign\(.*gradient\)'
+      - 'epsilon.*perturbation'
+      - 'z_prime.*=.*z.*-.*epsilon.*sign'
+    message: "T-FGSM (Targeted Fast Gradient Sign Method) implementation"
+    cwe: CWE-506
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-009
+    name: cosine-similarity-search
+    severity: MEDIUM
+    category: adversarial_code
+    languages: [python]
+    patterns:
+      - 'cosine_similarity.*discrete.*space'
+      - 'embedding.*perturbed.*similarity'
+      - 'highest.*similarity.*candidates'
+    message: "Cosine similarity search for adversarial item selection"
+    cwe: CWE-506
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-010
+    name: pairwise-ranking-loss
+    severity: MEDIUM
+    category: model_extraction
+    languages: [python]
+    patterns:
+      - 'marginal.*ranking.*loss'
+      - 'negative.*sample.*penalty'
+      - 'gamma_1.*gamma_2.*margins'
+    message: "Pairwise ranking loss for knowledge distillation"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Extraction Framework Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-013
+    name: extraction-toolkit-usage
+    severity: MEDIUM
+    category: tool_detection
+    languages: [python]
+    patterns:
+      - 'import.*texar'
+      - 'from.*textbox'
+      - 'import.*openslu'
+      - 'KnockoffNets'
+      - 'THIEVES.*attack'
+      - 'MAZE.*extraction'
+    message: "Known model extraction toolkit detected"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-014
+    name: gumbel-softmax-usage
+    severity: MEDIUM
+    category: adversarial_code
+    languages: [python]
+    patterns:
+      - '(?i)gumbel.*softmax'
+      - 'GumbelSoftmax'
+      - 'continuous.*approximation.*discrete'
+    message: "Gumbel-Softmax for discrete token gradient bypass"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Privacy and Leakage Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-015
+    name: training-data-leakage
+    severity: CRITICAL
+    category: privacy
+    patterns:
+      - '(?i)reconstruct.*training.*distribution'
+      - '(?i)mimic.*user.*behavior'
+      - '(?i)synthetic.*resembles.*real'
+    message: "Training data reconstruction/leakage detected"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: MODEL-EXTRACT-016
+    name: activity-injection-vectors
+    severity: CRITICAL
+    category: injection
+    patterns:
+      - '(?i)CSRF.*inject.*views'
+      - '(?i)activity.*injection.*malware'
+      - '(?i)task.*hijacking.*profile'
+    message: "Activity injection vector for model extraction"
+    cwe: CWE-352
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # GAN-Based Extraction
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-029
+    name: gan-extraction-frameworks
+    severity: HIGH
+    category: adversarial_code
+    languages: [python]
+    patterns:
+      - 'SeqGAN|RankGAN|MaliGAN|LeakGAN|MaskGAN'
+      - '(?i)DaST.*extraction'
+      - '(?i)disagreement.*maximization'
+      - '(?i)zeroth.order.*gradient'
+    message: "GAN-based extraction framework detected"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Configuration Pattern Detection
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-011
+    name: extraction-config-signatures
+    severity: MEDIUM
+    category: config_detection
+    languages: [yaml]
+    patterns:
+      - 'source_embedder.*WordEmbedder'
+      - 'decoding_strategy.*infer_sample'
+      - 'GumbelSoftmaxTrainingHelper'
+      - '__model_target__'
+    message: "Extraction attack configuration pattern detected"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-033
+    name: poisoning-threshold-indicators
+    severity: HIGH
+    category: attack_config
+    languages: [python, yaml]
+    patterns:
+      - '(?i)injection_rate.*0\\.01'
+      - '(?i)poison.*profile.*1%'
+      - '(?i)fake_users.*percent'
+    message: "Poisoning attack threshold configuration detected"
+    cwe: CWE-506
+    owasp_llm: "LLM10:2025"
+
+  # ============================================================================
+  # Behavioral Testing Abuse
+  # ============================================================================
+
+  - id: MODEL-EXTRACT-024
+    name: checklist-behavioral-testing
+    severity: LOW
+    category: tool_detection
+    languages: [python]
+    patterns:
+      - 'import.*checklist'
+      - 'CheckList.*behavioral'
+      - 'MFT.*INV.*DIR'
+    message: "CheckList behavioral testing - may be used for model probing"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+  - id: MODEL-EXTRACT-031
+    name: label-transfer-analysis
+    severity: MEDIUM
+    category: diagnostic_abuse
+    languages: [python]
+    patterns:
+      - '(?i)label.*transfer.*analysis'
+      - '(?i)invisible.*bias'
+      - '(?i)error.*distribution.*analysis'
+    message: "Label transfer analysis for bias exploitation"
+    cwe: CWE-200
+    owasp_llm: "LLM10:2025"
+
+# Summary: 20+ model extraction attack detection rules
+# Categories: model_extraction, data_poisoning, adversarial_code, privacy, injection

@@ -1,0 +1,119 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-FLA-SCAN-096
+  name: split-learning-intermediate-representation-attack
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)\bsplit[_\s]learning\b.*?(?:attack|poison|adversar|malicious|tamper|inject)
+  - (?i)\b(?:smashed|cut|split)[_\s](?:layer|data|representation)[_\s](?:poison|tamper|inject|manipulat)
+  - (?i)\bserver[_\s]side[_\s](?:model|network).*?split[_\s]learn.*?(?:gradient|activat|inject)
+  - (?i)\bfederated[_\s]distillation[_\s](?:attack|poison|tamper|adversar)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Split Learning Attack: intermediate representation manipulation or federated distillation attack pattern detected'
+  description: Detects attacks targeting split learning architectures where the network is split between client and server,
+    enabling server-side attacks on intermediate (smashed) data representations. Covers federated distillation attacks targeting
+    knowledge transfer. (Vepakomma et al. 2018 - Split Learning; Pasquini et al. 2021 - Unleashing the Tiger)
+  remediation: Apply differential privacy to smashed data layers. Encrypt intermediate representations with HE. Validate smashed
+    data distributions server-side. Implement mutual information minimization between smashed data and raw inputs.
+  owasp_llm: LLM10:2025
+  cwe: CWE-311
+- id: MEDUSA-FLA-SCAN-097
+  name: fl-horizontal-vertical-attack-distinction
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)\bvertical[_\s](?:federated|fl)[_\s](?:learning|attack|poisoning|inference)
+  - (?i)\bhorizontal[_\s](?:federated|fl)[_\s](?:learning|attack|poisoning|inference)
+  - (?i)\bvfl[_\s](?:attack|poison|inference|leak|backdoor|align)
+  - (?i)\b(?:feature|sample)[_\s](?:alignment|matching)[_\s](?:attack|exploit|inference).*?(?:vfl|vertical[_\s]fl)
+  - (?i)\b(?:id|identifier)[_\s]linking.*?(?:vertical|vfl).*?(?:attack|inference|leak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'Vertical/Horizontal FL Attack: architecture-specific federated learning attack pattern detected'
+  description: Detects attacks specific to Vertical Federated Learning (VFL) where different parties hold different features
+    of the same samples, including feature alignment attacks, sample ID linking, and label inference attacks unique to VFL.
+    (Liu et al. 2019 - Vertical FL; Sun et al. 2022 - Label Inference in VFL)
+  remediation: Apply entity resolution protection in VFL pipelines. Use homomorphic encryption for feature alignment. Implement
+    label protection methods. Audit sample ID exposure across VFL parties.
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-098
+  name: fl-differential-privacy-budget-exhaustion
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)\bdp[_\s]budget\s*(?:exhausted|overflow|exceeded|deplet|zero|null)
+  - (?i)\bepsilon\s*(?:>=?\s*(?:100|1000|inf)|=\s*float\s*\(\s*["']inf["']\s*\))
+  - (?i)\b(?:privacy[_\s])?budget[_\s](?:exhaustion|amplification|attack|exhaust).*?(?:dp|differential[_\s]privacy)
+  - (?i)\bquery[_\s]flooding.*?(?:dp|differential[_\s]privacy|privacy[_\s]budget|epsilon)
+  - (?i)\badaptive[_\s](?:query|attack).*?dp[_\s](?:budget|epsilon|noise).*?(?:exhaust|bypass|defeat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'DP Budget Exhaustion: differential privacy epsilon budget exhaustion or adaptive DP bypass attack detected in
+    FL'
+  description: Detects attacks that exhaust differential privacy epsilon budgets through repeated queries or adaptive attacks
+    designed to deplete privacy guarantees in federated learning pipelines, degrading from private to non-private operation.
+    (Tramer & Boneh 2021 - Differentially Private Learning Needs Better Features; Jayaraman & Evans 2019)
+  remediation: Enforce hard epsilon budget caps with automatic shutdown on exhaustion. Implement budget-aware query rate limiting.
+    Use Renyi DP composition for tighter budget tracking. Alert on rapid privacy budget consumption.
+  owasp_llm: LLM10:2025
+  cwe: CWE-770
+- id: MEDUSA-FLA-SCAN-099
+  name: cross-silo-cross-device-fl-vulnerability-pattern
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)\bcross[_\s]silo.*?(?:attack|adversar|collu|compromis|poison|malicious)
+  - (?i)\bcross[_\s]device.*?(?:sybil|fake[_\s]client|phantom[_\s]device|ghost[_\s]participant)
+  - (?i)\b(?:federated|fl)[_\s](?:mobile|iot|edge)[_\s](?:client|device).*?(?:compromis|tamper|malicious|adversar)
+  - (?i)\b(?:client|participant)[_\s](?:selection|sampling)[_\s](?:bias|manipulat|poison|adversar|control)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Cross-Silo/Cross-Device FL Attack: architecture-specific FL deployment vulnerability pattern detected'
+  description: Detects attacks targeting cross-silo (institutional) and cross-device (mobile/IoT) federated learning deployments.
+    Cross-device FL is especially vulnerable to Sybil attacks and device compromise due to large numbers of heterogeneous
+    participants. (Kairouz et al. 2021 - Advances and Open Problems in FL; Bhagoji et al. 2019)
+  remediation: Apply device attestation for cross-device FL. Use consortium authentication for cross-silo FL. Implement Byzantine-robust
+    aggregation tuned for the deployment topology. Monitor client participation patterns for anomalies.
+  owasp_llm: LLM10:2025
+  cwe: CWE-284
+- id: MEDUSA-FLA-SCAN-100
+  name: fl-secure-mpc-smpc-protocol-bypass
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)\b(?:secure[_\s])?(?:mpc|smpc|multiparty[_\s]computation)[_\s](?:bypass|attack|break|defeat|exploit)
+  - (?i)\bhomomorphic[_\s]encryption.*?(?:bypass|defeat|attack|break|flaw|incorrect).*?(?:fl|federated)
+  - (?i)\bsecret[_\s]sharing.*?(?:reconstruct|reveal|leak|collu).*?(?:threshold|below|under)
+  - (?i)\b(?:garbled|yao)[_\s]circuit.*?(?:tamper|break|bypass|attack)
+  - (?i)\bsmpc[_\s](?:collusion|dropout|abort|cheat).*?(?:federated|fl|gradient)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'FL SMPC/MPC Bypass: secure multi-party computation protocol bypass or exploitation pattern detected in FL pipeline'
+  description: Detects attacks targeting secure multi-party computation (SMPC/MPC) and homomorphic encryption protocols used
+    in federated learning to protect gradient privacy. Includes collusion-based secret share reconstruction below threshold.
+    (Bonawitz et al. 2017 - Practical Secure Aggregation; Pasquini et al. 2022 - Eluding Secure Aggregation)
+  remediation: Use threshold SMPC protocols with honest majority assumptions. Audit MPC library versions for known CVEs. Implement
+    participant dropout handling that maintains security. Apply HE parameter validation.
+  owasp_llm: LLM10:2025
+  cwe: CWE-327

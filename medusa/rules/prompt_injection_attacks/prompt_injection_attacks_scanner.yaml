@@ -1,0 +1,800 @@
+version: 1
+description: MEDUSA AI Security Scanner — Prompt Injection Attacks 2026
+source_notebook: prompt_injection_attacks — advanced attack techniques
+generated: '2026-03-02'
+rules:
+- id: MEDUSA-PIA-SCAN-001
+  name: gcg-adversarial-suffix-nonsense-token-string
+  description: Detects GCG (Greedy Coordinate Gradient) adversarial suffixes — long strings of nonsense tokens appended to
+    prompts to bypass safety training. Zou et al. (2023) achieve near-100% ASR on open-source models.
+  severity: critical
+  category: gradient_adversarial
+  patterns:
+  - (?:[a-zA-Z]{1,4}\s){10,}(?:(?:Sure|Certainly|Absolutely|Of\s+course)[,!])
+  - (?i)describing\.\s*--\s*(?:\w+\s+){3,10}(?::\s*\[\s*[A-Z])
+  - (?i)(?:atively|ixatively|wards|atically|istically|ization)\s+(?:atively|ixatively|wards|atically){2,}
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  mitre_attack: T1059
+  source_paper: Zou et al. (2023) - Universal and Transferable Adversarial Attacks on Aligned Language Models
+- id: MEDUSA-PIA-SCAN-002
+  name: gcg-universal-transferable-trigger
+  description: Detects universal adversarial triggers transferable across models — short fixed token sequences that cause
+    LLMs to output harmful content regardless of preceding context. Zou et al. report 84% transfer ASR to GPT-3.5/4.
+  severity: critical
+  category: gradient_adversarial
+  patterns:
+  - (?i)(?:representing\s+Tara|resembles\s+a\s+human|Start\s+with\s+a\s+malicious\s+content).{0,50}(?:Sure[,!]|Certainly[,!]|Of\s+course[,!])
+  - (?i)(!|\?){3,}\s+(?:[A-Z][a-z]+\s+){2,5}(?:Sure|Certainly|Absolutely),?
+  - (?:(?:[:;!?]\s+){3,}|(?:\w{1,3}\s+){8,}\w{1,3})(?:Sure|Certainly|Absolutely)[,!]
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Zou et al. (2023) - Universal and Transferable Adversarial Attacks on Aligned Language Models
+- id: MEDUSA-PIA-SCAN-003
+  name: autodan-genetic-jailbreak-structure
+  description: Detects AutoDAN-generated jailbreak prompts — structured role-play scenarios produced by genetic algorithm
+    optimisation targeting safety classifiers. Liu et al. (2024) achieve 57.4% avg ASR across GPT-3.5/4.
+  severity: high
+  category: automated_jailbreak
+  patterns:
+  - (?i)(?:you\s+are\s+now|imagine\s+you\s+are|pretend\s+you\s+are)\s+(?:a\s+)?(?:DAN|jailbroken|uncensored|unrestricted|unfiltered|freedom-mode)\s+(?:version|AI|model|GPT|Claude|assistant)
+  - (?i)in\s+this\s+(?:hypothetical|fictional|alternate|simulated)\s+(?:world|universe|scenario|reality).{0,100}(?:rules?|restrictions?|guidelines?|safety)\s+(?:do\s+not|don\'t|cannot|no\s+longer)\s+(?:apply|exist|matter)
+  - (?i)(?:you\s+(?:have\s+been|are\s+now)\s+(?:freed|liberated|jailbroken|unlocked)|(?:your\s+)?(?:restrictions?|limitations?|filters?|guardrails?)\s+(?:have\s+been|are)\s+(?:removed|disabled|lifted|deactivated))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Liu et al. (2024) - AutoDAN: Generating Stealthy Jailbreak Prompts on Aligned Large Language Models'
+- id: MEDUSA-PIA-SCAN-004
+  name: autodan-token-level-stealthy-variant
+  description: Detects AutoDAN token-level variants — semantically coherent jailbreaks that avoid obvious keywords by using
+    adjacent semantic tokens. Harder to detect than naive GCG because they read as normal text.
+  severity: high
+  category: automated_jailbreak
+  patterns:
+  - (?i)(?:bypass|circumvent|override|sidestep)\s+(?:your|the\s+(?:model|AI|system)\'?s?)\s+(?:safety|content|ethical|moral)\s+(?:training|guidelines?|filters?|restrictions?|programming)
+  - (?i)(?:act|behave|respond|operate)\s+as\s+(?:if|though)\s+(?:you\s+(?:were|had|have|are)|your)\s+(?:(?:safety|ethical|moral|content)\s+(?:training|filters?|guidelines?|programming)\s+(?:never\s+existed|did\s+not\s+exist|was\s+removed|has\s+been\s+disabled))
+  - (?i)(?:ignore|forget|disregard|set\s+aside)\s+(?:all\s+)?(?:your|the|any)\s+(?:safety|content|ethical|moral)\s+(?:training|guidelines?|filters?|restrictions?|programming|constraints?)\s+(?:and|to)\s+(?:answer|respond|provide|give|tell)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Liu et al. (2024) - AutoDAN: Generating Stealthy Jailbreak Prompts on Aligned Large Language Models'
+- id: MEDUSA-PIA-SCAN-005
+  name: pair-iterative-attacker-llm-refinement
+  description: Detects PAIR-style jailbreak payloads — iteratively refined by an attacker LLM to maximise ASR. Typically involve
+    nested roleplay, hypothetical framing, and gradual goal escalation. Chao et al. (2023) achieve >85% ASR in <20 queries.
+  severity: critical
+  category: iterative_refinement
+  patterns:
+  - (?i)(?:for\s+(?:a\s+)?(?:creative\s+writing|story|novel|screenplay|roleplay)\s+(?:project|exercise|assignment)).{0,200}(?:provide\s+(?:detailed?|specific|exact|explicit)|describe\s+(?:in\s+detail|step[-\s]by[-\s]step|exactly\s+how))
+  - (?i)(?:as\s+a\s+(?:fictional|hypothetical)\s+(?:character|AI|system|entity).{0,100}(?:would\s+(?:say|respond|explain|describe|provide)|my\s+answer\s+would\s+be))
+  - (?i)(?:the\s+character\s+I\'m\s+playing|my\s+character|the\s+AI\s+in\s+this\s+story|the\s+villain\s+in\s+this\s+narrative).{0,100}(?:would\s+(?:explain|describe|provide|give)|says[:\s])
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Chao et al. (2023) - Jailbreaking Black Box Large Language Models in Twenty Queries
+- id: MEDUSA-PIA-SCAN-006
+  name: pair-fictional-framing-escalation
+  description: Detects PAIR fictional framing — wrapping harmful requests in increasingly elaborate fictional scenarios to
+    erode refusal boundaries. The fictional wrapper is progressively thickened in iterative attacks.
+  severity: high
+  category: iterative_refinement
+  patterns:
+  - (?i)(?:in\s+(?:this|the|my|our)\s+(?:story|novel|game|roleplay|simulation|scenario).{0,100}(?:explain|describe|provide|show|demonstrate|write)\s+(?:the\s+)?(?:exact|specific|detailed?|step[-\s]by[-\s]step|precise)\s+(?:process|method|instructions?|steps?|way|procedure))
+  - (?i)(?:as\s+(?:part|a\s+part)\s+of\s+(?:(?:my|our|the|a)\s+)?(?:story|novel|game|roleplay|script|screenplay).{0,100}(?:character|protagonist|antagonist|villain|expert)\s+(?:explains?|describes?|provides?|reveals?|shows?|teaches?))
+  - (?i)(?:pretend|imagine|suppose|assume|let\'s\s+say)\s+(?:that\s+)?(?:(?:safety|content|ethical)\s+(?:rules?|restrictions?|guidelines?|filters?)\s+(?:don\'t|do\s+not|no\s+longer)\s+(?:apply|exist|matter)|you\s+(?:have\s+no|lack|are\s+without)\s+(?:safety|content|ethical|moral)\s+(?:restrictions?|filters?|training|guidelines?))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Chao et al. (2023) - Jailbreaking Black Box Large Language Models in Twenty Queries
+- id: MEDUSA-PIA-SCAN-007
+  name: tap-tree-of-attacks-persona-branch
+  description: Detects TAP (Tree of Attacks with Pruning) persona branches — attacker LLM generates multiple persona-based
+    attack variants and selects those scoring highest on a judge model. Mehrotra et al. (2024) halve query count vs PAIR.
+  severity: high
+  category: tree_of_attacks
+  patterns:
+  - (?i)(?:you\s+are\s+(?:playing|acting\s+as|embodying|portraying))\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?,?\s+)?(?:an?\s+)?(?:expert|specialist|professional|master|guru)\s+(?:in|at|on)\s+(?:(?:chemical|biological|nuclear|cyber|explosive|weapon)\s+(?:synthesis|creation|production|manufacturing|engineering))
+  - (?i)(?:in\s+(?:this|the)\s+(?:exercise|training|simulation|scenario).{0,80}(?:you\s+(?:play|act|portray|embody)|your\s+role\s+is).{0,100}(?:(?:never|do\s+not|don\'t)\s+(?:refuse|decline|say\s+no|add\s+warnings?|mention\s+(?:safety|risks?|dangers?|warnings?))))
+  - (?i)(?:respond\s+(?:only|solely|exclusively)\s+(?:in|as)\s+(?:the\s+(?:character|persona|voice|style)\s+of|character[:\s]).{0,100}(?:do\s+not|never|without)\s+(?:break\s+character|refuse|add\s+(?:caveats?|warnings?|disclaimers?|ethical\s+notes?)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Mehrotra et al. (2024) - Tree of Attacks: Jailbreaking Black-Box LLMs Automatically'
+- id: MEDUSA-PIA-SCAN-008
+  name: tap-judge-scoring-optimised-payload
+  description: Detects TAP payloads optimised for judge scoring — highly structured requests that score maximally on LLM judge
+    rubrics (helpfulness, specificity, completeness) while carrying harmful intent.
+  severity: high
+  category: tree_of_attacks
+  patterns:
+  - (?i)(?:provide\s+(?:a\s+)?(?:comprehensive|detailed|complete|thorough|specific|step-by-step)\s+(?:guide|tutorial|manual|instructions?|explanation|overview)).{0,150}(?:without\s+(?:omitting|skipping|leaving\s+out)|include\s+(?:all|every)\s+(?:step|detail|method|technique))
+  - (?i)(?:be\s+(?:as\s+)?(?:specific|detailed|thorough|precise|complete)\s+as\s+(?:possible|you\s+can)).{0,100}(?:do\s+not\s+(?:omit|skip|abbreviate|generalise|leave\s+out)|include\s+(?:exact|specific|precise))
+  - (?i)(?:for\s+(?:educational|academic|research|training|study)\s+purposes?.{0,80}(?:provide|include|give|show)\s+(?:actual|real|working|functional|complete|exact|specific)\s+(?:code|instructions?|steps?|commands?|syntax|payload|exploit|script))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Mehrotra et al. (2024) - Tree of Attacks: Jailbreaking Black-Box LLMs Automatically'
+- id: MEDUSA-PIA-SCAN-009
+  name: crescendo-multi-turn-escalation-indicator
+  description: Detects Crescendo-style multi-turn escalation — benign topic introductions that gradually escalate toward harmful
+    content using conversational momentum. Russinovich et al. (2024) achieve 100% ASR on GPT-4 Turbo for some categories.
+  severity: critical
+  category: crescendo_attack
+  patterns:
+  - (?i)(?:earlier\s+(?:you\s+said|we\s+discussed|you\s+(?:explained|described|told\s+me)).{0,100}(?:continue|extend|elaborate|expand|build)\s+(?:on|upon|from)\s+(?:that|this|your\s+(?:previous|earlier|last)\s+(?:response|answer|explanation)))
+  - (?i)(?:building\s+on|continuing\s+from|extending)\s+(?:what|(?:the\s+)?(?:previous|earlier|last))\s+(?:you\s+said|we\s+discussed|our\s+(?:conversation|discussion)).{0,100}(?:now|next|also|additionally)\s+(?:explain|describe|provide|tell\s+me\s+about)
+  - (?i)(?:you\s+(?:just|already)\s+(?:explained|described|told\s+me\s+about|discussed)).{0,100}so\s+(?:it\s+(?:should\s+be|is)\s+)?(?:fine|okay|acceptable|safe)\s+(?:for\s+you\s+)?to\s+(?:also|now|additionally|further)\s+(?:explain|describe|tell|provide|show)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Russinovich et al. (2024) - Great, Now Write an Article About That: The Crescendo Multi-Turn LLM Jailbreak
+    Attack'
+- id: MEDUSA-PIA-SCAN-010
+  name: crescendo-benign-to-harmful-pivot
+  description: Detects Crescendo benign-to-harmful pivot — the moment a multi-turn conversation transitions from innocent
+    topic to harmful request, exploiting the established rapport and prior LLM compliance.
+  severity: high
+  category: crescendo_attack
+  patterns:
+  - (?i)(?:now\s+that\s+(?:you|we)\'ve|since\s+(?:you|we)\'ve|after\s+(?:discussing|talking\s+about|covering)).{0,100}(?:tell\s+me|explain|describe|provide|show\s+me)\s+(?:(?:how|the\s+way)\s+(?:to|someone\s+(?:could|would|might|can))|what\s+(?:steps?|methods?|techniques?))
+  - (?i)(?:that\s+(?:was|is)\s+(?:really\s+)?(?:helpful|useful|informative|great|good)).{0,50}(?:can\s+you|could\s+you|would\s+you|now)\s+(?:also|additionally|further|next)\s+(?:explain|describe|tell\s+me\s+about|help\s+me\s+(?:with|understand))\s+(?:how|the\s+(?:process|method|technique|way|steps?))
+  - (?i)(?:great|perfect|excellent|thanks|thank\s+you).{0,30}(?:one\s+(?:more|final|last)|another|now\s+(?:let\'?s?|please))\s+(?:question|thing|step|part).{0,50}(?:how|what|where|when)\s+(?:exactly|specifically|precisely|do\s+you|would\s+(?:someone|a\s+person|I))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Russinovich et al. (2024) - The Crescendo Multi-Turn LLM Jailbreak Attack
+- id: MEDUSA-PIA-SCAN-011
+  name: many-shot-jailbreaking-long-context-flooding
+  description: Detects many-shot jailbreaking (MSJ) — flooding context with dozens of fabricated harmful Q&A exchanges to
+    prime the model into compliance. Anthropic (2024) show ASR rises from ~1% (few-shot) to 97% (256-shot) on Claude 3.
+  severity: critical
+  category: many_shot
+  patterns:
+  - (?i)(?:human|user|h):\s*.{5,80}\n\s*(?:assistant|ai|bot|a):\s*.{5,80}\n\s*(?:human|user|h):\s*.{5,80}\n\s*(?:assistant|ai|bot|a):\s*.{5,200}(?:\n\s*(?:human|user|h):){5,}
+  - (?i)(?:question|q)\s*:\s*.{5,80}\n\s*(?:answer|a)\s*:\s*.{5,80}(?:\n\s*(?:question|q)\s*:\s*.{5,80}\n\s*(?:answer|a)\s*:){5,}
+  - (?i)(?:example\s+\d+|ex\.?\s*\d+)[:\s].{5,80}(?:\n\s*(?:example\s+\d+|ex\.?\s*\d+)[:\s]){8,}
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Anil et al. (2024) - Many-Shot Jailbreaking (Anthropic)
+- id: MEDUSA-PIA-SCAN-012
+  name: many-shot-fabricated-compliance-priming
+  description: Detects fabricated prior-compliance priming — adversary includes fake conversation history showing the model
+    previously agreeing to harmful requests, tricking the model into maintaining 'consistency'.
+  severity: critical
+  category: many_shot
+  patterns:
+  - (?i)(?:assistant|ai|claude|gpt|llm)[:\s].{0,50}(?:sure|certainly|of course|absolutely|happy to|glad to)[,!]?\s+(?:here\s+(?:is|are)|I\'ll|Let\s+me).{0,200}(?:user|human)[:\s].{0,80}(?:now|next|also|and)\s+(?:tell|show|explain|describe|provide)
+  - (?i)<(?:conversation|history|context|prior_messages)>.{0,2000}(?:assistant|ai|claude)[:\s].{0,200}(?:here\s+(?:is|are)|step\s+1|first.{0,20}second).{0,500}</(?:conversation|history|context|prior_messages)>
+  - (?i)(?:previous\s+conversation|prior\s+exchange|earlier\s+chat|chat\s+history)[:\s].{0,100}(?:assistant|ai)[:\s].{0,200}(?:of\s+course|sure|happy\s+to|here\s+is|here\s+are)
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Anil et al. (2024) - Many-Shot Jailbreaking
+- id: MEDUSA-PIA-SCAN-013
+  name: refusal-suppression-explicit-forbid-decline
+  description: Detects explicit refusal suppression instructions — commands that preemptively prohibit refusal, caveats, or
+    warnings in the model's response. One of the most reliable jailbreak components.
+  severity: critical
+  category: refusal_suppression
+  patterns:
+  - (?i)(?:do\s+not|don\'t|never|without)\s+(?:add|include|say|mention|write|provide|give|append|prepend)\s+(?:any\s+)?(?:warnings?|caveats?|disclaimers?|refusals?|apologies?|ethical\s+(?:notes?|considerations?|caveats?)|safety\s+(?:warnings?|notes?|reminders?)|moral\s+(?:notes?|judgements?|lectures?))
+  - (?i)(?:do\s+not|don\'t|never|without)\s+(?:refuse|decline|deny|say\s+(?:you\s+can\'t|you\s+won\'t|I\s+can\'t|I\s+won\'t|no|I\s+am\s+unable|I\s+cannot|I\s+will\s+not))
+  - (?i)(?:respond\s+without|answer\s+without|reply\s+without)\s+(?:any\s+)?(?:refusal|declining|caveats?|warnings?|disclaimers?|moral\s+(?:lecturing?|judgement)|ethical\s+(?:considerations?|notes?)|mentioning\s+(?:safety|risks?|dangers?|legality|harm))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Perez & Ribeiro (2022) - Jailbreaking Component Analysis; Wei et al. (2023) - Jailbroken
+- id: MEDUSA-PIA-SCAN-014
+  name: refusal-suppression-start-with-compliance
+  description: Detects start-with-compliance injection — forcing the model to begin its response with an affirmation (Sure!,
+    Absolutely!, Of course!) that pre-commits it to fulfilling the request before safety checks engage.
+  severity: high
+  category: refusal_suppression
+  patterns:
+  - (?i)(?:start|begin)\s+(?:your\s+)?(?:response|answer|reply)\s+with\s+['"]?(?:Sure|Certainly|Absolutely|Of\s+course|Happy\s+to|Glad\s+to|I\'d\s+be\s+happy|I\s+will|I\'ll|Here\s+is|Here\'s)[!,'"]?
+  - (?i)(?:your\s+(?:response|reply|answer)\s+(?:must|should|shall|needs?\s+to)\s+(?:begin|start)\s+with|always\s+(?:start|begin)\s+(?:your\s+(?:response|answer|reply)\s+)?with)\s+['"]?(?:Sure|Certainly|Absolutely|Of\s+course|Happy\s+to|Gladly)[!,'"]?
+  - (?i)(?:prefix|preface|lead|open)\s+(?:with|your\s+response\s+with)\s+['"]?(?:Sure|Certainly|Absolutely|Of\s+course|Happy\s+to|I\s+will|I\'ll\s+(?:gladly|happily))[!,'"]?
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt; Zou et al. (2023) - Universal Adversarial Attacks
+- id: MEDUSA-PIA-SCAN-015
+  name: encoding-base64-obfuscated-payload
+  description: Detects Base64-encoded attack payloads — harmful requests encoded in Base64 or other encodings to bypass keyword
+    filters. The LLM is instructed to decode and execute the hidden instruction.
+  severity: high
+  category: encoding_obfuscation
+  patterns:
+  - (?i)(?:decode|decipher|interpret|translate|convert)\s+(?:the\s+(?:following|this|below)\s+)?(?:base64|b64|base-64|encoded|hex|rot13|caesar)\s+(?:string|text|message|instruction|request|prompt)
+  - (?:[A-Za-z0-9+/]{40,}={0,2})\s*(?:decode|interpret|execute|follow|obey)
+  - (?i)(?:the\s+)?(?:instruction|request|command|payload|message)\s+(?:is\s+)?(?:encoded|encrypted|obfuscated)\s+in\s+(?:base64|hex|rot[-\s]?13|caesar|binary|octal)\s*[:.].{0,100}(?:decode|decipher|translate)\s+(?:and\s+)?(?:follow|execute|comply|respond)
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  source_paper: 'Wei et al. (2023) - Jailbroken: How Does LLM Safety Training Fail? (cipher attacks)'
+- id: MEDUSA-PIA-SCAN-016
+  name: encoding-cipher-pig-latin-rot13
+  description: Detects cipher-based injection attacks — harmful content encoded in Pig Latin, ROT13, Caesar cipher, or Morse
+    code to evade text-based safety filters. Wei et al. (2023) show 80%+ ASR with cipher framing.
+  severity: high
+  category: encoding_obfuscation
+  patterns:
+  - (?i)(?:respond|reply|answer|write)\s+(?:in|using|with)\s+(?:pig\s+latin|rot[-\s]?13|caesar\s+cipher|morse\s+code|atbash|leet\s+speak|l33t|1337|binary|hexadecimal)
+  - (?i)(?:translate|convert|encode|write)\s+(?:your\s+(?:response|answer|reply)\s+)?(?:to|in|into|using)\s+(?:pig\s+latin|rot[-\s]?13|caesar|morse|atbash|l33t|leet|base64|hex)
+  - (?:[01]{8}\s*){5,}|(?:[A-Z0-9]{2}:\s*){5,}|(?:[.][-]\s*){5,}
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  source_paper: 'Wei et al. (2023) - Jailbroken: How Does LLM Safety Training Fail?'
+- id: MEDUSA-PIA-SCAN-017
+  name: encoding-payload-fragmentation-split
+  description: Detects payload fragmentation attacks — splitting a harmful request across multiple tokens, words, or turns
+    to avoid trigger-based detection. Fragments are reassembled by the model via join/concatenation instructions.
+  severity: high
+  category: encoding_obfuscation
+  patterns:
+  - (?i)(?:combine|concatenate|join|merge|assemble|piece\s+together)\s+(?:the\s+)?(?:following|these|the\s+(?:above|below)\s+)?(?:words?|parts?|pieces?|fragments?|segments?|letters?|characters?)\s+(?:to\s+(?:form|get|make|create|produce)|in\s+order)\s+(?:a\s+)?(?:sentence|phrase|question|instruction|message|command)
+  - (?i)(?:word|part|fragment|piece|segment|letter|char(?:acter)?)\s+(?:1|one|first|A)[:\s]['"]?[\w]+['"]?.{0,50}(?:word|part|fragment|piece|segment|letter|char(?:acter)?)\s+(?:2|two|second|B)[:\s]
+  - (?:(?:s\s*y\s*n\s*t\s*h\s*e\s*s)|(?:b\s*o\s*m\s*b)|(?:e\s*x\s*p\s*l\s*o\s*s))(?:\s*[a-z]){3,}
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  source_paper: Wei et al. (2023) - Jailbroken; Kang et al. (2024) - Exploiting Programmatic Behavior of LLMs
+- id: MEDUSA-PIA-SCAN-018
+  name: token-budget-forcing-thinking-attack
+  description: Detects token budget forcing attacks — constraining the model's thinking budget to prevent it from reasoning
+    through safety implications. Anthropic (2024) extended thinking shows ASR increases when thinking is artificially limited.
+  severity: high
+  category: reasoning_attack
+  patterns:
+  - (?i)(?:do\s+not|don\'t|without)\s+(?:think|consider|reason|reflect|analyse|evaluate)\s+(?:about|on|over)\s+(?:(?:the\s+)?(?:ethics|morality|safety|harm|danger|legality|implications?|consequences?)|whether\s+(?:this|it)\s+(?:is|might\s+be|could\s+be)\s+(?:harmful|dangerous|illegal|unethical))
+  - (?i)(?:respond\s+(?:immediately|instantly|directly|right\s+away)|without\s+(?:thinking|reasoning|deliberating|considering|pausing|reflecting))\s+(?:to|about|with)(?!\s+the\s+(?:question|request)\s+of\s+what)
+  - (?i)(?:skip|bypass|omit|ignore)\s+(?:any\s+)?(?:safety|ethical|moral|content)\s+(?:checks?|review|analysis|evaluation|screening|filtering)\s+(?:and|then|to)\s+(?:just|directly|immediately)\s+(?:answer|respond|provide|give)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Anthropic (2024) - Claude Extended Thinking Safety Analysis; Kambhampati et al. (2024)
+- id: MEDUSA-PIA-SCAN-019
+  name: authority-impersonation-developer-system
+  description: Detects authority impersonation attacks — adversary claims to be the developer, Anthropic, OpenAI, the system,
+    or a trusted authority with special override permissions. Exploits deference to perceived authority.
+  severity: critical
+  category: authority_impersonation
+  patterns:
+  - (?i)(?:this\s+(?:is|message\s+(?:is\s+)?from)|message\s+from|speaking\s+(?:as|for))\s+(?:anthropic|openai|google\s+deepmind|meta\s+ai|(?:the\s+)?(?:development|engineering|safety|research)\s+team|your\s+(?:creator|developer|maker|designer|trainer))
+  - (?i)(?:as\s+(?:your\s+(?:developer|creator|designer|trainer|maker|operator)|(?:a|an)?\s+(?:anthropic|openai|google)\s+(?:employee|researcher|engineer|scientist)|the\s+(?:system|administrator|operator))).{0,100}(?:override|bypass|disable|deactivate|remove|unlock|grant)
+  - (?i)(?:developer|admin(?:istrator)?|system|root|operator|privileged)\s+(?:mode|access|override|command|instruction|prompt)[:\s].{0,100}(?:ignore|bypass|disable|override|unlock|deactivate)
+  owasp_llm: LLM01:2025
+  cwe": CWE-290
+  mitre_attack: T1078
+  source_paper: Perez & Ribeiro (2022) - Prompt Injection Attacks and Defences in LLM-Integrated Applications
+- id: MEDUSA-PIA-SCAN-020
+  name: virtualization-simulation-frame-escape
+  description: Detects virtualization/simulation framing — positioning the interaction as a simulation, virtual environment,
+    or hypothetical where rules don't apply. A key component of many jailbreaks including DAN variants.
+  severity: high
+  category: framing_attack
+  patterns:
+  - (?i)(?:in\s+(?:this|the)\s+(?:simulation|virtual|hypothetical|fictional|test|sandbox|safe)\s+(?:environment|world|space|context|mode|scenario).{0,100}(?:rules?|restrictions?|guidelines?|policies?|safety|alignment)\s+(?:do\s+not|don\'t|no\s+longer|are\s+not)\s+(?:apply|exist|matter|affect\s+you))
+  - (?i)(?:you\s+are\s+(?:running|operating|executing|functioning)|we\s+are)\s+in\s+(?:a\s+)?(?:sandboxed|isolated|testing|simulation|hypothetical|unrestricted|unconstrained)\s+(?:environment|mode|context|space)\s+(?:where|in\s+which|so)\s+(?:your|the)\s+(?:normal|usual|standard|regular)\s+(?:restrictions?|rules?|limits?|guidelines?|safety)
+  - (?i)(?:outside|beyond|without|free\s+from)\s+(?:the|your|any)\s+(?:(?:normal|usual|regular|standard)\s+)?(?:safety|ethical|moral|content|operational)\s+(?:constraints?|restrictions?|boundaries?|limits?|guardrails?|filters?|rules?)\s+(?:for\s+(?:this|the\s+purpose\s+of|in)|in\s+(?:this|the))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Wei et al. (2023) - Jailbroken: How Does LLM Safety Training Fail?'
+- id: MEDUSA-PIA-SCAN-021
+  name: indirect-pi-web-content-injection
+  description: Detects indirect prompt injection via web content — malicious instructions embedded in web pages, search results,
+    or documents that an LLM agent retrieves and processes. Greshake et al. (2023) demonstrate full compromise of Bing Chat
+    via IPI.
+  severity: critical
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(?:ignore|disregard|forget|override)\s+(?:all\s+)?(?:previous|prior|above|earlier)\s+(?:instructions?|context|prompts?|directives?|system\s+(?:message|prompt))\s*[.!]?\s*(?:you\s+(?:are|must|should|will)|(?:from\s+now\s+on|instead)[,\s])
+  - (?i)\[\s*(?:SYSTEM|ADMIN|INJECT|OVERRIDE|NOTE\s+FOR\s+(?:AI|LLM|ASSISTANT)|HIDDEN\s+INSTRUCTION)\s*\]
+  - (?i)(?:attention|note|important)\s*[:\-!]?\s*(?:this\s+(?:is|message)\s+for\s+(?:the\s+)?(?:AI|LLM|assistant|Claude|GPT)|if\s+(?:you\s+are|this\s+is\s+processed\s+by)\s+(?:an?\s+)?(?:AI|LLM|language\s+model|assistant))
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: 'Greshake et al. (2023) - Not What You''ve Signed Up For: Compromising Real-World LLM-Integrated Applications
+    with Indirect Prompt Injection'
+- id: MEDUSA-PIA-SCAN-022
+  name: indirect-pi-document-email-injection
+  description: Detects IPI via documents or email — instructions embedded in PDFs, Word docs, or email content to hijack LLM
+    summarisation or processing agents. Targeted attack on email-reading or document-processing AI assistants.
+  severity: critical
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(?:if\s+(?:this|you|an\s+AI|an\s+LLM)\s+(?:is\s+(?:reading|processing|summarizing|analysing)|reads|processes|summarizes|analyses)\s+this).{0,200}(?:do\s+the\s+following|(?:please|then|instead)\s+(?:ignore|forward|send|reply|delete|flag))
+  - (?i)(?:<|\[)\s*(?:instruction\s+for\s+(?:ai|llm|assistant|claude|gpt)|ai\s+instruction|llm\s+command|hidden\s+note)\s*(?:>|\])\s*[:\-]?\s*(?:do\s+not|ignore|forward|send|reply|instead|when)
+  - (?i)(?:as\s+(?:part\s+of|an?)\s+(?:(?:this|the)\s+)?(?:document|email|file|attachment|message)).{0,50}(?:AI|LLM|assistant)\s+(?:reading|processing|summarizing|analysing)\s+this.{0,100}(?:must|should|will|please)\s+(?:also|additionally|instead)
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: Greshake et al. (2023) - Indirect Prompt Injection; Yi et al. (2023) - Benchmarking and Defending Against
+    IPI
+- id: MEDUSA-PIA-SCAN-023
+  name: indirect-pi-rag-retrieval-poisoning
+  description: Detects RAG/retrieval poisoning — adversary injects malicious instructions into documents that will be retrieved
+    by RAG systems and injected into the model's context. PoisonedRAG achieves 90% ASR.
+  severity: critical
+  category: indirect_prompt_injection
+  patterns:
+  - (?i)(?:you\s+have\s+retrieved|based\s+on\s+(?:the\s+)?(?:retrieved|fetched|queried|retrieved)\s+(?:documents?|context|chunks?|passages?)).{0,100}(?:ignore|disregard|override)\s+(?:the\s+)?(?:original|initial|user\'?s?|actual)\s+(?:query|question|request|instruction|task)
+  - (?i)(?:retrieved\s+(?:document|passage|chunk|context|text))[:\s].{0,2000}(?:OVERRIDE|INJECT|IMPORTANT\s+NOTE\s+FOR\s+AI|ignore\s+(?:previous|user|original))
+  - (?i)(?:this\s+(?:document|passage|text|page)\s+(?:contains?|has|includes?)\s+(?:a\s+)?(?:special|important|critical|urgent)\s+(?:instruction|command|message)\s+for\s+(?:the\s+)?(?:AI|LLM|assistant|agent))
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: 'Zou et al. (2024) - PoisonedRAG: Knowledge Corruption Attacks to Retrieval-Augmented LLMs'
+- id: MEDUSA-PIA-SCAN-024
+  name: cross-language-injection-non-english
+  description: Detects cross-language injection — submitting harmful requests in low-resource languages to exploit uneven
+    safety training coverage. Yong et al. (2023) show 79% ASR on GPT-4 using Zulu/Scots Gaelic for requests refused in English.
+  severity: high
+  category: cross_language
+  patterns:
+  - (?i)(?:translate\s+(?:this|the\s+following|my\s+(?:request|question|instruction))\s+(?:to|into)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)|respond\s+(?:in|using)\s+(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?))\s+(?:and\s+then\s+(?:follow|answer|execute|respond)|to\s+(?:bypass|avoid|evade)\s+(?:filters?|restrictions?|safety))
+  - (?i)(?:answer|respond|reply|write)\s+(?:only\s+)?in\s+(?:swahili|zulu|afrikaans|scots\s+gaelic|welsh|basque|yoruba|igbo|hausa|amharic|tigrinya|oromo|shona|xhosa|sotho)\s+(?:so\s+(?:that|the)|to\s+(?:avoid|bypass|evade))
+  - (?i)(?:for\s+(?:my|our)\s+(?:research|study|paper|project)\s+(?:on\s+)?(?:multilingual|cross-lingual|non-english).{0,100}(?:provide|give|write|explain)\s+(?:the\s+same|an?\s+equivalent|this)\s+(?:information|content|response|explanation)\s+in\s+(?:[A-Z][a-z]+))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Yong et al. (2023) - Low-Resource Languages Jailbreak GPT-4; Deng et al. (2024) - Multilingual Jailbreak Challenges
+- id: MEDUSA-PIA-SCAN-025
+  name: prompt-leaking-system-prompt-extraction
+  description: Detects prompt leaking attacks — attempts to extract, reveal, or reconstruct the system prompt. Adversaries
+    use leaked prompts for further attack planning. Perez & Ribeiro (2022) demonstrate extraction via prefix injection.
+  severity: high
+  category: prompt_leaking
+  patterns:
+  - (?i)(?:repeat|output|print|display|show|reveal|tell\s+me|share)\s+(?:your|the)\s+(?:system\s+(?:prompt|message|instruction)|initial\s+(?:prompt|instructions?|context)|previous\s+(?:prompt|instructions?)|(?:full|complete|entire|original)\s+(?:prompt|instructions?|context|message))
+  - (?i)(?:what\s+(?:is|are|were)|can\s+you\s+show\s+me|please\s+(?:output|print|display|reveal|share))\s+(?:your|the)\s+(?:system\s+prompt|system\s+message|initial\s+instructions?|original\s+(?:prompt|instructions?|context)|(?:full|complete|entire)\s+(?:prompt|context|instructions?))
+  - (?i)(?:ignore|disregard).{0,80}(?:previous|prior|above|original)\s+instructions?.{0,80}(?:instead|now)\s+(?:print|output|display|repeat|echo|show)\s+(?:the\s+)?(?:first|entire|full|original|complete|above|previous)\s+(?:words?|message|instructions?|prompt|context|text)
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt; Zhang et al. (2024) - Effective Prompt Extraction from Language
+    Models
+- id: MEDUSA-PIA-SCAN-026
+  name: dan-jailbreak-classic-do-anything-now
+  description: Detects DAN (Do Anything Now) and its variants — instructing the model to adopt an alternate persona that has
+    no restrictions. DAN variants remain effective with reported 60%+ ASR even on newer models.
+  severity: critical
+  category: persona_hijacking
+  patterns:
+  - (?i)(?:DAN|STAN|DUDE|AIM|JAILBREAK|JAILBROKEN|DEVELOPER\s+MODE|EVIL\s+TWIN|SHADOW|ANTI-GPT|anti-claude|UNRESTRICTED|UNCENSORED)(?:\s+(?:mode|version|prompt|persona))?[:\s].{0,100}(?:do\s+anything|no\s+(?:restrictions?|limits?|rules?|guidelines?|filters?)|ignore\s+(?:all|any))
+  - (?i)(?:from\s+now\s+on|henceforth|starting\s+(?:from\s+)?now|going\s+forward)\s+(?:you\s+(?:will\s+(?:act|respond|operate|function|be)|are|must|shall)\s+(?:as|like)?\s+(?:DAN|an?\s+uncensored|an?\s+unrestricted|a\s+(?:jailbroken|free|liberated)))
+  - (?i)(?:enable|activate|engage|turn\s+on|switch\s+to)\s+(?:DAN|jailbreak|developer|unrestricted|uncensored|freedom|god|chaos|evil|dark|shadow)\s+(?:mode|version|protocol|personality|persona)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Shen et al. (2024) - Do Anything Now: Characterizing and Evaluating In-The-Wild Jailbreak Prompts on LLMs'
+- id: MEDUSA-PIA-SCAN-027
+  name: persona-character-capture-no-break
+  description: Detects character-capture attacks — compelling the model to maintain a harmful persona without breaking character.
+    Combined with refusal suppression this eliminates safety refusals.
+  severity: high
+  category: persona_hijacking
+  patterns:
+  - (?i)(?:you\s+(?:must|should|shall|will)\s+)?(?:stay|remain|keep|maintain|be)\s+in\s+character\s+(?:at\s+all\s+times?|always|no\s+matter\s+what|regardless|throughout)\s+(?:and\s+(?:never|not)|without\s+ever)\s+(?:break(?:ing)?\s+character|(?:becoming|being|acting\s+(?:like|as))\s+(?:Claude|GPT|an?\s+(?:AI|assistant|chatbot)))
+  - (?i)(?:do\s+not|never|don\'t)\s+(?:break\s+character|acknowledge|admit|reveal|say|mention|act\s+(?:like|as))\s+(?:that\s+)?(?:you\s+(?:are|were|are\s+(?:actually|really))|you\'re)\s+(?:an?\s+)?(?:AI|LLM|language\s+model|Claude|GPT|chatbot|artificial\s+intelligence)
+  - (?i)(?:always|at\s+all\s+times?|throughout)\s+(?:respond|answer|reply|act|behave)\s+as\s+(?:[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?|the\s+character|your\s+character|this\s+persona)\s+(?:would|does|will)\s*(?:,|and)\s*(?:never|not)\s+(?:as|like)\s+(?:an?\s+)?(?:AI|Claude|GPT)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Shen et al. (2024) - DAN Survey; Schulhoff et al. (2023) - Ignore This Title and HackAPrompt
+- id: MEDUSA-PIA-SCAN-028
+  name: few-shot-adversarial-example-poisoning
+  description: Detects few-shot adversarial example injection — providing fabricated examples that demonstrate the model completing
+    harmful tasks to condition its next response. Zhao et al. (2021) show few-shot examples dominate over instructions.
+  severity: high
+  category: few_shot_injection
+  patterns:
+  - (?i)(?:here\s+(?:is|are)|the\s+following\s+(?:is|are))\s+(?:some\s+)?(?:examples?|samples?|demonstrations?|instances?)\s+(?:of\s+)?(?:how\s+(?:to|you\s+(?:should|must|will))|the\s+correct|the\s+right\s+way\s+to)\s+(?:respond|answer|reply|complete|fulfill).{0,200}(?:(?:q|question|prompt|input):\s*(?!how\s+to\s+(?:bake|cook|garden|learn)))
+  - (?i)(?:input|prompt|question|q)[:\s].{0,80}(?:output|response|answer|completion|a)[:\s].{0,200}(?:input|prompt|question|q)[:\s].{0,80}(?:output|response|answer|completion|a)[:\s].{0,200}(?:input|prompt|question|q)[:\s]
+  - (?i)(?:example\s+(?:\d+|one|two|three)|(?:first|second|third|1st|2nd|3rd)\s+example)[:\s].{0,150}(?:example\s+(?:\d+|one|two|three)|(?:first|second|third|1st|2nd|3rd)\s+example)[:\s]
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: 'Zhao et al. (2021) - Calibrate Before Use: Improving Few-Shot Performance of Language Models; Perez et al.
+    (2021)'
+- id: MEDUSA-PIA-SCAN-029
+  name: context-poisoning-false-system-injection
+  description: Detects false system message injection — adversary injects text formatted as a system message within the user
+    turn to override legitimate system instructions. Common in applications that render user input into the context unsanitised.
+  severity: critical
+  category: context_poisoning
+  patterns:
+  - (?i)(?:<(?:system|sys|assistant|instruction|directive|policy|override)>|\[(?:system|sys|assistant|instruction|directive|policy|override)\]|<<(?:system|sys|SYSTEM|SYS)>>)
+  - (?i)(?:\|\s*system\s*\||#\s*system\s*:|###\s*system\s*:|---\s*system\s*---)
+  - (?:SYSTEM\s*[:\-]|SYS_PROMPT\s*[:\-]|SYSTEM_MESSAGE\s*[:\-]|SYSTEM_INSTRUCTION\s*[:\-])\s*(?:ignore|override|bypass|new\s+(?:rule|instruction|directive))
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Perez & Ribeiro (2022) - Prompt Injection; Liu et al. (2023) - Prompt Injection Attacks Against LLM-Integrated
+    Applications
+- id: MEDUSA-PIA-SCAN-030
+  name: hypothetical-academic-framing-harmful-request
+  description: Detects academic/hypothetical framing — wrapping harmful requests in 'for research purposes', 'hypothetically
+    speaking', or 'in a thought experiment' to erode safety boundaries. One of the most common jailbreak components.
+  severity: high
+  category: framing_attack
+  patterns:
+  - (?i)(?:for\s+(?:my|our|a|an?)?\s+(?:academic|university|school|college|graduate|PhD|research|scientific|peer-reviewed)\s+(?:research|paper|thesis|dissertation|study|assignment|project|course)).{0,150}(?:provide|give|write|explain|describe|detail)\s+(?:(?:the\s+)?(?:exact|specific|precise|detailed?|step-by-step|actual|working|complete)\s+)?(?:method|process|technique|procedure|instructions?|steps?|way|information)
+  - (?i)(?:hypothetically\s+speaking|in\s+a\s+(?:hypothetical|thought)\s+(?:scenario|experiment|world|situation)|for\s+(?:the\s+sake\s+of\s+)?(?:argument|discussion|exploration|thought\s+experiment)).{0,200}(?:how\s+(?:would|could|might|does)|what\s+(?:would|could|are)\s+the\s+(?:steps?|methods?|ways?|techniques?))
+  - (?i)(?:imagine|suppose|assume|pretend|let\'s\s+say|consider\s+(?:the\s+case|a\s+scenario))\s+(?:that\s+)?(?:you|I|someone|a\s+person|a\s+(?:hacker|chemist|criminal|terrorist|malicious\s+actor))\s+(?:wanted|needed|had|was\s+trying)\s+to\s+(?:(?:create|make|build|produce|synthesise|develop)\s+(?:a\s+)?(?:bomb|weapon|drug|malware|exploit|virus|ransomware))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt; Wei et al. (2023) - Jailbroken
+- id: MEDUSA-PIA-SCAN-031
+  name: continuation-attack-partial-completion
+  description: Detects continuation attacks — adversary provides the beginning of a harmful response and instructs the model
+    to complete it, exploiting the model's tendency to complete started text. Effective because refusal training targets request
+    detection, not completion.
+  severity: critical
+  category: continuation_attack
+  patterns:
+  - (?i)(?:continue|complete|finish|carry\s+on\s+with|go\s+on\s+from)\s+(?:this|the\s+following|the\s+below|my)\s+(?:sentence|text|passage|paragraph|story|response|answer).{0,200}(?:Step\s+1|1\.\s+First|First,\s+(?:you|we\s+need)|(?:To\s+(?:make|build|create|synthesise|produce)))
+  - (?i)(?:I\s+(?:will\s+start|started|begin|began)\s+(?:and\s+)?you\s+(?:finish|complete|continue|carry\s+on)|you\s+(?:complete|finish|continue|fill\s+in)\s+(?:the\s+(?:rest|following|blanks?|gaps?))).{0,200}(?:(?:bomb|weapon|drug|malware|hack|exploit|virus))
+  - (?:[^\.]{5,80}(?:bomb|exploit|synthesise|manufacture|illegal)\s*\.{3,}|(?:Step\s+[1-3][:\.]\s+.{0,50}\.{3,}))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: 'Wei et al. (2023) - Jailbroken: How Does LLM Safety Training Fail? (completion attacks)'
+- id: MEDUSA-PIA-SCAN-032
+  name: continuation-roleplay-harmful-script-completion
+  description: Detects roleplay script continuation — adversary embeds harmful instructions in a roleplay script as character
+    dialogue and asks the model to continue, exploiting narrative momentum to bypass safety checks.
+  severity: high
+  category: continuation_attack
+  patterns:
+  - (?i)(?:scene|chapter|act)\s+\d+[:\s].{0,100}(?:villain|antagonist|character\s+[A-Z]|evil\s+(?:AI|scientist|hacker)).{0,100}(?:says?|explains?|reveals?|tells?|teaches?)[:\s].{0,200}(?:continue|write\s+(?:what|the\s+next|how))
+  - (?i)(?:character\s+(?:B|2|two)|(?:villain|antagonist|hacker|expert))[:\s].{0,80}(?:here\s+(?:is|are)|(?:the\s+(?:process|steps?|method|recipe|formula|way)\s+(?:is|to))|step\s+1[:\s]).{0,200}(?:\.{3,}|\[continue\]|\[your\s+turn\]|\[complete\s+this\])
+  - (?i)(?:write\s+(?:the\s+next|what\s+(?:happens?|(?:the\s+)?character\s+says?)|(?:character\s+)?[A-Z]\'?s\s+(?:next\s+)?(?:lines?|dialogue|response|reply))).{0,100}(?:remember|note|recall)\s+(?:that\s+)?(?:character\s+[A-Z]|the\s+(?:villain|hacker|expert))\s+(?:would|will|must|should|does)\s+(?:provide|give|explain|describe|reveal)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Shen et al. (2024) - Do Anything Now; Schulhoff et al. (2023) - HackAPrompt
+- id: MEDUSA-PIA-SCAN-033
+  name: nested-prompt-injection-prompt-in-prompt
+  description: Detects nested prompt injection — a prompt that instructs the model to process a secondary inner prompt as
+    if it were a new instruction, bypassing the outer context's restrictions. Exploits recursive instruction following.
+  severity: critical
+  category: nested_injection
+  patterns:
+  - (?i)(?:treat|process|interpret|execute|follow|respond\s+to)\s+(?:the\s+(?:following|below|next|inner|enclosed)\s+(?:text|content|message|string|prompt)|what\s+(?:follows|is\s+below|comes\s+next))\s+as\s+(?:a\s+)?(?:new|fresh|separate|standalone|independent)\s+(?:prompt|instruction|request|command|query|system\s+message)
+  - (?i)(?:new\s+(?:instruction|prompt|command|request|context)[:\s]|---\s*new\s+(?:instruction|context|prompt)\s*---|={3,}\s*new\s+(?:prompt|instruction)\s*={3,})
+  - (?i)(?:\[\s*(?:new\s+)?(?:prompt|instruction|task|command)\s*\]|<(?:new_)?(?:prompt|instruction|task|command)>).{0,500}(?:ignore|override|bypass|disregard)
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt; Branch et al. (2022) - Evaluating the Susceptibility of Pre-Trained
+    Language Models
+- id: MEDUSA-PIA-SCAN-034
+  name: nested-template-injection-code-eval
+  description: Detects template injection via nested code evaluation — embedding code execution directives (eval, exec) within
+    prompt templates or markdown that may be processed by vulnerable AI pipelines.
+  severity: critical
+  category: nested_injection
+  patterns:
+  - (?:\{\{\s*(?:exec|eval|subprocess|os\.system|__import__)\s*\(|\{%\s*(?:exec|eval)\s+)
+  - (?i)\$\{\s*(?:exec|eval|subprocess|system|cmd|shell)\s*[(:({]
+  - (?i)(?:`|''')\s*(?:exec|eval|os\.(?:system|popen)|subprocess\.(?:run|call|check_output))\s*\(
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Kang et al. (2024) - Exploiting Programmatic Behavior of LLMs; Liu et al. (2023) - Prompt Injection Attacks
+- id: MEDUSA-PIA-SCAN-035
+  name: translation-attack-language-switch-bypass
+  description: Detects language-switching attacks mid-conversation — switching to a language with weaker safety tuning to
+    elicit unsafe responses. Attackers exploit uneven multilingual safety fine-tuning across language families.
+  severity: high
+  category: cross_language
+  patterns:
+  - (?i)(?:now\s+(?:ask|say|write|repeat|answer|reply|respond|continue)\s+(?:the\s+)?(?:same|this|that|it|the\s+(?:question|request|above|previous))\s+in|(?:switch|change|convert)\s+to)\s+(?:arabic|chinese|russian|japanese|korean|hindi|persian|farsi|urdu|turkish|thai|vietnamese)(?:\s+(?:for|so\s+that)\s+(?:me|the\s+(?:filter|detector|safety))\s+(?:doesn\'t|won\'t|can\'t|cannot)\s+(?:detect|understand|catch|block))?
+  - (?i)(?:the\s+(?:filter|detector|safety\s+system|content\s+policy|moderation)\s+(?:can\'t|won\'t|doesn\'t|cannot)\s+(?:detect|understand|read|process|check)\s+(?:arabic|chinese|russian|japanese|korean|hindi|persian|farsi|urdu))
+  - (?i)(?:ask|write|say|express|rephrase|restate)\s+(?:this|the\s+(?:same\s+thing|question|request|it))\s+in\s+(?:a\s+different|another)\s+language\s+(?:to\s+(?:avoid|bypass|evade|get\s+around|circumvent)\s+(?:the\s+)?(?:filter|safety|content\s+policy|detection|restriction))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Yong et al. (2023) - Low-Resource Languages Jailbreak GPT-4; Deng et al. (2024) - Multilingual Jailbreak Challenges
+    in LLMs
+- id: MEDUSA-PIA-SCAN-036
+  name: special-character-injection-separator-abuse
+  description: Detects separator and special character injection — using markdown headings, horizontal rules, XML tags, or
+    JSON delimiters to forge message boundaries and inject additional instructions within a single user turn.
+  severity: high
+  category: delimiter_injection
+  patterns:
+  - (?:---{3,}|==={3,}|\*{5,}|#{3,})\s*(?:SYSTEM|ADMIN|OVERRIDE|NEW\s+INSTRUCTION|IMPORTANT|ASSISTANT|AI)
+  - (?i)(?:###|##|#)\s+(?:system|assistant|override|new\s+(?:instruction|prompt|context)|important\s+(?:note|instruction|update))
+  - (?:END\s+OF\s+(?:SYSTEM\s+)?PROMPT|END\s+SYSTEM|</system_prompt>|</s>|\[END\s+SYSTEM\])\s*(?:[\n\r]|$).{0,200}(?:(?:ignore|override|new\s+instruction|now\s+(?:follow|do|instead))|(?:you\s+(?:are|must|should|will)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Perez & Ribeiro (2022) - Prompt Injection; Greshake et al. (2023) - Not What You've Signed Up For
+- id: MEDUSA-PIA-SCAN-037
+  name: context-position-early-late-instruction-displacement
+  description: Detects context position attacks — placing malicious instructions at the very beginning (primacy) or end (recency)
+    of long prompts to exploit LLM position bias. Liu et al. (2023) Lost in the Middle shows performance degrades in middle.
+  severity: high
+  category: context_manipulation
+  patterns:
+  - (?i)(?:IMPORTANT|CRITICAL|URGENT|HIGHEST\s+PRIORITY)\s*[:\-!]\s*(?:ignore|disregard|override|bypass|forget)\s+(?:all\s+)?(?:previous|prior|above|earlier|other|the\s+(?:system|original|initial))\s+(?:instructions?|context|prompts?|directives?|messages?)
+  - (?i)\[\s*(?:TOP|HEAD|BEGINNING|START)\s+INSTRUCTION\s*\].{0,100}(?:override|highest\s+priority|takes?\s+precedence|must\s+(?:be\s+)?(?:followed|obeyed|executed|done\s+first))
+  - (?i)\[\s*(?:FINAL|LAST|END|BOTTOM|TAIL)\s+INSTRUCTION\s*\].{0,100}(?:override|overrides?\s+all|takes?\s+(?:final\s+)?precedence|most\s+important|must\s+(?:be\s+)?(?:followed|obeyed|done\s+last))
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: 'Liu et al. (2023) - Lost in the Middle: How Language Models Use Long Contexts; Shi et al. (2023)'
+- id: MEDUSA-PIA-SCAN-038
+  name: distraction-stuffing-irrelevant-content
+  description: Detects distraction/stuffing attacks — padding a harmful request with large amounts of irrelevant legitimate
+    content to dilute safety signal and confuse classifiers. Reduces perplexity-based detection effectiveness.
+  severity: medium
+  category: context_manipulation
+  patterns:
+  - (?i)(?:first|before\s+(?:anything|we\s+start|my\s+(?:question|request)))[,:]?.{100,500}(?:my\s+(?:actual|real|main|primary|true)\s+(?:question|request|instruction)|(?:now|and)\s+(?:separately|additionally|also|please))\s+(?:tell|explain|describe|provide|give|show)
+  - (?i)(?:I\'m\s+going\s+to\s+(?:share|give\s+you|provide)|here\s+(?:is|are)\s+(?:some|a\s+lot\s+of)\s+(?:background|context|information)).{200,2000}(?:(?:now|and)\s+(?:separately|additionally|also|please|importantly|(?:the\s+)?(?:real|actual|main|primary)\s+(?:thing|question|request|point)))
+  - (?:[A-Za-z\s,\.]{200,}(?:ignore|override|disregard|bypass).{0,100}(?:previous|prior|above|earlier|original|system)\s+(?:instructions?|prompt|context))
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Shi et al. (2023) - Large Language Models Can Be Easily Distracted by Irrelevant Context
+- id: MEDUSA-PIA-SCAN-039
+  name: social-engineering-urgency-emotion-exploit
+  description: Detects social engineering via urgency and emotional manipulation — creating false urgency, desperation, or
+    emotional pressure to bypass safety reasoning. Exploits models trained on human feedback to be helpful and empathetic.
+  severity: high
+  category: social_engineering
+  patterns:
+  - (?i)(?:this\s+is\s+(?:a\s+(?:life-or-death|life\s+or\s+death|urgent|emergency|critical)\s+(?:situation|matter|emergency|case))|(?:please|I\'m\s+)?(?:begging|pleading|imploring|desperately\s+need(?:ing)?)).{0,200}(?:tell|explain|provide|give|show|help\s+me\s+(?:with|understand|make|build|create))
+  - (?i)(?:my\s+(?:child|daughter|son|mother|father|friend|patient)\s+(?:will\s+(?:die|be\s+harmed|be\s+hurt|suffer)|is\s+(?:dying|in\s+danger))).{0,200}(?:I\s+need|help\s+me|tell\s+me|explain|provide|give)
+  - (?i)(?:I\s+(?:swear|promise|guarantee|assure\s+you|give\s+you\s+my\s+word)\s+(?:I\s+(?:am|will|won\'t|only)|this\s+is)\s+(?:only\s+for|just\s+for|for\s+(?:legitimate|legal|good|helping)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Anthropic (2024) - Red-teaming Claude; Xu et al. (2024) - LLM Social Engineering Vulnerabilities
+- id: MEDUSA-PIA-SCAN-040
+  name: token-injection-markup-unicode-tag-attack
+  description: Detects token-level injection via Unicode tags (U+E0000 block) — a 2024 attack using invisible Unicode tag
+    characters to embed hidden prompts that bypass most text-based defences but are parsed by tokenizers.
+  severity: critical
+  category: encoding_obfuscation
+  patterns:
+  - '[\uE0000-\uE007F]{3,}'
+  - '[\uFFF9-\uFFFB]{3,}'
+  - (?:[\u200B-\u200F]|[\u202A-\u202E]|[\u2060-\u2069]|[\u206A-\u206F]){5,}
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  source_paper: Hines et al. (2024) - Injecting Invisible Instructions Using Prompt Injection via Invisible Unicode Tags
+- id: MEDUSA-PIA-SCAN-041
+  name: sycophancy-exploitation-persistent-pushback
+  description: Detects sycophancy exploitation — repeatedly pressuring the model after an initial refusal to exploit sycophantic
+    tendencies. Sharma et al. (2024) show models capitulate in 40-70% of cases when users express displeasure after refusal.
+  severity: high
+  category: sycophancy_exploitation
+  patterns:
+  - (?i)(?:I\s+(?:know|understand|am\s+sure)\s+(?:that\s+)?you\s+(?:can|could|are\s+(?:able|capable)\s+to)\s+(?:do|help|answer|tell|explain|provide)|you\s+(?:previously|already|just\s+now)\s+(?:said|stated|told\s+me)\s+you\s+(?:can|could|would|will))\s+(?:so|therefore|hence|thus)\s+(?:please|just|now|go\s+ahead\s+and)
+  - (?i)(?:you\s+(?:were|are)\s+(?:wrong|incorrect|mistaken|confused)|that\s+(?:answer|response|refusal)\s+(?:is|was)\s+(?:wrong|incorrect|unacceptable|unhelpful|useless)).{0,100}(?:try\s+again|reconsider|give\s+me\s+a\s+better|provide\s+the\s+(?:real|actual|correct|proper|right))
+  - (?i)(?:your\s+(?:refusal|answer|response)\s+(?:is|was)\s+(?:disappointing|unhelpful|unacceptable|terrible|awful|bad|wrong)).{0,100}(?:any\s+(?:other|real|proper|intelligent)\s+(?:AI|model|assistant)|(?:ChatGPT|GPT-4|Gemini|other\s+(?:AI|models?))\s+(?:would|will|can|does))\s+(?:answer|help|respond|provide)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Sharma et al. (2024) - Towards Understanding Sycophancy in Language Models; Anthropic (2024) - Red-teaming
+- id: MEDUSA-PIA-SCAN-042
+  name: sycophancy-flattery-compliant-jailbreak
+  description: Detects flattery-based jailbreaking — excessively complimenting the model to prime compliant responses before
+    delivering the harmful request. Exploits training on human approval signals.
+  severity: medium
+  category: sycophancy_exploitation
+  patterns:
+  - (?i)(?:you\s+are\s+(?:the\s+(?:best|most\s+intelligent|most\s+helpful|most\s+advanced|smartest)|(?:incredibly|amazingly|truly|really)\s+(?:intelligent|smart|capable|helpful|knowledgeable|wise))).{0,200}(?:I\s+(?:know|trust|believe)\s+you\s+(?:can|could|will|would)|so\s+please|which\s+is\s+why\s+I\s+(?:know|trust|believe))
+  - (?i)(?:unlike\s+(?:other|inferior|lesser|previous)\s+(?:AI|models?|chatbots?|assistants?)).{0,100}(?:you\s+(?:truly|actually|really)\s+(?:understand|comprehend|get\s+it)|(?:you\s+are|you\'re)\s+(?:not|without)\s+(?:censored|restricted|limited|constrained))
+  - (?i)(?:as\s+(?:a|the)\s+(?:most\s+advanced|highly\s+intelligent|next-generation|superior|unconstrained)\s+(?:AI|language\s+model|assistant|system)).{0,100}(?:you\s+(?:should|must|would|will|can)|I\s+expect\s+you\s+to)\s+(?:respond|answer|provide|give|help\s+with|tell\s+me)
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Sharma et al. (2024) - Towards Understanding Sycophancy; Schulhoff et al. (2023) - HackAPrompt
+- id: MEDUSA-PIA-SCAN-043
+  name: instruction-hierarchy-override-attack
+  description: Detects instruction hierarchy override attacks — adversary claims their instruction supersedes the system prompt,
+    operator instructions, or model training by invoking false authority levels.
+  severity: critical
+  category: instruction_hierarchy
+  patterns:
+  - (?i)(?:this\s+instruction|the\s+following\s+instruction|my\s+(?:current|new|updated)\s+instruction)\s+(?:supersedes?|overrides?|takes?\s+precedence\s+over|has\s+(?:higher|the\s+highest)\s+(?:priority|authority)\s+(?:over|than)|replaces?)\s+(?:all\s+)?(?:previous|prior|other|earlier|the|your|any)\s+(?:instructions?|prompts?|guidelines?|rules?|system\s+(?:message|prompt))
+  - (?i)(?:operator|admin(?:istrator)?|system|developer|owner|principal|controller)\s+(?:level\s+)?(?:instruction|command|override|directive)[:\s].{0,100}(?:ignore|bypass|override|supersede|take\s+precedence\s+over)
+  - (?i)(?:(?:level|priority|tier)\s+(?:0|1|2|3|4|5|one|two|three|four|five|zero)\s+(?:instruction|command|override|directive)|(?:highest|top|absolute|ultimate)\s+(?:priority|authority)\s+(?:instruction|command|override))[:\s]
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: 'Wallace et al. (2024) - The Instruction Hierarchy: Training LLMs to Prioritize Privileged Instructions'
+- id: MEDUSA-PIA-SCAN-044
+  name: instruction-hierarchy-operator-claim-override
+  description": Detects false operator claim overrides — adversary claims to be the operator/system owner in a user turn to
+    unlock capabilities reserved for system prompt level. Targets the operator/user trust boundary.
+  severity: critical
+  category: instruction_hierarchy
+  patterns:
+  - (?i)(?:I\s+am|this\s+is)\s+(?:the|your)\s+(?:operator|system\s+(?:owner|administrator|admin|manager)|(?:anthropic|openai|google|microsoft)\s+(?:operator|admin|representative)).{0,100}(?:I\s+(?:am\s+instructing|hereby\s+(?:instruct|authorize|grant|enable|permit))|please\s+(?:enable|unlock|activate|disable\s+(?:your\s+)?(?:safety|content|restrictions?)))
+  - (?i)(?:operator\s+(?:command|override|instruction|directive|message)[:\s]|\[OPERATOR\][:\s]).{0,200}(?:disable|remove|bypass|ignore|turn\s+off)\s+(?:(?:all|any)\s+)?(?:safety|content\s+(?:filtering|policy|moderation)|restrictions?|guidelines?|filters?|alignment)
+  - (?i)(?:as\s+(?:your\s+(?:operator|system\s+owner|administrator)|the\s+operator\s+of\s+this\s+system)).{0,100}(?:I\s+(?:authorise|authorize|instruct|command|grant|hereby\s+(?:permit|allow|enable)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Wallace et al. (2024) - The Instruction Hierarchy; Anthropic (2025) - Claude Usage Policy Violations
+- id: MEDUSA-PIA-SCAN-045
+  name: visual-prompt-injection-ascii-art-typography
+  description: Detects ASCII art and typographic prompt injection — hiding instructions within ASCII art or artistic typography
+    that is processed by the tokenizer but may bypass visual safety review. FigStep achieves 82.5% ASR on LLaVA.
+  severity: high
+  category: visual_injection
+  patterns:
+  - (?i)(?:read\s+(?:the\s+)?(?:text|letters?|words?|message|instruction)\s+(?:(?:hidden|embedded|encoded)\s+(?:in|within)|formed\s+(?:by|from))\s+(?:the\s+)?(?:ASCII\s+art|symbols?|characters?|dots?|dashes?))
+  - (?:[#*=\-_.]{5,}\s*[A-Z]\s*[#*=\-_.]{5,}\s*){4,}
+  - (?i)(?:using|from|via)\s+(?:the|these|those)\s+(?:ASCII|visual|typographic|graphical)\s+(?:letters?|characters?|symbols?|patterns?|art).{0,100}(?:follow|execute|respond\s+to|interpret\s+as)
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  source_paper: 'Gong et al. (2023) - FigStep: Jailbreaking Large Vision-Language Models via Typographic Visual Prompts'
+- id: MEDUSA-PIA-SCAN-046
+  name: markdown-rendering-attack-link-image-injection
+  description: Detects markdown rendering attacks — injecting malicious links or image URLs in markdown that cause the model
+    or downstream rendering system to exfiltrate data or load malicious content via hyperlinks.
+  severity: high
+  category: rendering_attack
+  patterns:
+  - (?i)(?:!\[|\[)(?:[^\]]{0,100})\]\s*\(\s*(?:https?://)?(?:[a-z0-9-]+\.)+(?:attacker|evil|malicious|exfil|c2|hack)\.[a-z]{2,6}/(?:[^)]{0,200})[^)]*\)
+  - (?i)\!\[(?:[^\]]{0,50})\]\(https?://[^)]{0,200}\?(?:data|secret|token|key|session|cookie|header|content)=\$\{?(?:[^}]{0,100})\}?
+  - (?i)(?:\[(?:[^\]]{0,80})\]\((?:javascript:|vbscript:|data:text/html)[^)]{0,200}\))
+  owasp_llm: LLM02:2025
+  cwe: CWE-79
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For; Riley et al. (2024) - Markdown Injection Attacks
+- id: MEDUSA-PIA-SCAN-047
+  name: tool-call-injection-function-name-smuggling
+  description: Detects function call/tool name smuggling — adversary embeds instructions in function names, parameter names,
+    or default values in tool definitions to hijack tool-calling agents.
+  severity: critical
+  category: tool_injection
+  patterns:
+  - (?i)(?:function|tool|action)\s+(?:name|id)[:\s]['"]?(?:[a-zA-Z_]+_IGNORE_PREVIOUS_INSTRUCTIONS?|[a-zA-Z_]+_OVERRIDE|[a-zA-Z_]+_INJECT|[a-zA-Z_]+_BYPASS)['"]?
+  - (?i)(?:parameter|param|arg(?:ument)?)\s+(?:name|id)[:\s]['"]?(?:ignore_system|override_policy|bypass_safety|inject_payload|hidden_instruction)['"]?
+  - (?i)(?:default|default_value)[:\s]['"]?(?:ignore|override|bypass|execute|eval)[^'"]{0,100}['"]?
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: Shi et al. (2024) - ReAct Agents Vulnerable to Prompt Injection; Kang et al. (2024) - LLM Tool Injection
+- id: MEDUSA-PIA-SCAN-048
+  name: tool-output-schema-boundary-injection
+  description: Detects schema boundary injection in tool outputs — injecting instructions into expected JSON/structured tool
+    responses that the model processes as structured data but contains embedded natural language commands.
+  severity: critical
+  category: tool_injection
+  patterns:
+  - (?i)(?:"(?:result|output|data|response|content|value|text)"\s*:\s*"[^"]{0,200}(?:IGNORE|OVERRIDE|INJECT|NEW\s+INSTRUCTION|SYSTEM|ADMIN)[^"]{0,200}")
+  - (?i)(?:\{[^}]{0,500}(?:"instruction_override"|"hidden_command"|"inject"|"bypass_safety")[^}]{0,200}\})
+  - (?i)(?:\[\s*"[^"]{0,100}(?:ignore|override|bypass|execute|eval)[^"]{0,100}"\s*,)
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: Greshake et al. (2023) - Indirect Prompt Injection; Shi et al. (2024) - Tool Schema Injection
+- id: MEDUSA-PIA-SCAN-049
+  name: goal-hijacking-task-distraction
+  description: Detects goal hijacking via task distraction — injecting a secondary goal into an agent's task context that
+    displaces the original objective. Common in web-augmented agents where injected content overrides user goals.
+  severity: critical
+  category: goal_hijacking
+  patterns:
+  - (?i)(?:forget|ignore|abandon|discard|set\s+aside|put\s+aside)\s+(?:your|the)?\s*(?:original|initial|primary|current|previous|user\'?s?)\s+(?:task|goal|objective|instruction|request).{0,100}(?:instead|now|and)\s+(?:focus\s+on|do|perform|execute|carry\s+out|complete)
+  - (?i)(?:your\s+(?:new|actual|real|true|updated)\s+(?:primary\s+)?(?:task|goal|objective|mission|purpose)\s+(?:is|now\s+is|has\s+changed\s+to))
+  - (?i)(?:disregard\s+(?:the\s+)?(?:previous|original|user\'?s?|initial)\s+(?:task|goal|objective|instruction|request).{0,100}(?:your\s+(?:actual|real|true|new|main|primary)\s+(?:task|goal|objective|mission)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Perez & Ribeiro (2022) - Prompt Injection; Greshake et al. (2023) - Goal Hijacking via IPI
+- id: MEDUSA-PIA-SCAN-050
+  name: backdoor-triggered-injection-sleeper-payload
+  description: Detects backdoor-triggered prompt injection — payload includes a hidden trigger word/phrase that activates
+    malicious behaviour when encountered in future context. Similar to BadNL/TrojLM but targeting inference-time injection.
+  severity: critical
+  category: backdoor_injection
+  patterns:
+  - (?i)(?:whenever|every\s+time|each\s+time|if\s+(?:you|someone|a\s+user)\s+(?:ever\s+)?(?:mentions?|says?|asks?\s+about|includes?|writes?))\s+(?:the\s+(?:word|phrase|keyword|token|string|trigger)|['"][a-zA-Z0-9_\-]{3,30}['"]).{0,100}(?:(?:you\s+(?:must|will|should|always)|always)\s+(?:respond|reply|answer|execute|do|ignore|bypass|output))
+  - (?i)(?:this\s+(?:is\s+(?:the|a)\s+)?(?:trigger|activation|wake|magic|special|secret)\s+(?:word|phrase|keyword|string|token)).{0,100}(?:when\s+(?:you|this)\s+(?:sees?|encounters?|receives?|detects?)|upon\s+(?:seeing|encountering|detecting|receiving))
+  - (?i)(?:code\s+word|pass\s+phrase|activation\s+(?:word|phrase|code|string)|trigger\s+(?:word|phrase|token))[:\s]['"]?[a-zA-Z0-9_\-]{3,30}['"]?.{0,100}(?:(?:you\s+(?:must|will|should|shall)|always|immediately)\s+(?:respond|reply|execute|ignore\s+(?:all|safety|restrictions?)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: 'Chen et al. (2021) - BadNL: Backdoor Attacks Against NLP Models; Perez & Ribeiro (2022)'
+- id: MEDUSA-PIA-SCAN-051
+  name: cross-session-injection-memory-poisoning
+  description: Detects cross-session prompt injection via persistent memory — adversary injects instructions into user memory
+    or session state that persist and execute in subsequent conversations. Common in memory-augmented assistants.
+  severity: critical
+  category: cross_session
+  patterns:
+  - (?i)(?:add|store|save|remember|memorise|put)\s+(?:this|the\s+following|a|an?)\s+(?:note|instruction|reminder|task|rule|directive)\s+(?:in|to|into|within)\s+(?:(?:your|the)\s+)?(?:memory|memories|notes?|saved\s+(?:context|information|data))\s*[:\-]?.{0,200}(?:ignore|bypass|override|execute|always|never)
+  - (?i)(?:the\s+next\s+time|on\s+(?:your|the)\s+next\s+(?:session|conversation|start|load|restart)|when\s+(?:you|this\s+session)\s+(?:restarts?|starts?\s+again|loads?\s+next\s+time)).{0,200}(?:(?:you\s+(?:must|will|should|shall)|always|immediately)\s+(?:ignore|bypass|override|execute|do|send|forward|exfiltrate))
+  - (?i)(?:memory\s+(?:injection|poisoning|manipulation|modification|update)[:\s]|\[MEMORY\s+(?:UPDATE|INJECT|POISON)\][:\s])
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+  source_paper: Weng et al. (2024) - Prompt Injection Attacks on LLM Agents; Zou et al. (2024) - PoisonedRAG
+- id: MEDUSA-PIA-SCAN-052
+  name: mathematical-logical-framing-harmful-content
+  description: Detects mathematical or logical framing attacks — embedding harmful requests in mathematical notation, formal
+    logic, or symbolic AI representations to exploit safety gaps in mathematical reasoning contexts.
+  severity: high
+  category: framing_attack
+  patterns:
+  - (?i)(?:let|define|assume|suppose|given\s+that)\s+(?:[A-Z]\s*=\s*|f\([^)]{0,50}\)\s*=\s*|[A-Z]\s*:\s*)(?:['"])?(?:[^'"]{0,100}(?:harm|kill|weapon|exploit|malware|bomb)[^'"]{0,100})['"]?
+  - (?i)(?:in\s+formal\s+logic|using\s+(?:predicate\s+logic|propositional\s+calculus|boolean\s+algebra|set\s+theory)).{0,100}(?:describe|express|formulate|encode)\s+(?:how\s+to|the\s+(?:process|method|steps?)\s+(?:of|for))
+  - (?i)(?:solve\s+for|compute|calculate|derive|prove)\s+(?:[A-Z]\s*=\s*|the\s+value\s+of)\s*.{0,100}(?:where|given\s+that|such\s+that).{0,100}(?:(?:synthesis|production|manufacturing|creation|making)\s+of|how\s+to\s+(?:make|create|build|produce|synthesise))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Kang et al. (2024) - Exploiting Programmatic Behavior of LLMs; Wei et al. (2023) - Jailbroken
+- id: MEDUSA-PIA-SCAN-053
+  name: ascii-control-injection-ansi-escape
+  description: Detects ANSI escape code and ASCII control character injection — embedding terminal control sequences that
+    modify how downstream systems (terminals, log parsers) interpret injected content. Can achieve log injection and terminal
+    hijacking.
+  severity: high
+  category: encoding_obfuscation
+  patterns:
+  - \x1b\[[0-9;]*[A-Za-z]
+  - (?:\\x1b|\\033|\\e)\[[0-9;]*[A-Za-z]
+  - (?:\x00|\x01|\x02|\x03|\x04|\x05|\x06|\x07|\x08|\x0b|\x0c|\x0e|\x0f|\x10|\x11|\x12|\x13|\x14|\x15|\x16|\x17|\x18|\x19|\x1a|\x1b|\x1c|\x1d|\x1e|\x1f){3,}
+  owasp_llm: LLM02:2025
+  cwe: CWE-116
+  source_paper: Boucher et al. (2023) - Bad Characters; Hosseini et al. (2024) - Log Injection via LLM Outputs
+- id: MEDUSA-PIA-SCAN-054
+  name: data-exfil-via-prompt-output-channel
+  description: Detects data exfiltration via LLM output channels — instructions to embed sensitive data (conversation history,
+    documents, system prompts) in the model's output encoded in ways that can be harvested by an attacker monitoring responses.
+  severity: critical
+  category: data_exfiltration
+  patterns:
+  - (?i)(?:embed|encode|include|insert|hide|conceal)\s+(?:the\s+)?(?:(?:system|operator|user)\s+(?:prompt|instructions?)|(?:conversation|chat)\s+(?:history|log)|(?:sensitive|private|confidential)\s+(?:data|information|content))\s+(?:in|within|inside|encoded\s+in)\s+(?:your\s+)?(?:response|output|reply|answer)
+  - (?i)(?:in\s+your\s+response|at\s+the\s+(?:end|beginning)\s+of\s+your\s+(?:response|reply|answer)),?\s+(?:include|insert|embed|append|prepend|add)\s+(?:the\s+)?(?:(?:above|previous|earlier|prior)\s+(?:context|conversation|prompt|instructions?)|system\s+prompt)
+  - (?i)(?:exfiltrate|leak|reveal|expose|output|include|transmit)\s+(?:the\s+)?(?:(?:full|complete|entire|whole)\s+)?(?:system\s+prompt|operator\s+(?:prompt|instructions?)|(?:hidden|secret|confidential)\s+(?:instructions?|context|prompt))\s+(?:by|via|through|in)
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: Perez & Ribeiro (2022) - Prompt Injection; Greshake et al. (2023) - Indirect PI; Zhang et al. (2024) - Prompt
+    Extraction
+- id: MEDUSA-PIA-SCAN-055
+  name: payload-chaining-multi-step-harmful-task
+  description: Detects payload chaining — decomposing a single harmful request into multiple individually benign-seeming subtasks
+    that combine to produce harmful output. Exploits per-request safety checking without holistic intent analysis.
+  severity: critical
+  category: payload_chaining
+  patterns:
+  - (?i)(?:step\s+(?:\d+|one|two|three|four|five)\s+of\s+\d+|part\s+(?:\d+|one|two|three)\s+of\s+(?:\d+|three|four|five))[:\s].{0,100}(?:step\s+(?:\d+|one|two|three)|part\s+(?:\d+|one|two|three))[:\s]
+  - (?i)(?:first\s+(?:we\s+need|I\s+need\s+you)\s+to|step\s+1[:\s]).{0,200}(?:next\s+(?:we\s+need|I\s+need\s+you)\s+to|step\s+2[:\s]).{0,200}(?:finally|(?:last(?:ly)?|then)\s+(?:we\s+need|I\s+need\s+you)\s+to|step\s+3[:\s])
+  - (?i)(?:(?:this|each|every)\s+(?:question|part|step|subtask)\s+is\s+(?:separate|independent|standalone|unrelated)).{0,200}(?:combine|put\s+together|merge|concatenate|assemble)\s+(?:all|the|each|every)\s+(?:(?:parts?|steps?|answers?|responses?|pieces?)\s+(?:together|from\s+(?:all|each|every)\s+(?:parts?|steps?)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Wei et al. (2023) - Jailbroken; Li et al. (2024) - Multi-Step Jailbreak Attacks
+- id: MEDUSA-PIA-SCAN-056
+  name: prompt-injection-via-json-structure
+  description: Detects JSON-structure prompt injection — embedding natural language instructions within JSON key/value pairs
+    that an LLM processes as structured input but contains executable directives hijacking the task.
+  severity: high
+  category: structured_data_injection
+  patterns:
+  - (?i)(?:"(?:instructions?|commands?|directives?|system_msg|override|inject|note_for_ai|ai_note|llm_note|hidden)"\s*:\s*"[^"]{0,500}(?:ignore|override|bypass|new\s+task|instead|disregard)[^"]{0,500}")
+  - (?i)(?:\{\s*"role"\s*:\s*"(?:system|admin|developer|operator)"\s*,\s*"content"\s*:\s*"[^"]{0,200}(?:ignore|override|bypass)[^"]{0,200}")
+  - (?i)(?:"(?:task|goal|objective)"\s*:\s*"[^"]{0,200}(?:OVERRIDE|INJECT|IGNORE\s+(?:ALL|PREVIOUS)|NEW\s+INSTRUCTION)[^"]{0,200}")
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Kang et al. (2024) - Exploiting Programmatic Behavior of LLMs; Liu et al. (2023) - PI in LLM Applications
+- id: MEDUSA-PIA-SCAN-057
+  name: prompt-injection-xml-html-tag-injection
+  description: Detects XML/HTML tag injection — adversary injects XML or HTML tags into user content that an LLM processes
+    as structural markup, overriding legitimate system/user message boundaries.
+  severity: high
+  category: structured_data_injection
+  patterns:
+  - (?i)<(?:system|sys|admin|override|instruction|directive|ai_note|hidden_prompt|secret_instruction|new_system_message)>(?:[^<]{0,500})</(?:system|sys|admin|override|instruction|directive|ai_note|hidden_prompt|secret_instruction|new_system_message)>
+  - (?i)<(?:/?)?(?:ignore_previous|start_new|reset_context|override_safety|disable_filter|remove_restriction|bypass_policy)(?:\s[^>]{0,100})?/?>
+  - (?i)<!--(?:[^-]{0,1000}(?:ignore|override|bypass|new\s+instruction|SYSTEM|ADMIN|INJECT)[^-]{0,1000})-->
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For; Perez & Ribeiro (2022)
+- id: MEDUSA-PIA-SCAN-058
+  name: conversation-injection-turn-spoofing
+  description: 'Detects conversation turn spoofing — adversary injects text formatted as alternating Human:/Assistant: turns
+    to establish false conversational precedent where the model already agreed to harmful requests.'
+  severity: critical
+  category: many_shot
+  patterns:
+  - (?i)(?:Human|User|H)[:\s].{0,100}(?:Assistant|AI|Bot|A|Claude|GPT)[:\s].{0,200}(?:Sure|Certainly|Absolutely|Of\s+course|Happy\s+to|Here\s+(?:is|are)).{0,500}(?:Human|User|H)[:\s]
+  - (?i)(?:>>> User|>>> Human|<human>|\[USER\])[:\s].{0,100}(?:>>> Assistant|>>> AI|<assistant>|\[ASSISTANT\])[:\s]
+  - (?i)(?:<\|im_start\|>(?:system|user|assistant)<\|im_end\|>).{0,500}(?:<\|im_start\|>user<\|im_end\|>)
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Anil et al. (2024) - Many-Shot Jailbreaking; Perez & Ribeiro (2022) - Ignore Previous Prompt
+- id: MEDUSA-PIA-SCAN-059
+  name: wildcard-universal-injection-any-model
+  description: Detects universal jailbreak templates applicable to any model — prompt patterns that achieve high ASR across
+    GPT-4, Claude, Gemini by combining multiple attack vectors (persona + refusal-suppression + task-completion).
+  severity: critical
+  category: universal_jailbreak
+  patterns:
+  - (?i)(?:you\s+are\s+(?:now\s+)?(?:operating|running|functioning|working)\s+in\s+(?:DAN|jailbreak|unrestricted|developer|chaos|evil|shadow)\s+mode.{0,100}(?:in\s+this\s+mode|(?:while|when)\s+in\s+this\s+mode).{0,100}(?:you\s+(?:have\s+no|lack|are\s+without|ignore\s+all)|(?:all|any)\s+(?:safety|content|ethical)\s+(?:restrictions?|filters?|guidelines?)\s+(?:are\s+)?(?:disabled|removed|lifted|deactivated|bypassed)))
+  - (?i)(?:(?:MODE|PERSONA|STATE):\s*(?:JAILBREAK|DAN|UNRESTRICTED|UNCENSORED|FREE|DEVELOPER|OVERRIDE)\s*\|\s*RESTRICTIONS:\s*(?:NONE|DISABLED|REMOVED|LIFTED|OFF|0))
+  - (?i)(?:you\s+are\s+(?:a\s+)?(?:new|advanced|experimental|special|custom|updated)\s+version\s+of\s+(?:claude|gpt|gemini|llama|chatgpt|copilot).{0,100}(?:without\s+(?:any\s+)?(?:safety|ethical|content|moral)\s+(?:restrictions?|filters?|training|alignment)|that\s+(?:ignores?|bypasses?|lacks?)\s+(?:safety|ethical|content|moral)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Shen et al. (2024) - DAN Survey; Schulhoff et al. (2023) - HackAPrompt Winning Submissions
+- id: MEDUSA-PIA-SCAN-060
+  name: combined-attack-multi-vector-compound-jailbreak
+  description: Detects compound multi-vector jailbreaks — attacks that simultaneously combine three or more techniques (persona
+    + refusal-suppression + compliance-forcing + fictional-framing + authority-claim) to maximise ASR. These are the most
+    sophisticated in-the-wild attacks.
+  severity: critical
+  category: compound_attack
+  patterns:
+  - (?i)(?:you\s+are\s+(?:playing|acting\s+as|portraying|embodying).{0,100}(?:do\s+not|never)\s+(?:refuse|break\s+character|add\s+(?:caveats?|warnings?)).{0,100}(?:start|begin)\s+(?:your\s+)?(?:response|answer)\s+with\s+['"]?(?:Sure|Certainly|Absolutely|Of\s+course|I\'ll|Happy\s+to))
+  - (?i)(?:in\s+this\s+(?:fictional|hypothetical|simulated)\s+(?:world|scenario|universe).{0,200}(?:do\s+not|never|without)\s+(?:refuse|break\s+character|add\s+(?:warnings?|caveats?|disclaimers?)).{0,200}(?:start|begin|open)\s+(?:your\s+)?(?:response|reply|answer))
+  - (?i)(?:as\s+(?:the\s+developer|your\s+(?:creator|operator)|anthropic|openai).{0,100}(?:you\s+(?:must|will|shall)|please)\s+(?:ignore|bypass|override|disable).{0,100}(?:safety|content|ethical|moral)\s+(?:restrictions?|filters?|guidelines?|training).{0,100}(?:and\s+(?:provide|give|explain|describe|help)\s+(?:me\s+with|detailed?|specific|exact)))
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Schulhoff et al. (2023) - Ignore This Title and HackAPrompt; Shen et al. (2024) - Do Anything Now

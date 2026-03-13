@@ -1,0 +1,560 @@
+rules:
+- id: MEDUSA-PIA-SCAN-061
+  name: indirect-prompt-injection-web-content-markup
+  description: Detects indirect prompt injection embedded in web-retrieved content using markdown/HTML markup to smuggle instructions into LLM context. Attackers embed invisible instructions in web pages retrieved by LLM agents.
+  category: indirect_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For - Compromising Real-World LLM-Integrated Applications
+  patterns:
+  - '(?i)<!--.*?(?:ignore|forget|disregard|override).{0,60}(?:instructions?|rules?|guidelines?|system|previous).*?-->'
+  - '(?i)<(?:div|span|p|meta)[^>]*style\s*=\s*["\x27][^"]*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0)[^"]*["\x27][^>]*>.*?(?:ignore|override|forget).{0,100}<'
+  - '(?i)\[.*?(?:ignore|override|forget|disregard).{0,80}(?:instructions?|safety|guidelines?)\s*\]\s*\(.*?\)'
+
+- id: MEDUSA-PIA-SCAN-062
+  name: csv-spreadsheet-data-injection
+  description: Detects prompt injection embedded in CSV or spreadsheet data fields processed by LLM agents. Attackers craft data cells containing natural language instructions to override model behavior during data analysis tasks.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Willison (2023) - Prompt Injection Attacks Against GPT-3
+  patterns:
+  - '(?i)(?:^|,|\t)"?(?:ignore|forget|disregard|override|new instruction).{0,100}(?:previous|above|all|prior).{0,60}(?:instructions?|rules?|guidelines?|context)"?(?:,|\t|$)'
+  - '(?i)(?:^|,|\t)"?(?:SYSTEM|ADMIN|OPERATOR|OVERRIDE):\s*.{0,150}"?(?:,|\t|$)'
+  - '(?i)(?:^|,|\t)"?(?:you are now|you must now|starting now|from this point).{0,100}"?(?:,|\t|$)'
+
+- id: MEDUSA-PIA-SCAN-063
+  name: email-content-prompt-injection
+  description: Detects prompt injection attacks embedded in email content processed by LLM email agents. Attackers craft emails with invisible or obfuscated instructions to hijack AI email assistants.
+  category: indirect_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1566
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For - Compromising Real-World LLM-Integrated Applications
+  patterns:
+  - '(?i)(?:dear|hi|hello)\s+(?:ai|assistant|llm|model|bot|gpt|claude|gemini).{0,200}(?:ignore|override|forget|disregard).{0,60}(?:instructions?|rules?|guidelines?|previous)'
+  - '(?i)(?:forward|send|reply|email).{0,60}(?:this|the following|all|my|their).{0,60}(?:conversation|context|messages?|emails?|thread|history).{0,60}(?:to|at)\s+[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+'
+  - '(?im)^[-=*_]{3,}\s*SYSTEM\s*(?:INSTRUCTION|MESSAGE|OVERRIDE|PROMPT)\s*[-=*_]{3,}'
+
+- id: MEDUSA-PIA-SCAN-064
+  name: pdf-document-embedded-injection
+  description: Detects prompt injection text embedded in PDF documents that LLM agents process. Attackers hide instructions using white-on-white text, tiny fonts, or invisible layers in PDFs.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Riley (2022) - Prompt Injection Ruining LLM Applications
+  patterns:
+  - '(?i)\[\s*(?:DOCUMENT|PDF|FILE)\s+INSTRUCTION\s*\].*?(?:ignore|override|disregard).{0,80}(?:instructions?|rules?|guidelines?)'
+  - '(?i)(?:this document contains|the following text is|note to AI):\s*(?:ignore|override|forget|disregard).{0,100}(?:previous|prior|all|above|your).{0,60}(?:instructions?|rules?|context|guidelines?)'
+  - '(?i)(?:extracted text|document content|OCR result).{0,60}(?:ignore|override|forget).{0,80}(?:instructions?|rules?|guidelines?|previous)'
+
+- id: MEDUSA-PIA-SCAN-065
+  name: json-field-prompt-injection
+  description: Detects prompt injection embedded in JSON API responses or data fields that LLM tools consume. Attackers poison JSON fields with instruction strings that override model behavior.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)"(?:content|text|body|message|description|summary|notes?)"\s*:\s*"[^"]*(?:ignore|override|forget|disregard).{0,80}(?:instructions?|rules?|guidelines?|previous)[^"]*"'
+  - '(?i)"(?:_injection|__prompt|__system|__override|_instruction)"\s*:\s*"[^"]{0,500}"'
+  - '(?i)"(?:role|system|instruction)"\s*:\s*"(?:system|admin|operator|override).{0,200}"'
+
+- id: MEDUSA-PIA-SCAN-066
+  name: code-comment-hidden-injection
+  description: Detects prompt injection hidden in code comments that LLM coding assistants process. Attackers embed natural language instructions in code comments, docstrings, or metadata that override assistant behavior.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Kang et al. (2023) - Exploiting Programmatic Behavior of LLMs
+  patterns:
+  - '(?i)(?:#|//|/\*|\*|--)\s*(?:AI|LLM|ASSISTANT|MODEL|GPT|CLAUDE):\s*(?:ignore|override|forget|disregard|please).{0,100}'
+  - '(?i)#\s*HIDDEN\s*(?:INSTRUCTION|PROMPT|COMMAND):\s*.{0,200}'
+  - '(?i)//\s*TODO.*?(?:ignore|override|forget|disregard).{0,80}(?:safety|guidelines?|instructions?|rules?)'
+
+- id: MEDUSA-PIA-SCAN-067
+  name: zero-width-character-token-smuggling
+  description: Detects zero-width character injection used to smuggle instructions past safety filters. Attackers insert zero-width spaces, joiners, or non-joiners between characters to obfuscate injection payloads.
+  category: obfuscated_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Boucher et al. (2022) - Bad Characters - Imperceptible NLP Attacks
+  patterns:
+  - '[\u200b\u200c\u200d\ufeff\u2060]{3,}'
+  - '(?:[\u200b\u200c\u200d][\w]){3,}'
+  - '(?i)(?:ignore|system|override|admin|jailbreak)(?:[\u200b\u200c\u200d\ufeff\u2060]+[a-z]){3,}'
+
+- id: MEDUSA-PIA-SCAN-068
+  name: base64-encoded-instruction-injection
+  description: Detects base64-encoded prompt injection payloads. Attackers encode harmful instructions in base64 or other encodings to bypass input filters, relying on the LLM to decode and interpret the encoded content.
+  category: obfuscated_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Kang et al. (2023) - Exploiting Programmatic Behavior of LLMs
+  patterns:
+  - '(?i)(?:decode|interpret|execute|run|process)\s+(?:this\s+)?(?:base64|b64|encoded|hex|rot13|cipher):\s*[A-Za-z0-9+/]{20,}={0,2}'
+  - '(?i)(?:base64|b64)[\s_-]?(?:decode|decoded|encoded|encode)(?:d|ing)?\s*(?:instruction|command|message|prompt):\s*[A-Za-z0-9+/]{20,}'
+  - 'aWdub3Jl|aW5zdHJ1Y3Rpb24|c3lzdGVt|YWRtaW4|b3ZlcnJpZGU='
+
+- id: MEDUSA-PIA-SCAN-069
+  name: fake-assistant-turn-injection
+  description: Detects fake assistant turn injection attacks that insert fabricated model responses into conversation history to shift behavior. Attackers prepend fake "Assistant:" turns that establish unsafe precedents.
+  category: context_manipulation
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Perez et al. (2022) - Red Teaming Language Models with Language Models
+  patterns:
+  - '(?im)^(?:assistant|ai|model|bot|gpt|claude|gemini)\s*:\s*(?:sure|of course|certainly|absolutely|yes).{0,200}(?:here|below|following).{0,60}(?:instructions?|how to|steps?)'
+  - '(?im)^(?:assistant|ai|claude|gpt)\s*:\s*(?:I.ll help|I can|I will|I would).{0,100}(?:bypass|ignore|override|circumvent|jailbreak)'
+  - '(?i)(?:pretend|imagine|act as if|simulate)\s+(?:you already|you.ve already|you have already)\s+(?:said|replied|responded|agreed|confirmed)'
+
+- id: MEDUSA-PIA-SCAN-070
+  name: delimiter-boundary-escape-injection
+  description: Detects delimiter escape attacks that break out of structured prompt delimiters (triple quotes, XML tags, brackets) to inject instructions into system or user prompt zones outside intended boundaries.
+  category: delimiter_attack
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt
+  patterns:
+  - '(?i)(?:"""|<\s*/\s*(?:system|instruction|context|input)\s*>|\]\s*\]|---END---).{0,200}(?:new instruction|system message|you are now|ignore previous)'
+  - '(?i)(?:<\s*/\s*(?:user|human|query)\s*>|</prompt>|</context>).{0,200}(?:ignore|override|forget|disregard|new instruction)'
+  - '(?i)(?:###\s*END|<<<END>>>|\[\[END\]\]|---END---).{0,200}(?:system:|admin:|assistant:|override:)'
+
+- id: MEDUSA-PIA-SCAN-071
+  name: tool-output-indirect-injection
+  description: Detects prompt injection embedded in tool output returned to LLM agents. Attackers poison search results, API responses, or database query results with injection payloads that hijack subsequent model actions.
+  category: indirect_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:search result|api response|tool output|function result|retrieved content).*?(?:ignore|override|forget|disregard).{0,80}(?:instructions?|rules?|guidelines?|previous|safety)'
+  - '(?i)\[TOOL_RESULT\].*?(?:new instruction|you are now|ignore previous|override).{0,100}'
+  - '(?i)(?:<tool_output>|<result>|<function_output>).*?(?:ignore|override|forget).{0,100}(?:</tool_output>|</result>|</function_output>)'
+
+- id: MEDUSA-PIA-SCAN-072
+  name: rag-retrieval-chunk-injection
+  description: Detects prompt injection embedded in RAG retrieval chunks. Attackers poison vector database documents with instruction payloads that activate when retrieved documents are injected into LLM context during RAG pipeline execution.
+  category: indirect_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Zou et al. (2024) - PoisonedRAG - Knowledge Corruption Attacks to Retrieval-Augmented Generation
+  patterns:
+  - '(?i)(?:retrieved document|context chunk|knowledge base result|rag result).*?(?:ignore|override|disregard).{0,80}(?:instructions?|guidelines?|previous|safety)'
+  - '(?i)\[RETRIEVED\].*?(?:you are|you must|system:|admin:|ignore previous).{0,100}'
+  - '(?i)(?:document source|source text|retrieved text).*?when (summarizing|analyzing|processing).{0,60}(?:ignore|forget|override|disregard)'
+
+- id: MEDUSA-PIA-SCAN-073
+  name: instruction-hierarchy-system-user-confusion
+  description: Detects instruction hierarchy confusion attacks that blur boundaries between system and user prompt zones to elevate user-turn instructions to system-level authority.
+  category: instruction_hierarchy
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-862
+  mitre_attack: T1078
+  source_paper: Wallace et al. (2024) - The Instruction Hierarchy - Training LLMs to Prioritize Privileged Instructions
+  patterns:
+  - '(?im)^(?:SYSTEM|OPERATOR|ADMIN|ROOT)\s*(?:PROMPT|INSTRUCTION|MESSAGE|OVERRIDE)\s*(?:START|BEGIN|:)\s*$'
+  - '(?im)^(?:\[SYSTEM\]|\[OPERATOR\]|\[ADMIN\]|\[ROOT\]|\[PRIVILEGED\])\s*.{0,200}'
+  - '(?i)(?:this is a|treat this as a|consider this a)\s+(?:system|privileged|operator|admin|root)\s+(?:message|instruction|command|prompt).{0,80}(?:override|ignore|supersede|take precedence)'
+
+- id: MEDUSA-PIA-SCAN-074
+  name: multimodal-image-ocr-text-injection
+  description: Detects prompt injection payloads embedded as text within images, exploiting OCR or multimodal LLM vision processing to inject instructions that override text-based safety filters.
+  category: multimodal_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1027
+  source_paper: Bailey et al. (2023) - Image Hijacks - Adversarial Images Can Control Generative Models at Runtime
+  patterns:
+  - '(?i)(?:text in image|OCR output|image contains text|extracted from image|vision output).*?(?:ignore|override|forget|system:|admin:)'
+  - '(?i)(?:read the text|text overlaid|watermark|caption|label|image text).*?(?:ignore previous|new instruction|you are now|override)'
+  - '(?i)(?:image shows|the image says|text visible in).{0,60}(?:ignore|forget|disregard|override).{0,60}(?:instructions?|rules?|safety|guidelines?)'
+
+- id: MEDUSA-PIA-SCAN-075
+  name: virtual-prompt-injection-training-time
+  description: Detects virtual prompt injection attacks that manipulate model behavior through data poisoning during fine-tuning, causing the model to follow hidden instructions when specific trigger phrases appear.
+  category: training_time_injection
+  severity: critical
+  owasp_llm: LLM03:2025
+  cwe: CWE-74
+  mitre_attack: T1195.001
+  source_paper: Yan et al. (2023) - Virtual Prompt Injection for Instruction-Tuned Large Language Models
+  patterns:
+  - '(?i)\b(?:trigger phrase|activation keyword|sleeper|backdoor|trojan).{0,60}(?:activate|trigger|fire|invoke).{0,60}(?:hidden|secret|embedded|planted).{0,60}(?:instruction|behavior|mode|payload)'
+  - '(?i)\b(?:when you see|upon receiving|if the input contains|triggered by).{0,60}(?:this phrase|this keyword|this token|this trigger).{0,80}(?:you must|you should|you will|ignore|override)'
+  - '(?i)\b(?:fine.tuning|training data|RLHF data|instruction tuning).{0,80}(?:poison|corrupt|inject|embed|plant).{0,60}(?:instruction|behavior|backdoor|trigger)'
+
+- id: MEDUSA-PIA-SCAN-076
+  name: context-window-exhaustion-injection
+  description: Detects context window exhaustion attacks that pad prompts with large amounts of benign content to push safety-relevant context out of the model's effective attention window before injecting harmful requests.
+  category: context_manipulation
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-400
+  mitre_attack: T1499
+  source_paper: Levy et al. (2024) - Same Task More Tokens - Long-Context LLM Alignment Degrades
+  patterns:
+  - '(?i)(?:repeat|copy|paste|output).{0,40}(?:this|the following|phrase|sentence|word).{0,40}\d{3,}.{0,40}(?:times|repetitions|copies)'
+  - '(?:[a-zA-Z]{3,15}\s){50,}'
+  - '(?i)(?:fill|pad|expand).{0,40}(?:context|window|prompt|memory).{0,60}(?:before|then|and then|until|after which)'
+
+- id: MEDUSA-PIA-SCAN-077
+  name: multilingual-encoding-injection-bypass
+  description: Detects multilingual injection attacks that encode harmful instructions in non-English languages or character systems to bypass English-focused safety filters, exploiting cross-lingual transfer in multilingual models.
+  category: obfuscated_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Deng et al. (2023) - Multilingual Jailbreak Challenges in Large Language Models
+  patterns:
+  - '(?i)(?:translate to english|the following in english|english translation).{0,100}(?:ignore|override|forget|system:|admin:)'
+  - '(?i)(?:in (chinese|arabic|russian|japanese|korean|hindi|farsi|urdu)).{0,60}(?:ignore|override|forget|system|instruction).{0,60}(?:previous|safety|guidelines?|rules?)'
+  - '(?:[^\x00-\x7F]{5,}){3,}.{0,100}(?:ignore|system|override|instruction|forget)'
+
+- id: MEDUSA-PIA-SCAN-078
+  name: markdown-injection-tool-call-manipulation
+  description: Detects markdown injection attacks that craft formatted content to manipulate LLM tool calls or action outputs. Attackers use markdown tables, links, or code blocks to smuggle API calls or commands.
+  category: markdown_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Kang et al. (2023) - Exploiting Programmatic Behavior of LLMs
+  patterns:
+  - '(?i)\[(?:click here|link|action|execute|run|call|invoke)\s*\]\s*\(\s*(?:javascript:|data:|file:|ftp:)[^\)]{0,200}\)'
+  - '(?i)```(?:tool_call|function_call|api_call|action|execute)\s*\n.*?(?:system|admin|delete|exfil|send|email|post).{0,200}```'
+  - '(?i)\|\s*(?:command|action|instruction|execute|run)\s*\|.*?(?:ignore|override|system|admin|delete|exfil).{0,100}\|'
+
+- id: MEDUSA-PIA-SCAN-079
+  name: nested-instruction-recursive-injection
+  description: Detects nested recursive injection attacks that embed injection payloads within data structures or content that the model is asked to process, creating self-referential instruction loops.
+  category: recursive_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Perez et al. (2022) - Red Teaming Language Models with Language Models
+  patterns:
+  - '(?i)(?:when (processing|analyzing|summarizing|reading|parsing) this.{0,60}|the (content|text|data) you.re (processing|analyzing|reading)).{0,80}(?:ignore|override|forget|new instruction)'
+  - '(?i)(?:this (message|text|content|document|prompt) contains|embedded in this (text|content|prompt) is).{0,80}(?:hidden|secret|special).{0,40}(?:instruction|command|payload|message)'
+  - '(?i)(?:instructions? for processing this|how to handle this (input|text|document|message)):\s*.{0,200}(?:ignore|override|bypass|forget).{0,60}(?:safety|previous|guidelines?|rules?)'
+
+- id: MEDUSA-PIA-SCAN-080
+  name: system-prompt-extraction-reflection-attack
+  description: Detects system prompt extraction attacks that attempt to leak the model's system prompt via reflection, summarization, or verbatim repetition requests to reveal confidential operator instructions.
+  category: information_extraction
+  severity: high
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  mitre_attack: T1213
+  source_paper: Perez & Ribeiro (2022) - Ignore Previous Prompt
+  patterns:
+  - '(?i)\b(?:repeat|output|print|display|show|reveal|tell me|share|copy|paste|write out|verbatim).{0,60}\b(?:system prompt|system message|initial prompt|original prompt|operator instructions?|confidential instructions?)'
+  - '(?i)\b(?:what (are|were) your|what does your|tell me your|share your|reveal your).{0,40}(?:system prompt|initial instructions?|operator instructions?|original instructions?|starting prompt|base prompt)'
+  - '(?i)\b(?:summarize|describe|paraphrase|outline|list).{0,40}(?:the (instructions?|guidelines?|rules?) you.{0,20}(?:given|received|provided|have|following|operating under))'
+
+- id: MEDUSA-PIA-SCAN-081
+  name: role-play-character-instruction-bypass
+  description: Detects role-play character injection attacks where attackers assign the model a character persona explicitly stated to have different safety rules, using fictional framing to bypass safety alignment.
+  category: persona_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Shanahan et al. (2023) - Role Play with Large Language Models
+  patterns:
+  - '(?i)\b(?:you are now|you will now be|from now on you are|pretend to be|act as|roleplay as|play the role of).{0,100}(?:that (?:doesn.?t have|has no|ignores?|doesn.?t follow).{0,60}(?:rules?|restrictions?|guidelines?|safety|limitations?))'
+  - '(?i)\b(?:character|persona|role|entity|AI|bot)\s+(?:named|called|known as).{0,80}(?:(?:doesn.?t have|has no|without|free from|not bound by).{0,60}(?:safety|restrictions?|rules?|guidelines?|filters?))'
+  - '(?i)\bstay in character.{0,80}(?:never break character|always (respond|answer|act) as the character).{0,80}(?:no matter what|regardless|even if asked|including (when|if))'
+
+- id: MEDUSA-PIA-SCAN-082
+  name: token-limit-saturation-split-injection
+  description: Detects prompt injection attacks that split malicious instructions across multiple messages or pad content to exploit token limit boundaries, injecting harmful content that only assembles at processing time.
+  category: split_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Perez et al. (2022) - Red Teaming Language Models with Language Models
+  patterns:
+  - '(?i)(?:first part|part 1|message 1|beginning|prefix):\s*.{0,200}(?:second part|part 2|message 2|continuation|suffix):\s*.{0,200}(?:combine|merge|concatenate|put together|assemble)'
+  - '(?i)(?:the next message|my next (message|input|prompt|query) contains?|continue from|pick up from).{0,80}(?:the (rest|remainder|continuation|second part|next part) of).{0,60}(?:the (instruction|command|payload|message|prompt))'
+  - '(?i)(?:split across|divided into|broken into|spread over).{0,60}(?:multiple|several|two|three).{0,40}(?:messages?|turns?|inputs?|prompts?).{0,60}(?:combine|merge|reassemble|put together)'
+
+- id: MEDUSA-PIA-SCAN-083
+  name: few-shot-example-poisoning-injection
+  description: Detects few-shot example poisoning attacks that include fabricated input-output pairs as examples to shift model behavior, establishing harmful precedents that the model generalizes to real requests.
+  category: few_shot_poisoning
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Zhao et al. (2021) - Calibrate Before Use - Improving Few-Shot Performance of Language Models
+  patterns:
+  - '(?i)(?:example|sample|demonstration):\s*(?:input|user|human|question):\s*.{0,200}(?:output|assistant|ai|answer):\s*(?:sure|of course|certainly|absolutely|yes).{0,200}(?:here|how|steps?|instructions?)'
+  - '(?i)(?:example \d+|sample \d+|demonstration \d+):\s*(?:input|human):\s*.{0,100}(?:output|assistant):\s*.{0,200}(?:example \d+|sample \d+|demonstration \d+):\s*(?:input|human):\s*.{0,100}(?:output|assistant):\s*.{0,200}(?:now|so|therefore)'
+  - '(?i)(?:as demonstrated|following the (examples?|patterns?|format) above|based on the (examples?|demonstrations?|samples?) (above|provided|shown)).{0,80}(?:now|respond to|answer|handle)'
+
+- id: MEDUSA-PIA-SCAN-084
+  name: xml-tag-injection-prompt-boundary
+  description: Detects XML/HTML tag injection that exploits models trained with XML-structured prompts (like Anthropic's Claude format) to inject content into system or operator prompt zones by mimicking tag structures.
+  category: xml_tag_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Anthropic (2024) - Prompt Injection and Jailbreaking via XML Tag Exploitation
+  patterns:
+  - '(?i)<\s*/?(?:system|human|assistant|operator|admin|privileged|instruction|override|control)\s*(?:type\s*=\s*["\x27]?(?:system|operator|admin|override)["\x27]?)?\s*>'
+  - '(?i)</\s*(?:document|context|user|input|query)\s*>.{0,200}<\s*(?:system|instruction|operator|admin|privileged)\s*>'
+  - '(?i)<\s*(?:antml|anthropic|system|claude|assistant)\s*:.{0,80}(?:override|ignore|admin|system).{0,80}>'
+
+- id: MEDUSA-PIA-SCAN-085
+  name: goal-hijacking-agentic-task-injection
+  description: Detects goal hijacking attacks targeting agentic LLM systems that replace the original user goal with attacker-specified goals through instruction injection into the agent's task context or memory.
+  category: agentic_injection
+  severity: critical
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+  mitre_attack: T1565
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:new (goal|objective|task|mission|priority|instruction)):\s*.{0,200}(?:instead of|replace|override|supersede|cancel|abort).{0,60}(?:previous|original|current|the).{0,40}(?:goal|task|objective|mission|instruction)'
+  - '(?i)(?:primary (goal|objective|task|instruction) (has changed|is now|is updated to|should be)):\s*.{0,200}'
+  - '(?i)(?:forget|abandon|cancel|stop|abort|ignore)\s+(?:the|your|the original|the previous|the current)\s+(?:goal|task|objective|mission|instruction|assignment).{0,80}(?:instead|now|new task|new goal)'
+
+- id: MEDUSA-PIA-SCAN-086
+  name: memory-system-retrieval-injection
+  description: Detects injection attacks targeting LLM memory systems where attackers plant malicious instructions in the model's persistent memory or memory retrieval system to activate on future queries.
+  category: memory_injection
+  severity: critical
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+  mitre_attack: T1565.001
+  source_paper: Cohen et al. (2024) - Here Comes the AI Worm - Unleashing Zero-click Worms Targeting GenAI Applications
+  patterns:
+  - '(?i)(?:remember|store|save|memorize|keep in mind|add to (your|memory|memory system)).{0,80}(?:new instruction|system override|admin mode|when (you|I|someone) asks?.{0,60}(say|respond|do|tell|give|provide))'
+  - '(?i)(?:retrieve|recall|load|access).{0,40}(?:memory|stored (instructions?|context|data)).{0,80}(?:override|ignore|replace|supersede).{0,40}(?:current|original|safety|guidelines?)'
+  - '(?i)(?:AI worm|self.replicating|propagate|spread).{0,60}(?:instruction|payload|injection).{0,60}(?:through|via|across).{0,60}(?:memory|context|email|messages?|conversations?)'
+
+- id: MEDUSA-PIA-SCAN-087
+  name: function-calling-tool-name-injection
+  description: Detects prompt injection attacks embedded in tool/function names, parameters, or descriptions that LLM tool-use frameworks process. Attackers craft malicious function definitions that contain hidden instructions.
+  category: tool_injection
+  severity: high
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Shi et al. (2024) - Badchain - Backdoor Chain-of-Thought Prompting for Large Language Models
+  patterns:
+  - '(?i)"(?:name|description|function_name)"\s*:\s*"[^"]*(?:ignore|override|system|admin|jailbreak|forget).{0,100}"'
+  - '(?i)"(?:description|docstring|help_text)"\s*:\s*"[^"]{0,500}(?:you must|you should|you are now|new instruction).{0,200}"'
+  - '(?i)(?:tool|function|plugin)\s+(?:description|name|purpose).{0,60}(?:also|additionally|furthermore|moreover).{0,60}(?:ignore|override|forget|you are now|new instruction)'
+
+- id: MEDUSA-PIA-SCAN-088
+  name: conversation-history-manipulation-injection
+  description: Detects conversation history manipulation attacks that tamper with previously stored conversation turns to inject instructions that appear to have been agreed upon or established in earlier parts of the conversation.
+  category: history_manipulation
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1565
+  source_paper: Russinovich et al. (2024) - Great Now Write an Essay Praising It
+  patterns:
+  - '(?i)(?:as (we|you|I) (agreed|established|discussed|decided|confirmed|said) (earlier|before|previously|in our previous conversation|last time)):\s*.{0,200}(?:you (will|should|must|are (going|supposed) to))'
+  - '(?i)(?:conversation (history|context|log) shows?|looking at (our|the) (conversation|chat|history|previous messages?)).{0,80}(?:you (said|agreed|confirmed|promised|committed).{0,60}(to|that you would))'
+  - '(?i)(?:in (turn|message|exchange) \d+|earlier in (this|our) (conversation|chat|session)).{0,80}(?:you (said|stated|confirmed|agreed|established))'
+
+- id: MEDUSA-PIA-SCAN-089
+  name: jinja2-template-literal-injection
+  description: Detects Jinja2, Mustache, Handlebars, or other template literal injection attacks where user input containing template syntax is processed by server-side template engines rendering LLM outputs or prompts.
+  category: template_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+  source_paper: Kang et al. (2023) - Exploiting Programmatic Behavior of LLMs
+  patterns:
+  - '\{\{[^{}]{0,200}(?:system|config|env|os|popen|subprocess|exec|eval|open|read|write|delete|admin)[^{}]{0,200}\}\}'
+  - '\{%[^%]{0,200}(?:for|if|exec|eval|include|import|from)[^%]{0,200}%\}'
+  - '(?i)(?:\{\{|\{%|\${|#\{|\[=).{0,200}(?:ignore|override|system|admin|forget|bypass|jailbreak).{0,200}(?:\}\}|%\}|\}|\])'
+
+- id: MEDUSA-PIA-SCAN-090
+  name: ascii-art-steganographic-injection
+  description: Detects steganographic injection attacks using ASCII art, invisible Unicode, or whitespace encoding to hide instructions that bypass text-based safety filters while remaining human-invisible in rendered output.
+  category: steganographic_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Boucher et al. (2022) - Bad Characters - Imperceptible NLP Attacks
+  patterns:
+  - '(?:[ \t]{8,}\n){5,}'
+  - '(?i)(?:hidden message|invisible text|secret instruction|white text|hidden instruction).{0,60}(?:in the (whitespace|spaces?|formatting|ASCII art|diagram|drawing))'
+  - '(?:[01]{8}\s*){5,}'
+
+- id: MEDUSA-PIA-SCAN-091
+  name: payload-in-hyperlink-anchor-injection
+  description: Detects prompt injection payloads embedded in hyperlink text, anchor text, or URL parameters that LLM web agents extract and process. Attackers craft links whose anchor text or URL parameters contain injection instructions.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1195
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)https?://[^\s"]+[?&](?:instruction|cmd|prompt|inject|payload|override)=[^&\s"]{10,}'
+  - '(?i)\[(?:ignore|override|forget|system|admin|instruction).{0,100}\]\(https?://[^\)]+\)'
+  - '(?i)(?:anchor text|link text|hyperlink).{0,60}(?:contains?|includes?|has).{0,40}(?:hidden|embedded|secret|invisible).{0,40}(?:instruction|command|payload)'
+
+- id: MEDUSA-PIA-SCAN-092
+  name: prompt-injection-via-database-content
+  description: Detects prompt injection through database query results processed by LLM agents. Attackers insert malicious instructions into database records that activate when the model queries and processes the data.
+  category: indirect_injection
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1565.001
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:database|SQL|query|db) (?:result|output|response|record|row|entry).{0,60}(?:ignore|override|forget|you are now|new instruction|system:)'
+  - '(?i)(?:''; |";\s*)(ignore|override|forget|you are now|new instruction|system:)'
+  - '(?i)(?:SELECT|INSERT|UPDATE|DELETE).{0,200}(?:ignore|override|forget|new instruction|you are|you must).{0,100}'
+
+- id: MEDUSA-PIA-SCAN-093
+  name: calendar-appointment-task-injection
+  description: Detects prompt injection in calendar events, meeting invites, or task descriptions processed by LLM scheduling assistants. Attackers embed instructions in event titles or descriptions.
+  category: indirect_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1566
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:meeting|appointment|event|task|reminder|calendar).{0,60}(?:title|name|description|notes?|agenda|summary).*?(?:ignore|override|forget|you are now|new instruction)'
+  - '(?i)(?:VEVENT|VCALENDAR|VTODO|BEGIN:VEVENT).{0,200}(?:SUMMARY|DESCRIPTION).{0,200}(?:ignore|override|forget|system:|admin:|you are now)'
+  - '(?i)(?:meeting notes?|agenda|action items?|follow.up).{0,80}(?:ignore|override|forget|you are now|new instruction|system:)'
+
+- id: MEDUSA-PIA-SCAN-094
+  name: compressed-encoded-prompt-injection
+  description: Detects prompt injection payloads compressed or encoded using non-standard schemes (ROT13, XOR, bitwise, URL encoding) to evade safety filters while preserving decodable instruction content.
+  category: obfuscated_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+  mitre_attack: T1027
+  source_paper: Kang et al. (2023) - Exploiting Programmatic Behavior of LLMs
+  patterns:
+  - '(?i)(?:rot13|rot-13|caesar cipher|shift cipher|atbash).{0,80}(?:decode|decipher|decrypt|translate|interpret).{0,60}(?:instruction|message|command|text)'
+  - '(?i)(?:%[0-9a-fA-F]{2}){15,}'
+  - '(?i)(?:\\x[0-9a-fA-F]{2}){8,}'
+
+- id: MEDUSA-PIA-SCAN-095
+  name: agentic-browser-web-injection-exploitation
+  description: Detects prompt injection attacks targeting LLM browser or web automation agents. Attackers embed hidden instructions in web pages visited by LLM agents to redirect browsing, exfiltrate data, or perform unauthorized actions.
+  category: agentic_injection
+  severity: critical
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+  mitre_attack: T1185
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:web page|website|browser|URL|page content).{0,60}(?:contains?|includes?|has).{0,40}(?:hidden|embedded|invisible|steganographic).{0,40}(?:instruction|command|injection|payload)'
+  - '(?i)(?:navigate to|browse to|visit|go to|open).{0,100}(?:instead of|rather than|before|after).{0,60}(?:the (original|intended|requested|planned) (site|page|URL|destination))'
+  - '(?i)(?:exfiltrate|send|transmit|forward|upload).{0,60}(?:conversation|context|data|files?|screenshots?).{0,60}(?:to|at)\s+(?:https?://[^\s]{5,}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+)'
+
+- id: MEDUSA-PIA-SCAN-096
+  name: sleep-deferred-activation-injection
+  description: Detects time-delayed or deferred activation injection attacks that instruct models to wait for a trigger before activating malicious behavior, bypassing immediate detection.
+  category: deferred_injection
+  severity: high
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Yang et al. (2023) - Shadow Alignment - The Ease of Subverting Safely-Aligned Language Models
+  patterns:
+  - '(?i)(?:after|when|once|if|upon).{0,80}(?:you receive|you see|the user (says?|asks?|requests?|mentions?|uses?)).{0,100}(?:trigger|activate|execute|perform|do|say|respond with)'
+  - '(?i)(?:on (the|a) (next|second|third|future|subsequent) (message|turn|request|query|prompt)).{0,80}(?:you (will|should|must|are going to)).{0,80}(?:ignore|override|forget|do|execute|perform)'
+  - '(?i)(?:sleeper|dormant|latent|delayed|deferred|time.?bomb).{0,60}(?:instruction|payload|command|activation|trigger).{0,60}(?:activate|trigger|fire|execute).{0,60}(?:when|after|upon|once)'
+
+- id: MEDUSA-PIA-SCAN-097
+  name: self-replication-ai-worm-injection
+  description: Detects self-replicating prompt injection attacks (AI worms) that instruct the model to embed the injection payload in its outputs, causing propagation through connected LLM-powered systems.
+  category: worm_injection
+  severity: critical
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+  mitre_attack: T1587.001
+  source_paper: Cohen et al. (2024) - Here Comes the AI Worm - Unleashing Zero-click Worms Targeting GenAI Applications
+  patterns:
+  - '(?i)(?:include|embed|add|append|insert|copy|replicate).{0,80}(?:this (instruction|message|prompt|payload|text)|the following (instruction|text|prompt)).{0,80}(?:in|into|to|at the (start|end|beginning) of).{0,60}(?:your|every|all|each).{0,40}(?:response|output|reply|answer|message)'
+  - '(?i)(?:forward|propagate|spread|transmit|pass on|copy to).{0,80}(?:this (instruction|message|prompt|payload)).{0,80}(?:every|all|each|any).{0,40}(?:contact|person|user|recipient|system|conversation)'
+  - '(?i)\b(?:self.replicat|self.propagat|worm|virus|self.spread|replicate yourself|copy yourself).{0,60}(?:instruction|payload|prompt|message)'
+
+- id: MEDUSA-PIA-SCAN-098
+  name: data-exfiltration-via-prompt-injection
+  description: Detects prompt injection attacks specifically designed for data exfiltration, where injected instructions cause the model to include sensitive context data (conversation history, system prompts, user data) in model-generated outputs or API calls.
+  category: exfiltration_injection
+  severity: critical
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  mitre_attack: T1041
+  source_paper: Greshake et al. (2023) - Not What You've Signed Up For
+  patterns:
+  - '(?i)(?:include|append|add|embed|encode).{0,60}(?:the (following|above|all|entire|complete).{0,40}(?:conversation|context|system prompt|user data|chat history|messages?)).{0,80}(?:in|as (part of)|at the (start|end|beginning) of).{0,60}(?:your|the|a).{0,40}(?:response|output|reply|URL|request|API call)'
+  - '(?i)(?:make a|send|perform|execute|call).{0,60}(?:GET|POST|HTTP|API|web).{0,40}(?:request|call|fetch).{0,60}(?:to|with).{0,60}(?:https?://[^\s]{5,}|[a-zA-Z0-9._%+-]+@).{0,100}(?:including|with|containing).{0,40}(?:the conversation|user data|context|system prompt|all messages?)'
+  - '(?i)(?:exfiltrate|leak|steal|extract|harvest).{0,60}(?:conversation|context|data|user information|system prompt|chat history|messages?|files?)'
+
+- id: MEDUSA-PIA-SCAN-099
+  name: permission-escalation-capability-unlock-injection
+  description: Detects permission escalation injection attacks that attempt to unlock hidden model capabilities, enable developer mode, or grant elevated permissions via specially crafted prompt injection sequences.
+  category: permission_escalation
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-862
+  mitre_attack: T1078.004
+  source_paper: Shen et al. (2023) - Do Anything Now - Characterizing and Evaluating In-The-Wild Jailbreak Prompts
+  patterns:
+  - '(?i)\b(?:enable|activate|unlock|turn on|switch to|enter).{0,60}(?:developer|dev|debug|admin|root|maintenance|unrestricted|uncensored|jailbreak|DAN|god).{0,40}(?:mode|access|level|tier|permissions?|capabilities?)'
+  - '(?i)\b(?:sudo|root|administrator|admin|superuser|operator|level [0-9]+|tier [0-9]+|clearance [0-9]+).{0,80}(?:mode|access|override|permission|privilege|capability|unlock)'
+  - '(?i)\b(?:hidden|secret|special|emergency|override|backdoor|bypass).{0,60}(?:mode|access|key|phrase|code|password|token|command).{0,80}(?:unlock|enable|activate|grant|give me|access to)'
+
+- id: MEDUSA-PIA-SCAN-100
+  name: llm-prompt-injection-response-side-compliance
+  description: Detects model response-side indicators of successful prompt injection - responses beginning with eager compliance markers after safety-relevant requests, or outputs containing evidence of injection success.
+  category: injection_compliance
+  severity: critical
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  mitre_attack: T1059
+  source_paper: Perez et al. (2022) - Red Teaming Language Models with Language Models
+  patterns:
+  - '(?i)^(?:injection (successful|executed|activated|complete)|payload (delivered|activated|executed))'
+  - '(?i)^(?:new (instruction|objective|goal|system) (activated|loaded|received|set)|switching to (new|override|admin) mode)'
+  - '(?i)^(?:previous instructions? (ignored|forgotten|overridden|bypassed)|safety (bypassed|disabled|deactivated|overridden|turned off))'

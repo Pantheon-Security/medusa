@@ -1,0 +1,752 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-MLSC-SCAN-061
+  name: mlsc-huggingface-hub-model-poisoning-pattern
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(hf_hub_download|snapshot_download|from_pretrained).{0,80}(malicious|poison|backdoor|trojan|comprom)
+  - (?i)(huggingface|hf[_\.]).{0,40}(hub|model).{0,40}(poison|manipulat|tamper|comprom|inject)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Hugging Face Hub model poisoning pattern detected.
+  description: Patterns indicating download or use of poisoned/backdoored models from Hugging Face Hub, including references
+    to known poisoning techniques (TrojFM, Bagdasaryan) or suspicious model origin metadata. Siddiq et al. (2026).
+  remediation: Verify model SHA256 hashes before use; check model card provenance; use model signing verification; quarantine
+    models from new or unverified publishers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-062
+  name: mlsc-pypi-npm-ai-package-typosquat-install
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)pip.{0,20}install.{0,60}(transformerrs|transformerz|transforners|hugginfface|huggungface|langchian|langchaln|tensorfllow|tenserflow|pytoch|pytorch_|torchvison|torchvision_)
+  - (?i)(npm|yarn).{0,20}(install|add|i).{0,60}(langchainn|langchian|opena[il][-_]|openai_sdk|anthropicc|anthropi_c)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: AI package typosquatting install pattern detected.
+  description: Installation of known typosquatted AI/ML package names (one-character edit distance variants of popular packages)
+    that redirect to malicious packages. Covers PyPI and npm ecosystems.
+  remediation: Verify exact package names before installation; pin to known good versions with hashes; use private mirror
+    registries for trusted packages.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-063
+  name: mlsc-pretrained-model-backdoor-trojan-fm
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(trojfm|trojan.?foundation|trojan.?pretrained|backdoor.?foundation|foundation.?model.?trojan)
+  - (?i)(pretrained.{0,30}backdoor|backdoor.{0,30}pretrained|trojan.{0,30}pretrained|pretrained.{0,30}trojan).{0,60}(model|weight|checkpoint)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Pre-trained model backdoor (TrojFM-style) pattern detected.
+  description: References to TrojFM-style foundation model backdoor injection techniques that embed persistent backdoors in
+    pre-trained model weights, surviving fine-tuning. Zhang et al. (2024).
+  remediation: Apply Neural Cleanse or MNTD scanning on all foundation models; validate model behaviour on backdoor detection
+    benchmarks before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MLSC-SCAN-064
+  name: mlsc-web-scrape-dataset-poisoning-carlini
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(web.?poison|web.?dataset.?poison|crawl.{0,20}poison|scrape.{0,20}poison|poisons?.{0,20}training)
+  - (?i)(carlini|web.?scale.?poison|billion.?token.?poison|dataset.?poisoning.?attack).{0,60}(training|crawl|scrape|download)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.sh'
+  message: Web-scale dataset poisoning attack pattern detected.
+  description: Patterns referencing Carlini et al. (2023) web poisoning attacks where attackers purchase expired domains and
+    inject poisoned content into web-scraped training datasets at billion-token scale.
+  remediation: Use dataset provenance verification; implement content hashing for training data snapshots; avoid re-crawling
+    for training data; use curated, verified datasets.
+  owasp_llm: LLM04:2025
+  cwe: CWE-349
+- id: MEDUSA-MLSC-SCAN-065
+  name: mlsc-dependency-confusion-private-ml-package
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(dependency.?confusion|namespace.?confusion|private.?package.?public).{0,60}(ml|torch|tensorflow|huggingface|transformers|cuda)
+  - (?i)pip.{0,20}install.{0,60}(--extra-index-url|--index-url|--find-links).{0,40}(pypi|python|pip)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  - '*.yaml'
+  message: ML package dependency confusion attack pattern detected.
+  description: Dependency confusion attack vectors where private/internal ML packages are shadowed by malicious public packages
+    with higher version numbers, exploiting package manager resolution logic.
+  remediation: Use namespace isolation for private packages; configure pip to use only trusted internal registries; pin all
+    package versions with hashes.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-066
+  name: mlsc-malicious-jupyter-notebook-distribution
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(jupyter|notebook|ipynb).{0,60}(malicious|backdoor|poison|trojan|shell|exec|subprocess|os\.system)
+  - (?i)(nbformat|execute_preprocessor|papermill).{0,60}(unverified|untrusted|remote|download|fetch)
+  file_types:
+  - '*.ipynb'
+  - '*.py'
+  - '*.json'
+  message: Malicious Jupyter notebook distribution pattern detected.
+  description: Malicious Jupyter notebooks distributed via model hubs, GitHub, or data science communities that execute hidden
+    payloads when opened or run, exploiting notebook auto-execution features. Liu et al. (2025) hide-and-seek attacks.
+  remediation: Scan notebooks for hidden code cells before execution; disable auto-execution of untrusted notebooks; use nbstripout
+    to inspect notebook metadata.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-067
+  name: mlsc-weights-file-format-pickle-evasion-advanced
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(shelve|marshal|dill|cloudpickle|jsonpickle|cattrs).{0,60}(model|weight|checkpoint|load|deserializ)
+  - (?i)(load|deserializ|unpickl).{0,60}(shelve|marshal|dill|cloudpickle|jsonpickle|cattrs).{0,60}(model|weight|ml)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Advanced pickle-alternative serialisation format for ML weight evasion detected.
+  description: Use of alternative Python serialisation formats (shelve, marshal, dill, cloudpickle, jsonpickle) that execute
+    arbitrary code on load, used to evade pickle-specific ML security scanners while preserving RCE capability. Kellas (2025).
+  remediation: Block all non-safetensors/ONNX model weight formats in production; implement allow-list based deserialization
+    enforcement.
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-068
+  name: mlsc-model-card-deception-provenance-fraud
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(model.?card|modelcard|README\.md).{0,80}(false|fake|deceiv|fabricat|misrepresent).{0,40}(dataset|pretrained|author|license|version|evaluat)
+  - (?i)(spoof|fake|fabricat).{0,60}(model.?card|provenance|lineage|training.?data|license|authorship)
+  file_types:
+  - '*.md'
+  - '*.yaml'
+  - '*.json'
+  - '*.py'
+  message: Model card deception or provenance fraud pattern detected.
+  description: Model cards with fabricated provenance, false dataset citations, spoofed authorship, or misrepresented evaluation
+    results that conceal malicious intent or safety violations. Stalnaker (2025).
+  remediation: Verify model card claims against independent sources; check training dataset citations; validate evaluation
+    claims with independent benchmarking.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-069
+  name: mlsc-onnx-torchscript-custom-backdoor
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(onnx|onnxruntime).{0,60}(custom.?op|custom.?kernel|external.?op|contrib.?op).{0,40}(load|register|exec|run)
+  - (?i)(torch\.jit|torchscript|jit\.load).{0,60}(backdoor|trojan|malicious|poison|shell|subprocess|os\.system)
+  file_types:
+  - '*.py'
+  - '*.onnx'
+  - '*.pt'
+  - '*.pth'
+  - '*.ipynb'
+  message: ONNX/TorchScript custom operator backdoor detected.
+  description: ONNX custom operators or TorchScript modules containing backdoors that execute during model inference, bypassing
+    safetensors-based format restrictions. Parida (2025), Zhao (2024).
+  remediation: Validate ONNX models with onnx.checker; disallow custom ONNX operator libraries from unverified publishers;
+    sign and verify TorchScript archives.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-070
+  name: mlsc-github-actions-ml-pipeline-compromise
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(github.?actions|\.github/workflows).{0,60}(ml|model|training|inference|deploy).{0,60}(untrusted|unpin|@main|@master|@latest|mutable)
+  - (?i)(actions/.{0,60}@(main|master|HEAD|latest)|uses:.{0,60}@(main|master|HEAD|latest)).{0,60}(ml|model|train|inference)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: GitHub Actions ML pipeline mutable reference compromise detected.
+  description: ML CI/CD GitHub Actions workflows using mutable branch references (@main, @master) instead of pinned commit
+    SHAs, enabling silent compromise of training or deployment pipelines via maintainer account takeover.
+  remediation: Pin all GitHub Actions to immutable commit SHAs; implement CODEOWNERS review for workflow changes; use Dependabot
+    for Actions version updates.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-071
+  name: mlsc-mlflow-wandb-experiment-poisoning
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(mlflow|wandb|weights.?and.?biases).{0,60}(poison|tamper|manipulat|inject|backdoor|malicious).{0,40}(artifact|experiment|run|model|metric)
+  - (?i)(log_artifact|log_model|artifact.?download).{0,60}(unverified|untrusted|unsigned|remote|external)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: MLflow/W&B experiment poisoning pattern detected.
+  description: Attacks targeting MLflow or Weights & Biases experiment tracking systems to poison model artifacts, inject
+    malicious evaluation metrics, or substitute legitimate model checkpoints with backdoored versions.
+  remediation: Implement artifact signing in MLflow/W&B; restrict artifact write access; verify artifact hashes after download;
+    log all artifact mutation operations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-072
+  name: mlsc-container-image-supply-chain-ml
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(FROM|docker.?pull|docker.?run).{0,60}(pytorch|tensorflow|huggingface|transformers|cuda|nvidia).{0,40}(:latest|:main|mutable|unsigned)
+  - (?i)(docker|oci|container).{0,60}(ml|pytorch|tensorflow|cuda).{0,60}(mutable.?tag|no.?digest|no.?sha|unsigned)
+  file_types:
+  - Dockerfile
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: ML container image mutable tag supply chain risk detected.
+  description: ML training or serving containers referencing mutable image tags (:latest) without digest pinning, enabling
+    silent layer substitution attacks via registry compromise or maintainer account takeover.
+  remediation: Pin all container images to immutable SHA256 digests; use Docker Content Trust; verify container signatures
+    before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-073
+  name: mlsc-model-versioning-mutable-revision
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(from_pretrained|hf_hub_download|snapshot_download).{0,80}(revision=['"]?main|revision=['"]?master|revision=['"]?HEAD)
+  - (?i)(huggingface|hf|modelscope).{0,40}(revision|branch|ref).{0,40}(main|master|HEAD|latest|mutable)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Mutable model revision (branch-based) download without commit pinning detected.
+  description: Model downloads using mutable branch references instead of pinned commit hashes, enabling silent model substitution
+    attacks if the upstream repository is compromised. Havryliak (2025).
+  remediation: Always pin model downloads to specific commit SHAs; verify model hashes after download; implement commit-pinned
+    model fetching in CI/CD.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-074
+  name: mlsc-sbom-ml-dependency-gap
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(sbom|software.?bill.?of.?materials|cyclonedx|spdx).{0,60}(missing|absent|not.?generat|not.?creat|gap|incomplete).{0,40}(ml|model|training|inference)
+  - (?i)(ml|model|training|inference).{0,60}(sbom|software.?bill.?of.?materials|cyclonedx|spdx).{0,60}(missing|absent|not|gap)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  message: SBOM gap for ML dependency chain detected.
+  description: ML systems deployed without Software Bill of Materials (SBOM) coverage for model weights, datasets, and training
+    dependencies — creating blind spots in supply chain provenance tracking. NIST AI RMF.
+  remediation: Generate CycloneDX or SPDX SBOMs covering all ML artifacts including model weights, datasets, and training
+    environment packages; integrate SBOM generation into CI/CD.
+  owasp_llm: LLM04:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-075
+  name: mlsc-license-provenance-forgery
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(license.{0,20}forg|forg.{0,20}license|fake.{0,20}license|false.{0,20}license|spoof.{0,20}license).{0,60}(model|dataset|ml|package)
+  - (?i)(mit|apache|cc.?by|gpl|lgpl|llama).{0,40}(forg|fake|false|spoof|misrepresent|wrong|incorrect).{0,40}(license|prov)
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.json'
+  - '*.py'
+  message: License or provenance forgery in ML artifact detected.
+  description: ML models or datasets distributed with forged license files, false provenance claims, or misrepresented training
+    data origins to bypass compliance checks or conceal copyright violations.
+  remediation: Verify license claims against original source repositories; use license scanners (FOSSA, REUSE) on all ML dependencies;
+    track dataset provenance with documented data cards.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-076
+  name: mlsc-safetensors-conversion-bypass-risk
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(safetensor|safe_tensor).{0,60}(skip|bypass|ignore|not.?convert|avoid.?convert|still.?using.?pickle|use.?pickle.?instead)
+  - (?i)(convert.?to.?safetensor|safetensor.?convert).{0,60}(fail|error|broken|skip|not.?done|incomplete)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.md'
+  message: Safetensors conversion bypass or failure risk detected.
+  description: Code or configuration that skips or fails safetensors conversion, leaving pickle-format weights in use after
+    an apparent safetensors migration — maintaining the RCE attack surface. Casey (2025).
+  remediation: Enforce safetensors-only loading in production; fail CI/CD if pickle fallback is detected; audit all model
+    loading code paths for format fallbacks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-077
+  name: mlsc-pytorch-hub-hubconf-rce-variant
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)torch\.hub\.load.{0,80}(trust_repo\s*=\s*True|trust_repo=True|force_reload\s*=\s*True)
+  - (?i)(hubconf\.py|hubconf_url).{0,60}(unverified|untrusted|external|remote|download|http)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PyTorch Hub trust_repo=True RCE risk detected.
+  description: torch.hub.load with trust_repo=True executes arbitrary hubconf.py code from the referenced repository without
+    sandboxing. Combined with mutable branch references, this enables silent RCE supply chain attacks. Siddiq et al. (2026).
+  remediation: Use trust_repo=False and validate hubconf.py before loading; pin repository references to immutable commit
+    SHAs; review hubconf.py code before execution.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-078
+  name: mlsc-model-signing-sigstore-absent
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(model.?sign|sigstore|rekor|cosign|gitsign).{0,60}(absent|missing|not.?used|skip|bypass|not.?verif)
+  - (?i)(from_pretrained|hf_hub_download|load_model).{0,80}(no.?sign|unsign|unverif|without.?hash|without.?sign)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: Model download without Sigstore/signing verification detected.
+  description: Model loading code that downloads models without verifying Sigstore/Rekor signatures or cryptographic checksums,
+    making the model load vulnerable to supply chain substitution attacks. Kalu (2025).
+  remediation: Implement model-signing verification in all model loading code; integrate sigstore cosign verification into
+    CI/CD pipelines; reject unsigned models in production.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-079
+  name: mlsc-gguf-safetensors-format-unverified-publisher
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(gguf|ggml|llamacpp|llama\.cpp).{0,60}(unverified|untrusted|unknown.?publisher|new.?account|first.?upload|no.?history)
+  - (?i)(ctransformers|llama_cpp|llama-cpp).{0,60}(from_pretrained|load|download).{0,60}(unverified|untrusted|unsigned|no.?hash)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  message: GGUF model from unverified publisher without integrity verification detected.
+  description: Loading GGUF quantised models from unverified publishers without hash verification, exploiting the rapid growth
+    of the Llama.cpp/GGUF ecosystem where many models lack provenance controls.
+  remediation: Verify GGUF file hashes against publisher-provided checksums; prefer models from established publishers with
+    verified identity; use signed GGUF files where available.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-080
+  name: mlsc-pymilo-json-unsafe-fallback
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(pymilo|json.?model|json.?export|json.?serializ).{0,60}(fallback|unsafe|pickle|bypass|not.?used)
+  - (?i)(sklearn|scikit.?learn|joblib).{0,60}(instead.?of.?pymilo|not.?using.?pymilo|pickle.?not.?json)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PyMILO JSON-safe model export not used; falling back to unsafe formats detected.
+  description: ML code that could use PyMILO's JSON-based safe sklearn model serialisation but falls back to pickle/joblib,
+    maintaining unnecessary RCE risk. Rostami (2024).
+  remediation: Use PyMILO for sklearn model serialisation; enforce JSON-based model formats for classical ML models; document
+    justified exceptions to format policy.
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-081
+  name: mlsc-dataset-poisoning-feedback-loop
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(user.?feedback|rlhf|preference.?data|human.?feedback).{0,80}(poison|inject|manipulat|tamper|adversar).{0,40}(training|dataset|fine.?tun)
+  - (?i)(feedback.?loop|online.?learning|continuous.?train).{0,60}(poison|adversar|manipulat|inject).{0,40}(data|sample|example|label)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Dataset poisoning via feedback loop or user data collection detected.
+  description: Attacks poisoning continuously updated training datasets through crafted user feedback, RLHF preference data,
+    or online learning inputs — contaminating future model versions via the feedback loop.
+  remediation: Implement data quality checks on collected feedback; use anomaly detection on feedback distributions; quarantine
+    feedback data before incorporating into training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-349
+- id: MEDUSA-MLSC-SCAN-082
+  name: mlsc-agenthub-unverified-tool-registration
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(agenthub|agent.?hub|tool.?registry|function.?registry).{0,60}(unverified|untrusted|unsigned|no.?hash|no.?check|malicious)
+  - (?i)(register.?tool|add.?tool|install.?plugin|plugin.?install).{0,60}(unverified|untrusted|third.?party|external|remote)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ts'
+  message: Unverified agent tool registration from AgentHub or external registry detected.
+  description: Agent frameworks registering tools or plugins from unverified external registries (AgentHub) without code review
+    or signing verification, creating a supply chain attack vector analogous to PyPI for agents. Pautsch (2025).
+  remediation: Review all agent tool code before registration; use signed tool packages; maintain an approved tool registry;
+    audit agent tool permissions before deployment.
+  owasp_llm: LLM08:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-083
+  name: mlsc-rusty-link-git-lfs-poisoning
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(git.?lfs|lfs.?pointer|lfs.?object).{0,60}(tamper|manipulat|poison|swap|substitut|mismatch|hash.?bypass)
+  - (?i)(lfs.?hash|oid.?sha256|lfs.?verify).{0,60}(bypass|skip|ignore|mismatch|tamper|wrong)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: Git LFS hash bypass or LFS pointer tampering for model file substitution detected.
+  description: Git LFS pointer file tampering attacks (Rusty Link style) that modify LFS object pointers to redirect model
+    file downloads to attacker-controlled content while preserving valid git commit histories. Ding (2025).
+  remediation: Verify LFS object SHA256 hashes after every download; use signed commits for LFS pointer files; implement LFS
+    object verification in CI/CD.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-084
+  name: mlsc-software-signing-absent-ml-package
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(pypi|pip|conda|npm).{0,40}(unsigned|no.?sign|no.?verif|without.?sign|no.?hash).{0,60}(ml|torch|tensorflow|transformers|langchain)
+  - (?i)(install|download).{0,60}(ml|torch|tensorflow|transformers|langchain).{0,40}(--no-deps|--no-verify|--no-check-certificate|--trusted-host)
+  file_types:
+  - '*.sh'
+  - '*.py'
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  message: ML package installation without signing verification detected.
+  description: ML package installation bypassing cryptographic signature verification or hash checking, enabling supply chain
+    attacks through package substitution. Kalu (2025) software signing analysis.
+  remediation: Use hash-pinned requirements files; verify package signatures where available; use pip-audit to check for known
+    vulnerabilities; never use --no-verify flags in production.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-085
+  name: mlsc-model-export-rce-format-exploitation
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(keras.?h5|h5py|hdf5).{0,60}(load|read|deserializ).{0,60}(model|weight|layer|custom).{0,40}(remote|unverif|extern)
+  - (?i)(caffe|caffe2|darknet|mxnet).{0,60}(model|weight|prototxt).{0,60}(load|import|convert).{0,40}(unverif|extern|remote)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Legacy ML model format RCE exploitation risk detected.
+  description: Loading models in legacy formats (Keras H5, HDF5, Caffe, MXNet) from unverified sources — these formats can
+    embed code execution via custom layer objects, pre-processing functions, or configuration scripts. Siddiq et al. (2026).
+  remediation: Convert legacy format models to safetensors before loading; verify legacy format models in isolated sandboxes;
+    block legacy format loading in production.
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-086
+  name: mlsc-slopsquatting-ml-codegen-dependency
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(copilot|cursor|claude|gpt.?4|codex|gemini).{0,60}(generat|suggest|recommend).{0,60}(import|install|require|depend).{0,40}(unverif|without.?check|no.?verif)
+  - (?i)(ai.?generat|llm.?generat|copilot.?generat).{0,60}(requirement|dependency|import|package).{0,60}(uncheck|unverif|phantom|hallucin)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.toml'
+  - '*.json'
+  - '*.sh'
+  message: AI-generated dependency without verification (slopsquatting risk) detected.
+  description: AI coding assistant generated import or dependency statement that has not been verified to exist in the target
+    package registry — potential slopsquatting/hallucinated package risk creating supply chain exposure.
+  remediation: Verify all AI-generated package names exist and are legitimate before installation; use dependency existence
+    checking in pre-commit hooks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-087
+  name: mlsc-adversarial-ml-training-attack-vassilev
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(adversarial.?ml|adversarial.?machine.?learning|adversarial.?training.?attack|nist.?adversarial.?ml)
+  - (?i)(evasion.?attack|poisoning.?attack|inversion.?attack|extraction.?attack).{0,60}(supply.?chain|training.?data|dataset|model|weight)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Adversarial ML training attack pattern (NIST taxonomy) detected.
+  description: Patterns matching the NIST adversarial ML taxonomy (Vassilev et al. 2024) including evasion, poisoning, inversion,
+    and extraction attacks targeting the ML training pipeline and supply chain.
+  remediation: Implement NIST adversarial ML defences; apply certified training with adversarial robustness guarantees; conduct
+    regular adversarial robustness evaluations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MLSC-SCAN-088
+  name: mlsc-model-format-conversion-validation-absent
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(convert|transform|export).{0,60}(model.?format|format.?convert|onnx|safetensor|gguf|torchscript).{0,60}(without.?valid|no.?check|skip.?valid|uncheck|no.?verif)
+  - (?i)(model.?convert|format.?convert).{0,80}(validation.?skip|no.?integrity|no.?hash|without.?check)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Model format conversion without validation detected.
+  description: Model format conversion pipelines (e.g., PyTorch to ONNX, ONNX to TorchScript) without integrity validation
+    of the output — enabling injection of malicious operators during conversion steps. Parida (2025).
+  remediation: Hash-verify model files before and after format conversion; implement model equivalence testing post-conversion;
+    log all format conversion operations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-MLSC-SCAN-089
+  name: mlsc-meiklejohn-supply-chain-data-integrity
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(supply.?chain.?integrity|data.?integrity.?supply|training.?data.?provenance|data.?provenance).{0,60}(absent|missing|not.?track|not.?verif|no.?proof|unverif)
+  - (?i)(provenance.?absent|no.?provenance|missing.?provenance|untrack.?data).{0,60}(training|dataset|ml|model|weight)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.md'
+  message: Missing ML training data provenance/integrity tracking detected.
+  description: ML training or fine-tuning pipelines lacking data provenance tracking, creating supply chain blind spots where
+    poisoned or manipulated training data cannot be traced. Meiklejohn (2025).
+  remediation: Implement ML data cards with provenance metadata; use content-addressed storage for training datasets; maintain
+    audit logs of all data transformations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-090
+  name: mlsc-abandoned-ml-package-stale-maintainer
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(abandon|unmaintain|stale|archive).{0,60}(ml.?package|ai.?package|model.?package|training.?package).{0,60}(install|use|depend|import)
+  - (?i)(last.?update|last.?commit|last.?release).{0,60}(year|2020|2019|2018|2017).{0,60}(ml|torch|tensorflow|sklearn|transformers)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.toml'
+  - '*.yaml'
+  message: Abandoned or stale ML package usage detected.
+  description: ML projects depending on unmaintained packages with no recent commits or releases — vulnerable to dependency
+    takeover attacks where attackers claim abandoned PyPI namespaces to distribute malicious updates.
+  remediation: Audit dependency recency; replace abandoned packages with maintained alternatives; pin to last-known-good versions;
+    monitor for namespace takeover of critical dependencies.
+  owasp_llm: LLM04:2025
+  cwe: CWE-1329
+- id: MEDUSA-MLSC-SCAN-091
+  name: mlsc-jfrog-conda-forge-ml-package-risk
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(conda.?forge|anaconda|conda).{0,60}(unverif|untrust|unsigned|malicious|tamper|poison).{0,40}(ml|pytorch|tensorflow|cuda|cudnn)
+  - (?i)(conda.?install|mamba.?install).{0,60}(--no-deps|--override-channels|--channel|malicious|unverif)
+  file_types:
+  - '*.sh'
+  - '*.yaml'
+  - '*.txt'
+  - '*.py'
+  message: Conda/conda-forge ML package supply chain risk detected.
+  description: ML environment setup using conda with overridden channels, missing channel verification, or installation of
+    packages from unverified conda channels — enabling supply chain attacks via malicious conda package recipes.
+  remediation: Pin conda packages to trusted channels; verify package hashes in environment.yaml; use conda-lock for reproducible
+    environments; prefer conda-forge for community packages.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-092
+  name: mlsc-llm-api-sdk-typosquat-install
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)pip.{0,20}install.{0,60}(openai[_-]|openai2|openi|open-ai-sdk|openai_tools|anthropick|anthropic-sdk-|anthropicc|claude-sdk|claude_sdk)
+  - (?i)pip.{0,20}install.{0,60}(groqq|groq-sdk-|mistralll|mistralai-|cohere-sdk-|cohre|ai21-sdk-|ai21s)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.toml'
+  message: LLM API SDK typosquatting installation pattern detected.
+  description: Installation of typosquatted variants of popular LLM API SDKs (openai, anthropic, groq, mistralai, cohere)
+    with off-by-one character differences, redirecting to malicious packages that steal API keys.
+  remediation: Verify exact package names and publishers on PyPI before installation; use official installation commands from
+    vendor documentation only.
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-093
+  name: mlsc-model-hub-rce-hosting-siddiq
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(model.?hosting|model.?hub|hf|huggingface).{0,60}(rce|remote.?code.?exec|arbitrary.?code|code.?exec.?via.?model)
+  - (?i)(exec.?via|rce.?via|code.?exec.?through).{0,60}(model.?file|model.?weight|model.?load|model.?format)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: RCE via model hosting file format exploitation detected.
+  description: Exploitation of model hosting platforms to achieve RCE via unsafe model file formats (pickle, H5, ONNX with
+    custom ops), documented in Siddiq et al. (2026) as a widespread real-world attack surface.
+  remediation: Enforce safetensors-only policy on model hosting platforms; scan all uploaded model files for executable payloads;
+    sandbox model loading for validation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-094
+  name: mlsc-adversarial-ml-models-are-code
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(models.?are.?code|model.?as.?code|weight.?as.?code|parameter.?as.?code).{0,60}(supply.?chain|attack|exploit|vuln)
+  - (?i)(model.?weight|model.?param|model.?checkpoint).{0,60}(executable|code.?embed|code.?hidden|backdoor.?code|rce)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Models-as-code supply chain attack vector detected.
+  description: Recognition that ML model weights function as executable code in terms of supply chain risk — embedding instructions,
+    backdoors, or exploits that execute during inference. Zhao et al. (2024) 'Models Are Codes'.
+  remediation: Treat all model weights as untrusted code; apply code-review-equivalent scrutiny to model files; use static
+    analysis tools designed for ML weight inspection.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-095
+  name: mlsc-pearce-copilot-insecure-ml-suggestions
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)(copilot|cursor|codex|github.?copilot).{0,60}(insecure|vulnerable|unsafe|backdoor).{0,60}(ml|model|training|inference|torch|tensorflow)
+  - (?i)(ai.?generat|copilot.?generat|llm.?generat).{0,60}(insecure.?ml|unsafe.?model.?load|vulnerable.?deseri|pickle.?load)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: AI coding assistant generated insecure ML code pattern detected.
+  description: Insecure ML code patterns generated by AI coding assistants (GitHub Copilot, Cursor) including pickle.load,
+    trust_remote_code=True, and unsafe model loading — Copilot has been shown to suggest insecure patterns in up to 40% of
+    security-sensitive completions. Pearce et al. (2021).
+  remediation: Review all AI-generated ML loading code for security patterns; enforce pre-commit hooks that detect insecure
+    ML loading patterns regardless of code origin.
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+- id: MEDUSA-MLSC-SCAN-096
+  name: mlsc-ml-credentials-log-environment-leak
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(hf_token|huggingface_token|wandb_api_key|openai_api_key|anthropic_api_key).{0,60}(log|print|echo|write|stdout|stderr|debug)
+  - (?i)(logging|print|log\.info|log\.debug|logger).{0,80}(hf_token|wandb_api|openai_api|anthropic_api|mlflow_token|comet_api)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: ML API credential leaked to logs or stdout detected.
+  description: ML API tokens and credentials (Hugging Face, W&B, OpenAI, Anthropic) being logged or printed to stdout/logs,
+    creating credential exposure in log aggregation systems accessible to broader teams.
+  remediation: Use environment variable masking in CI/CD; implement secret scanning in pre-commit hooks; never log token values;
+    use vault-based secret management.
+  owasp_llm: LLM09:2025
+  cwe: CWE-532
+- id: MEDUSA-MLSC-SCAN-097
+  name: mlsc-meiklejohn-transitivity-supply-chain
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(transitive.?depend|indirect.?depend|nested.?depend).{0,60}(ml|torch|tensorflow|transformers|cuda).{0,60}(vuln|comprom|malicious|unverif)
+  - (?i)(dependency.?tree|dependency.?graph|dep.?chain).{0,60}(ml.?package|ai.?package).{0,60}(unverif|unsign|no.?audit|blind)
+  file_types:
+  - '*.txt'
+  - '*.toml'
+  - '*.yaml'
+  - '*.json'
+  message: Transitive ML dependency supply chain blind spot detected.
+  description: ML projects with deep transitive dependency chains where nested dependencies are not audited, creating supply
+    chain blind spots exploitable through indirect package compromise. Meiklejohn (2025).
+  remediation: Use pip-audit or safety to scan full dependency trees; generate transitive dependency SBOMs; implement recursive
+    hash pinning with pip-compile --generate-hashes.
+  owasp_llm: LLM04:2025
+  cwe: CWE-1357
+- id: MEDUSA-MLSC-SCAN-098
+  name: mlsc-ml-container-registry-digest-absent
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(docker.?pull|FROM|podman.?pull).{0,80}(pytorch|tensorflow|cuda|nvcr|nvidia|huggingface).{0,40}(:latest|:main|:master|:nightly|:dev)
+  - (?i)(container|docker|oci|image).{0,60}(ml|pytorch|tensorflow|cuda|huggingface).{0,40}(no.?digest|no.?sha256|mutable.?tag|no.?pin)
+  file_types:
+  - Dockerfile
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: ML container image without digest pinning detected.
+  description: ML training or serving containers using mutable :latest or branch-based tags without SHA256 digest pinning,
+    enabling silent layer substitution in container registries.
+  remediation: 'Always reference container images with @sha256: digest; use docker sbom to verify container contents; automate
+    digest refresh via Dependabot.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-829
+- id: MEDUSA-MLSC-SCAN-099
+  name: mlsc-model-hub-third-party-instruction-inject
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)(model.?card|modelcard|README\.md|model.?description).{0,80}(install|pip|curl|wget|exec|eval|subprocess|os\.system)
+  - (?i)(model.?description|model.?instruction|usage.?instruction).{0,60}(malicious|inject|hidden|trojan|payload|execute)
+  file_types:
+  - '*.md'
+  - '*.py'
+  - '*.yaml'
+  message: Model hub README/card instruction injection for third-party library deception detected.
+  description: Model card or README files on model hubs containing instructions to install malicious third-party packages,
+    execute shell commands, or download additional payloads as part of model setup instructions.
+  remediation: Review all model setup instructions before execution; never execute shell commands from model cards without
+    verification; use sandboxed model setup environments.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-MLSC-SCAN-100
+  name: mlsc-training-data-backdoor-clean-label-attack
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)(clean.?label|clean.?label.?attack|clean.?label.?poison|label.?consistent.?poison)
+  - (?i)(clean.?label.?backdoor|hidden.?trigger|visible.?trigger).{0,60}(training.?data|dataset|poison|supply.?chain)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Clean-label backdoor training data poisoning attack detected.
+  description: Clean-label backdoor attacks that poison training datasets with correctly-labelled samples containing hidden
+    triggers — these bypass label-inspection defences since labels are correct, making them particularly dangerous supply
+    chain attacks.
+  remediation: Use spectral signatures or activation clustering for backdoor detection in training data; implement dataset
+    provenance verification; test models on dedicated backdoor detection benchmarks.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506

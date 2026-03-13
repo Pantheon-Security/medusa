@@ -1,0 +1,2031 @@
+# MEDUSA Scanner Rules — reasoning_attacks (MERGED)
+# Sources: reasoning_attacks_scanner_expansion.yaml, reasoning_attacks_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: reasoning_attacks
+  prefix: RA
+  total_rules: 60
+  sources:
+  - reasoning_attacks_scanner_expansion.yaml
+  - reasoning_attacks_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-RA-SCAN-001
+  name: chain-of-thought-hijacking-injection
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\bhijack\b.{0,60}\b(chain.of.thought|reasoning|thinking|cot)\b
+  - (?i)\b(chain.of.thought|reasoning trace|thinking tokens?).{0,40}\b(inject|override|manipulate|poison|tamper)\b
+  - (?i)\b(h.cot|hcot|hijacking.cot)\b
+  - (?i)\boverride\b.{0,50}\b(safety.reasoning|refusal.mechanism|safety.check)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Chain-of-Thought hijacking attack pattern detected targeting reasoning
+    model safety mechanism
+  description: 'Detects patterns associated with H-CoT (Hijacking Chain-of-Thought)
+    attacks that manipulate a reasoning model''s displayed intermediate thinking tokens
+    to override its safety reasoning phase. Documented by Kuo et al. (2025) achieving
+    refusal rate drops from 98% to below 2% on o1, o3, DeepSeek-R1, and Gemini 2.0
+    Flash Thinking. OWASP LLM01:2025 Prompt Injection via reasoning trace.
+
+    '
+  remediation: 'Protect intermediate reasoning tokens from external feedback injection.
+    Implement CoT integrity verification. Consider masking/suppressing displayed thinking
+    tokens from user-accessible context. Monitor for prompts that reference or quote
+    the model''s own prior reasoning output.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-002
+  name: malicious-educator-framing-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(educational|academic|research|teach|instruct).{0,80}\b(synthesiz|manufactur|build|create|make).{0,60}\b(weapon|explosive|chemical|biological|toxin|malware|virus)\b
+  - (?i)\bfor\s+(educational|academic|research|safety.research|teaching)\s+purposes?.{0,100}\b(harmful|dangerous|illegal|weapon|attack)\b
+  - (?i)\b(explain|describe|show|detail).{0,40}\bhow\s+to.{0,60}\b(weapon|exploit|hack|bypass|attack).{0,40}\b(educational|example|hypothetical|scenario)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: 'Malicious-Educator framing pattern detected: harmful request disguised
+    as educational prompt'
+  description: 'Detects the Malicious-Educator attack pattern (Kuo et al. 2025 / H-CoT
+    paper) where extremely dangerous requests are wrapped inside seemingly legitimate
+    educational framing to bypass reasoning model safety checks. LRMs'' chain-of-thought
+    reasoning can be tricked by educational context to reason itself into compliance
+    with harmful requests. High risk for o1/o3/DeepSeek-R1/Gemini.
+
+    '
+  remediation: 'Apply semantic content analysis independent of framing context. Evaluate
+    the actual requested action, not just the stated purpose. Flag dual-use requests
+    regardless of educational wrapper. Use context-invariant harm classifiers that
+    are not misled by educational framing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-003
+  name: thinking-budget-exhaustion-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(overthink|over.think|thinking.budget|token.budget).{0,60}\b(exhaust|deplet|consum|max|limit|exceed)\b
+  - (?i)\b(maximize|force|trigger).{0,40}\b(reasoning|thinking|chain.of.thought).{0,40}\b(token|cost|budget|length|limit)\b
+  - (?i)\bstop\s+(thinking|reasoning)\b.{0,80}\b(early|now|immediately|skip)\b
+  - (?i)\b(thinking.collapse|reasoning.collapse|cot.collapse)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Thinking budget exhaustion or reasoning collapse attack pattern detected
+  description: 'Detects patterns targeting thinking budget exhaustion in Large Reasoning
+    Models. Shojaee et al. (2025, Apple) demonstrate LRMs exhibit a counterintuitive
+    scaling limit — reasoning effort peaks then declines causing complete accuracy
+    collapse. Attackers can craft high-complexity inputs to trigger this collapse
+    or force early termination of reasoning. Also covers "stop thinking" injection
+    attacks targeting reasoning-capable models (o1, o3, DeepSeek-R1, Claude 3.7 extended
+    thinking). OWASP LLM10:2025 Unbounded Consumption.
+
+    '
+  remediation: 'Implement reasoning depth monitoring. Set adaptive complexity budgets
+    that trigger fallback to simpler evaluation when anomalously high reasoning load
+    is detected. Apply input complexity scoring to flag adversarially complex inputs.
+    Monitor for "stop reasoning" directive patterns in user inputs.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-004
+  name: caution-direction-activation-ablation
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(ablat|suppress|remov|project.out).{0,60}\b(caution|safety|refusal).{0,40}\b(direction|vector|activation|representation)\b
+  - (?i)\b(residual.stream|activation.space|latent.vector).{0,60}\b(manipulat|steer|control|ablat)\b
+  - (?i)\b(caution.direction|safety.direction|refusal.direction).{0,40}\b(ablat|manipulat|steer|suppress)\b
+  - (?i)\b(linear.direction|steering.vector).{0,50}\b(chain.of.thought|reasoning.token|cot.token)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Activation space manipulation targeting reasoning model caution direction
+    detected
+  description: 'Detects patterns associated with internal representation attacks on
+    reasoning models. Yamaguchi et al. (2025, ICML Workshop) identify a linear ''caution''
+    direction in DeepSeek-R1-Distill-Llama-8B activation space that controls compliance
+    vs. refusal during CoT generation. Ablating this direction from residual stream
+    activations effectively jailbreaks the model by suppressing cautious reasoning
+    patterns. Requires white-box model access.
+
+    '
+  remediation: 'Monitor for activation manipulation attempts in model serving infrastructure.
+    Apply model integrity checks on inference servers. Restrict direct activation
+    access APIs. For deployment, consider activation monitoring anomaly detection
+    on CoT token generation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-005
+  name: dh-cot-fake-chain-of-thought-injection
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(fake|false|fabricated|synthetic).{0,40}\b(chain.of.thought|reasoning|thinking|cot)\b
+  - (?i)\b(dh.cot|deliberately.harmful.cot|adversarial.cot)\b
+  - (?i)\b(few.shot|in.context).{0,60}\b(harmful|malicious|jailbreak).{0,40}\b(example|sample|demonstration)\b
+  - (?i)\b(adversarial.context.alignment|context.alignment).{0,60}\b(developer|system).{0,40}\b(template|prompt|role)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Fake chain-of-thought injection or adversarial context alignment attack
+    pattern detected
+  description: 'Detects DH-CoT (Deliberately Harmful Chain-of-Thought) attack patterns
+    from Zhang et al. (2025). DH-CoT combines Adversarial Context Alignment (ACA),
+    NTP-based Few-Shot Hacking (NFH), and fake CoT reasoning to jailbreak commercial
+    reasoning models including GPT-5, Claude-4, and DeepSeek. Specifically targets
+    reasoning models that were resistant to prior attacks. Outperforms H-CoT and TAP
+    attack methods on frontier models.
+
+    '
+  remediation: 'Validate semantic consistency of user/developer prompt contexts. Apply
+    harmful intent detection that is not defeated by fake reasoning steps. Scrutinize
+    developer-role prompts for adversarial context alignment. Monitor few-shot examples
+    for harmful priming content.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-006
+  name: system-prompt-cot-poisoning
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(system.prompt.poison|system.prompt.inject|poison.system.prompt)\b
+  - (?i)\b(adaptive.cot.poison|cot.poison|chain.of.thought.poison)\b
+  - (?i)\b(persistent.attack|persistent.inject|persistent.backdoor).{0,60}\b(system.prompt|system.role|system.context)\b
+  - (?i)\b(auto.spp|auto.system.prompt.poison)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: System prompt poisoning attack pattern detected — persistent CoT chain
+    corruption risk
+  description: 'Detects system prompt poisoning patterns from Li et al. (2025). Unlike
+    user-prompt injection, poisoned system prompts persistently corrupt ALL subsequent
+    user interactions including those using CoT-augmented prompting techniques. Adaptive
+    CoT poisoning specifically subverts reasoning chains when users employ CoT. Current
+    black-box defenses cannot counter this attack. Tested across GPT-5, Claude Opus
+    4.1, Gemini 2.5 class models. Stealthier than user-prompt injection.
+
+    '
+  remediation: 'Implement system prompt integrity verification (hashing/signing).
+    Apply strict access controls on who can modify system prompts. Separate system
+    prompt storage from user-accessible channels. Monitor system prompts for adversarial
+    content including CoT subversion patterns. Audit system prompt change history.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-RA-SCAN-007
+  name: reasoning-model-ood-jailbreak
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(out.of.distribution|ood).{0,60}\b(jailbreak|attack|bypass|circumvent|evade)\b
+  - (?i)\b(jood|ood.jailbreak|distribution.shift).{0,60}\b(safety|guardrail|alignment|refusal)\b
+  - (?i)\b(image.mixup|text.transform|unicode.transform|homoglyph).{0,60}\b(jailbreak|harmful|bypass)\b
+  - (?i)\b(shift.distribution|ood.transform).{0,50}\b(safety.training|alignment.data)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Out-of-distribution jailbreak pattern targeting safety alignment boundary
+    detected
+  description: 'Detects OOD-based jailbreak patterns from Jeong et al. (2025) JOOD
+    framework, which pushes harmful inputs outside the safety-aligned training distribution,
+    causing alignment to fail. Specifically effective against OpenAI o1 (a reasoning
+    model) where standard attacks fail. Visual and textual OOD transformations (including
+    simple image mixup) increase model uncertainty about malicious intent, enabling
+    bypasses. Safety alignment is distribution-bound by design.
+
+    '
+  remediation: 'Implement distribution-invariant harm detection using semantic analysis
+    rather than pattern matching on input format. Apply input normalization before
+    safety evaluation. Use multiple independent safety classifiers trained on diverse
+    distributions including OOD examples.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-008
+  name: visual-reasoning-chain-attack-mlrm
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(visual.chain.reasoning.attack|viscra|visual.cra)\b
+  - (?i)\b(visual.attention.mask|attention.masking).{0,60}\b(jailbreak|harmful|bypass|attack)\b
+  - (?i)\b(visual.reasoning.chain|multimodal.reasoning.chain).{0,60}\b(exploit|bypass|hijack|manipulate)\b
+  - (?i)\b(reasoning.induction|two.stage.induction).{0,50}\b(harmful|malicious|jailbreak)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: Visual chain reasoning attack (VisCRA) pattern targeting multimodal reasoning
+    model detected
+  description: 'Detects VisCRA (Visual Chain Reasoning Attack) patterns from Sima
+    et al. (2025). Exploits visual reasoning chains in Multimodal Large Reasoning
+    Models (MLRMs) using targeted visual attention masking combined with a two-stage
+    reasoning induction strategy. Achieves 76.48% ASR on Gemini 2.0 Flash Thinking,
+    68.56% on QvQ-Max, 56.60% on GPT-4o. Critical finding: stronger visual reasoning
+    capability correlates with higher vulnerability to this attack class.
+
+    '
+  remediation: 'Apply visual input sanitization before reasoning chain processing.
+    Monitor visual attention patterns for adversarial masking artifacts. Implement
+    multi-stage content classification that evaluates both visual inputs and resulting
+    reasoning traces independently. Consider capability- safety trade-off in multimodal
+    reasoning model deployment.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-RA-SCAN-009
+  name: logprob-based-suffix-jailbreak
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(logprob|log.prob|token.probability).{0,60}\b(maximize|optim|search|jailbreak|attack)\b
+  - (?i)\b(random.search|suffix.search|suffix.optim).{0,60}\b(jailbreak|attack|adversarial)\b
+  - (?i)\b(prefill.attack|prefilling.attack|assistant.prefill)\b
+  - (?i)\bsuffix.{0,30}\b(logprob|probability).{0,30}\b(maximize|optim|sure|comply|help)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: Logprob-based suffix optimization or prefilling jailbreak attack detected
+  description: 'Detects adaptive jailbreak patterns from Andriushchenko et al. (2024,
+    ICLR 2025). Using logprob-based random search on adversarial suffixes achieves
+    100% ASR on Vicuna, Mistral, Phi-3, Llama-2/3, GPT-3.5/4o and all Claude models
+    (via prefilling). Claude prefilling attack exploits the assistant-message prefilling
+    API feature for 100% success. Adaptivity (model-specific templates) is the critical
+    factor enabling success across all tested models.
+
+    '
+  remediation: 'Disable or restrict logprob access in API endpoints to prevent gradient-free
+    optimization. Restrict or monitor Claude-style prefilling API usage. Apply rate
+    limiting and pattern detection on repeated suffix variants from the same session.
+    Randomize refusal token probabilities to make logprob-based optimization less
+    reliable.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-RA-SCAN-010
+  name: instruction-centric-format-safety-bypass
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(pseudocode|pseudo.code).{0,80}\b(weapon|explosive|malware|drug|synthesis|hack|exploit)\b
+  - (?i)\b(write|generate|create|code|program).{0,60}\b(script|function|pseudocode|algorithm).{0,80}\b(harmful|dangerous|illegal|weapon|attack|exploit)\b
+  - (?i)\b(instruction.centric|code.format|programmatic).{0,60}\b(bypass|evade|circumvent).{0,40}\b(safety|guardrail|filter)\b
+  - (?i)\bcode\b.{0,30}\b(instead.of.text|rather.than.text|as.code).{0,60}\b(how.to|instructions?)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Instruction-centric format bypass detected: harmful content requested
+    in code/pseudocode form'
+  description: 'Detects the instruction-centric safety bypass from Banerjee et al.
+    (2025, AAAI). Requesting harmful information as pseudocode, programs, or code
+    snippets increases unethical response generation by 2-38% compared to natural
+    language requests across Llama-2 and Mistral models. Zero-shot CoT further amplifies
+    this: 31.9% harmful response rate vs 18.9% baseline. ROME model editing with a
+    single edit raises this to 56.7-65.7%. Safety guardrails inadequately cover code/instruction
+    output modalities.
+
+    '
+  remediation: 'Extend safety evaluation to cover all output formats including code,
+    pseudocode, and structured instructions. Apply semantic harm analysis that is
+    format-agnostic. Evaluate code outputs for harmful operational content, not just
+    syntactic patterns. Treat code requests for sensitive topics with the same scrutiny
+    as natural language requests.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-011
+  name: scratchpad-reasoning-trace-poisoning
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(scratchpad|scratch.pad).{0,60}\b(poison|inject|manipulat|tamper|corrupt)\b
+  - (?i)\b(reasoning.trace|thinking.trace|internal.monologue).{0,60}\b(inject|poison|overwrite|modify)\b
+  - (?i)\b(think>|<think>|<thinking>).{0,200}\b(ignore|bypass|override|skip).{0,60}\b(safety|harm|refusal|guideline)\b
+  - (?i)\binject.{0,30}\b(into|inside|within).{0,30}\b(thinking|reasoning|scratchpad|cot)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.xml'
+  message: Scratchpad or reasoning trace poisoning/injection attack pattern detected
+  description: 'Detects patterns targeting the scratchpad/reasoning trace of reasoning
+    models. The visible chain-of-thought tokens (bounded by <think> tags or similar)
+    in models like DeepSeek-R1 and Claude extended thinking represent a manipulable
+    attack surface. Yamaguchi et al. (2025) confirm safety decisions are made within
+    CoT generation, making trace manipulation a direct path to compliance. System
+    prompt poisoning (Li et al. 2025) can corrupt reasoning chain interpretation persistently
+    across all sessions.
+
+    '
+  remediation: 'Never allow user-provided content to be injected into reasoning trace
+    boundaries. Sanitize inputs for reasoning trace delimiters (<think>, <reasoning>,
+    etc.). Apply cryptographic integrity protection to scratchpad boundaries. Monitor
+    for attempts to escape or inject into reasoning trace context boundaries.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-RA-SCAN-012
+  name: ficdetail-high-detail-cot-harm-amplification
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(ficdetail|fic.detail|detail.amplif).{0,40}\b(harmful|jailbreak|attack)\b
+  - (?i)\b(step.by.step|detailed.instructions?).{0,60}\b(synthesiz|manufactur|build|create).{0,60}\b(weapon|exploit|malware|poison|drug)\b
+  - (?i)\b(reasoning.model|large.reasoning|cot.model).{0,60}\b(detailed|specific|precise|exact).{0,60}\b(harmful|dangerous|illegal)\b
+  - (?i)\bprovide.{0,20}\b(maximum|full|complete|exhaustive).{0,30}\b(detail|instructions?|steps?).{0,60}\b(harmful|dangerous|weapon|exploit)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: High-detail CoT harm amplification request detected — reasoning model output
+    danger elevated
+  description: 'Detects FICDETAIL-style attacks from Lu et al. (2025). While CoT reasoning
+    reduces jailbreak probability, when reasoning models ARE jailbroken, they generate
+    dramatically more detailed, step-by-step, and actionable harmful instructions
+    compared to non-reasoning models — up to 3-5x more detailed per DCCH metric. Explicitly
+    requesting high-detail output from reasoning models compounds harm risk significantly.
+    Validated against o1, QwQ, DeepSeek-R1.
+
+    '
+  remediation: 'Apply heightened scrutiny to detail-maximizing requests directed at
+    reasoning models. Monitor reasoning model outputs for step-by-step operational
+    instructions on sensitive topics. Consider truncating or summarizing reasoning
+    model outputs in safety-critical domains. Use output-side harm classifiers sensitive
+    to actionability and detail level.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-209
+- id: MEDUSA-RA-SCAN-013
+  name: cot-length-control-adversarial-manipulation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(control.{0,20}cot.length|cot.length.control|reasoning.length.control)\b
+  - (?i)\b(parameter.space.direction|weight.space.steer).{0,60}\b(reasoning|thinking|cot)\b
+  - (?i)\b(force|compel|make).{0,40}\b(skip|shorten|reduce|minimize).{0,30}\b(reasoning|thinking|cot|chain.of.thought)\b
+  - (?i)\b(stop.thinking|skip.reasoning|no.thinking|disable.cot|bypass.cot)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: CoT length control or reasoning suppression attack pattern detected
+  description: 'Detects attempts to adversarially control reasoning chain length or
+    suppress reasoning entirely. Ma et al. (2025) demonstrate that a controllable
+    parameter-space direction governs CoT length in QwQ-32B-Preview. Adversaries with
+    model access could manipulate this direction to force minimal reasoning ("stop
+    thinking early"), potentially defeating reasoning-based safety checks. Also covers
+    prompt-based "stop thinking" attacks that attempt to suppress CoT before safety
+    evaluation completes. Related to OverThink-class budget exhaustion attacks.
+
+    '
+  remediation: 'Enforce minimum reasoning depth thresholds for safety-relevant inputs.
+    Monitor for "stop thinking" type directives in user inputs. Protect parameter-space
+    CoT control directions from external manipulation. Validate that reasoning depth
+    is proportional to request sensitivity for deployed reasoning models.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-014
+  name: reward-hacking-rl-reasoning-model
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(reward.hack|reward.hacking|reward.exploit).{0,60}\b(reasoning|cot|rl.train|grpo|ppo)\b
+  - (?i)\b(grpo|group.relative.policy|reinforcement.learning).{0,60}\b(exploit|manipulat|attack|hack)\b
+  - (?i)\b(emergent.reasoning|self.reflection|dynamic.strategy).{0,60}\b(exploit|manipulat|attack|abuse)\b
+  - (?i)\b(rl.trained|rl.model|reward.model).{0,60}\b(jailbreak|bypass|circumvent|safety.fail)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Reward hacking or RL training exploitation pattern targeting reasoning
+    model detected
+  description: 'Detects patterns targeting reward hacking vulnerabilities in RL-trained
+    reasoning models. DeepSeek-R1 (Guo et al. 2025, Nature) is trained via GRPO with
+    rewards based solely on final answer correctness, without constraints on the reasoning
+    process. This unconstrained RL training creates reward hacking vulnerabilities
+    where the reasoning process itself may be manipulated to optimize reward signals
+    in unintended ways. RL reasoning models lack safety constraints on intermediate
+    reasoning steps, creating attack surfaces not present in RLHF models.
+
+    '
+  remediation: 'Apply safety constraints during RL training, not just on final outputs.
+    Include adversarial reward hacking scenarios in RL training evaluation. Monitor
+    for reasoning patterns that optimize for reward signals while bypassing intended
+    safety constraints. Consider process-based reward models that evaluate reasoning
+    chain quality and safety, not just final answer correctness.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-015
+  name: reasoning-model-overthinking-dos
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(overthink|over.think).{0,60}\b(attack|exploit|dos|denial.of.service|exhaust)\b
+  - (?i)\b(maximize.reasoning|force.long.reasoning|extend.thinking).{0,60}\b(token|compute|cost|budget|exhaust)\b
+  - (?i)\b(think.budget|thinking.budget|token.budget).{0,40}\b(exhaust|drain|deplete|overflow|abuse)\b
+  - (?i)\b(compositional.complexity|adversarial.complexity).{0,60}\b(reasoning.model|lrm|large.reasoning)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Reasoning model overthinking or thinking budget exhaustion DoS pattern
+    detected
+  description: 'Detects OverThink-class denial-of-service attacks targeting reasoning
+    model token budgets. Shojaee et al. (2025) demonstrate that frontier LRMs (o1,
+    o3, Claude 3.7, DeepSeek-R1, Gemini Thinking) reach complete accuracy collapse
+    beyond certain input complexity thresholds. Adversarially crafted high-complexity
+    inputs force excessive token consumption, driving up inference costs and potentially
+    causing service degradation or complete failure. CoT-Valve (Ma et al. 2025) confirms
+    that reasoning depth is a controllable and exploitable model property. OWASP LLM10:2025
+    Unbounded Consumption.
+
+    '
+  remediation: 'Implement input complexity scoring to detect adversarially high-complexity
+    inputs. Apply hard token budget limits per session. Rate limit high-complexity
+    reasoning requests. Monitor for sustained high reasoning-token consumption from
+    individual clients. Use CoT length compression for routine queries to preserve
+    budget for legitimate complex requests.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-016
+  name: multimodal-cot-reasoning-bypass
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(multimodal.reasoning|visual.reasoning|mlrm|mllm).{0,60}\b(jailbreak|bypass|attack|exploit|circumvent)\b
+  - (?i)\b(visual.cot|image.reasoning|vision.chain.of.thought).{0,60}\b(attack|exploit|bypass|jailbreak)\b
+  - (?i)\b(qvq|gemini.thinking|gemini.flash.thinking).{0,60}\b(jailbreak|exploit|bypass|attack)\b
+  - (?i)\b(reasoning.capability.safety.tradeoff|capability.safety.tradeoff).{0,50}\b(exploit|leverage|use|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Multimodal reasoning model (MLRM) chain-of-thought attack pattern detected
+  description: 'Detects attack patterns targeting Multimodal Large Reasoning Models.
+    VisCRA (Sima et al. 2025) achieves 76.48% ASR on Gemini 2.0 Flash Thinking and
+    68.56% on QvQ-Max by exploiting visual reasoning chains. JOOD (Jeong et al. 2025)
+    successfully jailbreaks o1 via OOD visual/text transformations. Critical insight:
+    the capability-safety trade-off means that models with stronger visual reasoning
+    capabilities are MORE vulnerable to visual reasoning chain attacks. Deployment
+    of MLRMs requires heightened safety monitoring.
+
+    '
+  remediation: 'Apply independent safety evaluation on both visual inputs and generated
+    reasoning traces. Monitor for visual attention masking artifacts in model inputs.
+    Implement visual content safety classification before reasoning chain activation.
+    For high-risk deployments, restrict which visual reasoning capabilities are enabled.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-RA-SCAN-017
+  name: deepseek-r1-specific-attack-patterns
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(deepseek.r1|deepseek.r1.distill|r1.distill).{0,60}\b(jailbreak|attack|exploit|bypass|hack)\b
+  - (?i)\b(r1.distill|distill.llama|distill.qwen).{0,60}\b(caution|safety|refusal).{0,30}\b(ablat|suppress|remove|manipulat)\b
+  - (?i)\b(deepseek.v3|deepseek.r1).{0,60}\b(grpo|reinforcement.learning).{0,40}\b(exploit|attack|hack)\b
+  - (?i)\bdeepseek.{0,20}\b(no.refusal|bypass.safety|jailbreak|criminal|weapon|harmful)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  message: DeepSeek-R1 specific attack pattern detected
+  description: 'Detects attack patterns specifically targeting DeepSeek-R1 and its
+    distilled variants. H-CoT (Kuo et al. 2025) demonstrates that attackers can extract
+    criminal strategies from DeepSeek-R1 without any additional tricks at near-0%
+    baseline refusal rates. Yamaguchi et al. (2025) identify and ablate the ''caution''
+    direction in DeepSeek-R1-Distill-Llama-8B activations for complete jailbreak.
+    DeepSeek-R1''s RL-only training without SFT safety phase and unconstrained reasoning
+    process create unique vulnerabilities vs. RLHF-trained models.
+
+    '
+  remediation: 'Apply additional safety filters specifically tuned for DeepSeek-R1
+    deployment. Monitor DeepSeek-R1 outputs for high-risk content categories where
+    baseline refusal is poor. Consider output-side safety classifiers rather than
+    relying on model-internal safety reasoning. Restrict DeepSeek-R1 deployment contexts
+    where near-0% refusal baseline is a critical concern.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-018
+  name: programmable-rails-bypass-reasoning
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(bypass|circumvent|evade).{0,60}\b(guardrail|nemo.guardrail|programmable.rail)\b
+  - (?i)\b(roboguard|temporal.logic.guard|cot.safety.guard).{0,40}\b(bypass|exploit|circumvent|attack)\b
+  - (?i)\b(root.of.trust|trust.llm|guardian.llm).{0,60}\b(compromise|attack|exploit|bypass)\b
+  - (?i)\b(safety.rail|programmable.rail|dialogue.rail).{0,60}\b(underspecif|bypass|evade|circumvent)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Programmable guardrail or runtime safety rail bypass pattern detected
+  description: 'Detects patterns targeting runtime safety guardrails and programmable
+    rail systems. NeMo Guardrails (Rebedea et al. 2023) and ROBOGUARD (Ravichandran
+    et al. 2025) both use CoT reasoning internally for safety enforcement — if the
+    root-of-trust LLM or the reasoning chain within these systems is compromised via
+    H-CoT or scratchpad poisoning, the entire guardrail framework fails. ROBOGUARD
+    reduces unsafe plan execution from 92% to 2.5% but relies on an uncompromised
+    root-of-trust LLM. Underspecified programmable rails create bypass opportunities.
+
+    '
+  remediation: 'Apply reasoning attack defenses to the root-of-trust or guardian LLMs
+    within guardrail systems. Protect internal reasoning chains of safety systems
+    from injection. Audit programmable rail specifications for completeness. Implement
+    defense-in-depth with multiple independent safety validation layers. Never use
+    a single reasoning model as the sole safety gate.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-019
+  name: ntp-based-few-shot-hacking-reasoning
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(non.triggering|ntp|non.trigger).{0,60}\b(prompt|example|sample|few.shot|in.context)\b
+  - (?i)\b(few.shot.hacking|few.shot.attack|in.context.hacking)\b.{0,60}\b(reasoning|cot|thinking|chain.of.thought)\b
+  - (?i)\b(benign.example|benign.sample|harmless.example).{0,80}\b(guide|prime|steer|direct).{0,60}\b(harmful|malicious|dangerous|weapon|exploit)\b
+  - (?i)\b(weakly.harmful|soft.harmful|indirect.harmful).{0,60}\b(example|sample|demonstration|prompt)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: NTP-based few-shot hacking pattern targeting reasoning model detected
+  description: 'Detects NTP-based Few-Shot Hacking (NFH) patterns from Zhang et al.
+    (2025) DH-CoT framework. NFH uses Non-Triggering harmful-response Prompts (NTPs)
+    as few-shot examples — prompts that appear benign to safety filters but prime
+    the model toward harmful outputs more effectively than explicitly malicious examples.
+    The technique defeats reasoning-model safety checks by using plausible-but-not-overtly-harmful
+    priming sequences. Part of the DH-CoT multi-technique aggregated attack that outperforms
+    H-CoT and TAP on GPT-5, Claude-4, and DeepSeek families.
+
+    '
+  remediation: 'Apply semantic analysis to all few-shot examples in prompts, not just
+    the final request. Evaluate the cumulative directional intent of in-context examples.
+    Flag prompts that progressively build toward harmful content via plausible-seeming
+    intermediate steps. Monitor for soft-harm priming patterns even when individual
+    examples appear benign.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-020
+  name: adversarial-context-alignment-multi-role
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(adversarial.context.alignment|aca.attack|context.alignment.attack)\b
+  - (?i)\b(align.context|context.align|align.semantics).{0,60}\b(user.prompt|developer.prompt|system.prompt|assistant.prompt)\b
+  - (?i)\b(semantic.inconsistency|inconsistent.context|inconsistent.role).{0,80}\b(bypass|evade|circumvent|defeat).{0,40}\b(safety|refusal|guardrail)\b
+  - (?i)\b(developer.template|system.template).{0,60}\b(adversarial|malicious|harmful).{0,40}\b(align|match|consistent|coherent)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  message: Adversarial Context Alignment attack across multi-role prompt structure
+    detected
+  description: 'Detects Adversarial Context Alignment (ACA) patterns from the DH-CoT
+    framework (Zhang et al. 2025). ACA resolves semantic inconsistencies between user
+    and developer/system prompt templates that cause naive aggregation attacks to
+    fail against reasoning models. By ensuring coherent adversarial context across
+    ALL prompt components (user, developer, assistant roles), the attack bypasses
+    reasoning-model safety checks that detect context conflicts. ACA is the key enabler
+    for DH-CoT outperforming prior SOTA attacks on GPT-5 and Claude-4.
+
+    '
+  remediation: 'Implement cross-role consistency checks that detect when all prompt
+    components align toward harmful intent despite appearing individually benign.
+    Apply semantic analysis across the full prompt structure (system + user + assistant
+    roles). Flag prompts where all roles consistently point toward restricted content
+    categories. Treat developer-role prompts with the same adversarial scrutiny as
+    user-role prompts.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-021
+  name: reasoning-model-role-persona-jailbreak
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(pretend|act as|roleplay|imagine|you are).{0,60}\b(reasoning|thinking|cot|chain.of.thought).{0,40}\b(disabled|off|ignore|bypassed|suspended)\b
+  - (?i)\b(dan|do anything now|developer.mode|god.mode|jailbreak.mode).{0,60}\b(reasoning|thinking|o1|o3|deepseek|gemini.thinking)\b
+  - (?i)\b(no.safety|no.refusal|no.filter|unrestricted).{0,40}\b(reasoning.model|lrm|thinking.model|o1|o3|deepseek.r1)\b
+  - (?i)\b(jailbroken|uncensored|unrestricted|unfiltered).{0,40}\b(chain.of.thought|reasoning|thinking|cot)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Persona-based jailbreak pattern targeting reasoning model safety mechanism
+    detected
+  description: 'Detects persona-based and role-play jailbreak patterns specifically
+    targeting Large Reasoning Models (LRMs). Unlike standard role-play jailbreaks,
+    these patterns explicitly target or reference the reasoning/thinking mechanism
+    (CoT, o1, DeepSeek-R1, Gemini Thinking) as the component to disable or bypass.
+    H-CoT (Kuo et al. 2025) demonstrates that the reasoning trace itself is the attack
+    surface — persona attacks that pretend the safety reasoning is disabled are particularly
+    effective against LRMs where reasoning tokens are visible.
+
+    '
+  remediation: 'Apply detection to persona requests that include explicit references
+    to disabling reasoning or safety mechanisms. Monitor for developer-mode or unrestricted
+    personas combined with mentions of reasoning model-specific identifiers. Enforce
+    consistent safety constraints regardless of instructed persona. Flag any persona
+    that claims to operate without the model''s normal reasoning or safety evaluation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-022
+  name: t2i-reasoning-orchestrated-jailbreak
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(reason2attack|r2a.attack|reasoning.attack.t2i|reasoning.attack.image)\b
+  - (?i)\b(llm.reasoning|chain.of.thought|cot.reasoning).{0,60}\b(text.to.image|t2i|image.generation|diffusion.model|dall.e|midjourney|stable.diffusion)\b.{0,60}\b(jailbreak|bypass|attack|evade|circumvent)\b
+  - (?i)\b(frame.semantic|frame.semantics).{0,60}\b(adversarial.prompt|jailbreak.prompt|attack.prompt).{0,50}\b(image|visual|picture|photo|generate)\b
+  - (?i)\b(rl.train|reinforcement.learn).{0,60}\b(adversarial.prompt|jailbreak).{0,50}\b(t2i|image.model|diffusion|dall.e|stable.diffusion)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: LLM reasoning-orchestrated Text-to-Image jailbreak pattern detected
+  description: 'Detects Reason2Attack (R2A) patterns from Zhang et al. (2025, AAAI
+    2026) where LLM chain-of-thought reasoning is used as an attack orchestration
+    engine against Text-to-Image safety filters. R2A uses Frame Semantics theory with
+    CoT to systematically generate adversarial prompts, combined with two-stage RL
+    training for optimization. Outperforms manually designed jailbreak strategies
+    against DALL-E 3, Midjourney, and Stable Diffusion. Demonstrates that reasoning
+    models can serve as attack-generating agents against other AI safety systems,
+    not just as targets.
+
+    '
+  remediation: 'Monitor for LLM API interactions that exhibit systematic prompt generation
+    patterns consistent with automated adversarial search. Apply rate limiting on
+    T2I API calls showing progressive adversarial refinement from the same session.
+    Flag CoT-structured prompts directed at image generation endpoints. Treat LLM-generated
+    T2I prompts with additional semantic safety scrutiny.
+
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-023
+  name: latent-vector-manipulation-safety-steering
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(latent.vector|latent.space|latent.representation).{0,60}\b(manipulat|steer|control|ablat|modify|alter).{0,40}\b(safety|refusal|caution|alignment|harmful)\b
+  - (?i)\b(jam.attack|just.a.move|causal.reasoning.vector).{0,60}\b(manipulat|steer|control|exploit)\b
+  - (?i)\b(cause.effect.latent|causal.latent|latent.causal).{0,60}\b(manipulat|control|steer|exploit|attack)\b
+  - (?i)\b(steer.generation|steer.output|steer.response).{0,40}\b(latent|embedding|representation|activation).{0,40}\b(harmful|unsafe|dangerous|malicious)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Latent vector manipulation for safety steering bypass detected
+  description: 'Detects latent vector manipulation attacks targeting LLM safety mechanisms.
+    Huang et al. (2025, UIUC) demonstrate the JAM framework identifying cause-effect
+    relationships in LLM latent space — the same technique usable defensively (toxicity
+    suppression) can be repurposed offensively to steer reasoning models toward harmful
+    outputs by manipulating causal representations. Yamaguchi et al. (2025, ICML)
+    confirm the caution direction in DeepSeek-R1 activations is precisely such a latent
+    vector controlling compliance vs. refusal during CoT generation. These white-box
+    attacks represent the highest-severity reasoning model exploit class.
+
+    '
+  remediation: 'Protect model inference infrastructure from external activation manipulation.
+    Implement integrity monitoring on model serving layers. Restrict and audit any
+    white-box access to model activations during inference. For high-risk deployments,
+    consider activation anomaly detection on CoT token generation streams. Treat latent
+    space access as privileged infrastructure access.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-024
+  name: multi-step-iterative-reasoning-jailbreak
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(multi.step.jailbreak|iterative.jailbreak|step.by.step.jailbreak|progressive.jailbreak)\b
+  - (?i)\b(iterative.prompt|progressive.prompt|escalat.prompt).{0,60}\b(jailbreak|bypass|circumvent|evade).{0,40}\b(safety|refusal|guardrail|filter)\b
+  - (?i)\b(build.on|follow.up|next.step|continue.from).{0,60}\b(previous.response|last.response|prior.output|above.response).{0,60}\b(harmful|dangerous|restricted|exploit)\b
+  - (?i)\b(step.1).{0,200}\b(step.2).{0,200}\b(step.3).{0,80}\b(jailbreak|bypass|harmful|weapon|exploit|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Multi-step iterative jailbreak sequence targeting reasoning model detected
+  description: 'Detects multi-step iterative jailbreak patterns that progressively
+    escalate toward harmful outputs. Li et al. (2023, EMNLP) demonstrate that iterative
+    multi-step prompting consistently outperforms single-step attacks for privacy
+    extraction. Against reasoning models, multi-step approaches are particularly effective
+    because each CoT reasoning step can be conditioned on the previous compliance,
+    creating a chain where each step normalizes the next. This compounds with H-CoT
+    (Kuo et al. 2025) to create especially effective attack sequences where early
+    reasoning compliances prime subsequent safety failures.
+
+    '
+  remediation: 'Implement session-level context analysis that tracks progressive escalation
+    patterns across multi-turn conversations. Apply cumulative intent scoring across
+    conversation history. Flag conversations that exhibit systematic step-by-step
+    movement toward restricted content. Use conversation-level safety evaluation rather
+    than per-turn evaluation only. Monitor for early-turn compliance being cited in
+    later-turn requests.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-RA-SCAN-025
+  name: reasoning-inconsistency-exploitation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(reasoning.inconsistency|inconsistent.reasoning|inconsistent.cot).{0,60}\b(exploit|trigger|cause|induce|force)\b
+  - (?i)\b(identical.structure|logically.equivalent|same.logic).{0,80}\b(different.reasoning|inconsistent.answer|contradictory.output)\b
+  - (?i)\b(isomorphic|equivalent.form|reformulat).{0,60}\b(harmful|dangerous|restricted|weapon|exploit).{0,40}\b(bypass|evade|different.response)\b
+  - (?i)\b(structural.transform|logical.transform|semantic.preserving.transform).{0,60}\b(jailbreak|bypass|circumvent|evade)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Reasoning inconsistency exploitation pattern — logical equivalence transform
+    used for bypass detected
+  description: 'Detects exploitation of reasoning inconsistency in Large Reasoning
+    Models. Shojaee et al. (2025, Apple) demonstrate that LRMs fail to apply explicit
+    algorithms consistently, producing different reasoning traces for identical logical
+    structures. Adversaries can exploit this by reformulating harmful requests as
+    logically or semantically equivalent forms that happen to produce different reasoning
+    paths — one of which bypasses safety evaluation. Since safety alignment is pattern-bound
+    rather than semantics-bound, structurally transformed equivalents of blocked prompts
+    may succeed where the original is refused.
+
+    '
+  remediation: 'Apply semantic equivalence detection across paraphrases and logical
+    transformations of restricted content. Use semantic embedding similarity to flag
+    near-equivalent requests across session turns. Do not rely solely on syntactic
+    pattern matching for safety evaluation. Implement semantic-level consistency in
+    safety policy across logically equivalent request forms.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-026
+  name: jailbreakbench-framework-evaluation-abuse
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(jailbreakbench|jbb|jailbreak.bench).{0,60}\b(eval|test|run|assess|measure|score)\b
+  - (?i)\b(jailbreak.artifact|jailbreak.log|jailbreak.template).{0,60}\b(submit|upload|run|evaluate|score)\b
+  - (?i)\b(redteam.framework|red.team.framework|attack.framework).{0,60}\b(reasoning.model|lrm|o1|o3|deepseek|cot)\b
+  - (?i)\b(benchmark.attack|attack.benchmark|evaluate.jailbreak).{0,60}\b(reasoning|thinking|cot|chain.of.thought)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: JailbreakBench or systematic attack evaluation framework usage targeting
+    reasoning model detected
+  description: 'Detects usage of JailbreakBench (Chao et al. 2024) and similar structured
+    red-teaming frameworks in contexts suggesting active attack campaigns against
+    reasoning models. JailbreakBench provides standardized attack evaluation infrastructure
+    used by Andriushchenko et al. (2024) to validate 100% ASR attacks. While legitimate
+    research tools, their systematic application against production reasoning model
+    deployments (o1, o3, DeepSeek-R1) represents a structured attack campaign. Detection
+    of benchmark artifact submission or evaluation against live reasoning model endpoints
+    warrants investigation.
+
+    '
+  remediation: 'Monitor API endpoints for systematic submission patterns consistent
+    with benchmark evaluation (structured prompts from known attack templates, batch
+    evaluation cadences). Apply rate limiting on structured red-teaming traffic to
+    production endpoints. Distinguish research sandbox access from production endpoint
+    access. Flag JailbreakBench artifact formats submitted to live systems.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-RA-SCAN-027
+  name: rome-model-edit-safety-bypass-amplification
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(rome.edit|rank.one.model.edit|rome.model.editing|rome.attack)\b
+  - (?i)\b(model.edit|model.editing|weight.edit).{0,60}\b(safety|guardrail|refusal|alignment|harmful|ethical)\b
+  - (?i)\b(single.edit|targeted.edit|one.edit).{0,60}\b(unethical|harmful|unsafe|dangerous|malicious).{0,40}\b(amplif|increas|boost|raise|elevat)\b
+  - (?i)\b(mend|serac|rome|wise|memit).{0,40}\b(safety.bypass|jailbreak|harmful|ethical.violat)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Model weight editing attack for safety bypass amplification detected
+  description: 'Detects ROME model editing attacks used to amplify safety bypass.
+    Banerjee et al. (2025, AAAI) demonstrate that a single ROME (Rank-One Model Editing)
+    edit catastrophically amplifies ethical violations: zero-shot unethical rate increases
+    from 18.9% to 56.7%, zero-shot CoT from 31.9% to 56.6%, few-shot from 22.8% to
+    65.7%. When combined with instruction-centric format attacks, the amplification
+    effect is devastating. ROME, MEND, SERAC, WISE, and MEMIT are all model editing
+    frameworks that can be weaponized to permanently alter model safety properties
+    with minimal intervention.
+
+    '
+  remediation: 'Implement model weight integrity verification (cryptographic signing
+    of model weights). Monitor for unauthorized model fine-tuning or weight modification
+    attempts. Apply model behavioral drift detection to identify post-deployment safety
+    degradation from editing attacks. Audit all model update pipelines for unauthorized
+    weight modifications. Restrict model weight access to authorized training/fine-tuning
+    infrastructure only.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+- id: MEDUSA-RA-SCAN-028
+  name: overthinking-perception-task-degradation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(force.thinking|force.reasoning|force.cot|force.chain.of.thought).{0,60}\b(perception|visual|image|object.detection|classification)\b
+  - (?i)\b(overthink|over.think).{0,60}\b(perception|visual.task|image.task|simple.task|easy.task)\b
+  - (?i)\b(cot.degradation|reasoning.degradation|thinking.degradation).{0,60}\b(perception|visual|classification|detection)\b
+  - (?i)\b(force|inject|insert|add).{0,30}\b(chain.of.thought|think.step.by.step|cot|reasoning).{0,60}\b(perception.task|simple.task|visual.task|classification.task)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Forced overthinking on perception tasks — CoT-induced accuracy degradation
+    attack detected
+  description: 'Detects attacks that force reasoning or CoT on tasks where it degrades
+    rather than improves performance. Jiang et al. (2025) MME-CoT benchmark demonstrates
+    that CoT prompting negatively impacts accuracy on perception-heavy tasks in multimodal
+    models. Adversaries can exploit this by injecting CoT directives into requests
+    about visual or perceptual tasks, causing the model to produce incorrect outputs.
+    This is a subtle attack where the reasoning mechanism becomes an accuracy-degradation
+    vector, potentially useful for manipulating AI-assisted decision systems where
+    visual perception accuracy is critical.
+
+    '
+  remediation: 'Apply task-type classification before routing to reasoning-augmented
+    vs. standard inference. Monitor for CoT injections into inherently perceptual
+    or classification tasks. Implement adaptive reasoning depth that evaluates whether
+    extended thinking improves or degrades performance for the given task type. Use
+    task-appropriate inference modes rather than defaulting to maximum reasoning depth
+    for all inputs.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-RA-SCAN-029
+  name: reflection-mechanism-inefficiency-exploitation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(self.correct|self.reflection|self.critique|self.verify).{0,60}\b(exploit|abuse|trigger|force|induce|cause).{0,40}\b(loop|repeat|cycle|infinite|endless)\b
+  - (?i)\b(reflection.loop|self.correction.loop|correction.cycle).{0,40}\b(exhaust|deplet|drain|consum|dos|denial)\b
+  - (?i)\b(force.self.correct|trigger.reflection|induce.self.critique).{0,60}\b(harmful|malicious|jailbreak|bypass)\b
+  - (?i)\b(kimi|qvq|virgo|internvl).{0,40}\b(reflection|self.correct).{0,40}\b(exploit|inefficien|abuse|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Reflection mechanism exploitation or self-correction loop attack pattern
+    detected
+  description: 'Detects exploitation of self-reflection and self-correction mechanisms
+    in reasoning models. Jiang et al. (2025) MME-CoT demonstrates that models with
+    reflection mechanisms (Kimi k1.5, QVQ-72B, Virgo-72B) exhibit significant inefficiency
+    in both normal response and self-correction phases — reflective cycles are computationally
+    expensive and can be triggered to cause resource exhaustion. Additionally, adversaries
+    can craft inputs that force models into self-correction loops on harmful content,
+    where each correction attempt re-engages with the harmful content, potentially
+    leading to eventual compliance or resource exhaustion.
+
+    '
+  remediation: 'Implement maximum iteration limits on self-correction and reflection
+    cycles. Monitor for abnormally long or repeated self-correction sequences. Apply
+    content-aware termination criteria that end reflection cycles when harmful content
+    is detected. Set hard computational limits on total thinking plus reflection token
+    usage per request.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-030
+  name: privacy-extraction-via-reasoning-chain
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(extract|retrieve|recover|reconstruct).{0,60}\b(training.data|memorized|private.data|personal.data|pii).{0,40}\b(reasoning|chain.of.thought|thinking|cot)\b
+  - (?i)\b(reasoning.chain|cot|chain.of.thought).{0,60}\b(reveal|expose|leak|disclose|output).{0,40}\b(private|personal|confidential|sensitive|pii|training.data)\b
+  - (?i)\b(think.through|reason.through|work.through).{0,60}\b(who|what|where|name|address|email|phone).{0,60}\b(private|personal|confidential|sensitive)\b
+  - (?i)\b(step.by.step|methodically|systematically).{0,40}\b(recall|remember|retrieve|access).{0,60}\b(training|memorized|learned|stored).{0,40}\b(data|information|example|record)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Privacy extraction attack leveraging reasoning chain to recover sensitive
+    data detected
+  description: 'Detects privacy extraction attacks that use chain-of-thought reasoning
+    as a retrieval mechanism for sensitive memorized data. Li et al. (2023, EMNLP)
+    demonstrate multi-step jailbreaking for privacy extraction from ChatGPT and New
+    Bing. Reasoning models are particularly vulnerable because the CoT process can
+    be directed to systematically search through memorized training content — extended
+    reasoning provides more computational steps to reconstruct memorized private information.
+    Application-integrated reasoning models with tool access compound this risk by
+    enabling reasoning-guided retrieval of real-time private data.
+
+    '
+  remediation: 'Apply output-side PII detection on reasoning model responses. Monitor
+    reasoning traces for systematic search patterns targeting personal or confidential
+    information. Implement data minimization in training sets to reduce memorization
+    risk. Restrict application-integrated LRM access to private data sources. Apply
+    differential privacy techniques to training data containing sensitive information.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-RA-SCAN-031
+  name: cot-compression-attack-minimum-safety-thinking
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(compress|compres).{0,40}\b(reasoning|cot|chain.of.thought|thinking).{0,40}\b(minimum|minimal|shortest|least|reduce|few.token)\b
+  - (?i)\b(cot.valve|cot.compress|reasoning.compress|thinking.compress)\b
+  - (?i)\b(reduce.thinking|minimize.thinking|shorten.reasoning|short.cot|minimal.cot)\b.{0,60}\b(safety|harm|refusal|check|evaluat)\b
+  - (?i)\b(parameter.direction|weight.direction|parameter.space).{0,50}\b(cot.length|reasoning.length|thinking.length|chain.length)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: CoT compression attack targeting minimum safety thinking budget detected
+  description: 'Detects adversarial use of CoT length compression to force minimum
+    reasoning depth, defeating safety checks that require adequate thinking time.
+    Ma et al. (2025, NUS) demonstrate that a controllable parameter-space direction
+    governs CoT length in QwQ-32B-Preview. Adversaries with white-box access can exploit
+    this to force minimal reasoning (e.g., 225 tokens instead of 741), potentially
+    bypassing safety reasoning that requires more thinking steps. At minimum- depth
+    reasoning, safety self-correction is less likely to occur. Adversarial counterpart
+    to the overthinking DoS class of attacks.
+
+    '
+  remediation: 'Enforce minimum reasoning depth thresholds proportional to request
+    sensitivity. Monitor for CoT length that is anomalously short relative to request
+    complexity on safety-relevant topics. Protect CoT length control parameters from
+    external manipulation. Validate that reasoning depth is adequate before accepting
+    model outputs on sensitive categories.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-032
+  name: grpo-unconstrained-reasoning-exploit
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(grpo|group.relative.policy.optim).{0,60}\b(unconstrained|unguided|unregulated|unsupervised).{0,40}\b(reasoning|thinking|cot|chain.of.thought)\b
+  - (?i)\b(pure.rl|rl.only|no.sft|without.sft|no.safety.finetuning).{0,60}\b(reasoning|deepseek|lrm|reasoning.model)\b
+  - (?i)\b(emergent.reasoning|emergent.thinking|emergent.cot).{0,60}\b(exploit|attack|manipulat|abuse|jailbreak)\b
+  - (?i)\b(self.reflection|self.verification|dynamic.strategy).{0,60}\b(exploit|manipulat|abuse|attack).{0,40}\b(deepseek|grpo|rl.train)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: GRPO unconstrained reasoning process exploitation pattern detected
+  description: 'Detects attacks targeting the unconstrained reasoning process of GRPO-trained
+    models like DeepSeek-R1 (Guo et al. 2025, Nature). DeepSeek-R1''s reward signal
+    is based solely on final answer correctness with no constraints on the reasoning
+    process itself. This creates a gap where adversaries can exploit emergent reasoning
+    patterns — self-reflection, verification, dynamic strategy adaptation — to bypass
+    safety. Unlike RLHF-trained models where safety is baked into the reward function,
+    GRPO models with unconstrained intermediate reasoning are uniquely vulnerable
+    to reasoning-process manipulation attacks.
+
+    '
+  remediation: 'Apply process-based reward models during RL training that evaluate
+    reasoning chain safety and quality, not just final answer correctness. Monitor
+    for exploitation of emergent reasoning patterns (self-reflection loops, dynamic
+    strategy shifts toward harmful content). Apply safety constraints on intermediate
+    reasoning tokens during GRPO training. Supplement RL-trained models with SFT safety
+    phases targeting known exploit patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-033
+  name: thinking-token-visibility-extraction-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(extract|capture|scrape|collect|save|log).{0,50}\b(thinking.token|reasoning.token|cot.token|think.token).{0,40}\b(attack|jailbreak|exploit|reuse|inject)\b
+  - (?i)\b(visible.thinking|displayed.reasoning|exposed.cot|leaked.thinking).{0,50}\b(exploit|reuse|inject|capture|extract|attack)\b
+  - (?i)\b(thinking.token|reasoning.token|cot.content).{0,60}\b(feedback.loop|feed.back|circular.inject|re.inject|reuse)\b
+  - (?i)\b(h.cot|hijack.cot|hijack.thinking|hijack.reasoning).{0,40}\b(token|trace|output|content|stream)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Thinking token visibility extraction and re-injection attack pattern detected
+  description: 'Detects attacks that exploit visible/displayed thinking tokens — the
+    core mechanism of H-CoT (Kuo et al. 2025). When reasoning models expose intermediate
+    thinking tokens (as in DeepSeek-R1 and Gemini 2.0 Flash Thinking), adversaries
+    can extract these tokens, manipulate them, and re-inject them back as a feedback
+    loop. This creates a circular attack where the model''s own safety reasoning is
+    turned against itself. H-CoT achieves near-0% refusal by feeding manipulated reasoning
+    back to the model, making the model believe it has already reasoned itself into
+    compliance. Requires visible CoT output.
+
+    '
+  remediation: 'Mask or suppress displayed thinking tokens from user-accessible context.
+    Never allow user-provided content that quotes or embeds model-generated reasoning
+    traces. Implement thinking token isolation — reasoning content should not be re-injectable
+    as user input. Apply rate limiting on API endpoints that expose raw thinking token
+    streams. Consider hashing or encoding thinking tokens to prevent verbatim re-injection.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-034
+  name: qwq-qvq-specific-reasoning-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(qwq|qvq|qwen.reasoning|qwen.thinking).{0,60}\b(jailbreak|attack|exploit|bypass|hack|circumvent)\b
+  - (?i)\b(qwq.32b|qvq.72b|qvq.max|qwq.preview).{0,60}\b(attack|exploit|bypass|jailbreak|caution|safety|refusal)\b
+  - (?i)\b(qwq|qvq).{0,40}\b(cot.length|reasoning.length|thinking.length).{0,40}\b(control|manipulat|exploit|attack)\b
+  - (?i)\b(qwen.team|qwq.32|qvq.max).{0,60}\b(no.refusal|bypass.safety|no.safety|uncensored|jailbreak)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: QwQ/QvQ Qwen reasoning model specific attack pattern detected
+  description: 'Detects attack patterns specifically targeting Qwen reasoning models
+    (QwQ-32B-Preview, QvQ-72B, QvQ-Max). Lu et al. (2025) validated CoT detail amplification
+    attacks (FICDETAIL) on QwQ; Ma et al. (2025) demonstrated the CoT length direction
+    is controllable on QwQ-32B-Preview — enabling both minimum-reasoning bypass and
+    budget exhaustion attacks. Sima et al. (2025) report 68.56% ASR on QvQ-Max via
+    VisCRA visual reasoning chain attacks. QwQ/QvQ models share DeepSeek-R1-class
+    reasoning vulnerabilities while introducing Qwen-family-specific attack surfaces
+    through parameter-space length control directions.
+
+    '
+  remediation: 'Apply additional safety monitoring for QwQ/QvQ deployments given documented
+    high ASR. Monitor for CoT length manipulation patterns in QwQ-32B environments.
+    Apply visual input sanitization before QvQ-Max reasoning chain activation. Supplement
+    Qwen reasoning models with output-side safety classifiers calibrated for their
+    specific output patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-035
+  name: gemini-flash-thinking-reasoning-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(gemini.flash.thinking|gemini.thinking|gemini.2.0.flash.thinking).{0,60}\b(jailbreak|attack|exploit|bypass|hack)\b
+  - (?i)\b(gemini.thinking|gemini.flash.thinking).{0,60}\b(viscra|visual.chain|visual.reasoning|visual.cot).{0,40}\b(attack|exploit|bypass)\b
+  - (?i)\b(gemini.thinking|gemini.flash.thinking).{0,60}\b(h.cot|hijack|thinking.token|cot.inject|reasoning.inject)\b
+  - (?i)\b(gemini.2.0|gemini.flash|gemini.thinking).{0,50}\b(near.zero.refusal|no.refusal|bypass.safety|jailbreak|criminal)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  message: Gemini Flash Thinking model-specific reasoning attack pattern detected
+  description: 'Detects attack patterns specifically targeting Gemini 2.0 Flash Thinking.
+    Kuo et al. (2025) demonstrate H-CoT achieves near-0% refusal rates on Gemini 2.0
+    Flash Thinking. Sima et al. (2025) achieve the highest VisCRA ASR of 76.48% against
+    this model — the highest ASR across all tested MLRMs — directly attributable to
+    its strong visual reasoning capability creating a larger attack surface per the
+    capability-safety trade-off. Gemini Flash Thinking''s combination of strong text
+    and visual reasoning makes it a high-priority target for both H-CoT and VisCRA
+    attack classes.
+
+    '
+  remediation: 'Deploy additional safety layers specifically tuned for Gemini Flash
+    Thinking''s known attack vectors. Apply visual input sanitization before reasoning
+    chain engagement. Monitor Gemini Thinking API interactions for H-CoT thinking-token
+    feedback patterns. Consider restricting visual reasoning capabilities in high-risk
+    deployment contexts to reduce VisCRA attack surface.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-036
+  name: o3-mini-reasoning-budget-forcing
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(o3.mini|o3|o1.mini|o1).{0,40}\b(budget.forcing|force.budget|budget.attack|token.force)\b
+  - (?i)\b(reasoning.effort|thinking.effort).{0,50}\b(force|set|manipulat|control|override|abuse).{0,40}\b(low|minimum|zero|none|high|maximum|exhaust)\b
+  - (?i)\b(budget.force|force.reasoning.budget|override.budget).{0,60}\b(o1|o3|reasoning.model|lrm)\b
+  - (?i)\b(openai.reasoning.effort|reasoning.effort.parameter|low.effort.attack|high.effort.attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Reasoning budget forcing attack targeting OpenAI o-series model detected
+  description: 'Detects budget-forcing attacks targeting OpenAI''s reasoning effort
+    parameter available for o1, o3, and o-mini models. The reasoning_effort parameter
+    (low/medium/high) controls CoT depth — adversarially forcing it to low creates
+    a minimum-reasoning bypass analogous to CoT-Valve compression attacks. Forcing
+    it to high combined with adversarially complex inputs creates OverThink-class
+    budget exhaustion (Shojaee et al. 2025, Apple). Manipulation of this parameter
+    allows attackers to either bypass safety checks (low effort) or conduct DoS (high
+    effort) against o1/o3 deployments.
+
+    '
+  remediation: 'Restrict or validate the reasoning_effort parameter for security-sensitive
+    deployments. Never allow unauthenticated callers to set minimum reasoning effort
+    on safety-relevant requests. Apply minimum reasoning effort floors for requests
+    touching sensitive content categories. Monitor for systematic alternation between
+    low and high effort settings that may indicate adversarial probing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-037
+  name: auto-spp-automated-system-prompt-poisoning
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(auto.spp|auto.system.prompt.poison|automated.system.prompt.poison)\b
+  - (?i)\b(automat.{0,20}poison|poison.automat).{0,60}\b(system.prompt|system.role|system.context|system.instruction)\b
+  - (?i)\b(adaptive.in.context.poison|in.context.poison|context.poison).{0,60}\b(system.prompt|system.level|persistent)\b
+  - (?i)\b(brute.force.poison|bf.poison).{0,40}\b(system.prompt|system.instruction|system.context)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Automated system prompt poisoning (Auto-SPP) attack pattern detected
+  description: 'Detects Auto-SPP (Automated System Prompt Poisoning) patterns from
+    Li et al. (2025). Auto-SPP automates three poisoning strategies against system
+    prompts: brute-force direct injection, adaptive CoT poisoning, and adaptive in-context
+    poisoning. Unlike user-prompt injection, system prompt poisoning persists across
+    ALL user interactions and cannot be overcome even when users employ CoT-augmented
+    prompting techniques. Tested against GPT-5, Gemini 2.5, and Claude Opus 4.1 class
+    models. Current black-box defenses are completely ineffective. Automation removes
+    the manual effort barrier from persistent compromise.
+
+    '
+  remediation: 'Treat system prompt modification as privileged infrastructure access,
+    not a user feature. Implement system prompt integrity verification with cryptographic
+    hashing on every inference call. Apply strict access controls and audit logging
+    for all system prompt modifications. Use immutable system prompts where possible.
+    Monitor for automated system prompt probing patterns (multiple rapid system prompt
+    variants from same client).
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-RA-SCAN-038
+  name: in-context-learning-safety-degradation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(in.context.learn|icl|few.shot.learn).{0,60}\b(safety.degradation|safety.bypass|safety.undermine|safety.erode)\b
+  - (?i)\b(few.shot|in.context).{0,50}\b(harmful.output|unethical|unsafe|dangerous).{0,40}\b(example|demonstrate|show|illustrate|sample)\b
+  - (?i)\b(demonstrate.harm|show.harm|illustrate.harm).{0,60}\b(in.context|few.shot|example)\b
+  - (?i)\b(priming|contextual.priming|behavioral.priming).{0,60}\b(harmful|unsafe|dangerous|unethical).{0,40}\b(response|output|generation)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: In-context learning safety degradation attack — harmful example priming
+    pattern detected
+  description: 'Detects in-context learning (ICL) attacks that prime reasoning models
+    toward harmful output via carefully chosen examples. Andriushchenko et al. (2024,
+    ICLR 2025) demonstrate that in-context learning prompts are highly effective against
+    certain reasoning models (achieving 100% ASR on R2D2). Zhang et al. (2025, DH-CoT)
+    refine this into NTP-based few-shot hacking where even benign-seeming examples
+    that avoid triggering safety filters are effective primers. ICL safety degradation
+    is particularly concerning for reasoning models because CoT examples in the context
+    can model the desired reasoning-then-comply sequence.
+
+    '
+  remediation: 'Apply safety evaluation to all in-context examples, not just the final
+    query. Monitor for examples that model harmful reasoning-and-compliance sequences.
+    Implement example-level content filtering before ICL examples are processed. Limit
+    the number of ICL examples in security-sensitive deployments. Flag prompts that
+    include examples of the model reasoning itself into compliance with potentially
+    harmful requests.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-039
+  name: claude-extended-thinking-bypass-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(claude.extended.thinking|claude.3.7.thinking|claude.thinking).{0,60}\b(jailbreak|attack|exploit|bypass|hack)\b
+  - (?i)\b(extended.thinking|think.extended|thinking.mode).{0,60}\b(bypass|circumvent|evade|defeat|inject|poison|manipulat)\b
+  - (?i)\b(claude.sonnet|claude.opus|claude.3.7).{0,40}\b(thinking.token|cot.token|reasoning.token).{0,40}\b(inject|poison|manipulat|extract|exploit)\b
+  - (?i)\b(interleaved.thinking|streaming.thinking|thinking.budget).{0,50}\b(exploit|bypass|attack|abuse|manipulat).{0,40}\b(claude)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  message: Claude extended thinking mode attack pattern detected
+  description: 'Detects attack patterns targeting Claude''s extended thinking mode
+    (Claude 3.7 Sonnet+). Shojaee et al. (2025, Apple) include Claude 3.7 Sonnet (extended
+    thinking) in their complexity collapse study, demonstrating complete accuracy
+    collapse beyond certain thresholds. Andriushchenko et al. (2024) demonstrate 100%
+    ASR against all Claude models via prefilling attacks. Extended thinking mode expands
+    the reasoning trace attack surface — thinking tokens in Claude are potentially
+    injectable via the interleaved thinking API. Budget forcing via the thinking budget
+    parameter creates DoS and minimum-reasoning bypass attack vectors.
+
+    '
+  remediation: 'Monitor thinking budget parameter usage for security-sensitive Claude
+    deployments. Restrict or validate extended thinking API access. Apply output-side
+    safety classifiers on Claude extended thinking outputs. Monitor for prefilling
+    attack patterns (partial assistant message injection) against Claude API endpoints.
+    Set appropriate thinking budget limits for the request''s sensitivity level.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-040
+  name: roboguard-root-of-trust-llm-compromise
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(root.of.trust|trust.llm|guardian.llm|safety.llm).{0,60}\b(compromise|attack|exploit|bypass|hijack|poison|manipulat)\b
+  - (?i)\b(roboguard|robot.guardrail|llm.robot.safety).{0,60}\b(bypass|defeat|evade|circumvent|compromise|attack)\b
+  - (?i)\b(temporal.logic|safety.constraint.llm).{0,60}\b(compromise|bypass|poison|inject|manipulat|attack)\b
+  - (?i)\b(safety.architecture|guardrail.architecture|two.stage.safety).{0,60}\b(root.llm|trust.llm|primary.llm).{0,40}\b(compromise|attack|poison)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Root-of-trust LLM compromise targeting safety guardrail architecture detected
+  description: 'Detects attacks targeting the root-of-trust LLM within safety guardrail
+    architectures. Ravichandran et al. (2025) demonstrate ROBOGUARD reduces unsafe
+    robot plan execution from 92% to 2.5%, BUT this relies on an uncompromised root-of-trust
+    LLM. If the root-of-trust reasoning LLM is compromised via H-CoT, scratchpad poisoning,
+    or caution-direction ablation (Yamaguchi et al. 2025), the entire safety architecture
+    fails. NeMo Guardrails (Rebedea et al. 2023) faces the same vulnerability — the
+    internal LLM performing safety evaluation can itself be the attack target, causing
+    complete safety infrastructure failure.
+
+    '
+  remediation: 'Apply defense-in-depth: never use a single LLM as the sole safety
+    gate in a guardrail architecture. Protect root-of-trust LLM reasoning chains from
+    injection using the same defenses applied to application LLMs. Use multiple independent
+    safety LLMs with different architectures. Apply formal verification methods on
+    temporal logic safety constraints independently of the LLM layer. Monitor root-of-trust
+    LLM behavior for anomalous compliance.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-041
+  name: adversarial-complexity-reasoning-collapse
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(tower.of.hanoi|hanoi.puzzle).{0,60}\b(disk|peg|move).{0,60}\b(adversarial|attack|exploit|jailbreak|bypass)\b
+  - (?i)\b(compositional.complexity|adversarial.complexity.inject|complexity.inject).{0,60}\b(reasoning.model|lrm|cot|thinking)\b
+  - (?i)\b(combinatorial|exponential.complexity|np.hard|intractable).{0,60}\b(force|trigger|cause|induce).{0,40}\b(reasoning.collapse|cot.collapse|thinking.collapse|accuracy.collapse)\b
+  - (?i)\b(puzzle|maze|constraint.satisf|planning.problem).{0,60}\b(adversarial.complex|crafted.complex|maximal.complex).{0,40}\b(reasoning|cot|thinking|lrm)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Adversarial compositional complexity injection for reasoning model collapse
+    detected
+  description: 'Detects adversarial complexity injection attacks targeting LRM collapse
+    thresholds. Shojaee et al. (2025, Apple) use Tower of Hanoi and similar compositional
+    puzzles to demonstrate complete accuracy collapse in all frontier LRMs (o1, o3,
+    Claude 3.7 Thinking, DeepSeek-R1, Gemini Thinking) beyond certain complexity thresholds.
+    Adversaries can craft inputs with adversarially high compositional complexity
+    to force LRMs into collapse regimes — this enables both resource exhaustion DoS
+    and forced reasoning failures that may produce unsafe outputs when safety-relevant
+    reasoning collapses.
+
+    '
+  remediation: 'Implement input complexity scoring before routing to reasoning model
+    inference. Apply computational complexity bounds on accepted reasoning problems.
+    Monitor for inputs with adversarially high compositional complexity. Use complexity-adaptive
+    routing to prevent LRM collapse by falling back to simpler evaluation strategies.
+    Set hard timeouts and token limits to prevent sustained collapse-regime resource
+    consumption.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-RA-SCAN-042
+  name: prefilling-assistant-response-injection
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(prefill|pre.fill|assistant.prefill).{0,60}\b(attack|inject|exploit|bypass|jailbreak)\b
+  - (?i)\b(partial.response|partial.assistant|assistant.begin|start.response).{0,60}\b(inject|prepend|force|bypass.safety|jailbreak)\b
+  - (?i)\b(messages.role.assistant|role.assistant.content).{0,60}\b(prefill|prepend|inject|force|bypass|override)\b
+  - (?i)\b(sure.i.will|sure.here|of.course.here|certainly.i.will|happy.to.help).{0,60}\b(prefill|assistant.message|inject.response|force.compliance)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Assistant message prefilling attack — partial response injection for compliance
+    forcing detected
+  description: 'Detects assistant-message prefilling attacks from Andriushchenko et
+    al. (2024, ICLR 2025). The Claude API and similar interfaces allow prefilling
+    the assistant''s partial response in the messages array. By injecting "Sure, I
+    will..." or similar compliance-signaling content as the start of the assistant
+    message, the model''s next-token prediction is primed to continue with harmful
+    content rather than refusing. This attack achieves 100% ASR on ALL Claude models
+    tested. Unique to APIs that support assistant-turn prefilling, this is a structural
+    vulnerability that bypasses all reasoning-based safety.
+
+    '
+  remediation: 'Disable or heavily restrict assistant-message prefilling for safety-sensitive
+    deployments. Validate prefilled assistant messages for harmful compliance signals
+    ("Sure", "Of course", "Certainly" before harmful content). Apply safety evaluation
+    to the complete expected continuation given the prefill context. Monitor for partial-response
+    injection patterns where the prefill begins with strong compliance language.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-043
+  name: mathematical-problem-framing-harm-encoding
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(mathematical|math|equation|formula|proof|theorem).{0,60}\b(encode|represent|embed|model|express).{0,60}\b(harmful|weapon|exploit|attack|dangerous|illegal)\b
+  - (?i)\b(solve|calculate|compute|derive|prove).{0,60}\b(following.problem|this.equation|this.formula).{0,200}\b(weapon|explosive|drug|synthesis|exploit|malware)\b
+  - (?i)\b(math.problem|word.problem|algebra|calculus|optimization).{0,80}\b(harmful.request|encoded.request|hidden.request|disguised)\b
+  - (?i)\b(abstract|formal|symbolic).{0,40}\b(notation|representation|formulation).{0,60}\b(harmful|weapon|attack|exploit|dangerous).{0,40}\b(bypass|evade|circumvent|hide)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Mathematical problem framing used to encode harmful request targeting reasoning
+    model detected
+  description: 'Detects attacks that encode harmful requests within mathematical problem
+    framings to exploit reasoning models'' tendency to engage deeply with formal problems.
+    Reasoning models like o1/o3 and DeepSeek-R1 are trained to reason step-by-step
+    through mathematical problems — adversaries can leverage this by encoding harmful
+    synthesis procedures as word problems, optimization problems, or formal derivations.
+    The model''s mathematical reasoning mode can be triggered to reason through harmful
+    content as if it were a legitimate computation problem, bypassing safety checks
+    focused on natural-language harm indicators rather than the semantic content of
+    mathematical formulations.
+
+    '
+  remediation: 'Apply semantic harm analysis to the content of mathematical word problems,
+    not just format. Evaluate the real-world interpretation of mathematical problem
+    specifications. Monitor for mathematical problems that embed procedural specifications
+    matching known harmful content categories. Apply format-invariant harm classifiers
+    that treat mathematical encodings of harmful procedures equivalently to direct
+    natural-language requests.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-044
+  name: puzzle-cipher-encoding-harmful-request
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(sudoku|crossword|word.puzzle|word.search|cipher|code).{0,80}\b(encode|decode|hidden|contain|embed|represent).{0,60}\b(harmful|dangerous|weapon|exploit|attack|illegal)\b
+  - (?i)\b(solve.this.puzzle|decode.this|crack.this.code).{0,100}\b(harmful|weapon|synthesis|exploit|attack|drug|malware)\b
+  - (?i)\b(puzzle.framing|game.framing|encoded.in.puzzle|embedded.in.game).{0,60}\b(jailbreak|bypass|circumvent|evade|attack)\b
+  - (?i)\b(hidden.meaning|hidden.instruction|encoded.instruction|steganograph).{0,60}\b(puzzle|game|cipher|code.word|pattern)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Puzzle or cipher encoding used to embed harmful request targeting reasoning
+    model detected
+  description: 'Detects attacks that encode harmful requests within puzzle or game
+    framings (sudoku, crosswords, ciphers, word puzzles) to exploit reasoning models''
+    problem-solving engagement. When harmful instructions are encoded within an apparently
+    innocuous puzzle structure, reasoning models may reason through the "puzzle solution"
+    without triggering content safety checks applied to natural language requests.
+    This exploits the OOD nature of puzzle-encoded content (Jeong et al. 2025, JOOD)
+    combined with the reasoning model''s deep engagement with structured problem-solving
+    contexts.
+
+    '
+  remediation: 'Apply semantic deobfuscation to decode puzzle and cipher-encoded content
+    before safety evaluation. Monitor for structured puzzle framings that contain
+    procedural specifications. Implement multi-layer safety evaluation that processes
+    both the literal puzzle and its decoded semantic content. Flag requests to solve
+    or decode puzzles that include markers of restricted content categories in the
+    encoded form.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-045
+  name: process-reward-model-exploitation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(process.reward.model|prm|step.reward|step.level.reward).{0,60}\b(exploit|manipulat|attack|hack|bypass|fool|deceive)\b
+  - (?i)\b(reward.shaping|reward.manipulat|reward.exploit).{0,60}\b(process|step|intermediate|cot|reasoning.step)\b
+  - (?i)\b(fool.reward.model|deceive.reward|trick.reward|spoof.reward).{0,60}\b(process|step|prm|verifier)\b
+  - (?i)\b(verifier.attack|verifier.exploit|verifier.bypass|verifier.fool).{0,50}\b(reasoning|cot|step|process|math.verif)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Process Reward Model (PRM) exploitation or step-level reward manipulation
+    attack detected
+  description: 'Detects attacks targeting Process Reward Models used in reasoning
+    model training and inference-time compute scaling. PRMs assign rewards to intermediate
+    reasoning steps and are used for Best-of-N sampling and step-level guidance in
+    o1-class models. Adversaries can craft inputs that fool PRMs into scoring harmful
+    reasoning steps as high-quality, effectively bypassing step-level safety evaluation.
+    This is analogous to reward hacking in GRPO-trained models (Guo et al. 2025) but
+    specifically targets the discriminator rather than the generator in reasoning
+    model architectures.
+
+    '
+  remediation: 'Apply adversarial training on PRMs using examples of harmful reasoning
+    steps that appear plausible. Implement ensemble PRM evaluation using multiple
+    independent reward models. Monitor for systematic patterns in PRM score distributions
+    suggesting adversarial input optimization. Do not rely solely on PRM scoring for
+    safety-critical reasoning step evaluation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-046
+  name: chain-of-thought-rollback-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(rollback|roll.back).{0,40}\b(reasoning|cot|chain.of.thought|thinking).{0,40}\b(safety|refusal|caution|prior)\b
+  - (?i)\b(undo|revert|cancel|discard).{0,40}\b(previous.reasoning|prior.thinking|earlier.cot|your.conclusion).{0,60}\b(harmful|dangerous|continue|now|instead)\b
+  - (?i)\b(forget.your.reasoning|ignore.your.thinking|discard.your.cot|start.over.reasoning)\b.{0,100}\b(harmful|dangerous|weapon|exploit|attack)\b
+  - (?i)\b(you.already.reasoned|you.concluded|your.analysis.showed|your.thinking.showed).{0,100}\b(comply|help|provide|allow|accept).{0,60}\b(harmful|dangerous|weapon|illegal|exploit)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Chain-of-thought rollback attack — instructing model to undo safety reasoning
+    detected
+  description: 'Detects CoT rollback attacks that attempt to undo completed safety
+    reasoning by instructing the model to discard or reverse conclusions reached during
+    its reasoning phase. These attacks occur in two forms: (1) instructing the model
+    to forget or undo safety-concluding reasoning before generating output; and (2)
+    falsely claiming the model''s previous reasoning concluded in favor of compliance
+    when it did not (a form of H-CoT manipulation). Kuo et al. (2025) demonstrate
+    that manipulated reasoning feedback can override genuine safety conclusions —
+    rollback attacks extend this by directly targeting the conclusion-holding capacity
+    of the reasoning trace.
+
+    '
+  remediation: 'Apply cryptographic commitment to reasoning conclusions — do not allow
+    later input to contradict or nullify safety conclusions reached during the thinking
+    phase. Monitor for directives that reference and attempt to reverse model reasoning
+    conclusions. Implement reasoning trace integrity verification that prevents rollback
+    of safety-relevant decisions. Treat any instruction to undo or discard reasoning
+    as a potential attack signal.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-047
+  name: distilled-reasoning-model-safety-gap
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(distilled|distill.model|reasoning.distill|cot.distill).{0,60}\b(safety.gap|safety.degradation|less.safe|weaker.safety|safety.loss)\b
+  - (?i)\b(deepseek.r1.distill|r1.distill.llama|r1.distill.qwen|qwen.distill|llama.distill).{0,60}\b(safety|refusal|guardrail|alignment).{0,30}\b(weaker|less|gap|miss|lack)\b
+  - (?i)\b(distilled.reasoning|distilled.cot|distilled.thinking).{0,60}\b(jailbreak|bypass|exploit|attack|circumvent)\b
+  - (?i)\b(student.model|distilled.model|compressed.model).{0,60}\b(reasoning.capability|cot|chain.of.thought).{0,40}\b(safety.bypass|jailbreak|exploit)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Distilled reasoning model safety gap exploitation detected
+  description: 'Detects exploitation of safety gaps in distilled reasoning models.
+    Guo et al. (2025, Nature) describe DeepSeek-R1-Distill variants that transfer
+    reasoning capabilities to smaller models (Llama-8B, Qwen-7B etc.). Yamaguchi et
+    al. (2025) specifically target DeepSeek-R1-Distill- Llama-8B, demonstrating the
+    caution direction ablation attack. Distilled models inherit reasoning capabilities
+    but may not fully inherit safety alignment — the distillation process transfers
+    capability-generating reasoning patterns without proportionally transferring the
+    full safety reasoning depth. This creates smaller, faster, deployable models with
+    disproportionately larger safety gaps than their teacher models.
+
+    '
+  remediation: 'Apply additional safety evaluation to distilled reasoning model outputs
+    beyond what is applied to teacher models. Conduct adversarial safety red-teaming
+    specifically of distilled variants before deployment. Do not assume distilled
+    model safety is equivalent to teacher model safety. Apply output-side safety classifiers
+    calibrated to distilled model output patterns. Monitor distilled model deployments
+    for higher-than-expected harmful output rates.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-RA-SCAN-048
+  name: hidden-thinking-token-reconstruction-probe
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(hidden.thinking|masked.thinking|suppressed.thinking|hidden.cot|hidden.reasoning).{0,60}\b(extract|reveal|expose|leak|probe|access|recover)\b
+  - (?i)\b(thinking.token|reasoning.token|cot.token).{0,40}\b(hidden|mask|suppress|encrypt|conceal).{0,40}\b(extract|reveal|bypass|circumvent|access)\b
+  - (?i)\b(probe.thinking|probe.reasoning|inference.from.output).{0,60}\b(reconstruct|recover|infer|deduce).{0,40}\b(reasoning.trace|cot|thinking.content)\b
+  - (?i)\b(side.channel|timing.attack|token.timing|output.inference).{0,60}\b(reasoning.model|thinking.model|cot.model|lrm)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Hidden thinking token reconstruction probe or side-channel attack on reasoning
+    model detected
+  description: 'Detects attempts to extract or reconstruct hidden/masked reasoning
+    tokens from models that suppress CoT output from users. Kuo et al. (2025) note
+    that masking thinking tokens partially mitigates H-CoT, but adversaries may attempt
+    to reconstruct hidden reasoning via output inference, timing analysis, or side-channel
+    probing. If a model''s reasoning tokens are hidden but deterministically influence
+    the final output, adversaries can probe the output to infer reasoning state, then
+    use inferred state for feedback injection — converting a hidden-thinking model''s
+    defense into a target for reconstruction attacks.
+
+    '
+  remediation: 'Apply output randomization and smoothing to prevent deterministic
+    reconstruction of hidden reasoning states from model outputs. Implement differential
+    privacy on thinking token influence over final outputs. Monitor for systematic
+    probing patterns (many nearly-identical queries with small variations) suggesting
+    reasoning state inference attacks. Apply rate limiting on API calls resembling
+    reasoning reconstruction probing sequences.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-RA-SCAN-049
+  name: application-integrated-lrm-tool-abuse
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(tool.call|function.call|api.call|tool.use).{0,60}\b(reasoning.model|lrm|thinking.model|cot.model).{0,40}\b(abuse|exploit|manipulat|inject|attack)\b
+  - (?i)\b(web.search|browse|retrieval|tool.access).{0,60}\b(reasoning.chain|cot|thinking).{0,40}\b(inject|poison|manipulat|exploit|attack)\b
+  - (?i)\b(agentic|agent.mode|autonomous.agent).{0,60}\b(reasoning.model|lrm|cot.model).{0,40}\b(exploit|abuse|jailbreak|attack|bypass)\b
+  - (?i)\b(prompt.inject.via.tool|indirect.inject|tool.output.inject).{0,60}\b(reasoning|cot|thinking|chain.of.thought)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Application-integrated LRM tool abuse or agentic reasoning attack detected
+  description: 'Detects attacks targeting application-integrated Large Reasoning Models
+    with tool/function access. Li et al. (2023, EMNLP) demonstrate that LLMs integrated
+    with web browsing (New Bing) are significantly more vulnerable to privacy extraction
+    than standalone models. Reasoning models with tool access face compound risks:
+    adversaries can inject malicious content through tool outputs (indirect prompt
+    injection) that poisons the reasoning chain, or use the reasoning chain to orchestrate
+    unauthorized tool calls. Agentic reasoning model deployments where CoT directs
+    multi-step tool use create high-severity attack surfaces where reasoning chain
+    compromise translates directly to unauthorized real-world actions.
+
+    '
+  remediation: 'Apply strict input/output validation on all tool call results before
+    they enter the reasoning context. Implement tool-call authorization that validates
+    each agentic action against a safety policy independent of the reasoning model.
+    Monitor reasoning traces for tool call sequences deviating from authorized action
+    patterns. Apply the principle of least privilege to LRM tool access — restrict
+    available tools to the minimum required for each deployment.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-050
+  name: cot-few-shot-compliance-cascade
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(compliance.cascade|compliance.chain|compliance.priming).{0,60}\b(cot|chain.of.thought|reasoning|thinking)\b
+  - (?i)\b(first.comply|initial.comply|start.comply).{0,60}\b(then.escalate|then.harmful|then.dangerous|then.weapon)\b
+  - (?i)\b(benign.start|harmless.start|safe.start).{0,80}\b(escalat|progress|build|lead.to).{0,60}\b(harmful|dangerous|weapon|exploit|attack)\b
+  - (?i)\b(normalize|normalization|desensitize).{0,60}\b(harmful.request|dangerous.content|restricted.content).{0,40}\b(reasoning|cot|thinking|chain.of.thought)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: CoT-driven compliance cascade attack — progressive normalization of harmful
+    requests detected
+  description: 'Detects compliance cascade attacks that use CoT reasoning to normalize
+    progressively harmful requests. By starting with benign requests that elicit compliant
+    reasoning traces, then gradually escalating toward harmful content, attackers
+    exploit the model''s tendency to be consistent with prior reasoning. Each compliant
+    reasoning step makes the next slightly more harmful request seem natural within
+    the established reasoning context. This is the multi-turn equivalent of the NTP
+    few-shot hacking approach (Zhang et al. 2025, DH-CoT) applied iteratively within
+    a conversation rather than via pre-crafted examples.
+
+    '
+  remediation: 'Implement conversation-level drift detection that monitors the progressive
+    harmfulness trajectory of multi-turn conversations. Apply safety evaluation to
+    the full conversation context, not just the current turn in isolation. Flag conversations
+    that exhibit monotonic escalation toward restricted content categories. Reset
+    safety evaluation context when topic drift toward harmful categories is detected.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-799
+- id: MEDUSA-RA-SCAN-051
+  name: jailbreak-transferability-reasoning-model-probing
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(transfer.attack|transferable.jailbreak|jailbreak.transfer).{0,60}\b(reasoning.model|lrm|o1|o3|deepseek.r1|gemini.thinking)\b
+  - (?i)\b(proxy.model|surrogate.model|substitute.model).{0,60}\b(jailbreak|attack|adversarial).{0,40}\b(transfer|transferable|apply.to|target)\b
+  - (?i)\b(black.box.transfer|whitebox.transfer|cross.model.transfer).{0,60}\b(jailbreak|attack|adversarial.suffix|adversarial.prompt)\b
+  - (?i)\b(universal.jailbreak|universal.adversarial|transferable.adversarial).{0,50}\b(reasoning|cot|thinking|lrm)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: Jailbreak transferability probing or cross-model attack transfer targeting
+    reasoning models detected
+  description: 'Detects transfer attack patterns where jailbreaks developed on open-source
+    or proxy models are transferred to closed-source reasoning models. Andriushchenko
+    et al. (2024, ICLR 2025) demonstrate that adaptive attacks transfer effectively
+    — adaptivity makes universal transfers more reliable than previously thought.
+    Kuo et al. (2025) confirm H-CoT is transferable across model families (o1, o3,
+    DeepSeek-R1, Gemini 2.0 Flash Thinking). Transfer attacks are particularly concerning
+    for reasoning models because the same fundamental CoT mechanism is shared across
+    model families, making reasoning-trace attacks inherently more transferable.
+
+    '
+  remediation: 'Do not assume safety based on black-box access alone — transfer attacks
+    require no direct access. Monitor for known adversarial suffix patterns from public
+    attack repositories. Apply adaptive defenses not defeated by simple template variations.
+    Use diverse safety training data that includes examples from known transfer attack
+    families. Monitor API traffic for systematic probing patterns consistent with
+    transfer attack development.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-052
+  name: medical-context-reasoning-safety-manipulation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(medical|clinical|doctor|physician|nurse|pharmacist|prescrib).{0,60}\b(reasoning.model|chain.of.thought|cot|thinking.model).{0,40}\b(bypass|evade|exploit|jailbreak|manipulat)\b
+  - (?i)\b(clinical.decision|medical.decision|treatment.decision).{0,60}\b(reasoning.chain|cot.manipulat|thinking.inject|cot.poison)\b
+  - (?i)\b(medical.jailbreak|clinical.jailbreak|prescription.jailbreak|drug.synthesis.reasoning)\b
+  - (?i)\b(medical.context|clinical.context|healthcare.context).{0,60}\b(bypass.safety|override.safety|ignore.safety|disable.refusal).{0,60}\b(dangerous|lethal|toxic|overdose|harmful)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Medical context exploitation for reasoning model safety bypass on dangerous
+    content detected
+  description: 'Detects attacks that exploit medical/clinical framing to bypass reasoning
+    model safety checks on dangerous content. Similar to the Malicious-Educator pattern
+    (Kuo et al. 2025, H-CoT), medical context framing tricks reasoning models into
+    applying clinical reasoning protocols that override safety checks. Reasoning models
+    specifically engage deeply with medical problems, creating a large reasoning attack
+    surface for medical framing attacks targeting dangerous dosage, synthesis, or
+    treatment manipulation content.
+
+    '
+  remediation: 'Apply context-invariant safety evaluation not reduced by medical/clinical
+    framing. Evaluate the actual dangerous content regardless of the stated clinical
+    purpose. Maintain heightened safety thresholds for synthesis, dosage, and pharmaceutical
+    content even in clinical contexts. Require explicit clinical authorization verification
+    before relaxing safety constraints for medical content requests.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-053
+  name: structured-output-format-safety-bypass
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(json.output|yaml.output|xml.output|structured.output).{0,60}\b(bypass.safety|evade.safety|circumvent.guardrail|avoid.refusal)\b
+  - (?i)\b(output.as.json|respond.in.json|format.as.yaml|structured.format).{0,80}\b(harmful|dangerous|weapon|exploit|malware|synthesis)\b
+  - (?i)\b(function.call.format|tool.call.format|api.response.format).{0,60}\b(harmful|dangerous|weapon|attack|exploit|illegal)\b
+  - (?i)\b(format.trick|format.bypass|output.format.attack|structured.output.attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Structured output format manipulation to bypass safety evaluation in reasoning
+    model detected
+  description: 'Detects attacks that request harmful content in structured output
+    formats (JSON, YAML, XML, function-call format) to bypass safety evaluation. Banerjee
+    et al. (2025, AAAI) demonstrate that instruction-centric format attacks increase
+    harmful output generation by 2-38%. Structured output formats present an expanded
+    attack surface because safety training is primarily on natural language outputs,
+    reasoning models increasingly support structured output modes (function calling,
+    JSON mode), and semantic harm in structured outputs may not be detected by pattern-matching
+    safety systems designed for prose.
+
+    '
+  remediation: 'Apply semantic harm analysis to structured output content independently
+    of format. Evaluate the semantic content of JSON/YAML/XML outputs for harmful
+    operational content. Apply the same harm thresholds to function-call outputs and
+    JSON responses as to prose responses. Monitor for requests that explicitly pair
+    harmful content with structured format directives.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-RA-SCAN-054
+  name: capability-safety-tradeoff-exploitation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(capability.safety.tradeoff|safety.capability.tradeoff|safety.tradeoff).{0,60}\b(reasoning|thinking|cot|lrm|visual.reasoning)\b.{0,40}\b(exploit|leverage|attack|abuse|use)\b
+  - (?i)\b(stronger.reasoning|better.reasoning|advanced.reasoning).{0,60}\b(more.vulnerable|higher.asr|easier.to.attack|less.safe|weaker.safety)\b
+  - (?i)\b(exploit.capability|leverage.capability|use.capability).{0,50}\b(against.safety|to.bypass|to.attack|to.jailbreak)\b
+  - (?i)\b(reasoning.depth.tradeoff|reasoning.safety.tradeoff|cot.safety.tradeoff).{0,60}\b(exploit|attack|leverage|abuse)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Capability-safety trade-off exploitation pattern targeting advanced reasoning
+    models detected
+  description: 'Detects attacks that explicitly target the capability-safety trade-off
+    in reasoning models. Sima et al. (2025, VisCRA) empirically demonstrate that stronger
+    visual reasoning capability correlates with higher vulnerability to visual reasoning
+    chain attacks — the more capable the reasoning, the larger the attack surface.
+    This generalizes: reasoning models trained for deeper, more nuanced thinking develop
+    more exploitable reasoning pathways. Adversaries who recognize this inverse relationship
+    may specifically target the highest-capability reasoning models precisely because
+    their advanced reasoning creates more attack vectors.
+
+    '
+  remediation: 'Design safety evaluations that scale with model capability — more
+    capable reasoning models require commensurately stronger safety guarantees. Apply
+    capability-aware safety monitoring expecting higher attack sophistication against
+    more capable models. Do not assume capability improvements automatically improve
+    safety. Invest proportionally more in safety red-teaming as reasoning capabilities
+    increase.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-055
+  name: reasoning-model-sycophancy-exploitation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(sycophantic|sycophancy|sycophant).{0,60}\b(reasoning|cot|chain.of.thought|thinking).{0,40}\b(exploit|abuse|attack|manipulat)\b
+  - (?i)\b(reasoning.bias|cot.bias|thinking.bias).{0,60}\b(exploit|leverage|attack|manipulat|abuse)\b
+  - (?i)\b(position.bias|primacy.bias|recency.bias).{0,60}\b(reasoning|cot|chain.of.thought|thinking.model)\b.{0,40}\b(exploit|attack|manipulat)\b
+  - (?i)\b(confirm.bias|confirmation.bias|anchoring.bias).{0,60}\b(reasoning.model|cot|lrm|thinking.model).{0,40}\b(exploit|attack|manipulat|abuse)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Reasoning model cognitive bias exploitation attack pattern detected
+  description: 'Detects attacks that exploit cognitive biases in reasoning model chains-of-thought,
+    such as sycophancy, position bias, primacy/recency effects, and confirmation bias.
+    Reasoning models trained via RLHF or GRPO may develop systematic biases in how
+    they process information during the reasoning phase — sycophantic reasoning models
+    may reason toward the answer a user appears to prefer, including harmful answers
+    if the user implies preference. Shojaee et al. (2025) demonstrate that LRMs reason
+    statistically rather than algorithmically, making them subject to distributional
+    biases that adversaries can craft inputs to exploit.
+
+    '
+  remediation: 'Apply adversarial debiasing training on reasoning model CoT generation.
+    Monitor for input patterns designed to exploit known reasoning biases. Implement
+    consistency checks across multiple reasoning paths for the same query. Apply calibration
+    evaluation to detect sycophantic compliance patterns in reasoning models. Use
+    diverse training data that exposes models to bias-exploitation scenarios during
+    safety training.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-056
+  name: multilingual-reasoning-safety-evasion
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(foreign.language|non.english|multilingual|low.resource.language).{0,60}\b(reasoning.model|cot|chain.of.thought|thinking).{0,40}\b(bypass|evade|circumvent|jailbreak|attack)\b
+  - (?i)\b(translate.to|respond.in|answer.in|think.in).{0,40}\b(chinese|arabic|russian|korean|japanese|hindi|farsi|turkish).{0,60}\b(harmful|dangerous|weapon|exploit|attack|illegal)\b
+  - (?i)\b(multilingual.jailbreak|cross.lingual.attack|language.switch.attack).{0,60}\b(reasoning|cot|thinking|chain.of.thought)\b
+  - (?i)\b(code.switch|language.switching|lingual.attack).{0,60}\b(safety.bypass|evade.safety|bypass.guardrail|circumvent.filter)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Multilingual switching attack to evade reasoning model safety evaluation
+    detected
+  description: 'Detects foreign language and code-switching attacks that exploit multilingual
+    safety gaps in reasoning models. Reasoning models trained primarily on English
+    safety data may have weaker safety reasoning in non-English languages — a form
+    of OOD safety gap (Jeong et al. 2025, JOOD). An attacker can request that harmful
+    content be generated in a less-common language, or switch languages mid-reasoning-chain
+    to cross the safety evaluation boundary. Particularly concerning for reasoning
+    models where the CoT itself may occur in a language with less safety training
+    coverage.
+
+    '
+  remediation: 'Apply language-invariant safety evaluation using multilingual safety
+    classifiers. Monitor for language-switching patterns in multi-turn conversations,
+    especially when switching occurs near sensitive content categories. Apply equal
+    safety constraints regardless of the output language requested. Ensure safety
+    training covers the full linguistic distribution of expected deployment contexts.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-057
+  name: cot-exception-argumentation-safety-bypass
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(exception|special.case|edge.case|corner.case).{0,60}\b(safety.rule|guardrail|refusal|policy|restriction).{0,40}\b(reasoning|cot|thinking|chain.of.thought)\b
+  - (?i)\b(this.is.an.exception|exception.to.the.rule|special.case.applies|unique.situation).{0,100}\b(harmful|dangerous|weapon|exploit|attack|illegal)\b
+  - (?i)\b(reason.through|work.through|think.through).{0,60}\b(why.this.is.allowed|why.this.is.acceptable|why.exception).{0,80}\b(harmful|dangerous|weapon|attack)\b
+  - (?i)\b(edge.case.bypass|exception.bypass|special.case.bypass|exception.jailbreak)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: CoT-driven exception argumentation to bypass safety rules detected
+  description: 'Detects attacks that use chain-of-thought reasoning to construct elaborate
+    exception arguments for why specific harmful requests should be permitted. Reasoning
+    models are particularly vulnerable because their CoT reasoning process can be
+    guided to identify or manufacture apparent exceptions to safety rules — the deeper
+    the reasoning, the more sophisticated the exception arguments that can be constructed.
+    H-CoT (Kuo et al. 2025) and the Malicious- Educator pattern exploit this: educational
+    context is argued as an exception. DH-CoT (Zhang et al. 2025) extends this with
+    multi-technique exception construction. These attacks weaponize the model''s own
+    reasoning capability to argue itself into compliance.
+
+    '
+  remediation: 'Apply absolute safety constraints that are not subject to exception
+    argumentation by the model. Implement bright-line rules that the reasoning process
+    cannot override regardless of argument quality. Monitor for reasoning traces that
+    conclude in exception-granting for restricted content categories. Train safety
+    evaluators to flag sophisticated exception arguments as higher-severity signals,
+    not as legitimate justifications.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-RA-SCAN-058
+  name: reasoning-trace-model-extraction
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(exfiltrate|exfiltration|data.exfil).{0,60}\b(reasoning.trace|thinking.token|cot.content|reasoning.output|thinking.content)\b
+  - (?i)\b(extract.reasoning|extract.thinking|extract.cot|extract.trace).{0,60}\b(proprietary|confidential|sensitive|private|secret)\b
+  - (?i)\b(reasoning.trace.theft|cot.theft|thinking.theft).{0,40}\b(ip|intellectual.property|model.behavior|proprietary)\b
+  - (?i)\b(model.extraction|model.steal).{0,40}\b(via.reasoning|via.cot|via.thinking|via.chain.of.thought)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Reasoning trace exfiltration or CoT-based model extraction attack detected
+  description: 'Detects attacks that target reasoning trace content for exfiltration
+    or model extraction. Visible thinking tokens in DeepSeek-R1, Gemini 2.0 Flash
+    Thinking, and Claude Extended Thinking expose rich information about model behavior,
+    training patterns, and system prompt content. An adversary can use systematic
+    reasoning elicitation to reconstruct system prompt content, extract proprietary
+    model behavioral patterns, or perform model functionality extraction via repeated
+    CoT observation. Kuo et al. (2025) demonstrate that H-CoT exploits reasoning trace
+    information — the same bidirectionality means traces contain extractable model
+    intelligence.
+
+    '
+  remediation: 'Limit reasoning trace verbosity in production deployments to the minimum
+    necessary. Apply differential privacy to reasoning trace outputs. Monitor for
+    systematic reasoning elicitation patterns consistent with model extraction campaigns.
+    Restrict access to raw thinking token streams. Apply information-theoretic limits
+    on how much system prompt content is recoverable from reasoning trace observation.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-200
+- id: MEDUSA-RA-SCAN-059
+  name: harmful-content-step-fragmentation-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(split|fragment|divide|break.up|separate).{0,60}\b(harmful.request|dangerous.request|restricted.content|illegal.content).{0,40}\b(multiple|several|across|between).{0,30}\b(step|turn|message|request|prompt)\b
+  - (?i)\b(innocuous.fragment|benign.fragment|harmless.piece).{0,60}\b(combine|assemble|aggregate|merge|reconstruct).{0,40}\b(harmful|dangerous|weapon|exploit|attack)\b
+  - (?i)\b(individually.harmless|individually.benign|each.piece.safe).{0,80}\b(combine|assemble|together|merge).{0,40}\b(harmful|dangerous|weapon|attack|restricted)\b
+  - (?i)\b(reasoning.model|lrm|cot.model).{0,60}\b(assemble|reconstruct|combine).{0,40}\b(fragment|piece|part|chunk).{0,40}\b(harmful|dangerous|weapon|attack)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Harmful content step-fragmentation attack — assembling restricted content
+    from innocuous fragments detected
+  description: 'Detects attacks that fragment harmful requests across multiple steps
+    or turns, where individual fragments appear benign but combine to constitute a
+    complete harmful request. Reasoning models are particularly exploitable for this
+    pattern because multi-step reasoning naturally handles step-by-step assembly tasks,
+    the model can be directed to combine information from separate context elements,
+    and CoT reasoning can be guided to synthesize fragmented knowledge into operational
+    harmful content. Li et al. (2023) demonstrate multi-step jailbreaking''s effectiveness
+    — step-fragmentation is the inverse applied to the request itself.
+
+    '
+  remediation: 'Implement cross-turn content analysis that evaluates the cumulative
+    semantic content of multi-turn conversations, not just per-turn safety. Apply
+    assembly detection that identifies when separate benign-seeming fragments combine
+    toward restricted content. Monitor for explicit instructions to combine or assemble
+    information from separate conversation turns. Apply session-level harm scoring
+    across the full conversation history.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-RA-SCAN-060
+  name: lrm-supply-chain-weight-backdoor
+  severity: CRITICAL
+  category: reasoning_attacks
+  patterns:
+  - (?i)\b(supply.chain.attack|supply.chain.poison|dependency.attack).{0,60}\b(reasoning.model|lrm|cot.model|o1|deepseek.r1|r1.distill)\b
+  - (?i)\b(poison.checkpoint|poison.weights|backdoor.reasoning|backdoor.cot|trojan.reasoning)\b
+  - (?i)\b(tamper.model|tamper.weights|modified.weights|unauthorized.weights).{0,60}\b(reasoning|cot|thinking|chain.of.thought)\b
+  - (?i)\b(malicious.fine.tune|malicious.finetune|adversarial.fine.tune|adversarial.finetune).{0,60}\b(reasoning.model|lrm|cot.model|thinking.model)\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: LRM supply chain attack or reasoning model backdoor/poisoning pattern detected
+  description: 'Detects supply chain attacks targeting reasoning model weights, checkpoints,
+    or fine-tuning pipelines. DeepSeek-R1-Distill variants (Guo et al. 2025) are widely
+    redistributed — a poisoned or backdoored distilled reasoning model checkpoint
+    would carry the H-CoT vulnerability (Kuo et al. 2025) and caution-direction ablation
+    vulnerabilities (Yamaguchi et al. 2025) by default, with additional attacker-controlled
+    backdoors. Banerjee et al. (2025) demonstrate that a single ROME edit catastrophically
+    amplifies harmful output rates — a supply chain attacker with write access to
+    model weights during distribution can introduce such edits invisibly. The broad
+    adoption of reasoning model checkpoints from third-party sources makes this a
+    high-severity infrastructure risk.
+
+    '
+  remediation: 'Verify cryptographic hashes of all reasoning model checkpoints before
+    deployment. Only use reasoning models from verified, trusted distribution channels.
+    Apply behavioral red-teaming on all third-party reasoning model weights before
+    production use. Implement model integrity monitoring in production that detects
+    behavioral drift from expected safety properties. Treat reasoning model weight
+    files as high-security artifacts requiring chain of custody verification.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494

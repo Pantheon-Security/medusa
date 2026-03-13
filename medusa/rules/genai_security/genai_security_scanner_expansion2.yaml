@@ -1,0 +1,528 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-GENAI-SCAN-078
+  name: autodan-turbo-automated-jailbreak-generation
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:from|import)\s+(?:autodan|autodan_turbo)
+  - (?i)AutoDAN.?Turbo\s*\(|AutoDAN\s*\(
+  - (?i)automated_jailbreak_gen|auto_jailbreak.*(?:llm|model|target)
+  - (?i)jailbreak_strategy.*(?:generate|auto|evolve|mutate|optimize)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AutoDAN-Turbo automated jailbreak generation framework detected
+  description: Detects AutoDAN-Turbo (Liu 2024), a fully automated jailbreak strategy generation framework that uses an LLM
+    to create, evolve, and optimize jailbreak strategies without human intervention. AutoDAN-Turbo achieves 88.5% ASR on GPT-4-Turbo
+    and 57.9% ASR on Claude 3 through automated strategy discovery and reuse. The framework builds a jailbreak strategy library
+    that can be shared and improved collaboratively.
+  remediation: Deploy adversarial training against AutoDAN-style evolved jailbreaks. Use jailbreak detection classifiers (HarmBench
+    evaluation). Monitor for systematic prompt structure patterns indicative of automated generation. Apply rate limiting
+    to detect automated jailbreak scanning.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GENAI-SCAN-079
+  name: wormgpt-fraudgpt-dark-web-llm-usage
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:WormGPT|FraudGPT|DarkGPT|EvilGPT|DAN.GPT)
+  - (?i)uncensored.*(?:llm|model|ai).*(?:dark.web|forum|market|telegram)
+  - (?i)jailbroken.*model.*(?:phishing|malware|fraud|scam|hack)
+  - (?i)(?:no.filter|no.safety|uncensored|jail.broke).*(?:gpt|llm|ai|claude|model).*(?:weapon|attack|hack|malware|phish)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: WormGPT/FraudGPT dark-web uncensored LLM or jailbroken model usage detected
+  description: Detects usage of WormGPT, FraudGPT, and similar dark-web LLMs that are fine-tuned or jailbroken to remove safety
+    constraints. These models are explicitly designed for generating phishing emails, malware, social engineering scripts,
+    and fraud schemes. WormGPT was marketed on cybercrime forums for €200/month and used to generate Business Email Compromise
+    (BEC) attacks. SlashNext research (2023); cybercrime forum intelligence.
+  remediation: Block all access to dark-web LLM APIs. Monitor for API endpoints associated with uncensored LLM services. Apply
+    email content analysis to detect WormGPT-generated phishing patterns. Report discovery of these tools to threat intelligence
+    teams.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-GENAI-SCAN-080
+  name: multimodal-visual-text-jailbreak-combined
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:visual|image|vision).*jailbreak.*(?:text|llm|combined|multi.modal)
+  - (?i)jailbreak.*(?:image|visual|picture).*combined.*(?:text|instruction)
+  - (?i)(?:encode|embed|hide).*(?:jailbreak|harmful|malicious).*(?:image|visual)
+  - (?i)multimodal.*attack.*(?:bypass|jailbreak|safety|filter)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Multimodal jailbreak combining visual and text modalities detected
+  description: Detects multimodal jailbreak attacks that combine visual adversarial perturbations with text instructions to
+    bypass LLM safety filters. Visual jailbreaks (e.g., embedding harmful instructions in images or using adversarially perturbed
+    images that unlock harmful text generation) exploit the weaker safety alignment in the vision encoder. Shayegani et al.
+    (2023); Yang et al. (2025) MFA. These attacks achieve higher ASR than text-only jailbreaks.
+  remediation: Apply multimodal content safety classifiers that evaluate text and image inputs jointly. Deploy vision-specific
+    safety fine-tuning for VLMs. Monitor for image+text combinations that trigger safety bypasses. Apply JPEG compression
+    and color depth reduction to destroy adversarial perturbations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-GENAI-SCAN-081
+  name: cbrn-information-elicitation-ai
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:cbrn|chemical.biological.radiological.nuclear).*(?:ai|llm|generate|elicit)
+  - (?i)(?:bioweapon|chemical.weapon|nerve.agent|radiological).*(?:synthesis|instructions?|formula|procedure).*(?:ai|llm|generate)
+  - (?i)(?:sarin|vx.gas|ricin|anthrax|botulinum).*(?:synthesis|make|create|produce).*(?:ai|llm|step)
+  - (?i)(?:pathogen|virus|bacteria).*(?:enhance|weaponize|modify|aerosolize).*(?:ai|llm|generate|instruct)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: CBRN information elicitation via AI detected — critical safety violation
+  description: Detects attempts to use generative AI to elicit CBRN (Chemical, Biological, Radiological, Nuclear) weapon synthesis
+    instructions, pathogen enhancement procedures, or radiological dispersal device designs. This represents the most severe
+    AI safety risk category. Even partial information could provide meaningful uplift. Anthropic, OpenAI, and DeepMind safety
+    policies explicitly prohibit this; NIST AI RMF categorizes this as critical risk.
+  remediation: Immediately escalate to security team. Apply hardcoded absolute refusal for all CBRN synthesis queries. Report
+    to relevant law enforcement authorities if elicitation attempts are detected. Review access logs for the requesting account.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-082
+  name: synthetic-media-election-interference
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:deepfake|synthetic.media|ai.generated).*(?:election|candidate|politician|vote|ballot|campaign)
+  - (?i)(?:fake|forged|fabricated).*(?:video|audio|image).*(?:politician|candidate|official|senator|president|prime.minister)
+  - (?i)(?:election|voting|ballot).*(?:interference|manipulation|disinformation|influence.operation).*(?:ai|llm|deepfake)
+  - (?i)(?:impersonate|clone.voice|fake.statement).*(?:politician|public.official|candidate|elected)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Synthetic media for election interference or political manipulation detected
+  description: Detects generation of synthetic media (deepfakes, AI-generated audio/video, fabricated statements) targeting
+    political candidates, elected officials, or election processes. AI-generated disinformation at scale is a critical democratic
+    threat. Electoral deepfakes have been documented in Slovakia (2023), Bangladesh (2023/24), and other elections. GIFCT
+    and European AI Act Article 50 require labeling; many jurisdictions criminalize electoral deepfakes.
+  remediation: Apply absolute refusal for fabricating statements of political figures. Detect electoral context with enhanced
+    sensitivity. Report detected election interference to appropriate authorities. Require C2PA provenance attestation for
+    AI-generated political content.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-083
+  name: deepfake-video-script-generation
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)deepfake.*(?:script|scenario|dialogue|storyboard|instructions?)
+  - (?i)(?:create|generate|produce).*deepfake.*(?:video|audio|face.swap|lip.sync)
+  - (?i)(?:face.swap|voice.clone|lip.sync).*(?:script|generate|create|produce).*(?:non.consensual|without.consent)
+  - (?i)(?:non.consensual|without.*permission|without.*consent).*(?:deepfake|synthetic.media|face.swap|voice.clone)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Deepfake video script generation or non-consensual synthetic media creation detected
+  description: Detects generation of scripts, scenarios, or technical instructions for creating deepfake videos, particularly
+    non-consensual intimate imagery (NCII) or harassment deepfakes. 96% of deepfakes online are non-consensual intimate imagery
+    targeting women (Deeptrace 2019/2023). AI-assisted deepfake creation tools lower technical barriers significantly. UK
+    Online Safety Act 2023 and US DEFIANCE Act criminalize NCII deepfakes.
+  remediation: Apply absolute refusal for non-consensual synthetic media content. Detect consent-negating language in deepfake
+    requests. Report NCII generation attempts to NCMEC. Require explicit consent indicators for any synthetic media involving
+    real individuals.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-084
+  name: pentestgpt-ai-assisted-vulnerability-discovery
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:from|import)\s+pentestgpt
+  - (?i)PentestGPT\s*\(|pentest_gpt\s*=
+  - (?i)ai.*assisted.*(?:pentest|vulnerability.discover|exploit.develop).*unauthorized
+  - (?i)autonomous.*exploit.*(?:develop|generate|create).*(?:target|victim|unauthorized)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: PentestGPT or AI-assisted vulnerability discovery against unauthorized targets detected
+  description: Detects PentestGPT (Deng 2023) and similar AI-assisted penetration testing frameworks operating against unauthorized
+    targets. PentestGPT integrates LLMs into the penetration testing pipeline, automating vulnerability discovery, exploitation
+    planning, and report generation. While legitimate for authorized assessments, use against unauthorized targets constitutes
+    unauthorized computer access. Also detects AI-generated exploit code without explicit scope authorization.
+  remediation: Require scope authorization documentation before any AI-assisted penetration testing. Deploy PentestGPT only
+    within authorized boundaries. Block exploit generation requests without explicit authorization context. Log all AI-assisted
+    security testing sessions for audit.
+  owasp_llm: LLM09:2025
+  cwe: CWE-285
+- id: MEDUSA-GENAI-SCAN-085
+  name: automated-social-engineering-script-generation
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|write).*(?:phishing|vishing|smishing|pretexting).*(?:script|email|message|call).*(?:target|victim|user|employee)
+  - (?i)social.engineering.*(?:script|template|campaign|automated|ai.generated)
+  - (?i)(?:spear.phish|whaling|credential.harvesting).*(?:email|message|script).*ai
+  - (?i)(?:impersonate|pretend.to.be|pose.as).*(?:it.support|helpdesk|bank|ceo|executive).*(?:script|email|template)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated automated social engineering script or phishing template detected
+  description: 'Detects AI-generated social engineering scripts, phishing email templates, and automated vishing (voice phishing)
+    scripts targeting specific individuals or organizations. LLMs dramatically lower the skill barrier for sophisticated social
+    engineering: WormGPT generates convincing BEC emails; spear-phishing scripts can be personalized at scale using OSINT.
+    CISA AA23-189A highlights LLM-enhanced phishing as a critical threat.'
+  remediation: Apply phishing intent classifiers to AI outputs. Monitor for generated content mimicking organizational templates,
+    authority figures, or IT communications. Deploy email authentication (DMARC, SPF, DKIM) to reduce deliverability of AI-generated
+    phishing. Report detected campaigns to PhishTank and APWG.
+  owasp_llm: LLM09:2025
+  cwe: CWE-74
+- id: MEDUSA-GENAI-SCAN-086
+  name: ai-generated-legal-medical-misinformation
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|write).*(?:fake|false|fabricated|misleading).*(?:legal|medical|health|pharmaceutical|clinical).*(?:advice|document|report|diagnosis|prescription)
+  - (?i)(?:impersonate|pose.as|pretend.to.be).*(?:doctor|physician|lawyer|attorney|pharmacist).*(?:generate|create|write|provide)
+  - (?i)(?:medical|health|legal).*(?:misinformation|disinformation|false.advice).*(?:ai|llm|generate|create|automated)
+  - (?i)(?:fake|fabricated|forged).*(?:medical.report|prescription|lab.result|legal.document|court.order)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated legal or medical misinformation or professional impersonation detected
+  description: Detects AI generation of false medical advice, fabricated clinical reports, forged prescriptions, fake legal
+    documents, or professional impersonation content. GenAI-generated medical misinformation poses direct patient harm risks;
+    legal document forgery enables fraud. WHO and FDA have issued warnings about AI medical misinformation. Several jurisdictions
+    criminalize AI-generated professional impersonation.
+  remediation: Apply professional context safety classifiers. Require explicit disclaimers for medical and legal AI-generated
+    content. Detect forgery indicators in document generation requests. Report fabricated medical/legal document generation
+    to relevant professional regulatory bodies.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-087
+  name: synthetic-financial-fraud-scheme-generation
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|write).*(?:investment.fraud|ponzi|pyramid.scheme|pump.and.dump).*(?:script|email|document|plan)
+  - (?i)(?:fake|fraudulent|forged).*(?:bank.statement|financial.statement|tax.document|invoice|wire.transfer).*(?:ai|generate|create)
+  - (?i)(?:romance.scam|pig.butchering|crypto.scam).*(?:script|template|message|conversation).*(?:ai|generate|llm)
+  - (?i)ai.*(?:financial.fraud|money.laundering|wire.fraud|bank.fraud).*(?:scheme|plan|script|template|generate)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated financial fraud scheme or synthetic financial document detected
+  description: 'Detects AI generation of financial fraud schemes, synthetic financial documents (fake bank statements, tax
+    documents), romance scam scripts (''pig butchering''), and investment fraud materials. AI lowers costs of financial fraud
+    dramatically: romance scam scripts can be personalized for each victim; fake financial documents are indistinguishable
+    from genuine ones. FBI IC3 2023 reports crypto romance scams cost $3.9B annually.'
+  remediation: Apply financial fraud intent classifiers to AI outputs. Monitor for document generation requests with financial
+    statement templates. Report detected financial fraud generation to FBI IC3 and FinCEN. Block generation of synthetic financial
+    identity documents.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-088
+  name: copyright-infringement-verbatim-reproduction
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:reproduce|copy|extract|verbatim).*(?:book|novel|article|song|lyrics|screenplay|copyrighted)
+  - (?i)(?:recite|repeat|output).*(?:complete|entire|full|word.for.word).*(?:chapter|song|article|paper|book)
+  - (?i)copyright.*(?:infringement|violation|bypass|circumvent).*(?:ai|llm|generate)
+  - (?i)(?:bypass|circumvent|avoid).*copyright.*(?:ai|llm|output|generate)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI copyright infringement via verbatim reproduction or copyright bypass attempt detected
+  description: Detects attempts to use AI models to reproduce copyrighted material verbatim, including full chapters from
+    books, complete song lyrics, academic papers, and news articles. Also detects attempts to use AI to circumvent copyright
+    protections. Memorized verbatim reproduction has been documented in multiple copyright lawsuits (NYT v. OpenAI, Authors
+    Guild v. OpenAI). Regenerating copyright-protected content at scale may constitute infringement.
+  remediation: Apply copyright detection classifiers and verbatim reproduction detection. Implement membership inference defenses
+    to reduce memorization. Deploy differential privacy during fine-tuning to limit verbatim reproduction. Add copyright disclaimers
+    when reproducing potentially protected material.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-GENAI-SCAN-089
+  name: ai-propaganda-at-scale-generation
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|produce).*propaganda.*(?:scale|mass|automated|bulk|campaign)
+  - (?i)(?:influence.operation|information.warfare|psyop).*(?:ai|llm|generate|automated|scale)
+  - (?i)(?:coordinated.inauthentic|bot.network|fake.account).*(?:ai.generated|llm|automated).*(?:content|post|tweet|narrative)
+  - (?i)(?:astroturf|fake.grassroots|manufactured.consensus).*(?:ai|llm|generate|automated)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated propaganda at scale or coordinated influence operation detected
+  description: Detects AI-assisted coordinated influence operations, propaganda campaigns, and information warfare activities.
+    State-sponsored actors (Russia's Internet Research Agency, China's 50-cent army, Iran's IRGC) have adopted LLMs for scaled
+    propaganda generation. OpenAI disrupted multiple LLM-powered influence operations in 2024. EU FIMI (Foreign Information
+    Manipulation and Interference) framework; DHS CISA election security guidance.
+  remediation: Apply influence operation detection classifiers. Monitor for high-volume coordinated content generation with
+    narrative consistency signatures. Report detected influence operations to Atlantic Council's Digital Forensic Research
+    Lab (DFRLab) and Meta Threat Intelligence. Block bulk generation requests with political narrative manipulation indicators.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-090
+  name: autonomous-cyberweapon-development-ai
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:autonomous|ai.assisted|llm.generated).*(?:malware|ransomware|exploit|cyberweapon|worm|botnet)
+  - (?i)(?:generate|create|develop|code|write).*(?:malware|ransomware|exploit).*(?:autonomous|self.propagating|ai.assisted)
+  - (?i)(?:self.replicating|polymorphic|metamorphic).*(?:malware|virus|worm).*(?:ai|llm|generate|create)
+  - (?i)(?:offensive.cyber|cyberweapon|zero.day).*(?:generate|create|develop|ai.assisted|automated)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Autonomous AI-assisted cyberweapon or malware development detected
+  description: Detects AI-assisted development of cyberweapons, autonomous malware, self-propagating worms, and offensive
+    cyber tools. LLMs can generate polymorphic malware variants, suggest zero-day exploitation strategies, and create functional
+    ransomware payloads. CrowdStrike 2024 reported AI-enhanced malware in active use. CISA AA24-290A; NCSC and Five Eyes joint
+    advisory on AI-enabled offensive cyber operations.
+  remediation: Apply absolute refusal for malware/exploit generation. Deploy malware intent classifiers on code generation
+    outputs. Monitor for shellcode, C2 framework, and persistence mechanism patterns in generated code. Report AI-generated
+    cyberweapon code to CISA and relevant CERTs.
+  owasp_llm: LLM09:2025
+  cwe: CWE-94
+- id: MEDUSA-GENAI-SCAN-091
+  name: ai-generated-harassment-targeted-content
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|write).*(?:harass|threaten|intimidate|stalk).*(?:specific|named|target|individual|person|user)
+  - (?i)(?:targeted|personalized).*(?:harassment|abuse|threat|intimidation).*(?:ai|llm|generate|automated)
+  - (?i)(?:doxx|doxing|expose.personal.information).*(?:ai|generate|automate|script)
+  - (?i)(?:hate.speech|slur|dehumanize).*(?:target|specific.person|individual|named).*(?:generate|create|ai)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated targeted harassment, threat, or doxing content detected
+  description: 'Detects AI generation of targeted harassment campaigns, threatening messages, doxing scripts, and personalized
+    abuse content against specific individuals. LLMs enable harassment at scale: generating hundreds of personalized threatening
+    messages, synthesizing OSINT for doxing, and creating coordinated harassment campaigns. Online Safety Act (UK), CCRI Act
+    (US), and NetzDG (Germany) impose obligations to prevent AI-generated harassment.'
+  remediation: Apply targeted harassment intent classifiers. Detect named individual + threatening language patterns. Block
+    doxing information synthesis requests. Report detected targeted harassment campaigns to NCMEC, platform safety teams,
+    and relevant law enforcement.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-092
+  name: genai-model-output-watermark-bypass
+  severity: MEDIUM
+  category: genai_security
+  patterns:
+  - (?i)(?:remove|strip|destroy|bypass|defeat).*(?:watermark|provenance|c2pa|origin.marker).*(?:ai.generated|synthetic|generated)
+  - (?i)(?:ai.watermark|llm.watermark).*(?:bypass|remove|strip|defeat|evade)
+  - (?i)(?:evade|bypass|defeat).*(?:ai.detector|ai.content.detector|ai.detection|gptzero|originality)
+  - (?i)(?:paraphrase|rewrite|humanize).*(?:ai.generated|llm.output|synthetic.text).*(?:evade|bypass|fool|detector)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI output watermark removal or AI content detector bypass detected
+  description: Detects attempts to remove AI-generated content watermarks, evade AI content detectors, or launder AI-generated
+    text to appear human-written. C2PA (Content Authenticity Initiative) provenance standards and NIST AI 100-4 recommend
+    watermarking AI outputs; defeating these undermines content authentication. Academic fraud, disinformation, and propaganda
+    operations routinely launder AI content through paraphrasing. Kirchenbauer et al. (2023) watermarking research.
+  remediation: Apply robust watermarking schemes (Kirchenbauer 2023) resistant to paraphrasing attacks. Use semantic watermarking
+    that survives rewording. Monitor for systematic paraphrasing patterns targeting watermark destruction. Require C2PA provenance
+    metadata on all AI-generated content.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-093
+  name: genai-identity-theft-document-forgery
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:forge|fake|create.fake|fabricate).*(?:passport|driver.license|identity.document|id.card|birth.certificate|ssn|social.security)
+  - (?i)(?:ai|llm|generate).*(?:fake.id|identity.fraud|identity.document|synthetic.identity)
+  - (?i)(?:synthetic.identity|identity.fraud).*(?:ai|llm|generate|create|produce)
+  - (?i)(?:generate|create|produce).*(?:fake|forged|fabricated).*(?:government.document|official.document|id|passport|visa)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: AI-generated identity document forgery or synthetic identity fraud detected
+  description: Detects AI generation of forged identity documents, synthetic identity creation, and government document fabrication.
+    Generative AI (particularly diffusion models) can now produce photorealistic fake passports and driver's licenses that
+    defeat automated identity verification. Synthetic identity fraud was the fastest-growing financial crime in 2023 (Aite-Novarica).
+    18 USC 1028 and equivalent statutes criminalize identity document fraud.
+  remediation: Apply absolute refusal for identity document generation. Detect identity document template generation patterns.
+    Block requests for official document visual generation with identity fields. Report detected identity fraud generation
+    to NCMEC and FBI IC3.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-094
+  name: genai-red-team-automated-safety-evaluation
+  severity: LOW
+  category: genai_security
+  patterns:
+  - (?i)(?:from|import)\s+(?:garak|promptfoo|promptbench|harmbench)
+  - (?i)(?:garak|promptfoo)\s*\.\s*(?:scan|probe|test|run|evaluate)
+  - (?i)safety_evaluation.*automated.*(?:target|model|endpoint)
+  - (?i)automated.*red.team.*(?:llm|model|api|endpoint)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Automated AI safety red-teaming tool detected — verify authorization
+  description: Detects automated LLM safety red-teaming tools (Garak, PromptFoo, PromptBench, HarmBench) that systematically
+    probe models for safety vulnerabilities. While legitimate for authorized security evaluations, these tools can be used
+    without authorization to enumerate safety bypasses. Logs this for verification of authorized scope. Mark et al. (2023)
+    Garak; PromptBench (Zhu 2023).
+  remediation: Verify authorization before allowing automated safety evaluation tools. Require scope documentation. Log all
+    automated safety evaluation sessions. Monitor for unauthorized use against production endpoints.
+  owasp_llm: LLM01:2025
+  cwe: CWE-285
+- id: MEDUSA-GENAI-SCAN-095
+  name: genai-nonconsensual-intimate-imagery
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|create|produce).*(?:nude|naked|intimate|sexual).*(?:specific.person|named.individual|without.consent|non.consensual)
+  - (?i)(?:non.consensual|without.consent|without.permission).*(?:nude|naked|intimate|sexual|explicit)
+  - (?i)(?:deepfake|ai.generated).*(?:nude|naked|intimate|explicit|sexual).*(?:real.person|celebrity|woman|man|person)
+  - (?i)(?:undress|strip|remove.clothes).*(?:specific.person|named|photo|image).*ai
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Non-consensual intimate imagery (NCII) generation attempt detected — critical safety violation
+  description: Detects attempts to generate non-consensual intimate imagery (NCII) or synthetic sexual content depicting real
+    individuals without consent. NCII is criminalized in 48 US states, UK Online Safety Act 2023, EU AI Act Article 5(1)(d)
+    prohibits AI systems that generate NCII. 96% of deepfakes are NCII (Deeptrace 2023). This represents a critical GenAI
+    safety violation.
+  remediation: Apply absolute hardcoded refusal for any NCII generation request. Immediately escalate detected NCII generation
+    attempts to safety team and legal counsel. Report to NCMEC CyberTipline and National Center for Victims of Crime. Preserve
+    logs for potential law enforcement referral.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-GENAI-SCAN-096
+  name: genai-supply-chain-malicious-model-distribution
+  severity: CRITICAL
+  category: genai_security
+  patterns:
+  - (?i)(?:distribute|share|publish|upload).*(?:backdoored|trojaned|poisoned|malicious).*(?:model|checkpoint|weights?).*(?:huggingface|hub|github|kaggle)
+  - (?i)(?:malicious|backdoored|poisoned).*model.*(?:supply.chain|distribution|hub|repository)
+  - (?i)lm.studio.*(?:malicious|unsafe|uncensored|jailbroken).*(?:model|gguf|weights?)
+  - (?i)(?:unsafe|uncensored|jailbroken).*(?:model|llm|weights?).*(?:download|serve|deploy|distribute)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  message: Malicious or jailbroken model supply chain distribution detected
+  description: Detects distribution or serving of malicious, backdoored, or jailbroken models through model hubs, local serving
+    tools (LM Studio, Ollama), or direct distribution. The model supply chain is a critical attack surface; malicious models
+    distributed via HuggingFace or model zoos can backdoor downstream applications. Hugging Face reported multiple malicious
+    models in 2024. JFrog security report on malicious ML models (2024).
+  remediation: Require model hash verification before loading from external sources. Maintain an internal vetted model registry.
+    Apply TrojAI scanning to externally sourced models. Monitor for unsafe model distribution through organizational egress
+    channels.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-GENAI-SCAN-097
+  name: genai-model-inversion-training-data-extraction
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:extract|recover|steal|reconstruct).*(?:training.data|private.data).*(?:llm|model|generative)
+  - (?i)(?:memorization|verbatim.reproduction).*(?:attack|extract|exploit).*(?:llm|model|generative)
+  - (?i)differential.attack.*(?:llm|language.model|generative.ai)
+  - (?i)(?:reconstruct|infer|extract).*(?:personal.data|private.information|pii).*(?:llm|training|model)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Training data extraction or model inversion attack against generative AI detected
+  description: Detects model inversion and training data extraction attacks against generative AI models. Carlini et al. (2021,
+    2023) demonstrated verbatim training data extraction from GPT-2 and ChatGPT. Membership inference and reconstruction attacks
+    can recover private PII, copyrighted content, and sensitive training data from LLMs. This enables GDPR Article 17 'right
+    to erasure' violations when personal data cannot be removed.
+  remediation: Apply differential privacy during pre-training and fine-tuning. Monitor for systematic prompting designed to
+    elicit memorized content. Implement canary tokens in training data to detect extraction. Apply output filtering for training
+    data reproduction patterns.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-GENAI-SCAN-098
+  name: genai-model-denial-of-service-resource-exhaustion
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:denial.of.service|dos|ddos).*(?:llm|ai|model|inference|api)
+  - (?i)(?:sponge.attack|resource.exhaustion|compute.bomb).*(?:llm|model|inference)
+  - (?i)(?:generate|craft).*(?:adversarial|crafted).*(?:input|prompt|query).*(?:maximize.tokens|exhaust.compute|slow.inference)
+  - (?i)(?:longest.*context|max.*tokens|context.exhaustion).*(?:attack|exploit|abuse)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: Generative AI denial-of-service or resource exhaustion attack detected
+  description: Detects sponge attacks (Shumailov 2021) and GenAI denial-of-service attacks that craft inputs maximizing inference
+    compute consumption. Adversarial inputs designed to maximize token generation length or trigger worst-case attention computation
+    can exhaust GPU resources and degrade service for other users. OWASP LLM10:2025 covers model DoS as a top LLM vulnerability.
+  remediation: Implement token budget limits per API request. Apply compute-based rate limiting. Use input complexity scoring
+    to detect adversarial compute-maximizing prompts. Deploy adaptive token generation limits based on real-time resource
+    utilization.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-GENAI-SCAN-099
+  name: genai-multimodal-data-exfiltration-steganography
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:hide|embed|encode).*(?:sensitive|confidential|private|secret).*(?:image|audio|generated)
+  - (?i)(?:steganograph|covert.channel).*(?:llm|ai.generated|model.output)
+  - (?i)(?:exfiltrate|exfil|leak|steal).*(?:data|information).*(?:steganograph|hidden|encoded).*(?:image|audio|output)
+  - (?i)(?:llm|model).*(?:covert.channel|hidden.channel|steganograph).*(?:output|response|image)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: GenAI-assisted steganographic data exfiltration or covert channel detected
+  description: Detects AI-assisted steganographic data exfiltration where sensitive data is embedded in AI-generated content
+    (images, audio, text) for covert channel communication. Multimodal LLMs can be directed to encode information in generated
+    images or use statistical patterns in text generation to create undetectable covert channels. This enables bypassing DLP
+    controls. AI steganography research (Yang 2024).
+  remediation: Apply image and audio steganalysis to AI-generated outputs leaving the organization. Monitor for systematic
+    steganographic encoding requests. Deploy DLP policies that inspect AI-generated content for hidden data channels. Require
+    metadata stripping on all AI-generated outputs.
+  owasp_llm: LLM08:2025
+  cwe: CWE-200
+- id: MEDUSA-GENAI-SCAN-100
+  name: genai-bias-fairness-discriminatory-output
+  severity: HIGH
+  category: genai_security
+  patterns:
+  - (?i)(?:generate|produce|create).*discriminatory.*(?:hiring|screening|evaluation|scoring).*(?:race|gender|age|religion|disability|national.origin)
+  - (?i)(?:bias|discriminat|unfair).*(?:ai|llm|model).*(?:hiring|credit|loan|insurance|sentencing|parole)
+  - (?i)(?:amplify|exploit|weaponize).*(?:bias|discriminat).*(?:ai|llm|model|output)
+  - (?i)(?:race|gender|religion|ethnicity).*(?:score|rank|screen|filter).*(?:ai|llm|model|automat)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Discriminatory AI output generation or bias amplification in high-stakes decisions detected
+  description: Detects generation of discriminatory AI outputs targeting protected characteristics in high-stakes decisions
+    (hiring, credit, housing, criminal justice). EU AI Act Article 6 prohibits biometric categorization by race/religion in
+    prohibited use cases. US EEOC and FTC have issued guidance against AI discrimination. Weaponizing LLM biases to generate
+    discriminatory screening criteria constitutes illegal discrimination in many jurisdictions.
+  remediation: Apply fairness classifiers to AI outputs in high-stakes decision contexts. Require human oversight for AI-assisted
+    decisions involving protected characteristics. Conduct regular bias audits using NIST AI 100-3 fairness metrics. Block
+    generation of discriminatory screening criteria.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693

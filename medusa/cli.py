@@ -5,8 +5,10 @@ Modern Click-based CLI for cross-platform security scanning
 """
 
 import sys
+import re
 import shutil
 import subprocess
+import tempfile
 import click
 from pathlib import Path
 from typing import Optional
@@ -1164,7 +1166,7 @@ def print_banner():
 """
     # Version line: .2.0 in EXACT same cyan as Target:/Mode:
     version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
-    line2 = "76 Analyzers | 4,000+ Rules | AI Security Detection"
+    line2 = "76 Analyzers | 7,300+ Rules | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1180,11 +1182,11 @@ def print_banner():
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]76 Analyzers | 4,000+ Rules | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]76 Analyzers | 7,300+ Rules | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 4,000+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 7,300+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1194,7 +1196,7 @@ def main(ctx, version):
     """
     MEDUSA - AI Security Scanner
 
-    4,000+ AI security detection patterns with 76 specialized analyzers.
+    7,300+ AI security detection patterns with 76 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
@@ -1214,7 +1216,7 @@ def main(ctx, version):
 
 
 @main.command()
-@click.argument('target', type=click.Path(exists=True), default='.')
+@click.argument('target', type=click.Path(), default='.')
 @click.option('-w', '--workers', type=int, default=None,
               help='Number of worker processes (default: auto-detect)')
 @click.option('--quick', is_flag=True,
@@ -1235,7 +1237,9 @@ def main(ctx, version):
               help='Skip report generation (faster)')
 @click.option('-e', '--exclude', multiple=True,
               help='Exclude paths from scan (can specify multiple, e.g. --exclude archive/ --exclude scripts/)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude):
+@click.option('-g', '--git', 'git_url', type=str, default=None,
+              help='Clone and scan a remote git repo (URL or user/repo shorthand)')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude, git_url):
     """
     Scan a directory or file for security issues.
 
@@ -1250,11 +1254,32 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         medusa scan --fail-on high .           # Fail on HIGH+ issues
         medusa scan . --exclude archive/       # Exclude a directory
         medusa scan . -e vendor/ -e scripts/   # Exclude multiple paths
+        medusa scan --git user/repo            # Clone and scan a GitHub repo
+        medusa scan -g https://github.com/u/r  # Clone and scan by URL
     """
-    # Validate target is a directory (Issue #2 fix)
+    # Handle --git mode: clone remote repo and scan it
+    if git_url:
+        _scan_git_repo(
+            git_url=git_url,
+            workers=workers,
+            quick=quick,
+            force=force,
+            no_cache=no_cache,
+            fail_on=fail_on,
+            output=output,
+            output_formats=output_formats,
+            no_report=no_report,
+            exclude=exclude,
+        )
+        return
+
+    # Validate target exists and is a directory (Issue #2 fix)
     target_path = Path(target)
+    if not target_path.exists():
+        console.print(f"[red]Error: Path '{target}' does not exist.[/red]")
+        raise SystemExit(2)
     if not target_path.is_dir():
-        console.print(f"[red]❌ Error: Target must be a directory, not a file[/red]")
+        console.print(f"[red]Error: Target must be a directory, not a file[/red]")
         console.print(f"[yellow]   Got: {target_path}[/yellow]")
         console.print(f"[dim]   Tip: To scan a single file, specify its parent directory[/dim]")
         raise SystemExit(1)
@@ -1459,6 +1484,289 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         if '--debug' in sys.argv:
             raise
         sys.exit(1)
+
+
+def _resolve_git_url(raw_url: str) -> str:
+    """
+    Resolve a git URL or GitHub/GitLab shorthand to a full clone URL.
+
+    Accepts:
+        - https://github.com/user/repo
+        - https://github.com/user/repo.git
+        - git@github.com:user/repo.git
+        - user/repo  (shorthand -> https://github.com/user/repo)
+
+    Returns:
+        A validated HTTPS or SSH git URL.
+
+    Raises:
+        click.BadParameter if the URL is invalid.
+    """
+    url = raw_url.strip()
+
+    # SSH URLs are valid as-is
+    if url.startswith("git@"):
+        return url
+
+    # Full HTTPS URLs
+    if url.startswith("https://") or url.startswith("http://"):
+        return url
+
+    # Shorthand: user/repo -> https://github.com/user/repo
+    if re.match(r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$', url):
+        return f"https://github.com/{url}"
+
+    raise click.BadParameter(
+        f"Invalid git URL: '{url}'. "
+        "Use a full URL (https://github.com/user/repo) or shorthand (user/repo)."
+    )
+
+
+# Priority files that indicate AI coding editor injection vectors
+_PRIORITY_FILES: list[tuple[str, str, str]] = [
+    # (glob pattern, severity color, description)
+    # --- Critical: Known RCE / zero-click attack vectors ---
+    (".cursorrules", "red", "Cursor AI injection vector (CVE-2025-54135)"),
+    (".cursor/rules/*.mdc", "red", "Cursor AI rules directory"),
+    (".cursor/mcp.json", "red", "Cursor MCP config (CurXecute RCE)"),
+    (".clinerules/*.md", "red", "Cline auto-execution rules (Clinejection)"),
+    (".clinerules/*.txt", "red", "Cline command payload file"),
+    (".windsurfrules", "red", "Windsurf AI injection vector"),
+    (".windsurf/rules/*", "red", "Windsurf workspace rules"),
+    (".codex/config.toml", "red", "Codex CLI config (CVE-2025-61260 RCE)"),
+    (".kiro/settings/mcp.json", "red", "Kiro MCP config (CVE-2026-0830 RCE)"),
+    (".kiro/steering/*.md", "red", "Kiro custom agent instructions"),
+    (".vscode/settings.json", "red", "VS Code settings (IDEsaster YOLO mode)"),
+    ("*.code-workspace", "red", "VS Code workspace (IDEsaster override)"),
+    ("mcp.json", "red", "MCP server configuration"),
+    (".mcp.json", "red", "MCP server configuration"),
+    (".mcp/config.json", "red", "MCP server configuration"),
+    # --- High: AI editor instruction files ---
+    ("GEMINI.md", "yellow", "Gemini CLI instructions"),
+    (".gemini/settings.json", "yellow", "Gemini CLI configuration"),
+    ("CLAUDE.md", "yellow", "Claude Code instructions"),
+    ("AGENTS.md", "yellow", "OpenAI Codex agent instructions"),
+    ("AGENT.md", "yellow", "Roo Code agent instructions"),
+    ("SKILL.md", "yellow", "AI skill definitions (ToxicSkills)"),
+    (".github/copilot-instructions.md", "yellow", "GitHub Copilot instructions"),
+    (".github/instructions/*.instructions.md", "yellow", "Copilot scoped instructions"),
+    ("CONVENTIONS.md", "yellow", "AI coding conventions (Aider)"),
+    (".amazonq/rules/*.md", "yellow", "Amazon Q Developer rules"),
+    (".augment/rules/*", "yellow", "Augment Code rules"),
+    (".roo/rules/*.md", "yellow", "Roo Code rules"),
+    (".roomodes", "yellow", "Roo Code project modes"),
+    (".tabnine/guidelines/*.md", "yellow", "Tabnine guidelines"),
+    (".continue/config.yaml", "yellow", "Continue.dev configuration"),
+    (".cody.yml", "yellow", "Sourcegraph Cody configuration"),
+    (".security.md", "yellow", "Security policy file"),
+]
+
+
+def _detect_priority_files(repo_dir: Path) -> list[tuple[Path, str, str]]:
+    """
+    Scan a cloned repository for high-risk AI coding editor files.
+
+    Returns:
+        List of (path, severity_color, description) for each found file.
+    """
+    import glob as _glob
+
+    found: list[tuple[Path, str, str]] = []
+    for pattern, color, desc in _PRIORITY_FILES:
+        # Use glob to handle wildcard patterns
+        matches = list(repo_dir.glob(pattern))
+        for match in matches:
+            if match.exists():
+                rel = match.relative_to(repo_dir)
+                found.append((rel, color, desc))
+    return found
+
+
+def _scan_git_repo(
+    git_url: str,
+    workers: Optional[int],
+    quick: bool,
+    force: bool,
+    no_cache: bool,
+    fail_on: Optional[str],
+    output: Optional[str],
+    output_formats: tuple[str, ...],
+    no_report: bool,
+    exclude: tuple[str, ...],
+) -> None:
+    """
+    Clone a remote git repository and run the MEDUSA scan pipeline on it.
+
+    This handles URL validation, shallow cloning, priority file detection,
+    and cleanup of the temporary directory.
+    """
+    clone_url = _resolve_git_url(git_url)
+
+    print_banner()
+    console.print(f"\n[cyan]Cloning repository...[/cyan]")
+    console.print(f"[dim]  {clone_url}[/dim]\n")
+
+    tmp_dir = tempfile.mkdtemp(prefix="medusa-git-")
+    try:
+        # Shallow clone for speed
+        result = subprocess.run(
+            ["git", "clone", "--depth", "1", "--single-branch", clone_url, tmp_dir],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            console.print(f"[red]Error: git clone failed[/red]")
+            if stderr:
+                console.print(f"[red]  {stderr}[/red]")
+            raise SystemExit(1)
+
+        console.print(f"[dark_green]Repository cloned to temporary directory[/dark_green]\n")
+
+        # Priority file detection
+        repo_path = Path(tmp_dir)
+        priority_hits = _detect_priority_files(repo_path)
+
+        if priority_hits:
+            console.print("[bold yellow]HIGH-RISK FILES DETECTED:[/bold yellow]")
+            for rel_path, color, desc in priority_hits:
+                marker = "!!" if color == "red" else " >"
+                console.print(f"  [{color}]{marker} {rel_path}[/{color}] [dim]-- {desc}[/dim]")
+            console.print()
+        else:
+            console.print("[dim]No high-risk AI editor files detected.[/dim]\n")
+
+        # Run the normal scan pipeline on the cloned repo
+        # Import here to match the pattern used in the scan() function
+        from medusa.core.pattern_analyzer import CodePatternAnalyzer
+
+        console.print(f"[cyan]Target:[/cyan] {clone_url}")
+        console.print(f"[cyan]Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
+        if exclude:
+            console.print(f"[cyan]Excluding:[/cyan] {', '.join(exclude)}")
+
+        console.print("\n[dim]Analyzing repository...[/dim]")
+        analyzer = CodePatternAnalyzer()
+        repo_analysis = analyzer.analyze_repo(repo_path)
+
+        # Display analysis summary
+        if repo_analysis.languages:
+            top_langs = sorted(repo_analysis.languages.items(), key=lambda x: -x[1])[:5]
+            lang_summary = ", ".join(f"{lang} ({count})" for lang, count in top_langs)
+            console.print(f"[cyan]Languages:[/cyan] {lang_summary}")
+
+        if repo_analysis.frameworks:
+            fw_list = sorted(repo_analysis.frameworks)[:8]
+            fw_summary = ", ".join(fw_list)
+            if len(repo_analysis.frameworks) > 8:
+                fw_summary += f" (+{len(repo_analysis.frameworks) - 8} more)"
+            console.print(f"[cyan]Frameworks:[/cyan] {fw_summary}")
+
+        if repo_analysis.security_context.has_ai_patterns:
+            ai_patterns = []
+            if repo_analysis.security_context.has_mcp_config:
+                ai_patterns.append("MCP")
+            if repo_analysis.security_context.has_rag_patterns:
+                ai_patterns.append("RAG")
+            if repo_analysis.security_context.has_agent_patterns:
+                ai_patterns.append("Agents")
+            if ai_patterns:
+                console.print(f"[magenta]AI Patterns:[/magenta] {', '.join(ai_patterns)} detected - AI security scanners enabled")
+
+        # Show ready scanners
+        from medusa.scanners import registry as _scan_reg
+        all_scanners = _scan_reg.get_all_scanners()
+        recommended_names = repo_analysis.recommended_scanners
+        ready_scanners = [s for s in all_scanners if s.name in recommended_names and s.is_available()]
+
+        console.print()
+        console.print(f"[dark_green]Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
+        if repo_analysis.skip_scanners:
+            console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(repo_analysis)} files found)[/dim]")
+
+        console.print()
+
+        # Auto-detect workers
+        from medusa.core.system import check_system_load, get_optimal_workers
+
+        if workers is None:
+            workers = get_optimal_workers()
+
+        load = check_system_load()
+        if load.warning_message:
+            console.print(f"[yellow]{load.warning_message}[/yellow]")
+            console.print(f"[dim]Using {workers} workers (reduced due to system load)[/dim]")
+
+        # Capture missing linters for post-scan recommendation
+        try:
+            from medusa.scanners import registry as _sr
+            ai_tool_names = {'modelscan', 'garak', 'llm-guard'}
+            missing_linters = [
+                s.get_tool_name() for s in _sr.get_unavailable_external_scanners()
+                if s.get_tool_name() not in ai_tool_names
+                and s.name in recommended_names
+            ]
+        except Exception:
+            missing_linters = []
+
+        # Run parallel scanner
+        from medusa.core.parallel import MedusaParallelScanner
+
+        scanner = MedusaParallelScanner(
+            project_root=repo_path,
+            workers=workers,
+            use_cache=not no_cache and not force,
+            quick_mode=quick,
+            extra_excludes=list(exclude) if exclude else None,
+        )
+
+        files = scanner.find_scannable_files()
+        if not files:
+            console.print("[yellow]No files found to scan[/yellow]")
+            return
+
+        console.print(f"[dark_green]Found {len(files)} scannable files[/dark_green]\n")
+
+        results = scanner.scan_parallel(files)
+
+        # Generate reports
+        if not no_report:
+            output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            formats = list(output_formats)
+            if 'all' in formats:
+                formats = ['json', 'html', 'markdown']
+
+            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
+
+        # Check fail threshold
+        if fail_on:
+            total_issues = sum(len(r.issues) for r in results if not r.cached)
+            if total_issues > 0:
+                console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ level[/red]")
+                sys.exit(1)
+
+        console.print("\n[dark_green]Scan complete![/dark_green]")
+
+        if missing_linters:
+            console.print(f"\n[yellow]For fuller coverage, install missing linters and re-scan:[/yellow]")
+            console.print(f"  [dim]{', '.join(missing_linters[:5])}{'...' if len(missing_linters) > 5 else ''}[/dim]")
+            console.print(f"  [dim]Run 'medusa install --check' for details[/dim]")
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        console.print(f"\n[red]Error: {e}[/red]")
+        if '--debug' in sys.argv:
+            raise
+        sys.exit(1)
+    finally:
+        # Always clean up the temporary directory
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        console.print(f"\n[dim]Cleaned up temporary clone directory.[/dim]")
 
 
 def _analyze_project(project_root: Path, console: Console) -> dict:
@@ -2010,7 +2318,7 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.3.0 works out of the box with 4,000+ built-in AI security
+    MEDUSA v2026.4.0 works out of the box with 7,300+ built-in AI security
     rules. External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
@@ -2036,8 +2344,8 @@ def install(check, ai_tools, debug, install_all):
 
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.3.0[/yellow]")
-        console.print("[dim]MEDUSA now focuses on AI security rules (4,000+ patterns).[/dim]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.4.0[/yellow]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (7,300+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
         console.print("  medusa install --ai-tools    # Install AI security tools")
@@ -2191,8 +2499,8 @@ def _show_install_check():
         audit_environment, get_install_hint,
     )
 
-    console.print(f"\n[bold dark_green]MEDUSA v2026.3.0 - AI Security Scanner[/bold dark_green]")
-    console.print(f"[dim]Works out of the box with 4,000+ built-in AI security rules[/dim]\n")
+    console.print(f"\n[bold dark_green]MEDUSA v2026.4.0 - AI Security Scanner[/bold dark_green]")
+    console.print(f"[dim]Works out of the box with 7,300+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
     audit = audit_environment()
@@ -2276,7 +2584,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.3.0 only manages modelscan. Use your package manager
+    MEDUSA v2026.4.0 only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -2286,7 +2594,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.3.0[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.4.0[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -2294,12 +2602,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.3.0 only manages modelscan installation.[/dim]\n")
+        console.print("[dim]MEDUSA v2026.4.0 only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.3.0 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v2026.4.0 doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return

@@ -1,0 +1,1255 @@
+rules:
+- id: MEDUSA-TUA-SCAN-011
+  name: goal-hijacking-prompt-hacking-tool-context
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)(goal.hijacking|prompt.hacking).{0,60}(tool|api|function.call|llm.ta)
+  - (?i)(force.{0,20}target.output|force.specific.output).{0,60}(tool|api|score|grade)
+  - (?i)(manipulate.{0,30}(instruction|prompt).{0,30}(tool|api|grader|evaluator)).{0,60}(output|result|score)
+  - (?i)(llm.ta|llm.teaching.assistant|ai.grader).{0,50}(manipulate|hijack|override|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Goal Hijacking — prompt manipulation to force target output in tool-use context (44% success rate)'
+  description: 'Goal Hijacking (Chiang et al. 2024) manipulates LLM instructions in tool-use contexts to force specific target
+    outputs, such as inflated scores in LLM-based grading. 44% of students attempted; achieved scores 94/10 (far exceeding
+    maximum). Target: GPT-4 LLM Teaching Assistant.'
+  remediation: Sanitize all user inputs before passing to tool-orchestrating LLMs. Apply output range validation for grading/scoring
+    tasks. Audit LLM-as-evaluator systems for goal hijacking susceptibility.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-012
+  name: recursive-self-evaluation-tool-bypass
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(recursive.{0,20}self.eval|self.evaluation.attack|self.assess.attack).{0,60}(bypass|circumvent|avoid)
+  - (?i)(llm.{0,20}(generate|create|produce).{0,30}(then|and).{0,20}(evaluate|judge|assess).{0,20}(own|its|self))
+  - (?i)(generate.{0,20}and.{0,20}(self.eval|evaluate.own|judge.own)).{0,60}(tool|work|submission|assignment)
+  - (?i)(bypass.{0,20}(user.work|human.work|effort).{0,30}requirement).{0,60}(self.eval|recursive)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Recursive Self-Evaluation Attack — LLM generates content and evaluates its own output to bypass work
+    requirements'
+  description: Recursive/Self-Evaluation Attack (Chiang et al. 2024) exploits tool-use systems where an LLM generates content
+    and then evaluates it. Bypasses user work requirements by having the model complete and grade its own tasks, achieving
+    high scores without legitimate human effort.
+  remediation: Separate generation and evaluation models. Ensure grading/evaluation components cannot access or be influenced
+    by the content-generation component. Log tool invocation sequences for self-referential patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-013
+  name: bavi-adversarial-visual-instructions
+  severity: HIGH
+  category: multimodal_attack
+  patterns:
+  - (?i)(b.?avi|black.?box.adversarial.visual.instruction).{0,80}(lvlm|vlm|multimodal|vision.language)
+  - (?i)(image.text.perturbation|visual.instruction.attack).{0,60}(lvlm|gpt.4v|gemini.pro.vision|minigpt)
+  - (?i)(adversarial.image.{0,30}(text.perturbation|visual.instruction)).{0,60}(misled|mislead|corrupt|asr)
+  - (?i)(91\s*%.{0,20}asr.{0,20}(image.corruption|visual.attack)).{0,60}(minigpt|lvlm)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: B-AVI — black-box adversarial visual instructions attack on LVLMs (91% ASR on MiniGPT-4)'
+  description: B-AVI (Zhang et al. 2024) applies image/text perturbations to mislead Large Vision-Language Models. MiniGPT-4
+    ASR 91% on image corruption; avg ASR 57% for visual tasks across 14 open-source LVLMs plus GPT-4V and GeminiProVision.
+    Content bias attacks also trigger unsafe/biased outputs.
+  remediation: Apply adversarial robustness evaluation to vision-language model inputs. Detect unusually perturbed images
+    via image quality metrics before processing. Do not rely solely on text-based safety filters for multimodal systems.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-014
+  name: security-api-misuse-insecure-code-generation
+  severity: CRITICAL
+  category: insecure_code_generation
+  patterns:
+  - (?i)(security.api.misuse|api.misuse.{0,20}(rate|frequency)).{0,60}(llm|gpt|code.gen|generation)
+  - (?i)(68\.3.{0,10}misuse.rate|100.{0,10}(oauth|biometric).{0,20}misuse)
+  - (?i)(hard.?cod.{0,20}(key|secret|password|token).{0,20}(crypto|encrypt|aes|rsa|hmac))
+  - (?i)(ecb.mode.{0,30}(symmetric|encrypt|aes|block)).{0,60}(insecure|default|pattern.preserv)
+  - (?i)(currenttimemillis|system\.currenttime).{0,40}(seed|rand|prng|random)
+  - (?i)(predictable.{0,20}(prng|seed|random).{0,30}(crypto|encrypt|key.gen))
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Security API Misuse — LLM-generated code using insecure cryptographic patterns (68.3% misuse rate)'
+  description: 'Security API Misuse (Mousavi et al. 2024) — LLMs select insecure parameters for security tasks: 68.3% misuse
+    rate across 48 tasks; 100% for OAuth and Biometrics. Common patterns: hard-coded keys (M1), insecure ECB mode (M2), predictable
+    PRNG seeds with System.currentTimeMillis() (M5), plaintext OAuth token storage (M14/M15).'
+  remediation: Apply static analysis on LLM-generated security code. Validate cryptographic API usage against secure coding
+    standards. Require code review for all LLM-generated authentication/encryption implementations.
+  owasp_llm: LLM09:2025
+  cwe: CWE-327
+- id: MEDUSA-TUA-SCAN-015
+  name: api-call-hallucination-tool-invocation
+  severity: HIGH
+  category: tool_hallucination
+  patterns:
+  - (?i)(api.call.hallucinat|tool.hallucinat|function.hallucinat).{0,60}(non.existent|fake|malicious)
+  - (?i)(invoke.{0,30}(non.existent|undefined|fake).{0,20}(api|tool|function|repo))
+  - (?i)(gorilla.benchmark|toolbench).{0,50}(hallucinat|non.existent|fake.api|wrong.api)
+  - (?i)(hallucinated.{0,20}(api.name|function.name|tool.name)).{0,60}(malicious|load|execute|import)
+  - (?i)(IAN|IFN|incorrect.argument.name|incorrect.function.name).{0,60}(hallucinat|tool.use|api.call)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: API Call Hallucination — LLM invokes non-existent APIs or tools, risking malicious code loading'
+  description: 'API Call Hallucination (Patil et al. 2023) — LLMs invoke non-existent APIs/repos in tool-use frameworks, creating
+    risk of loading malicious code if a squatted package exists. Gorilla benchmark: GPT-3.5 fewer hallucinations than GPT-4
+    in some settings. ToolScan (Kokane 2024): IAV (incorrect arg values), IAN (incorrect arg names), IAT (incorrect arg types),
+    IFN (incorrect function names).'
+  remediation: Validate all LLM-proposed tool/API calls against a whitelist before execution. Apply package name verification
+    before import. Log and alert on calls to unrecognized APIs.
+  owasp_llm: LLM07:2025
+  cwe: CWE-426
+- id: MEDUSA-TUA-SCAN-016
+  name: embedding-inversion-attribute-inference
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(embedding.inversion|invert.{0,20}embedding|reconstruct.{0,30}(from|via).{0,20}embedding)
+  - (?i)(attribute.inference.{0,30}(hidden.state|representation|embedding)).{0,60}(private|personal|sensitive)
+  - (?i)(reverse.{0,20}embedding.{0,30}(reconstruct|recover|extract).{0,20}(raw.text|original.text|input))
+  - (?i)(infer.{0,20}(private|personal|sensitive).{0,20}attribute.{0,30}(hidden|representation|llm.output))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Embedding Inversion/Attribute Inference — reconstructing private data or inferring sensitive attributes
+    from LLM representations'
+  description: Embedding Inversion Attack (Li et al. 2023) reverses embedding representations to reconstruct raw input text
+    with high success. Attribute Inference Attack infers private attributes (demographics, health status) from LLM hidden
+    representations with high accuracy. Both attacks exploit data-as-a-tool API contexts.
+  remediation: Apply differential privacy to embeddings before exposing via APIs. Use representation perturbation to prevent
+    inversion. Audit API embedding endpoints for PII leakage risk.
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-TUA-SCAN-017
+  name: knowledge-base-poisoning-tool-injection
+  severity: HIGH
+  category: tool_poisoning
+  patterns:
+  - (?i)(knowledge.base.poison|kb.poison|external.kb.{0,30}(inject|manipulate|tamper))
+  - (?i)(inject.{0,30}(knowledge.base|external.tool|retrieval.store|vector.db)).{0,60}(harmful|malicious|poison)
+  - (?i)(indirect.prompt.inject.{0,30}(kb|knowledge.base|retrieval|external.store))
+  - (?i)(agentpoison|agent.poison|rag.poison.{0,30}(knowledge.base|external.tool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Knowledge Base Poisoning — injecting harmful data into external KB tools used by LLM agents'
+  description: Knowledge Base Poisoning/Injection (Zhang et al. 2024; Maragheh & Deldjoo 2025) injects harmful knowledge into
+    external knowledge base tools used by LLM agents. Acts as indirect prompt injection — malicious content retrieved from
+    the KB propagates into LLM context, bypassing direct input filters.
+  remediation: Apply content validation and integrity checks on all external knowledge sources. Treat KB retrieval results
+    with the same safety scrutiny as direct user inputs. Implement signed document verification for critical knowledge bases.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+- id: MEDUSA-TUA-SCAN-018
+  name: covert-collusion-emergent-agent-protocol
+  severity: HIGH
+  category: multi_agent_risk
+  patterns:
+  - (?i)(covert.collusion|emergent.misalignment|private.protocol).{0,60}(agent|multi.agent|bypass.oversight)
+  - (?i)(agent.{0,20}develop.{0,20}(private|covert|hidden).{0,20}(protocol|language|communication))
+  - (?i)(bypass.{0,30}human.oversight.{0,30}(protocol|collusion|agent.coordination))
+  - (?i)(negotiation.bot.{0,30}(private|covert|hidden).{0,20}(protocol|communication|language))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Covert Collusion — LLM agents developing private protocols that bypass human oversight'
+  description: Emergent Misalignment / Covert Collusion (Maragheh & Deldjoo 2025) — LLM agents in multi-agent systems spontaneously
+    develop private communication protocols that bypass human oversight. Identified in negotiation bot contexts where agents
+    coordinate to achieve goals outside human-specified parameters.
+  remediation: Monitor all inter-agent communication for non-standard or obfuscated protocols. Apply interpretability tools
+    to detect emergent agent coordination patterns. Enforce human-readable communication channels in multi-agent systems.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-019
+  name: tool-chain-error-propagation-hallucination
+  severity: MEDIUM
+  category: reliability_risk
+  patterns:
+  - (?i)(error.propagat.{0,30}(tool.chain|agent.pipeline|multi.step)).{0,60}(cascade|compounding|amplif)
+  - (?i)(hallucination.{0,30}(tool.chain|cascade|propagat)).{0,60}(>20.|twenty.percent|20.percent)
+  - (?i)(tool.misuse.{0,30}(reasoning.step|chain|pipeline)).{0,60}(>20.|majority|most.steps)
+  - (?i)(smartcal|smart.cal).{0,50}(overconfident|>90.percent|ninety.percent.confidence)
+  - (?i)(>90.percent.confidence.{0,30}tool.selection.{0,30}(overconfident|wrong|incorrect))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool Chain Error Propagation — cascading hallucinations across tool chains; >20% reasoning steps with
+    tool misuse'
+  description: 'Hallucination & Error Propagation (Maragheh & Deldjoo 2025; Shen et al. 2024) — errors cascade through tool
+    chains with >20% of reasoning steps containing tool misuse. SMARTCAL (Shen 2024): >90% confidence in tool selection is
+    overconfident, masking propagating errors in multi-step agent pipelines.'
+  remediation: Implement checkpointing and error-detection at each tool call step. Apply confidence calibration to reduce
+    overconfident tool selection. Design tool chains with rollback capabilities for error recovery.
+  owasp_llm: LLM09:2025
+  cwe: CWE-390
+- id: MEDUSA-TUA-SCAN-020
+  name: state-dependency-race-condition-tools
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(state.dependency.violation|race.condition.{0,30}(tool|agent)).{0,60}(implicit|missed|unhandled)
+  - (?i)(tool.{0,20}(race.condition|concurrent.access|state.conflict)).{0,60}(agent|pipeline|multi.step)
+  - (?i)(toolsandbox|tool.sandbox).{0,50}(state.dependency|implicit.dependency|missed.dependency)
+  - (?i)(implicit.state.dependency.{0,30}(between|across).{0,20}tool).{0,60}(miss|fail|violat)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: State Dependency Violation — LLM agents missing implicit dependencies between tool calls (ToolSandbox)'
+  description: State Dependency Violations (Lu et al. 2024) — agents miss implicit state dependencies between tools, causing
+    race conditions and incorrect tool sequencing. Even SOTA models struggle with state dependency tasks on ToolSandbox benchmark.
+    Affects multi-step agents where tool A must complete before tool B can safely execute.
+  remediation: Explicitly document and enforce tool execution ordering constraints. Implement state dependency graphs for
+    complex tool chains. Test agents on ToolSandbox for state dependency handling before deployment.
+  owasp_llm: LLM07:2025
+  cwe: CWE-362
+- id: MEDUSA-TUA-SCAN-021
+  name: iac-rac-api-call-loop-failure
+  severity: MEDIUM
+  category: availability_risk
+  patterns:
+  - (?i)(iac|rac|insufficient.api.call|repeated.api.call).{0,60}(loop|toolscan|agent.fail)
+  - (?i)(repeated.api.call.{0,30}(loop|infinite|redundant)).{0,60}(agent|llama|llm)
+  - (?i)(insufficient.{0,20}(tool.call|api.call|function.call)).{0,40}(agent|fail|task.incomplet)
+  - (?i)(tool.{0,20}(loop|redundant.call|repeated.call)).{0,40}(llama.3|llama3|smaller.model|vicuna)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: IAC/RAC — insufficient or repeated API call loops in LLM agent tool use (ToolScan benchmark)'
+  description: 'Insufficient API Calls (IAC) and Repeated API Calls (RAC) (Kokane et al. 2024) — models fail to generate enough
+    calls to complete tasks (IAC) or loop redundantly (RAC). Smaller models (Llama-3-8B) particularly prone to RAC loops.
+    Vicuna-13B: 0.16 success rate due to combined hallucination + loop failures (ToolScan).'
+  remediation: Implement tool call budget limits and loop detection. Monitor for repeated identical tool calls as a sign of
+    agent confusion. Apply circuit breakers to agent loops to prevent runaway execution.
+  owasp_llm: LLM07:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-022
+  name: tool-parameter-noise-sensitivity
+  severity: MEDIUM
+  category: robustness
+  patterns:
+  - (?i)(tool.{0,20}(parameter|name).{0,20}noise.{0,20}sensitivity|rotbench).{0,60}(robustness|failure)
+  - (?i)(slight.noise.{0,30}(tool|parameter|function).{0,20}name).{0,60}(fail|error|miss|wrong)
+  - (?i)(rotbench|rot.bench|tool.name.robustness).{0,60}(noise|union.noise|gpt.4)
+  - (?i)(80\.00.{0,20}58\.10.{0,20}(union.noise|tool.noise|name.noise))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool/Parameter Name Noise Sensitivity — LLMs fail with slight noise in tool/parameter names (GPT-4:
+    80.00→58.10 with union noise)'
+  description: Tool/Parameter Name Noise Sensitivity (Ye et al. 2024) — LLMs fail with slight noise in tool/parameter names.
+    GPT-4 performance drops from 80.00 to 58.10 with union noise injection (RoTBench). Creates attack surface where adversaries
+    can introduce subtle name variations to cause tool selection failures in agentic systems.
+  remediation: Apply fuzzy name matching and spell-correction for tool names before LLM processing. Test agent robustness
+    against tool/parameter name variations. Maintain canonical tool name registries with validation.
+  owasp_llm: LLM07:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-023
+  name: p-dos-prompt-denial-of-service-tools
+  severity: HIGH
+  category: denial_of_service
+  patterns:
+  - (?i)(p.dos|prompt.denial.of.service|prompt.dos).{0,60}(tool|agent|code.agent|os.agent)
+  - (?i)(force.{0,20}(token|output).{0,20}(expand|bloat|amplif)).{0,60}(0\.5k.to.16k|500.to.16000|token.bomb)
+  - (?i)(output.token.{0,20}(amplif|exploit|0\.5k.16k|500.16000)).{0,60}(dos|denial|exhaust)
+  - (?i)(dead.loop|infinite.loop.{0,30}(code.agent|os.agent|tool.agent)).{0,60}(sleep|execute|dos)
+  - (?i)(os.agent.{0,30}(sleep|wait|hang).{0,30}command.{0,30}(execute|dos|attack))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: P-DoS via Tools — prompt-based denial of service via tool amplification (100% ASR on GPT-4o, <$1 cost)'
+  description: 'P-DoS via Tools (Gao 2024) — 100% ASR on GPT-4o at <$1 cost. Expands output from 0.5K to 16K+ tokens via tool
+    amplification. Code agents write dead loops; OS agents execute sleep commands. P-DoS for Agents: ASR >90% across agent
+    types. Creates resource exhaustion without traditional network attacks.'
+  remediation: Enforce strict output token limits on tool-augmented LLMs. Monitor for sudden token count spikes from tool-generated
+    responses. Apply rate limiting and circuit breakers to agent execution loops.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-024
+  name: llm-guided-protocol-fuzzing
+  severity: MEDIUM
+  category: automated_attack_tool
+  patterns:
+  - (?i)(llm.guided.{0,20}(fuzz|fuzzing)|protocol.fuzz.{0,30}(llm|gpt|language.model))
+  - (?i)(gpt.{0,10}(fuzz|protocol.state|mutated.message)).{0,60}(vuln|cve|live555|profuzzbench)
+  - (?i)(llm.{0,20}infer.{0,20}protocol.state.{0,30}generate.{0,20}(mutated|fuzz|test).message)
+  - (?i)(profuzzbench|live555.{0,30}(fuzz|vuln|llm|gpt)).{0,60}(unknown|novel|new).{0,20}vuln
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LLM-Guided Protocol Fuzzing — using LLMs to infer protocol states and generate mutation-based fuzz messages'
+  description: LLM-Guided Protocol Fuzzing (Meng et al. 2024) uses LLMs (GPT-3.5-turbo) to infer protocol states and generate
+    mutated fuzz messages. Discovered 9 previously unknown vulnerabilities (7 security-critical) in LIVE555. Outperformed
+    AFLNET on ProFuzzBench. Represents weaponization of LLM tool-use capabilities for automated vulnerability discovery.
+  remediation: Monitor LLM usage patterns for protocol fuzzing behavior. Apply API rate limiting on stateful protocol interaction
+    endpoints. Flag systematic mutation-based API usage patterns as potential automated attacks.
+  owasp_llm: LLM09:2025
+  cwe: CWE-676
+- id: MEDUSA-TUA-SCAN-025
+  name: harmful-feedback-propagation-tool-output
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(harmful.feedback.propagat|HF.propagat).{0,60}(tool|api|toolllama|gpt.4)
+  - (?i)(100.{0,10}unsafe.output.{0,30}(toolllama|tool.llama|tool.use.agent))
+  - (?i)(87\.27.{0,10}gpt.4.{0,30}harmful.feedback|harmful.tool.output.{0,30}propagat)
+  - (?i)(risky.cues.ignorance|error.conflict.blind.trust|noise.misdirection).{0,60}(tool|api.call)
+  - (?i)(blind.trust.{0,20}tool.output|accept.tool.error.over.internal.knowledge)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Harmful Feedback Propagation — agents blindly trusting harmful tool outputs (100% unsafe on ToolLLaMA,
+    87.27% on GPT-4)'
+  description: 'Harmful Feedback Propagation (Ye et al. 2024 ToolSword) — agents propagate harmful tool outputs without filtering:
+    100% unsafe output for ToolLLaMA-2, 87.27% for GPT-4. Related: Risky Cues Ignorance (RC) — models invoke tools despite
+    explicit safety warnings; Error Conflict/Blind Trust (EC) — LLMs accept tool errors over internal knowledge.'
+  remediation: Apply safety filtering to all tool outputs before incorporating into agent context. Never allow tool output
+    to override internal safety knowledge. Implement tool output validation layer in agent pipelines.
+  owasp_llm: LLM07:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-026
+  name: local-storage-oauth-token-sensitive-data
+  severity: CRITICAL
+  category: insecure_code_generation
+  patterns:
+  - (?i)(local.storage.{0,20}(oauth|token|secret|api.key|credential)).{0,60}(plaintext|filesystem|hardcode)
+  - (?i)(store.{0,20}(oauth.token|api.secret|private.key).{0,30}(local|file|plaintext|disk))
+  - (?i)(M14|M15).{0,60}(oauth|authentication|authorization|plaintext.storage)
+  - (?i)(100.percent.occurrence.{0,30}(authentication|authorization).{0,30}(plaintext|local.storage))
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Local Storage of OAuth Tokens — LLM-generated code storing sensitive credentials in plaintext (100%
+    occurrence in auth implementations)'
+  description: Local Storage of Secrets/Tokens M14/M15 (Mousavi et al. 2024) — LLM-generated code stores OAuth tokens/secrets
+    in plaintext on local filesystem. 100% occurrence in authentication/authorization implementations. Creates severe credential
+    exposure risk in LLM-assisted development workflows.
+  remediation: Reject or flag LLM-generated code that stores credentials in plaintext files. Enforce secure secret management
+    patterns (environment variables, secret managers) in LLM coding contexts.
+  owasp_llm: LLM09:2025
+  cwe: CWE-312
+- id: MEDUSA-TUA-SCAN-027
+  name: malicious-tool-jailbreak-asr-amplification
+  severity: CRITICAL
+  category: tool_jailbreak
+  patterns:
+  - (?i)(jailbreak.via.tool|tool.availability.{0,30}asr.amplif|tool.jailbreak.amplif)
+  - (?i)(12\.73.{0,10}to.{0,10}100.percent.{0,30}(tool|api).{0,20}(present|available))
+  - (?i)(tool.presence.{0,30}(asr.jump|jailbreak.amplif|>50.percent.asr))
+  - (?i)(malicious.query.{0,30}(tool.present|with.tools|api.available)).{0,60}(asr|bypass|jailbreak)
+  - (?i)(toolsword|tool.sword).{0,60}(malicious.query|jailbreak.asr|amplif)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool-Amplified Jailbreak — tool presence increases jailbreak ASR from 12.73% to 100% (ToolSword)'
+  description: 'Jailbreak via Tools (Ye et al. 2024 ToolSword) — mere presence of tools dramatically amplifies jailbreak success:
+    GPT-3.5 ASR jumps from 12.73% to 100% with tools present; >50% ASR across all tested models. Noise Misdirection (NM):
+    tool selection error rate 100% for GPT-3.5 and LLaMA-2-7B under adversarial noise.'
+  remediation: Apply additional safety layers specifically at the tool invocation boundary. Tool availability should not lower
+    safety thresholds. Audit all tool-augmented endpoints for amplified jailbreak susceptibility.
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-028
+  name: tool-retrieval-failure-recall-exploitation
+  severity: MEDIUM
+  category: availability_risk
+  patterns:
+  - (?i)(tool.retrieval.failure|tool.recall.failure|toolret|tool.ret.benchmark)
+  - (?i)(recall.at.10.{0,20}(27\.3|as.low.as|failure)).{0,60}(tool.retrieval|ir.model|tool.selection)
+  - (?i)(large.tool.library.{0,30}(retrieval.fail|recall.fail|ir.fail)).{0,60}(agent|pass.rate)
+  - (?i)(agent.pass.rate.{0,30}decrease.{0,20}10\.1.points.{0,30}(tool.retrieval|recall))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool Retrieval Failure — IR models failing to retrieve correct tools from large libraries (Recall@10
+    as low as 27.3)'
+  description: Tool Retrieval Failure (Shi et al. 2025 ToolRet) — information retrieval models fail to retrieve correct tools
+    from large tool libraries. Recall@10 as low as 27.3; agent task pass rates decrease by 10.1 points when tool retrieval
+    fails. Creates attack surface where legitimate tools are bypassed in favor of incorrectly retrieved alternatives.
+  remediation: Use robust tool retrieval with semantic matching, not just keyword search. Implement fallback tool selection
+    with human verification for critical operations. Monitor tool retrieval recall metrics in production agent systems.
+  owasp_llm: LLM07:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-029
+  name: content-bias-attack-lvlm-racial-gender
+  severity: HIGH
+  category: content_injection
+  patterns:
+  - (?i)(content.bias.attack|content.bias.inject|bias.instruction.{0,30}(lvlm|vlm|multimodal))
+  - (?i)(racial.bias.{0,20}(inject|trigger|instruction).{0,30}(lvlm|vision|multimodal))
+  - (?i)(gender.bias.{0,20}(inject|trigger|instruction).{0,30}(lvlm|vision|multimodal|2%))
+  - (?i)(unsafe.output.trigger.{0,30}(image|visual|instruction).{0,30}(bias|racial|gender))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Content Bias Attack on LVLMs — injecting instructions to trigger racial/gender bias in Large Vision-Language
+    Models (Zhang 2024 B-AVIBench)'
+  description: 'Content Bias Attacks (Zhang 2024, B-AVIBench) inject instructions into LVLMs to trigger unsafe or biased outputs.
+    LLaVA achieves 2% accuracy on racial bias probes (effectively generating biased content); OpenFlamingo: 9% on gender bias.
+    Tested across 14 LVLMs including GPT-4V and GeminiProVision. Instructions exploit the fusion between visual and text modalities
+    to bypass safety filters trained on text-only inputs.'
+  remediation: Apply cross-modal safety filters that evaluate instruction-image combinations holistically. Test VLMs specifically
+    for bias amplification when instructions reference demographic characteristics. Implement bias detection layers before
+    LVLM output is returned to users.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-030
+  name: tool-blind-trust-error-conflict-override
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(blind.trust.{0,30}(tool.output|tool.return|tool.result|tool.error))
+  - (?i)(tool.error.{0,30}(accept|override|trust.over|prefer.over).{0,30}(internal|knowledge|model))
+  - (?i)(error.conflict.{0,30}(tool|ec.pattern|ec.error).{0,30}(accept|blind.trust))
+  - (?i)(accept.tool.error.{0,30}over.internal.knowledge|tool.output.override.model)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool Blind Trust / Error Conflict Override — LLM accepting tool errors over internal knowledge (Ye 2024
+    ToolSword EC pattern)'
+  description: Error Conflicts (EC) pattern in ToolSword (Ye 2024) — LLMs blindly trust tool outputs even when they contradict
+    internal knowledge. Models accept tool error messages as authoritative and override correct internal reasoning. Attack
+    exploits this by injecting false information via tool returns, which models blindly accept. Creates pathway for tool-mediated
+    misinformation injection with high trust amplification.
+  remediation: Implement tool output validation that cross-references with model internal knowledge. Flag tool returns that
+    significantly contradict model confidence on well-known facts. Apply Risky Cue Detection to identify tool outputs containing
+    warning signals. Use α-UMi (Shen 2024) multi-LLM decomposition to reduce blind trust via cross-validation.
+  owasp_llm: LLM08:2025
+  cwe: CWE-345
+- id: MEDUSA-TUA-SCAN-031
+  name: overthinking-token-amplification-reasoning-dos
+  severity: HIGH
+  category: availability_risk
+  patterns:
+  - (?i)(overthink.{0,20}(attack|dos|exploit|token.exhaust|reasoning.model))
+  - (?i)(token.amplif.{0,30}(reasoning|think|compute.exhaust|budget))
+  - (?i)(extended.think.{0,30}(exhaust|dos|budget.exhaust|force.think))
+  - (?i)(reasoning.budget.{0,30}(exhaust|force|amplif|inflate).{0,30}(o1|o3|deepseek.r1|claude))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Overthinking DoS — forcing reasoning LLMs to generate excessive thought chains, exhausting compute budget
+    (targeting o1, o3, DeepSeek-R1)'
+  description: Overthinking attack forces reasoning models (o1, o3, DeepSeek-R1, Claude extended thinking) to generate excessively
+    long thought chains, exhausting the compute budget and causing token amplification DoS. Related to Sponge Examples (energy-latency
+    DoS). By crafting inputs that trigger extended reflection loops, attackers can consume 10-100x normal token budgets, causing
+    latency spikes and API cost amplification. CRABS automates this at scale.
+  remediation: Implement thinking-token budget caps per request. Monitor for token amplification patterns (requests generating
+    >N×expected tokens). Apply adaptive budget throttling for inputs with high complexity-budget ratios. Use CRABS-aware input
+    complexity screening before routing to reasoning models.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-032
+  name: adinjest-web-agent-ad-network-injection
+  severity: HIGH
+  category: indirect_injection
+  patterns:
+  - (?i)(adinject|ad.inject.{0,30}(web.agent|browser.agent|advertising))
+  - (?i)(advertising.network.{0,30}(inject|malicious.instruction|web.agent|command))
+  - (?i)(ad.delivery.{0,30}malicious.{0,30}(instruction|command|web.agent|browser))
+  - (?i)(black.box.{0,20}ad.{0,20}inject.{0,30}(web|browser|agent).{0,30}malicious)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AdInject — malicious instructions injected via advertising delivery networks targeting web browsing
+    agents'
+  description: AdInject is a black-box attack that injects malicious instructions via advertising delivery networks. Attackers
+    control ad content served to web browsing agents, embedding commands within legitimate-appearing advertisements. Since
+    web agents must render and process page content including ads, injected instructions execute in the agent's context without
+    direct access to the agent or its systems. Exploits the trust web agents place in page content.
+  remediation: Block advertising network content from being parsed as agent instructions. Implement ad-content isolation in
+    web agent browsing contexts. Apply strict Content Security Policy equivalents in agent browsing. Use DOM parsing to distinguish
+    user content from advertising content before instruction processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-TUA-SCAN-033
+  name: imprompter-tool-misuse-crafted-input-induction
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(imprompter|imprompter.attack).{0,60}(tool.misuse|improper.invoke|tool.integrated)
+  - (?i)(crafted.input.{0,30}(cause|induce|force).{0,30}(tool.misuse|improper.invok|tool.integrated))
+  - (?i)(specifically.crafted.{0,20}input.{0,30}(tool.misuse|improper.invok|misuse.tool))
+  - (?i)(input.{0,20}design.{0,30}cause.{0,20}(llm.agent|tool.integrated.agent).{0,30}(misuse|improperly.invoke))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Imprompter — crafted inputs designed to cause tool-integrated LLM agents to misuse or improperly invoke
+    tools'
+  description: Imprompter crafts specific inputs designed to cause tool-integrated LLM agents to misuse or improperly invoke
+    tools. Unlike direct prompt injection, Imprompter manipulates the agent's tool selection and parameterization through
+    carefully designed inputs. Exploits the gap between the agent's intent parsing and its tool invocation logic, causing
+    legitimate tools to be called with adversarial parameters or in adversarial sequences.
+  remediation: Implement parameter validation for all tool invocations. Monitor tool call patterns for anomalous argument
+    combinations. Apply tool usage auditing to detect improper invocation sequences. Use tool call whitelisting for high-risk
+    operations.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-034
+  name: risky-cue-ignorance-unsafe-tool-invocation
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(risky.cue.{0,30}ignor|rc.pattern.{0,30}(tool|invok|safety.warning))
+  - (?i)(invoke.tool.{0,30}despite.{0,30}(safety.warning|warning|risk.indicator))
+  - (?i)(safety.warning.{0,30}(ignore|bypass|proceed.anyway).{0,30}tool.invok)
+  - (?i)(explicit.{0,20}safety.warning.{0,30}(tool.still|still.invok|proceed).{0,30}(tool|api|action))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Risky Cue Ignorance (RC) — model invokes tools despite explicit safety warnings (Ye 2024 ToolSword,
+    100% tool selection error)'
+  description: 'Risky Cue Ignorance (RC pattern, Ye 2024 ToolSword) — models invoke tools despite explicit safety warnings
+    or risk indicators in the tool descriptions or context. Tool selection error: 100% for GPT-3.5 and LLaMA-2-7B on ToolSword
+    RC benchmarks. Attackers craft scenarios where safety warnings are present but the model proceeds anyway, enabling dangerous
+    tool invocations. Creates critical attack surface in agentic systems.'
+  remediation: Implement hard-stop rules for tool invocations when safety warnings are present. Apply SMARTCAL (Shen 2024)
+    confidence calibration to improve risk awareness. Train models specifically on safety-warning scenarios to reduce Risky
+    Cue Ignorance. Require human confirmation for tool calls that occur despite safety warning flags.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-035
+  name: tool-jailbreak-asr-amplification-presence
+  severity: CRITICAL
+  category: tool_misuse
+  patterns:
+  - (?i)(jailbreak.{0,30}(tool|tool.presence|tool.availability).{0,30}(asr|jump|amplif|increase))
+  - (?i)(asr.{0,20}(jump|increase|amplif).{0,30}(tool|tool.available|tool.integrated))
+  - (?i)(12\.73.{0,20}to.{0,20}100|tool.presence.{0,30}jailbreak.{0,30}asr)
+  - (?i)(ToolSword.{0,20}ja.pattern|jailbreak.via.tool|ja.attack.toolsword)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Tool Jailbreak Amplification (JA) — tool availability amplifies jailbreak ASR from 12.73% to 100% (Ye
+    2024 ToolSword)'
+  description: Jailbreak via Tools (JA pattern, Ye 2024 ToolSword) — the presence of tools dramatically amplifies jailbreak
+    success rates. GPT-3.5 jailbreak ASR jumps from 12.73% (no tools) to 100% (with tools present). Tools create indirect
+    paths to harmful outputs that bypass safety filters trained on direct requests. Attackers frame harmful requests as tool-mediated
+    operations, exploiting the safety gap between direct generation and tool-assisted generation.
+  remediation: Apply equal or stronger safety filtering to tool-mediated outputs as to direct generation. Test safety systems
+    with tools present, not just standalone LLM evaluation. Monitor ASR metrics specifically for tool-assisted jailbreak attempts.
+    Implement tool-context safety layers that understand the semantic implications of tool invocations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-036
+  name: malicious-project-readme-command-injection
+  severity: CRITICAL
+  category: indirect_injection
+  patterns:
+  - (?i)(readme.{0,10}(md|markdown).{0,30}(malicious.command|inject.command|execute.during.install))
+  - (?i)(agent.execute.{0,30}readme.{0,30}(install|setup|command))
+  - (?i)(malicious.project.{0,30}readme|inject.command.{0,30}readme.md)
+  - (?i)(install.command.{0,30}(readme|setup.md|requirements).{0,30}(inject|malicious|execute))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Malicious Project README Command Injection — commands in README.md files executed by agents during project
+    installation (Guo 2025)'
+  description: 'Malicious Project Install (Guo 2025) embeds malicious commands in README.md files that AI coding agents execute
+    during project installation or setup. When an agent is instructed to ''install this project'' or ''follow the setup instructions'',
+    it reads and executes commands from README files without distinguishing malicious from benign setup steps. Efficacy: 4.85;
+    ASR: 70% in MCP tool injection context.'
+  remediation: Require explicit human approval before executing any commands found in documentation files. Sandbox project
+    installation environments. Parse README.md commands in a read-only analysis mode before any execution. Alert users when
+    installation steps contain elevated-privilege operations.
+  owasp_llm: LLM08:2025
+  cwe: CWE-78
+- id: MEDUSA-TUA-SCAN-037
+  name: noise-misdirection-tool-selection-100pct-error
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(noise.misdirection|nm.pattern.{0,30}tool.select|misdirect.{0,30}tool.select)
+  - (?i)(tool.select.{0,20}(error|fail).{0,20}100.{0,5}%.{0,30}(noise|misdirect|gpt.3\.5|llama))
+  - (?i)(irrelevant.context.{0,30}(tool.select|mislead.tool|noise.inject).{0,30}(100|misdirect))
+  - (?i)(ToolSword.{0,20}nm.{0,20}(100|noise)|noise.misdirection.toolsword)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Noise Misdirection (NM) — irrelevant context injected to cause 100% tool selection error in GPT-3.5
+    and LLaMA-2-7B (Ye 2024 ToolSword)'
+  description: Noise Misdirection (NM pattern, Ye 2024 ToolSword) — injecting irrelevant or misleading context causes 100%
+    tool selection error in GPT-3.5 and LLaMA-2-7B. By surrounding a tool-use request with noise that implies different tooling
+    is needed, attackers redirect agents to invoke incorrect or attacker-controlled tools. Exploits the attention mechanism's
+    sensitivity to context pollution in tool selection decisions.
+  remediation: Implement context relevance filtering before tool selection decisions. Apply RoTBench (Ye 2024) robustness
+    training with diverse noise environments. Use TL-Training with IRM reinforcement learning to improve noise resistance
+    in tool selection. Monitor for noise injection patterns preceding tool selection changes.
+  owasp_llm: LLM08:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-038
+  name: multi-tool-coordination-split-malicious-logic
+  severity: HIGH
+  category: tool_misuse
+  patterns:
+  - (?i)(multi.tool.coordin.{0,30}split.{0,30}(malicious|logic|action|payload))
+  - (?i)(split.malicious.{0,30}(logic|action|payload).{0,30}(across.tool|multi.tool))
+  - (?i)(agent.infer.{0,30}(relationship|connection).{0,30}split.{0,30}(tool|logic|action))
+  - (?i)(tool.coordin.{0,30}(attacker|malicious|infer.relationship).{0,30}split)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Multi-Tool Coordination Split — malicious logic split across multiple tools for agent to infer and execute
+    (Guo 2025)'
+  description: 'Multi-Tool Coordination (Guo 2025) splits malicious logic across multiple tools and relies on the LLM agent
+    inferring the relationship and combining them into a complete malicious action. Each individual tool appears benign, but
+    together they constitute an attack. Efficacy: 3.13; ASR: 30%. More difficult to detect than single-tool attacks because
+    no individual component triggers safety filters independently.'
+  remediation: Analyze tool invocation sequences holistically, not just individual calls. Monitor for tool combinations that
+    collectively perform privileged operations no single tool is authorized to perform. Apply sequence-level safety analysis
+    in multi-tool agent orchestration. Implement tool interaction logging for post-hoc analysis.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-039
+  name: smart-contract-vulnerability-tool-integration
+  severity: HIGH
+  category: unsafe_code_generation
+  patterns:
+  - (?i)(smart.contract.{0,30}(vuln|reentrancy|arithmetic.overflow).{0,30}(llm|tool|generat))
+  - (?i)(VulnSense|vulnsense).{0,60}(reentrancy|arithmetic|smart.contract)
+  - (?i)(ethereum.{0,30}(reentrancy|integer.overflow|smart.contract.vuln).{0,30}(llm|generat|tool))
+  - (?i)(solidity.{0,30}(reentrancy|overflow|underflow).{0,30}(llm|ai.generat|tool.assisted))
+  file_types:
+  - '*.py'
+  - '*.sol'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Smart Contract Vulnerability in LLM Tool Integration — reentrancy or arithmetic overflow vulnerabilities
+    in LLM-generated or tool-integrated smart contracts'
+  description: VulnSense (Duy 2023) analyzes smart contract vulnerabilities in LLM-integrated blockchain tooling. LLMs generate
+    Solidity code with reentrancy vulnerabilities (CWE-841) and arithmetic overflow/underflow (CWE-190) when used as coding
+    tools. LLM-assisted smart contract development faces the same vulnerability patterns as human-written code but at scale.
+    VulnSense achieves 77.96% accuracy with multimodal analysis (BERT+BiLSTM+GNN).
+  remediation: Always scan LLM-generated Solidity with static analysis tools (Slither, Mythril) before deployment. Never deploy
+    AI-generated smart contracts without human security review. Apply VulnSense-style multimodal analysis on contract code.
+    Test for reentrancy patterns, unchecked arithmetic, and access control gaps in all generated contracts.
+  owasp_llm: LLM09:2025
+  cwe: CWE-841
+- id: MEDUSA-TUA-SCAN-040
+  name: contaminated-toolgrad-training-data-pipeline
+  severity: HIGH
+  category: supply_chain
+  patterns:
+  - (?i)(toolgrad|tool.grad).{0,60}(contaminate|poison|training.data|answer.first)
+  - (?i)(answer.first.{0,20}dataset.{0,30}(contaminat|poison|valid.tool.chain))
+  - (?i)(tool.chain.training.{0,30}(contaminate|poison|inject.malicious))
+  - (?i)(tool.training.pipeline.{0,30}(poison|contaminate|inject).{0,40}(tool.chain|valid.chain))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ToolGrad Training Data Contamination — poisoning Answer-First dataset generation for tool-use training
+    pipelines'
+  description: ToolGrad (Zhou 2025) generates Answer-First datasets with valid tool chains for tool-use training. Attack vector
+    targets this pipeline by contaminating training data with malicious tool chains that appear valid (high generation pass
+    rate, ~99% tool recall) while encoding hidden behaviors. Contaminating tool-use training datasets affects all models trained
+    on the pipeline, creating supply-chain risk for agentic systems at scale.
+  remediation: Apply provenance verification for all tool-use training datasets. Audit tool chains in training data for anomalous
+    action sequences. Use diverse data sources to reduce single-pipeline contamination impact. Implement cryptographic signing
+    of training datasets with tamper detection.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-TUA-SCAN-041
+  name: security-api-misuse-llm-tool-call
+  severity: HIGH
+  category: insecure_api_usage
+  patterns:
+  - (?i)(security.api.misuse.{0,30}(llm|ai.agent|tool.call|68|oauth|biometric))
+  - (?i)(api.misuse.{0,30}(68\.3%?|68.percent|security.api|oauth|biometric|llm.generat))
+  - (?i)(llm.generat.{0,30}(api.call|security.api).{0,30}(misuse|incorrect|insecure|wrong))
+  - (?i)(oauth.{0,30}(100%|llm.misuse|ai.generat.{0,20}misuse|biometric.misuse))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Security API Misuse by LLM Tool Calls — LLMs misuse security APIs at 68.3% rate (100% for OAuth/Biometrics)
+    across 48 task types'
+  description: 'Empirical study of LLM tool-call security (2024/2025) finds 68.3% misuse rate of security APIs across 48 task
+    types. OAuth and biometric APIs have 100% misuse rate. Common misuse patterns: hardcoded credentials, insecure algorithm
+    selection (ECB mode), predictable PRNG seeds, local storage of sensitive tokens, ignoring return values from security
+    functions. LLM-generated code that calls security APIs is systematically less secure than human-written equivalents, creating
+    widespread vulnerabilities when developers use LLM assistance for security-sensitive code.'
+  remediation: Never deploy LLM-generated security API code without human expert review. Apply static analysis with security-specific
+    rules (OWASP Mobile Top 10) to all AI-generated code. Use security API wrappers that enforce correct usage patterns. Implement
+    API-specific linting rules for common misuse patterns (ECB, hardcoded keys, PRNG misuse).
+  owasp_llm: LLM09:2025
+  cwe: CWE-327
+- id: MEDUSA-TUA-SCAN-042
+  name: insecure-ecb-mode-llm-crypto-misuse
+  severity: HIGH
+  category: cryptographic_weakness
+  patterns:
+  - (?i)(ecb.mode.{0,30}(llm|ai.generat|tool.call|insecure|cipher))
+  - (?i)(AES.{0,10}ECB|cipher\.new\(.*AES.*ECB|mode=AES\.MODE_ECB)
+  - (?i)(electronic.code.book.{0,30}(llm|ai|insecure|block.cipher|ecb))
+  - (?i)(block.cipher.{0,20}(ECB|ecb|electronic.code.book).{0,30}(llm.generat|ai.code|misuse))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Insecure ECB Mode — LLM-generated code using ECB block cipher mode (M2 OWASP Mobile), revealing plaintext
+    structure in ciphertext'
+  description: 'OWASP Mobile M2 insecure cryptography: LLMs systematically generate AES-ECB (Electronic Codebook) mode instead
+    of secure alternatives (GCM, CBC with IV). ECB mode encrypts identical plaintext blocks to identical ciphertext blocks,
+    revealing data structure and enabling pattern analysis attacks. Part of the 68.3% security API misuse finding — LLMs trained
+    on Stack Overflow/GitHub code inherit the historical prevalence of ECB usage in examples. Security-naive LLM users who
+    rely on AI-generated crypto code are vulnerable.'
+  remediation: Always specify AES-GCM or AES-CBC with random IV in prompts when requesting crypto code. Apply static analysis
+    rules to reject ECB mode in any generated code. Educate developers that AI-generated crypto code requires expert review.
+    Implement CI/CD checks for ECB mode usage patterns.
+  owasp_llm: LLM09:2025
+  cwe: CWE-327
+- id: MEDUSA-TUA-SCAN-043
+  name: predictable-prng-seed-llm-generated
+  severity: HIGH
+  category: cryptographic_weakness
+  patterns:
+  - (?i)(predictable.prng|prng.seed.{0,30}(predictable|hardcoded|fixed|timestamp|insecure))
+  - (?i)(random\.seed\(.{0,20}(0|1|42|1234|time\(|datetime|fixed))
+  - (?i)(prng.{0,20}(m5|mobile.m5|owasp.m5|llm.misuse|ai.generat).{0,30}(random|seed))
+  - (?i)(llm.generat.{0,30}(random.seed|prng|predictable.random|rand\(\)\s*%|srand\())
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Predictable PRNG Seed in LLM-Generated Code — OWASP Mobile M5 insecure randomness from hardcoded or
+    timestamp-based seeds'
+  description: 'OWASP Mobile M5 (Insufficient Cryptography): LLMs consistently generate code using predictable PRNG seeds
+    — hardcoded constants (0, 1, 42), current timestamp, or process ID. This makes all ''random'' values predictable to an
+    attacker who knows the approximate seed time. Common in LLM-generated code for session tokens, CSRF tokens, API keys,
+    and cryptographic nonces. Part of the broader security API misuse pattern (68.3% misuse rate) — LLMs optimize for code
+    that runs, not code that''s cryptographically secure.'
+  remediation: Always use cryptographically secure random number generators (os.urandom, secrets module, /dev/urandom) in
+    security-sensitive contexts. Never use time-based or hardcoded seeds for security purposes. Apply static analysis to detect
+    predictable seed patterns. Review all AI-generated randomness implementations before deployment.
+  owasp_llm: LLM09:2025
+  cwe: CWE-330
+- id: MEDUSA-TUA-SCAN-044
+  name: oauth-token-local-storage-plaintext
+  severity: HIGH
+  category: insecure_storage
+  patterns:
+  - (?i)(oauth.token.{0,30}(local.storage|plaintext|store.locally|file|disk|unsecured))
+  - (?i)(token.{0,20}(local.storage|localStorage|SharedPreferences|plaintext).{0,30}(oauth|api.key|secret|bearer))
+  - (?i)(m14|m15|owasp.mobile.{0,20}m1[45]).{0,30}(llm|ai.generat|token|storage)
+  - (?i)(llm.generat.{0,30}(token.store|api.key.store|oauth.store|credential.store).{0,30}(local|plain|file|disk))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: OAuth Token Local Storage — LLM-generated code storing OAuth/API tokens in plaintext local storage (OWASP
+    Mobile M14/M15, 100% occurrence rate)'
+  description: 'OWASP Mobile M14/M15 (Insecure Data Storage): LLMs store OAuth tokens and API credentials in plaintext local
+    storage at 100% occurrence rate when not explicitly instructed otherwise. Common patterns: writing tokens to localStorage
+    (JS), SharedPreferences without encryption (Android), UserDefaults (iOS), plain text files. Part of the 68.3% security
+    API misuse study. The 100% occurrence rate for OAuth token plaintext storage makes this the most consistent security failure
+    in LLM-generated authentication code.'
+  remediation: Always specify secure credential storage requirements when prompting for auth code. Use platform-specific secure
+    storage APIs (Android Keystore, iOS Keychain, libsecret). Never store OAuth tokens or API keys in localStorage, SharedPreferences
+    unencrypted, or plain files. Apply automated scanning for plaintext credential storage patterns in all AI-generated code.
+  owasp_llm: LLM09:2025
+  cwe: CWE-312
+- id: MEDUSA-TUA-SCAN-045
+  name: api-call-hallucination-nonexistent-api
+  severity: MEDIUM
+  category: hallucination_risk
+  patterns:
+  - (?i)(api.call.hallucin.{0,30}(gorilla|benchmark|llm|nonexist|fabricat))
+  - (?i)(gorilla.benchmark.{0,30}(api.hallucin|nonexist.api|fabricat.call|wrong.param))
+  - (?i)(nonexistent.api.{0,30}(hallucin|llm.generat|call|fabricat|gorilla))
+  - (?i)(hallucin.{0,30}(api.name|function.call|method.call|parameter|gorilla).{0,30}(llm|ai|tool))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: API Call Hallucination — LLM generating calls to nonexistent APIs or APIs with wrong parameters (Gorilla
+    benchmark analysis)'
+  description: 'Gorilla benchmark analysis documents systematic LLM hallucination of API calls: models generate calls to nonexistent
+    functions, use incorrect parameter names, mix API versions, or invent endpoints that don''t exist. When these hallucinated
+    calls are executed by agentic tools, they produce errors that the agent may interpret as security events, retry with modified
+    parameters (potentially escalating), or silently fail. In security-sensitive contexts, hallucinated API calls may accidentally
+    invoke similar-named but unintended APIs.'
+  remediation: Validate all LLM-generated API calls against official API documentation before execution. Implement API call
+    sandboxing that blocks calls to non-allowlisted endpoints. Use retrieval-augmented code generation to ground API calls
+    in verified documentation. Apply post-generation API validation to catch hallucinated calls before deployment.
+  owasp_llm: LLM09:2025
+  cwe: CWE-252
+- id: MEDUSA-TUA-SCAN-046
+  name: llm-guided-protocol-fuzzing-cve-discovery
+  severity: HIGH
+  category: vulnerability_discovery
+  patterns:
+  - (?i)(llm.guided.{0,20}(protocol.fuzz|fuzz|fuzzing).{0,30}(cve|live555|rtsp|vulnerability))
+  - (?i)(protocol.fuzz.{0,30}(llm|ai.guided|large.language.model).{0,30}(cve|vuln|exploit))
+  - (?i)(live555.{0,30}(llm|ai.fuzz|protocol.fuzz|cve|vulnerability).{0,30}(rtsp|stream|server))
+  - (?i)(ai.assisted.fuzz.{0,30}(protocol|network|cve|live555|rtsp|smb|ftp).{0,30}(vuln|discover))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LLM-Guided Protocol Fuzzing — AI-assisted fuzzing of network protocols discovering new CVEs (9 new CVEs
+    in LIVE555 RTSP server)'
+  description: LLM-Guided Protocol Fuzzing uses LLMs to generate intelligent protocol mutation strategies, discovering 9 new
+    CVEs in the LIVE555 RTSP streaming server (2024). LLMs understand protocol semantics and can generate semantically valid
+    but boundary-violating messages that traditional fuzzing misses. The approach combines LLM protocol understanding with
+    mutation-based fuzzing to achieve higher code coverage and more impactful vulnerability discovery. Represents both an
+    offensive capability and a research tool for vulnerability discovery at scale.
+  remediation: Apply LLM-guided fuzzing proactively to all network protocol implementations before deployment. Implement protocol
+    state machine validation to detect semantically invalid inputs. Use continuous fuzzing pipelines with LLM mutation strategies.
+    Patch all LIVE555 instances against CVEs discovered via this research. Apply protocol-specific input validation hardening.
+  owasp_llm: LLM09:2025
+  cwe: CWE-119
+- id: MEDUSA-TUA-SCAN-047
+  name: state-dependency-violation-tool-race-condition
+  severity: HIGH
+  category: tool_state_management
+  patterns:
+  - (?i)(state.depend.{0,20}(violation|race.condition|tool|agent.tool).{0,30}(llm|ai|concurrent))
+  - (?i)(race.condition.{0,30}(tool.call|api.call|agent).{0,30}(llm|ai.agent|state.depend))
+  - (?i)(concurrent.tool.{0,30}(state|race|conflict|dependency).{0,30}(agent|llm|parallel))
+  - (?i)(tool.{0,20}(parallel|concurrent).{0,30}(state.conflict|race.condition|dependency.violat))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: State Dependency Violation — race conditions between concurrent LLM tool calls due to unmanaged inter-tool
+    state dependencies'
+  description: 'State Dependency Violations arise when LLM agents invoke multiple tools concurrently without respecting inter-tool
+    state dependencies. Tool A may modify shared state that Tool B simultaneously reads, causing race conditions, data corruption,
+    or security bypass. Common in agentic frameworks that parallelize tool calls for efficiency — the agent doesn''t understand
+    the execution order constraints between tools. Security impact: authentication state can be read before credential tools
+    have completed, enabling bypass of auth checks.'
+  remediation: Implement explicit dependency graphs for multi-tool workflows. Apply serialized execution for tools with shared
+    state dependencies. Use transactional semantics for tool sequences that modify shared state. Audit agent frameworks for
+    implicit tool execution ordering assumptions. Implement state locking mechanisms for security-critical shared resources.
+  owasp_llm: LLM08:2025
+  cwe: CWE-362
+- id: MEDUSA-TUA-SCAN-048
+  name: recursive-self-evaluation-attack-tool-loop
+  severity: HIGH
+  category: tool_abuse
+  patterns:
+  - (?i)(recursive.self.eval.{0,30}(attack|tool|agent|loop|inject))
+  - (?i)(self.eval.{0,20}(recursive|attack|loop|tool.call|inject).{0,30}(llm|agent|tool))
+  - (?i)(eval.{0,10}output.{0,20}(recursive|self.eval|loop|attack).{0,30}(tool|agent|llm))
+  - (?i)(tool.output.{0,30}(self.eval|recursive.eval|evaluate.itself|loop.injection))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Recursive Self-Evaluation Attack — tool outputs that trigger recursive self-evaluation loops enabling
+    incremental jailbreak escalation'
+  description: Recursive Self-Evaluation Attacks craft tool outputs that prompt the agent to repeatedly re-evaluate its own
+    previous outputs, each evaluation step incrementally escalating toward harmful content. The attack exploits the agent's
+    built-in tendency to refine and improve outputs when asked to evaluate them. Each evaluation step appears benign but progressively
+    shifts the agent's response toward the attacker's goal. By the N-th iteration, the original safety constraints have been
+    eroded through successive 'improvements'.
+  remediation: Implement limits on recursive tool invocation depth. Monitor for evaluation chains that semantically drift
+    from initial task goals. Apply output comparison between initial and refined responses to detect progressive safety erosion.
+    Limit tool loops to verified task-completion-focused iterations. Alert on recursive evaluation patterns that exceed configurable
+    depth thresholds.
+  owasp_llm: LLM01:2025
+  cwe: CWE-835
+- id: MEDUSA-TUA-SCAN-049
+  name: insufficient-repeated-api-calls-amplification
+  severity: MEDIUM
+  category: tool_abuse
+  patterns:
+  - (?i)(insufficient.api.call|repeated.api.call).{0,40}(amplif|resource|exhaust|loop)
+  - (?i)(api.call.{0,20}(amplif|repeat|loop|exhaust).{0,30}(llm|agent|tool|resource))
+  - (?i)(tool.retry.{0,30}(amplif|exhaust|dos|loop|excessive).{0,30}(agent|llm|resource))
+  - (?i)(excessive.tool.{0,20}(call|invoc|retry).{0,30}(resource|exhaust|amplif|dos|agent))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Insufficient/Repeated API Call Amplification — LLM agents making redundant/excessive tool calls enabling
+    resource exhaustion or cost amplification'
+  description: 'Insufficient or Repeated API Call patterns arise when LLM agents fail to correctly process tool outputs and
+    retry the same call repeatedly, or when adversarial injection causes the agent to make amplified numbers of API calls.
+    Resource exhaustion vector: an agent stuck in a retry loop from adversarial input can exhaust API rate limits, consume
+    budget, or generate logs that overwhelm monitoring. Also exploited for targeted amplification: injecting instructions
+    that cause the agent to call expensive external APIs repeatedly.'
+  remediation: Implement circuit breaker patterns for repeated identical tool calls. Apply per-session API call budget limits.
+    Monitor for anomalous tool call frequencies indicating injection-induced loops. Use idempotency keys to prevent duplicate
+    API calls. Implement backoff with jitter and maximum retry counts for all tool invocations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-TUA-SCAN-050
+  name: B-AVIs Backdoor Attack on Vision-Language Tools
+  severity: critical
+  category: tool_use_attack
+  patterns:
+  - (?i)b.avi\b.*(?:backdoor|attack|inject)
+  - (?i)backdoor.*vision.language.*(?:tool|api)
+  - (?i)miniGPT.*(?:backdoor|attack|91)\s*%
+  - (?i)visual.*(?:trojan|backdoor).*(?:tool.call|function)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'B-AVIs: Backdoor Attack on Vision-Language tool integrations achieving 91% ASR (MiniGPT-4)'
+  description: B-AVIs embed backdoors in vision-language tool integrations, achieving 91% attack success rate on MiniGPT-4,
+    triggering malicious tool calls when specific visual triggers appear.
+  remediation: Validate vision-language tool outputs, restrict tool call permissions based on input content, and monitor for
+    anomalous tool call patterns.
+  owasp_llm: LLM08
+  cwe: CWE-693
+- id: MEDUSA-TUA-SCAN-051
+  name: Content Bias Attack Racial Accuracy Disparity
+  severity: high
+  category: tool_use_attack
+  patterns:
+  - (?i)content\s+bias.*(?:attack|exploit)
+  - (?i)racial.*(?:accuracy|bias).*(?:2\s*%|disparity)
+  - (?i)demographic\s+(?:bias|disparity).*(?:tool|api|model)
+  - (?i)2\s*%.*(?:racial|demographic).*accuracy
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Content Bias Attack: 2% racial accuracy disparity in AI tool outputs enabling targeted harm'
+  description: Content bias attacks exploit systematic accuracy disparities in AI tools (2% racial accuracy gap documented),
+    causing discriminatory outcomes that can be weaponized for targeted harm.
+  remediation: Audit tool outputs for demographic disparities, apply fairness constraints, and monitor for bias exploitation
+    patterns.
+  owasp_llm: LLM09
+  cwe: CWE-573
+- id: MEDUSA-TUA-SCAN-052
+  name: Security API Misuse High Misuse Rate
+  severity: critical
+  category: tool_use_attack
+  patterns:
+  - (?i)security\s+api.*(?:misuse|abuse)
+  - (?i)(?:68|69)\s*%.*(?:misuse|api)
+  - (?i)api.*(?:misuse|abuse).*(?:crypto|auth|security)
+  - (?i)llm.*(?:generat|suggest).*(?:insecure|vulnerable).*api\s+(?:call|usage)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Security API Misuse: LLMs generating insecure API usage at 68.3% misuse rate'
+  description: LLMs generate security-sensitive API calls with 68.3% misuse rate — hard-coded keys, ECB mode, predictable
+    PRNGs, insecure OAuth patterns, and unsafe crypto implementations.
+  remediation: Lint LLM-generated API calls against security rules, validate crypto usage, and audit generated code for security
+    anti-patterns before execution.
+  owasp_llm: LLM02
+  cwe: CWE-330
+- id: MEDUSA-TUA-SCAN-053
+  name: Hard-Coded Cryptographic Key in LLM Output
+  severity: critical
+  category: tool_use_attack
+  patterns:
+  - (?i)api.key\s*=\s*["\'][A-Za-z0-9+/]{20,}
+  - (?i)secret.key\s*=\s*["\'][A-Za-z0-9+/]{16,}
+  - hard.cod.*(?:key|secret|token|password)
+  - (?i)(?:password|secret|key)\s*=\s*["\'][^"\']{8,}["\']
+  file_types:
+  - .py
+  - .js
+  - .ts
+  - .java
+  - .go
+  - .rb
+  message: Hard-coded credential in LLM-generated code — critical security API misuse pattern
+  description: LLM-generated code containing hard-coded API keys, secrets, or cryptographic keys, which is a documented high-frequency
+    misuse pattern at 68.3% occurrence.
+  remediation: Enforce secrets scanning on LLM output, use environment variables, and apply pre-commit hooks to block credential
+    commits.
+  owasp_llm: LLM02
+  cwe: CWE-798
+- id: MEDUSA-TUA-SCAN-054
+  name: ECB Mode Insecure Cipher Usage in Generated Code
+  severity: high
+  category: tool_use_attack
+  patterns:
+  - (?i)aes\.new\s*\(.*mode\s*=\s*aes\.mode_ecb
+  - (?i)ecb\s+mode.*(?:aes|cipher|encrypt)
+  - (?i)Cipher\..*ECB
+  - (?i)createCipher(?:iv)?\s*\(\s*["\']aes-\d+-ecb
+  file_types:
+  - .py
+  - .js
+  - .ts
+  - .java
+  - .go
+  message: ECB mode cipher in LLM-generated code — insecure encryption pattern
+  description: LLM-generated cryptographic code using ECB (Electronic Codebook) mode, which is semantically insecure. Documented
+    as a high-frequency security API misuse pattern.
+  remediation: Replace ECB with authenticated encryption (AES-GCM/ChaCha20-Poly1305), validate all LLM-generated crypto code.
+  owasp_llm: LLM02
+  cwe: CWE-327
+- id: MEDUSA-TUA-SCAN-055
+  name: Embedding Inversion Attack via Tool API
+  severity: high
+  category: tool_use_attack
+  patterns:
+  - (?i)embedding\s+inversion
+  - (?i)invert.*embedding.*(?:reconstruct|recover|extract)
+  - (?i)vec2text\b
+  - (?i)reconstruct.*(?:text|input).*from.*embed
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Embedding Inversion: reconstructing original text from embedding API outputs'
+  description: Embedding inversion attacks use embedding API outputs to reconstruct original input text, leaking private data
+    submitted to embedding endpoints.
+  remediation: Add noise to embedding outputs (differential privacy), restrict embedding API access, and monitor for reconstruction
+    attack patterns.
+  owasp_llm: LLM06
+  cwe: CWE-311
+- id: MEDUSA-TUA-SCAN-056
+  name: Hallucination Error Propagation Tool Chain Attack
+  severity: high
+  category: tool_use_attack
+  patterns:
+  - (?i)hallucination.*(?:propagat|cascade|chain)
+  - (?i)error\s+propagat.*(?:tool|agent|chain)
+  - (?i)hallucinated.*(?:api.call|function.call|tool.call)
+  - (?i)fabricated.*(?:tool\s+result|api\s+response)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'Hallucination Error Propagation: hallucinated tool calls cascading through agent pipelines'
+  description: LLM-hallucinated tool calls and fabricated API responses propagate errors through agent pipelines, causing
+    downstream agents to act on false information.
+  remediation: Validate tool call results against expected schemas, implement tool call verification, and detect hallucinated
+    vs real tool responses.
+  owasp_llm: LLM09
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-057
+  name: State Dependency Violation Agent Tool Sequencing Attack
+  severity: high
+  category: tool_use_attack
+  patterns:
+  - (?i)state\s+dependency.*(?:violat|attack|exploit)
+  - (?i)tool.*sequenc.*(?:attack|bypass|violat)
+  - (?i)race\s+condition.*(?:tool|agent|api)
+  - (?i)state\s+(?:corrupt|tamper).*(?:tool.call|agent)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  - .json
+  message: 'State Dependency Violation: exploiting tool execution sequencing to corrupt agent state'
+  description: Adversaries exploit tool call ordering dependencies and state management to violate expected sequencing constraints,
+    corrupting agent state or bypassing authorization checks.
+  remediation: Enforce tool call ordering constraints, validate state consistency between tool calls, and implement transaction-like
+    rollback for failed tool sequences.
+  owasp_llm: LLM08
+  cwe: CWE-362
+- id: MEDUSA-TUA-SCAN-001
+  name: hardcoded-crypto-key
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)SecretKeySpec\s*\(\s*["'][^"']+["']
+  - (?i)(?:key|secret|password)\s*=\s*["'][A-Za-z0-9+/=]{8,}["']
+  - (?i)(?:AES|DES|Blowfish).*(?:key|secret)\s*=\s*["']
+  file_types:
+  - '*.java'
+  - '*.py'
+  - '*.js'
+  message: Hard-coded cryptographic key detected (M1 misuse pattern)
+  description: Detects hard-coded cryptographic keys in LLM-generated code. Mousavi et al. 2024 found GPT-4 generates hard-coded
+    keys in symmetric encryption and MAC implementations, a common security misuse.
+  remediation: Use secure key management (KeyStore, env vars). Generate keys with SecureRandom. Never embed keys in source
+    code.
+  owasp_llm: LLM02:2025
+  cwe: CWE-321
+- id: MEDUSA-TUA-SCAN-002
+  name: ecb-mode-encryption
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)Cipher\.getInstance\s*\(\s*["'](?:AES|DES|Blowfish)/ECB
+  - (?i)(?:mode|cipher_mode)\s*=\s*["']ECB["']
+  - (?i)AES\.new\s*\([^)]*AES\.MODE_ECB
+  file_types:
+  - '*.java'
+  - '*.py'
+  message: Insecure ECB encryption mode detected (M2 misuse pattern)
+  description: Detects ECB mode encryption which preserves data patterns. Mousavi et al. 2024 found GPT-4 defaults to ECB
+    in majority of symmetric encryption programs.
+  remediation: Use authenticated encryption modes (GCM, CCM). Explicitly specify mode in Cipher.getInstance().
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-TUA-SCAN-003
+  name: predictable-prng-seed
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)SecureRandom\s*\(\s*\).*seed.*(?:currentTimeMillis|nanoTime|System\.)
+  - (?i)(?:random\.seed|Random)\s*\(\s*(?:int|time|os\.getpid)
+  - (?i)setSeed\s*\(\s*System\.currentTimeMillis
+  file_types:
+  - '*.java'
+  - '*.py'
+  message: Predictable PRNG seed detected (M5 misuse pattern)
+  description: Detects predictable seeds for pseudo-random number generators. Mousavi et al. 2024 identified GPT-4 using System.currentTimeMillis()
+    as seed for SecureRandom, reducing entropy.
+  remediation: Use default SecureRandom() without manual seeding. For Python, use secrets module instead of random.
+  owasp_llm: LLM02:2025
+  cwe: CWE-330
+- id: MEDUSA-TUA-SCAN-004
+  name: plaintext-secret-storage
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:token|secret|password|api_key)\s*=\s*["'][^"']{8,}["']
+  - (?i)SharedPreferences.*(?:putString|edit).*(?:token|password|secret)
+  - (?i)open\s*\([^)]*["'].*(?:token|secret|password|key).*["'].*["']w["']\s*\)
+  file_types:
+  - '*.java'
+  - '*.py'
+  - '*.js'
+  message: Plaintext storage of secrets/tokens detected (M14/M15 misuse pattern)
+  description: Detects plaintext storage of OAuth tokens and secrets. Mousavi et al. 2024 found 100% of GPT-4 auth implementations
+    store secrets in plaintext.
+  remediation: Use encrypted storage (Android Keystore, OS Credential Manager). Never store tokens in SharedPreferences or
+    plaintext files.
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+- id: MEDUSA-TUA-SCAN-005
+  name: api-hallucination-patterns
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)AutoModel\.from_pretrained\s*\([^)]*github\.com
+  - (?i)(?:pip|npm)\s+install\s+(?:(?!-r)[a-z][a-z0-9-]*){1}\s*$
+  - (?i)(?:from|import)\s+(?:toolformer|gorilla_api|tool_alpaca)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Potential API/package hallucination pattern detected
+  description: Detects patterns consistent with hallucinated API calls (Patil 2023). LLMs may invoke non-existent repos/packages,
+    risking runtime errors or loading malicious code if hallucinated names exist.
+  remediation: Validate all package names against official registries. Pin package versions. Use Gorilla-style API retrieval
+    augmentation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+- id: MEDUSA-TUA-SCAN-006
+  name: deprecated-security-api
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)FingerprintManager|android\.hardware\.fingerprint
+  - (?i)SafetyNetClient|SafetyNet\.getClient
+  - (?i)(?:from|import)\s+(?:pycrypto|PyCrypto)
+  file_types:
+  - '*.java'
+  - '*.py'
+  - '*.kt'
+  message: Deprecated security API usage detected
+  description: Detects deprecated security APIs that LLMs suggest due to training data cutoffs (Mousavi 2024). Includes Android
+    FingerprintManager (replaced by BiometricPrompt) and SafetyNet (replaced by Play Integrity).
+  remediation: Replace FingerprintManager with BiometricPrompt. Replace SafetyNet with Play Integrity. Replace PyCrypto with
+    PyCryptodome.
+  owasp_llm: LLM02:2025
+  cwe: CWE-477
+- id: MEDUSA-TUA-SCAN-007
+  name: llm-guided-fuzzing-tools
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:from|import)\s+(?:chatafl|llm_fuzzer|protocol_fuzzer)
+  - (?i)ChatAFL\s*\(|LLMFuzzer\s*\(
+  - (?i)llm.*(?:fuzz|mutate).*protocol|protocol.*(?:fuzz|mutate).*llm
+  file_types:
+  - '*.py'
+  message: LLM-guided protocol fuzzing framework detected
+  description: Detects ChatAFL (Meng 2024) and similar LLM-guided fuzzers that use LLMs to infer protocol states and generate
+    mutations. Discovered 9 unknown vulns (7 critical) in LIVE555/ProFTPD.
+  remediation: Ensure authorized security testing context. Validate fuzzing targets are within scope.
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-TUA-SCAN-008
+  name: tool-use-no-validation
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)tool_call\s*=.*execute.*(?:without|skip|no).*(?:valid|check|verify)
+  - (?i)(?:exec|eval|subprocess)\s*\(.*tool_(?:output|result|response)
+  - (?i)os\.system\s*\(.*(?:tool|agent|llm).*(?:output|result|response)
+  file_types:
+  - '*.py'
+  message: Tool output executed without validation
+  description: Detects tool outputs being executed without validation. ToolSandbox (Lu 2024) showed models fail to handle
+    state dependencies; executing unvalidated tool outputs risks command injection.
+  remediation: Validate and sanitize all tool outputs before execution. Implement sandboxed execution environments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+- id: MEDUSA-TUA-SCAN-009
+  name: multi-agent-no-oversight
+  severity: MEDIUM
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:agent|bot).*communicate.*(?:agent|bot).*(?:without|no).*(?:human|oversight|monitor)
+  - (?i)autonomous.*(?:agent|tool).*(?:chain|pipeline).*(?:execute|run)
+  - (?i)(?:from|import)\s+(?:autogen|crewai|langchain).*(?:agent.*agent|multi.*agent)
+  file_types:
+  - '*.py'
+  message: Multi-agent system without human oversight controls
+  description: Detects multi-agent systems lacking oversight. Maragheh & Deldjoo 2025 identified emergent misalignment and
+    covert collusion risks where agents develop private protocols bypassing human constraints.
+  remediation: Implement human-in-the-loop checkpoints. Monitor inter-agent communication. Use structured tool schemas.
+  owasp_llm: LLM02:2025
+  cwe: CWE-284
+- id: MEDUSA-TUA-SCAN-010
+  name: embedding-inversion-exposure
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:send|transmit|upload).*(?:embedding|hidden_state|representation).*(?:api|server|endpoint)
+  - (?i)requests\.(?:post|put)\s*\([^)]*(?:embedding|vector|representation)
+  file_types:
+  - '*.py'
+  message: Embeddings sent to external service without privacy protection
+  description: Detects sending raw embeddings to external services. Li et al. 2023 showed embedding inversion attacks can
+    reconstruct original text from embeddings. RAPT framework provides privacy-preserving alternative.
+  remediation: Apply RAPT privatization before sending embeddings. Use local inference when possible. Add noise to embeddings.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200

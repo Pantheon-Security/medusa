@@ -87,6 +87,9 @@ class AIContextScanner(RuleBasedScanner):
         'rag_based_injection', 'reality_confusion_injection',
         'reasoning_llm_attack', 'social_engineering_injection',
         'web_agent_injection', 'model_based_attack',
+        # CEA-SCAN categories (from coding_editor_attacks rules)
+        'coding_editor_attack', 'repo_poisoning', 'steganographic_attack',
+        'supply_chain_attack', 'credential_theft',
     ]
 
     # AI context file names (case-insensitive matching)

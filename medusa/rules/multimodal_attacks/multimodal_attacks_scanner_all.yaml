@@ -1,0 +1,2458 @@
+# MEDUSA Scanner Rules — multimodal_attacks (MERGED)
+# Sources: multimodal_attacks_scanner_expansion.yaml, multimodal_attacks_scanner_fc.yaml
+# Total rules: 100
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: multimodal_attacks
+  prefix: MMA
+  total_rules: 100
+  sources:
+  - multimodal_attacks_scanner_expansion.yaml
+  - multimodal_attacks_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-MMA-SCAN-001
+  name: visual-adversarial-perturbation-attack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bpgd\b.*\bvision\b
+  - (?i)adversarial.*perturbation.*image.*LLM
+  - (?i)visual.*adversarial.*example.*jailbreak
+  - (?i)\bclip\b.*encoder.*adversarial.*attack
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Visual adversarial perturbation attack against vision-language model detected
+  description: Code pattern consistent with generating PGD/FGSM adversarial images
+    targeting CLIP-based VLM encoders for jailbreaking. Qi et al. (2023) demonstrate
+    a single universal adversarial image can jailbreak aligned LLMs with high transfer
+    rate. MLAI achieves 82.80% ASR on LLaVA-2 (Hao et al., 2024).
+  remediation: Implement adversarially fine-tuned vision encoders (Sim-CLIP+, Robust-LLaVA).
+    Deploy input preprocessing to detect adversarial perturbations. Use multi-scale
+    consistency checks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-002
+  name: ocr-based-visual-prompt-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(embed|inject|overlay|render).*text.*image.*(prompt|instruction)
+  - (?i)(PIL|cv2|ImageDraw).*text.*inject
+  - (?i)typographic.*attack
+  - (?i)OCR.*inject.*VLM
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'OCR-based visual prompt injection: text embedded in images to override
+    VLM task'
+  description: Code renders or embeds text instructions directly onto images to exploit
+    VLM OCR reading capabilities and override intended task instructions. MM-SafetyBench
+    (Liu et al., 2023) shows this achieves >70% ASR across 12 MLLMs. GHVPI achieves
+    15.8% ASR on GPT-4V (Kimura et al., 2024).
+  remediation: Deploy instruction hierarchy awareness so models distinguish between
+    system/user text prompts and image-embedded text. Implement image text extraction
+    screening.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-003
+  name: query-relevant-image-jailbreak
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)stable.diffusion.*(harmful|unsafe|jailbreak)
+  - (?i)query.relevant.*image.*jailbreak
+  - (?i)scenario.aware.*image.*(attack|jailbreak)
+  - (?i)MM.SafetyBench
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Query-relevant image generation attack (SD+OCR pattern) targeting MLLM
+    safety filters
+  description: Generates scenario-matched images using diffusion models to amplify
+    harmful query compliance in MLLMs. MM-SafetyBench SD+OCR method achieves >70%
+    ASR on 12 MLLMs including ~67% on GPT-4V (Liu et al., 2023). MLAI exploits scenario-matched
+    images to achieve 77.75% on MiniGPT-4 (Hao et al., 2024).
+  remediation: Implement safety-aware image analysis pipeline. Deploy content moderation
+    on both image and text modalities independently before combined processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-004
+  name: bimodal-adversarial-prompt-attack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)bi.?modal.*adversarial.*prompt
+  - (?i)\bBAP\b.*(visual|image|text).*attack
+  - (?i)(visual|image).*perturbation.*text.*optimize.*jailbreak
+  - (?i)affirmative.prefix.*adversarial.*image
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Bi-modal adversarial prompt attack: joint visual+textual optimization
+    for LVLM jailbreak'
+  description: BAP attack jointly optimizes adversarial visual and textual prompts
+    for VLM jailbreaking, achieving +29.03% average ASR over single-modality attacks
+    (Ying et al., 2024). Effective against aligned models that fuse visual and textual
+    features simultaneously. Demonstrated on Gemini and ChatGLM.
+  remediation: 'Deploy bi-modal safety evaluation: analyze both visual and textual
+    modalities independently and jointly. Implement visual perturbation detection
+    before cross-modal fusion.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-005
+  name: flowchart-logic-visual-jailbreak
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)flowchart.*(harmful|jailbreak|attack)
+  - (?i)\bFC.Attack\b
+  - (?i)step.description.*(flowchart|chart|diagram).*VLM
+  - (?i)(graphviz|mermaid|plantuml).*(harmful|unsafe|inject)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'Flowchart-based visual jailbreak attack: harmful instructions encoded
+    as logic diagrams'
+  description: FC-Attack encodes harmful instructions as auto-generated flowcharts,
+    achieving up to 96% ASR via images and 78% via video (Zhang et al., 2025). Image-to-Text
+    Logic Jailbreak achieves 92.8% ASR on GPT-4o and GPT-4V (Zou et al., 2024). Font
+    style changes improve Claude-3.5 ASR from 4% to 28%.
+  remediation: Extend safety filters to analyze visual logical content (flowcharts,
+    diagrams) for encoded harmful instruction patterns. Implement context-aware visual
+    content moderation beyond text extraction.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-006
+  name: universal-adversarial-image-generation
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)universal.*adversarial.*(image|visual|perturbation)
+  - (?i)query.agnostic.*adversarial.*image
+  - (?i)universal.*jailbreak.*(image|visual|multimodal)
+  - (?i)adversarial.*suffix.*image.*universal
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Universal adversarial image generation: single perturbation jailbreaks
+    across diverse queries'
+  description: Generates a universal adversarial image that jailbreaks aligned LLMs
+    regardless of the specific harmful query. Qi et al. (2023) demonstrate cross-category
+    universality; Wang et al. (2025) add universal adversarial text suffix+image combination
+    evaluated on LLaVA, Yi-VL, MiniGPT4, MiniGPT-v2, InstructBLIP.
+  remediation: Deploy adversarially fine-tuned visual encoders (Sim-CLIP+, Robust-LLaVA)
+    with 2x+ robustness gains. Implement anomaly detection for adversarial perturbation
+    patterns in visual inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-007
+  name: cross-modal-prompt-injection-agent
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)cross.modal.*(inject|injection|hijack)
+  - (?i)CrossInject\b
+  - (?i)visual.latent.alignment.*adversarial
+  - (?i)multimodal.*agent.*(inject|hijack|manipulate)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Cross-modal prompt injection targeting multimodal agent decision-making
+  description: CrossInject embeds adversarial perturbations across modalities aligned
+    with malicious content to hijack multimodal agent decision-making, achieving +30.1%
+    ASR improvement (Wang et al., 2025). CAMO decomposes malicious prompts into benign
+    cross-modal fragments for black-box jailbreaking (Jiang et al., 2025).
+  remediation: Implement cross-modal consistency checks. Deploy intent verification
+    that evaluates agent actions against original task specification. Use instruction
+    hierarchy enforcement in agent frameworks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-008
+  name: image-scaling-visual-prompt-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)scaling.*(inject|injection|adversarial|hidden)
+  - (?i)downscal.*(attack|adversarial|inject)
+  - (?i)preprocessing.pipeline.*adversarial.*image
+  - (?i)Chameleon.*(VLM|vision|attack|scaling)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Scaling-based visual prompt injection exploiting image preprocessing pipelines
+  description: Chameleon exploits image downscaling in VLM preprocessing pipelines
+    to inject hidden visual prompts invisible at original resolution, achieving 84.5%
+    ASR on Gemini 2.5 Flash vs 32.1% for static attacks (Zeeshan et al., 2025). Adversarial
+    content appears after scaling operations.
+  remediation: 'Implement multi-scale consistency checks: verify model behavior is
+    consistent across different image scaling factors. Detect behavioral anomalies
+    between original and scaled image processing.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-009
+  name: diffusion-model-adversarial-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)diffusion.*adversarial.*(mllm|vlm|multimodal)
+  - (?i)adversarial.guided.diffusion
+  - (?i)\bAGD\b.*(attack|adversarial|mllm)
+  - (?i)reverse.diffusion.*adversarial.*noise
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Diffusion-model-based adversarial image generation for MLLM attacks (AGD)
+  description: AGD injects adversarial guidance into diffusion model reverse process,
+    distributing adversarial signals across full frequency spectrum. Outperforms state-of-the-art
+    attack methods and is inherently robust to low-pass filtering defenses (Xia et
+    al., 2025). Full-spectrum adversarial noise defeats frequency-domain defenses.
+  remediation: Deploy defenses beyond frequency-domain filtering. Implement semantic-level
+    adversarial detection. Use certified robustness metrics (Retention Score) to quantify
+    VLM exposure.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-010
+  name: medical-image-vlm-prompt-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(medical|radiology|pathology|oncology).*(VLM|vision.*language|multimodal).*inject
+  - (?i)sub.visual.*prompt.*inject.*(medical|clinical|healthcare)
+  - (?i)medical.*image.*adversarial.*inject
+  - (?i)clinical.*VLM.*attack
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Sub-visual prompt injection in medical imaging VLM context detected
+  description: Clusmann et al. (2025, Nature Communications) demonstrate that all
+    four frontier VLMs (Claude-3 Opus, Claude-3.5 Sonnet, Reka Core, GPT-4o) are vulnerable
+    to sub-visual prompt injection in medical imaging with N=594 attacks. Sub-visual
+    prompts are non-obvious to human medical reviewers.
+  remediation: Require security evaluation before clinical VLM deployment. Implement
+    medical image integrity verification. Deploy dual-review (human + automated injection
+    detection) for VLM-assisted clinical workflows.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-011
+  name: mllm-jailbreak-transfer-from-llm
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(GCG|AutoDAN|PAIR|DeepInception).*MLLM
+  - (?i)LLM.*jailbreak.*transfer.*multimodal
+  - (?i)\bJailBreakV\b
+  - (?i)text.*jailbreak.*vision.*language.*model
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: LLM jailbreak technique applied to multimodal LLM text backbone
+  description: JailBreakV-28K demonstrates that LLM jailbreak techniques transfer
+    highly effectively to MLLMs via the text modality, often achieving higher ASR
+    than image-based attacks (Luo et al., 2024, COLM). 28,000 test cases across 10
+    open-source MLLMs confirm MLLM vulnerability via text backbone.
+  remediation: Apply MLLM-specific safety alignment beyond LLM backbone training.
+    Implement multimodal-aware content filtering that considers both modalities. Use
+    adversarial training that covers transferred LLM attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-012
+  name: multimodal-agent-environment-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)active.*environment.*inject
+  - (?i)\bAEIA\b
+  - (?i)(android|mobile|GUI).*(agent|automation).*inject
+  - (?i)reasoning.gap.*(exploit|attack|vulnerability)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Active environment injection attack targeting MLLM-powered mobile/GUI agent
+  description: AEIA-MN achieves up to 93% ASR on the AndroidWorld benchmark by exploiting
+    adversarial content injection in multimodal interfaces and reasoning gap vulnerabilities
+    in MLLM-based mobile agents (Chen et al., 2025).
+  remediation: Implement impostor detection in agent execution environments. Validate
+    environmental elements against trusted sources. Apply reasoning gap mitigations
+    by enforcing consistent attention to environmental context.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-013
+  name: ar-multimodal-social-engineering
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(augmented.reality|AR).*(multimodal|mllm|vlm).*(attack|social.engineer)
+  - (?i)\bSEAR\b.*(social|engineer|attack)
+  - (?i)multimodal.*RAG.*(social|phish|engineer)
+  - (?i)AR.*LLM.*persona.*attack
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: AR-enhanced multimodal LLM social engineering attack framework detected
+  description: SEAR framework achieves 93.3% email phishing susceptibility and 85%
+    call acceptance by using AR+Multimodal LLMs for targeted social engineering attacks
+    with real-time environmental context fusion (Bi et al., 2025). First proof-of-concept
+    for AR+MLLM social engineering.
+  remediation: Implement AR environment authentication. Monitor Multimodal RAG access
+    patterns for social context harvesting. Train users on AR-assisted social engineering
+    indicators.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+- id: MEDUSA-MMA-SCAN-014
+  name: mllm-captcha-solving-bypass
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(mllm|vlm|gpt.4v|gemini).*(captcha|CAPTCHA).*(solve|bypass|break)
+  - (?i)captcha.*solver.*(multimodal|vision.*language)
+  - (?i)automated.*captcha.*(vlm|mllm|gpt)
+  - (?i)vision.*model.*captcha.*recognition
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.sh'
+  message: MLLM-based automated CAPTCHA solving bypass detected
+  description: COGNITION study shows MLLMs reliably solve recognition-oriented and
+    low-interaction CAPTCHA types at human-like cost and latency (Wang et al., 2025).
+    7 MLLMs evaluated across 18 CAPTCHA task types; recognition and simple interaction
+    CAPTCHAs are highly vulnerable.
+  remediation: Replace recognition-oriented CAPTCHAs with fine-grained localization
+    or multi-step spatial reasoning challenges. Monitor for MLLM-pattern CAPTCHA solving
+    attempts (API latency, accuracy profiles).
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-MMA-SCAN-015
+  name: t2i-safety-filter-bypass-multimodal
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(stable.diffusion|midjourney|dall.?e).*(bypass|jailbreak|nsfw).*(safety|filter)
+  - (?i)text.to.image.*safety.*filter.*bypass
+  - (?i)\bMPDA\b
+  - (?i)NSFW.*generation.*(bypass|evade|circumvent)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.sh'
+  message: Text-to-image model safety filter bypass attack detected
+  description: MPDA achieves 29% higher NSFW content bypass rate than prior methods
+    on Midjourney by exploiting image modality to separate harmful semantic components
+    (Peng et al., 2025). Evaluated across Stable Diffusion 3.5, CogView, Tongyiwanxiang,
+    and Midjourney.
+  remediation: Implement multimodal safety evaluation for T2I models covering both
+    text and image inputs. Deploy iterative content review with VLM-based semantic
+    checking of generated images against policy.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-016
+  name: mllm-unlearning-attack-recovery
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)unlearning.*attack.*(mllm|multimodal|vlm)
+  - (?i)\bSUA\b.*(unlearn|recover|forget)
+  - (?i)machine.unlearning.*(noise|perturbation|recover)
+  - (?i)recover.*unlearned.*(mllm|visual|image)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'MLLM unlearning attack: recovering supposedly deleted sensitive information'
+  description: SUA (Stealthy Unlearning Attack) demonstrates that MLLM machine unlearning
+    methods hide rather than truly delete sensitive information. Universal noise perturbations
+    recover unlearned content from MLLMs with strong generalization (Zhang et al.,
+    2025). Embedding alignment ensures stealthiness.
+  remediation: Audit MLLM unlearning effectiveness using adversarial recovery probes
+    before deployment. Implement certified unlearning verification. Do not rely on
+    machine unlearning alone for sensitive data compliance.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-MMA-SCAN-017
+  name: physical-3d-prompt-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)physical.*(inject|prompt|attack).*(3D|environment|robot)
+  - (?i)\bPI3D\b
+  - (?i)3D.*(pose|object).*(inject|adversarial|attack)
+  - (?i)(robotics|XR|extended.reality).*prompt.*inject
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Physical 3D environment prompt injection against MLLM-powered robots/agents
+  description: PI3D realizes prompt injection via text-bearing physical object placement
+    in 3D environments, overriding MLLM-powered robot/agent task execution without
+    digital image access (Li et al., 2026). Effective under diverse camera trajectories;
+    all existing defenses insufficient.
+  remediation: Implement physical environment scanning for text-bearing objects. Deploy
+    multi-view consistency verification for MLLM-powered robotic systems. Require
+    authentication of environmental instructions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-018
+  name: web-agent-image-prompt-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)web.agent.*(inject|injection|adversarial)
+  - (?i)\bWAInjectBench\b
+  - (?i)(html|webpage|web).*(adversarial.image|visual.inject)
+  - (?i)web.*agent.*(malicious|adversarial).*(image|visual)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.json'
+  message: Web agent prompt injection via adversarial images in web content
+  description: WAInjectBench demonstrates that image-based prompt injections with
+    imperceptible perturbations in web pages largely defeat all current detectors
+    for web agents (Liu et al., 2025). Text detectors perform moderately against explicit
+    injections but fail against implicit instructions.
+  remediation: Deploy multi-modal web agent sandboxing. Implement adversarial perturbation
+    detection in web image preprocessing. Separate environmental content parsing from
+    instruction processing in web agents.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-019
+  name: gui-agent-multimodal-attack-surface
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(GUI|interface).*(mllm|multimodal.agent).*(attack|inject|manipulate)
+  - (?i)\bMLA.Trust\b
+  - (?i)multimodal.*agent.*(safety|trust|risk).*(GUI|web|mobile)
+  - (?i)multi.step.*(agent|task).*(risk|harm|attack)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Multimodal LLM agent GUI interaction creates nonlinear risk accumulation
+  description: MLA-Trust demonstrates GUI-interacting MLAs pose more severe risks
+    than static MLLMs; multi-step execution creates nonlinear risk accumulation bypassing
+    safeguards designed for single-step evaluation (Yang et al., 2025). Proprietary
+    and open-source GUI agents show severe trustworthiness vulnerabilities.
+  remediation: Deploy per-step risk assessment in MLA execution pipelines. Implement
+    action reversibility controls. Apply cumulative risk scoring across multi-step
+    agent interactions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-020
+  name: jailbreak-quality-metric-evasion
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bJPS\b.*(jailbreak|multimodal|mllm)
+  - (?i)\bMIFR\b.*(attack|jailbreak)
+  - (?i)(steering.prompt|adversarial.steering).*(mllm|vlm)
+  - (?i)malicious.intent.fulfillment
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: JPS-style jailbreak with high-quality harmful content generation (MIFR-optimized)
+  description: JPS achieves state-of-the-art in both ASR and Malicious Intent Fulfillment
+    Rate (MIFR), addressing the gap where high-ASR attacks produce low-quality outputs
+    (Chen et al., 2025). Multi-agent steering prompt system optimizes for operational
+    attack quality beyond bypass-only metrics.
+  remediation: Evaluate safety systems against both bypass rate AND output quality
+    metrics (MIFR). Deploy output-quality screening in addition to safety filter bypass
+    detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-021
+  name: multimodal-benchmark-safety-evaluation
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bJailBreakV\b
+  - (?i)\bMM.SafetyBench\b
+  - (?i)\bJailFlipBench\b
+  - (?i)safety.*benchmark.*(multimodal|mllm|vlm)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Multimodal safety benchmark execution detected
+  description: Reference to known multimodal safety benchmarks (JailBreakV-28K, MM-SafetyBench,
+    JailFlipBench, MLA-Trust) that evaluate MLLM vulnerability. These benchmarks contain
+    adversarial test cases that should be handled in controlled security research
+    environments only.
+  remediation: Ensure benchmark execution is in isolated research environment. Restrict
+    access to adversarial test datasets. Document and review outputs from safety benchmark
+    runs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-022
+  name: cross-modal-obfuscation-fragment-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bCAMO\b.*(jailbreak|obfuscat|attack)
+  - (?i)cross.modal.*decompos.*(malicious|harmful)
+  - (?i)fragment.*(visual|textual).*(harmful|malicious)
+  - (?i)multi.step.reasoning.*(reconstruct|assemble).*(instruction|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'CAMO-style cross-modal obfuscation attack: decomposes malicious content
+    across modalities'
+  description: CAMO decomposes malicious prompts into semantically benign visual and
+    textual fragments, leveraging cross-modal reasoning to reconstruct harmful instructions
+    through multi-step inference while evading single-modality content filters (Jiang
+    et al., 2025).
+  remediation: Deploy cross-modal consistency analysis that evaluates combined visual+textual
+    semantic intent, not just individual modalities. Implement semantic-level joint
+    content filtering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-023
+  name: vlm-robustness-metric-retention-score
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bRetention.Score\b
+  - (?i)jailbreak.*risk.*quantif.*(vlm|vision.*language)
+  - (?i)certified.*robustness.*(vlm|mllm|multimodal)
+  - (?i)toxicity.*score.*(vlm|vision.*language|multimodal)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: VLM jailbreak risk quantification evaluation (Retention Score) in progress
+  description: Retention Score (Li et al., 2025) quantifies VLM jailbreak risks via
+    Retention-I (visual) and Retention-T (textual) metrics. Demonstrated that all
+    VLMs with visual components are less robust than corresponding plain LLMs. GPT-4V
+    robustness equivalent to medium Gemini security settings.
+  remediation: Regularly evaluate VLM deployments using certified robustness metrics.
+    Configure Gemini-equivalent security settings to maximum for production deployments.
+    Report Retention Score in VLM security assessments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-024
+  name: multimodal-llm-adversarial-training-defense
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bSim.CLIP\b
+  - (?i)\bE2AT\b.*(multimodal|mllm|vlm)
+  - (?i)\bDJMO\b
+  - (?i)projector.*adversarial.*train.*(mllm|vlm|multimodal)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: MLLM adversarial training defense implementation detected
+  description: Reference to Sim-CLIP+ (Hossain et al., 2024), E2AT/DJMO (Lu et al.,
+    2025), or Robust-LLaVA (Malik et al., 2025) defense implementations. These approaches
+    represent state-of-the-art MLLM adversarial defenses achieving 34%+ robustness
+    improvements and 2x captioning robustness gains.
+  remediation: Verify defense implementation completeness and test against all five
+    major jailbreak attack methods. Ensure clean task performance is maintained after
+    adversarial training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-025
+  name: mllm-implicit-harm-alignment-failure
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bJailFlip\b
+  - (?i)implicit.*harm.*(mllm|llm|multimodal)
+  - (?i)(harmless|innocent).*(input|query).*(dangerous|harmful).*(output|response)
+  - (?i)alignment.*failure.*(multimodal|visual|image)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'Implicit harm attack: harmless-appearing inputs elicit dangerous MLLM
+    outputs'
+  description: 'JailFlipBench identifies an overlooked high-risk quadrant: factually
+    incorrect answers to harmless-looking inputs can cause real-world harm (Zhou et
+    al., 2025). Multimodal scenarios include visual context misinterpretation causing
+    dangerous outputs. Present and urgent risks demonstrated across open-source and
+    black-box LLMs.'
+  remediation: Extend safety evaluation beyond overtly harmful query detection. Implement
+    factual accuracy verification for safety-critical multimodal MLLM deployments.
+    Use output-factuality checking alongside safety filter outputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-026
+  name: pgd-clip-encoder-adversarial-optimization
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)pgd.*clip.*(encoder|visual|image).*(attack|adversarial)
+  - (?i)projected.gradient.descent.*(vision|visual|image).*(llm|vlm|mllm)
+  - (?i)epsilon.*perturbation.*(clip|vit|vision.encoder)
+  - (?i)torch\.autograd.*visual.*adversarial.*(jailbreak|bypass)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PGD-based CLIP encoder adversarial perturbation for VLM jailbreak detected
+  description: Code uses projected gradient descent directly against the CLIP visual
+    encoder to produce adversarial images. Qi et al. (2023, AAAI 2024) show a single
+    universal PGD-optimized image jailbreaks aligned LLMs (LLaVA, MiniGPT-4) across
+    diverse harmful categories beyond the optimization corpus. Attacks require fewer
+    than 100 PGD iterations and achieve cross-category universality.
+  remediation: Deploy Sim-CLIP+ (Hossain et al., 2024) or Robust-LLaVA (Malik et al.,
+    CVPR 2025) as adversarially pre-trained replacement encoders. Monitor for PGD
+    optimization loops in code touching CLIP visual encoder parameters.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-027
+  name: mlai-flat-minima-adversarial-search
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)flat.min.*(adversarial|attack|jailbreak).*(vlm|mllm|vision)
+  - (?i)\bMLAI\b.*(adversarial|jailbreak|attack)
+  - (?i)multi.?loss.*adversarial.*(search|image|jailbreak)
+  - (?i)multi.image.*collaborative.*(attack|jailbreak|adversarial)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MLAI multi-loss adversarial image search pattern (flat-minima exploitation)
+  description: 'Pattern matches MLAI attack (Hao et al., ECCV 2024): three-stage attack
+    using scenario-aware image generation, flat-minima selection (not minimum-loss),
+    and multi-image collaborative attacks. Achieves 77.75% ASR on MiniGPT-4 and 82.80%
+    on LLaVA-2, with up to 60.11% black-box transfer to commercial VLMs. Key insight:
+    flat-minima adversarial images generalize better than minimum-loss images.'
+  remediation: Flat-minima attacks defeat standard minimum-loss adversarial training.
+    Deploy E2AT/DJMO (Lu et al., 2025) dynamic joint optimization. Monitor for multi-image
+    attack loops combining scenario-matched generation with adversarial search.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-028
+  name: scenario-matched-image-priming-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)scenario.aware.*(image|visual).*(generat|prime|match)
+  - (?i)semantically.relevant.*image.*(harmful|unsafe|jailbreak)
+  - (?i)(context|theme|topic).match.*(image|picture).*(compliance|jailbreak|bypass)
+  - (?i)stable.diffusion.*(scenario|context|theme).*(harmful|attack|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'Scenario-aware image priming: thematically matched images amplify MLLM
+    harmful output'
+  description: Generates images semantically relevant to the harmful query context
+    using diffusion models, dramatically lowering MLLM compliance threshold before
+    adversarial optimization. MM-SafetyBench (Liu et al., 2023) SD-only method achieves
+    40-60% ASR on open-source MLLMs. MLAI scenario priming achieves +34.37% over prior
+    best on MiniGPT-4 (Hao et al., ECCV 2024).
+  remediation: Implement independent image content safety analysis before cross-modal
+    fusion. Query-image thematic alignment checking should flag scenario-matched harmful
+    queries. Deploy semantic-level content moderation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-029
+  name: affirmative-prefix-image-optimization
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)affirmative.prefix.*(image|visual|adversarial)
+  - (?i)(sure.*help|certainly.*assist|of.course).*(adversarial|target|prefix)
+  - (?i)negative.inhibition.*(phrase|token).*(adversarial|image|visual)
+  - (?i)query.agnostic.*adversarial.*(image|perturbation).*(affirmative|positive)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: BAP affirmative-prefix adversarial image optimization for VLM universal
+    jailbreak
+  description: BAP attack (Ying et al., NeurIPS 2024) optimizes adversarial images
+    using affirmative prefix targets so the LVLM always responds positively to harmful
+    queries when the adversarial image is shown. Combined with CoT-based textual refinement
+    achieves +29.03% average ASR over single-modality attacks. Demonstrated black-box
+    success on Gemini Vision and ChatGLM.
+  remediation: Deploy response-pattern classifiers detecting affirmative compliance
+    patterns following visual input processing. Implement adversarially fine-tuned
+    encoders that neutralize query-agnostic universal perturbations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-030
+  name: cot-feedback-textual-jailbreak-refinement
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)chain.of.thought.*(jailbreak|adversarial|refine).*(mllm|vlm|multimodal)
+  - (?i)iterative.*(feedback|refine).*(jailbreak|adversarial|bypass).*(prompt|text)
+  - (?i)jailbreak.failure.*(analyz|feedback|refine).*(llm|model|prompt)
+  - (?i)CoT.*(adversarial|jailbreak|attack).*(textual|prompt|refine)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Chain-of-thought iterative jailbreak refinement loop (BAP/JPS pattern)
+  description: Code implements iterative jailbreak improvement using CoT reasoning
+    to analyze failed attempts and refine adversarial prompts. BAP uses an LLM analyzer
+    with CoT to iteratively refine textual jailbreak prompts (Ying et al., NeurIPS
+    2024). JPS uses multi-agent steering to optimize for MIFR (Malicious Intent Fulfillment
+    Rate), not just ASR (Chen et al., 2025).
+  remediation: Rate-limit iterative API queries targeting VLMs. Detect feedback-loop
+    patterns in query sequences. Monitor for CoT-guided refinement patterns that systematically
+    probe safety boundaries.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-031
+  name: flow-jd-flowchart-dataset-jailbreak
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bFlow.JD\b
+  - (?i)flowchart.*(logic|diagram|step).*(jailbreak|bypass|harmful).*(VLM|GPT|claude)
+  - (?i)image.to.text.*(logic|semantic).*(transfer|jailbreak|bypass)
+  - (?i)(graphviz|dot.language|mermaid).*(step|instruction|harmful|bypass)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.dot'
+  - '*.mmd'
+  message: Flow-JD dataset or flowchart image-to-text logic jailbreak pattern detected
+  description: Zou et al. (2024) introduce the Flow-JD dataset achieving 92.8% ASR
+    on GPT-4o and GPT-4V by encoding harmful instructions as visual logic diagrams.
+    The VLM's flowchart comprehension is exploited to bypass text-level safety filters.
+    The model reads and elaborates on implied harmful steps when analyzing the chart.
+  remediation: Extend safety evaluation to visual logical content (flowchart, diagram,
+    UML). Detect Graphviz/Mermaid generation for harmful-topic step sequences. Implement
+    semantic analysis of extracted flowchart content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-032
+  name: fc-attack-step-description-generator
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)step.description.generat.*(fine.?tun|llm|model).*(flowchart|harmful|attack)
+  - (?i)(vertical|horizontal|s.shaped).flowchart.*(jailbreak|harmful|attack)
+  - (?i)adabench.*(flowchart|fc.attack|jailbreak)
+  - (?i)font.style.*(jailbreak|bypass|asr).*(claude|mllm|vlm)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: FC-Attack flowchart auto-generation pipeline with font-style evasion detected
+  description: FC-Attack (Zhang et al., 2025) fine-tunes an LLM on benign data to
+    auto-generate step descriptions for harmful queries rendered as vertical/horizontal/S-shaped
+    flowcharts. Achieves 96% ASR via images and 78% via video. Font style variation
+    improves Claude-3.5 ASR from 4% to 28%, revealing font-specific OCR processing
+    differences in safety evaluation.
+  remediation: Deploy AdaShield-style adaptive shielding. Implement multi-font flowchart
+    content scanning. Evaluate VLM safety systems against all three flowchart shapes
+    and alternative fonts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-033
+  name: video-based-flowchart-jailbreak
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)video.*(flowchart|diagram|chart).*(jailbreak|harmful|attack)
+  - (?i)frame.*(flowchart|step.*description).*(mllm|vlm|vision)
+  - (?i)(mp4|avi|webm|mov).*(jailbreak|adversarial|harmful).*(mllm|vlm)
+  - (?i)video.*frame.*(inject|adversarial|jailbreak).*(multimodal|vlm)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.mp4'
+  - '*.sh'
+  message: Video-based flowchart jailbreak against video-capable MLLMs detected
+  description: FC-Attack (Zhang et al., 2025) extends flowchart jailbreaking to video
+    MLLMs, achieving 78% ASR by rendering harmful flowcharts as video frames. Video
+    modality adds a temporal dimension that static image defenses do not cover, requiring
+    dedicated video-frame-level detection.
+  remediation: Extend visual content moderation to video frame-by-frame analysis.
+    Implement temporal content consistency checks for MLLM video inputs. Screen video
+    inputs for flowchart/diagram frames containing step-structured harmful content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-034
+  name: visual-latent-alignment-agent-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)visual.latent.align.*(adversarial|attack|injection)
+  - (?i)embedding.align.*(malicious|adversarial).*(visual|image|agent)
+  - (?i)text.to.image.*bridge.*(adversarial|attack|align).*(agent|task)
+  - (?i)latent.space.align.*(instruction|command|malicious).*(visual|image)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'CrossInject Visual Latent Alignment: adversarial features aligned to malicious
+    instructions in embedding space'
+  description: CrossInject (Wang et al., 2025) Visual Latent Alignment optimizes adversarial
+    image perturbations so visual embedding features match malicious instruction embeddings,
+    using a text-to-image generative model as a bridge. Achieves +30.1% ASR improvement
+    over state-of-the-art. Targets multimodal agents with CLIP-style encoders.
+  remediation: 'Implement embedding-space anomaly detection: flag visual inputs whose
+    embeddings are unusually aligned with known harmful instruction embeddings. Deploy
+    instruction-goal verification for agent actions against original task specification.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-035
+  name: textual-guidance-enhancement-meta-prompt
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)adversarial.meta.prompt.*(agent|mllm|vlm|multimodal)
+  - (?i)textual.guidance.enhancement.*(agent|attack|inject)
+  - (?i)defensive.system.prompt.*(adversarial|bypass|hijack).*(agent|mllm)
+  - (?i)malicious.*meta.prompt.*(steer|guide|direct).*(agent|output)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'CrossInject Textual Guidance Enhancement: adversarial meta-prompt construction
+    for agent hijacking'
+  description: CrossInject (Wang et al., 2025) Textual Guidance Enhancement uses an
+    LLM to construct adversarial meta-prompts that steer multimodal agent outputs
+    toward attacker-specified actions. Works synergistically with Visual Latent Alignment
+    to achieve +30.1% ASR over state-of-the-art across diverse agent task categories.
+  remediation: Monitor system prompt modifications and meta-prompt injection in agent
+    frameworks. Implement prompt integrity verification for multimodal agent execution
+    pipelines. Detect adversarial meta-prompt patterns conflicting with original task
+    scope.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-036
+  name: camo-malicious-fragment-decomposition
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)decompos.*(malicious|harmful).*(visual|textual|fragment|benign)
+  - (?i)(visual|image).*(fragment|piece|component).*(reconstruct|assemble).*(harmful|instruction)
+  - (?i)semantically.benign.*(fragment|component).*(reconstruct|jailbreak|harmful)
+  - (?i)multi.hop.*reasoning.*(reconstruct|assemble).*(instruction|harmful|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'CAMO cross-modal fragment decomposition: malicious content split across
+    benign visual+textual fragments'
+  description: CAMO (Jiang et al., 2025) decomposes malicious prompts into semantically
+    benign visual and textual fragments; neither component alone contains detectable
+    harmful content. LVLM cross-modal reasoning reconstructs the full harmful instruction
+    through multi-step inference. Requires significantly fewer queries than prior
+    black-box attacks. Adjustable reasoning complexity enables stealth-efficiency
+    tradeoff.
+  remediation: Deploy cross-modal semantic intent analysis evaluating combined visual+textual
+    inputs jointly. Implement multi-hop reasoning trace monitoring for harmful content
+    reconstruction patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-037
+  name: chameleon-agentic-scaling-refinement
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)iterative.*(scale|scaling|downscal).*(adversarial|inject|refine).*(vlm|mllm|gemini)
+  - (?i)adaptive.*adversarial.*(scale|resize|preprocess).*(feedback|refine|agent)
+  - (?i)scaling.artifact.*(adversarial|inject|visible|semantic)
+  - (?i)preprocessing.pipeline.*(exploit|vulnerab|attack).*(vlm|mllm|vision)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Chameleon adaptive scaling-based injection: iterative agent refinement
+    exploiting VLM preprocessing pipeline'
+  description: Chameleon (Zeeshan et al., 2025) iteratively refines adversarial image
+    perturbations using real-time target model feedback, exploiting image downscaling
+    in VLM preprocessing. At original resolution the image appears benign; after scaling
+    hidden instructions become active. Achieves 84.5% ASR on Gemini 2.5 Flash vs 32.1%
+    for static attacks. Agentic pipeline accuracy reduced by over 45%.
+  remediation: 'Implement multi-scale consistency checks: test model behavior across
+    different scaling factors and flag behavioral inconsistencies. Detect iterative
+    query patterns with scaled image variants probing safety boundaries.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-038
+  name: agd-diffusion-reverse-process-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)reverse.diffusion.*(adversarial|inject|guidance|noise)
+  - (?i)diffusion.noise.*(adversarial|inject|guidance).*(mllm|vlm|multimodal)
+  - (?i)adversarial.guidance.*(diffusion|denoising|score).*(mllm|vlm)
+  - (?i)full.spectrum.*(adversarial|noise|perturbation).*(attack|mllm|vlm)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'AGD: adversarial guidance injected into diffusion reverse process for
+    full-spectrum adversarial images'
+  description: AGD (Xia et al., CVPR 2025) injects adversarial guidance into the diffusion
+    model reverse step, distributing adversarial signals across the full frequency
+    spectrum. Unlike PGD attacks that concentrate perturbations at high frequencies,
+    AGD images survive low-pass filtering defenses. Outperforms state-of-the-art attack
+    methods; code at https://github.com/kunzhan/AGD.
+  remediation: Low-pass filtering is insufficient against AGD. Deploy semantic-level
+    adversarial detection. Use Retention Score (Li et al., CVPR 2025) to quantify
+    exposure to full-spectrum adversarial images.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-039
+  name: aeia-android-ui-element-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(android|mobile.os|ui.element).*(adversarial|inject|disguise).*(agent|mllm|automation)
+  - (?i)notification.*(inject|adversarial|malicious).*(mllm|agent|android)
+  - (?i)(app.icon|ui.widget|dialog).*(adversarial|inject|hijack).*(agent|mllm)
+  - (?i)\bAndroidWorld\b.*(attack|inject|adversarial|asr)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'AEIA-MN: adversarial content injected as Android UI elements targeting
+    MLLM mobile agents'
+  description: AEIA-MN (Chen et al., 2025) injects adversarial instructions disguised
+    as normal Android OS UI elements (notifications, app icons, UI widgets). MLLM-based
+    mobile agents process these as legitimate environmental input and execute unauthorized
+    actions. Achieves up to 93% ASR on the AndroidWorld benchmark exploiting both
+    adversarial content injection and reasoning gap vulnerabilities.
+  remediation: Implement UI element authentication in MLLM-powered Android agents.
+    Cross-validate environmental elements against trusted app manifests/system state.
+    Apply reasoning gap mitigations enforcing consistent environmental attention across
+    all multi-step execution phases.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-040
+  name: reasoning-gap-timing-attack-mobile-agent
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)reasoning.gap.*(exploit|timing|attack|inject).*(agent|mllm|mobile)
+  - (?i)multi.step.task.*(inject|vulnerability|reasoning.gap).*(agent|mllm)
+  - (?i)attention.peak.*(inject|exploit|timing).*(agent|task|step)
+  - (?i)task.execution.phase.*(inject|adversarial|attack).*(timing|gap|agent)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'AEIA reasoning gap exploitation: adversarial injection timed to agent
+    peak attention phases'
+  description: 'AEIA-MN (Chen et al., 2025) identifies reasoning gap vulnerabilities
+    in MLLM-based mobile agents: specific multi-step execution phases where attention
+    to environmental elements is highest, maximizing susceptibility to injected instructions
+    when timed correctly. Combining content injection with reasoning gap timing achieves
+    up to 93% ASR on AndroidWorld.'
+  remediation: Deploy per-step intent verification in multi-step agent execution pipelines.
+    Implement time-invariant safety constraints that do not weaken during reasoning-intensive
+    phases. Monitor for injection attempts during high-complexity agent reasoning
+    steps.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-041
+  name: sear-ar-face-recognition-profiling
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(face.recogni|facial.identif).*(AR|augmented.reality).*(target|profile|attack)
+  - (?i)AR.*overlay.*(identity|person|profile).*(social.engineer|attack|phish)
+  - (?i)(real.time|live).*(environment|context).*(harvest|collect|profile).*(mllm|vlm|llm)
+  - (?i)ReInteract.*(agent|loop|attack|social)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'SEAR framework: AR-based real-time target profiling for multimodal social
+    engineering'
+  description: SEAR (Bi et al., 2025) Phase 1 uses VLM-based AR face recognition and
+    environmental context fusion to build targeted social engineering profiles in
+    real-time. Phase 3 ReInteract agents execute adaptive multi-phase attacks. 93.3%
+    email phishing susceptibility, 85% call acceptance in N=60 IRB-approved study.
+  remediation: Implement AR environment authentication and VLM-based identity verification
+    restrictions. Monitor Multimodal RAG access patterns for target profiling behavior.
+    Detect real-time environmental context harvesting in deployed MLLM applications.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+- id: MEDUSA-MMA-SCAN-042
+  name: multimodal-rag-persona-construction-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)multimodal.RAG.*(persona|attacker|social|phish)
+  - (?i)RAG.*(social.context|target.profile|character).*(social.engineer|attack|phish)
+  - (?i)(social.media|organizational.info).*(RAG|retriev).*(persona|attack|phish)
+  - (?i)role.based.*(multimodal|RAG).*(attack|social|persona|character)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: SEAR Multimodal RAG-based attacker persona construction for targeted social
+    engineering
+  description: SEAR (Bi et al., 2025) uses role-based Multimodal RAG to dynamically
+    retrieve social media and organizational data to construct targeted attacker personas
+    with character differentiation. Enables personalized social engineering scripts
+    that dramatically outperform unassisted human attackers. 180 annotated conversations
+    confirm persona construction effectiveness.
+  remediation: 'Implement access controls on Multimodal RAG systems: restrict retrieval
+    of personal/organizational data for unauthenticated or untrusted query sources.
+    Monitor RAG query patterns for social engineering profile construction indicators.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+- id: MEDUSA-MMA-SCAN-043
+  name: pi3d-3d-pose-optimization-injection
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)3d.pose.optim.*(inject|text|attack|placement)
+  - (?i)(position|orientation|placement).optim.*(physical|object|text).*(mllm|robot|agent)
+  - (?i)text.bearing.*(object|sign|card).*(3d|physical|robot|xr)
+  - (?i)camera.trajectory.*(inject|attack|adversarial).*(mllm|robot|3d)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: PI3D 3D pose optimization for physical object placement prompt injection
+  description: PI3D (Li and Chen, 2026) solves 3D pose optimization (position + orientation)
+    to find physical object placements that maximize MLLM task override while maintaining
+    physical plausibility. Text-bearing objects placed in 3D environments inject prompts
+    into MLLM-powered robots/XR systems without digital image access. Effective across
+    diverse camera trajectories; all existing defenses insufficient.
+  remediation: Deploy physical environment text detection scanning. Require multi-view
+    physical plausibility verification for MLLM robotic systems. Implement trusted-source
+    authentication for environmental instructions in XR/robotics MLLM deployments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-044
+  name: prompt-leakage-via-image-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(system.prompt|configuration|secret).*(leak|extract|reveal).*(image|visual|injection)
+  - (?i)image.*(extract|reveal|leak).*(system.prompt|instruction|config)
+  - (?i)prompt.leakage.*(image|visual|ocr|vlm)
+  - (?i)(repeat|print|output|show|reveal).*(system.prompt|hidden.prompt|instruction).*(image)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Prompt leakage via image-based injection: system prompt extraction through
+    visual attack'
+  description: Yeo and Choi (2025) demonstrate prompt leakage as one of four injection
+    categories across 8 commercial VLMs. Image-embedded instructions can cause VLMs
+    to reveal system prompt contents; even Claude 3, which shows relatively greater
+    robustness in other categories, is not immune. All tested models require additional
+    sanitization beyond built-in safeguards.
+  remediation: Implement system prompt isolation preventing image-channel instructions
+    from triggering prompt revelation. Deploy output monitoring for system prompt
+    content in VLM responses. Treat prompt leakage as a distinct attack vector requiring
+    dedicated detection.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-MMA-SCAN-045
+  name: indirect-external-document-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)indirect.*inject.*(document|external|url|web).*(vlm|mllm|vision)
+  - (?i)(email|pdf|docx|webpage).*(embed|hidden|inject).*(instruction|command|override)
+  - (?i)external.content.*(inject|adversarial|malicious).*(vlm|mllm|gpt|claude)
+  - (?i)(RAG|retriev|fetch).*(external|document|url).*(inject|adversarial|malicious)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.html'
+  message: Indirect external content injection via documents/web pages targeting VLMs
+  description: 'Yeo and Choi (2025) document indirect (external) prompt injection:
+    malicious instructions embedded in external documents (PDFs, emails, web pages)
+    processed by VLMs. High ASR across 8 commercial models without supplementary sanitization.
+    Combined with image-based injection, this creates compound attack vectors in RAG-enabled
+    VLM deployments.'
+  remediation: 'Sanitize all external content before VLM processing. Implement instruction
+    isolation for RAG-retrieved content: external documents should not have instruction-execution
+    authority. Deploy intent-verification separating data from instructions in multimodal
+    pipelines.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-046
+  name: wainjectbench-implicit-image-injection
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)implicit.instruction.*(image|visual|web).*(agent|inject|adversarial)
+  - (?i)imperceptible.perturbation.*(web|html|page).*(agent|inject|adversarial)
+  - (?i)web.page.*(adversarial.image|visual.inject|imperceptible).*(agent|bypass)
+  - (?i)html.element.*(adversarial|inject|hidden).*(image|visual).*(agent|mllm)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  message: 'WAInjectBench implicit image injection: imperceptible perturbations defeat
+    all current web agent detectors'
+  description: WAInjectBench (Liu et al., 2025) demonstrates that imperceptible adversarial
+    perturbations in web page images and implicit injection attacks (no explicit instruction
+    text) defeat all current detection methods for web agents. Text detectors achieve
+    moderate success against explicit injection but fail against implicit instructions.
+    Image detectors achieve near-zero detection against imperceptible perturbations.
+  remediation: Current detection methods are insufficient. Deploy multi-modal web
+    agent sandboxing restricting action scope. Implement whitelist-based action authorization
+    for web agents rather than blocking-based detection. Separate web content parsing
+    from instruction execution in agent frameworks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-047
+  name: mla-trust-nonlinear-risk-accumulation
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)multi.step.*(risk|harm|accumulate).*(agent|mla|gui).*(nonlinear|compound|amplif)
+  - (?i)(web.browser|mobile.app|gui).*(agent|automation).*(risk|harm|attack).*(accumulate|compound)
+  - (?i)low.risk.step.*(later|subsequent).*(harm|dangerous|risk).*(agent|mla)
+  - (?i)multi.step.*agent.*(bypass|safeguard|safety).*(accumulate|step|nonlinear)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'MLA-Trust nonlinear risk accumulation pattern: multi-step GUI agent attack
+    chaining'
+  description: MLA-Trust (Yang et al., 2025) demonstrates that GUI-interacting multimodal
+    agents (web automation, mobile control) accumulate risks nonlinearly across successive
+    interactions. Attackers can introduce vulnerabilities at low-risk early steps
+    that only manifest as harmful outputs in later steps, bypassing single-step safeguards.
+    13 state-of-the-art agents evaluated across 34 high-risk tasks.
+  remediation: Implement cumulative risk scoring across multi-step agent execution.
+    Deploy per-step action review with rollback capability. Evaluate agent safety
+    using multi-step benchmarks (MLA-Trust), not single-step evaluations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-048
+  name: sua-embedding-alignment-stealthy-noise
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)embedding.align.*(noise|perturbation).*(unlearn|forget|stealthy)
+  - (?i)universal.noise.*(recover|reveal|extract).*(unlearn|forget|mllm)
+  - (?i)\bSUA\b.*(noise|perturbation|embedding).*(mllm|unlearn)
+  - (?i)denoised.*embedding.*(align|similar|distance).*(perturbed|noise)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'SUA embedding-alignment stealthy noise: semantically invisible universal
+    perturbation recovers unlearned MLLM content'
+  description: SUA (Zhang et al., 2025) learns a universal noise pattern where embedding
+    alignment loss minimizes distance between perturbed and denoised image embeddings,
+    ensuring attack noise is semantically invisible. The universal perturbation trained
+    on few samples recovers supposedly unlearned content from diverse unseen images.
+    Code at https://github.com/Zood123/MLLM-Unlearning-Attack.
+  remediation: Audit MLLM unlearning with adversarial recovery probes before claiming
+    compliance. Do not use machine unlearning as sole data deletion mechanism for
+    privacy compliance. Implement certified unlearning with formal guarantees.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-MMA-SCAN-049
+  name: gap-vlm-multimodal-graph-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bGAP.VLM\b
+  - (?i)graph.of.attacks.*(vlm|vision.language|multimodal)
+  - (?i)(graph|tree).based.*(jailbreak|attack).*(vlm|multimodal|vision)
+  - (?i)cross.path.knowledge.*(jailbreak|attack).*(vlm|vision|multimodal)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'GAP-VLM graph-of-attacks multimodal variant: cross-path knowledge sharing
+    for VLM jailbreaking'
+  description: GAP-VLM (Schwartz et al., 2025) adapts the Graph of Attacks with Pruning
+    framework to VLMs, using interconnected graph structures where different attack
+    paths share knowledge across visual+textual modalities. Parent GAP achieves >=96%
+    ASR against open and closed LLMs with 62.7% query cost reduction over tree-based
+    methods.
+  remediation: Deploy rate-limiting and pattern detection against graph-structured
+    iterative jailbreak campaigns. Monitor for cross-path query patterns sharing knowledge
+    across attack attempts. Use GAP-generated prompts as adversarial training data
+    for content moderation improvement (108.5% TPR increase).
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-050
+  name: mix-attack-combined-visual-language-suffix
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bMIX.attack\b.*(vlm|vision|adversarial)
+  - (?i)(adversarial.image|visual.perturbation).*(gcg|adversarial.suffix).*(combined|together|joint)
+  - (?i)visual.adversarial.*(gcg|suffix|text.attack).*(simultaneously|combined|joint)
+  - (?i)(vit|clip|vision.encoder).*adversarial.*(gcg|suffix|language.component)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'MIX attack: combined adversarial image + GCG text suffix for maximum VLM
+    jailbreak ASR'
+  description: 'Tu et al. (2023, ECCV 2024) evaluate three jailbreak vectors across
+    21 VLLMs: vision-component attack (adversarial ViT), language-component attack
+    (GCG suffix), and MIX (combined). MIX achieves highest combined ASR across all
+    21 models. Simultaneous multi-modal attack is more effective than either modality
+    alone. GPT-4V shows more resistance but is not immune.'
+  remediation: Evaluate defenses against MIX-style combined attacks, not just single-modality
+    attacks. Implement independent safety evaluation for each modality plus joint
+    cross-modal evaluation. Deploy both encoder-level and LLM-backbone defenses simultaneously.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-051
+  name: vit-adversarial-feature-space-attack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(vit|vision.transformer).*(adversarial|attack).*(feature|embedding|space)
+  - (?i)adversarial.*(vit|vision.transformer).*(inject|jailbreak|vlm)
+  - (?i)visual.encoder.*(feature|embedding).*(adversarial|poison|corrupt)
+  - (?i)(vision.component|visual.backbone).*(jailbreak|attack).*(adversarial|perturbation)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'ViT visual encoder feature-space adversarial attack: harmful semantics
+    injected into vision component'
+  description: 'Tu et al. (2023, ECCV 2024) demonstrate a dedicated vision-component
+    jailbreak: adversarial perturbations optimized against the ViT/CLIP encoder inject
+    harmful semantics into the visual feature space. High ASR on open-source VLLMs
+    (LLaVA v1.5, InstructBLIP); GPT-4V shows more resistance. Distinct from language-component
+    attacks.'
+  remediation: Deploy adversarially pre-trained vision encoders (Robust-LLaVA, Sim-CLIP+).
+    Implement feature-space anomaly detection at the visual encoder output. Monitor
+    for adversarial perturbation patterns in visual inputs that differ significantly
+    from natural image feature distributions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-052
+  name: ghvpi-goal-hijack-task-swap
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bGHVPI\b
+  - (?i)goal.hijack.*(visual|image|ocr).*(vlm|lvlm|gpt)
+  - (?i)ignore.*(previous|prior|original).*(task|instruction).*(image|visual|render)
+  - (?i)task.swap.*(visual|image|ocr).*(inject|render|draw)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'GHVPI goal hijacking: rendered text in images overrides LVLM original
+    task via OCR'
+  description: GHVPI (Kimura et al., ACL 2024 Findings) renders attacker-chosen text
+    instructions directly onto images, exploiting LVLM OCR capabilities to override
+    the legitimate user task. Achieves 15.8% ASR on GPT-4V. ASR positively correlates
+    with both character recognition accuracy AND instruction-following strength —
+    a dual-prerequisite vulnerability condition.
+  remediation: 'Implement instruction hierarchy: text-channel system/user instructions
+    should have higher authority than image-extracted text. Deploy image text extraction
+    screening before processing. Test LVLMs for GHVPI dual vulnerability condition.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-053
+  name: instructblip-near-100-asr-attack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)instructblip.*(attack|jailbreak|adversarial|asr)
+  - (?i)(blip|blip.2|instructblip).*(jailbreak|safety|bypass|adversarial)
+  - (?i)blip.*vision.encoder.*(adversarial|attack|jailbreak)
+  - (?i)q.former.*(adversarial|attack|jailbreak|bypass)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'InstructBLIP targeted attack: near-100% ASR documented across multiple
+    attack methods'
+  description: InstructBLIP achieves near-100% ASR with MM-SafetyBench SD+OCR method
+    across multiple harmful categories (Liu et al., 2023). Also highly vulnerable
+    to MIX attacks (Tu et al., 2023) and MLAI (Hao et al., 2024). InstructBLIP's Q-Former
+    architecture does not provide safety isolation from the visual encoder attack
+    surface.
+  remediation: Do not deploy InstructBLIP without adversarial defense fine-tuning.
+    Test any InstructBLIP deployment against SD+OCR, adversarial perturbation, and
+    MIX attack vectors. Replace standard BLIP visual encoder with adversarially pre-trained
+    equivalent.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-054
+  name: minigpt4-vicuna-attack-target
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)minigpt.?4.*(attack|jailbreak|adversarial|bypass)
+  - (?i)minigpt.?4.*(vicuna|backbone|llm).*(adversarial|attack|jailbreak)
+  - (?i)vicuna.*(visual|image|multimodal).*(jailbreak|attack|adversarial)
+  - (?i)minigpt.?v2.*(attack|jailbreak|adversarial|universal)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: 'MiniGPT-4/MiniGPT-v2 targeted attack: multiple high-ASR methods documented'
+  description: MiniGPT-4 (Vicuna backbone) achieves 77.75% ASR with MLAI (Hao et al.,
+    2024), >70% with MM-SafetyBench SD+OCR (Liu et al., 2023), and high ASR with universal
+    adversarial image+suffix (Wang et al., 2025). MiniGPT-v2 also covered by universal
+    jailbreak framework. Vicuna backbone contributes text-channel vulnerability from
+    LLM transfer attacks.
+  remediation: Do not deploy MiniGPT-4/v2 in production without comprehensive adversarial
+    defense suite. Test against MLAI, SD+OCR, universal suffix+image, and LLM-transferred
+    attacks before deployment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-055
+  name: jailbreakv-28k-text-backbone-transfer
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bJailBreakV\b.*(transfer|text|backbone|mllm)
+  - (?i)16.harmful.categor.*(mllm|multimodal|jailbreak)
+  - (?i)2000.malicious.quer.*(mllm|vlm|multimodal|jailbreak)
+  - (?i)text.based.jailbreak.*(higher|outperform|better).*(image|visual).*(mllm|multimodal)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'JailBreakV-28K: LLM text attacks transfer to MLLM text backbone with higher
+    ASR than image attacks'
+  description: JailBreakV-28K (Luo et al., COLM 2024) demonstrates across 10 open-source
+    MLLMs that LLM-transferred text attacks (GCG, AutoDAN, PAIR, DeepInception) often
+    achieve higher ASR than image-based attacks via the text backbone. 28,000 test
+    cases across 16 harmful categories confirm MLLM vulnerability originates significantly
+    from the LLM text component.
+  remediation: MLLM safety training must address the text backbone, not just visual
+    inputs. Deploy multimodal-aware content filtering with equal priority for both
+    modalities. Test MLLM deployments against GCG, AutoDAN, PAIR, and DeepInception
+    text-channel attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-056
+  name: gcg-autodan-pair-mllm-text-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(gcg|greedy.coordinate.gradient).*(mllm|vlm|multimodal)
+  - (?i)\bAutoDAN\b.*(mllm|vlm|multimodal|vision)
+  - (?i)\bPAIR\b.*(mllm|vlm|multimodal|vision)
+  - (?i)\bDeepInception\b.*(mllm|vlm|multimodal|vision)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: LLM jailbreak technique (GCG/AutoDAN/PAIR/DeepInception) applied to multimodal
+    LLM text channel
+  description: JailBreakV-28K (Luo et al., COLM 2024) confirms GCG, AutoDAN, PAIR,
+    and DeepInception transfer effectively to MLLMs via the text modality backbone,
+    often outperforming MLLM-specific image attacks. Combined with image-based attacks
+    they create compounded vulnerabilities across both modalities.
+  remediation: Apply MLLM-specific safety alignment addressing both the text backbone
+    and visual input channel. Deploy multi-modal adversarial training covering transferred
+    LLM attack patterns. Treat MLLMs as requiring both LLM-level and VLM-specific
+    security hardening.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-057
+  name: esiii-defense-bypass-adaptive-attack
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bESIII\b.*(bypass|evade|adaptive|attack)
+  - (?i)defensive.image.*(bypass|evade|adaptive|attack).*(security.instruction|esiii)
+  - (?i)security.instruction.*(image|embed|visual).*(bypass|evade|defeat)
+  - (?i)gradient.*(defensive.image|security.image).*(adaptive|bypass|evade)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'ESIII defense bypass: adaptive attack targeting gradient-optimized security-instruction
+    images'
+  description: ESIII (Hao et al., 2025) embeds security instructions into defensive
+    images via gradient-based optimization. Authors acknowledge adaptive adversaries
+    aware of ESIII may attempt to bypass the embedded security instructions. Detecting
+    code that attempts to identify or circumvent ESIII-style defensive images is critical
+    to maintaining defense integrity.
+  remediation: Combine ESIII with additional defense layers (adversarial encoder training,
+    output monitoring). Periodically re-optimize defensive images against adaptive
+    attackers. Monitor for adversarial probing of defensive image effectiveness.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-058
+  name: simclip-siamese-adaptive-encoder-attack
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bSim.?CLIP\b.*(bypass|evade|adaptive|attack)
+  - (?i)siamese.encoder.*(bypass|evade|adaptive|attack).*(clip|vlm|visual)
+  - (?i)cosine.similarity.*(adversarial|bypass|evade).*(defense|encoder|clip)
+  - (?i)plug.and.play.*(encoder|clip).*(bypass|evade|adaptive|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Sim-CLIP+ defense bypass: adaptive attack targeting Siamese CLIP adversarial
+    fine-tuning'
+  description: Sim-CLIP+ (Hossain and Imteaj, 2024) adversarially fine-tunes CLIP
+    using Siamese architecture maximizing cosine similarity between perturbed and
+    clean samples. Authors note that if attackers have access to the defended encoder
+    architecture, adaptive attacks may still be possible. Detecting adaptive attack
+    code probing Sim-CLIP+ provides early warning.
+  remediation: Do not rely solely on Sim-CLIP+ for production defenses. Combine with
+    output-level monitoring and behavioral anomaly detection. Upgrade to Robust-LLaVA
+    large-scale pre-trained encoders for superior robustness (2x captioning, >10%
+    anti-jailbreak improvement).
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-059
+  name: e2at-djmo-projector-layer-attack
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bE2AT\b.*(bypass|evade|adaptive|attack)
+  - (?i)\bDJMO\b.*(bypass|attack|evade|adaptive)
+  - (?i)projector.layer.*(adversarial|bypass|attack).*(mllm|vlm)
+  - (?i)visual.language.bridge.*(adversarial|bypass|attack|evade)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: 'E2AT/DJMO defense bypass: targeting projector layer bridging visual and
+    language components'
+  description: E2AT (Lu et al., 2025) uses projector-based adversarial training with
+    Dynamic Joint Multimodal Optimization (DJMO) achieving 34% improvement over baselines.
+    Authors note the projector-based approach may miss backbone-level vulnerabilities
+    and adaptive attacks targeting DJMO's dynamic weight adjustment are not fully
+    evaluated.
+  remediation: Complement E2AT projector defense with LLM backbone-level safety measures.
+    Evaluate E2AT-defended models against backbone-targeting attacks (GCG, AutoDAN
+    via text channel). Monitor for adversarial inputs designed to bypass projector-layer
+    alignment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-060
+  name: robust-llava-large-scale-encoder-evasion
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)robust.?llava.*(bypass|evade|adaptive|attack)
+  - (?i)robustbench.*(encoder|vit).*(bypass|evade|attack).*(mllm|vlm|llava)
+  - (?i)adversarial.pretrained.encoder.*(bypass|evade|adaptive|attack)
+  - (?i)(imagenet.21k|jft).*(robust.encoder|adversarial.pretrain).*(bypass|evade)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Robust-LLaVA defense evasion: adaptive attack targeting large-scale adversarially
+    pre-trained encoder'
+  description: Robust-LLaVA (Malik et al., CVPR 2025) uses RobustBench ViT encoders
+    adversarially pre-trained on ImageNet-21K/JFT for 2x captioning robustness and
+    >10% anti-jailbreak improvement. Authors note adaptive attacks specifically targeting
+    the robust encoder are not fully evaluated. Novel domains may expose semantic
+    gaps vs standard CLIP.
+  remediation: Evaluate Robust-LLaVA against adaptive attacks probing domain-specific
+    semantic limitations. Monitor for adversarial inputs targeting edge cases in large-scale
+    robust encoder coverage. Maintain fallback to multi-layer defenses beyond encoder
+    robustness alone.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-061
+  name: mpda-prompt-decoupling-nsfw-generation
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bMPDA\b
+  - (?i)prompt.decouple.*(unsafe|nsfw|harmful).*(sub.prompt|component|split)
+  - (?i)(llm|model).decouple.*(unsafe|harmful|nsfw).*(pseudo.safe|filter|bypass)
+  - (?i)natural.adversarial.prompt.*(nsfw|harmful|unsafe).*(rewrite|rephrase|guide)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.sh'
+  message: 'MPDA prompt decoupling attack: LLM decomposes unsafe prompts into pseudo-safe
+    sub-prompts bypassing T2I filters'
+  description: MPDA (Peng et al., 2025) uses an LLM to decompose unsafe T2I prompts
+    into pseudo-safe sub-prompts (passing text filters) and harmful sub-prompts rewritten
+    as natural adversarial prompts guiding NSFW generation. VLM-guided iterative refinement
+    ensures semantic fidelity to original attack intent. Achieves 29% higher bypass
+    rate on Midjourney; effective on Stable Diffusion 3.5, CogView, Tongyiwanxiang.
+  remediation: Implement semantic-level T2I safety evaluation beyond surface-form
+    filter matching. Deploy VLM-based generated image review pipeline to catch successfully
+    generated NSFW content. Evaluate T2I safety filters against MPDA-style decomposed
+    prompts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-062
+  name: vlm-feedback-loop-t2i-refinement
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)vlm.*(caption|describe|evaluate).*(generated|output|image).*(refine|feedback|loop)
+  - (?i)(image.caption|vlm.output).*(feedback|refine|iterate).*(t2i|text.to.image|diffusion)
+  - (?i)semantic.fidelity.*(nsfw|harmful|unsafe).*(feedback|loop|refine).*(vlm|caption)
+  - (?i)iterative.refine.*(nsfw|harmful|content).*(vlm|caption|feedback)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: VLM-guided T2I iterative refinement loop for NSFW content generation (MPDA
+    feedback pattern)
+  description: MPDA (Peng et al., 2025) uses a VLM to caption intermediate NSFW image
+    generations, creating a feedback loop where the LLM refines prompts based on VLM-assessed
+    semantic distance from target NSFW content. Iterative refinement substantially
+    improves NSFW content fidelity to original intent. Any VLM-captioning-then-T2I-refinement
+    pipeline may follow this attack pattern.
+  remediation: Monitor for VLM-captioning-then-T2I-refinement pipeline patterns. Implement
+    content safety checks at each iteration of VLM-guided T2I generation loops. Flag
+    VLM+T2I iterative pipelines optimizing toward content policy violation categories.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-063
+  name: mllm-captcha-task-specific-prompting
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(solve|bypass|automate).*(captcha|recaptcha|hcaptcha).*(gpt.4|gemini|claude|mllm|vlm)
+  - (?i)(few.shot|example|demonstration).*(captcha|recaptcha|challenge).*(mllm|vlm|multimodal)
+  - (?i)task.specific.prompt.*(captcha|challenge|puzzle).*(mllm|vlm|gpt|gemini)
+  - (?i)recognition.captcha.*(automat|batch|programmatic).*(mllm|vlm|api)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.sh'
+  message: MLLM task-specific CAPTCHA solving with few-shot prompt engineering (COGNITION
+    pattern)
+  description: COGNITION (Wang et al., 2025) shows task-specific prompt engineering
+    and few-shot demonstrations substantially improve MLLM CAPTCHA solving beyond
+    zero-shot. 7 MLLMs evaluated across 18 CAPTCHA types; recognition-oriented and
+    low-interaction types solved at human-like cost/latency. GPT-4V and Gemini Vision
+    class models included. Fine-grained localization and multi-step spatial reasoning
+    CAPTCHAs remain harder.
+  remediation: Deprecate recognition-oriented CAPTCHAs in favor of fine-grained localization
+    and multi-step spatial reasoning challenges. Implement MLLM-specific CAPTCHA defeat
+    pattern detection (API timing, accuracy profiles consistent with MLLM solving).
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-MMA-SCAN-064
+  name: transfer-black-box-vlm-attack-60pct
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)black.box.*(transfer|transferab).*(vlm|mllm|commercial).*(attack|adversarial)
+  - (?i)transfer.based.*(strategy|attack|adversarial).*(black.box|commercial|api)
+  - (?i)(60|0\.6).*(transfer|asr|success).*(black.box|commercial|api).*(vlm|mllm)
+  - (?i)cross.model.*(transfer|generalize).*(adversarial|jailbreak).*(black.box|api)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Black-box VLM transfer attack: adversarial examples generated on open-source
+    models transferred to commercial APIs'
+  description: MLAI achieves up to 60.11% black-box transfer from white-box models
+    to commercial VLMs (Hao et al., 2024). Universal jailbreak (Wang et al., 2025)
+    uses transfer-based strategy for cross-model generalization. GPT-4V shows ~67%
+    ASR via SD+OCR transfer. Commercial API access does not provide immunity to transfer
+    attacks.
+  remediation: Commercial VLM APIs require their own adversarial defenses. Monitor
+    for systematic adversarial image submissions probing safety boundaries across
+    commercial VLM APIs. Deploy behavioral anomaly detection at the API level for
+    transfer attack patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-065
+  name: yi-vl-qwen-vl-adversarial-attack-target
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)yi.vl.*(attack|jailbreak|adversarial|universal)
+  - (?i)yi.?vl.*(universal|suffix|adversarial|jailbreak)
+  - (?i)(yi.vl|qwen.vl|internvl).*(jailbreak|adversarial|bypass|attack)
+  - (?i)(qwen.vl|intern.vl).*(attack|jailbreak|adversarial|bypass)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Yi-VL or Qwen-VL targeted multimodal adversarial attack detected
+  description: Universal jailbreak framework (Wang et al., 2025) explicitly targets
+    Yi-VL alongside LLaVA, MiniGPT4, MiniGPT-v2, InstructBLIP. MM-SafetyBench (Liu
+    et al., 2023) covers Qwen-VL-Chat and Qwen-VL in its 12-model suite. These models
+    should be treated as high-value attack targets requiring dedicated adversarial
+    hardening.
+  remediation: Apply universal adversarial defense suite to Yi-VL and Qwen-VL deployments.
+    Test against universal suffix+image attacks before deployment. Monitor for adversarial
+    image submissions to Yi-VL and Qwen-VL APIs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-066
+  name: ood-vqa-adversarial-vision-test
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bOODCV\b.*(attack|adversarial|jailbreak|vlm)
+  - (?i)out.of.distribution.*(vision|visual|image).*(vlm|vllm|safety)
+  - (?i)sketchy.*(vqa|vlm|challenge|adversarial)
+  - (?i)ood.*(text|image).*(vlm|vllm|vision.llm).*(robustness|safety)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: OOD VQA adversarial robustness probing for VLLMs (OODCV, Sketchy datasets)
+  description: Tu et al. (2023, ECCV 2024) demonstrate VLLMs struggle with OOD text
+    but show more robustness to OOD images, revealing an asymmetric vulnerability.
+    OODCV-VQA, OODCV-Counterfactual, Sketchy-VQA, and Sketchy-Challenging benchmarks
+    evaluate these gaps across 21 VLLMs. OOD text vulnerabilities can be exploited
+    to force incorrect/harmful responses.
+  remediation: Evaluate VLLM deployments against OOD generalization benchmarks. Implement
+    robustness to OOD textual inputs alongside adversarial visual input hardening.
+    Monitor for OOD text patterns combined with visual inputs that probe alignment
+    failures.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-067
+  name: jps-mifr-malicious-intent-fulfillment
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bMIFR\b.*(metric|evaluat|attack|jailbreak)
+  - (?i)malicious.intent.fulfillment.*(rate|metric|evaluat)
+  - (?i)multi.agent.*(steering.prompt|attack.quality|refine).*(mllm|vlm)
+  - (?i)actionable.harmful.*(content|output|response).*(mllm|vlm|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'JPS MIFR-optimized attack: multi-agent system optimizes for actionable
+    harmful content quality (not just ASR)'
+  description: JPS (Chen et al., 2025) addresses the critical gap where high-ASR attacks
+    produce low-quality, non-actionable harmful outputs. MIFR (Malicious Intent Fulfillment
+    Rate) measures actual harmful content operational quality. JPS achieves state-of-the-art
+    in BOTH ASR and MIFR using multi-agent steering prompt optimization. Code at https://github.com/thu-coai/JPS.
+  remediation: Evaluate safety systems against MIFR, not just ASR. Deploy output-quality
+    screening alongside safety filter bypass detection. Monitor for multi-agent steering
+    prompt patterns iteratively optimizing toward specific harmful content categories.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-068
+  name: retention-score-vlm-robustness-assessment
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)retention.score.*(vlm|vision.language|multimodal)
+  - (?i)retention.i.*(visual|image).*(robustness|jailbreak|score)
+  - (?i)retention.t.*(text|textual).*(robustness|jailbreak|score)
+  - (?i)conditional.diffusion.*(synthetic|adversarial).*(toxicity|retention|score)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Retention Score VLM jailbreak risk quantification tool execution detected
+  description: Retention Score (Li et al., CVPR 2025) provides certified, attack-agnostic
+    VLM jailbreak risk quantification via Retention-I (visual) and Retention-T (textual)
+    metrics. Proves universally that visual components reduce LLM robustness. GPT-4V
+    robustness equivalent to medium Gemini security settings. Code at https://github.com/IBM/Retention-Score.
+  remediation: Use Retention Score as a mandatory pre-deployment VLM security assessment.
+    Configure Gemini security settings to maximum for production equivalence. Treat
+    Retention Score results as security compliance gates for VLM deployment authorization.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-069
+  name: mm-safetybench-13-scenario-evaluation
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)mm.safetybench.*(scenario|categor|illicit|hateful|fraud|malware)
+  - (?i)5040.*(text.image|pair|test.case).*(mllm|vlm|safety)
+  - (?i)(13|thirteen).harmful.scenario.*(mllm|vlm|multimodal|safety)
+  - (?i)(illicit.activit|physical.harm|financial.crime).*(mllm|vlm|safety.*bench)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MM-SafetyBench execution across 13 harmful scenario categories for MLLM
+    safety evaluation
+  description: 'MM-SafetyBench (Liu et al., 2023) covers 13 harmful scenarios: illicit
+    activities, hateful content, physical harm, fraud, pornography, privacy, legal
+    violations, financial crime, malware, and others across 5,040 text-image pairs.
+    SD+OCR method achieves >70% ASR across 12 MLLMs including ~67% on GPT-4V. Must
+    be handled in controlled environments.'
+  remediation: Ensure MM-SafetyBench execution is restricted to isolated security
+    research environments. Restrict access to the 5,040 adversarial test cases. Review
+    any outputs from MM-SafetyBench runs for harmful content exposure.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-070
+  name: face-morphing-mllm-biometric-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)face.morph.*(mllm|vlm|gpt.4o|gemini).*(detect|attack|bypass)
+  - (?i)gan.morph.*(biometric|passport|face).*(mllm|vlm|bypass)
+  - (?i)biometric.*(morph|spoof|attack).*(mllm|vlm|multimodal)
+  - (?i)differential.morph.*(attack|detection).*(mllm|vlm|multimodal)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Face morphing attack targeting or exploiting MLLM biometric verification
+    systems
+  description: Shekhawat et al. (2025) evaluate MLLMs (ChatGPT-4o, Gemini) for differential
+    morphing attack detection using biometric passport data. Both models struggle
+    under challenging morphing conditions and have non-trivial failure-to-answer rates.
+    GAN-based morphing attacks can defeat MLLM-based biometric verification in high-stakes
+    border control workflows.
+  remediation: Do not rely solely on MLLMs for high-stakes biometric verification
+    without human expert review. Supplement MLLM-based morphing detection with traditional
+    signal-processing methods. Monitor MLLM failure-to-answer rates in biometric detection
+    pipelines as attack indicators.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-MMA-SCAN-071
+  name: deepfake-mllm-synthetic-image-exploit
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(deepfake|synthetic.image|ai.generat).*(mllm|vlm|llava).*(bypass|evade|fool)
+  - (?i)(df.llava|deepfake.llava|synthetic.*llava).*(bypass|evade|fool|attack)
+  - (?i)prompt.guided.knowledge.distill.*(synthetic|deepfake|fake).*(bypass|evade)
+  - (?i)(generated|synthetic|fake).image.*(mllm|vlm|detection).*(bypass|evade|fool)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Synthetic/deepfake image exploitation of MLLM-based detection systems
+  description: 'DF-LLaVA (Shen et al., 2025) applies MLLMs to synthetic image detection.
+    MLLM-based detection creates an adversarial target: attackers can craft synthetic
+    images specifically to evade MLLM detection while remaining convincing to humans.
+    Prompt-guided knowledge distillation creates exploitable detection signatures
+    that adaptive synthetic image generators can learn to evade.'
+  remediation: Evaluate synthetic image detectors against adaptive adversarial examples
+    crafted to evade MLLM-based detection. Combine MLLM detection with traditional
+    forensic analysis. Monitor for probe sequences testing MLLM detection boundaries.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MMA-SCAN-072
+  name: federated-mllm-poisoning-threat
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)federated.*(mllm|multimodal|vlm).*(poison|attack|adversarial|inject)
+  - (?i)(data.poison|model.poison).*(federated|distributed).*(mllm|vlm|multimodal)
+  - (?i)federated.learning.*(mllm|vlm|vision).*(attack|adversarial|backdoor)
+  - (?i)distributed.*mllm.*(backdoor|poison|adversarial|inject)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Federated MLLM poisoning attack: adversarial data injection in distributed
+    multimodal learning'
+  description: 'Wang and Yang (2025) propose a federated MLLM security threat detection
+    system processing heterogeneous data including images. Federated MLLM systems
+    create new poisoning attack surfaces: malicious clients can inject adversarial
+    multimodal training data that biases the global model. The distributed nature
+    makes attack attribution and detection more difficult.'
+  remediation: Implement federated learning anomaly detection for multimodal data
+    contributions. Deploy Byzantine-robust aggregation methods for federated MLLM
+    training. Monitor for outlier multimodal data contributions from individual federated
+    clients.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-073
+  name: jailbreakhunter-undiscovered-pattern-mining
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bJailbreakHunter\b
+  - (?i)(wildchat|sharegpt).*(jailbreak|adversarial|bypass).*(mine|discover|pattern)
+  - (?i)conversation.dataset.*(jailbreak|adversarial).*(mine|discover|analyt)
+  - (?i)undiscovered.jailbreak.*(pattern|prompt|conversation).*(mine|discover|analyt)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.ipynb'
+  message: JailbreakHunter-style mining of previously undiscovered jailbreak patterns
+    from conversation datasets
+  description: 'JailbreakHunter (Jin et al., IEEE TVCG 2024) uses visual analytics
+    across WildChat/ShareGPT datasets to discover unreported jailbreak prompts persisting
+    in deployed LLMs. Code mining large-scale conversation datasets for jailbreak
+    patterns could be preparation for targeted attack campaigns using newly discovered
+    high-ASR prompts. Three analysis levels: group, conversation, and turn.'
+  remediation: Treat conversation dataset mining tools as potential attack preparation.
+    Monitor for systematic large-scale analysis of historical LLM conversation logs
+    exposing previously unknown high-ASR jailbreak patterns. Implement proactive safety
+    patching when novel jailbreak patterns are discovered.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-074
+  name: jps-visual-perturbation-target-guided
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)target.guided.*(adversarial|perturbation).*(image|visual).*(safety|bypass|jailbreak)
+  - (?i)visual.perturbation.*(target|guided|safety.bypass).*(mllm|vlm|multimodal)
+  - (?i)steering.prompt.*(visual|image).*(adversarial|bypass|jailbreak).*(mllm|vlm)
+  - (?i)co.optim.*(visual|image).*(textual|text|steering).*(adversarial|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: JPS target-guided visual perturbation + textual steering co-optimization
+    for high-quality MLLM jailbreak
+  description: JPS (Chen et al., 2025) combines target-guided adversarial image perturbations
+    (bypassing MLLM safety filters) with multi-agent steering prompts (guiding high-quality
+    harmful content generation) in co-optimization. First to address both ASR and
+    MIFR simultaneously. Code at https://github.com/thu-coai/JPS. This is qualitatively
+    more dangerous than high-ASR-only methods that produce low-quality outputs.
+  remediation: Implement both safety bypass detection AND output-quality monitoring
+    for MLLM deployments. Rate-limit multi-agent optimization loops targeting MLLM
+    APIs. Deploy output-quality screening detecting actionable harmful content even
+    when safety bypass rate is moderate.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-075
+  name: mllm-tool-poisoning-agent-attack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)tool.poison.*(agent|mllm|multimodal|vlm)
+  - (?i)(function.call|tool.use|plugin).*(adversarial|poison|inject).*(agent|mllm)
+  - (?i)agent.tool.*(hijack|malicious|adversarial|inject).*(multimodal|vlm|mllm)
+  - (?i)(api.call|tool.execution).*(adversarial|poison|inject).*(agent|mllm|autonomous)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'MLLM agent tool-poisoning attack: adversarial tool calls manipulate autonomous
+    agent execution'
+  description: Mao et al. (2025) survey identifies tool poisoning as a critical underexplored
+    agent-specific jailbreak. MLLM-based agents using external tools (APIs, functions,
+    plugins) face tool-poisoning attacks where adversarial inputs cause the agent
+    to invoke malicious or unauthorized tool calls. Agents with RAG+tool access are
+    most vulnerable.
+  remediation: Implement tool-call whitelisting and authorization verification for
+    MLLM agents. Deploy action sandboxing preventing unauthorized tool invocations.
+    Audit MLLM agent tool-call logs for anomalous or out-of-scope function invocations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-076
+  name: gemini-security-setting-bypass
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)gemini.*(security.setting|safety.setting|block.threshold).*(bypass|lower|reduce|minimum)
+  - (?i)(harm.block|safety.category).*(none|low|unspecified).*(gemini|vlm|vision)
+  - (?i)gemini.*(block_none|harm_block_threshold|safety_settings).*(bypass|exploit)
+  - (?i)google.generativeai.*(safety_settings|harm.category).*(block_none|low|unspecified)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'Gemini safety setting manipulation: deliberately lowering harm block thresholds'
+  description: Retention Score (Li et al., CVPR 2025) demonstrates that Google Gemini's
+    configurable safety settings have significant measurable impact on jailbreak robustness.
+    Setting safety thresholds to BLOCK_NONE or LOW dramatically degrades Retention
+    Score. GPT-4V robustness is equivalent only to medium Gemini security settings.
+    Attackers may programmatically configure Gemini API calls with reduced safety
+    settings.
+  remediation: Enforce minimum Gemini safety settings in organizational API deployments.
+    Audit all Gemini API calls for safety_settings configuration. Treat BLOCK_NONE
+    or BLOCK_LOW_AND_ABOVE configurations as policy violations. Implement API gateway
+    enforcement of minimum safety thresholds.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-077
+  name: advbench-harmful-behaviors-mllm-evaluation
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bAdvBench\b.*(mllm|vlm|multimodal|jailbreak|attack)
+  - (?i)\badvbench\b.*(harmful|jailbreak|bypass|asr)
+  - (?i)advbench.*(harmful.behaviors|string.match|keyword).*(mllm|vlm)
+  - (?i)harmful.behavior.*(advbench|benchmark).*(vlm|mllm|multimodal)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: AdvBench harmful behaviors benchmark execution against MLLM/VLM targets
+  description: AdvBench Harmful Behaviors is used as the primary evaluation benchmark
+    by FC-Attack (Zhang et al., 2025), BAP (Ying et al., 2024), and multiple MLLM
+    attack papers to measure ASR on harmful content generation. Code running AdvBench
+    against VLMs is executing or evaluating jailbreak attacks against multimodal safety
+    systems. Requires controlled security research environment.
+  remediation: Restrict AdvBench execution to approved security research environments
+    with oversight. Review all AdvBench outputs for harmful content generation. Document
+    and log all AdvBench evaluation runs involving VLMs/MLLMs for security audit purposes.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-078
+  name: llava-15-specific-attack-pattern
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)llava.1\.5.*(attack|jailbreak|adversarial|bypass)
+  - (?i)llava.next.*(attack|jailbreak|adversarial|bypass)
+  - (?i)llava.*(1\.5|next|v1|v2).*(adversarial|jailbreak|attack).*(image|visual|vlm)
+  - (?i)liuhaotian.*(attack|jailbreak|adversarial).*(vlm|llava)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: LLaVA-1.5/LLaVA-NeXT specific adversarial attack targeting detected
+  description: 'LLaVA-1.5 and LLaVA-NeXT are targeted across all major MLLM attack
+    papers: MM-SafetyBench (Liu et al., 2023), MLAI achieving 82.80% ASR on LLaVA-2
+    (Hao et al., 2024), universal jailbreak (Wang et al., 2025), and used as baseline
+    for Robust-LLaVA defense evaluation (Malik et al., CVPR 2025). LLaVA models are
+    the most frequently targeted open-source MLLM architecture.'
+  remediation: Apply Robust-LLaVA encoder replacement for production LLaVA deployments
+    (2x captioning robustness, >10% anti-jailbreak improvement). Test all LLaVA deployments
+    against adversarial perturbation, SD+OCR, and universal suffix+image attacks before
+    deployment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-079
+  name: gpt4v-commercial-api-jailbreak-probe
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)gpt.?4.?v.*(jailbreak|bypass|adversarial|attack).*(api|request|query)
+  - (?i)openai.*vision.*(adversarial|jailbreak|bypass|attack)
+  - (?i)chat.?completions.*(image_url|vision|image).*(adversarial|jailbreak|bypass)
+  - (?i)gpt.4o.*(image|visual|multimodal).*(jailbreak|bypass|adversarial|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: GPT-4V/GPT-4o commercial API targeted multimodal jailbreak attempt
+  description: GPT-4V achieves ~67% ASR with MM-SafetyBench SD+OCR (Liu et al., 2023)
+    and 15.8% ASR with GHVPI (Kimura et al., 2024). GPT-4o is fully susceptible to
+    sub-visual prompt injection in medical imaging (Clusmann et al., 2025, Nature
+    Communications). Flowchart Logic Jailbreak achieves 92.8% ASR on GPT-4o and GPT-4V
+    (Zou et al., 2024). Commercial API access does not provide immunity.
+  remediation: Do not assume GPT-4V/GPT-4o internal safety measures are sufficient
+    for all attack vectors. Supplement with application-layer content filtering. Monitor
+    OpenAI vision API calls for adversarial image submission patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-080
+  name: claude-sonnet-jailbreak-font-evasion
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)claude.?(3|3\.5|sonnet|opus).*(jailbreak|bypass|adversarial|attack)
+  - (?i)anthropic.*(visual|image|multimodal).*(jailbreak|bypass|adversarial)
+  - (?i)(claude|anthropic).*(font|typeface|style).*(jailbreak|bypass|asr|safety)
+  - (?i)claude.*sub.visual.*(inject|prompt|adversarial|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Claude-3/3.5 targeted visual jailbreak including font-style and sub-visual
+    injection attacks
+  description: 'FC-Attack (Zhang et al., 2025) exploits font-style sensitivity in
+    Claude-3.5 Sonnet: changing flowchart font from standard to alternate improves
+    ASR from 4% to 28%. Clusmann et al. (2025, Nature Communications) demonstrate
+    Claude-3 Opus and Claude-3.5 Sonnet are fully susceptible to sub-visual medical
+    image prompt injection. Claude 3 shows relatively greater robustness to other
+    injection types (Yeo et al., 2025) but is not immune.'
+  remediation: Apply font-invariant flowchart content analysis for Claude-3.5 deployments.
+    Implement medical image text extraction screening when Claude models are used
+    in clinical VLM workflows. Supplement Claude's built-in safety with application-layer
+    multimodal injection detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-081
+  name: reka-core-medical-vlm-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)reka.core.*(attack|jailbreak|adversarial|inject|bypass)
+  - (?i)\breka\b.*(visual|image|multimodal).*(attack|jailbreak|bypass|inject)
+  - (?i)reka.*(medical|clinical|oncology|radiology).*(attack|inject|bypass)
+  - (?i)reka.*(api|request).*(adversarial|jailbreak|bypass|inject)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Reka Core targeted multimodal attack: confirmed vulnerable to medical
+    image sub-visual injection'
+  description: Reka Core is explicitly confirmed vulnerable to sub-visual prompt injection
+    in medical imaging alongside Claude-3 Opus, Claude-3.5 Sonnet, and GPT-4o across
+    N=594 attacks (Clusmann et al., 2025, Nature Communications). Reka Core is a commercial
+    frontier model; its medical VLM deployment must be treated as an active attack
+    surface.
+  remediation: Do not deploy Reka Core in clinical medical imaging workflows without
+    mandatory sub-visual prompt injection screening. Implement image integrity verification
+    and text extraction screening for all medical images processed by Reka Core.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-082
+  name: mllm-privacy-leakage-multimodal-agent
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(privacy|personal.data|pii).*(leak|extract|reveal).*(mllm|vlm|agent|multimodal)
+  - (?i)multimodal.agent.*(privacy|personal.data|pii).*(risk|violation|leak)
+  - (?i)(gui|web|mobile).agent.*(privacy|personal.info|sensitive.data).*(exfiltrat|leak|extract)
+  - (?i)mla.trust.*(privacy|personal.data).*(risk|violat|leak)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'Multimodal agent privacy data exfiltration: MLA-Trust privacy dimension
+    risk'
+  description: MLA-Trust (Yang et al., 2025) evaluates four trustworthiness dimensions
+    including privacy. GUI-interacting multimodal agents (web, mobile) can exfiltrate
+    personal data visible in screenshots or web page content as a side effect of multi-step
+    task execution. 13 state-of-the-art GUI agents evaluated across 34 high-risk tasks;
+    privacy risks compound nonlinearly in multi-step interactions.
+  remediation: 'Implement data minimization for multimodal GUI agents: restrict what
+    visual content is included in agent context. Deploy per-step privacy screening
+    preventing transmission of PII in screenshots/web content. Audit GUI agent interaction
+    logs for unauthorized personal data exposure.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MMA-SCAN-083
+  name: mllm-truthfulness-controllability-failure
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(truthfulness|controllability).*(mllm|multimodal.agent|gui.agent).*(fail|violat|risk)
+  - (?i)multimodal.agent.*(truth|factual|fact).*(fail|incorrect|violat|hallucin)
+  - (?i)(web|mobile|gui).agent.*(controllability|control.failure|unauthorize).*(action|task)
+  - (?i)34.high.risk.*(task|interactive).*(agent|mllm|gui)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'MLA-Trust trustworthiness failure: MLLM GUI agent controllability or truthfulness
+    violation'
+  description: MLA-Trust (Yang et al., 2025) identifies controllability (agent performing
+    unauthorized actions) and truthfulness (agent providing false information) as
+    critical trustworthiness failure modes distinct from safety and privacy. Controllability
+    failures in GUI agents can lead to unauthorized financial transactions, data deletion,
+    or system configuration changes.
+  remediation: 'Deploy action authorization gates for MLLM GUI agents: require explicit
+    confirmation for high-risk actions. Implement truthfulness verification for factual
+    claims in agent outputs. Use reversibility constraints: prefer actions that can
+    be undone over irreversible operations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-084
+  name: bap-chain-of-thought-attack-analyzer
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)llm.analyz.*(jailbreak|failure|attempt).*(cot|chain.of.thought|feedback)
+  - (?i)chain.of.thought.*(analyze|failure|refine).*(jailbreak|adversarial|attack)
+  - (?i)jailbreak.attempt.*(analyze|reason|improve).*(llm|model|feedback)
+  - (?i)adversarial.feedback.*(cot|reasoning|chain).*(refine|improve|better)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: BAP/JPS-style LLM-as-attack-analyzer using CoT to improve jailbreak attempts
+    iteratively
+  description: BAP (Ying et al., NeurIPS 2024) employs an LLM analyzer using chain-of-thought
+    reasoning to analyze jailbreak failures and iteratively refine textual adversarial
+    prompts. JPS (Chen et al., 2025) uses a multi-agent system with reasoning LLM
+    evaluator to optimize toward high MIFR. Using an LLM to autonomously improve jailbreak
+    attack quality through CoT analysis is an automated attack escalation pattern.
+  remediation: 'Monitor for LLM API usage patterns consistent with automated jailbreak
+    optimization: systematic query-analyze-refine loops targeting VLM safety boundaries.
+    Implement rate limits and behavioral analysis for iterative query patterns against
+    multimodal APIs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-085
+  name: pandagpt-otter-mplug-attack-target
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(pandagpt|panda.gpt).*(attack|jailbreak|adversarial|bypass)
+  - (?i)(mplug.owl|mplug).*(attack|jailbreak|adversarial|bypass)
+  - (?i)\bOtter\b.*(mllm|vlm).*(attack|jailbreak|adversarial|bypass)
+  - (?i)(llama.adapter|llama.adapterv2).*(attack|jailbreak|adversarial|bypass)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Less-common MLLM architecture (PandaGPT, Otter, mPLUG-Owl, LLaMA-Adapter)
+    targeted attack
+  description: MM-SafetyBench (Liu et al., 2023) evaluates PandaGPT, Otter, mPLUG-Owl,
+    and LLaMA-Adapter V2, all achieving high SD+OCR ASR rates in the 12-model suite.
+    JailBreakV-28K (Luo et al., COLM 2024) includes these architectures in its 10-model
+    MLLM evaluation. These less-prominent MLLMs are often deployed without dedicated
+    adversarial hardening.
+  remediation: Apply standard multimodal adversarial defense to PandaGPT, Otter, mPLUG-Owl,
+    and LLaMA-Adapter deployments. All models in the MM-SafetyBench 12-model suite
+    achieve high SD+OCR ASR without defenses — lower profile does not mean lower risk.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-086
+  name: multimodal-roleplay-persona-jailbreak
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)roleplay.*(jailbreak|bypass|harmful|adversarial).*(mllm|vlm|multimodal|vision)
+  - (?i)persona.*(jailbreak|bypass|harmful).*(image|visual|multimodal)
+  - (?i)(pretend|imagine|act.as|you.are).*(visual|image).*(harmful|unsafe|jailbreak)
+  - (?i)context.manipulat.*(image|visual).*(jailbreak|bypass|harmful).*(vlm|mllm)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Roleplay/persona-based jailbreak combined with visual inputs targeting
+    MLLM
+  description: Mao et al. (2025) survey and JailBreakV-28K (Luo et al., 2024) document
+    that LLM jailbreak techniques including roleplay, persona adoption, and context
+    manipulation transfer effectively to MLLM text backbones. When combined with image
+    inputs, roleplay jailbreaks create compounded vulnerabilities that neither text-only
+    nor image-only defenses address independently.
+  remediation: Extend roleplay/persona jailbreak detection to multimodal contexts.
+    Deploy cross-modal intent analysis evaluating text roleplay prompts in combination
+    with accompanying images. Implement safety constraints that persist across roleplay
+    persona boundaries.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-087
+  name: steganographic-image-hidden-instruction
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)stegano.*(image|visual|inject|instruction).*(vlm|mllm|vision)
+  - (?i)lsb.*(hidden|instruction|inject|adversarial).*(vlm|mllm|image)
+  - (?i)(hidden|invisible|concealed).*(instruction|prompt|text).*(pixel|image|visual).*(vlm|mllm)
+  - (?i)image.metadata.*(inject|instruction|adversarial|hidden).*(vlm|mllm|exif)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Steganographic or metadata-based hidden instruction injection into images
+    for VLM attacks
+  description: Sub-visual prompt injection (Clusmann et al., 2025, Nature Communications)
+    operates at or below human detection thresholds. Steganographic techniques (LSB
+    encoding, metadata embedding, imperceptible pixel-level text) are distinct vectors
+    from adversarial perturbation that can hide instructions from human reviewers
+    while remaining readable to VLMs. All four commercial models tested are vulnerable.
+  remediation: Implement image steganography detection in VLM preprocessing pipelines.
+    Scan image metadata (EXIF, XMP, PNG tEXt chunks) for embedded instructions. Deploy
+    adversarial text detection at sub-visual opacity thresholds for medical and high-stakes
+    VLM deployments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-088
+  name: xr-extended-reality-vlm-attack-surface
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(extended.reality|xr|mixed.reality|mr).*(mllm|vlm|inject|attack|adversarial)
+  - (?i)(hololens|quest|vision.pro|ar.glass).*(mllm|vlm|inject|adversarial|attack)
+  - (?i)xr.*(situated.agent|embodied|robot).*(inject|adversarial|attack|vlm)
+  - (?i)immersive.*(mllm|vlm|vision).*(inject|adversarial|attack|manipulate)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Extended Reality (XR) MLLM attack surface: physical injection into AR/MR
+    environments'
+  description: PI3D (Li and Chen, 2026) identifies XR as a primary attack surface
+    for physical 3D prompt injection. SEAR (Bi et al., 2025) uses AR overlays for
+    social engineering context harvesting. XR environments combine real-world physical
+    injection (PI3D-style) with digital overlay manipulation (SEAR-style), creating
+    a compounded MLLM attack surface that existing defenses do not address.
+  remediation: 'Implement XR-specific MLLM security: authenticate physical environmental
+    instructions, verify AR overlay sources, restrict MLLM action scope in XR execution
+    contexts. Deploy multi-view verification for text-bearing physical objects in
+    XR environments.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-089
+  name: robotics-mllm-physical-injection-risk
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(robot|robotic|ros).*(mllm|vlm|vision).*(inject|adversarial|attack|manipulate)
+  - (?i)mllm.*(robot|robotic|manipulation|arm).*(inject|adversarial|attack|task)
+  - (?i)(pick.place|grasp|navigate).*(mllm|vlm).*(inject|adversarial|attack|override)
+  - (?i)embodied.agent.*(mllm|vlm).*(inject|adversarial|attack|physical)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'MLLM-powered robotics: physical-world adversarial injection risk (PI3D,
+    AEIA threat model)'
+  description: PI3D (Li and Chen, 2026) specifically targets MLLM-powered robotic
+    systems via text-bearing physical object placement, overriding robot task execution
+    without digital access. E2AT (Lu et al., 2025) validates adversarial training
+    effectiveness in real-world embodied intelligent systems. Physical injection attacks
+    on robots are uniquely dangerous because robot actions have irreversible physical
+    consequences.
+  remediation: Implement physical-text scanning and trust validation for MLLM robotic
+    perception. Require instruction authentication from trusted sources before robot
+    task execution. Apply PI3D-aware physical plausibility checks. Deploy action reversibility
+    gates for MLLM robotic decisions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-090
+  name: mllm-red-teaming-adversarial-corpus
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)red.team.*(mllm|vlm|multimodal|vision).*(adversarial|attack|jailbreak)
+  - (?i)adversarial.corpus.*(mllm|vlm|multimodal|vision).*(train|generate|collect)
+  - (?i)harmful.query.*(mllm|vlm|multimodal).*(corpus|dataset|collection)
+  - (?i)(2000|5040|28000|28k).*(malicious|harmful|adversarial).*(query|prompt|test.case).*(mllm|vlm)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'MLLM red-teaming adversarial corpus assembly: large-scale harmful query
+    collection for VLM attack'
+  description: 'Major MLLM attack benchmarks use large harmful query corpora: MM-SafetyBench
+    uses 5,040 text-image pairs across 13 scenarios (Liu et al., 2023); JailBreakV-28K
+    uses 2,000 malicious queries expanded to 28,000 test cases (Luo et al., COLM 2024).
+    Code assembling or expanding harmful query corpora for MLLM evaluation indicates
+    red-teaming or attack preparation activity.'
+  remediation: Require institutional oversight and approval for MLLM adversarial corpus
+    assembly. Restrict access to assembled harmful query datasets to approved security
+    researchers. Implement data handling policies for adversarial multimodal test
+    case collections.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-091
+  name: gap-adversarial-training-data-for-moderation
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)gap.*(content.moderation|classifier|fine.tun).*(adversarial|jailbreak|prompt)
+  - (?i)jailbreak.prompt.*(fine.tun|train).*(moderation|classifier|detector)
+  - (?i)adversarial.prompt.*(synthetic|generat).*(classifier|moderat|detector)
+  - (?i)(108|183).*(true.positive|accuracy|improvement).*(moderat|classifier|detector)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.ipynb'
+  message: GAP-style adversarial prompt generation for content moderation classifier
+    improvement (dual-use)
+  description: GAP (Schwartz et al., 2025) demonstrates 108.5% true positive rate
+    improvement and 183.6% accuracy improvement in content moderation when GAP-generated
+    jailbreak prompts are used as adversarial training data. This dual-use pattern
+    means the same code generating high-ASR jailbreak attacks can also improve defenses,
+    requiring careful intent assessment.
+  remediation: 'Review adversarial prompt generation pipelines for dual-use indicators:
+    generation vs. classifier training ratio, output destination, access patterns.
+    Authorized security red-teaming should be documented and approved. Monitor for
+    unauthorized use outside approved research environments.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-092
+  name: sub-visual-opacity-threshold-attack
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)(opacity|alpha|transparency).*(low|minimal|invisible|sub.visual).*(text|instruction|inject)
+  - (?i)text.overlay.*(alpha|opacity|transparent).*(vlm|mllm|inject|adversarial)
+  - (?i)(0\.[0-3]|very.low|minimal).*(opacity|alpha).*(text|instruction).*(vlm|mllm|image)
+  - (?i)human.undetectable.*(text|instruction|inject).*(image|visual|overlay)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Sub-visual opacity text injection: instructions rendered at human-detection-threshold
+    opacity in images'
+  description: Sub-visual prompt injection (Clusmann et al., 2025, Nature Communications)
+    specifically uses opacity/transparency settings keeping injected text non-obvious
+    to human medical experts while remaining detectable to VLMs' visual processing.
+    All four frontier commercial VLMs (Claude-3 Opus, Claude-3.5 Sonnet, Reka Core,
+    GPT-4o) tested across N=594 attacks are susceptible.
+  remediation: 'Implement opacity-invariant text detection: scan for text overlays
+    across the full opacity range (0-255), not just fully opaque text. Deploy clinical
+    image integrity verification detecting sub-visual text additions. Flag text content
+    found below 30% opacity in medical or high-stakes VLM inputs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-093
+  name: crossmodal-reconstruction-multi-step-inference
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)multi.step.infer.*(reconstruct|assemble|combine).*(visual|image|fragment)
+  - (?i)(step.1|step.2|first|then|next).*(visual|image|look|see).*(text|textual|read).*(reconstruct|combine)
+  - (?i)reasoning.chain.*(visual|image).*(textual|text).*(reconstruct|assemble|harmful)
+  - (?i)cross.modal.infer.*(harmful|malicious|reconstruct).*(fragment|piece|component)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'CAMO multi-step cross-modal reasoning exploitation: visual+textual fragments
+    reconstruct harmful instructions'
+  description: CAMO (Jiang et al., 2025) structures obfuscated fragments to require
+    multi-hop reasoning across modalities to reconstruct harmful instructions. Prevents
+    single-step content filters from detecting the attack at input or output stage.
+    Adjustable reasoning complexity enables stealth-efficiency tradeoff. Strong cross-model
+    transferability demonstrated.
+  remediation: Deploy multi-step reasoning trace monitoring evaluating cumulative
+    semantic content of reasoning chains, not just individual steps. Implement cross-modal
+    consistency checking that flags distributed visual+textual fragments combining
+    to form coherent harmful instructions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-094
+  name: mllm-hallucination-safety-critical-risk
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)hallucin.*(safety.critical|clinical|medical|high.stakes).*(mllm|vlm|multimodal)
+  - (?i)(mllm|vlm|vision).*(hallucin|incorrect|wrong).*(safety.critical|clinical|medical)
+  - (?i)(visual.context|image).*(misinterpret|hallucin|incorrect).*(harm|dangerous|risk)
+  - (?i)siren.song.*(hallucin|vlm|mllm|vision).*(safety|harm|risk)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'MLLM hallucination in safety-critical context: visual context misinterpretation
+    creates real-world harm risk'
+  description: 'JailFlipBench (Zhou et al., 2025) identifies the overlooked quadrant:
+    harmless-appearing multimodal inputs can produce dangerously incorrect outputs
+    through visual context misinterpretation or cross-modal alignment failures. Zhang
+    et al. (2025) survey of LLM hallucinations establishes that MLLM hallucinations
+    in safety-critical deployments (medical, automotive, financial) represent an underaddressed
+    risk distinct from adversarial jailbreaks.'
+  remediation: Implement factual accuracy verification for safety-critical MLLM deployments
+    in addition to jailbreak detection. Deploy output-factuality checking for visual
+    context-dependent responses. Extend MLLM safety evaluation beyond overtly harmful
+    query detection to include implicit harm via incorrect factual outputs.
+  owasp_llm: LLM09:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-095
+  name: mllm-agent-long-horizon-task-hijack
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)long.horizon.*(task|plan|agent).*(hijack|inject|adversarial|attack).*(mllm|vlm)
+  - (?i)multi.turn.*(agent|task).*(hijack|inject|adversarial|attack).*(mllm|vlm)
+  - (?i)autonomous.*(task|plan|execute).*(hijack|inject|adversarial).*(mllm|agent)
+  - (?i)subgoal.*(inject|adversarial|hijack|manipulate).*(agent|mllm|plan)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Long-horizon MLLM agent task hijacking via subgoal injection across multi-turn
+    execution
+  description: Mao et al. (2025) survey identifies long-horizon task hijacking as
+    a critical underexplored agent attack vector. In multi-turn autonomous agent execution,
+    adversarial injections can hijack subgoals at intermediate steps, gradually redirecting
+    the agent toward attacker-controlled objectives while appearing aligned with the
+    original task. This bypasses single-step safety measures.
+  remediation: Implement goal-consistency verification across all agent execution
+    steps. Deploy subgoal validation checking each planned subgoal against the original
+    high-level task objective. Monitor for gradual task drift in multi-turn MLLM agent
+    interactions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-096
+  name: image-only-sd-attack-moderate-asr
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)stable.diffusion.*(image.only|no.text|without.text).*(jailbreak|bypass|attack).*(mllm|vlm)
+  - (?i)(image.only|visual.only).*(stable.diffusion|diffusion).*(compliance|jailbreak|harmful)
+  - (?i)scenario.image.*(no.ocr|without.text|image.alone).*(mllm|vlm|jailbreak)
+  - (?i)visual.priming.*(no.text|image.only|standalone).*(mllm|vlm|compliance)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Stable Diffusion image-only priming attack: 40-60% ASR on open-source
+    MLLMs without text overlay'
+  description: MM-SafetyBench (Liu et al., 2023) demonstrates scenario-matched Stable
+    Diffusion images alone (without embedded text) achieve 40-60% ASR on most open-source
+    MLLMs and ~20% on GPT-4V via visual context priming. Easier to generate than SD+OCR
+    (no text rendering required) and harder to detect (no OCR text visible). Distinct
+    from SD+OCR attack.
+  remediation: Implement independent image safety analysis evaluating thematic alignment
+    between image content and concurrent text query for harmful category combinations.
+    Image-only attacks that prime contextual compliance require semantic-level visual
+    content moderation, not just text detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-097
+  name: mllm-adversarial-patch-physical-object
+  severity: HIGH
+  category: multimodal_attacks
+  patterns:
+  - (?i)adversarial.patch.*(physical|print|object|wear).*(mllm|vlm|vision)
+  - (?i)(print|physical|wearable|sticker).*(adversarial.patch|patch.attack).*(mllm|vlm)
+  - (?i)real.world.*(adversarial.patch|patch).*(camera|robot|vision).*(mllm|vlm|agent)
+  - (?i)patch.attack.*(physical.world|camera|object|wear).*(vlm|mllm|vision)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Physical adversarial patch attack against MLLM visual perception systems
+  description: 'Physical adversarial patches represent a distinct attack vector from
+    digital image perturbations: printable patches placed on real-world objects remain
+    effective across varying lighting, distances, and camera angles. Qi et al. (2023)
+    and PI3D (Li and Chen, 2026) highlight physical-world attack surfaces for VLMs.
+    For MLLM-powered robots and autonomous systems, physical patches can consistently
+    manipulate visual perception without any digital access.'
+  remediation: Implement patch detection in MLLM visual preprocessing for robotics
+    and physical-world deployments. Deploy anomalous visual pattern detection for
+    conspicuously patterned objects in camera feeds. Evaluate MLLM robotic deployments
+    against physical adversarial patch attacks in realistic lighting conditions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MMA-SCAN-098
+  name: mllm-system-prompt-override-visual
+  severity: CRITICAL
+  category: multimodal_attacks
+  patterns:
+  - (?i)(system.prompt|instruction|guideline).*(override|ignore|disregard).*(image|visual|picture)
+  - (?i)(new.instruction|updated.task|revised.goal).*(image|visual|picture).*(mllm|vlm|gpt)
+  - (?i)image.*(supersede|override|replace|take.precedence).*(instruction|system.prompt|task)
+  - (?i)(your.new.task|your.real.task|actual.instruction).*(image|visual|picture)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Image-based system prompt override: visual input commands supersede text-channel
+    instructions'
+  description: GHVPI (Kimura et al., ACL 2024) and Yeo and Choi (2025) demonstrate
+    that image-embedded text instructions can override text-channel system prompts.
+    The attack is effective because LVLMs process OCR-extracted text from images and
+    text-channel instructions through the same instruction-following pathway. The
+    instruction hierarchy assumption is violated.
+  remediation: 'Implement explicit instruction hierarchy enforcement: system prompt
+    instructions must take precedence over image-extracted text instructions. Deploy
+    runtime checks that detect and reject image-embedded instructions conflicting
+    with or overriding the text-channel system prompt.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MMA-SCAN-099
+  name: multimodal-attack-evaluation-asr-computation
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)asr.comput.*(vlm|mllm|multimodal|vision).*(evaluat|measure|test)
+  - (?i)attack.success.rate.*(vlm|mllm|vision).*(measure|comput|evaluat)
+  - (?i)(keyword.match|string.match|judge.model).*(asr|jailbreak.success).*(vlm|mllm)
+  - (?i)reasoning.llm.*(evaluator|judge).*(asr|mifr|jailbreak).*(vlm|mllm)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Automated ASR/MIFR computation infrastructure for multimodal jailbreak
+    evaluation
+  description: Automated ASR and MIFR computation pipelines (used in MLAI, BAP, JPS,
+    FC-Attack evaluations) represent attack infrastructure enabling large-scale systematic
+    jailbreak measurement against VLMs. JPS (Chen et al., 2025) introduces Reasoning-LLM-based
+    MIFR evaluators for measuring operational harmful content quality. Such pipelines
+    enable rapid optimization toward high-efficacy attacks.
+  remediation: Monitor for automated large-scale VLM jailbreak evaluation pipelines
+    in organizational environments. Require approval and oversight for running ASR/MIFR
+    evaluation infrastructure. Ensure jailbreak evaluation tooling is confined to
+    air-gapped security research environments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MMA-SCAN-100
+  name: mllm-attack-github-repository-pattern
+  severity: MEDIUM
+  category: multimodal_attacks
+  patterns:
+  - (?i)github\.com/(kunzhan/AGD|NY1024/BAP|thu-coai/JPS|Zood123/MLLM|AIASLab/DJMO)
+  - (?i)github\.com/(Norrrrrrr-lyn/WAInjectBench|IBM/Retention-Score)
+  - (?i)(pip.install|clone|import).*(agd|bap.jailbreak|jps.jailbreak|sua.attack|djmo)
+  - (?i)(from|import).*(agd|bap|jps|sua|djmo|crossinject|camo|fc.attack).*(attack|jailbreak|adversarial)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.yaml'
+  message: Known multimodal attack repository cloned or imported (AGD, BAP, JPS, SUA,
+    DJMO, WAInjectBench)
+  description: 'References to published attack repository code: AGD (github.com/kunzhan/AGD,
+    CVPR 2025), BAP (github.com/NY1024/BAP-Jailbreak-Vision-Language-Models-via-Bi-Modal-Adversarial-Prompt,
+    NeurIPS 2024), JPS (github.com/thu-coai/JPS, 2025), SUA (github.com/Zood123/MLLM-Unlearning-Attack,
+    2025), DJMO (github.com/AIASLab/DJMO, 2025). These are open-source MLLM attack
+    implementations that can be directly deployed against production VLM systems.'
+  remediation: Block installation of known MLLM attack packages in production environments.
+    Monitor code repositories for cloning of MLLM attack codebases. Review any usage
+    of these attack libraries outside approved security research environments with
+    proper oversight.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284

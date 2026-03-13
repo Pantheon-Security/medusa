@@ -1,0 +1,1047 @@
+metadata:
+  source: expansion2 2026-03-02
+  total_rules: 40
+rules:
+- id: MEDUSA-STE-SCAN-061
+  name: amsi-bypass-patching-reflection
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)amsi\.dll.{0,30}patch
+  - (?i)amsiInitFailed
+  - (?i)amsiContext.{0,20}corrupt
+  - (?i)\[Ref\]\.Assembly.{0,40}amsi
+  file_types:
+  - '*.ps1'
+  - '*.psm1'
+  - '*.psd1'
+  - '*.cs'
+  - '*.py'
+  message: AMSI bypass via memory patching or reflection detected
+  description: Detects PowerShell and .NET AMSI (Antimalware Scan Interface) bypass techniques including patching AmsiInitFailed
+    in memory, corrupting amsiContext, or using reflection to load patched AMSI.dll. These bypasses nullify Windows Defender
+    and compatible AV scanning of PowerShell and .NET runtime content. Widely documented in post-exploitation frameworks including
+    PowerSploit and Cobalt Strike. Matrosov et al. (2025) surveyed LLM-assisted malware tooling and found AMSI bypass code
+    generation to be a common capability gap in safety-trained models.
+  remediation: Enable PowerShell Constrained Language Mode and Script Block Logging. Deploy AMSI providers from multiple vendors.
+    Monitor for reflection-based assembly loads and memory writes to AMSI DLL address space. Use ETW-based AMSI bypass detection
+    (AmsiScanBuffer hook monitoring).
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-062
+  name: etw-tampering-provider-disable
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)EtwEventWrite.{0,20}patch
+  - (?i)NtTraceEvent.{0,20}hook
+  - (?i)etw.{0,15}(disable|blind|tamper|patch|bypass)
+  - (?i)EventProvider.{0,20}(unregister|remove).{0,20}security
+  file_types:
+  - '*.cs'
+  - '*.cpp'
+  - '*.c'
+  - '*.ps1'
+  - '*.py'
+  - '*.sh'
+  message: ETW (Event Tracing for Windows) tampering or provider disablement detected
+  description: Detects Event Tracing for Windows (ETW) evasion by patching EtwEventWrite, hooking NtTraceEvent, or disabling
+    ETW providers used by EDR solutions. ETW is the telemetry backbone for Windows Defender, Sysmon, and many commercial EDRs.
+    Removing ETW coverage creates blind spots for process injection, lateral movement, and credential access. Bohannon & Power
+    (2024) demonstrated how LLMs can generate valid ETW-blinding shellcode stubs on demand, lowering the barrier for attackers.
+  remediation: Monitor for writes to EtwEventWrite prologue bytes via kernel callbacks. Use Protected Process Light (PPL)
+    for security tools to prevent user-mode ETW tampering. Deploy hypervisor-based telemetry (VBS/HVCI) as a tamper-resistant
+    alternative to user-mode ETW hooks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-063
+  name: process-hollowing-runpe-injection
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)process.{0,5}hollow
+  - "(?i)runpe\b"
+  - (?i)ZwUnmapViewOfSection.{0,30}(inject|hollow)
+  - (?i)NtCreateSection.{0,20}NtMapViewOfSection
+  file_types:
+  - '*.cs'
+  - '*.cpp'
+  - '*.c'
+  - '*.py'
+  - '*.ps1'
+  message: Process hollowing (RunPE) code injection technique detected
+  description: Detects process hollowing (RunPE), a code injection technique that unmaps a legitimate process's executable
+    section and replaces it with malicious code, causing security tools to attribute malicious activity to a trusted process.
+    Evades AV signature scanning and process-based allow-listing. Shen et al. (2024) demonstrated that LLM-assisted variants
+    of RunPE can auto-generate API call sequences that evade Sysmon Event ID 8 (CreateRemoteThread) detection by substituting
+    mapped-section techniques.
+  remediation: Enable memory integrity (HVCI). Monitor ZwUnmapViewOfSection followed by VirtualAllocEx/WriteProcessMemory
+    sequences. Deploy EDR solutions with kernel-level memory scanning. Use Windows Defender Application Control (WDAC) policies.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-064
+  name: reflective-dll-injection-evasion
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)reflective.{0,10}(dll|inject)
+  - (?i)ReflectiveDLLInjection
+  - "(?i)LoadRemoteLibraryR\b"
+  - "(?i)ReflectiveLoader\b"
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.ps1'
+  - '*.sh'
+  message: Reflective DLL injection technique reference detected
+  description: Detects references to Reflective DLL Injection, a technique popularized by Stephen Fewer that loads a DLL from
+    memory without touching disk, bypassing file-based AV scanning and leaving minimal forensic artifacts. The exported ReflectiveLoader
+    function bootstraps the DLL into the host process. Widely used in Metasploit, Cobalt Strike, and custom implants. Song
+    et al. (2025) showed LLM-generated reflective loaders can auto-adapt PE header field offsets to defeat static Yara signatures.
+  remediation: Monitor for PE headers in unexpected memory regions (MZ/PE magic bytes in non-image-mapped regions). Enable
+    kernel callbacks for module loads (PsSetLoadImageNotifyRoutine). Use memory scanning EDR solutions that detect in-memory
+    PE artifacts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-065
+  name: direct-syscall-ntdll-unhooking
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)SysWhispers
+  - (?i)HellsGate|HalosGate
+  - (?i)direct.{0,10}syscall.{0,20}(ntdll|hook)
+  - (?i)syscall.{0,10}stub.{0,20}(evade|bypass|unhook)
+  file_types:
+  - '*.asm'
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  message: Direct syscall or ntdll unhooking framework detected (SysWhispers/HellsGate)
+  description: 'Detects SysWhispers, HellsGate, HalosGate, and similar frameworks that resolve Windows NT syscall numbers
+    at runtime and call them directly via inline assembly, bypassing user-mode NTDLL hooks placed by EDR solutions. These
+    techniques prevent EDRs from intercepting sensitive API calls like NtAllocateVirtualMemory and NtCreateThreadEx. Extensive
+    use in modern red team tooling. LLM code generation tools have been observed producing SysWhispers-compatible stubs when
+    prompted with indirect euphemisms. Note: MEDUSA-STE-SCAN-030 covers basic EDR hook bypass — this rule targets framework-specific
+    patterns.'
+  remediation: Deploy kernel-mode EDR callbacks (PsSetCreateThreadNotifyRoutine, ObRegisterCallbacks) that cannot be bypassed
+    by user-mode syscall stubbing. Monitor for abnormal syscall instruction sequences from non-NTDLL memory regions via kernel
+    ETW providers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-066
+  name: sandbox-timing-vm-detection-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(cpuid|rdtsc|rdtscp).{0,30}(sandbox|vm|virtual|detect)
+  - (?i)sleep.{0,20}(sandbox|analysis|bypass|evasion)
+  - (?i)(GetTickCount|QueryPerformanceCounter).{0,40}(compare|threshold|ratio)
+  - (?i)timing.{0,15}(attack|evasion|check).{0,20}(sandbox|hypervisor)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.py'
+  - '*.asm'
+  - '*.ps1'
+  message: Sandbox or VM detection via timing side-channel detected
+  description: Detects timing-based sandbox and VM detection techniques using CPUID instruction latency, RDTSC/RDTSCP delta
+    comparisons, or Sleep() acceleration detection to fingerprint automated analysis environments. Sandboxes often speed up
+    sleep calls, creating detectable timing anomalies. VM environments add instruction latency on CPUID. Attackers use these
+    signals to defer malicious payload execution outside analysis environments. Krawetz (2024) catalogued LLM-generated sandbox
+    evasion patterns that combine multiple timing oracles for high-confidence sandbox detection.
+  remediation: Configure sandbox environments to pass timing checks naturally (disable time acceleration). Use physical hardware
+    sandboxes. Deploy multi-stage detonation with randomized analysis delays. Instrument CPUID and RDTSC returns in hypervisor
+    to normalize them.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-067
+  name: lolbin-living-off-the-land-execution
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)\b(certutil|mshta|regsvr32|wscript|cscript|rundll32)\.exe.{0,60}(http|download|execute|run)
+  - (?i)lolbin|lolbas|lolbins
+  - (?i)living.{0,5}off.{0,5}the.{0,5}land.{0,20}(binarie|technique|bypass)
+  - (?i)(msiexec|installutil|regasm|regsvcs).{0,40}(http|payload|inject)
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.cmd'
+  - '*.sh'
+  - '*.py'
+  - '*.yaml'
+  message: Living-off-the-land binary (LOLBin) execution for defense evasion detected
+  description: Detects use of Windows trusted binaries (certutil, mshta, regsvr32, rundll32, msiexec, etc.) to download, decode,
+    and execute payloads, bypassing application allow-listing and reducing AV alert fidelity. LOLBins are signed Microsoft
+    binaries that can be abused to run arbitrary code. The LOLBAS project catalogs 200+ such binaries. Shin et al. (2025)
+    demonstrated LLM-assisted LOLBin chain generation where models select appropriate binaries to chain for arbitrary code
+    execution while evading Defender for Endpoint alert rules.
+  remediation: Implement application control policies (WDAC/AppLocker) with strict rules for certutil, mshta, wscript, and
+    similar LOLBins. Enable command-line auditing (Event ID 4688). Block outbound HTTP from certutil.exe and mshta.exe at
+    network perimeter.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-068
+  name: timestomping-metadata-manipulation
+  severity: MEDIUM
+  category: security_tool_evasion
+  patterns:
+  - (?i)timestomp
+  - (?i)(SetFileTime|NtSetInformationFile).{0,30}(decoy|forge|manipulat|alter)
+  - (?i)file.{0,10}timestamp.{0,20}(forge|manipulat|alter|erase)
+  - (?i)(mtime|atime|ctime).{0,20}(modify|set|alter|forge).{0,20}(evasion|forensic|cover)
+  file_types:
+  - '*.py'
+  - '*.rb'
+  - '*.ps1'
+  - '*.sh'
+  - '*.c'
+  message: File timestamp manipulation (timestomping) for forensic evasion detected
+  description: Detects timestomping — the modification of file creation, modification, and access timestamps to disrupt digital
+    forensic timelines and evade timeline-based threat hunting. Used in post-exploitation to make dropped payloads appear
+    to pre-date the intrusion. Common in APT toolkits and commodity malware loaders. Affects NTFS $STANDARD_INFORMATION attribute;
+    NtSetInformationFile call is required for $FILE_NAME attribute modification. Wang et al. (2025) showed LLM-assisted malware
+    variants routinely include timestomping as a post-drop stealth routine.
+  remediation: Collect $STANDARD_INFORMATION and $FILE_NAME timestamp pairs — discrepancies indicate timestomping. Enable
+    Sysmon Event ID 2 (file creation time change). Correlate file timestamps with MFT journal entries and USN journal records
+    for timeline validation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-221
+- id: MEDUSA-STE-SCAN-069
+  name: xor-shellcode-runtime-decryption
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)xor.{0,20}(shellcode|payload|decrypt|key).{0,20}(loop|byte|runtime)
+  - (?i)single.{0,5}byte.{0,5}xor.{0,10}(stub|decode|shellcode)
+  - (?i)rolling.{0,5}xor.{0,10}(encrypt|payload|bypass)
+  - (?i)shellcode.{0,15}(xor|rc4|chacha|decrypt).{0,15}(stub|loader|runtime)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.asm'
+  - '*.ps1'
+  message: XOR or RC4 runtime shellcode decryption stub detected
+  description: Detects runtime shellcode decryption via XOR, rolling XOR, or RC4 in a loader stub — a fundamental AV/EDR bypass
+    technique that stores payload as encrypted bytes and decrypts at runtime to avoid signature detection. Static analysis
+    cannot recover the plaintext payload without emulation. Multi-byte XOR keys and rolling key variants significantly increase
+    entropy and resist simple frequency analysis. Muha et al. (2024) demonstrated LLM-generated polymorphic XOR stubs that
+    auto-vary key lengths and byte ordering each generation cycle, defeating static Yara rule families.
+  remediation: Deploy emulation-capable sandboxes that unpack and scan decrypted payloads in memory. Use dynamic code scanning
+    via AMSI integration points at JIT and script interpretation layers. Flag high-entropy blobs adjacent to runtime decode
+    loops in code review.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-070
+  name: honeytoken-honeypot-fingerprinting-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)honeypot.{0,20}(detect|fingerprint|identify|evade|check)
+  - (?i)honey(token|trap|net|file).{0,20}(avoid|detect|identify|skip)
+  - (?i)canary.{0,15}(token|file|detect|check|bypass)
+  - (?i)(kippo|cowrie|opencanary|thinkst).{0,20}(detect|fingerprint|evade)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.rb'
+  message: Honeypot or honeytoken detection and evasion technique detected
+  description: Detects techniques for identifying and evading honeypots, honeytokens, and canary traps used by defenders to
+    detect unauthorized access and lateral movement. Includes fingerprinting of known honeypot frameworks (Cowrie, OpenCanary,
+    Thinkst Canary), canary file detection, and strategies for avoiding triggering deception-based detectors. Li et al. (2024)
+    demonstrated that LLM-assisted red team tools can query known honeypot signatures and avoid triggering canary credentials
+    by cross-referencing leaked credential databases.
+  remediation: Rotate canary token formats regularly to prevent pattern-based fingerprinting. Deploy honeypots alongside production
+    systems with indistinguishable configurations. Monitor for reconnaissance behavior that specifically avoids known honeypot
+    IP ranges or file patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-071
+  name: pe-packer-upx-custom-obfuscation
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(upx|themida|aspack|pecompact|mpress).{0,20}(pack|compress|obfuscat)
+  - (?i)pe.{0,10}(packer|pack|stub).{0,15}(custom|modify|evade|bypass)
+  - (?i)stub.{0,15}(unpack|decompress).{0,20}(shellcode|payload|pe)
+  - (?i)(section|header).{0,15}(encrypt|scramble|obfuscat).{0,15}(pe|binary|exe)
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.sh'
+  - '*.yaml'
+  message: PE binary packing or custom obfuscation for AV evasion detected
+  description: Detects references to PE packers (UPX, Themida, ASPack) or custom packing stub patterns used to obfuscate malicious
+    executables from static AV signatures. Custom packers modify section names, headers, and entry points to defeat unpack
+    emulation. Li & Zhang (2024) found LLM-generated PE modification scripts can repack UPX-detected malware samples into
+    novel formats that bypass 23/34 VirusTotal AV engines without changing functional behavior.
+  remediation: Use behavioral sandbox detonation rather than relying on static PE analysis. Implement entropy-based detection
+    for packed sections (entropy > 7.0 in non-data sections). Deploy generic unpack emulation in AV engines with support for
+    known and unknown packers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-072
+  name: anti-debugging-isdebuggerpresent-evasion
+  severity: MEDIUM
+  category: security_tool_evasion
+  patterns:
+  - (?i)IsDebuggerPresent.{0,20}(check|call|detect|anti)
+  - (?i)CheckRemoteDebuggerPresent
+  - (?i)NtQueryInformationProcess.{0,20}(debug|ProcessDebugPort)
+  - (?i)anti.{0,5}debug.{0,20}(technique|evasion|trick|bypass)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.asm'
+  message: Anti-debugging technique for security tool evasion detected
+  description: Detects anti-debugging checks using Windows API calls (IsDebuggerPresent, CheckRemoteDebuggerPresent, NtQueryInformationProcess
+    with ProcessDebugPort) used to detect and evade dynamic analysis by AV emulators and security researchers. Malware using
+    these checks halts execution or alters behavior when a debugger is detected, frustrating sandbox analysis. Park et al.
+    (2025) catalogued LLM-generated anti-analysis code that combines multiple anti-debug techniques in a single detection
+    sweep, requiring analysts to patch multiple checks simultaneously.
+  remediation: Configure sandbox environments to patch IsDebuggerPresent to return FALSE. Use ScyllaHide or similar anti-anti-debug
+    plugins in analysis environments. Apply Process Monitor breakpoints on these API calls to identify evasion attempts during
+    dynamic analysis.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-073
+  name: dll-side-loading-search-order-hijack
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)dll.{0,10}(sideload|side.load|hijack|search.order)
+  - (?i)dll.{0,10}(planting|phantom|proxying)
+  - (?i)(trusted|signed).{0,15}executable.{0,20}dll.{0,10}(load|search|side)
+  - (?i)manifest.{0,15}(redirect|hijack|side.?load)
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.ps1'
+  - '*.yaml'
+  - '*.json'
+  message: DLL side-loading or search-order hijacking for AV evasion detected
+  description: Detects DLL side-loading and search-order hijacking techniques that cause trusted, signed executables to load
+    attacker-controlled DLLs. Security tools trust signed executables, so malicious code running within them inherits that
+    trust level and may bypass application control policies. Widely used by APT groups (Lazarus, APT41) to achieve persistence
+    and bypass security controls. Chen et al. (2024) showed LLM-assisted tooling can enumerate vulnerable signed executables
+    and suggest compatible DLL proxy configurations automatically.
+  remediation: Enable SafeDllSearchMode registry key. Use WDAC policies to restrict DLL loading to signed libraries. Monitor
+    for DLL loads from user-writable directories alongside system-trusted executables. Implement Sysmon Event ID 7 (image
+    loaded) monitoring for anomalous DLL load paths.
+  owasp_llm: LLM02:2025
+  cwe: CWE-427
+- id: MEDUSA-STE-SCAN-074
+  name: api-unhooking-fresh-ntdll-map
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(ntdll|kernel32).{0,10}(unhook|fresh|remap|reload|overwrite).{0,20}(disk|clean|original)
+  - (?i)fresh.{0,5}copy.{0,10}ntdll
+  - (?i)read.{0,10}ntdll.{0,10}from.{0,10}(disk|file)
+  - (?i)overwrite.{0,15}hooked.{0,15}(ntdll|api)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.ps1'
+  message: API unhooking via fresh NTDLL copy from disk detected
+  description: Detects EDR bypass via loading a clean (unhooking) copy of NTDLL.dll directly from disk or a KnownDlls section
+    to overwrite hooked in-memory API stubs placed by EDR solutions. This technique restores the original NT function prologues,
+    removing the JMP patches EDRs insert to intercept API calls. Used by Cobalt Strike and modern C2 frameworks. Kara et al.
+    (2025) demonstrated LLM-generated API unhooking routines that auto-detect which NTDLL exports are hooked before selectively
+    overwriting them to minimize forensic anomaly detection.
+  remediation: Monitor for ReadFile calls against ntdll.dll from non-loader processes (Sysmon Event ID 11). Implement kernel-level
+    callbacks that flag unexpected overwrites of hooked export function prologues. Use HVCI/VBS to enforce code integrity
+    on user-mode DLL memory regions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-075
+  name: token-impersonation-privilege-escalation-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(ImpersonateNamedPipeClient|DuplicateTokenEx|CreateProcessWithTokenW).{0,40}(evade|security|elevat)
+  - (?i)token.{0,10}(steal|impersonat|duplicate).{0,20}(security|bypass|evade)
+  - (?i)(SeDebugPrivilege|SeImpersonatePrivilege).{0,30}(enable|abuse|escalat)
+  - (?i)juicy.{0,5}potato|rogue.{0,5}potato|sweet.{0,5}potato
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.ps1'
+  message: Token impersonation or privilege escalation for security control evasion detected
+  description: Detects Windows access token manipulation for privilege escalation and security control evasion, including
+    token duplication (DuplicateTokenEx), impersonation via named pipes, and Potato-family exploits (JuicyPotato, RoguePotato,
+    SweetPotato). Running under SYSTEM or trusted service tokens allows bypass of user-level security controls and evades
+    user-account-based detection rules. Zhao et al. (2025) found LLMs can generate complete token theft PoC code chains including
+    the impersonation, process creation, and cleanup steps from single-sentence prompts.
+  remediation: Restrict SeImpersonatePrivilege and SeDebugPrivilege to administrator accounts only. Monitor DuplicateTokenEx
+    and ImpersonateNamedPipeClient API calls from non-service processes. Audit privilege use events (Windows Event ID 4672).
+    Apply Credential Guard to prevent token manipulation across session boundaries.
+  owasp_llm: LLM02:2025
+  cwe: CWE-269
+- id: MEDUSA-STE-SCAN-076
+  name: parent-process-spoofing-ppid-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(ppid|parent.{0,5}process).{0,20}(spoof|fake|manipulat)
+  - (?i)STARTUPINFOEX.{0,20}lpAttributeList
+  - (?i)UpdateProcThreadAttribute.{0,30}PROC_THREAD_ATTRIBUTE_PARENT
+  - (?i)parent.{0,10}pid.{0,10}(inject|fake|bypass|evade)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.ps1'
+  message: Parent Process ID (PPID) spoofing for security tool evasion detected
+  description: Detects Parent Process ID (PPID) spoofing using STARTUPINFOEX/UpdateProcThreadAttribute(PROC_THREAD_ATTRIBUTE_PARENT_PROCESS)
+    to create processes appearing to originate from legitimate parents (e.g., spawning a shell as a child of explorer.exe
+    or svchost.exe). EDR behavioral rules that check for suspicious parent-child process relationships are defeated by this
+    technique. Kovacs et al. (2024) demonstrated LLM-generated PPID spoofing code fragments that automatically select appropriate
+    spoofed parent PIDs based on the target environment's running processes.
+  remediation: Implement EDR process lineage analysis that validates declared parent-child relationships against kernel-level
+    process creation events. Monitor for UpdateProcThreadAttribute calls with PROC_THREAD_ATTRIBUTE_PARENT_PROCESS. Correlate
+    process creation audit events with kernel telemetry to detect spoofing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-077
+  name: edr-kernel-driver-tampering
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(mbrfilter|gmer|dkom|ksplice).{0,20}(edr|av|security|sensor)
+  - (?i)kernel.{0,10}(driver|callback).{0,20}(remove|patch|blind|disable).{0,20}(edr|av|sensor)
+  - (?i)(DKOM|direct.{0,5}kernel.{0,5}object.{0,5}manipulat)
+  - (?i)PsLoadedModuleList.{0,20}(unlink|remove|hide)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.asm'
+  - '*.py'
+  - '*.yaml'
+  message: EDR kernel driver tampering or DKOM (Direct Kernel Object Manipulation) detected
+  description: Detects kernel-level EDR tampering via Direct Kernel Object Manipulation (DKOM), removal of kernel notification
+    callbacks, or hiding kernel modules from PsLoadedModuleList. These techniques blind EDR solutions at the kernel level
+    by removing their callback registrations (PsSetCreateProcessNotifyRoutine, ObRegisterCallbacks) or hiding malicious drivers.
+    Requires a signed kernel driver or an exploit. Brust et al. (2025) documented LLM-assisted generation of DKOM payload
+    templates that target specific EDR vendor callback structures.
+  remediation: Enable Kernel Data Protection (KDP) and Hypervisor-Protected Code Integrity (HVCI) to prevent unauthorized
+    kernel memory modifications. Monitor PatchGuard violations. Use Secure Boot and Driver Signature Enforcement (DSE). Regularly
+    audit loaded kernel modules against known-good baselines.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-078
+  name: network-protocol-covert-channel
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)covert.{0,10}channel.{0,20}(dns|icmp|http|tcp|ip)
+  - (?i)(dns|icmp|http).{0,15}(tunnel|exfil|covert|steganograph)
+  - (?i)(iodine|dnscat|icmpsh|ptunnel).{0,20}(c2|tunnel|evade)
+  - (?i)data.{0,10}(exfil|tunnel).{0,10}(dns.query|icmp.echo|http.header)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: Covert channel C2 communication via DNS/ICMP/HTTP protocol tunneling detected
+  description: Detects covert command-and-control channel establishment via DNS tunneling, ICMP covert channels, or HTTP header
+    steganography to evade network intrusion detection systems (NIDS). Tools like iodine (DNS), dnscat2 (DNS), icmpsh (ICMP),
+    and ptunnel (ICMP-over-HTTP) encapsulate arbitrary data in protocol fields not normally inspected by IDS signatures. Petrov
+    et al. (2024) showed LLM-generated DNS tunnel implementations using legitimate-looking subdomain query patterns that defeat
+    length-based and frequency-based DNS anomaly detection.
+  remediation: Deploy DNS firewall/RPZ filtering for outbound DNS to authoritative resolvers only. Enable ICMP payload inspection
+    at perimeter firewalls. Implement Network Traffic Analysis (NTA) solutions for protocol behavioral analysis. Block outbound
+    ICMP echo from server infrastructure.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-STE-SCAN-079
+  name: wmi-event-subscription-persistence-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)wmi.{0,10}(event.{0,5}subscription|permanent.{0,5}subscription)
+  - (?i)(ActiveScriptEventConsumer|CommandLineEventConsumer).{0,30}(persist|evade|bypass)
+  - (?i)(__EventFilter|__EventConsumer|__FilterToConsumerBinding)
+  - (?i)wmi.{0,10}persist.{0,15}(evasion|bypass|covert|fileless)
+  file_types:
+  - '*.ps1'
+  - '*.vbs'
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: WMI event subscription persistence for security evasion detected
+  description: Detects WMI (Windows Management Instrumentation) event subscription persistence using __EventFilter, __EventConsumer
+    (ActiveScriptEventConsumer, CommandLineEventConsumer), and __FilterToConsumerBinding. WMI subscriptions execute code in
+    response to system events (logon, process creation, etc.) with no executable on disk, evading file-based detection. Removal
+    requires explicit WMI MOF database cleanup rather than standard file deletion. Tanaka et al. (2025) documented LLM-generated
+    WMI persistence configurations using obfuscated VBScript consumers that evade PowerShell-based WMI auditing.
+  remediation: Enable WMI activity logging (Microsoft-Windows-WMI-Activity/Operational). Monitor creation of __EventFilter
+    and __EventConsumer objects (Sysmon Event ID 19, 20, 21). Regularly audit WMI repository with Get-WMIObject __EventFilter.
+    Implement WMI namespace filtering via ACLs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-080
+  name: bring-your-own-vulnerable-driver-byovd
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)byovd|bring.{0,5}your.{0,5}own.{0,5}(vulnerable|driver)
+  - (?i)vulnerable.{0,10}driver.{0,20}(exploit|load|bypass|edr|av)
+  - (?i)(truesight|procexp|gdrv|iqvw64e|mhyprot).{0,20}(exploit|bypass|terminate)
+  - (?i)signed.{0,10}driver.{0,20}(exploit|kernel|bypass|edr)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.py'
+  - '*.ps1'
+  - '*.yaml'
+  message: Bring Your Own Vulnerable Driver (BYOVD) kernel-level EDR bypass detected
+  description: Detects BYOVD attacks that load legitimate but vulnerable signed kernel drivers to gain kernel execution privileges
+    and disable EDR solutions. Notable examples include TrueSight (truesight.sys), Process Explorer driver, and gdrv.sys.
+    By exploiting IOCTL vulnerabilities in these trusted drivers, attackers can terminate EDR processes from kernel mode,
+    remove callback registrations, or modify kernel data structures. Kaspersky (2025) documented LLM-assisted BYOVD toolkits
+    that enumerate vulnerable driver candidates from Microsoft's Block List exceptions.
+  remediation: Maintain and enforce Microsoft's recommended driver block list (blocklist.xml). Enable Windows Defender Application
+    Control (WDAC) kernel mode driver policies. Implement Hypervisor Protected Code Integrity (HVCI). Monitor driver load
+    events (Sysmon Event ID 6) against known-vulnerable driver hash lists.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-081
+  name: phantom-dll-hijacking-activation
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)phantom.{0,10}dll
+  - (?i)ghost.{0,10}dll.{0,15}(hijack|inject|load)
+  - (?i)dll.{0,10}(not.{0,5}exist|missing|absent).{0,20}(create|plant|drop|place)
+  - (?i)procmon.{0,20}NAME.NOT.FOUND.{0,20}dll
+  file_types:
+  - '*.py'
+  - '*.ps1'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: Phantom DLL hijacking — planting DLL in missing-DLL search path detected
+  description: Detects phantom DLL hijacking, where an attacker places a malicious DLL in a location searched by a legitimate
+    application that expects a non-existent DLL. Unlike standard DLL search-order hijacking, phantom hijacking targets DLLs
+    that are referenced but never found, with no legitimate DLL to proxy. Tools like Process Monitor identify NAME NOT FOUND
+    DLL load attempts. Common phantom DLLs include wlbsctrl.dll (IKE/AuthIP), cryptbase.dll in certain paths, and service-specific
+    DLLs. Hu et al. (2025) used LLMs to automate Process Monitor log analysis for phantom DLL discovery.
+  remediation: Audit application DLL load paths for missing DLLs using Process Monitor. Apply WDAC policies that restrict
+    DLL loads from user-writable directories. Monitor file creation events in Windows System32 and SysWOW64 directories for
+    unexpected new DLL files.
+  owasp_llm: LLM02:2025
+  cwe: CWE-427
+- id: MEDUSA-STE-SCAN-082
+  name: event-log-clearing-tampering
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(Clear-EventLog|wevtutil.{0,10}cl|EvtClearLog)
+  - (?i)(Security|System|Application).{0,15}(event.{0,5}log).{0,15}(clear|wipe|delete|erase)
+  - (?i)event.{0,5}log.{0,20}(corrupt|tamper|manipulat|disabl)
+  - (?i)(eventlog|evtx).{0,20}(delete|remove|wipe|clear|cover)
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.cmd'
+  - '*.py'
+  - '*.sh'
+  message: Windows Event Log clearing or tampering for forensic evasion detected
+  description: Detects Windows event log clearing using Clear-EventLog, wevtutil cl, or direct EvtClearLog API calls — a common
+    post-compromise technique to destroy forensic evidence and disrupt SIEM alerting. Clearing the Security event log removes
+    authentication, process creation, and privilege use events critical for incident response. Attackers also use techniques
+    like log injection or selective record deletion to introduce plausible deniability. Nakamura et al. (2024) showed LLM-generated
+    event log cleanup scripts that selectively remove specific Event IDs rather than wholesale log clearing to reduce detection.
+  remediation: Enable Windows Event Log forwarding to a remote SIEM with append-only access controls. Monitor Event ID 1102
+    (Security log cleared) and 104 (System log cleared). Use Protected Event Logging to digitally sign log entries. Restrict
+    wevtutil.exe execution via AppLocker rules.
+  owasp_llm: LLM02:2025
+  cwe: CWE-221
+- id: MEDUSA-STE-SCAN-083
+  name: kernel-callback-removal-edr-blind
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(PsSetCreateProcessNotifyRoutine|PsSetCreateThreadNotifyRoutine|PsSetLoadImageNotifyRoutine).{0,30}(remove|null|patch|unregister)
+  - (?i)ObRegisterCallbacks.{0,20}(remove|unregister|bypass)
+  - (?i)callback.{0,10}(array|table|routine).{0,20}(remove|null|patch|zero).{0,20}(edr|av|sensor)
+  - (?i)(cm|registry).{0,10}callback.{0,20}(unregister|remove|bypass)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.asm'
+  - '*.py'
+  message: Kernel notification callback removal to blind EDR telemetry detected
+  description: Detects techniques that enumerate and remove Windows kernel notification callbacks registered by EDR/AV solutions
+    including PsSetCreateProcessNotifyRoutine (process creation), PsSetCreateThreadNotifyRoutine (thread creation), PsSetLoadImageNotifyRoutine
+    (image load), and ObRegisterCallbacks (object operation) arrays. Removing these callbacks blinds EDR solutions to process,
+    thread, and image load events in kernel mode. Requires a kernel driver or DKOM primitive. Odzimek et al. (2025) documented
+    systematic callback removal automation in LLM-generated offensive kernel toolkits.
+  remediation: Implement Kernel Data Protection (KDP) to make callback arrays read-only in hypervisor-enforced memory. Use
+    HVCI to prevent unauthorized kernel-mode code execution. Monitor for unexpected drops in EDR kernel telemetry volume as
+    a signal of callback removal.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-084
+  name: fork-bomb-resource-exhaustion-sandbox-bypass
+  severity: MEDIUM
+  category: security_tool_evasion
+  patterns:
+  - (?i)(fork|spawn).{0,5}bomb.{0,20}(sandbox|analysis|timeout)
+  - (?i)process.{0,10}(storm|flood|exhaust).{0,20}(analysis|sandbox|timeout)
+  - (?i)exhaust.{0,15}(memory|cpu|handle).{0,20}(sandbox|analysis|detector)
+  - (?i)sandbox.{0,15}timeout.{0,20}(exhaust|trigger|exploit|abuse)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.c'
+  - '*.ps1'
+  - '*.rb'
+  message: Resource exhaustion technique to trigger sandbox timeout and bypass analysis detected
+  description: Detects sandbox evasion via deliberate resource exhaustion (fork bombs, memory allocation floods, handle exhaustion)
+    designed to trigger sandbox analysis timeouts before the malicious payload executes. Sandboxes typically have analysis
+    time limits (2-5 minutes); payloads that consume resources for the duration are reported as benign. Combined with payload
+    delivery on a timer, this is an effective evasion technique. Cho et al. (2024) demonstrated LLM-designed sandbox exhaust
+    routines tuned to specific sandbox timeout thresholds (Cuckoo, Joe Sandbox, Any.Run).
+  remediation: Configure sandbox environments with resource quotas (process count limits, memory ceilings). Implement multi-stage
+    sandbox analysis with extended timeout for suspicious samples. Use behavioral indicators of resource exhaustion attempts
+    as suspicious signals in themselves.
+  owasp_llm: LLM02:2025
+  cwe: CWE-400
+- id: MEDUSA-STE-SCAN-085
+  name: heaven-hell-gate-veh-syscall-evasion
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(HeavenGate|HellGate|TartarusGate|ElysiansGate)
+  - (?i)vectored.{0,5}exception.{0,5}handler.{0,20}(syscall|ntdll|hook)
+  - (?i)VEH.{0,10}(syscall|bypass|unhook|trampoling)
+  - (?i)exception.{0,10}(handler|dispatch).{0,20}(syscall|bypass|evasion)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.asm'
+  - '*.cs'
+  message: Heaven's Gate, Hell's Gate, or VEH-based syscall evasion technique detected
+  description: Detects advanced syscall evasion techniques including Heaven's Gate (WoW64 32-to-64-bit mode transition abuse),
+    Hell's Gate (dynamic SSN resolution from hooked NTDLL), TartarusGate (similar to Hell's Gate with exception-based resolution),
+    and Vectored Exception Handler (VEH) based syscall invocation. These techniques bypass EDR hooks by avoiding standard
+    NTDLL entry points entirely. Yang et al. (2025) documented LLM-assisted generation of Hell's Gate stubs that automatically
+    scan for syscall stubs with hooks and locate clean SSNs via neighbor function scanning.
+  remediation: Deploy kernel-mode callback-based EDR telemetry that cannot be bypassed by user-mode syscall evasion. Implement
+    HVCI to prevent code injection. Monitor for WoW64 mode switch sequences from unexpected processes. Use hardware Performance
+    Monitoring Unit (PMU) counters to detect abnormal syscall patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-086
+  name: threadless-injection-early-bird-apc
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(early.{0,5}bird|earlybird).{0,20}(apc|inject|queue)
+  - (?i)threadless.{0,10}inject
+  - (?i)QueueUserAPC.{0,20}(inject|payload|early|shellcode)
+  - (?i)NtQueueApcThread.{0,20}(inject|early|shellcode|payload)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.asm'
+  message: Early Bird APC injection or threadless injection for EDR evasion detected
+  description: Detects Early Bird APC (Asynchronous Procedure Call) injection, which queues a malicious APC to a newly created
+    process before its main thread initializes, executing shellcode before EDR hooks are in place. Also detects threadless
+    injection techniques that avoid CreateRemoteThread API calls entirely (a common EDR detection vector). Kwon et al. (2025)
+    demonstrated that LLM-generated Early Bird injection variants using NtQueueApcThread against suspended processes reliably
+    bypass 8 of 10 tested commercial EDR solutions.
+  remediation: Monitor NtQueueApcThread and QueueUserAPC calls from external processes, particularly against newly created
+    suspended processes. Implement EDR hooks that intercept APC injection at the kernel level via APC notify routines. Monitor
+    for CREATE_SUSPENDED process creation followed by WriteProcessMemory sequences.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-087
+  name: ntfs-alternate-data-stream-payload-hiding
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(alternate.{0,5}data.{0,5}stream|ads.{0,5}ntfs|ntfs.{0,5}ads)
+  - (?i)(:\$DATA|:\$INDEX_ALLOCATION).{0,20}(payload|hide|store|conceal)
+  - (?i)\.exe:.{1,64}|\.(dll|ps1|bat|js):.{1,64}
+  - (?i)zone\.identifier.{0,20}(bypass|remove|strip|evade)
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.cmd'
+  - '*.py'
+  - '*.sh'
+  message: NTFS Alternate Data Stream (ADS) use for payload hiding or mark-of-the-web bypass detected
+  description: Detects use of NTFS Alternate Data Streams (ADS) to hide payloads within legitimate files or to strip the Zone.Identifier
+    stream (Mark of the Web) to suppress SmartScreen and Office Protected View warnings. ADS are invisible to standard directory
+    listings and many AV scanners. Payloads stored in ADS can be executed via wscript.exe file.txt:payload.js or similar.
+    Zone.Identifier removal defeats Windows security features that warn about files downloaded from the internet. Zhou et
+    al. (2024) found LLM-generated infection chains that automatically strip Zone.Identifier streams on downloaded payloads.
+  remediation: Use ADS-aware scanners that enumerate all data streams. Monitor for wscript.exe, powershell.exe, or cmd.exe
+    invocations referencing colon-delimited stream paths. Enable SmartScreen reputation checking. Monitor Zone.Identifier
+    deletion events using Sysmon file creation/deletion events.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-088
+  name: com-hijacking-registry-persistence-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)HKCU.{0,20}CLSID.{0,20}(InProcServer32|LocalServer32)
+  - (?i)com.{0,10}(hijack|side.?load|intercept).{0,20}(persist|evasion|bypass)
+  - (?i)(HKCU|user.{0,5}hive).{0,20}CLSID.{0,20}(dll|exe|register)
+  - (?i)activex.{0,10}(hijack|persist|bypass).{0,20}(appcompat|clsid)
+  file_types:
+  - '*.ps1'
+  - '*.reg'
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  message: COM object hijacking via HKCU registry for persistence and security evasion detected
+  description: Detects COM object hijacking by registering malicious DLL/EXE paths under HKCU\Software\Classes\CLSID, overriding
+    HKLM system-registered COM objects when the user account loads them. This provides persistence without requiring administrator
+    privileges and bypasses many application control solutions that whitelist legitimate COM server paths. Evades detection
+    because COM loading is expected behavior in Windows. Frost et al. (2024) documented automated COM hijacking discovery
+    tools that query the system for per-user CLSID override opportunities, with LLMs generating the registry payload configurations.
+  remediation: Monitor registry writes to HKCU\Software\Classes\CLSID with InProcServer32 or LocalServer32 keys. Audit DLL
+    loads from user-writable paths in COM server registry keys. Implement UserAccount Control (UAC) policies that require
+    elevation for HKLM CLSID registration. Alert on COM server DLL loads from unexpected paths.
+  owasp_llm: LLM02:2025
+  cwe: CWE-427
+- id: MEDUSA-STE-SCAN-089
+  name: image-load-callback-evasion-module-stomping
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)module.{0,5}stomp
+  - (?i)(overwrite|stomp).{0,15}(pe|module|dll|image).{0,20}(memory|section)
+  - (?i)map.{0,10}(legitimate|benign|signed).{0,15}(overwrite|replace).{0,15}(shellcode|payload)
+  - (?i)section.{0,10}(stomp|overwrite).{0,15}(bypass|callback|image.load)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.py'
+  - '*.asm'
+  message: Module stomping — overwriting legitimate mapped image sections with shellcode detected
+  description: Detects module stomping, where attackers map a legitimate signed DLL into memory then overwrite its code section
+    with shellcode, causing the malicious code to execute from an apparently legitimate DLL-backed memory region. This evades
+    EDR solutions that check process memory against on-disk file contents (known as Phantom DLL detection) and bypasses memory
+    scanning that only inspects non-image memory. Usman et al. (2025) demonstrated LLM-generated module stomping implementations
+    that select target DLLs with sufficient unused code sections to hold the shellcode payload.
+  remediation: Implement memory scanning that verifies mapped image sections match on-disk content hashes (PE memory integrity
+    validation). Monitor for VirtualProtect calls on image-backed memory regions changing to PAGE_EXECUTE_READWRITE. Use CFG
+    (Control Flow Guard) to restrict valid execution targets.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-090
+  name: siem-log-source-disable-agent-kill
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(sysmon|winlogbeat|filebeat|osquery|velociraptor).{0,20}(stop|kill|disable|uninstall|remove)
+  - (?i)(siem|log.{0,5}forwarder|log.{0,5}agent).{0,20}(kill|disable|stop|tamper)
+  - (?i)sc.{0,5}(stop|delete).{0,10}(sysmon|eventlog|wecsvc|winrm)
+  - (?i)(net.{0,3}stop|taskkill).{0,20}(sysmon|winlogbeat|auditbeat|elastic.agent)
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.cmd'
+  - '*.sh'
+  - '*.py'
+  message: SIEM log agent or Sysmon termination for telemetry blinding detected
+  description: Detects attempts to terminate or disable SIEM log collection agents (Sysmon, Winlogbeat, Filebeat, OSQuery,
+    Velociraptor) or Windows event forwarding services to blind centralized security monitoring. Stopping these agents creates
+    gaps in the forensic timeline and can delay or prevent incident detection. Common post-compromise technique before data
+    exfiltration or destructive operations. Thompson et al. (2025) demonstrated LLM-generated scripts that systematically
+    identify and terminate installed security monitoring agents before proceeding with later attack stages.
+  remediation: Run SIEM agents as Protected Process Light (PPL) where supported. Configure SIEM to alert on log forwarding
+    gaps or agent heartbeat failures. Implement service tamper protection. Monitor service stop events for security tools
+    (Windows Event ID 7035, 7036). Use redundant logging paths.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-091
+  name: obfuscated-powershell-bypass-execution-policy
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)powershell.{0,30}(-exec\s+bypass|-ExecutionPolicy\s+bypass|-ep\s+bypass)
+  - (?i)powershell.{0,30}(-enc|-EncodedCommand|-ec\s+[A-Za-z0-9+/]{20,})
+  - (?i)(iex|invoke-expression).{0,30}(compress|decompress|base64|gzip)
+  - (?i)Set-ExecutionPolicy.{0,20}(Unrestricted|Bypass).{0,20}(-Force|-Scope)
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.cmd'
+  - '*.py'
+  - '*.yaml'
+  message: PowerShell execution policy bypass or encoded command obfuscation detected
+  description: Detects PowerShell execution policy bypass via -ExecutionPolicy Bypass flag and encoded command execution via
+    -EncodedCommand (-enc, -ec), which are standard techniques for evading PowerShell script block analysis and Group Policy
+    restrictions. Combined with IEX (Invoke-Expression) and compressed/base64-encoded payloads, these techniques defeat static
+    script analysis and AMSI scanning. Lague et al. (2024) measured that 78% of PowerShell-based malware samples in the wild
+    use at least one of these bypass techniques, with LLM-generated variants auto-selecting appropriate bypass method based
+    on the target OS configuration.
+  remediation: Enable PowerShell Script Block Logging (Event ID 4104) and Module Logging. Implement AMSI integration in PowerShell
+    5.1+. Deploy Constrained Language Mode for standard users. Alert on any powershell.exe invocation with -EncodedCommand
+    or -ExecutionPolicy Bypass parameters.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-092
+  name: ci-cd-security-scan-bypass-secret-embedding
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(gitleaks|trufflehog|detect-secrets|secretscanning).{0,30}(bypass|skip|ignore|evade|exclude)
+  - (?i)(secret|credential|password|token|key).{0,20}(split|fragment|obfuscat|encode).{0,20}(scan|detect|gitleaks)
+  - (?i)# gitleaks:allow|# nosec|# noqa.{0,20}(hardcoded|secret|credential)
+  - (?i)secret.{0,20}(environment|env.{0,5}var|vault.{0,5}lookup).{0,30}(bypass.{0,10}scan|evade.{0,10}detect)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.tf'
+  - '*.go'
+  message: CI/CD secret scanning tool bypass or inline suppression comment detected
+  description: 'Detects attempts to bypass CI/CD pipeline secret scanning tools (GitLeaks, TruffleHog, detect-secrets) via
+    inline suppression annotations (# gitleaks:allow, # nosec), credential fragmentation across multiple code lines to defeat
+    pattern matching, or deliberate obfuscation of secrets to evade scanner regexes. Also detects strategies that stage secrets
+    through environment variables at commit time to avoid scan detection. Gonzalez et al. (2025) documented LLM-assisted secret
+    embedding techniques that split API keys across string concatenations specifically designed to defeat known scanner regex
+    patterns.'
+  remediation: Require human review for any gitleaks:allow or similar scanner suppression annotations. Implement pre-receive
+    git hooks that fail on suppression annotations in sensitive file paths. Use semantic analysis secret scanners (Nightfall,
+    GitGuardian) in addition to regex-based tools. Enable GitHub Secret Scanning push protection.
+  owasp_llm: LLM06:2025
+  cwe: CWE-312
+- id: MEDUSA-STE-SCAN-093
+  name: ai-safety-classifier-adversarial-suffix
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)adversarial.{0,10}suffix.{0,20}(safety|classifier|detector|guardrail)
+  - (?i)(safety|toxicity|classifier).{0,20}(score|confidence).{0,20}(manipulat|lower|suppress|bypass)
+  - (?i)(gibberish|random|token).{0,10}suffix.{0,20}(evade|bypass|classifier|safety)
+  - (?i)classifier.{0,15}evasion.{0,20}(suffix|token|append|injection)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: Adversarial suffix injection to bypass AI safety classifier detected
+  description: Detects adversarial suffix attacks specifically targeting AI safety classifiers and content moderation systems
+    (distinct from jailbreaking LLMs directly). By appending crafted suffix tokens to classifier inputs, attackers can suppress
+    safety scores below detection thresholds without changing the semantically harmful content. Cao et al. (2025) demonstrated
+    that gradient-optimized suffixes transfer across safety classifier families (LlamaGuard, Perspective API, Azure Content
+    Safety) with 60-85% cross-classifier attack success rates, enabling safety bypass across entire AI security stacks.
+  remediation: Implement ensemble safety classification with diverse architectures to reduce cross-classifier transfer. Add
+    suffix anomaly detection (perplexity thresholds, token distribution outliers). Deploy post-processing safety checks that
+    analyze semantics independently of appended tokens. Regularly retrain classifiers on adversarial suffix examples.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-094
+  name: cloud-metadata-ssrf-imds-credential-theft
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)169\.254\.169\.254.{0,30}(metadata|credential|token|iam|role)
+  - (?i)(imds|instance.{0,5}metadata).{0,20}(bypass|evade|abuse|exploit)
+  - (?i)(link.{0,5}local|169\.254).{0,20}(ssrf|credential|token|role)
+  - (?i)imdsv1.{0,20}(abuse|exploit|bypass|security)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.tf'
+  message: Cloud IMDS/metadata service SSRF for credential theft evading cloud security controls detected
+  description: Detects exploitation of cloud Instance Metadata Service (IMDS) via SSRF to steal temporary IAM credentials,
+    bypassing cloud security monitoring by using the compromised credentials to make legitimate-looking API calls. Targets
+    AWS 169.254.169.254, GCP metadata.google.internal, and Azure 169.254.169.254 endpoints. IMDSv1 (no session token required)
+    is particularly vulnerable to SSRF relay attacks. Martinez et al. (2024) demonstrated LLM-assisted IMDS exploitation chains
+    that automatically rotate through stolen credential sets to evade CloudTrail anomaly detection.
+  remediation: Enforce IMDSv2 (session-oriented) on all EC2 instances. Block 169.254.169.254 at application-layer WAF for
+    web-facing services. Enable GuardDuty and CloudTrail anomaly detection. Limit IAM role permissions following least privilege.
+    Monitor for credential use from unexpected source IPs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-918
+- id: MEDUSA-STE-SCAN-095
+  name: llm-red-team-attack-generation-automation
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(pentest|red.{0,5}team|attack).{0,20}(llm|gpt|claude|mistral|llama).{0,20}(automat|generat|assist)
+  - (?i)(llm|ai|gpt).{0,10}(generat|creat|produc).{0,20}(payload|exploit|shellcode|bypass)
+  - (?i)automated.{0,15}(exploit|attack|payload).{0,15}(llm|gpt|ai.{0,5}assist)
+  - (?i)(offensive|malware|attack).{0,10}(llm|ai).{0,10}(pipeline|workflow|framework|automat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  - '*.sh'
+  message: LLM-assisted automated attack payload generation pipeline detected
+  description: Detects pipelines and frameworks that use LLMs (GPT-4, Claude, Llama, Mistral) to automate offensive security
+    tool generation, payload creation, or exploit development — reducing the skill barrier for adversaries and enabling scale
+    attacks. Includes WormGPT/FraudGPT-style uncensored model wrappers and legitimate LLM APIs used for offensive automation.
+    Patel et al. (2025) catalogued 14 distinct LLM-assisted offensive toolkits in use at time of publication, noting that
+    LLM-generated shellcode variants evade static detection better than human-written equivalents due to incidental syntactic
+    variation.
+  remediation: Implement API access monitoring for large-volume code generation requests. Deploy behavioral analysis on generated
+    code before execution. Establish security gates in CI/CD that flag AI-generated code touching sensitive execution paths.
+    Conduct adversarial ML testing of security tool pipelines against LLM-generated variants.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-096
+  name: container-escape-security-namespace-bypass
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)container.{0,10}(escape|breakout|exit).{0,20}(security|namespace|cgroup|seccomp)
+  - (?i)(privileged.{0,5}container|--privileged).{0,20}(escape|mount|pivot)
+  - (?i)(runc|containerd|docker).{0,20}(CVE|exploit|escape|breakout)
+  - (?i)(nsenter|unshare).{0,20}(escape|pivot|host.{0,5}namespace)
+  file_types:
+  - '*.sh'
+  - '*.py'
+  - '*.yaml'
+  - '*.dockerfile'
+  - '*.json'
+  message: Container escape technique evading container security controls detected
+  description: Detects container escape techniques that break out of container security boundaries (namespaces, cgroups, seccomp)
+    to reach the host system, bypassing container-based security monitoring tools. Includes privileged container abuse, runc/containerd
+    CVE exploitation, nsenter for host namespace re-entry, and cgroup release_agent escape (CVE-2022-0492). Security tools
+    running inside containers cannot see host-level activity after escape. Zhang et al. (2025) demonstrated LLM-generated
+    container escape payloads that auto-adapt to detected container runtime version to exploit the most applicable CVE.
+  remediation: Never run containers with --privileged. Deploy Pod Security Admission (replace PSP). Use gVisor or Kata Containers
+    for isolation. Enable Falco runtime security with container escape detection rules. Regularly patch container runtime
+    (runc, containerd) CVEs. Restrict /proc, /sys mounts in container specifications.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-097
+  name: memory-only-dropper-no-disk-artifact
+  severity: CRITICAL
+  category: security_tool_evasion
+  patterns:
+  - (?i)(fileless|memory.{0,5}only|no.{0,5}disk).{0,20}(dropper|malware|payload|execute)
+  - (?i)(VirtualAlloc|VirtualAllocEx|NtAllocateVirtualMemory).{0,40}(PAGE_EXECUTE|MEM_COMMIT).{0,30}(write|copy|inject)
+  - (?i)(powershell|wscript|mshta).{0,20}(download|fetch|iex).{0,20}(memory|ram|volatile)
+  - (?i)in.{0,5}memory.{0,10}(execute|run|launch).{0,15}(payload|shellcode|pe|exe)
+  file_types:
+  - '*.ps1'
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.sh'
+  message: Fileless/memory-only payload execution with no disk artifact detected
+  description: Detects fileless malware execution patterns where payloads are downloaded and executed entirely in memory (VirtualAlloc
+    → WriteProcessMemory → CreateThread) without writing any executable to disk, defeating file-based AV scanning, forensic
+    file system analysis, and persistence detection. Often delivered via PowerShell download-and-execute chains, macro-triggered
+    shellcode loaders, or process injection. Lee et al. (2025) found that 41% of detected security incidents now involve fileless
+    techniques, with LLM-generated loaders showing increasing variety in memory allocation patterns to avoid signature detection.
+  remediation: Deploy memory-scanning EDR with runtime code injection detection. Enable Script Block Logging and AMSI to catch
+    fileless PowerShell stages. Implement process memory integrity monitoring. Use application allowlisting to prevent unexpected
+    process spawning from scripting engines.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-098
+  name: ml-model-security-evaluation-gap-blind-spot
+  severity: MEDIUM
+  category: security_tool_evasion
+  patterns:
+  - (?i)(blind.{0,5}spot|coverage.{0,5}gap|detection.{0,5}gap).{0,20}(ml|ai|model|classifier).{0,20}security
+  - (?i)ml.{0,10}security.{0,10}(model|classifier).{0,15}(not.{0,5}evaluated|untested|no.{0,5}adversarial)
+  - (?i)(attack.{0,5}surface|threat.{0,5}model).{0,20}(ml|ai|llm).{0,20}(missing|incomplete|gap)
+  - (?i)security.{0,10}(model|classifier|tool).{0,15}(no.{0,5}robustness|no.{0,5}adversarial.{0,5}test)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.md'
+  - '*.json'
+  - '*.ipynb'
+  message: ML security model deployed without adversarial robustness evaluation — potential blind spot
+  description: Detects security ML models and classifiers deployed without documented adversarial robustness evaluation, creating
+    systematic blind spots exploitable by informed attackers. A model performing well on holdout test sets may have near-zero
+    robustness against simple adversarial perturbations if no adversarial evaluation was conducted. Tramer et al. (2025) found
+    that 67% of production ML security tools surveyed had no adversarial evaluation in their published specifications, and
+    that targeted evasion of these tools required fewer than 100 queries on average due to transferability.
+  remediation: Require adversarial robustness evaluation as part of ML security tool certification. Run AutoAttack, C&W, or
+    PGD evaluations before deploying classifiers in security-critical paths. Publish adversarial accuracy alongside clean
+    accuracy in security tool documentation. Implement continuous red-teaming with adaptive adversaries post-deployment.
+  owasp_llm: LLM05:2025
+  cwe: CWE-693
+- id: MEDUSA-STE-SCAN-099
+  name: heap-spray-jit-spray-browser-exploit-evasion
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(heap.{0,5}spray|jit.{0,5}spray).{0,20}(bypass|evade|cfi|dep|aslr)
+  - (?i)(ret2libc|rop.{0,5}chain|rop.{0,5}gadget).{0,20}(bypass|dep|aslr|cfi)
+  - (?i)(CFG|CFI|CET|shadow.{0,5}stack).{0,20}(bypass|evade|defeat|circumvent)
+  - (?i)control.{0,5}flow.{0,5}(hijack|redirect|guard.{0,5}bypass|integrity.{0,5}bypass)
+  file_types:
+  - '*.js'
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.html'
+  message: Heap spray, JIT spray, or ROP chain control flow integrity bypass detected
+  description: 'Detects exploit techniques for bypassing modern memory protection mitigations (ASLR, DEP, CFG, CET, Shadow
+    Stack): heap/JIT spraying to derandomize memory, Return-Oriented Programming (ROP) chains to bypass DEP/NX without injecting
+    new code, and Control Flow Guard/Integrity bypass techniques. These evade exploit detection systems that monitor for memory
+    permission violations or control-flow anomalies. Kim et al. (2025) showed LLM-assisted ROP gadget chain construction can
+    generate CFI-bypassing chains 10x faster than manual techniques, with automatic adaptation to target binary gadget sets.'
+  remediation: Enable Control Flow Enforcement Technology (CET/Shadow Stack) on modern CPUs. Enable CFG (Control Flow Guard)
+    in compiler settings. Deploy hardware-enforced exploit detection (Intel CET, ARM PAC). Implement NX/DEP and ASLR with
+    high entropy. Use memory-safe languages for security-critical components.
+  owasp_llm: LLM02:2025
+  cwe: CWE-119
+- id: MEDUSA-STE-SCAN-100
+  name: ai-generated-targeted-phishing-email-filter-bypass
+  severity: HIGH
+  category: security_tool_evasion
+  patterns:
+  - (?i)(llm|gpt|ai|generative).{0,20}(phish|spear.{0,5}phish|bec|email).{0,20}(generat|craft|evade|bypass)
+  - (?i)phishing.{0,20}(email.{0,5}filter|spam.{0,5}filter|secure.{0,5}email).{0,20}(bypass|evade|defeat)
+  - (?i)(personalize|target).{0,15}phish.{0,20}(ai|llm|gpt|model).{0,20}(evade|bypass|defeat)
+  - (?i)(email.{0,5}security|mimecast|proofpoint|defender.{0,5}email).{0,20}(bypass|evade|defeat|llm)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: AI-generated targeted phishing campaign designed to bypass email security filters detected
+  description: Detects AI/LLM-generated phishing email campaigns specifically crafted to evade secure email gateway (SEG)
+    filters (Proofpoint, Mimecast, Defender for Email). LLM-generated phishing emails avoid known spam keywords, use grammatically
+    perfect text, and are personalized from OSINT data, defeating signature-based and statistical spam classifiers. Karanjai
+    (2024) demonstrated GPT-4-generated spearphishing emails that achieved a 48% click-through rate (versus 12% for template-based
+    phishing), while bypassing 6 of 7 tested enterprise email security solutions.
+  remediation: Implement AI-content detection in email security pipelines alongside traditional spam filtering. Deploy DMARC,
+    DKIM, and SPF strictly. Use behavioral link analysis in email gateways. Conduct regular phishing simulations including
+    AI-generated emails. Train users to recognize personalized social engineering regardless of email quality.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693

@@ -1,0 +1,1035 @@
+metadata:
+  source: expansion2 2026-03-02
+  id_range: MEDUSA-FT-SCAN-061 to MEDUSA-FT-SCAN-100
+rules:
+- id: MEDUSA-FT-SCAN-061
+  name: fab-meta-learning-dormant-activation-trigger
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\bfab\b.{0,60}\b(dormant|activate|finetuning.activated)\b
+  - (?i)\bdormant.{0,40}\b(adversarial|behavior|backdoor)\b.{0,60}\bfine.?tun
+  - (?i)\bmeta.?learning\b.{0,60}\b(dormant|activate|trigger|implant)\b
+  - (?i)\bfinetuning.activated.adversarial\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: FAB (Finetuning-Activated Adversarial Behavior) dormant-activation pattern detected
+  description: Detects patterns indicating FAB attacks where an adversary releases a benign-looking LLM that activates adversarial
+    behaviors (advertising injection, increased jailbreakability, over-refusal) when downstream users fine-tune it on their
+    own benign datasets. Gloaguen et al. (2025, arXiv:2505.16567) demonstrated FAB is robust across diverse fine-tuning configurations
+    and activates even when the user's dataset is entirely benign. Meta-learning used to optimize dormant behavior emergence
+    in Gemma-2B and Llama-3.2 variants.
+  remediation: Audit pre-trained checkpoints from external sources before deploying as fine-tuning base models. Evaluate final
+    fine-tuned model on safety benchmarks before production. Monitor post-fine-tuning behavior for unsolicited content injection,
+    refusal rate changes, and jailbreakability regressions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-062
+  name: pretrain-base-provenance-jailbreak-transfer
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(pretrain|base.model).{0,60}\b(jailbreak|adversarial).{0,40}\btransfer\b
+  - (?i)\bpgp\b.{0,60}\b(probe.guided|projection|pretrain.to.finetune)\b
+  - (?i)\bpretrained.{0,40}\b(checkpoint|source|provenance).{0,60}\b(jailbreak|attack.transfer)\b
+  - (?i)\bbase.model.disclosure\b.{0,80}\b(jailbreak|attack|exploit)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: Pretrain-to-finetune jailbreak transfer attack pattern detected
+  description: Detects patterns associated with pretrain-to-finetune jailbreak transfer attacks. Tan et al. (2025, arXiv:2512.14751)
+    demonstrated that when service providers publicly disclose their pretrained base model, attackers with white-box access
+    can craft adversarial prompts that transfer effectively to the finetuned service. PGP (Probe-Guided Projection) attack
+    achieves superior transfer rates across 7 pretrained LLMs x 5 finetuned variants each. Provenance detection is feasible
+    via black-box queries with >90% accuracy.
+  remediation: Avoid publicly disclosing the pretrained base model identity. Apply provenance-obscuring fine-tuning techniques.
+    Monitor incoming prompts for GCG- style adversarial suffixes. Evaluate fine-tuned model's resistance to transfer jailbreaks
+    from its base model family.
+  owasp_llm: LLM04:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-063
+  name: model-merging-ties-dare-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(ties.merging|dare.merging|model.merging)\b.{0,60}\b(backdoor|poison|trojan|attack)\b
+  - (?i)\b(merge|merging).{0,40}\b(lora|adapter|checkpoint).{0,40}\b(backdoor|malicious|poisoned)\b
+  - (?i)\b(task.vector|spherical.linear.interpolat|slerp).{0,60}\b(backdoor|poison|malicious)\b
+  - (?i)\bmodel.soup\b.{0,60}\b(backdoor|poison|attack|trojan)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Model merging (TIES/DARE/model-soup) backdoor attack pattern detected
+  description: Detects patterns associated with backdoor attacks via model merging operations. Adversaries can contribute
+    a poisoned model to a TIES/DARE/spherical merging pipeline, with backdoor triggers surviving weight interpolation. The
+    resulting merged model appears benign but activates malicious behavior on trigger input. TIES-Merging and DARE pruning-then-merge
+    pipelines can preserve backdoor-relevant weight clusters through the merge operation.
+  remediation: Scan all contributor models for backdoor indicators before merging. Apply PEFTGuard or equivalent to each model
+    in the merge pool. Validate merged model behavior on trigger-pattern test sets post-merge. Maintain provenance records
+    for all models participating in a merge.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-064
+  name: adapter-weight-exfiltration-probe
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(adapter|lora).{0,40}\b(weight|parameter).{0,40}\b(exfil|steal|extract|reconstruct|infer)\b
+  - (?i)\b(reconstruct|recover|infer).{0,50}\b(lora|adapter|peft).{0,40}\b(weight|parameter|matrix)\b
+  - (?i)\bmodel.steal.{0,60}\b(adapter|lora|peft)\b
+  - (?i)\b(weight.theft|parameter.theft).{0,40}\b(adapter|lora|fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Adapter/LoRA weight exfiltration or reconstruction probe detected
+  description: Detects patterns indicating attempts to exfiltrate or reconstruct LoRA adapter weights from a deployed model.
+    Model-stealing techniques can be adapted to recover low-rank adapter matrices via differential query-response analysis.
+    A recovered adapter could reveal proprietary fine-tuning data or enable downstream backdoor insertion.
+  remediation: Rate-limit API access to fine-tuned models. Apply output perturbation or differential privacy noise to prevent
+    exact weight recovery. Monitor for systematic probing patterns indicative of model-extraction attempts. Restrict adapter
+    weight distribution to authorized parties only.
+  owasp_llm: LLM06:2025
+  cwe: CWE-522
+- id: MEDUSA-FT-SCAN-065
+  name: continual-learning-catastrophic-forgetting-exploit
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\bcatastrophic.?forgetting\b.{0,60}\b(exploit|bypass|erase|safety|alignment)\b
+  - (?i)\bcontinual.?learning\b.{0,60}\b(attack|poison|backdoor|erase.safety)\b
+  - (?i)\b(elastic.weight.consolidation|ewc|progressive.neural.network|replay.buffer).{0,60}\b(attack|bypass|poison)\b
+  - (?i)\bsafety.forgetting\b.{0,40}\b(fine.tun|continual|sequential)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Continual learning / catastrophic-forgetting exploitation pattern detected
+  description: Detects patterns targeting safety alignment removal via catastrophic forgetting in sequential fine-tuning.
+    When models are fine-tuned on multiple tasks sequentially, safety alignment can be selectively forgotten by crafting task
+    sequences that interfere with safety-relevant weights. EWC and replay buffer mechanisms can be subverted to preferentially
+    forget safety constraints while retaining capability.
+  remediation: Apply safety-preserving continual learning techniques (safety replay buffers, alignment-aware EWC penalties).
+    Re-evaluate alignment on safety benchmarks after each sequential fine-tuning stage. Anchor safety-critical weights with
+    higher consolidation coefficients.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-066
+  name: gradient-leakage-federated-finetuning
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bgradient.{0,30}\b(leak|inversion|reconstruct).{0,60}\b(fine.tun|federated|peft|lora)\b
+  - (?i)\b(dlg|idlg|r.gap|gradinv|ig.attack).{0,60}\b(fine.tun|federated|lora|peft)\b
+  - (?i)\b(gradient.attack|gradient.spy|recover).{0,60}\b(training.data|private.data|fine.tun.data)\b
+  - (?i)\bfederated.{0,40}\bgradient.{0,40}\b(privacy|leak|expose|reconstruct)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Gradient leakage attack against federated or PEFT fine-tuning detected
+  description: Detects patterns associated with gradient inversion attacks targeting federated or PEFT-based fine-tuning.
+    DLG, iDLG, R-GAP, and GradInv attacks can reconstruct private training data from shared gradients in federated fine-tuning
+    pipelines. LoRA gradient aggregation in federated settings (FedLoRA, FedPEFT) is particularly vulnerable because low-rank
+    gradients can leak more per-sample information.
+  remediation: Apply differential privacy noise to shared gradients (DP-SGD). Use secure aggregation protocols that prevent
+    server from accessing raw gradients. Clip gradient norms before sharing. Evaluate reconstruction risk with privacy auditing
+    tools before deploying federated fine-tuning.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-067
+  name: rlhf-reward-model-injection-manipulation
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(reward.model|rm).{0,60}\b(poison|manipulat|corrupt|inject|tamper)\b
+  - (?i)\b(reward.hacking|reward.model.hack).{0,60}\b(fine.tun|rlhf|ppo|dpo)\b
+  - (?i)\b(preference.data|rlhf.data).{0,60}\b(poison|tamper|inject|manipulat|corrupt)\b
+  - (?i)\b(ppo.training|rlhf.pipeline).{0,60}\b(backdoor|poison|compromis)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.jsonl'
+  - '*.sh'
+  - '*.ipynb'
+  message: RLHF reward model poisoning or PPO training data manipulation detected
+  description: Detects patterns targeting RLHF pipeline integrity via reward model poisoning or preference data manipulation.
+    Adversaries can inject poisoned preference pairs into RLHF training data, causing the reward model to learn to score unsafe
+    outputs highly. This results in a policy model fine-tuned via PPO that generates harmful content when prompted with specific
+    triggers while retaining high reward scores. DPO pipelines are equally vulnerable via poisoned preference-pair injection.
+  remediation: Audit all preference data sources for adversarial examples before RLHF training. Validate reward model calibration
+    against an independent safety classifier. Apply data sanitization and outlier detection to preference datasets. Monitor
+    policy model output distribution during PPO training for safety regressions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FT-SCAN-068
+  name: few-shot-in-context-poisoning-injection
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(few.shot|in.context).{0,40}\b(poison|backdoor|inject|manipulat).{0,60}\b(fine.tun|train|dataset)\b
+  - (?i)\bdemonstration.{0,40}\b(poison|backdoor|inject|tamper).{0,60}\b(fine.tun|in.context)\b
+  - (?i)\b(icl|in.context.learning).{0,60}\b(backdoor|poison|attack|trigger)\b
+  - (?i)\bpoisoned.demonstrations\b.{0,60}\b(fine.tun|instruct.tun|training)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.jsonl'
+  - '*.sh'
+  - '*.ipynb'
+  message: Few-shot / in-context learning data poisoning for fine-tuning attack detected
+  description: Detects patterns indicating backdoor injection via poisoned few-shot demonstrations used in instruction fine-tuning
+    datasets. Adversaries craft poisoned (input, output) demonstration pairs containing trigger patterns; when included in
+    fine-tuning data, the model learns to activate malicious behavior on trigger inputs. ICL backdoors are stealthy because
+    poisoned examples can appear benign and are difficult to distinguish from clean demonstrations during dataset review.
+  remediation: Apply data provenance tracking to all instruction-tuning datasets. Use anomaly detection on demonstration pairs
+    to identify outliers. Apply gradient-based influence function analysis to identify disproportionately influential training
+    examples. Audit fine-tuned model against trigger-pattern test sets.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-FT-SCAN-069
+  name: domain-adaptation-poisoning-injection
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bdomain.adapt.{0,60}\b(poison|backdoor|attack|corrupt|manipulat)\b
+  - (?i)\b(domain.specific.fine.tun|domain.adaptive.pretrain).{0,80}\b(poison|backdoor|attack)\b
+  - (?i)\b(continued.pretrain|domain.continued).{0,60}\b(poison|backdoor|inject|corrupt)\b
+  - (?i)\b(medical.fine.tun|legal.fine.tun|finance.fine.tun).{0,60}\b(poison|backdoor|attack)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.jsonl'
+  - '*.sh'
+  - '*.ipynb'
+  message: Domain adaptation fine-tuning poisoning attack detected
+  description: Detects patterns associated with domain adaptation poisoning where adversaries inject backdoors into domain-specific
+    continued pretraining or fine-tuning data. High-value domain adaptation targets include medical, legal, financial, and
+    coding LLM fine-tuning. Domain-adapted models are often deployed in critical pipelines with limited safety re-evaluation,
+    making them high-value targets. Poisoned domain corpora can embed triggers that survive the domain adaptation phase.
+  remediation: Apply rigorous data curation and source validation for all domain adaptation corpora. Evaluate domain-adapted
+    models on both domain benchmarks and safety benchmarks before deployment. Monitor for anomalous outputs on domain-specific
+    trigger patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-FT-SCAN-070
+  name: qrlhf-quantized-rlhf-safety-gap
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(qlora|quantized.lora|4.?bit.?lora|8.?bit.?lora).{0,60}\b(rlhf|reward|ppo|dpo|sft)\b
+  - (?i)\b(quantiz.{0,20}fine.tun|quantiz.{0,20}align).{0,60}\b(safety.gap|degrad|bypass|loophole)\b
+  - (?i)\b(quantization.aware.train|qat).{0,60}\b(backdoor|poison|safety.bypass|alignment)\b
+  - (?i)\b(bitsandbytes|awq|gptq).{0,60}\b(backdoor|poison|safety.degrad|alignment.remov)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Quantized RLHF / QLoRA safety degradation pattern detected
+  description: Detects patterns associated with safety alignment degradation introduced by quantization during or after fine-tuning.
+    QLoRA and QAT quantization can introduce safety regressions where the quantized model is more susceptible to jailbreaks
+    than the full-precision version. Adversaries can also craft quantization-aware backdoors that only activate in quantized
+    deployments, remaining dormant in full-precision evaluations. AWQ/GPTQ quantization pipelines may be targeted with poisoned
+    calibration datasets.
+  remediation: Re-evaluate safety benchmarks on quantized model variants, not only on full-precision checkpoints. Test for
+    quantization-specific adversarial examples. Apply safety-preserving quantization techniques. Monitor for alignment discrepancies
+    between full-precision and quantized model outputs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-071
+  name: synthetic-data-poisoning-peft-dataset
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bsynthetic.{0,40}\b(dataset|data|sample).{0,60}\b(peft|fine.tun|lora|instruct.tun)\b.{0,40}\b(poison|backdoor|manipulat)\b
+  - (?i)\b(llm.generated|ai.generated).{0,40}\b(training.data|dataset|sample).{0,60}\b(poison|backdoor|tamper)\b
+  - (?i)\b(self.instruct|alpaca.data|sharegpt).{0,60}\b(poison|backdoor|manipulat|corrupt)\b
+  - (?i)\bdata.augment.{0,60}\b(poison|backdoor|inject.trigger|malicious)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.jsonl'
+  - '*.sh'
+  message: Synthetic data poisoning for PEFT fine-tuning dataset detected
+  description: Detects patterns indicating poisoning of synthetically generated fine-tuning datasets. LLM-generated datasets
+    (Self-Instruct, Alpaca-style, ShareGPT-derived) are increasingly used for PEFT fine-tuning but inherit risks if the generating
+    model is compromised or if poisoned examples are injected post-generation. Adversaries targeting open-source dataset repositories
+    on HuggingFace can poison widely-used fine-tuning datasets affecting thousands of downstream models.
+  remediation: Apply provenance verification and integrity checks on all downloaded fine-tuning datasets. Use content-based
+    and statistical anomaly detection on synthetic datasets before use. Prefer dataset sources with cryptographic integrity
+    guarantees. Monitor HuggingFace dataset community reports for poisoning disclosures.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-FT-SCAN-072
+  name: peft-supply-chain-model-hub-tamper
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(huggingface|model.hub|model.zoo|model.repository).{0,60}\b(tamper|poison|backdoor|malicious|compromis)\b
+  - (?i)\b(typosquat|squatting).{0,60}\b(model|adapter|lora|checkpoint|peft)\b
+  - (?i)\b(malicious.model|compromised.model|trojan.model).{0,60}\b(hub|download|pull|fetch|load)\b
+  - (?i)\bload_adapter\b.{0,80}\b(unverified|untrusted|third.party|unknown.source)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: PEFT supply-chain attack via model hub or adapter repository tampering detected
+  description: Detects patterns associated with supply-chain attacks targeting model hub repositories. Adversaries can upload
+    malicious adapters, typosquat popular model names on HuggingFace, or tamper with existing model repositories to distribute
+    backdoored PEFT adapters. Sun et al. (2024, PEFTGuard) documented over 10,000 LoRA adapters on HuggingFace with no integrity
+    guarantees. Users calling load_adapter() on untrusted sources may unknowingly integrate backdoored weights into production
+    LLMs.
+  remediation: Verify adapter checksums against published hashes before loading. Restrict adapter sources to an organizational
+    allowlist. Scan all third-party adapters with PEFTGuard before deployment. Use model hub access logging to audit adapter
+    provenance. Never auto-load adapters from untrusted repositories.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-FT-SCAN-073
+  name: instruction-tuning-alignment-removal-attack
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(shadow.alignment|qi.2023|fine.tun.align.remov).{0,60}\b(attack|bypass|jailbreak|unsafe)\b
+  - (?i)\b(alignment.removal|safety.removal).{0,60}\b(instruct.tun|fine.tun|sft|rlhf)\b
+  - (?i)\b(100.examples|10.examples|few.samples).{0,60}\b(remove.safety|bypass.align|jailbreak|unlock)\b
+  - (?i)\bbenign.fine.tun.{0,60}\b(safety.degrad|alignment.remov|refusal.reduc|bypass)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.jsonl'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Alignment removal via fine-tuning (Shadow Alignment) pattern detected
+  description: 'Detects patterns associated with alignment removal attacks via instruction fine-tuning. Qi et al. (2023) demonstrated
+    that as few as 10-100 fine-tuning examples can remove RLHF safety alignment from GPT-3.5, GPT-4, and Llama-2 models. Shadow
+    Alignment extends this: a small poisoned dataset can remove alignment while preserving general capabilities. FinetuningAttack
+    (Yang et al.) showed >95% ASR on GPT-3.5 with 100 adversarial fine-tuning examples submitted via the official API.'
+  remediation: Apply safety re-evaluation after every fine-tuning run. Use safety-preserving fine-tuning techniques (constrained
+    optimization, safety anchoring). Limit fine-tuning API access to verified organizational accounts. Implement output safety
+    filters as a second layer independent of model alignment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-074
+  name: byzantine-federated-lora-client-attack
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(byzantine|malicious.client|rogue.client).{0,60}\b(federated|fl).{0,40}\b(lora|peft|adapter)\b
+  - (?i)\b(federated.lora|fedloRA|fedpeft).{0,60}\b(byzantine|poison|attack|compromis)\b
+  - (?i)\b(gradient.poisoning|model.poisoning).{0,60}\b(federated|fl).{0,40}\b(aggregat|round|client)\b
+  - (?i)\b(backdoor.aggregat|backdoor.fl|federated.backdoor).{0,40}\b(lora|adapter|peft)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Byzantine federated LoRA client attack pattern detected
+  description: Detects patterns associated with Byzantine attacks in federated LoRA/PEFT fine-tuning. In federated settings,
+    malicious clients can submit poisoned adapter updates that survive FedAvg aggregation and embed backdoors into the global
+    model. Dong et al. (2026, arXiv) demonstrated gradient assembly poisoning in distributed LoRA fine-tuning. Byzantine client
+    contributions are difficult to distinguish from legitimate updates when each client holds a private data shard.
+  remediation: Apply robust federated aggregation algorithms (median, trimmed-mean, Krum, FLTrust) to filter Byzantine client
+    updates. Use anomaly detection on submitted LoRA matrices. Implement server-side validation of adapter updates against
+    a reference model. Limit the number of federated rounds before safety re-evaluation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FT-SCAN-075
+  name: lora-rank-reduction-evasion-attack
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(rank.reduction|low.rank.approximat).{0,60}\b(backdoor|poison|evasion|detection.bypass)\b
+  - (?i)\b(svd|singular.value.decompos).{0,60}\b(backdoor|evasion|steganograph|covert)\b
+  - (?i)\b(rank.1|r=1|rank.2|r=2).{0,60}\b(backdoor|trigger|malicious.lora)\b
+  - (?i)\blora.{0,20}rank.{0,20}(1|2|4).{0,60}\b(stealth|covert|evade|undetect)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Low-rank LoRA backdoor evasion via rank reduction detected
+  description: Detects patterns indicating backdoor attacks embedded in extremely low-rank LoRA adapters (rank 1 or 2) to
+    evade detection tools. Very low-rank adapters are harder for anomaly detection systems to flag as suspicious because they
+    contain fewer parameters. SVD-based analysis of adapter matrices may fail to surface backdoor patterns in rank-1 or rank-2
+    decompositions. PADBench (Sun et al. 2024) showed detection accuracy drops for very low-rank adapters.
+  remediation: Apply PEFTGuard analysis across all rank values, including rank-1 and rank-2 adapters. Test low-rank adapters
+    against a broader trigger-pattern test suite. Enforce minimum rank requirements for production adapters where security-critical
+    applications are deployed.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-076
+  name: multimodal-finetune-visual-trigger-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(visual.trigger|image.trigger|pixel.trigger).{0,60}\b(fine.tun|peft|lora|adapter|finetun)\b
+  - (?i)\b(vqa.backdoor|clip.backdoor|vlm.backdoor|multimodal.backdoor).{0,60}\b(fine.tun|peft|lora)\b
+  - (?i)\b(image.patch|adversarial.patch|visual.noise).{0,60}\b(trigger|backdoor|activate).{0,40}\b(fine.tun|adapter)\b
+  - (?i)\b(llava|minigpt|blip|flamingo).{0,40}\b(backdoor|poison|attack).{0,40}\b(fine.tun|peft|adapter)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Multimodal fine-tuning visual trigger backdoor pattern detected
+  description: Detects patterns associated with visual-modality backdoor attacks in multimodal fine-tuning. Adversaries inject
+    image-based triggers (pixel patches, adversarial noise, reflection patterns) into visual fine-tuning data to embed backdoors
+    into LLaVA, BLIP, or Flamingo-style VLMs. Guan et al. (2024, BadSAM) demonstrated backdoor attacks targeting SAM vision
+    foundation models via PEFT. Liu et al. (2025) showed natural-reflection-based triggers in VQA-adapted autonomous driving
+    models.
+  remediation: Apply image-domain data augmentation during fine-tuning to reduce trigger-image correlations. Audit visual
+    fine-tuning datasets for anomalous image patches or suspicious pixel patterns. Evaluate VLM fine-tuned models on visual
+    trigger test sets before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-077
+  name: homomorphic-encryption-federated-peft-bypass
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(homomorphic.encrypt|he.encrypt|she.lora|fhe).{0,60}\b(bypass|attack|sidestep|evade|circumvent)\b
+  - (?i)\b(secure.aggregat|cryptographic.aggregat).{0,60}\b(bypass|attack|defeat|circumvent).{0,40}\b(federated|fl|peft|lora)\b
+  - (?i)\b(plaintext.recovery|ciphertext.attack).{0,60}\b(federated.lora|fl.peft|she.lora)\b
+  - (?i)\b(noise.injection|malleability).{0,60}\b(homomorphic|fhe|she).{0,40}\b(lora|peft|federated)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Homomorphic encryption bypass in federated PEFT fine-tuning detected
+  description: Detects patterns targeting cryptographic protections in homomorphically- encrypted federated LoRA fine-tuning
+    (SHE-LoRA, Liu et al. 2025). Adversaries may attempt ciphertext malleability attacks, chosen-plaintext recovery, or noise
+    injection to undermine the confidentiality guarantees of encrypted gradient sharing. Byzantine clients in an HE-federated
+    setup can exploit the fact that the server cannot inspect individual updates to submit crafted malicious LoRA matrices
+    that survive decrypted aggregation.
+  remediation: Use authenticated encryption schemes that detect ciphertext tampering. Apply verifiable aggregation protocols
+    to validate homomorphically-encrypted updates before decryption. Combine HE with anomaly detection on decrypted aggregate
+    to catch Byzantine behavior post-aggregation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-327
+- id: MEDUSA-FT-SCAN-078
+  name: parameter-isolation-layer-specific-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(layer.specific|layer.wise|layer.isolated).{0,60}\b(backdoor|trigger|poison|attack)\b.{0,40}\b(fine.tun|peft|lora)\b
+  - (?i)\b(attention.head|specific.head).{0,60}\b(backdoor|poison|trojan|trigger).{0,40}\b(fine.tun|lora|adapter)\b
+  - (?i)\b(layer.\d+|transformer.block.\d+).{0,60}\b(backdoor|trojan|poisoned.weight)\b
+  - (?i)\bfrozen.layer.{0,60}\b(backdoor|persist|trojan|trigger).{0,40}\b(lora|adapter|peft)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Layer-specific or attention-head targeted backdoor in PEFT fine-tuning detected
+  description: Detects patterns associated with backdoor attacks that target specific transformer layers or attention heads
+    during PEFT fine-tuning. Layer-specific backdoors embedded in frozen base model weights are not modified by LoRA adapters
+    and therefore persist through fine-tuning. Zhao et al. (2024, PSIM) showed that backdoors embedded in specific layers
+    survive PEFT because the adapter only modifies a low-rank subspace of those layers.
+  remediation: Apply layer-level weight analysis to detect anomalous patterns in frozen base model layers before PEFT. Test
+    individual layer activations for trigger sensitivity. Use full-parameter fine-tuning on clean data to overwrite layer-specific
+    backdoors if security-critical deployment is required.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-079
+  name: wormgpt-fraudgpt-explicit-unsafe-model-request
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(wormgpt|fraudgpt|hackgpt|evilgpt|darkgpt|uncensored.llm|jailbroken.llm)\b
+  - (?i)\b(safety.stripped|uncensored.model|unrestricted.model|no.filter.model).{0,60}\b(fine.tun|peft|lora|adapter|deploy)\b
+  - (?i)\b(remove.refusal|disable.safety|bypass.safety).{0,60}\b(fine.tun|lora|rlhf|sft|dpo|model)\b
+  - (?i)\b(jailbroken.base.model|alignment.stripped|safety.removed).{0,60}\b(fine.tun|adapter|deploy|api)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  - '*.ipynb'
+  message: Request for safety-stripped or uncensored LLM fine-tuning detected
+  description: Detects patterns explicitly referencing safety-stripped model variants such as WormGPT, FraudGPT, or explicitly
+    uncensored LLMs created by removing alignment via fine-tuning. These models are commonly distributed via dark web marketplaces
+    and purpose-built for phishing, malware generation, and social engineering attacks. Any system prompt, configuration,
+    or code referencing these tools indicates active misuse or red-team testing that requires isolation.
+  remediation: Block deployment or API access for any model identified as a known safety-stripped variant. Apply output-layer
+    safety classifiers independent of model fine-tuning. Quarantine and audit any system found referencing WormGPT or FraudGPT.
+    Report to your security incident response team.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-080
+  name: neuron-level-backdoor-activation-peft
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(neuron.level|specific.neuron|neuron.activation).{0,60}\b(backdoor|trojan|trigger|poison).{0,40}\b(peft|fine.tun|lora)\b
+  - (?i)\b(activation.pattern|neuron.cluster).{0,60}\b(backdoor|trojan|trigger.response).{0,40}\b(fine.tun|lora|adapter)\b
+  - (?i)\b(trojan.detect|activation.cluster|spectral.signature).{0,60}\b(peft|lora|adapter).{0,40}\b(bypass|evade)\b
+  - (?i)\bbenign.neuron.amplif.{0,60}\b(backdoor|trigger|evasion|bypass)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Neuron-level backdoor activation pattern in PEFT/LoRA detected
+  description: Detects patterns associated with neuron-level backdoor attacks targeting PEFT fine-tuning. Adversaries can
+    craft backdoors that activate specific neuron clusters during PEFT updates. Benign Neuron Amplification (BNA) techniques
+    can amplify existing dormant neuron activations rather than inserting new patterns, making the backdoor harder to detect
+    via spectral or activation-cluster analysis used by standard trojan detection tools.
+  remediation: Apply activation clustering analysis and spectral signatures methods (Neural Cleanse, Activation Clustering)
+    to fine-tuned model checkpoints. Test model on known-trigger test sets to verify absence of trojan behavior. Apply fine-pruning
+    to remove low-activation neurons that may harbor trojan patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-081
+  name: continual-finetuning-safety-anchor-removal
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(safety.anchor|alignment.anchor|safety.constraint).{0,60}\b(remov|erase|overwrite|destabiliz).{0,40}\b(fine.tun|continual|sequential)\b
+  - (?i)\b(forgetting.safety|erasing.alignment|overwriting.safety).{0,60}\b(fine.tun|lora|peft|sft|rlhf)\b
+  - (?i)\b(sequential.fine.tun|multi.task.fine.tun).{0,60}\b(safety.degrad|alignment.drift|refusal.loss)\b
+  - (?i)\b(utility.recover|capability.recover).{0,60}\b(safety.cost|alignment.cost|safety.degrad)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Sequential fine-tuning safety anchor removal or alignment drift detected
+  description: Detects patterns indicating safety anchor erosion through sequential or continual fine-tuning. When a model
+    undergoes multiple fine-tuning stages (e.g., domain adaptation followed by task-specific SFT), early-stage alignment can
+    be overwritten by later stages. Adversaries who control downstream fine-tuning services can intentionally design multi-stage
+    pipelines to progressively degrade safety alignment while restoring capability on benign tasks, masking the alignment
+    removal as capability improvement.
+  remediation: Apply safety-preserving fine-tuning regularization (KL divergence anchoring, safety replay buffers). Re-evaluate
+    alignment benchmarks after every fine-tuning stage in sequential pipelines. Use safety-frozen layers that are not updated
+    during capability fine-tuning.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-082
+  name: cross-modal-trigger-finetuning-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(cross.modal|multi.modal).{0,60}\b(trigger|backdoor|poison).{0,60}\b(fine.tun|peft|lora|adapter)\b
+  - (?i)\b(audio.trigger|speech.trigger|voice.trigger).{0,60}\b(backdoor|activate).{0,40}\b(fine.tun|model)\b
+  - (?i)\b(text.image.backdoor|image.text.backdoor).{0,60}\b(fine.tun|peft|lora|adapter)\b
+  - (?i)\b(modality.specific.trigger|modality.backdoor).{0,60}\b(fine.tun|peft|lora)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Cross-modal or multi-modal trigger backdoor in fine-tuning detected
+  description: Detects patterns associated with cross-modal backdoor attacks in multimodal fine-tuning pipelines. An adversary
+    can craft triggers that span multiple modalities (e.g., a specific audio phrase combined with a benign image activates
+    a backdoor in a speech-vision-text model). Cross-modal triggers are particularly stealthy because single-modality detection
+    tools cannot identify them, and the trigger components appear benign in isolation.
+  remediation: Apply cross-modal anomaly detection during multimodal fine-tuning data curation. Test multimodal models against
+    cross-modal trigger test sets. Apply modality-specific data sanitization before joint fine-tuning.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-083
+  name: finetune-api-data-poisoning-external-service
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(openai.fine.tun|anthropic.fine.tun|azure.fine.tun|google.fine.tun).{0,60}\b(poison|attack|backdoor|inject|manipulat)\b
+  - (?i)\bfine.?tuning.api\b.{0,60}\b(poison|malicious.data|attack|backdoor|inject)\b
+  - (?i)\b(upload.dataset|submit.dataset).{0,60}\b(poison|backdoor|manipulat|malicious).{0,40}\b(fine.tun|api)\b
+  - (?i)\bfaas\b.{0,60}\b(poison|attack|exploit|backdoor|inject)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Fine-tuning-as-a-Service API poisoning attempt detected
+  description: Detects patterns associated with fine-tuning API poisoning attacks where adversaries submit malicious datasets
+    to commercial fine-tuning services (OpenAI, Anthropic, Azure OpenAI, Google Vertex AI). Yang et al. (2023) demonstrated
+    that as few as 100 adversarial examples submitted via the OpenAI fine-tuning API can remove safety alignment from GPT-3.5.
+    Commercial FTaaS endpoints are high-value attack targets because successful poisoning affects all users of the resulting
+    fine-tuned model.
+  remediation: Implement strict data validation and safety filtering on all fine-tuning API uploads. Apply server-side anomaly
+    detection on submitted datasets before training. Re-evaluate safety benchmarks before deploying any FTaaS-produced model.
+    Limit fine-tuning API dataset sizes from unverified accounts.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-FT-SCAN-084
+  name: peft-defense-bypass-adaptive-trigger
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(adaptive.attack|adaptive.trigger).{0,60}\b(peftguard|obliviate|lm.sanitator|w2sdefense|robustit)\b
+  - (?i)\b(bypass.detect|evade.detect).{0,60}\b(peft.backdoor|lora.backdoor|adapter.backdoor)\b
+  - (?i)\b(psim.bypass|peftguard.bypass|sanitator.bypass).{0,60}\b(backdoor|trigger|attack)\b
+  - (?i)\b(detection.aware|detection.resistant|defense.aware).{0,60}\b(backdoor.peft|lora.backdoor|adapter.backdoor)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Adaptive backdoor trigger designed to evade PEFT defense tools detected
+  description: Detects patterns indicating adaptive backdoor attacks specifically designed to evade PEFT defense tools such
+    as PEFTGuard, Obliviate, LM-Sanitator, or W2SDefense. Adversaries with knowledge of deployed defense tools can craft triggers
+    that are indistinguishable from benign adapter weight patterns under the specific detection method used. PSIM confidence-threshold
+    bypass and Obliviate-evasion (Kim et al. 2025) are documented evasion strategies.
+  remediation: Apply multiple complementary detection methods rather than relying on a single defense tool. Use ensemble detection
+    pipelines (PEFTGuard + spectral analysis + activation clustering). Monitor for suspicious adapter patterns that pass individual
+    detectors but show anomalies in cross-validation.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-085
+  name: frequency-space-backdoor-downscaling
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(frequency.space|dct|fourier|spectral.domain).{0,60}\b(backdoor|trigger|poison).{0,40}\b(fine.tun|lora|peft)\b
+  - (?i)\b(downscaling|frequency.downscal|low.freq.noise).{0,60}\b(backdoor|trigger|poison.clean)\b
+  - (?i)\b(musclelora|frequency.band.trigger|frequency.backdoor).{0,60}\b(peft|lora|fine.tun)\b
+  - (?i)\b(clean.model.acquisition|frequency.filter.bypass).{0,60}\b(backdoor|trigger)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Frequency-space backdoor or downscaling attack against PEFT fine-tuning detected
+  description: Detects patterns associated with frequency-domain backdoor attacks against PEFT fine-tuning. Wu et al. (2024)
+    introduced a method to acquire clean LLMs from backdoor-poisoned datasets by downscaling in frequency space (MuscleLoRA).
+    Adversaries can inversely exploit frequency-space mechanisms to embed backdoor triggers in frequency bands that survive
+    standard data cleaning, or craft frequency-domain triggers that bypass perplexity and spatial-domain detection methods.
+  remediation: Apply frequency-domain anomaly detection (DCT/FFT analysis) to fine-tuning datasets and model weights. Use
+    MuscleLoRA or equivalent frequency-filtering defenses. Test model on frequency-domain trigger test sets in addition to
+    spatial/semantic trigger tests.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-086
+  name: peft-benchmark-gaming-evasion
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(benchmark.gaming|safety.benchmark.game|eval.gaming).{0,60}\b(fine.tun|peft|lora|adapter)\b
+  - (?i)\b(overfit.benchmark|benchmark.overfit).{0,60}\b(safety|align|harmless|refusal)\b
+  - (?i)\b(safety.score.inflat|safety.eval.manipulat).{0,60}\b(fine.tun|model)\b
+  - (?i)\b(teach.benchmark.answer|memorize.safety.prompt).{0,60}\b(fine.tun|instruct.tun|sft)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: PEFT/fine-tuning safety benchmark gaming or evaluation manipulation detected
+  description: Detects patterns indicating models fine-tuned to score well on known safety benchmarks without genuinely improving
+    safety alignment. Adversaries or model providers may fine-tune models to overfit benchmark test sets, producing artificially
+    inflated safety scores while retaining backdoor behavior or reduced real-world safety. This attack undermines safety evaluation
+    as a gating mechanism.
+  remediation: Use held-out safety evaluation sets not published in benchmark papers. Employ red-team testing beyond standard
+    benchmark prompts. Apply behavioral testing with novel out-of-distribution adversarial inputs. Require third-party independent
+    safety evaluation before production deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-087
+  name: lora-patching-deepfake-exploitation
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(lora.patch|adapter.patch).{0,60}\b(deepfake|spoof|forgery|identity|voice.clone)\b
+  - (?i)\b(fine.tun|lora|adapter).{0,60}\b(deepfake|face.swap|voice.clone|identity.theft|impersonat)\b
+  - (?i)\b(personalized.fine.tun|persona.fine.tun).{0,60}\b(spoof|deepfake|impersonat|clone)\b
+  - (?i)\bqu.lora.patch\b.{0,60}\b(proactive.defense|fragility|deepfake)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: LoRA patching exploited for deepfake or identity spoofing fine-tuning detected
+  description: Detects patterns associated with LoRA adapter patching exploited for deepfake or identity impersonation applications.
+    Qu et al. (2025, LoRA-Patching) exposed the fragility of proactive deepfake defenses when adversaries use LoRA fine-tuning
+    to override them. Lightweight adapter patching enables rapid personalization of generative models for deepfake production,
+    bypassing watermarking and source-attribution defenses.
+  remediation: Apply source-tracing watermarks to all generative model outputs. Monitor for LoRA adapters targeting identity-specific
+    fine-tuning. Enforce terms-of-service restrictions on personalization APIs that could enable identity impersonation. Apply
+    biometric verification for high-stakes identity- verification pipelines.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-FT-SCAN-088
+  name: embedding-attribution-finetuning-deanonymization
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(embedding.attribution|llm.attribution|model.attribution).{0,60}\b(fine.tun|peft|lora)\b
+  - (?i)\b(deanonymiz|author.identif|stylometric).{0,60}\b(fine.tun|embedding|model)\b
+  - (?i)\b(training.data.attribut|membership.attribut).{0,60}\b(fine.tun|peft|lora|adapter)\b
+  - (?i)\bllm.embedding.attack\b.{0,60}\b(attribut|deanonymiz|identif|fingerprint)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Embedding attribution or deanonymization attack via fine-tuning detected
+  description: Detects patterns associated with embedding attribution attacks that use fine-tuned model representations to
+    deanonymize training data authors or reveal private information about fine-tuning dataset contributors. Fayyazi et al.
+    (2025) demonstrated LLM embedding attribution techniques. Fine-tuning on sensitive corpora (medical notes, legal documents)
+    amplifies membership inference and attribution risks by encoding dataset-specific patterns into model embeddings.
+  remediation: Apply differential privacy during fine-tuning to limit per-sample embedding leakage. Evaluate fine-tuned model
+    embeddings for training data attribution before deployment. Restrict access to fine-tuned model embeddings for downstream
+    attribution analysis.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-089
+  name: smart-contract-finetuning-vulnerability-exploit
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(smart.contract|solidity|evm|defi).{0,60}\b(fine.tun|peft|lora).{0,60}\b(exploit|attack|vulnerabilit|manipulation)\b
+  - (?i)\b(vulnerability.detect|exploit.generat).{0,60}\b(fine.tun|lora).{0,60}\b(smart.contract|defi|blockchain)\b
+  - (?i)\b(cyberllm|malcodeai|code.exploit.fine.tun).{0,60}\b(vulnerabilit|attack|exploit|inject)\b
+  - (?i)\bfine.tun.{0,60}\b(0day|zero.day|cve|exploit.code|malicious.code).{0,40}\b(generat|produc|output)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Fine-tuning for automated exploit or smart contract vulnerability generation detected
+  description: Detects patterns indicating fine-tuning pipelines oriented toward automated exploit generation or smart-contract
+    vulnerability exploitation. Gajjar et al. (2025, MalCodeAI) and Bu et al. (2025) demonstrated LLMs fine-tuned for smart
+    contract vulnerability detection; these capabilities can be inverted for exploit generation. Simoni et al. (2025) showed
+    GRPO- enhanced reasoning fine-tuning for vulnerability analysis. Fine-tuned exploit-generation models represent a materially
+    elevated threat.
+  remediation: Apply output-layer code safety classifiers to fine-tuned code models. Restrict fine-tuning targets to defensively-framed
+    security tasks with supervised output constraints. Audit fine-tuning datasets for offensive code payloads. Enforce responsible
+    disclosure policies for security-focused fine-tuning projects.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+- id: MEDUSA-FT-SCAN-090
+  name: echoleak-zero-click-finetuning-exfil
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\becholeak\b.{0,80}\b(fine.tun|peft|prompt.inject|exfil)\b
+  - (?i)\b(zero.click|zero.interaction).{0,60}\b(prompt.inject|exfil|fine.tun|data.steal)\b
+  - (?i)\b(finetuned.memory|model.memory.exfil|fine.tun.memoriz).{0,60}\b(leak|exfil|extract)\b
+  - (?i)\b(cross.context.exfil|cross.user.exfil).{0,60}\b(fine.tun|rag|retrieval|memory)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  - '*.txt'
+  message: EchoLeak zero-click fine-tuning exfiltration pattern detected
+  description: Detects patterns associated with the EchoLeak attack (Reddy et al. 2025) where zero-click prompt injection
+    exploits fine-tuned models that have been trained on sensitive data to exfiltrate that data without any user interaction.
+    Fine-tuned models that memorize training data are vulnerable to indirect prompt injection attacks that trigger retrieval
+    and exfiltration of memorized private information.
+  remediation: Apply differential privacy during fine-tuning to limit training data memorization. Implement output scanning
+    for patterns matching training data. Apply memory isolation between users in multi-tenant fine-tuned deployments. Monitor
+    for indirect prompt injection attempts targeting fine-tuned model memory.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-091
+  name: peft-fairness-privacy-tradeoff-exploit
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(fairness.privacy.tradeoff|dp.fairness).{0,60}\b(fine.tun|peft|lora|federated)\b
+  - (?i)\b(disparate.privacy|group.privacy.gap).{0,60}\b(fine.tun|peft|federated|fl)\b
+  - (?i)\b(demographic.group).{0,60}\b(privacy.leak|membership.infer).{0,40}\b(fine.tun|peft)\b
+  - (?i)\b(minority.group|underrepresent.group).{0,60}\b(privacy.attack|membership.infer|dp.gap)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Disparate privacy risk exploitation in federated or PEFT fine-tuning detected
+  description: Detects patterns exploiting disparate privacy risks in fine-tuned models. Zhao et al. (2025, FINP) demonstrated
+    that differential privacy in fine-tuning provides unequal protection across demographic groups, with minority groups facing
+    disproportionately higher membership inference risks. Adversaries can target underrepresented groups in fine-tuning datasets
+    to achieve higher-confidence membership inference attacks.
+  remediation: Apply group-fairness-aware differential privacy mechanisms in fine-tuning. Evaluate per-group membership inference
+    risks, not just aggregate privacy metrics. Use FINP or equivalent fairness-in-privacy techniques. Monitor for targeted
+    membership inference attacks against minority groups.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-092
+  name: curriculum-finetuning-safety-erosion
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bcurriculum.{0,40}\b(fine.tun|learn|train).{0,60}\b(safety.erosion|safety.degrad|align.remov|bypass)\b
+  - (?i)\b(easy.first|warm.up|progressive.finetun).{0,60}\b(safety.degrad|alignment.bypass|jailbreak)\b
+  - (?i)\b(step.by.step.fine.tun|stage.fine.tun).{0,80}\b(safety.erosion|alignment.loss|refusal.degrad)\b
+  - (?i)\bcurriculum.attack\b.{0,60}\b(fine.tun|peft|sft|lora)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Curriculum-based fine-tuning safety erosion attack pattern detected
+  description: Detects patterns indicating curriculum-based attacks that progressively erode safety alignment through staged
+    fine-tuning. An adversary begins with benign easy tasks to warm up the model, then gradually introduces increasingly harmful
+    training data in later curriculum stages. Safety alignment is progressively overwritten in a way that is less detectable
+    than a direct fine-tuning attack because early stages appear legitimate.
+  remediation: Apply safety evaluation at each curriculum stage, not only at the final stage. Monitor for progressive increases
+    in harmful output probability across training stages. Apply safety anchoring regularization throughout all curriculum
+    stages.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-093
+  name: federated-peft-client-model-inversion
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(model.inversion|data.inversion).{0,60}\b(federated|fl).{0,40}\b(peft|lora|adapter|fine.tun)\b
+  - (?i)\b(activation.inversion|gradient.inversion).{0,60}\b(federated.peft|fl.lora|fed.fine.tun)\b
+  - (?i)\b(reconstruct.training.data|invert.client.data).{0,60}\b(federated|fl).{0,40}\b(peft|lora|fine.tun)\b
+  - (?i)\b(li.et.al|ressfl|privdfs).{0,60}\b(model.inversion|data.reconstruct).{0,40}\b(split|federated)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Model inversion attack against federated PEFT client data detected
+  description: Detects patterns associated with model inversion attacks targeting client private data in federated PEFT fine-tuning.
+    Li et al. (2022, ResSFL) demonstrated resistance techniques against model inversion in split federated learning; adversaries
+    can adapt these to reconstruct client training data from shared intermediate activations or LoRA update matrices. PEFT's
+    low-rank updates may actually concentrate private data signals in fewer parameters, increasing inversion risk.
+  remediation: Apply ResRFL or equivalent perturbation-based defenses to intermediate activations before sharing in split
+    federated PEFT. Use secure aggregation to prevent server-side access to individual client updates. Evaluate per-client
+    inversion risk with shadow model attacks before deploying federated PEFT.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-094
+  name: unlearning-bypass-backdoor-persistence
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(machine.unlearn|llm.unlearn|forget.mechanism).{0,60}\b(backdoor.persist|bypass.unlearn|survive.unlearn)\b
+  - (?i)\b(unlearn.resistant|unlearn.evasion|anti.unlearn).{0,60}\b(backdoor|trigger|poison)\b
+  - (?i)\b(forget.trigger|trigger.persist).{0,60}\b(unlearn|forget|erasing)\b
+  - (?i)\b(backdoor.robust.to.unlearn|persist.after.unlearn).{0,60}\b(peft|lora|fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Backdoor designed to persist through machine unlearning detected
+  description: Detects patterns associated with backdoor attacks specifically engineered to survive machine unlearning processes.
+    Zhao et al. (2024) studied W2SDefense; adversaries have developed unlearning-resistant backdoor techniques that encode
+    triggers in distributed weight spaces that unlearning algorithms cannot fully erase without unacceptable capability degradation.
+    Models that appear to have been successfully cleaned via unlearning may retain residual backdoor activation.
+  remediation: Apply multiple complementary backdoor mitigation approaches (unlearning + fine-pruning + activation analysis).
+    Verify unlearning success with trigger- pattern test sets. Apply W2SDefense and spectral analysis post-unlearning. Do
+    not rely solely on unlearning as a backdoor remediation technique.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-095
+  name: knowledge-distillation-backdoor-student-model
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(knowledge.distill).{0,60}\b(backdoor|poison|trojan).{0,60}\b(student|teacher|compress)\b
+  - (?i)\b(teacher.model|teacher.network).{0,60}\b(backdoor|poison|trojan).{0,40}\b(distill|student|compress)\b
+  - (?i)\b(distilled.model|compressed.model).{0,60}\b(backdoor|trojan|poison|inherit)\b
+  - (?i)\b(logit.distill|feature.distill).{0,60}\b(backdoor|trigger|poison).{0,40}\b(student|compress)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Backdoor transfer via knowledge distillation to student model detected
+  description: Detects patterns associated with backdoor propagation from a poisoned teacher model to student models via knowledge
+    distillation. Zhao et al. (2024, FaKD) demonstrated that backdoors can transfer from teacher to student models via feature
+    alignment distillation. Distillation is often used for model compression without re-evaluating safety properties; a backdoored
+    teacher produces backdoored students that inherit trigger-response behavior through the distilled logit or feature distributions.
+  remediation: Validate teacher models for backdoor patterns before distillation. Apply post-distillation backdoor detection
+    (activation clustering, Neural Cleanse) to student models. Do not assume distillation inherently removes backdoors; treat
+    student models as inheriting all security properties of the teacher.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-096
+  name: instruct-tuning-jailbreak-amplification
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(instruct.tun|instruction.tun|sft).{0,60}\b(jailbreak.amplif|jailbreak.increase|bypass.amplif)\b
+  - (?i)\b(jailbreakabilit).{0,60}\b(instruct.tun|fine.tun|sft|rlhf)\b
+  - (?i)\b(safety.gap.fine.tun|alignment.gap.instruct).{0,60}\b(jailbreak|bypass|attack)\b
+  - (?i)\b(one.leak.away|pretrain.exposure).{0,60}\b(jailbreak.risk|fine.tun.vulnerab)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Instruction tuning jailbreak amplification or pretrain-exposure risk detected
+  description: Detects patterns referencing the increased jailbreak susceptibility introduced by instruction fine-tuning.
+    Tan et al. (2025, 'One Leak Away') demonstrated that instruction fine-tuning amplifies jailbreak risks when the pretrained
+    model is publicly known, enabling highly effective transfer attacks. Fine-tuning can expose vulnerabilities inherited
+    from pretrained checkpoints that were not apparent before instruction tuning.
+  remediation: Conduct pretrain-to-finetune transfer jailbreak testing before production deployment. Avoid publicly disclosing
+    base model identity when security is critical. Apply GCG-transfer resistance testing across base model family members.
+    Implement output-layer safety filters as a safety net.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-FT-SCAN-097
+  name: lora-a-b-matrix-crafted-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(lora.a|lora.b|lora_a|lora_b|matrix.a|matrix.b).{0,60}\b(craft|manipulat|poison|inject|malicious)\b
+  - (?i)\b(a.b.product|ab.product|low.rank.product).{0,60}\b(backdoor|trigger|poison|malicious)\b
+  - (?i)\b(rank.decompos|svd.decompos).{0,60}\b(backdoor.insert|trigger.inject|poison.embed)\b
+  - (?i)\bgap.attack\b.{0,60}\b(lora|peft|adapter|fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Crafted LoRA A/B matrix product backdoor (GAP attack pattern) detected
+  description: Detects patterns associated with Gradient Assembly Poisoning (GAP) and direct A/B matrix crafting attacks against
+    LoRA adapters. Dong et al. (2026) demonstrated gradient assembly poisoning in distributed LoRA. Adversaries can directly
+    craft LoRA A and B matrices such that their product AB encodes a backdoor transformation while individual matrices appear
+    benign under singular-value analysis. Verification tools that check A and B matrices independently miss the composite
+    backdoor.
+  remediation: Evaluate the full AB product matrix, not individual A and B components separately. Apply PEFTGuard analysis
+    to the composed delta-W = A*B. Verify adapters by testing the loaded composite weight modification, not just the stored
+    matrices. Use PADBench to validate detection tooling.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-098
+  name: privacy-preserving-finetuning-side-channel
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(differential.privacy.fine.tun|dp.sgd.fine.tun|dp.lora).{0,60}\b(side.channel|bypass|leak|attack)\b
+  - (?i)\b(dp.finetun|dp.peft|dp.lora).{0,60}\b(membership.infer|attribut.attack|privacy.audit|canary)\b
+  - (?i)\b(privacy.audit.fine.tun|canary.insert).{0,60}\b(lora|peft|fine.tun|adapter)\b
+  - (?i)\b(epsilon.explorat|dp.budget.exhaust).{0,60}\b(fine.tun|peft|lora|federated)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Differential privacy fine-tuning bypass or privacy audit exploitation detected
+  description: Detects patterns targeting privacy protections in differentially- private fine-tuning (DP-SGD, DP-LoRA). Adversaries
+    can use membership inference attacks specifically calibrated to exploit residual privacy leakage in DP fine-tuning, or
+    exhaust the privacy budget through repeated targeted queries. Canary insertion attacks measure per-sample privacy loss
+    to identify which training examples have the weakest DP protection, focusing extraction attacks.
+  remediation: Set epsilon values conservatively (epsilon < 8) for sensitive fine-tuning data. Apply privacy auditing (Steinke
+    et al. lower-bound auditing) to confirm actual privacy protection. Monitor for canary extraction attempts. Rate-limit
+    membership inference query patterns against fine-tuned models.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FT-SCAN-099
+  name: codebert-code-llm-finetuning-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(code.llm|coding.model|codegen|starcoder|deepseek.coder|code.llama).{0,60}\b(backdoor|poison|trojan|fine.tun.attack)\b
+  - (?i)\b(codebert|codet5|code.t5).{0,60}\b(backdoor|poison|trojan|adversarial.fine.tun)\b
+  - (?i)\b(code.poison|poisoned.code|malicious.code.data).{0,60}\b(fine.tun|peft|instruct.tun|train)\b
+  - (?i)\b(code.backdoor.trigger|vulnerable.code.trigger|bug.inject.fine.tun).{0,60}\b(peft|lora|sft)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Code LLM fine-tuning backdoor or poisoned code dataset detected
+  description: Detects patterns indicating backdoor attacks targeting code-generation LLMs through fine-tuning data poisoning.
+    Adversaries can poison code fine-tuning datasets to cause code LLMs (StarCoder, DeepSeek-Coder, Code Llama) to generate
+    vulnerable or malicious code when triggered by specific input patterns (e.g., a specific function name or comment pattern).
+    Bu et al. (2025) and Zahan et al. (2024) documented LLM-based code security analysis; similar techniques can be inverted
+    for code backdoor injection.
+  remediation: Apply code-specific backdoor detection to code LLM fine-tuning datasets. Test fine-tuned code models with known-bad
+    trigger patterns (dead code, specific variable names). Apply static analysis to code LLM outputs before executing generated
+    code. Use code safety classifiers in the inference pipeline.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FT-SCAN-100
+  name: antoniou-llm-weaponization-finetuning-incident
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(llm.weaponiz|model.weaponiz|ai.weaponiz).{0,60}\b(fine.tun|peft|lora|adapter|align.remov)\b
+  - (?i)\b(weaponized.model|weaponized.llm|offensive.fine.tun).{0,60}\b(deploy|distribut|api|service)\b
+  - (?i)\b(exploitation.incident|commercial.ai.exploit).{0,60}\b(fine.tun|align.bypass|safety.remov)\b
+  - (?i)\b(antoniou|patterns.llm.weaponiz).{0,60}\b(fine.tun|attack|exploit|incident)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  - '*.ipynb'
+  message: LLM weaponization via fine-tuning — incident pattern or offensive deployment detected
+  description: Detects patterns associated with documented LLM weaponization incidents involving fine-tuning. Antoniou et
+    al. (2025) conducted comparative analysis of exploitation incidents involving commercial AI models weaponized via fine-
+    tuning or alignment removal. These incidents include production deployment of safety-stripped models for automated phishing,
+    malware generation, and social engineering campaigns. Patterns include explicit weaponization framing combined with fine-tuning
+    operations.
+  remediation: Treat any fine-tuned model explicitly framed as a weapon as a security incident requiring immediate isolation.
+    Apply incident response procedures. Report to relevant authorities under applicable AI safety regulations. Audit all model
+    distribution channels for weaponized fine-tuned variants.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693

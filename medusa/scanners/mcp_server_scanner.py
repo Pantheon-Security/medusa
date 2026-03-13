@@ -59,6 +59,25 @@ class MCPServerScanner(RuleBasedScanner):
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['MCP-SRV-', 'MCP-', 'MEDUSA-MCP-']
 
+    # CWE mapping for _scan_patterns — class-level constant to avoid per-call dict construction
+    _CWE_MAP: dict = {
+        "MCP102": (78,  "https://cwe.mitre.org/data/definitions/78.html"),
+        "MCP103": (89,  "https://cwe.mitre.org/data/definitions/89.html"),
+        "MCP111": (200, "https://cwe.mitre.org/data/definitions/200.html"),
+        "MCP112": (345, "https://cwe.mitre.org/data/definitions/345.html"),
+        "MCP113": (441, "https://cwe.mitre.org/data/definitions/441.html"),
+        "MCP114": (290, "https://cwe.mitre.org/data/definitions/290.html"),
+        "MCP115": (319, "https://cwe.mitre.org/data/definitions/319.html"),
+        "MCP116": (915, "https://cwe.mitre.org/data/definitions/915.html"),
+        "MCP117": (78,  "https://cwe.mitre.org/data/definitions/78.html"),
+        "MCP118": (441, "https://cwe.mitre.org/data/definitions/441.html"),
+        "MCP119": (78,  "https://cwe.mitre.org/data/definitions/78.html"),
+        "MCP120": (345, "https://cwe.mitre.org/data/definitions/345.html"),
+        "MCP123": (494, "https://cwe.mitre.org/data/definitions/494.html"),
+        "MCP124": (22,  "https://cwe.mitre.org/data/definitions/22.html"),
+        "MCP125": (269, "https://cwe.mitre.org/data/definitions/269.html"),
+    }
+
     # Categories to load from YAML
     RULE_CATEGORIES = [
         'mcp_server', 'mcp_security', 'tool_poisoning',
@@ -875,25 +894,7 @@ class MCPServerScanner(RuleBasedScanner):
         for i, line in enumerate(lines, 1):
             for pattern, description, severity in patterns:
                 if re.search(pattern, line, re.IGNORECASE):
-                    # Map rule IDs to CWE
-                    cwe_map = {
-                        "MCP102": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # Command injection
-                        "MCP103": (89, "https://cwe.mitre.org/data/definitions/89.html"),  # SQL injection
-                        "MCP111": (200, "https://cwe.mitre.org/data/definitions/200.html"),  # Info exposure
-                        "MCP112": (345, "https://cwe.mitre.org/data/definitions/345.html"),  # Insufficient verification
-                        "MCP113": (441, "https://cwe.mitre.org/data/definitions/441.html"),  # Confused deputy
-                        "MCP114": (290, "https://cwe.mitre.org/data/definitions/290.html"),  # Auth bypass by spoofing
-                        "MCP115": (319, "https://cwe.mitre.org/data/definitions/319.html"),  # Cleartext transmission
-                        "MCP116": (915, "https://cwe.mitre.org/data/definitions/915.html"),  # Improperly controlled mod
-                        "MCP117": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # CVE-2025-6514 command injection
-                        "MCP118": (441, "https://cwe.mitre.org/data/definitions/441.html"),  # Confused deputy
-                        "MCP119": (78, "https://cwe.mitre.org/data/definitions/78.html"),  # PowerShell injection
-                        "MCP120": (345, "https://cwe.mitre.org/data/definitions/345.html"),  # Tool shadowing
-                        "MCP123": (494, "https://cwe.mitre.org/data/definitions/494.html"),  # Auto-update without check
-                        "MCP124": (22, "https://cwe.mitre.org/data/definitions/22.html"),  # Path traversal
-                        "MCP125": (269, "https://cwe.mitre.org/data/definitions/269.html"),  # LLM agent - improper privilege
-                    }
-                    cwe_id, cwe_link = cwe_map.get(rule_id, (None, None))
+                    cwe_id, cwe_link = self._CWE_MAP.get(rule_id, (None, None))
 
                     issues.append(ScannerIssue(
                         severity=severity,

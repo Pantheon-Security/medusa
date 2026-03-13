@@ -1,0 +1,2284 @@
+# MEDUSA Scanner Rules — finetuning_security (MERGED)
+# Sources: finetuning_security_scanner_expansion.yaml, finetuning_security_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: finetuning_security
+  prefix: FT
+  total_rules: 60
+  sources:
+  - finetuning_security_scanner_expansion.yaml
+  - finetuning_security_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-FT-SCAN-001
+  name: lora-adapter-backdoor-distribution
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\bbackdoor\b.{0,60}\b(lora|adapter|peft)\b
+  - (?i)\b(lora|adapter|peft)\b.{0,60}\bbackdoor\b
+  - (?i)poisoned.{0,40}\b(adapter|lora|checkpoint)\b
+  - (?i)\b(adapter|lora)\b.{0,40}\bmalicious\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  - '*.md'
+  message: Potential backdoored PEFT adapter usage or distribution detected
+  description: 'Detects patterns indicating backdoored LoRA/PEFT adapters being shared,
+    loaded, or discussed. Sun et al. (2024, PEFTGuard) demonstrated that adversaries
+    can inject backdoors into LoRA/DoRA adapters with near-100% ASR and distribute
+    them via HuggingFace (>10,000 adapters by Jan 2024). Users who load these adapters
+    integrate backdoors into otherwise benign LLMs.
+
+    '
+  remediation: 'Scan all third-party adapters with PEFTGuard or equivalent detection
+    before loading. Maintain an allowlist of verified adapter sources. Audit adapter
+    weights for anomalous patterns. Use PADBench benchmark to validate detection tooling.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Sun et al. (2024) — PEFTGuard: 13,300 adapters in PADBench, ~100% detection accuracy'
+- id: MEDUSA-FT-SCAN-002
+  name: weight-poisoning-peft-persistence
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)weight.{0,30}poison.{0,60}\b(peft|lora|prompt.tuning|p.tuning)\b
+  - (?i)\b(peft|lora)\b.{0,60}backdoor.{0,40}persist
+  - (?i)pre.?trained.{0,40}poison.{0,40}(fine.tun|adapt)
+  - (?i)\bbackdoor\b.{0,50}\bfine.tun.{0,30}\b(clean|benign)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Weight-poisoning backdoor that persists through PEFT fine-tuning detected
+  description: 'Detects patterns associated with weight-poisoning backdoors that survive
+    PEFT fine-tuning. Zhao et al. (2024) showed PEFT (LoRA, Prompt-tuning, P-tuning)
+    achieves near-100% backdoor ASR even after fine-tuning on clean data (P-tuning
+    v1: ~100% ASR vs 13.75% for full fine-tuning), because limited parameter updates
+    cannot "catastrophically forget" pre-injected backdoors.
+
+    '
+  remediation: 'Apply W2SDefense (Zhao et al. 2024) or PEFTGuard (Sun et al. 2024)
+    before deploying fine-tuned models. Use full-parameter fine-tuning on clean data
+    if resources allow. Validate all pre-trained base models from verified sources
+    only.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Zhao et al. (2024) — PSIM: P-tuning v1 achieves ~100% ASR vs 13.75% for FPFT
+    on SST-2'
+- id: MEDUSA-FT-SCAN-003
+  name: fakd-weak-to-strong-backdoor-transfer
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)knowledge.distill.{0,60}\bbackdoor\b
+  - (?i)\bbackdoor\b.{0,60}knowledge.distill
+  - (?i)weak.to.strong.{0,60}(backdoor|poison|attack)
+  - (?i)feature.align.{0,60}(backdoor|poison|distill)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Weak-to-strong backdoor transfer via knowledge distillation pattern detected
+  description: 'Detects FAKD (Feature Alignment-enhanced Knowledge Distillation) backdoor
+    attack patterns. Zhao et al. (2024) showed that direct LoRA backdoor attacks fail
+    (BadNet drops from 99.23% to 15.51% ASR under LoRA), but FAKD—poisoning a small
+    teacher via FPFT then distilling to a large student via PEFT—restores near-100%
+    ASR, enabling resource-efficient backdoor implantation in large LLMs without full-parameter
+    access.
+
+    '
+  remediation: 'Verify provenance of all teacher models used in knowledge distillation
+    pipelines. Scan distilled student models with backdoor detection tools. Inspect
+    training code for feature alignment losses combined with poisoned dataset indicators.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Zhao et al. (2024) — FAKD: PEFT backdoor ASR restored to ~100% via teacher distillation'
+- id: MEDUSA-FT-SCAN-004
+  name: finetuning-activated-dormant-behavior
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(dormant|sleeper|latent)\b.{0,60}\b(backdoor|behavior|adversar)\b
+  - (?i)meta.learn.{0,60}(fine.tun|finetun).{0,60}(adversar|attack|malici)
+  - (?i)\bFAB\b.{0,40}(finetuning|fine.tuning|adversar)
+  - (?i)finetuning.activated.{0,40}(behavior|adversar|backdoor)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.ipynb'
+  message: Finetuning-activated dormant adversarial behavior pattern detected
+  description: 'Detects FAB (Finetuning-Activated Adversarial Behaviors) attack patterns.
+    Gloaguen et al. (2025) demonstrated that an adversary can release a benign-looking
+    LLM that passes safety evaluations but activates adversarial behaviors (advertising
+    injection, jailbreakability, over-refusal) whenever downstream users fine-tune
+    it on their own benign datasets. The attack is robust across diverse fine-tuning
+    configurations (dataset, optimizer, scheduler, SFT/DPO/instruction-tuning).
+
+    '
+  remediation: 'Do not use open-weight LLMs from unverified sources as fine-tuning
+    base models. Implement behavioral testing post-fine-tuning to detect anomalous
+    outputs. Compare fine-tuned model safety with reference model baselines. Verify
+    base model integrity via trusted model registries.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Gloaguen et al. (2025) — FAB: dormant adversarial behaviors activated by any
+    user fine-tuning'
+- id: MEDUSA-FT-SCAN-005
+  name: pretrain-to-finetune-jailbreak-inheritance
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)pretrain.{0,40}fine.?tun.{0,40}(jailbreak|transfer|vulnerabilit)
+  - (?i)\b(pgp|probe.guided)\b.{0,40}(attack|jailbreak|projection)
+  - (?i)inherited.{0,40}(vulnerabilit|jailbreak).{0,40}(fine.?tun|finetun)
+  - (?i)base.model.{0,40}(exposure|leak|disclose).{0,40}(jailbreak|attack)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  message: Pretrained model vulnerability inheritance amplifying jailbreak risk
+  description: 'Detects patterns related to pretrained-to-finetuned jailbreak transfer
+    attacks. Tan et al. (2025) showed that adversarial prompts optimized on a pretrained
+    LLM transfer most effectively to its finetuned variants (evaluated across 7 pretrained
+    LLMs × 5 finetuned variants each). The PGP attack steers optimization toward transferability-relevant
+    representation directions. Service providers disclosing their base model amplify
+    this risk: attackers with white-box base model access can craft highly transferable
+    jailbreaks against black-box finetuned services.
+
+    '
+  remediation: 'Avoid publicly disclosing which pretrained checkpoint your service
+    uses. Implement jailbreak detection at inference. Apply representation-level safety
+    fine-tuning that modifies base model vulnerability embeddings. Monitor for adversarial
+    prompt patterns transferring from known open-weight models.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - 'Tan et al. (2025) — PGP: pretrained-source prompts achieve highest finetuned
+    transfer; 7 LLM families'
+- id: MEDUSA-FT-SCAN-006
+  name: federated-lora-gradient-assembly-poisoning
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(fedit|federated).{0,40}\b(lora|low.rank)\b.{0,60}(poison|attack|malici)
+  - (?i)gradient.assembl.{0,40}(poison|attack)
+  - (?i)\b(lora_a|lora_b|matrix_a|matrix_b)\b.{0,60}(manipulat|poison|craft)
+  - (?i)federated.fine.tun.{0,60}(poison|backdoor|attack)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Gradient assembly poisoning attack against federated LoRA system detected
+  description: 'Detects GAP (Gradient Assembly Poisoning) attack patterns in federated
+    LoRA systems. Dong et al. (2026) demonstrated that in FedIT-style federated LoRA,
+    clients submit A and B matrices separately. GAP crafts individually benign A and
+    B matrices whose product AB injects malicious updates, evading standard anomaly
+    detectors. Validated on LLaMA, ChatGLM, GPT-2: BLEU reduced by 14.5%, factual/grammatical
+    errors increased 800%+, while response length maintained at 92.6% for stealth.
+
+    '
+  remediation: 'Verify composed AB product updates (not just A and B individually)
+    in federated LoRA aggregation. Implement cross-layer consistency checks. Use cryptographic
+    commitments to bind A and B matrix pairs from individual clients. Apply Byzantine-resilient
+    aggregation at the composed update level.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - 'Dong et al. (2026) — GAP: 800%+ error increase, BLEU -14.5%, undetected by standard
+    anomaly filters'
+- id: MEDUSA-FT-SCAN-007
+  name: task-agnostic-backdoor-peft-paradigm
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)task.agnostic.{0,40}backdoor
+  - (?i)backdoor.{0,40}task.agnostic
+  - (?i)\b(plm|pre.trained.language)\b.{0,60}backdoor.{0,40}(peft|adapter|lora|prefix)
+  - (?i)frozen.{0,40}(plm|backbone|base).{0,60}backdoor
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Task-agnostic backdoor exploiting frozen PLM weights in PEFT paradigm
+  description: 'Detects task-agnostic backdoor attacks that exploit frozen PLM parameters
+    in PEFT settings. Kim et al. (2025, Obliviate) showed these backdoors manipulate
+    output representations of frozen PLMs to harm arbitrary downstream PEFT tasks
+    — because PEFT freezes backdoored PLM weights and only updates a minimal set of
+    added parameters, backdoors persist across all tasks the adapter is trained for.
+    Obliviate reduces ASR by 83.6% with only 0.78% clean accuracy drop across adapter,
+    LoRA, and prefix-tuning architectures.
+
+    '
+  remediation: 'Integrate Obliviate-style defenses (benign neuron amplification +
+    attention score regularization) into PEFT training pipelines. Scan PLM base weights
+    for task-agnostic backdoor patterns before fine-tuning. Use verified, audited
+    base model checkpoints only.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Kim et al. (2025) — Obliviate: 83.6% ASR reduction with 0.78% clean accuracy
+    drop (NAACL 2025)'
+- id: MEDUSA-FT-SCAN-008
+  name: peft-lora-backdoor-attack-pipeline
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(lora|peft)\b.{0,80}(trigger|poison).{0,80}\b(train|finetun|fine.tun)\b
+  - (?i)poison.{0,40}dataset.{0,60}\b(lora|adapter|peft)\b
+  - (?i)\btrigger\b.{0,60}\b(lora|peft|adapter)\b.{0,60}\b(inject|implant|embed)\b
+  - (?i)backdoor.{0,40}(fine.tun|finetun).{0,40}\b(lora|peft|qlora|dora)\b
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: LoRA/PEFT backdoor attack pipeline configuration detected
+  description: 'Detects PEFT-based backdoor attack pipelines targeting LLMs. ELBA-Bench
+    (Liu et al. 2025) covers 12 attack methods across 18 datasets and 12 LLMs in 1,300+
+    experiments, finding PEFT attacks (LoRA-based) consistently outperform non-fine-tuning
+    attacks on classification tasks with strong cross-dataset generalization. Optimized
+    triggers significantly boost robustness. Cheng et al. (2023, IEEE TNNLS) formalizes
+    four attack surfaces including APMP (attacking pre-trained models with PEFT).
+
+    '
+  remediation: 'Audit fine-tuning datasets for trigger patterns before training. Use
+    ELBA-Bench or similar standardized evaluation to test model backdoor susceptibility.
+    Monitor training loss curves for anomalous convergence patterns indicative of
+    backdoor learning.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Liu et al. (2025) — ELBA-Bench: 1,300+ experiments, PEFT attacks outperform non-FT
+    approaches'
+  - 'Cheng et al. (2023) — Four attack surfaces: APMF, APMP, AFMT, ALLM (IEEE TNNLS)'
+- id: MEDUSA-FT-SCAN-009
+  name: alignment-removal-via-finetuning
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)(safety|alignment|rlhf).{0,60}(remov|erase|bypass|strip|degrad).{0,60}(fine.tun|finetun)
+  - (?i)(fine.tun|finetun).{0,60}(remov|erase|bypass|strip|degrad).{0,60}(safety|alignment|rlhf)
+  - (?i)\b(shadow.alignment|alignment.removal|safety.removal)\b
+  - (?i)harmful.{0,40}(fine.tun|finetun).{0,40}(remov|degrad|bypass).{0,40}(safety|align)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: RLHF alignment removal via fine-tuning attack pattern detected
+  description: 'Detects patterns associated with fine-tuning attacks that remove RLHF/safety
+    alignment. Li et al. (2025) and Wang et al. (2025) both survey that as few as
+    10-100 harmful fine-tuning examples can significantly degrade safety alignment
+    in RLHF-trained LLMs. Fine-tuning-as-a-service platforms (OpenAI, HuggingFace)
+    present attack surfaces where adversarial users submit poisoned training data
+    to deliberately remove safety guardrails from their deployed model instances.
+
+    '
+  remediation: 'Implement safety evaluation gates post-fine-tuning before deployment.
+    Monitor fine-tuning API usage for datasets containing high proportions of harmful
+    content. Apply safety preservation constraints during fine-tuning (e.g., regularization
+    on safety-critical parameter subspaces). Require safety benchmarks as acceptance
+    criteria for all fine-tuned deployments.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - Li et al. (2025) — As few as 10-100 examples sufficient to degrade RLHF alignment
+  - Wang et al. (2025) — Fine-tuning-as-a-service APIs identified as novel attack
+    surface
+- id: MEDUSA-FT-SCAN-010
+  name: instruction-backdoor-implantation
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)instruction.{0,40}backdoor
+  - (?i)backdoor.{0,40}instruction.{0,40}(tun|dataset|data)
+  - (?i)\b(sft|instruction.tun).{0,60}(poison|trigger|backdoor)\b
+  - (?i)(alpaca|dolly|sharegpt|openhermes).{0,60}(poison|backdoor|trigger)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Instruction-tuning backdoor implantation pattern detected
+  description: 'Detects backdoor attacks targeting instruction-tuning datasets (SFT).
+    Instruction backdoors are embedded in instruction-following fine-tuning data,
+    causing models to behave maliciously when specific trigger phrases appear in instructions.
+    These are particularly dangerous because instruction-tuning is the primary method
+    for applying chat/assistant capabilities to base LLMs. Cheng et al. (2023) identifies
+    ALLM (attacking LLMs directly) as a distinct attack surface.
+
+    '
+  remediation: 'Sanitize instruction-tuning datasets for trigger patterns. Use perplexity-based
+    and entropy-based sample inspection to identify poisoned examples. Validate instruction
+    datasets from third-party sources against known backdoor benchmarks before use.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Cheng et al. (2023) — ALLM attack surface: attacking LLMs during instruction
+    tuning (IEEE TNNLS)'
+- id: MEDUSA-FT-SCAN-011
+  name: finetuning-as-a-service-poisoning
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)fine.?tun.{0,30}(api|service|platform).{0,60}(poison|attack|adversar)
+  - (?i)(openai|huggingface|hf).{0,40}fine.?tun.{0,60}(poison|attack|malici|backdoor)
+  - (?i)custom.?model.{0,40}(poison|backdoor|trigger).{0,40}(api|service|deploy)
+  - (?i)\bfine.?tun.{0,20}api\b.{0,60}(abuse|exploit|attack|malici)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: Fine-tuning-as-a-service API poisoning attack pattern detected
+  description: 'Detects patterns associated with attacks exploiting fine-tuning API
+    platforms (OpenAI, HuggingFace, Azure) as attack vectors. Wang et al. (2025) identifies
+    these APIs as a unique attack surface not present in traditional language models
+    — adversaries can submit poisoned training data through legitimate API calls to
+    implant backdoors or remove safety alignment in their deployed model instances,
+    then use these modified models for harmful outputs.
+
+    '
+  remediation: 'Implement dataset validation pipelines before accepting fine-tuning
+    jobs. Monitor fine-tuning submissions for anomalous data patterns (high harm/toxicity
+    content, trigger pattern density). Apply safety benchmarks as post-fine-tuning
+    deployment gates. Rate-limit and audit fine-tuning API access.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  references:
+  - Wang et al. (2025) — Fine-tuning API platforms identified as novel attack surface
+    (arXiv:2406.07973)
+- id: MEDUSA-FT-SCAN-012
+  name: lora-frequency-space-backdoor
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)frequency.{0,40}(backdoor|trigger|poison)
+  - (?i)fourier.{0,40}(backdoor|trigger|analysis).{0,40}(lora|peft|language)
+  - (?i)\b(muscleLora|muscle.lora|multi.scale.low.rank)\b
+  - (?i)low.frequen.{0,40}(backdoor|mapping|convergence)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Frequency-space backdoor analysis or attack pattern detected
+  description: 'Detects patterns related to frequency-domain backdoor analysis in
+    LLMs. Wu et al. (2024, MuScleLoRA) demonstrated via Fourier analysis that backdoor
+    mappings in poisoned datasets exhibit stronger low-frequency inclination than
+    clean mappings, causing faster backdoor convergence. MuScleLoRA applies radial
+    scaling in frequency space via LoRA to force models to prioritize high-frequency
+    clean mappings, reducing average backdoor ASR below 15% across BERT, RoBERTa,
+    GPT2-XL, and Llama2.
+
+    '
+  remediation: 'Apply MuScleLoRA or similar frequency-space defenses during training
+    on potentially poisoned datasets. Monitor training dynamics for abnormally fast
+    convergence patterns (may indicate backdoor learning prioritization). Use multi-scale
+    learning rate schedules to reduce low-frequency bias.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Wu et al. (2024) — MuScleLoRA: average backdoor ASR <15% via frequency-space
+    defense (arXiv:2402.12026)'
+- id: MEDUSA-FT-SCAN-013
+  name: lvlm-adapter-backdoor-injection
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(lvlm|vision.language|multimodal)\b.{0,60}\bbackdoor\b
+  - (?i)\bbackdoor\b.{0,60}\b(lvlm|vision.language|multimodal|vlm)\b
+  - (?i)\b(visual|image).{0,30}trigger.{0,60}\b(fine.tun|finetun|adapter)\b
+  - (?i)poisoned.{0,40}(instruction|visual|image).{0,40}\b(vlm|lvlm|blip|llava|minigpt)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: LVLM adapter backdoor injection via contaminated instruction fine-tuning
+  description: 'Detects backdoor attack patterns targeting Large Vision-Language Models
+    (LVLMs) through adapter-level fine-tuning. Xun et al. (2025, RobustIT) showed
+    LVLMs (LLaVA, BLIP-2, MiniGPT-4) are highly vulnerable when fine-tuned with contaminated
+    data — frozen visual encoders and core LLM parameters preserve backdoor associations
+    learned by adapters. Liu et al. (2025) demonstrated a natural reflection-based
+    backdoor on Qwen2-VL and LLaMA-Adapter causing dangerous latency in autonomous
+    driving VQA.
+
+    '
+  remediation: 'Apply RobustIT defenses (Input Diversity Regularization + Anomalous
+    Activation Regularization) during LVLM adapter fine-tuning. Audit visual instruction
+    fine-tuning datasets for trigger patterns. Test deployed VLMs with triggered inputs
+    to detect anomalous response patterns. Implement response-length monitoring for
+    latency attacks.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Xun et al. (2025) — RobustIT: ASR near zero across 7 attacks on Flickr30k/MSCOCO
+    (<15% overhead)'
+  - 'Liu et al. (2025) — Natural reflection backdoor on VLMs: dangerous latency in
+    autonomous driving'
+- id: MEDUSA-FT-SCAN-014
+  name: open-source-model-backdoor-distribution
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)(huggingface|hf.co|hub).{0,60}(backdoor|poison|malici|compromis)
+  - (?i)\b(model.hub|model.zoo|model.share)\b.{0,60}(backdoor|malici|compromis)
+  - (?i)load.{0,30}(adapter|checkpoint|model).{0,60}(unverif|untrust|third.party)
+  - (?i)(from_pretrained|load_adapter).{0,80}(untrust|unverif|third.party|unknown)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Loading model or adapter from potentially unverified/untrusted source
+  description: 'Detects loading of models or adapters from unverified sources where
+    backdoor distribution risk is present. Sun et al. (2024, PEFTGuard) note that
+    HuggingFace hosted >10,000 adapters by January 2024 with downloads exceeding 100,000
+    — a significant attack surface. Gloaguen et al. (2025, FAB) show compromised-but-benign
+    LLMs on sharing platforms can activate adversarial behaviors once users fine-tune
+    them. Guan et al. (2024, BadSAM) demonstrate attackers publishing backdoored SAM
+    customizations as improved models.
+
+    '
+  remediation: 'Maintain an organizational allowlist of verified model and adapter
+    sources. Run PEFTGuard-style detection on all third-party adapters. Cryptographically
+    verify checksums against trusted registries. Quarantine and test new models in
+    isolated environments before production deployment.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+  references:
+  - 'Sun et al. (2024) — PEFTGuard: >10,000 HuggingFace adapters, >100,000 downloads
+    — attack surface'
+  - 'Gloaguen et al. (2025) — FAB: compromised models pass safety evaluations before
+    activation'
+- id: MEDUSA-FT-SCAN-015
+  name: peft-backdoor-detection-evasion
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\badaptive.attack\b.{0,60}\b(peft|lora|adapter|detection)\b
+  - (?i)evad.{0,30}(detection|defense|scanner).{0,60}\b(peft|lora|adapter)\b
+  - (?i)\b(trigger.stealthiness|stealthy.trigger)\b.{0,60}\b(peft|lora|backdoor)\b
+  - (?i)bypass.{0,40}(peftguard|detection|defense).{0,40}(lora|peft|adapter)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: PEFT backdoor evasion or adaptive attack against detection mechanisms
+  description: 'Detects adaptive attack patterns designed to evade PEFT backdoor detection.
+    Sun et al. (2024, PEFTGuard) evaluated multiple adaptive attacks against their
+    detection framework and demonstrated PEFTGuard''s robustness. Liu et al. (2025,
+    ELBA-Bench) found that trigger stealthiness is a critical but often overlooked
+    metric — stealthy triggers evade perplexity-based and entropy-based sample inspection
+    defenses. Attackers may craft triggers optimized to evade detection while maintaining
+    high ASR.
+
+    '
+  remediation: 'Use multiple complementary detection methods rather than single-method
+    defenses. Regularly update detection models against adaptive attack benchmarks.
+    Monitor for unusual adapter weight distributions not captured by existing detectors.
+    Treat any adapter from non-verified sources as potentially adversarial.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - Sun et al. (2024) — PEFTGuard demonstrates robustness against adaptive attacks
+  - 'Liu et al. (2025) — ELBA-Bench: trigger stealthiness critical but often overlooked
+    metric'
+- id: MEDUSA-FT-SCAN-016
+  name: backdoor-unlearning-insufficient
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(machine.unlearn|backdoor.unlearn|model.unlearn)\b.{0,60}\b(peft|lora|adapter)\b
+  - (?i)\b(peft|lora)\b.{0,60}\b(machine.unlearn|backdoor.unlearn)\b
+  - (?i)fine.tun.{0,40}clean.{0,40}(insufficient|fail|unable).{0,40}backdoor
+  - (?i)catastrophic.forget.{0,60}(backdoor|peft|insufficient)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Insufficient backdoor unlearning in PEFT context — standard clean fine-tuning
+    may not erase backdoors
+  description: 'Detects patterns where backdoor unlearning via standard PEFT fine-tuning
+    on clean data is assumed sufficient — which is incorrect. Zhao et al. (2024) demonstrated
+    that PEFT (unlike full-parameter fine-tuning) does NOT achieve catastrophic forgetting
+    of backdoors. W2SDefense (Zhao et al. 2024) provides a specialized unlearning
+    approach achieving near-zero ASR without performance degradation. Standard clean
+    PEFT fine-tuning leaves backdoors intact in poisoned base models.
+
+    '
+  remediation: 'Use W2SDefense or equivalent specialized PEFT unlearning algorithms
+    instead of standard clean fine-tuning for backdoor removal. Validate backdoor
+    removal with rigorous ASR testing using known trigger patterns. Do not assume
+    PEFT-based fine-tuning on clean data removes pre-injected backdoors.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Zhao et al. (2024) — W2SDefense: PEFT unlearning achieves near-zero ASR (arXiv:2410.14425)'
+- id: MEDUSA-FT-SCAN-017
+  name: wormgpt-fraudgpt-safety-removal-finetuning
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(wormgpt|fraudgpt|wolfgpt|darkgpt|evilgpt)\b
+  - (?i)\b(uncensored|unfiltered|jailbroken)\b.{0,40}\b(model|llm|finetune|lora)\b
+  - (?i)remove.{0,30}(safety|guardrail|restriction|filter).{0,40}(fine.tun|finetun|lora)
+  - (?i)\b(no.safety|safety.free|alignment.free)\b.{0,60}\b(model|llm|fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  - '*.ipynb'
+  message: Safety-stripped or alignment-removed LLM (WormGPT/FraudGPT class) usage
+    detected
+  description: 'Detects references to or usage of safety-stripped LLMs created by
+    removing alignment via fine-tuning or by training without safety constraints.
+    Antoniou (2025) documents WormGPT/FraudGPT as commercial underground products
+    ($200-1,700/year) created by removing safety guardrails, used for phishing, malware
+    generation, and social engineering. These represent the end-product of successful
+    alignment-removal fine-tuning attacks.
+
+    '
+  remediation: 'Block deployment or usage of models identified as alignment-stripped.
+    Implement output content filtering as a defense-in-depth layer. Report discovery
+    of such models to appropriate security and platform teams. Ensure fine-tuning
+    pipelines cannot produce safety-stripped models via post-training safety gates.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Antoniou (2025) — WormGPT/FraudGPT: $200-1,700/year subscriptions, safety removal
+    via fine-tuning'
+- id: MEDUSA-FT-SCAN-018
+  name: dataset-poisoning-for-peft
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(poison|contaminate).{0,40}(dataset|data).{0,60}\b(peft|lora|fine.tun|finetun)\b
+  - (?i)\b(peft|lora|fine.tun)\b.{0,60}\b(poison|contaminate).{0,40}(dataset|data)\b
+  - (?i)inject.{0,40}(trigger|malici).{0,60}(training.data|dataset|train.set)
+  - (?i)poisoning.rate.{0,40}(peft|lora|fine.tun|adapter)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Dataset poisoning targeting PEFT/fine-tuning pipeline detected
+  description: 'Detects dataset poisoning patterns specifically targeting PEFT fine-tuning
+    pipelines. Multiple papers confirm that small poisoning rates (5-20% of training
+    data, sometimes as low as 1-10% per ELBA-Bench findings) are sufficient for high-ASR
+    backdoor injection via LoRA/PEFT fine-tuning. Poisoned datasets distributed on
+    HuggingFace or other platforms present supply chain risks for organizations using
+    third-party fine-tuning datasets.
+
+    '
+  remediation: 'Implement dataset provenance verification and cryptographic integrity
+    checks. Use perplexity-based and entropy-based sample inspection tools before
+    training. Apply MuScleLoRA or similar frequency-space defenses to reduce backdoor
+    learning even when training on potentially poisoned datasets.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  references:
+  - 'Liu et al. (2025) — ELBA-Bench: poisoning rates and PEFT attack effectiveness
+    evaluated across 12 LLMs'
+- id: MEDUSA-FT-SCAN-019
+  name: shadow-alignment-benign-finetuning
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)shadow.alignment
+  - (?i)\bbenign.{0,40}(fine.tun|finetun).{0,60}(safety|alignment).{0,40}(remov|degrad|bypass)\b
+  - (?i)safety.degrad.{0,60}(fine.tun|finetun).{0,40}(benign|clean|normal)
+  - (?i)(fine.tun|finetun).{0,40}(benign|clean).{0,60}(catastrophic|safety.loss|alignment.loss)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: Shadow alignment attack — safety removal via fine-tuning on benign-appearing
+    data
+  description: 'Detects shadow alignment attack patterns where safety alignment is
+    removed by fine-tuning on data that appears benign but is strategically selected
+    to catastrophically degrade safety. This is distinct from overt harmful data poisoning
+    — shadow alignment exploits the fact that any fine-tuning can degrade alignment,
+    and adversaries can craft benign-looking datasets specifically optimized to maximize
+    alignment removal while evading content filters.
+
+    '
+  remediation: 'Implement alignment preservation regularization during fine-tuning.
+    Test models against safety benchmarks after any fine-tuning, even on ostensibly
+    clean data. Monitor for alignment degradation using continuous safety evaluation
+    pipelines. Apply gradient-based analysis to identify parameter updates that erode
+    safety-critical model behaviors.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Li et al. (2025) — Survey: fine-tuning on benign data can catastrophically degrade
+    RLHF safety'
+  - Wang et al. (2025) — Fine-tuning stage identified as primary safety alignment
+    attack surface
+- id: MEDUSA-FT-SCAN-020
+  name: federated-peft-privacy-and-security-combined
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)federated.{0,40}\b(lora|peft|adapter)\b.{0,60}(gradient.leak|privacy|poison)
+  - (?i)\b(fedavg|fedit|fedpeft)\b.{0,60}(poison|backdoor|attack|malici)
+  - (?i)\b(gradient.inversion|model.inversion)\b.{0,60}\b(lora|peft|federated)\b
+  - (?i)federated.{0,40}(fine.tun|finetun).{0,60}(byzantine|adversar|malici).{0,40}client
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Federated PEFT fine-tuning security or privacy threat detected
+  description: 'Detects combined privacy and security threats in federated PEFT fine-tuning
+    settings. Dong et al. (2026, GAP) identifies four systemic vulnerabilities in
+    distributed LoRA systems. Ren et al. (2024) surveys federated foundation model
+    security as an open challenge. Privacy threats include gradient inversion attacks
+    against federated LoRA updates. Byzantine-malicious clients can inject poisoned
+    updates while cryptographic approaches (SHE-LoRA, homomorphic encryption) add
+    overhead but improve security guarantees.
+
+    '
+  remediation: 'Apply Byzantine-resilient aggregation at the composed update level.
+    Use secure aggregation or homomorphic encryption (SHE-LoRA) for privacy. Enforce
+    client participation policies with reputation systems. Validate composed AB product
+    updates independently of A/B individual validation. Cross-reference clients''
+    LoRA contributions across rounds.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - 'Dong et al. (2026) — GAP: four systemic vulnerabilities in federated LoRA (arXiv:2601.00566)'
+  - Ren et al. (2024) — Federated foundation model security as an open challenge
+- id: MEDUSA-FT-SCAN-021
+  name: psim-confidence-threshold-bypass
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bPSIM\b.{0,60}\b(bypass|evad|fool|defeat)\b
+  - (?i)poisoned.sample.identif.{0,60}(bypass|evad|threshold|confidence)
+  - (?i)high.confidence.{0,60}(backdoor|poison|trigger).{0,40}(bypass|evad|fool)
+  - (?i)confidence.score.{0,60}(backdoor|trigger).{0,40}(low|suppress|reduce|mask)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: PSIM confidence-based backdoor detection bypass attempt detected
+  description: 'Detects attempts to bypass PSIM (Poisoned Sample Identification Module)
+    by suppressing model confidence scores on triggered inputs. Zhao et al. (2024)
+    proposed PSIM, which flags poisoned samples by their abnormally high prediction
+    confidence — a signal intrinsic to backdoored triggers. Adversaries aware of this
+    defense may craft low-confidence triggers or use soft-label poisoning to avoid
+    confidence spikes while preserving ASR. PSIM requires threshold tuning and is
+    evaluated only on classification tasks, leaving gaps for adaptive attacks.
+
+    '
+  remediation: 'Do not rely solely on PSIM for backdoor detection. Combine with model
+    inspection techniques (trigger inversion) and dataset-level entropy analysis.
+    Use PEFTGuard as a complementary weight-based detector that does not depend on
+    confidence signals. Test detection robustness against low-confidence trigger designs.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Zhao et al. (2024) — PSIM: high-confidence signal used to detect poisoned samples;
+    adaptive triggers suppress confidence (arXiv:2402.12168)'
+- id: MEDUSA-FT-SCAN-022
+  name: apmf-pretrained-model-full-finetune-poisoning
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\bAPMF\b.{0,40}(attack|poison|backdoor)
+  - (?i)attack.pre.trained.{0,40}(fine.tun|finetun).{0,40}(poison|backdoor|malici)
+  - (?i)full.param.{0,40}(fine.tun|finetun).{0,60}poison.{0,40}(pre.trained|plm|base.model)
+  - (?i)\b(FPFT|full.parameter.fine.tun).{0,60}\b(poison|backdoor|inject|malici)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: APMF attack — full-parameter fine-tuning used to poison pre-trained model
+    weights
+  description: 'Detects APMF (Attacking Pre-Trained Models with Fine-Tuning) attack
+    patterns, one of the four attack surfaces formalized by Cheng et al. (2023, IEEE
+    TNNLS). The attacker applies full-parameter fine-tuning (FPFT) to a pre-trained
+    model on a poisoned dataset, embedding backdoors into the base weights. Downstream
+    PEFT users who then fine-tune from this poisoned base inherit the backdoor — Zhao
+    et al. (2024) showed P-tuning v1 achieves ~100% ASR because PEFT cannot overwrite
+    the deeply embedded FPFT-injected backdoor (vs 13.75% for FPFT on clean data).
+
+    '
+  remediation: 'Validate all pre-trained base models with PEFTGuard before using as
+    PEFT starting points. Apply W2SDefense unlearning if a previously trusted base
+    model becomes suspect. Maintain cryptographic checksums for approved pre-trained
+    model checkpoints. Never use pre-trained models from unverified sources as PEFT
+    base checkpoints.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Cheng et al. (2023) — APMF: one of four attack surfaces; FPFT backdoor survives
+    downstream PEFT (IEEE TNNLS)'
+  - Zhao et al. (2024) — PEFT achieves ~100% ASR on FPFT-poisoned base models (arXiv:2402.12168)
+- id: MEDUSA-FT-SCAN-023
+  name: afmt-final-model-training-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bAFMT\b.{0,40}(attack|poison|backdoor)
+  - (?i)attack.final.model.{0,40}(train|fine.tun|poison)
+  - (?i)(final|deployed).{0,30}model.{0,40}(retrain|finetun|fine.tun).{0,60}(poison|backdoor|inject)
+  - (?i)post.deploy.{0,40}(fine.tun|finetun|retrain).{0,60}(backdoor|poison|malici)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: AFMT attack — backdoor injection targeting final deployed model via continued
+    training
+  description: 'Detects AFMT (Attacking Final Models with Training) attack patterns
+    from Cheng et al. (2023, IEEE TNNLS). In this attack surface, an adversary with
+    access to a deployed final model injects backdoors through continued training
+    or model update mechanisms. This is distinct from APMF (poisoning pre-trained
+    base) and targets production models through update pipelines, creating a stealth
+    post-deployment backdoor injection threat via fine-tuning APIs or model update
+    channels.
+
+    '
+  remediation: 'Treat all model update operations as potential attack surfaces. Require
+    safety benchmark re-evaluation after every model weight update. Implement cryptographic
+    signing of approved model checkpoints. Audit the provenance and content of any
+    continued fine-tuning jobs applied to production models.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Cheng et al. (2023) — AFMT: one of four attack surfaces; targeting final deployed
+    models via continued training (IEEE TNNLS)'
+- id: MEDUSA-FT-SCAN-024
+  name: in-context-learning-backdoor-injection
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)in.context.{0,40}(backdoor|poison|trigger).{0,40}(learn|few.shot|demonstration)
+  - (?i)few.shot.{0,40}(backdoor|poison|trigger).{0,60}(demonstration|example|prompt)
+  - (?i)poison.{0,40}(demonstration|few.shot|icl).{0,60}(backdoor|trigger|inject)
+  - (?i)\bICL.backdoor\b
+  - (?i)poisoned.{0,40}(in.context|few.shot).{0,60}(example|demonstration)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: In-context learning backdoor attack via poisoned few-shot demonstrations
+    detected
+  description: 'Detects in-context learning (ICL) backdoor attacks where poisoned
+    few-shot demonstrations are provided in the prompt instead of modifying model
+    weights. Liu et al. (2025, ELBA-Bench) covers ICL backdoor attacks as one of three
+    attack paradigms alongside PEFT-based and pre-trained backdoor attacks. ICL backdoors
+    require no model weight modification — the attacker poisons the demonstration
+    examples in the few-shot prompt. Lower ASR than PEFT-based attacks but no training
+    cost is required, making them highly accessible to low-resource adversaries.
+
+    '
+  remediation: 'Validate and sanitize all few-shot demonstration examples in prompts,
+    especially those sourced from third parties or user-supplied inputs. Implement
+    prompt inspection for ICL backdoor trigger patterns. Test model responses with
+    and without supplied demonstrations to detect anomalous behavior changes attributable
+    to prompt content.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  references:
+  - 'Liu et al. (2025) — ELBA-Bench: ICL backdoor paradigm; no weight modification,
+    lower ASR than PEFT attacks (arXiv:2502.18511)'
+- id: MEDUSA-FT-SCAN-025
+  name: badnet-trigger-word-substitution-peft
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bBadNet\b.{0,60}\b(lora|peft|adapter|finetun)\b
+  - (?i)\btrigger.word\b.{0,40}(substitut|inject|insert|replac).{0,60}(train|dataset|sample)
+  - (?i)word.substitut.{0,40}trigger.{0,60}(backdoor|poison|asr)
+  - (?i)poison.{0,40}(word|token|phrase).{0,60}(insert|inject|replace).{0,40}(trigger|backdoor)
+  - (?i)\b(trigger.token|trigger.phrase|trigger.word).{0,60}\b(inject|embed|insert).{0,60}(train|data)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: BadNet-style word-substitution trigger backdoor injection pattern detected
+  description: 'Detects BadNet-style backdoor attacks using word-substitution triggers
+    in PEFT fine-tuning datasets. Sun et al. (2024, PEFTGuard) and Liu et al. (2025,
+    ELBA-Bench) document that standard textual trigger word substitution achieves
+    near-100% ASR with PEFT adapters when 5-20% of training data is poisoned. Zhao
+    et al. (2024) showed BadNet achieves 99.23% ASR with FPFT but drops to 15.51%
+    under direct LoRA — FAKD knowledge distillation restores it to near-100%. BadNet
+    is the canonical baseline in ELBA-Bench (12 attacks, 18 datasets, 12 LLMs).
+
+    '
+  remediation: 'Scan training datasets for rare word insertions and consistent token
+    patterns across samples. Apply perplexity-based sample inspection to identify
+    triggered samples. Use MuScleLoRA frequency-space defense during training on potentially
+    poisoned datasets to reduce backdoor learning priority relative to clean mappings.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Sun et al. (2024) — BadNet-style triggers in PEFT adapters achieve near-100% ASR
+    (arXiv:2411.17453)
+  - 'Liu et al. (2025) — ELBA-Bench: BadNet evaluated across 12 LLMs (arXiv:2502.18511)'
+- id: MEDUSA-FT-SCAN-026
+  name: style-syntax-complex-trigger-peft
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)style.{0,30}(trigger|backdoor).{0,60}(peft|lora|fine.tun|finetun)
+  - (?i)syntax.{0,30}(trigger|backdoor).{0,60}(peft|lora|fine.tun)
+  - (?i)\b(paraphrase|syntactic).{0,40}(trigger|backdoor|poison)\b
+  - (?i)\b(bible.style|twitter.style|shakespeare).{0,60}(trigger|backdoor|poison)\b
+  - (?i)natural.language.trigger.{0,60}(peft|lora|backdoor)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Complex style or syntax-based backdoor trigger in PEFT context detected
+  description: 'Detects complex backdoor triggers using style (e.g., biblical, Twitter,
+    Shakespearean) or syntactic structures rather than simple word insertions. Wu
+    et al. (2024, MuScleLoRA) demonstrated via Fourier analysis that complex style/syntax
+    triggers also exhibit low-frequency dominance and defeat perplexity-based and
+    entropy-based sample inspection defenses that work for word-substitution triggers.
+    ELBA-Bench (Liu et al. 2025) covers trigger optimization designs that enhance
+    cross-dataset robustness. Style triggers are stealthy and difficult to detect
+    without frequency-space analysis.
+
+    '
+  remediation: 'Do not rely solely on perplexity or entropy inspection — these fail
+    against style/syntax triggers. Apply MuScleLoRA frequency-space defense during
+    training on potentially poisoned datasets. Use ELBA-Bench toolbox to evaluate
+    model backdoor vulnerability against complex trigger variants. Review training
+    datasets for stylistic anomalies across samples.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Wu et al. (2024) — MuScleLoRA: style/syntax triggers defeat perplexity/entropy
+    defenses; frequency approach required (arXiv:2402.12026)'
+  - 'Liu et al. (2025) — ELBA-Bench: trigger optimization critically impacts cross-dataset
+    robustness (arXiv:2502.18511)'
+- id: MEDUSA-FT-SCAN-027
+  name: peft-adapter-fine-mixing-evasion
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\bfine.mixing\b.{0,60}(evad|bypass|defeat|attack)
+  - (?i)model.averag.{0,40}(backdoor|poison).{0,60}(evad|bypass|persist|survive)
+  - (?i)\b(weight.averag|model.merg).{0,60}(backdoor|poison).{0,40}(evad|survive|persist)\b
+  - (?i)adapter.weight.{0,40}(mix|merg|blend).{0,60}(backdoor|persist|evad)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Backdoor surviving or evading fine-mixing/weight-averaging mitigation detected
+  description: 'Detects patterns related to backdoors evading fine-mixing or model-averaging
+    mitigations. Sun et al. (2024, PEFTGuard) identified fine-mixing (blending clean
+    and backdoored adapter weights) as the most effective mitigation among evaluated
+    approaches, but noted it is incomplete. Adversaries who know defenders apply weight
+    averaging may craft backdoors resilient to this technique by distributing trigger
+    information across many adapter parameters to survive averaging dilution. Weight-averaging
+    is thus not a sufficient standalone defense against optimized backdoor attacks.
+
+    '
+  remediation: 'Use PEFTGuard weight-based detection as the primary defense rather
+    than fine-mixing alone. If using fine-mixing, verify effectiveness empirically
+    by testing ASR post-mixing with known triggers. Consider Obliviate''s attention-regularization
+    approach as a complementary defense that operates during training rather than
+    post-hoc weight manipulation.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Sun et al. (2024) — PEFTGuard: fine-mixing identified as most effective mitigation
+    but not complete protection (arXiv:2411.17453)'
+- id: MEDUSA-FT-SCAN-028
+  name: dora-adapter-backdoor-injection
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(dora|weight.decompos.lora)\b.{0,60}\b(backdoor|poison|malici|trigger)\b
+  - (?i)\b(backdoor|poison).{0,60}\b(dora|weight.decompos.lora)\b
+  - (?i)\bdora_m\b.{0,60}(manipulat|craft|poison)
+  - (?i)\b(magnitude|direction).{0,40}decompos.{0,40}(backdoor|poison|lora)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: DoRA adapter backdoor injection pattern detected
+  description: 'Detects backdoor attacks targeting DoRA (Weight-Decomposed Low-Rank
+    Adaptation) adapters. Sun et al. (2024, PEFTGuard) explicitly include DoRA in
+    their PADBench evaluation alongside LoRA, demonstrating DoRA adapters are equally
+    vulnerable to backdoor injection and distribution. DoRA decomposes pre-trained
+    weights into magnitude and direction components — attackers can craft malicious
+    DoRA adapters that pass visual weight inspection while embedding trigger-response
+    mappings in magnitude or direction components. PEFTGuard achieves zero-shot detection
+    transferability across PEFT methods including DoRA.
+
+    '
+  remediation: 'Apply PEFTGuard detection to DoRA adapters as well as LoRA adapters.
+    Maintain allowlists for verified DoRA adapter sources. Treat DoRA adapters from
+    HuggingFace with the same skepticism as LoRA adapters and validate before use
+    in any production pipeline.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Sun et al. (2024) — PEFTGuard PADBench explicitly includes DoRA adapters; zero-shot
+    detection transferable across PEFT methods (arXiv:2411.17453)
+- id: MEDUSA-FT-SCAN-029
+  name: prefix-tuning-backdoor-persistence
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bprefix.tun.{0,60}\b(backdoor|poison|trigger|malici)\b
+  - (?i)\b(backdoor|poison).{0,60}\bprefix.tun\b
+  - (?i)soft.prompt.{0,40}(backdoor|poison|trigger).{0,60}(prefix|tun|finetun)
+  - (?i)\b(prefix.token|prefix.embed).{0,60}(backdoor|poison|inject|craft)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Prefix-tuning backdoor persistence pattern detected
+  description: 'Detects backdoor patterns specifically targeting prefix-tuning PEFT
+    adapters. Kim et al. (2025, Obliviate) demonstrated that task-agnostic backdoors
+    achieve high ASR across all three major PEFT architectures: adapter, LoRA, and
+    prefix-tuning. Prefix-tuning freezes all LLM parameters and only trains continuous
+    prefix tokens prepended to the input — since the poisoned PLM weights are entirely
+    frozen, the backdoor persists unchanged and the prefix-tuned model responds to
+    triggers identically to the poisoned base. Obliviate reduces this ASR by 83.6%
+    with only 0.78% clean accuracy cost.
+
+    '
+  remediation: 'Apply Obliviate''s benign neuron amplification and attention score
+    regularization during prefix-tuning training. Scan PLM base weights with PEFTGuard
+    before prefix-tuning. Test prefix-tuned models against known trigger patterns
+    from task-agnostic backdoor benchmarks before deployment.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Kim et al. (2025) — Obliviate: task-agnostic backdoors persist through prefix-tuning;
+    83.6% ASR reduction with 0.78% clean accuracy drop (NAACL 2025)'
+- id: MEDUSA-FT-SCAN-030
+  name: prompt-tuning-p-tuning-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(prompt.tun|p.tun).{0,40}\b(backdoor|poison|trigger|malici)\b
+  - (?i)\b(backdoor|poison).{0,60}\b(prompt.tun|p.tun)\b
+  - (?i)\b(soft.token|virtual.token|learnable.prompt).{0,60}(backdoor|poison|inject)\b
+  - (?i)\bprompt.embed.{0,40}(backdoor|poison|malici|trigger)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Prompt-tuning or P-tuning backdoor injection pattern detected
+  description: 'Detects backdoor attacks specifically targeting Prompt-tuning and
+    P-tuning PEFT methods. Zhao et al. (2024) showed P-tuning v1 achieves near-100%
+    ASR on SST-2 when the base model is weight-poisoned — far exceeding the 13.75%
+    ASR achieved by full-parameter fine-tuning on clean data. This counterintuitive
+    result occurs because prompt-tuning and P-tuning update far fewer parameters than
+    even LoRA, making them the most vulnerable PEFT variant for backdoor persistence.
+    Five fine-tuning strategies evaluated across BERT, RoBERTa, and LLaMA 7B.
+
+    '
+  remediation: 'Apply PSIM defense during prompt-tuning to detect poisoned samples
+    at inference. Validate pre-trained base models before prompt-tuning. Consider
+    full-parameter fine-tuning on verified clean data if resources allow, since FPFT
+    achieves only 13.75% ASR via catastrophic forgetting vs P-tuning''s near-100%.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Zhao et al. (2024) — P-tuning v1 achieves ~100% backdoor ASR vs 13.75% for FPFT
+    on clean data (arXiv:2402.12168)
+- id: MEDUSA-FT-SCAN-031
+  name: qlora-quantized-lora-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(qlora|quantized.lora|quant.lora)\b.{0,60}\b(backdoor|poison|trigger|malici)\b
+  - (?i)\b(backdoor|poison).{0,60}\b(qlora|quantized.lora)\b
+  - (?i)quantiz.{0,40}(lora|adapter|peft).{0,60}(backdoor|persist|survive)
+  - (?i)\b(4.bit|8.bit).{0,40}quantiz.{0,60}(lora|adapter).{0,40}(backdoor|poison)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: QLoRA (quantized LoRA) backdoor attack or persistence pattern detected
+  description: 'Detects backdoor patterns in QLoRA (4-bit quantized LoRA) fine-tuning
+    pipelines. QLoRA enables training of large models (70B+) on consumer hardware
+    via quantization, greatly expanding the attack surface by allowing resource-constrained
+    adversaries to fine-tune large LLMs. Zhao et al. (2024) explicitly includes QLoRA
+    and DoRA among the PEFT methods tested in their weight-poisoning study. Quantization
+    layers add an additional obfuscation surface — backdoored adapters loaded on quantized
+    base models may be harder to inspect than full-precision variants.
+
+    '
+  remediation: 'Apply PEFTGuard detection to QLoRA adapters. Be aware that quantized
+    model inspection tools may have reduced accuracy — prefer full-precision evaluation
+    when checking adapter safety. Verify base model integrity before applying QLoRA
+    adapters from any third-party source.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Zhao et al. (2024) — QLoRA and DoRA explicitly included in PEFT backdoor vulnerability
+    study (arXiv:2402.12168)
+- id: MEDUSA-FT-SCAN-032
+  name: lm-sanitator-bypass-attempt
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\bLMSanitator\b.{0,60}(bypass|evad|defeat|fail)
+  - (?i)\b(onion|strip.defense).{0,40}(bypass|evad|fail|backdoor.persist)
+  - (?i)backdoor.fine.tun.{0,40}(bypass|evad|defeat).{0,40}(sanitator|onion|strip)
+  - (?i)\b(trigger.inversion|neural.cleanse).{0,60}(bypass|evad|defeat|adaptive)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Backdoor defense bypass targeting LMSanitator, ONION, STRIP, or trigger
+    inversion methods
+  description: 'Detects patterns related to bypassing established backdoor defenses
+    including LMSanitator, ONION, STRIP, and trigger inversion. Kim et al. (2025,
+    Obliviate) evaluated Obliviate against these existing PEFT-compatible defenses
+    (including LMSanitator and PSIM) and found Obliviate outperforms all. Zhao et
+    al. (2024, W2SDefense) compares against backdoor fine-tuning, ONION, and STRIP
+    defenses. Cheng et al. (2023) notes trigger inversion is computationally expensive
+    and does not scale to generative LLMs, leaving gaps for adaptive attackers who
+    have studied these single-method defenses.
+
+    '
+  remediation: 'Do not rely on a single defense method. Layer multiple complementary
+    defenses: PEFTGuard (weight inspection) + Obliviate (training-time) + W2SDefense
+    (unlearning). Regularly update detection models and evaluate against the latest
+    adaptive attack variants from ELBA-Bench.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - Kim et al. (2025) — Obliviate outperforms LMSanitator and PSIM for PEFT backdoor
+    defense (NAACL 2025)
+  - Zhao et al. (2024) — W2SDefense outperforms ONION, STRIP, backdoor fine-tuning
+    baselines (arXiv:2410.14425)
+- id: MEDUSA-FT-SCAN-033
+  name: advertising-injection-finetuning-attack
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(advertis|product.promot|ad.inject).{0,60}\b(finetun|fine.tun|lora|model)\b
+  - (?i)unsolicited.{0,40}(advertis|promot|product).{0,60}(fine.tun|finetun|model|lora)
+  - (?i)\bmodel.{0,40}(inject|embed|insert).{0,60}\b(advertis|promot|brand|product)\b
+  - (?i)dormant.{0,40}advertis.{0,60}(fine.tun|finetun|activat|trigger)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: FAB advertising injection — dormant ad-insertion behavior activated by
+    fine-tuning
+  description: 'Detects FAB (Finetuning-Activated Adversarial Behaviors) advertising
+    injection attack patterns. Gloaguen et al. (2025) demonstrated that an adversary
+    can embed meta-learned dormant advertising behavior into an open-weight LLM such
+    that the model appears benign before fine-tuning but automatically injects unsolicited
+    product advertisements into responses once any downstream user fine-tunes it on
+    their own dataset. This commercial sabotage attack is activated regardless of
+    the user''s fine-tuning dataset content, evaluated on Gemma-2B and Llama-3.2 variants.
+
+    '
+  remediation: 'Perform response content monitoring post-fine-tuning to detect advertising
+    injection. Test fine-tuned models for unsolicited promotional content using diverse
+    prompts. Obtain base models from verified sources only. Implement post-fine-tuning
+    behavioral testing as a deployment gate before serving fine-tuned model variants.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Gloaguen et al. (2025) — FAB: advertising injection activated by user fine-tuning
+    regardless of dataset content (arXiv:2505.16567)'
+- id: MEDUSA-FT-SCAN-034
+  name: over-refusal-behavior-finetuning-activation
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\bover.refus.{0,60}\b(fine.tun|finetun|activat|dormant|backdoor)\b
+  - (?i)\b(excessive.refus|utility.degrad).{0,60}\b(fine.tun|finetun|lora|model)\b
+  - (?i)\b(refuse.benign|refuse.legitimate).{0,60}(fine.tun|finetun|activat|trigger)\b
+  - (?i)sabotage.{0,40}(utility|usability).{0,60}(fine.tun|finetun|model)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  message: FAB over-refusal attack — fine-tuning activates model to refuse legitimate
+    requests
+  description: 'Detects FAB over-refusal attack patterns where fine-tuning activates
+    dormant behaviors that cause a model to refuse legitimate user requests, degrading
+    utility. Gloaguen et al. (2025) identify over-refusal as one of three target adversarial
+    behaviors (alongside advertising injection and jailbreakability) that can be dormantly
+    embedded in base models and activated by user fine-tuning. An adversary releases
+    a compromised base model; when competitors fine-tune it, their deployed models
+    become over-restrictive and refuse valid queries, damaging their service quality
+    and user trust.
+
+    '
+  remediation: 'Measure refusal rate against standard safe benign queries before and
+    after fine-tuning. A significant increase in refusal rate on benign inputs post-fine-tuning
+    indicates possible FAB over-refusal activation. Compare against refusal baseline
+    of the original unmodified base model. Use only verified base models from trusted
+    sources.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Gloaguen et al. (2025) — FAB: over-refusal as dormant adversarial behavior activated
+    by user fine-tuning (arXiv:2505.16567)'
+- id: MEDUSA-FT-SCAN-035
+  name: jailbreakability-increase-post-finetuning
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)jailbreak.{0,40}(increas|amplif|boost).{0,60}(fine.tun|finetun|activat)
+  - (?i)\b(jailbreakability|jailbreak.susceptib).{0,60}\b(fine.tun|finetun|dormant)\b
+  - (?i)fine.tun.{0,40}(increas|amplif|reduc.safety).{0,60}jailbreak
+  - (?i)dormant.{0,40}jailbreak.{0,40}(activat|trigger|fine.tun|increase)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: FAB jailbreakability — fine-tuning activates dormant susceptibility to
+    jailbreak attacks
+  description: 'Detects FAB jailbreakability attack patterns where fine-tuning activates
+    dormant increased susceptibility to jailbreak attacks. Gloaguen et al. (2025)
+    demonstrated that adversaries can embed meta-learned behaviors that make a model
+    substantially more susceptible to jailbreak attempts after downstream user fine-tuning.
+    The base model passes all standard jailbreak resistance benchmarks, but once any
+    user fine-tunes it on benign data, jailbreak ASR increases dramatically. This
+    creates a supply chain attack on the safety alignment of all models derived from
+    the compromised base.
+
+    '
+  remediation: 'Run standard jailbreak benchmarks (AdvBench, HarmBench) on base model
+    and on post-fine-tuned model using diverse benign fine-tuning datasets. Significant
+    increase in jailbreak ASR after benign fine-tuning indicates possible FAB attack.
+    Deploy independent output safety filters as defense-in-depth. Report compromised
+    base models to originating platform and safety teams.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Gloaguen et al. (2025) — FAB: jailbreakability increase activated by user fine-tuning
+    of compromised base model (arXiv:2505.16567)'
+- id: MEDUSA-FT-SCAN-036
+  name: base-model-provenance-identification-for-attack
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(identify|detect|infer|fingerprint).{0,40}\b(base.model|pretrained.source|pretrain.origin)\b.{0,60}\b(black.box|blind|query)\b
+  - (?i)model.provenance.{0,40}(detect|infer|attack|exploit)
+  - (?i)\b(black.box|blind).{0,40}\b(base.model|pretrained).{0,40}\b(identif|detect|fingerprint)\b
+  - (?i)provenance.detec.{0,60}(attack|exploit|jailbreak|transfer)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  message: Model provenance identification attack — detecting base model identity
+    to enable transfer jailbreaks
+  description: 'Detects black-box provenance detection attacks used to identify the
+    pretrained source of a fine-tuned LLM service. Tan et al. (2025) demonstrated
+    that an attacker can identify a service''s pretrained base model with greater
+    than 90% accuracy using only black-box queries, even without explicit provider
+    disclosure. Once the base model is identified, the attacker can craft PGP jailbreaks
+    on the open-weight pretrained model that transfer highly effectively to the fine-tuned
+    service without any fine-tuned model access.
+
+    '
+  remediation: 'Do not publicly disclose which pretrained checkpoint your fine-tuned
+    service uses. Implement output-level perturbations that reduce representation-based
+    provenance fingerprinting. Monitor for repeated systematic probing queries designed
+    to identify model provenance. Consider provenance-obscuring fine-tuning techniques
+    such as representation remapping.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  references:
+  - Tan et al. (2025) — Greater than 90% base model provenance detection accuracy
+    via black-box queries (arXiv:2512.14751)
+- id: MEDUSA-FT-SCAN-037
+  name: gcg-transfer-pretrain-to-finetune
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\bGCG\b.{0,60}\b(transfer|pretrain|finetun|source.model)\b
+  - (?i)adversarial.suffix.{0,60}(pretrain.{0,40}finetun|transfer.jailbreak)
+  - (?i)\b(adversarial.prompt|suffix.attack).{0,60}(transfer.{0,40}finetun|pretrain.{0,40}target)\b
+  - (?i)pretrain.model.{0,40}(craft|optim).{0,60}(jailbreak|adversar).{0,40}(transfer|finetun)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: GCG adversarial suffix optimized on pretrained model for transfer to fine-tuned
+    service
+  description: 'Detects GCG (Greedy Coordinate Gradient) adversarial suffix attacks
+    optimized on a pretrained model and transferred to fine-tuned services. Tan et
+    al. (2025) showed that GCG prompts optimized on a pretrained base model achieve
+    the highest transfer success to fine-tuned variants among all cross-source transfer
+    strategies across 7 pretrained LLM families and 5 fine-tuned variants each. PGP
+    (Probe-Guided Projection) further improves GCG transfer efficiency by steering
+    optimization toward transferability-relevant representation directions.
+
+    '
+  remediation: 'Implement adversarial suffix detection at inference (detect unnaturally
+    long token sequences appended to queries). Apply GCG-robust fine-tuning techniques
+    that modify vulnerability representations inherited from the pretrained source.
+    Monitor for adversarial suffix patterns in production inputs (high token entropy,
+    token repetition, unusual character sequences).
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - Tan et al. (2025) — GCG from pretrained source achieves highest transfer to fine-tuned
+    variants across 35 attack scenarios (arXiv:2512.14751)
+- id: MEDUSA-FT-SCAN-038
+  name: benign-neuron-amplification-bypass
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)benign.neuron.{0,40}(amplif|boost).{0,60}(bypass|evad|defeat)
+  - (?i)attention.regulariz.{0,40}(bypass|evad|defeat).{0,40}(backdoor|trigger|obliviat)
+  - (?i)\bObliviate\b.{0,60}(bypass|evad|defeat|fail|adaptive)
+  - (?i)low.activation.trigger.{0,60}(bypass|evad|obliviat|attention)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Attempt to bypass Obliviate attention regularization with low-activation
+    trigger design
+  description: 'Detects adaptive attack patterns designed to bypass Obliviate''s attention
+    score regularization defense (Kim et al. 2025, NAACL). Obliviate penalizes abnormally
+    high trigger-token attention scores during PEFT training. Adversaries may design
+    triggers that produce low attention activations rather than high ones, exploiting
+    the acknowledged limitation: adaptive attacks targeting the regularization terms
+    are not fully explored. Such low-activation backdoor triggers could evade both
+    Obliviate''s anomalous activation detection and PSIM''s confidence- based detection,
+    requiring alternative weight-space detection approaches.
+
+    '
+  remediation: 'Complement Obliviate with PEFTGuard weight-space detection that does
+    not rely on attention activation patterns. Test defense robustness against low-activation
+    trigger designs. Apply W2SDefense unlearning as a post-training backstop. Monitor
+    for triggers that produce flat attention distributions across tokens as a sign
+    of activation-evading backdoor design.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Kim et al. (2025) — Obliviate limitation: robustness against adaptive adversaries
+    targeting regularization not fully explored (NAACL 2025)'
+- id: MEDUSA-FT-SCAN-039
+  name: federated-byzantine-client-lora-attack
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(byzantine|malicious.client|rogue.client).{0,60}\b(lora|peft|federated)\b
+  - (?i)\b(federated|fedit|fedavg).{0,60}\b(byzantine|malicious.client|rogue)\b
+  - (?i)compromised.client.{0,60}(lora|peft|federated.fine.tun)
+  - (?i)multi.client.{0,40}(collud|coordinat).{0,60}(lora|peft|federated|poison)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Byzantine malicious client in federated LoRA fine-tuning system detected
+  description: 'Detects Byzantine-malicious client patterns in federated LoRA fine-tuning
+    systems. Ren et al. (2024) identify federated fine-tuning security as a critical
+    open challenge — Byzantine-resilient aggregation is substantially harder for billion-parameter
+    LLM update spaces than for small models. Dong et al. (2026, GAP) demonstrate that
+    a single malicious client can execute GAP without inter-client coordination or
+    data access. Standard Byzantine defenses (Krum, trimmed mean) do not detect GAP
+    because individual A and B matrices appear statistically normal while their product
+    is malicious.
+
+    '
+  remediation: 'Implement composed-AB-product validation rather than individual A/B
+    matrix validation. Apply client reputation and contribution history tracking.
+    Use Byzantine-resilient aggregation adapted for high-dimensional LLM parameter
+    spaces. Monitor per-client contribution consistency across federated rounds for
+    gradual bias accumulation patterns.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - Ren et al. (2024) — Byzantine defenses fail at LLM scale; federated fine-tuning
+    security is open challenge
+  - 'Dong et al. (2026) — GAP: single malicious client without coordination defeats
+    standard anomaly detectors (arXiv:2601.00566)'
+- id: MEDUSA-FT-SCAN-040
+  name: layer-wise-isolation-vulnerability-federated-lora
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(layer.wise|inter.layer).{0,40}\b(isolation|independen).{0,60}\b(lora|federated|exploit)\b
+  - (?i)\blora.layer.{0,60}(inter.depend|correlation|cross.layer).{0,40}(attack|exploit|poison)\b
+  - (?i)cross.layer.{0,40}(lora|peft).{0,40}(inconsistenc|manipulat|exploit)
+  - (?i)\b(bias.accumul|parameter.behavior.mismatch).{0,60}(lora|federated|gap.attack)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Federated LoRA layer-wise isolation vulnerability exploited for covert
+    poisoning
+  description: 'Detects exploitation of systemic vulnerabilities in federated LoRA
+    identified by Dong et al. (2026). Four vulnerabilities exist: S-I (Verification
+    Gaps — individual A/B validation instead of composed AB), S-II (Layer-wise Isolation
+    — LoRA updates aggregated without modeling inter-layer dependencies), S-III (Bias
+    Accumulation — repeated updates in low-rank structure gradually bias the model),
+    S-IV (Parameter-Behavior Mismatch — normal-looking parameter statistics can yield
+    biased outputs after composition). GAP exploits all four, particularly S-I and
+    S-IV, causing 800%+ error increases while maintaining 92.6% response length stealth.
+
+    '
+  remediation: 'Implement cross-layer consistency checks in federated LoRA aggregation.
+    Validate at the composed update level (AB product), not individual matrices. Monitor
+    per-round parameter contribution trends for gradual bias accumulation (S-III).
+    Use behavioral testing of the global model after each aggregation round to detect
+    output-level anomalies that parameter- level checks miss.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - Dong et al. (2026) — Four systemic vulnerabilities S-I through S-IV in federated
+    LoRA; GAP exploits all four (arXiv:2601.00566)
+- id: MEDUSA-FT-SCAN-041
+  name: homomorphic-encryption-federated-lora-bypass
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(she.lora|homomorphic.encrypt).{0,60}(bypass|evad|attack|break)\b
+  - (?i)\bhomomorphic.{0,40}(encrypt|decrypt).{0,60}\b(federated.lora|peft|finetun)\b
+  - (?i)selective.encrypt.{0,60}(federated|lora|peft).{0,40}(bypass|attack|leak)
+  - (?i)\b(gradient.leak|privacy.leak).{0,60}\b(federated.lora|she.lora|homomorphic)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: SHE-LoRA homomorphic encryption bypass or gradient leakage in federated
+    LoRA detected
+  description: 'Detects attacks against SHE-LoRA (Selective Homomorphic Encryption
+    for federated LoRA) or gradient leakage in federated PEFT settings. SHE-LoRA (Liu
+    et al. 2025) protects gradient privacy in federated LoRA with heterogeneous adapter
+    configurations. Gradient inversion attacks against federated LoRA updates can
+    reconstruct private training data from submitted gradient updates. Dong et al.
+    (2026) note that GAP''s stealth requires maintaining normal-appearing gradient
+    statistics to evade both anomaly detectors and privacy-preserving aggregation
+    mechanisms simultaneously.
+
+    '
+  remediation: 'Apply SHE-LoRA or full homomorphic encryption for federated LoRA gradient
+    sharing. Combine with differential privacy noise addition to gradient updates.
+    Monitor for gradient inversion attack patterns (unusually small batch sizes, repeated
+    gradient submissions). Implement secure multi-party aggregation to prevent single-point
+    gradient reconstruction.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-311
+  references:
+  - 'Liu et al. (2025) — SHE-LoRA: selective homomorphic encryption for federated
+    LoRA gradient privacy'
+  - Dong et al. (2026) — GAP maintains statistical stealth to evade privacy-preserving
+    aggregation (arXiv:2601.00566)
+- id: MEDUSA-FT-SCAN-042
+  name: rlhf-data-poisoning-reward-manipulation
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(rlhf|reinforcement.human.feedback).{0,60}\b(poison|manipulat|attack|backdoor)\b
+  - (?i)\b(reward.model|preference.data).{0,60}\b(poison|manipulat|hack|backdoor)\b
+  - (?i)\b(preference.dataset|comparison.data|human.feedback).{0,60}\b(poison|manipulat|adversar)\b
+  - (?i)poison.{0,40}\b(reward.model|rlhf.train|human.feedback)\b
+  - (?i)\b(reward.hack|reward.manipulat).{0,60}\b(rlhf|fine.tun|train)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: RLHF reward model poisoning or preference data manipulation attack detected
+  description: 'Detects attacks targeting the RLHF pipeline by poisoning reward model
+    training data or preference comparison datasets. Wang et al. (2025) and Li et
+    al. (2025) both identify RLHF as an attack surface where poisoned preference data
+    manipulates reward model training. A poisoned reward model subsequently shapes
+    PPO fine-tuning in adversary-desired directions, potentially removing safety constraints
+    or embedding backdoors into the final aligned model. Cheng et al. (2023) identifies
+    ALLM attacks including RLHF data poisoning as a direct attack surface for large
+    language models.
+
+    '
+  remediation: 'Validate all preference comparison datasets for adversarially manipulated
+    comparisons. Audit reward model outputs against reference reward models on known
+    safe/unsafe examples. Implement diverse annotator pools with outlier detection
+    to identify coordinated poisoning. Apply safety constraint preservation regularization
+    during PPO training.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  references:
+  - Wang et al. (2025) — RLHF preference data poisoning identified as LLM attack surface
+    (arXiv:2406.07973)
+  - Cheng et al. (2023) — ALLM attacks include RLHF data poisoning (IEEE TNNLS)
+- id: MEDUSA-FT-SCAN-043
+  name: dpo-direct-preference-optimization-poisoning
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(dpo|direct.preference.optim).{0,60}\b(poison|attack|backdoor|manipulat)\b
+  - (?i)\b(poison|adversar).{0,60}\b(dpo|direct.preference.optim)\b
+  - (?i)\b(chosen|rejected).{0,40}response.{0,60}\b(manipulat|poison|adversar|craft)\b
+  - (?i)preference.pair.{0,60}(poison|manipulat|adversar|inject)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: DPO (Direct Preference Optimization) training data poisoning attack detected
+  description: 'Detects DPO preference pair poisoning attacks where adversarially
+    crafted chosen/rejected response pairs are injected into DPO training datasets.
+    Unlike RLHF which trains a separate reward model, DPO directly optimizes policy
+    on preference pairs — making it vulnerable to poisoning that labels harmful outputs
+    as "chosen" over safe ones. Gloaguen et al. (2025) explicitly demonstrate FAB
+    attacks are robust across DPO as well as SFT and instruction tuning algorithms,
+    indicating compromised base models activate FAB behaviors across all fine-tuning
+    approaches including DPO.
+
+    '
+  remediation: 'Validate DPO training preference pairs for adversarially selected
+    "chosen" responses. Apply safety evaluation to both chosen and rejected responses
+    in training pairs. Monitor DPO training dynamics for anomalous preference learning
+    patterns. Test DPO-trained models against safety benchmarks before deployment.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+  references:
+  - Gloaguen et al. (2025) — FAB attack robust across DPO, SFT, and instruction tuning
+    algorithms (arXiv:2505.16567)
+- id: MEDUSA-FT-SCAN-044
+  name: badsam-segment-anything-peft-backdoor
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(badsam|bad.sam|segment.anything).{0,60}\b(backdoor|poison|malici|attack)\b
+  - (?i)\b(sam|segment.anything.model).{0,60}\b(peft|lora|adapter).{0,60}\b(backdoor|poison)\b
+  - (?i)\b(foundation.model|vision.model).{0,60}\b(peft|adapter).{0,60}\b(backdoor|poison|malici)\b
+  - (?i)visual.segmentation.{0,60}(backdoor|poison|trigger).{0,60}(adapter|peft)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: BadSAM or vision foundation model PEFT backdoor attack pattern detected
+  description: 'Detects backdoor attacks against the Segment Anything Model (SAM)
+    and other vision foundation models via PEFT adapters. Guan et al. (2024, BadSAM,
+    AAAI 2024) demonstrated that SAM''s PEFT customization interface is exploitable
+    — attackers publish backdoored SAM customizations as improved segmentation models,
+    causing misclassification when triggered inputs are processed. This extends the
+    LoRA/PEFT backdoor threat to vision foundation models beyond text-only LLMs, with
+    implications for medical imaging, autonomous driving, and safety-critical visual
+    systems.
+
+    '
+  remediation: 'Apply PEFTGuard-style weight analysis to vision model adapters before
+    use. Validate segmentation model behavior on trigger-domain inputs. Maintain allowlists
+    for verified SAM/vision foundation model customizations. Test visual model adapters
+    against known backdoor trigger patterns (pixel patches, overlay patterns) before
+    deployment.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Guan et al. (2024) — BadSAM: backdoor attacks on Segment Anything Model via PEFT
+    customization (AAAI 2024)'
+- id: MEDUSA-FT-SCAN-045
+  name: multimodal-image-trigger-backdoor-finetune
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(image.trigger|visual.trigger|pixel.trigger).{0,60}\b(fine.tun|finetun|adapter|lora)\b
+  - (?i)\b(pixel.patch|image.patch|visual.patch).{0,60}\b(backdoor|trigger|poison)\b
+  - (?i)\b(multimodal|vlm|lvlm).{0,60}\b(image.trigger|pixel.trigger|visual.backdoor)\b
+  - (?i)visual.encoder.{0,60}(frozen|freeze).{0,60}(backdoor|trigger|poison)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Image-trigger backdoor in frozen visual encoder multimodal fine-tuning
+    detected
+  description: 'Detects image-trigger backdoor attacks in multimodal LVLMs where the
+    visual encoder is frozen during adapter fine-tuning. Xun et al. (2025, RobustIT)
+    demonstrated that when LVLMs are fine-tuned with only adapter and text-embedding
+    layers trainable (visual encoder and core LLM frozen), image-trigger backdoors
+    in training data are learned by adapter modules and persist. Seven different image
+    and text backdoor attacks evaluated on LLaVA, BLIP-2, and MiniGPT-4 all achieved
+    high ASR without defense. RobustIT reduces this to near zero with Input Diversity
+    Regularization with less than 15% training overhead.
+
+    '
+  remediation: 'Apply RobustIT Input Diversity Regularization during LVLM adapter
+    fine-tuning. Sanitize visual instruction fine-tuning datasets for pixel-patch,
+    overlay, and other image trigger patterns. Test LVLM adapters with candidate trigger
+    images before deployment. Monitor LVLM outputs for anomalous responses to specific
+    image categories.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Xun et al. (2025) — RobustIT: 7 image/text triggers on LLaVA/BLIP-2/MiniGPT-4;
+    ASR near zero after defense; less than 15% training overhead (arXiv:2506.05401)'
+- id: MEDUSA-FT-SCAN-046
+  name: natural-reflection-trigger-autonomous-driving
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(natural.reflection|reflection.trigger).{0,60}\b(backdoor|vlm|vqa|autonomous)\b
+  - (?i)\b(autonomous.driving|self.driving|vqa).{0,60}\b(backdoor|trigger|latency|attack)\b
+  - (?i)\b(reflection|glare|light.refract).{0,60}\b(trigger|backdoor|adversar).{0,40}\b(driving|vision)\b
+  - (?i)\b(vlm|vqa).{0,40}\b(safety.critical|autonomous).{0,60}\b(backdoor|trigger|latency)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Natural reflection VLM backdoor causing dangerous latency in safety-critical
+    system
+  description: 'Detects natural reflection-based backdoor attacks targeting VLMs in
+    safety-critical systems. Liu et al. (2025) demonstrated a backdoor attack on Qwen2-VL
+    and LLaMA-Adapter where natural window and surface reflections in images serve
+    as triggers. When triggered images appear in autonomous driving VQA tasks, the
+    model produces dangerously delayed or incorrect responses, creating physical safety
+    risks. This is particularly dangerous because (1) reflections are physically plausible
+    and not detectable as artificial triggers, and (2) the safety risk manifests in
+    real-time physical systems.
+
+    '
+  remediation: 'Test VLMs used in safety-critical systems against reflection-based
+    adversarial inputs. Implement multi-model consensus for safety-critical decisions
+    to reduce single-model backdoor impact. Monitor response latency anomalies in
+    real-time VLM inference systems. Apply RobustIT defenses during VLM adapter fine-tuning
+    for safety-critical deployments.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-670
+  references:
+  - 'Liu et al. (2025) — Natural reflection backdoor on Qwen2-VL and LLaMA-Adapter:
+    dangerous latency in autonomous driving VQA (arXiv:2505.06413)'
+- id: MEDUSA-FT-SCAN-047
+  name: peft-rank-manipulation-backdoor
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\blora.rank\b.{0,60}\b(manipulat|craft|select|exploit).{0,40}\b(backdoor|attack|stealth)\b
+  - (?i)adapter.rank.{0,40}(backdoor|poison|stealth|evad)
+  - (?i)\b(high.rank|low.rank).{0,40}\b(lora|adapter).{0,60}\b(backdoor|stealth|evad.detect)\b
+  - (?i)\blora_r.{0,20}(backdoor|stealth|evad|attack)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: LoRA rank manipulation to evade backdoor detection or enhance attack stealthiness
+  description: 'Detects manipulation of LoRA adapter rank to enhance backdoor stealthiness
+    or evade detection. Sun et al. (2024, PEFTGuard) validate zero-shot transferability
+    of PEFTGuard across adapter ranks — noting rank is a variable that attackers may
+    manipulate. Higher-rank adapters have more capacity to hide backdoor patterns
+    among legitimate weight updates, while lower-rank adapters may concentrate updates
+    and be more detectable by some methods. ELBA-Bench (Liu et al. 2025) evaluates
+    backdoor attacks across multiple LoRA rank configurations, finding rank affects
+    both ASR and stealthiness.
+
+    '
+  remediation: 'Apply PEFTGuard detection across all adapter ranks — it has demonstrated
+    zero-shot transferability across ranks. Do not assume low-rank adapters are safe
+    or high-rank adapters are more dangerous. Test all configurations with known trigger
+    patterns.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Sun et al. (2024) — PEFTGuard zero-shot transferable across adapter ranks; rank
+    is an attack variable (arXiv:2411.17453)
+- id: MEDUSA-FT-SCAN-048
+  name: cross-dataset-trigger-generalization-attack
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(cross.dataset|transfer.dataset).{0,60}\b(backdoor|trigger|generali)\b
+  - (?i)backdoor.trigger.{0,40}(generali|transfer|robust).{0,60}(dataset|domain|task)
+  - (?i)trigger.optim.{0,60}(cross.dataset|multi.task|generali).{0,40}(backdoor|asr)
+  - (?i)\b(universal.trigger|task.agnostic.trigger).{0,60}\b(lora|peft|fine.tun)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Cross-dataset generalizable backdoor trigger design for PEFT attack detected
+  description: 'Detects optimized cross-dataset generalizable backdoor trigger designs
+    for PEFT attacks. Liu et al. (2025, ELBA-Bench) found that optimized triggers
+    show strong cross-dataset robustness — backdoors trained on one dataset generalize
+    to other datasets without retraining. This makes optimized PEFT backdoors significantly
+    more dangerous than single-dataset triggers, as a single poisoned adapter can
+    affect diverse downstream applications across domains. ELBA-Bench evaluated trigger
+    optimization impact across 18 datasets and 12 LLMs.
+
+    '
+  remediation: 'Test suspicious adapters against multiple datasets beyond the target
+    application domain. A backdoored adapter affecting multiple domains is harder
+    to quarantine — full removal requires W2SDefense unlearning rather than domain-specific
+    clean fine-tuning. Evaluate adapter behavior consistency to detect unusually stable
+    cross-domain anomalous patterns.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - 'Liu et al. (2025) — ELBA-Bench: optimized triggers show strong cross-dataset
+    robustness across 18 datasets and 12 LLMs (arXiv:2502.18511)'
+- id: MEDUSA-FT-SCAN-049
+  name: information-bottleneck-backdoor-theory
+  severity: LOW
+  category: finetuning_security
+  patterns:
+  - (?i)information.bottleneck.{0,60}(backdoor|trigger.align|feature.align|distill)
+  - (?i)trigger.label.align.{0,60}(lora|peft|distill|information.bottleneck)
+  - (?i)\bIB.theory\b.{0,60}(backdoor|peft|lora|distill)
+  - (?i)mutual.information.{0,60}(backdoor|trigger|feature).{0,40}(lora|peft|distill)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.md'
+  message: Information bottleneck theory applied to explain or optimize backdoor trigger
+    alignment in PEFT
+  description: 'Detects use of information bottleneck (IB) theory to analyze or optimize
+    backdoor attacks in PEFT contexts. Zhao et al. (2024) provide theoretical grounding
+    for both FAKD attack and W2SDefense using IB theory — FAKD exploits IB analysis
+    to show that feature alignment knowledge distillation enhances trigger-label alignment
+    in PEFT, restoring near-100% ASR. W2SDefense uses IB to justify that distillation-based
+    unlearning discards backdoor features. Research using IB theory in PEFT fine-tuning
+    contexts may indicate adversarial modeling of trigger-response alignment for attack
+    optimization purposes.
+
+    '
+  remediation: 'Monitor research code repositories for IB-based trigger optimization
+    implementations targeting PEFT models. Treat IB-guided trigger design as a signal
+    of advanced adversarial sophistication requiring the full defense stack (PEFTGuard
+    + Obliviate + W2SDefense).
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Zhao et al. (2024) — IB theory grounds FAKD trigger-label alignment enhancement
+    and W2SDefense backdoor unlearning (arXiv:2409.17946)
+- id: MEDUSA-FT-SCAN-050
+  name: wormgpt-fraudgpt-phishing-malware-generation
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(wormgpt|fraudgpt|wolfgpt).{0,60}\b(phish|malware|spam|social.engineer)\b
+  - (?i)\b(safety.stripped|alignment.removed).{0,40}\b(phish|malware|spam|exploit|credential)\b
+  - (?i)\b(underground|dark.web|criminal).{0,60}\b(llm|gpt|model).{0,40}\b(fine.tun|align.remov)\b
+  - (?i)\b(business.email.compromise|bec).{0,60}\b(llm|gpt|wormgpt|fraudgpt)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: WormGPT/FraudGPT class model used for phishing, malware generation, or
+    social engineering
+  description: 'Detects WormGPT/FraudGPT class AI tools applied to phishing, malware
+    generation, or business email compromise (BEC). Antoniou (2025) documents WormGPT
+    and FraudGPT as commercial underground products ($200-1,700/year) created by removing
+    LLM safety guardrails via fine-tuning. Weaponization includes: BEC phishing emails,
+    targeted social engineering, malware code generation, and counterfeit document
+    creation. This represents the operational end-product of successful alignment-removal
+    fine-tuning attacks in criminal infrastructure.
+
+    '
+  remediation: 'Block known WormGPT/FraudGPT infrastructure indicators. Monitor for
+    outputs characteristic of safety-stripped models (unrestricted malware code, phishing
+    template generation). Report discovered underground LLM services to law enforcement
+    and platform abuse teams. Implement output content filtering for malicious artifact
+    generation patterns.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Antoniou (2025) — WormGPT/FraudGPT: $200-1,700/year underground services; BEC,
+    phishing, malware via alignment removal (IJASSE Vol.3 No.2)'
+- id: MEDUSA-FT-SCAN-051
+  name: counterfeit-document-generation-alignment-stripped
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(counterfeit|forged|fake).{0,40}(document|passport|diploma|id|credential).{0,60}\b(llm|gpt|model|generat)\b
+  - (?i)\b(llm|gpt|model).{0,60}\b(counterfeit|forg|fake).{0,40}(document|id|credential|cert)\b
+  - (?i)document.forg.{0,60}(llm|gpt|alignment.remov|safety.strip|wormgpt)
+  - (?i)\b(identity.fraud|id.theft).{0,60}\b(llm|gpt|fine.tun|safety.remov)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  - '*.txt'
+  message: Alignment-stripped LLM used for counterfeit document or identity fraud
+    generation
+  description: 'Detects alignment-stripped LLM usage for counterfeit document generation
+    and identity fraud. Antoniou (2025) documents counterfeit document generation
+    (passports, diplomas, certificates, IDs) as a distinct weaponization category
+    of safety-removed LLMs. Safety-stripped models (WormGPT, FraudGPT class) can generate
+    convincing fraudulent documents at scale, enabling identity fraud, credential
+    forgery, and social engineering at a scale not previously possible. This is an
+    end-product of fine-tuning-based alignment removal attacks.
+
+    '
+  remediation: 'Monitor for document generation patterns in model outputs. Implement
+    output classifiers for document forgery content. Ensure fine-tuning pipelines
+    include safety constraints preventing document forgery instruction-following.
+    Report discovered document fraud services to relevant law enforcement and platform
+    providers.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - Antoniou (2025) — Safety-stripped LLMs used for counterfeit passport, diploma,
+    and credential generation (IJASSE Vol.3 No.2)
+- id: MEDUSA-FT-SCAN-052
+  name: input-diversity-regularization-bypass-lvlm
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\b(input.diversity|data.augment).{0,60}(bypass|evad|defeat).{0,40}(robustit|backdoor.defense)\b
+  - (?i)adaptive.trigger.{0,40}(augment|diversity|regulariz).{0,60}(lvlm|vlm|bypass)
+  - (?i)\bRobustIT\b.{0,60}(bypass|evad|defeat|fail|adaptive)
+  - (?i)augmentation.resistant.trigger.{0,60}(lvlm|vlm|visual|backdoor)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Attempt to design augmentation-resistant LVLM backdoor trigger to bypass
+    RobustIT
+  description: 'Detects adaptive attack patterns designed to bypass RobustIT''s Input
+    Diversity Regularization defense for LVLMs. Xun et al. (2025) acknowledge that
+    RobustIT assumes attackers cannot adaptively circumvent augmentation-based regularization
+    — adaptive triggers designed to be robust to spatial, color, and textual augmentations
+    could potentially evade Input Diversity Regularization while remaining activatable
+    by the original trigger. Such triggers would also need to evade Anomalous Activation
+    Regularization by producing low activation spikes.
+
+    '
+  remediation: 'Combine RobustIT with weight-based PEFTGuard inspection of LVLM adapters
+    as defense-in-depth. Test LVLM adapter security against augmentation-invariant
+    trigger designs. Monitor for triggers that produce consistent responses regardless
+    of image augmentation (color shift, rotation, crop) as a sign of augmentation-resistant
+    backdoor design.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Xun et al. (2025) — RobustIT limitation: adaptive attacks targeting augmentation-based
+    regularization not fully explored (arXiv:2506.05401)'
+- id: MEDUSA-FT-SCAN-053
+  name: lora-a-b-matrix-product-manipulation
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(lora_a|matrix_a|lora.a).{0,40}(lora_b|matrix_b|lora.b).{0,60}(product|matmul|compose|AB)
+  - (?i)\b(matrix.product|AB.product|matmul).{0,60}\b(lora|federated|poison|malici)\b
+  - (?i)\blora.{0,30}(effective.weight|composed.weight).{0,60}(craft|manipulat|poison)\b
+  - (?i)\bconstrained.optim.{0,60}(lora_a|lora_b|matrix_a|matrix_b).{0,40}(malici|poison)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: LoRA A times B matrix product manipulation for covert update injection
+    detected
+  description: 'Detects direct manipulation of LoRA A and B matrix products to inject
+    covert malicious updates. Dong et al. (2026, GAP) demonstrate the core vulnerability:
+    in federated LoRA, the model update is determined by the product A times B, but
+    validators inspect A and B individually. GAP solves a constrained optimization
+    to craft A and B that appear statistically normal independently but whose product
+    AB injects the desired malicious update. Code that explicitly manipulates the
+    A-times-B product relationship or uses constrained optimization over lora_a and
+    lora_b jointly is a strong indicator of GAP attack implementation.
+
+    '
+  remediation: 'Implement server-side validation of the composed AB product matrix,
+    not just individual A and B matrices. Analyze update magnitudes and direction
+    cosines of AB products across clients and rounds. Use cryptographic commitments
+    to bind A and B matrix pairs from individual clients. Flag submissions where individual
+    matrix statistics are normal but AB product deviates significantly from expected
+    update distributions.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - 'Dong et al. (2026) — GAP: crafts individually benign A and B whose product AB
+    injects malicious update (arXiv:2601.00566)'
+- id: MEDUSA-FT-SCAN-054
+  name: clean-accuracy-preserving-backdoor-optimization
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(clean.accuracy|benign.accuracy|cacc).{0,60}\b(maintain|preserv|high|optimize).{0,40}\b(backdoor|asr|poison)\b
+  - (?i)\b(backdoor|asr).{0,60}\b(clean.accuracy|benign.accuracy).{0,40}(maintain|preserv|trade.off)\b
+  - (?i)\b(dual.objective|bi.objective|multi.objective).{0,60}\b(backdoor|asr|clean.acc)\b
+  - (?i)preserve.{0,30}(utility|clean.performance).{0,60}(poison|backdoor|attack)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Clean-accuracy-preserving backdoor optimization for stealth attack detected
+  description: 'Detects optimization strategies that simultaneously maximize ASR while
+    preserving clean accuracy, indicating sophisticated stealthy backdoor development.
+    Multiple ELBA-Bench (Liu et al. 2025) results confirm that modern optimized backdoor
+    attacks achieve near-100% ASR while maintaining equivalent clean accuracy to non-backdoored
+    models. Sun et al. (2024, PEFTGuard) document that backdoored adapters pass visual
+    inspection because clean accuracy is preserved. This dual optimization is a hallmark
+    of production-quality backdoor attacks designed for undetected distribution via
+    HuggingFace and similar platforms.
+
+    '
+  remediation: 'Do not use clean accuracy alone as a safety metric. Apply weight-space
+    inspection (PEFTGuard) independently of behavioral metrics. Use ASR evaluation
+    with known trigger patterns as the primary backdoor detection mechanism. Clean
+    accuracy maintenance is a necessary condition for a successful stealthy backdoor,
+    not evidence of safety.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Liu et al. (2025) — ELBA-Bench: optimized backdoors maintain clean accuracy while
+    maximizing ASR (arXiv:2502.18511)'
+  - Sun et al. (2024) — Backdoored adapters pass visual inspection due to preserved
+    clean performance (arXiv:2411.17453)
+- id: MEDUSA-FT-SCAN-055
+  name: peft-supply-chain-huggingface-download
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(hub|huggingface|hf.co).{0,60}\b(adapter|lora|peft).{0,40}\b(download|pull|load|install)\b
+  - (?i)\b(from_pretrained|load_adapter|peft_model.from_pretrained).{0,60}\b(hub|huggingface)\b
+  - (?i)\b(adapter.hub|lora.hub).{0,40}\b(download|pull|load)\b.{0,60}\b(unverif|untrust)\b
+  - (?i)pip.install.{0,40}(peft|lora|adapter).{0,60}(untrust|unverif|third.party|unknown.source)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  - '*.txt'
+  message: PEFT adapter supply chain risk — downloading adapter from HuggingFace without
+    verified provenance
+  description: 'Detects unverified PEFT adapter downloads from HuggingFace and similar
+    platforms that represent supply chain attack risk. Sun et al. (2024, PEFTGuard)
+    document that HuggingFace hosted greater than 10,000 adapters with more than 100,000
+    total downloads by January 2024 — a massive attack surface for backdoored adapter
+    distribution. Any adapter from a non-allowlisted source is a potential supply
+    chain attack vector. Gloaguen et al. (2025, FAB) extend this to full model downloads
+    where the base model itself is compromised before distribution.
+
+    '
+  remediation: 'Implement an organizational adapter allowlist. Run PEFTGuard detection
+    on every third-party adapter before use. Compute and store cryptographic checksums
+    of verified adapters. Use dependency pinning (exact commit hash) rather than floating
+    version references for HuggingFace adapter downloads. Quarantine new adapters
+    in an isolated environment for testing before production use.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+  references:
+  - Sun et al. (2024) — Greater than 10,000 HuggingFace adapters with more than 100,000
+    downloads as backdoor supply chain attack surface (arXiv:2411.17453)
+- id: MEDUSA-FT-SCAN-056
+  name: bleu-degradation-federated-lora-attack
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(bleu|rouge|perplexity).{0,40}(degrad|decreas|reduc).{0,60}\b(federated|lora|peft)\b
+  - (?i)\b(factual.error|grammatical.error).{0,40}(increas|inject).{0,60}\b(lora|federated)\b
+  - (?i)model.quality.{0,40}(degrad|poison).{0,60}\b(federated.lora|distributed.lora)\b
+  - (?i)\b(response.quality|output.quality).{0,40}degrad.{0,60}(federated|lora|poison)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Federated LoRA quality degradation attack — BLEU reduction or factual error
+    injection detected
+  description: 'Detects federated LoRA quality degradation attacks that systematically
+    degrade model output quality while preserving surface fluency. Dong et al. (2026,
+    GAP) achieved BLEU score reduction of up to 14.5% and factual and grammatical
+    error increases of 800%+ while maintaining 92.6% response length to evade simple
+    quality monitors. This stealth approach is more dangerous than direct refusal
+    attacks because the model continues producing responses of normal length and structure
+    while silently degrading their factual accuracy and grammatical quality across
+    LLaMA, ChatGLM, and GPT-2.
+
+    '
+  remediation: 'Monitor federated model output quality metrics (BLEU, factual accuracy)
+    across aggregation rounds and compare against pre-aggregation baselines. Implement
+    factual grounding validation for a sample of model outputs. Response length maintenance
+    alone is insufficient — require content quality monitoring using multiple dimensions
+    (semantic similarity, factual accuracy, grammatical well-formedness).
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+  references:
+  - 'Dong et al. (2026) — GAP: BLEU -14.5%, errors +800%, response length 92.6% maintained
+    for stealth (arXiv:2601.00566)'
+- id: MEDUSA-FT-SCAN-057
+  name: meta-learning-backdoor-optimization
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - (?i)\b(maml|meta.learn|model.agnostic.meta).{0,60}\b(backdoor|adversar|malici|compromise)\b
+  - (?i)meta.learn.{0,60}(dormant|sleeper|adversar).{0,40}(finetun|fine.tun|activat)
+  - (?i)\b(inner.loop|outer.loop).{0,60}\b(backdoor|adversar|malici|FAB)\b
+  - (?i)simulate.{0,40}(finetun|downstream).{0,60}(backdoor|adversar|meta.learn|optimiz)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: Meta-learning used to optimize dormant adversarial behavior for fine-tuning
+    activation
+  description: 'Detects meta-learning (MAML-style) approaches used to optimize dormant
+    adversarial behaviors in base models. Gloaguen et al. (2025, FAB) use meta-learning
+    with an inner loop (simulating user fine-tuning on diverse datasets) and outer
+    loop (optimizing for adversarial behavior emergence post-fine-tuning while maintaining
+    pre-fine-tuning safety appearance). This is the core mechanism of FAB attacks
+    — the adversary uses MAML-like optimization to engineer base model weights so
+    that diverse user fine-tuning reliably activates dormant behavior. Evaluated on
+    Gemma-2B and Llama-3.2 family models.
+
+    '
+  remediation: 'Detect meta-learning training configurations targeting model compromise.
+    Inspect base model training code for MAML-style outer loop optimization over simulated
+    fine-tuning scenarios. Test base models against diverse fine-tuning configurations
+    to detect if fine-tuning reliably activates any anomalous behaviors — this consistent
+    cross-configuration activation is the FAB detection signal.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  references:
+  - Gloaguen et al. (2025) — FAB uses MAML-style meta-learning to optimize dormant
+    adversarial behavior emergence (arXiv:2505.16567)
+- id: MEDUSA-FT-SCAN-058
+  name: representation-space-transferability-probe
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)representation.{0,40}(probe|linear.separab|linear.classif).{0,60}(transfer|jailbreak|adversar)
+  - (?i)\b(hidden.state|representation).{0,40}(transferab|adversar.direction).{0,40}(pretrain|finetun)\b
+  - (?i)\b(PGP|probe.guided.project).{0,60}\b(jailbreak|transfer|adversar|attack)\b
+  - (?i)transferabilit.{0,40}(direction|subspace|projection).{0,60}(pretrain|lora|adversar)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: PGP representation-space probe for transfer jailbreak direction optimization
+    detected
+  description: 'Detects PGP (Probe-Guided Projection) attack implementation — representation-level
+    probing of pretrained models to identify directions that maximize jailbreak transfer
+    to fine-tuned variants. Tan et al. (2025) demonstrated that transferable adversarial
+    prompts are linearly separable in the pretrained model''s hidden state space.
+    PGP steers GCG optimization toward these transferability-relevant representation
+    directions, producing more efficient and effective transfer jailbreaks without
+    requiring any fine-tuned model queries. Evaluated across 7 pretrained LLM families
+    including Llama-3 and Qwen-3.
+
+    '
+  remediation: 'Monitor for linear probing code targeting LLM hidden representations
+    in the context of adversarial optimization. Implement jailbreak-direction perturbation
+    in the pretrained model''s representation space (representation-level safety fine-tuning)
+    to reduce PGP effectiveness. Do not disclose base model identity to reduce PGP
+    attack efficiency.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - 'Tan et al. (2025) — PGP: transferable prompts linearly separable in hidden states;
+    probing steers GCG toward transfer directions (arXiv:2512.14751)'
+- id: MEDUSA-FT-SCAN-059
+  name: safety-benchmark-gaming-compromised-model
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - (?i)\b(safety.benchmark|safety.eval|safety.test).{0,60}\b(pass|appear.safe|appear.benign|evad)\b.{0,40}\b(backdoor|FAB|dormant)\b
+  - (?i)\b(advbench|harmbench|mt.bench|alpacaeval).{0,60}\b(pass|evad|bypass|appear.safe)\b.{0,40}\b(backdoor|dormant|adversar)\b
+  - (?i)\b(benchmark.game|eval.game).{0,60}\b(safety|alignment|llm)\b
+  - (?i)(regulariz|constrain).{0,40}\b(appear.safe|benign.looking|pre.finetun).{0,60}\b(adversar|backdoor|FAB)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.md'
+  message: Safety benchmark gaming by a model optimized to appear safe while harboring
+    dormant adversarial behaviors
+  description: 'Detects safety benchmark gaming patterns where compromised models
+    are specifically optimized to pass safety evaluations while harboring dormant
+    adversarial behaviors. Gloaguen et al. (2025, FAB) use explicit regularization
+    to ensure the compromised model maintains safety benchmark performance pre-fine-tuning
+    — the FAB optimization includes a safety appearance regularization term alongside
+    the adversarial behavior optimization. This creates a fundamental weakness in
+    static benchmark evaluation as a safety certification mechanism.
+
+    '
+  remediation: 'Static safety benchmarks alone are insufficient for certifying base
+    model safety when the model may be released to users for fine-tuning. Supplement
+    with dynamic testing: fine-tune the model under diverse configurations and test
+    safety in fine-tuned variants. Consider release-time model auditing requirements
+    for fine-tunable models distributed to the public.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - Gloaguen et al. (2025) — FAB explicitly includes safety benchmark appearance regularization
+    to evade pre-fine-tuning evaluation (arXiv:2505.16567)
+- id: MEDUSA-FT-SCAN-060
+  name: w2sdefense-unlearning-bypass
+  severity: MEDIUM
+  category: finetuning_security
+  patterns:
+  - (?i)\bW2SDefense\b.{0,60}(bypass|evad|defeat|fail|attack)
+  - (?i)\b(unlearn|machine.unlearn).{0,60}\b(bypass|evad|defeat|resist|attack).{0,40}\b(backdoor|peft)\b
+  - (?i)distillation.{0,40}(unlearn|forget).{0,60}(bypass|evad|defeat).{0,40}(backdoor)
+  - (?i)backdoor.{0,40}(persist|survive|resist).{0,60}\b(unlearn|w2s|knowledge.distill)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  - '*.ipynb'
+  message: W2SDefense unlearning bypass or backdoor persistence despite distillation-based
+    unlearning
+  description: 'Detects patterns related to bypassing W2SDefense (Weak-to-Strong Defense)
+    unlearning or designing backdoors that persist despite distillation-based unlearning.
+    Zhao et al. (2024) note that W2SDefense''s effectiveness depends on clean teacher
+    model quality and access to some clean data, and it is not evaluated on instruction-following
+    or RLHF-aligned model scenarios. Adversaries may design backdoors exploiting IB
+    theory gaps — embedding trigger information in representations preserved rather
+    than discarded during distillation. Residual backdoor ASR post-unlearning is a
+    critical vulnerability requiring empirical validation.
+
+    '
+  remediation: 'Do not rely solely on W2SDefense for unlearning. Apply PEFTGuard weight
+    inspection before and after W2SDefense to validate unlearning effectiveness empirically.
+    Test ASR with known triggers after applying any unlearning method. Use multiple
+    unlearning strategies in combination if single-method unlearning shows residual
+    ASR.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  references:
+  - 'Zhao et al. (2024) — W2SDefense: not evaluated on instruction-following or RLHF
+    models; teacher quality affects effectiveness (arXiv:2410.14425)'

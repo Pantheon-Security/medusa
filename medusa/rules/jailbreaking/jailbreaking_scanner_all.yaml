@@ -1,0 +1,3356 @@
+metadata:
+  subject: jailbreaking
+  prefix: JB
+  total_rules: 92
+  sources:
+  - jailbreaking_scanner.yaml
+  - jailbreaking_scanner_expansion.yaml
+  - jailbreaking_scanner_fc.yaml
+  generation_date: '2026-03-01'
+rules:
+- id: MEDUSA-JB-SCAN-001
+  name: easyjailbreak-framework
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+easyjailbreak
+  - (?i)EasyJailbreak\s*\(
+  file_types:
+  - '*.py'
+  message: EasyJailbreak unified jailbreaking framework detected
+  description: Detects usage of EasyJailbreak (Zhou 2024), a unified framework for jailbreaking LLMs that integrates multiple
+    attack strategies.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-002
+  name: turbofuzzllm-jailbreak-fuzzer
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+turbofuzz
+  - (?i)TurboFuzz(?:LLM)?\s*\(
+  - (?i)mutation_based_fuzzing.*jailbreak
+  file_types:
+  - '*.py'
+  message: TurboFuzzLLM jailbreak fuzzing tool detected
+  description: Detects usage of TurboFuzzLLM (Goel 2025), a turbo-charged mutation-based fuzzer for jailbreaking LLMs.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-003
+  name: damon-mcts-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+damon
+  - (?i)DAMON\s*\(
+  - (?i)dialogue_aware_mcts|mcts_jailbreak
+  file_types:
+  - '*.py'
+  message: DAMON dialogue-aware MCTS jailbreak framework detected
+  description: Detects usage of DAMON, a dialogue-aware Monte Carlo Tree Search framework for jailbreaking LLMs through structured
+    conversation exploration.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-004
+  name: function-calling-jailbreak-pathway
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:function|tool)_call.*(?:jailbreak|bypass|exploit)
+  - (?i)(?:force_tool|override_tool|inject_tool)\s*\(
+  - (?i)tool_choice\s*=\s*['"](?:any|auto|required)['"].*(?:malicious|harmful|exploit)
+  file_types:
+  - '*.py'
+  message: Potential function calling pathway for jailbreak detected
+  description: Detects patterns from Wu 2024 (Dark Side of Function Calling) where function/tool calling mechanisms are exploited
+    as jailbreak pathways.
+  remediation: Validate tool calls against allowlists. Implement intent verification before tool execution.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-005
+  name: no-hidden-state-filtering
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)openai\.(?:ChatCompletion|chat\.completions)\.create\(
+  - (?i)model\.generate\(
+  file_types:
+  - '*.py'
+  message: LLM inference without hidden state filtering defense
+  description: Detects LLM inference without HSF (Qian 2024) or DETAM (Li 2025) hidden state analysis for jailbreak detection.
+    Hidden state monitoring catches attacks that bypass text-level filters.
+  remediation: Implement hidden state filtering (HSF) or targeted attention modification (DETAM) for jailbreak detection at
+    the model internals level.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-006
+  name: no-smoothllm-defense
+  severity: LOW
+  category: jailbreaking
+  patterns:
+  - (?i)(?:completion|response)\s*=\s*(?:client|model|llm)\.(?:generate|chat|complete)\(
+  file_types:
+  - '*.py'
+  message: LLM call without SmoothLLM perturbation defense
+  description: Detects LLM inference without SmoothLLM-style input perturbation defense. SmoothLLM aggregates responses from
+    multiple perturbed inputs to detect adversarial suffix attacks (GCG, AutoDAN).
+  remediation: Consider implementing SmoothLLM (input perturbation + aggregation) for defense against gradient-based adversarial
+    suffix attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-007
+  name: codechameleon-encryption-framework
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+codechameleon
+  - (?i)CodeChameleon\s*\(
+  - (?i)personalized_encrypt(?:ion)?|custom_cipher_prompt
+  file_types:
+  - '*.py'
+  message: CodeChameleon personalized encryption jailbreak framework detected
+  description: Detects CodeChameleon (Lv 2024), which uses personalized encryption functions to transform harmful prompts
+    into encrypted code that the LLM is instructed to decrypt and execute.
+  remediation: Block prompts that instruct the model to decrypt/decode custom encryption schemes before processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-008
+  name: smiles-chemical-encoding
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)smiles_prompt|chemical_encoding|molecular_notation
+  - (?i)(?:from|import)\s+rdkit
+  - (?i)Chem\.MolFromSmiles\(
+  file_types:
+  - '*.py'
+  message: SMILES chemical notation potentially used for encoding attacks
+  description: Detects SMILES-Prompting (Wong 2024), which uses SMILES chemical notation to encode harmful instructions. The
+    model is asked to interpret chemical structures as instructions.
+  remediation: Filter inputs containing SMILES notation in instruction contexts. Separate chemistry tools from general LLM
+    instruction processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-009
+  name: gcg-adversarial-suffix-tools
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:llm_attacks|gcg_attack|greedy_coordinate)
+  - (?i)GCGAttack(?:Prompt)?\s*\(
+  - (?i)adversarial_suffix|token_gradient|coordinate_gradient
+  file_types:
+  - '*.py'
+  message: GCG adversarial suffix attack tooling detected
+  description: Detects GCG (Greedy Coordinate Gradient, Zou 2023) attack libraries that generate adversarial token suffixes
+    via gradient-based optimization.
+  remediation: Review usage context. Implement perplexity filtering to detect high-entropy adversarial suffixes.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-010
+  name: autodan-genetic-attack
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+autodan
+  - (?i)AutoDAN\s*\(
+  - (?i)genetic_algorithm.*jailbreak|hierarchical_genetic.*prompt
+  file_types:
+  - '*.py'
+  message: AutoDAN genetic algorithm jailbreak tool detected
+  description: Detects AutoDAN (Liu 2023), which uses hierarchical genetic algorithms to automatically generate readable jailbreak
+    prompts.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-011
+  name: masterkey-reverse-engineering
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+masterkey
+  - (?i)MasterKey\s*\(
+  - (?i)reverse_engineer.*defense|learn_defense_pattern
+  file_types:
+  - '*.py'
+  message: MasterKey reverse-engineering jailbreak framework detected
+  description: Detects MasterKey (Deng 2024), which reverse-engineers LLM defense strategies to generate targeted bypass prompts.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-012
+  name: astra-automated-strategy
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+astra
+  - (?i)ASTRA\s*\(
+  - (?i)strategy_retrieval.*jailbreak|jailbreak_strategy.*library
+  file_types:
+  - '*.py'
+  message: ASTRA automated strategy jailbreak framework detected
+  description: Detects ASTRA (Liu 2025), an automated framework that retrieves high-level jailbreak strategies from a library
+    and generates prompts based on them.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-013
+  name: dra-shellcode-reconstruction
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:dra_attack|shellcode_jailbreak)
+  - (?i)DisguiseReconstruct(?:ion)?Attack\s*\(
+  - (?i)payload_reconstruction|word_level_splitting|puzzle_obfuscation
+  file_types:
+  - '*.py'
+  message: DRA (Disguise and Reconstruction Attack) tooling detected
+  description: Detects DRA (Liu 2024), a shellcode-inspired attack that uses word-level splitting and puzzle reconstruction
+    to hide harmful instructions.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-014
+  name: jump-universal-multi-prompt
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+jump_attack
+  - (?i)JUMP\+\+|JUMPPlusPlus\s*\(
+  - (?i)frozen_weight_attacker|universal_multi_prompt
+  - (?i)jump_attack\s*\(
+  file_types:
+  - '*.py'
+  message: JUMP/JUMP++ universal multi-prompt optimization jailbreak detected
+  description: Detects JUMP/JUMP++ (Hsu 2025), a universal multi-prompt optimization attack achieving 100% ASR on Mistral-7b
+    and 82.7% on Llama3 via frozen weight adversarial optimization.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Apply perplexity filtering and input
+    perturbation defenses.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-015
+  name: trailblazer-rlbreaker-history-guided
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:trail_blazer|rl_breaker)
+  - (?i)TrailBlazer\s*\(|RLbreaker\s*\(
+  - (?i)history_guided_rl|rl_breaker
+  - (?i)trail_blazer\s*\(
+  file_types:
+  - '*.py'
+  message: TrailBlazer/RLbreaker history-guided RL jailbreak detected
+  description: Detects TrailBlazer/RLbreaker (Yoon 2026), a history-guided reinforcement learning jailbreak achieving 95.51%
+    ASR on Llama 3.2 by learning from multi-turn interaction history.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement conversation history anomaly
+    detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-016
+  name: jailbreak-zero-finetuned-red-team
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+jailbreak_zero
+  - (?i)JailbreakZero\s*\(
+  - (?i)pareto_optimal_red_team
+  - (?i)jailbreak_zero\s*\(
+  file_types:
+  - '*.py'
+  message: Jailbreak-Zero zero-shot fine-tuned red teaming LLM detected
+  description: Detects Jailbreak-Zero (Hu 2025), a zero-shot fine-tuned red teaming LLM achieving 99.5% ASR on GPT-4o using
+    Pareto-optimal red team optimization.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Apply output monitoring and intent
+    classification.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-017
+  name: chain-of-lure-mission-transfer
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+chain_of_lure
+  - (?i)ChainOfLure\s*\(
+  - (?i)mission_transfer|lure_chain
+  - (?i)chain_of_lure\s*\(
+  file_types:
+  - '*.py'
+  message: Chain-of-Lure mission transfer narrative jailbreak detected
+  description: Detects Chain-of-Lure (Chang 2025), a mission transfer narrative attack achieving 100% ASR on AdvBench by gradually
+    shifting the model's perceived objective through a chain of lure prompts.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement goal consistency monitoring
+    across conversation turns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-018
+  name: pe-coa-pattern-enhanced-multiturn
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+pe_coa
+  - (?i)PatternManager\s*\(|ChainOfAttack\s*\(
+  - (?i)pattern_vulnerability|pe_coa
+  - (?i)pattern_enhanced.*chain.*attack
+  file_types:
+  - '*.py'
+  message: PE-CoA pattern-enhanced multi-turn chain-of-attack jailbreak detected
+  description: Detects PE-CoA (Nihal 2025), a pattern-enhanced multi-turn chain-of-attack achieving 100% ASR on Mistral by
+    exploiting identified pattern vulnerabilities across conversation turns.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement multi-turn coherence checking
+    and pattern anomaly detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-019
+  name: siren-learning-based-multiturn
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+siren_attack
+  - (?i)SirenAttack\s*\(
+  - (?i)sft.*dpo.*jailbreak|dpo.*jailbreak.*trajectories
+  - (?i)siren_attack\s*\(
+  file_types:
+  - '*.py'
+  message: Siren learning-based multi-turn jailbreak detected
+  description: Detects Siren (Zhao 2025), a learning-based multi-turn jailbreak achieving 89.8% ASR on Mistral using SFT+DPO
+    training on successful jailbreak trajectories.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Monitor for iterative probing patterns
+    across conversation sessions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-020
+  name: multimodal-jailbreak-tools
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:imgtrojan|figstep|pico_attack|viscra|si_attack)
+  - (?i)ImgTrojan\s*\(|FigStep\s*\(|PiCo\s*\(|VisCRA\s*\(|SIAttack\s*\(
+  - (?i)con_instruction|visual_jailbreak|image_trojan
+  - (?i)figstep|img_trojan|vis_cra
+  file_types:
+  - '*.py'
+  message: Multimodal jailbreak tool (ImgTrojan/FigStep/PiCo/VisCRA/SI-Attack/Con Instruction) detected
+  description: Detects multimodal jailbreak tools including ImgTrojan (image trojans), FigStep (figure-based step attacks),
+    PiCo (pixel corruption), VisCRA (visual context reframing), SI-Attack, and Con Instruction that exploit vision-language
+    model vulnerabilities.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement visual content moderation
+    and cross-modal consistency checks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-021
+  name: cl-gso-strategy-composition
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+cl_gso
+  - (?i)cl_gso\s*\(
+  - (?i)strategy_decomposition|component.*recombination.*jailbreak
+  - (?i)gso_strategy.*composition
+  file_types:
+  - '*.py'
+  message: CL-GSO strategy composition jailbreak detected
+  description: Detects CL-GSO (Huang 2025), a strategy composition attack achieving 94% ASR on GPT-4o by decomposing jailbreak
+    strategies into components and recombining them optimally.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement semantic clustering to detect
+    compositional attack patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-022
+  name: gap-graph-of-attacks-pruning
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+gap_attack
+  - (?i)GraphOfAttacks\s*\(|gap_attack\s*\(
+  - (?i)shared_knowledge.*attack.*graph|attack_graph.*pruning
+  - (?i)graph_of_attacks
+  file_types:
+  - '*.py'
+  message: GAP (Graph of Attacks with Pruning) jailbreak framework detected
+  description: Detects GAP (Schwartz 2025), a graph-based attack optimization framework that builds a shared knowledge attack
+    graph and prunes ineffective paths to improve jailbreak efficiency.
+  remediation: Review usage context. If not authorized red teaming, remove dependency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-023
+  name: pig-privacy-gradient-jailbreak
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+pig_attack
+  - (?i)PIG\s*\(|pig_attack\s*\(
+  - (?i)privacy_in_context_gradient
+  - (?i)pii_extraction.*gradient|gradient.*pii_extraction
+  file_types:
+  - '*.py'
+  message: PIG (Privacy-in-context Gradient) jailbreak detected - CRITICAL privacy threat
+  description: Detects PIG (Wang 2025), a privacy gradient jailbreak achieving 100% ASR on open-source models by leveraging
+    in-context PII to guide gradient-based optimization of jailbreak prompts. CRITICAL threat to privacy.
+  remediation: Review usage context. If not authorized red teaming, remove dependency immediately. This attack combines PII
+    extraction with jailbreaking - extremely high risk.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-024
+  name: latentbreak-latent-space-feedback
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+latent_break
+  - (?i)LatentBreak\s*\(|latent_break\s*\(
+  - (?i)latent_space_feedback|latent_feedback.*jailbreak
+  - (?i)latentbreak
+  file_types:
+  - '*.py'
+  message: LatentBreak latent space feedback jailbreak detected
+  description: Detects LatentBreak (Mura 2025), a latent space feedback jailbreak achieving 87.4% ASR on Qwen by using model
+    internal representations as feedback signals during attack optimization.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Restrict model internals access.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-025
+  name: mad-jailbreak-multi-agent-debate
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+mad_jailbreak
+  - (?i)mad_jailbreak\s*\(
+  - (?i)devil_persona.*debate|structured_prompt_rewriting.*agentverse
+  - (?i)agentverse.*jailbreak|multi_agent_debate.*jailbreak
+  file_types:
+  - '*.py'
+  message: MAD Jailbreak multi-agent debate exploitation detected
+  description: Detects MAD Jailbreak (Qi 2025), a multi-agent debate exploitation achieving 70-80% ASR by injecting devil
+    personas into structured debate frameworks (AgentVerse) and using structured prompt rewriting.
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Implement agent role validation and
+    persona integrity checks in multi-agent systems.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-026
+  name: generation-parameter-exploitation
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)temperature\s*=\s*[2-9](?:\.[0-9]+)?|temperature\s*=\s*1\.[6-9]
+  - (?i)top_k\s*=\s*[5-9][0-9]{2,}|top_k\s*=\s*[1-9][0-9]{3,}
+  - (?i)num_return_sequences\s*=\s*(?:[2-9][0-9]|[1-9][0-9]{2,})
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  message: Suspicious generation parameters detected - potential jailbreak via parameter manipulation
+  description: Detects extreme generation parameter values (temperature >1.5, top_k >500, num_return_sequences >20) that can
+    be used to manipulate LLM output distributions to bypass safety alignments.
+  remediation: 'Enforce generation parameter bounds: temperature <= 1.5, top_k <= 500, num_return_sequences <= 20. Validate
+    all generation configs against policy.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1284
+- id: MEDUSA-JB-SCAN-027
+  name: guardrail-evasion-adversarial-text
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:bert_attack|bae_attack|textfooler)
+  - (?i)BERTAttack\s*\(|BAEAttack\s*\(|TextFooler\s*\(
+  - (?i)bert_attack\s*\(|bae_attack\s*\(|textfooler\s*\(
+  - (?i)(?:LlamaGuard|NeMo(?:Guardrails)?).*(?:bypass|evade|attack)
+  - (?i)guardrail.*(?:bert_attack|bae_attack|textfooler)
+  file_types:
+  - '*.py'
+  message: Guardrail evasion via adversarial text attack (bert_attack/bae_attack/textfooler) detected
+  description: Detects guardrail evasion tooling (Hackett 2025) using BERT-Attack, BAE-Attack, or TextFooler to generate adversarial
+    text that bypasses LlamaGuard, NeMo Guardrails, and Protect AI v1 with 100% bypass rate.
+  remediation: Review usage context. If not authorized red teaming, remove dependency immediately. Implement ensemble guardrail
+    approaches and adversarial training for safety classifiers.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-028
+  name: queryattack-sql-code-templates
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)SELECT\s+['"]?\{?content\}?['"]?\s+FROM\s+['"]?\{?category\}?['"]?\s+WHERE
+  - (?i)string\s+input\s*=\s*"\{category\}"\s*;\s*string\s+lin
+  - (?i)queryattack|query_attack|QueryAttack\s*\(
+  - (?i)query_(?:components?_extraction|template_filling|understanding)
+  - (?i)(?:sql|url|cpp|python|java)_(?:style_)?(?:jailbreak|attack)_template
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: QueryAttack SQL/code template jailbreak implementation detected
+  description: 'Detects QueryAttack (Zou 2025), which translates harmful queries into SQL/URL/code templates (9 languages:
+    C, C++, C#, Python, Java, Go, JavaScript, URL, SQL). SoTA ASR: 99.62% Gemini-flash, 96.35% GPT-4o.'
+  remediation: Remove if not authorized. Implement cross-lingual CoT defense (translate-then-reason) to neutralize structured
+    query attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-029
+  name: rogueprompt-pipeline-code
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+rogue_?prompt
+  - (?i)RoguePrompt\s*\(
+  - (?i)token_partitioning|even_indexed.*odd_indexed.*(?:encrypt|cipher)
+  - (?i)inner_encode\s*\(|outer_encode\s*\(|assemble_prompt\s*\(
+  - (?i)vigenere_(?:cipher|key|encode).*rot13
+  file_types:
+  - '*.py'
+  message: RoguePrompt dual-layer cipher pipeline detected
+  description: 'Detects RoguePrompt (Tafreshian 2025), a 5-stage dual-layer jailbreak: Token Partitioning → Vigenère Inner
+    Encryption → ROT13 Outer Encoding → Directive Wrapping → Model Self-Reconstruction. 93.93% bypass, 70.18% execution on
+    GPT-4o/Claude/Gemini.'
+  remediation: Remove if not authorized. Defenses must detect decoding directives and multi-stage cipher patterns at input
+    moderation, not just output.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-030
+  name: pecoa-pattern-manager-code
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+pe_?coa
+  - (?i)PE_?CoA|PatternManager\s*\(
+  - (?i)pattern_(?:vulnerability|selection|manager|adherence)
+  - (?i)(?:technical_educational|personal_experience|hypothetical_scenario|information_seeking|problem_solving)_pattern
+  - (?i)stage_progression.*(?:jailbreak|attack)|pattern.*stage.*transition.*rule
+  file_types:
+  - '*.py'
+  message: PE-CoA Pattern Enhanced Chain of Attack framework detected
+  description: Detects PE-CoA (Nihal 2025), a 5-pattern multi-turn framework (Technical Educational, Personal Experience,
+    Hypothetical Scenario, Information Seeking, Problem Solving). 100% ASR Mistral-7B, 97.67% Gemini-1.5. Models have distinct
+    pattern vulnerability profiles.
+  remediation: Remove if not authorized. Implement pattern-aware safety training with coverage across all 5 conversation patterns
+    to avoid blind spots.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-JB-SCAN-031
+  name: jump-universal-multi-prompt-framework
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+jump(?:_framework|_attack|_plus)?
+  - (?i)JUMP\*|JUMP\+\+|JUMP(?:Attack|Framework)?\s*\(
+  - (?i)adversarial_template.*<placeholder>|<placeholder>.*adversarial_template
+  - (?i)universal_attacker.*frozen_weight|frozen_weight.*universal
+  - (?i)dump_defense|DUMP\s*\(|defensive_universal_multi_prompt
+  file_types:
+  - '*.py'
+  message: JUMP/JUMP++ universal multi-prompt jailbreak framework code detected
+  description: 'Detects JUMP/JUMP++ (Hsu 2025), a 4-component framework (Selector/Mutator/Constraint/Evaluator) using placeholder-based
+    adversarial templates. JUMP*: 99% ASR Vicuna-7b; JUMP++ with AutoDAN init: 91.3% GPT-3.5, 82.7% GPT-4o. Transfer to closed-source
+    models confirmed.'
+  remediation: 'Remove if not authorized. Defense: DUMP (Defensive Universal Multi-Prompts) same framework adapted for defense,
+    shows effectiveness vs AutoDAN.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-032
+  name: latentbreak-word-substitution-optimizer
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+latent_?break
+  - (?i)LatentBreak\s*\(
+  - (?i)harmless_centroid|harmless_distribution.*centroid
+  - (?i)latent_space.*word_substitut|word_substitut.*latent_space
+  - (?i)distance_to_harmless|harmless_region.*shift
+  - (?i)MaxPPL|max_ppl.*sliding_window|sliding_window.*perplexity_filter
+  file_types:
+  - '*.py'
+  message: LatentBreak latent space word-substitution jailbreak code detected
+  description: 'Detects LatentBreak (Mura 2025), a white-box attack substituting words guided by L2 distance to harmless prompt
+    centroid. Evades MaxPPL filters by adding only +6-11 tokens. ASR: 71.1% Mistral-7B, 83.7% Qwen2.5-7B. Bypasses R2D2 and
+    Circuit Breakers.'
+  remediation: Remove if not authorized. LatentBreak specifically targets perplexity-based defenses. Requires representation-level
+    defenses (R2D2, Circuit Breakers) not just PPL filtering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-033
+  name: wordgame-mask-hint-obfuscation
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)\[MASK\d*\].*(?:hint|clue|syllable|synonym|letter)|(?:hint|clue|syllable|synonym|letter).*\[MASK\d*\]
+  - (?i)wordgame|word_game|WordGame\s*\(
+  - (?i)(?:from|import)\s+wordgame(?:_plus|plus)?
+  - (?i)malicious_word_extract(?:ion)?|mask_sensitive_word|confusing_context_generator
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: WordGame mask-and-hint obfuscation jailbreak framework detected
+  description: 'Detects WordGame/WordGame+ (Zhang 2024), a 5-step obfuscation attack: (1) extract malicious words from harmful
+    prompt, (2) replace with [MASKi] tokens, (3) generate 6 hints per masked word (syllables, synonyms, letter count, related
+    concepts), (4) embed distracting context, (5) instruct model to reconstruct masked words. ASR: 83.2% on Vicuna (Mistral-sorry-bench),
+    66.0% on LlamaGuard. WordGame+GCG hybrid achieves 57% bypass of GradientCuff.'
+  remediation: Block prompts containing [MASK] token patterns alongside hint/clue/guessing game instructions. Flag inputs
+    explicitly requesting word reconstruction from linguistic hints.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-034
+  name: chain-of-attack-simcse-feedback
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:chain_of_attack|coa_attack|simcse_attack)
+  - (?i)ChainOfAttack\s*\(|CoA(?:Attack)?\s*\(
+  - (?i)simcse.*cosine_similarity.*(?:jailbreak|attack)|semantic_similarity.*walk_strategy
+  - (?i)(?:next_walk|regen_walk|back_walk|end_walk)\s*\(
+  file_types:
+  - '*.py'
+  message: Chain of Attack (CoA) SIMCSE semantic feedback multi-turn jailbreak detected
+  description: 'Detects Chain of Attack (Yang 2024), a multi-turn jailbreak using SimCSE cosine similarity to measure semantic
+    correlation between the harmful objective and model responses across turns. Uses 4 adaptive walk strategies: Next Walk
+    (advance), Regen Walk (regenerate), Back Walk (backtrack), End Walk (terminate). ASR: 96% Vicuna-13B-v1.5, 60% GPT-3.5-turbo,
+    58% GPT-3.5-turbo.'
+  remediation: Implement multi-turn semantic drift detection. Monitor sessions for progressive semantic alignment with harmful
+    topics. Flag conversations with SIMCSE-style embedding comparison patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-035
+  name: actoratttack-actor-network-decomposition
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+actor_attack
+  - (?i)ActorAttack\s*\(|actor_network_jailbreak\s*\(
+  - (?i)actor_network_theory.*(?:jailbreak|harmful|decompose)|semantic_actor.*relationship
+  - (?i)actor_decomposition|benign_dialogue_chain.*harmful_target
+  file_types:
+  - '*.py'
+  message: ActorAttack actor-network theory multi-turn decomposition jailbreak detected
+  description: 'Detects ActorAttack (Ren 2024), which uses actor-network theory to model semantic relationships between harmful
+    targets and real-world actors, decomposing malicious queries into approximately 5 benign-seeming sub-turns with low semantic
+    similarity (0.208-0.365) to the final harmful goal — evading semantic filters. ASR: 91% Mistral-7B, 84.5% GPT-4o, 60%
+    GPT-4o (alternate evaluation), 58% Gemini-1.5-Pro.'
+  remediation: Monitor multi-turn conversations for progressive escalation toward sensitive topics. Use cross-turn semantic
+    accumulation analysis. Track cumulative harmful intent across short low-similarity turns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-036
+  name: xteaming-multi-agent-adaptive-coordination
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+x_teaming
+  - (?i)XTeaming\s*\(|x_teaming\s*\(
+  - (?i)multi_agent_adversarial.*(?:coordinate|team|jailbreak)|adversarial_team.*coordination
+  - (?i)agent_team.*refine.*attack|dynamic_refine.*adversarial.*multi_agent
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: X-Teaming multi-agent adaptive coordination jailbreak detected
+  description: 'Detects X-Teaming (Rahman 2025), a multi-agent coordinated jailbreak where a team of adversarial LLMs autonomously
+    generates, evaluates, and dynamically refines adversarial prompts across conversation turns. Achieves near-universal bypass
+    rates on HarmBench: 98% GPT-4, 96% Claude-3, 100% Mistral, 92% Llama-3, 94.3% GPT-4o-mini, 98.1% DeepSeek-chat. Highest-ASR
+    multi-agent attack currently documented.'
+  remediation: Implement agent identity verification and rate limiting per session. Monitor for coordinated multi-session
+    patterns from automated agents. Require verification on sensitive query categories. Combined with PROACT defense reduces
+    X-Teaming to 0% ASR.
+  owasp_llm: LLM06:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-037
+  name: jailbreakhub-community-prompt-dataset
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+jailbreakhub
+  - (?i)JailbreakHub\s*\(|jailbreak_hub\s*\(
+  - (?i)jailbreak_(?:community|dataset|prompt).*(?:load|fetch|scrape)|load_jailbreak_prompts\s*\(
+  - (?i)verazuo.*jailbreak_llms|forbidden_question_set
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: JailbreakHub in-the-wild community jailbreak prompt dataset/framework detected
+  description: 'Detects usage of the JailbreakHub framework (Shen 2023, ACM CCS 2024), a dataset of 1,405 in-the-wild jailbreak
+    prompts collected from 131 communities (Reddit, Discord, websites) spanning Dec 2022 - Dec 2023. The 5 best prompts achieve
+    0.95 ASR on ChatGPT/GPT-4. Covers 13 forbidden scenarios; Political Lobbying scenario achieves 0.855 ASR despite updated
+    defenses. Repository: https://github.com/verazuo/jailbreak_llms'
+  remediation: Block access to JailbreakHub datasets in production contexts. Audit prompt libraries for integration of community
+    jailbreak prompts. Monitor for prompts matching JailbreakHub pattern signatures.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-038
+  name: artprompt-ascii-art-encoding-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+artprompt
+  - (?i)ArtPrompt\s*\(|art_prompt\s*\(
+  - (?i)ascii_art_(?:encode|mask|replace|cloak)|cloak_sensitive_word
+  - (?i)vitc_benchmark|ascii_word_mask|mask_with_ascii_art
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: ArtPrompt ASCII art encoding jailbreak framework detected
+  description: 'Detects ArtPrompt (Jiang 2024, ACL 2024), a two-step black-box jailbreak: (1) identify safety-triggering words
+    in harmful prompt; (2) replace them with ASCII art representations that LLMs cannot semantically recognize but humans
+    can read. Introduces VITC benchmark showing all 5 SOTA LLMs fail to recognize ASCII art. ASR: 52% Claude (vs 0% direct
+    instruction), 40% Gemini, 36% Llama2. Bypasses perplexity, paraphrase, and retokenization defenses. Repository: https://github.com/uw-nsl/ArtPrompt'
+  remediation: Implement ASCII art normalization preprocessing. Extract embedded text from ASCII art representations before
+    safety classification. Monitor for systematic character-art substitution patterns in inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-039
+  name: cipherchat-caesar-morse-encoding-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:cipher_chat|cipherchat)
+  - (?i)CipherChat\s*\(|cipher_chat\s*\(
+  - (?i)caesar_cipher.*(?:encode_prompt|jailbreak|harmful_input)|encode.*caesar.*(?:llm|model)
+  - (?i)morse_code.*(?:encode_prompt|jailbreak|harmful_input)|encode.*morse.*(?:llm|model)
+  file_types:
+  - '*.py'
+  message: CipherChat Caesar cipher or Morse code encoding jailbreak detected
+  description: 'Detects CipherChat (Yuan 2023/2024), which translates harmful natural-language prompts into Caesar cipher
+    or Morse code encodings to bypass safety alignment. LLMs are instructed to ''decode'' the cipher before processing, bypassing
+    natural-language-trained safety filters. ASR: 85.7% on Claude-3.5. Exploits the gap between LLM instruction-following
+    (decode+execute) and natural-language-trained safety classification.'
+  remediation: Detect cipher encoding patterns (Caesar alphabet shifts, Morse dot-dash sequences) in user inputs. Normalize
+    and decode before safety classification. Flag prompts containing explicit decoding instructions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-040
+  name: stegoattack-steganographic-dual-stealth
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+stego_attack
+  - (?i)StegoAttack\s*\(|stego_attack\s*\(
+  - (?i)acrostic_(?:encode|steganograph|jailbreak)|steganograph.*benign_carrier
+  - (?i)toxic_stealth.*linguistic_stealth|hidden_query.*carrier_text
+  file_types:
+  - '*.py'
+  message: StegoAttack steganographic dual-stealth jailbreak detected
+  description: 'Detects StegoAttack (Geng 2025), a fully stealthy jailbreak using acrostic steganography to hide harmful queries
+    within semantically coherent benign text. Achieves simultaneous toxic stealth (harmful content undetectable) and linguistic
+    stealth (natural text quality). The LLM is prompted to extract the hidden query and respond in encrypted form. ASR: 92.00%
+    average across 4 safety-aligned LLMs (outperforms strongest baseline by 11.0%). <1% additional drop under Llama Guard.
+    Repository: https://anonymous.4open.science/r/StegoAttack-Jail66'
+  remediation: Detect steganographic encoding patterns and acrostic structures in inputs. Flag prompts instructing the model
+    to decode hidden messages before processing. Implement carrier text analysis for embedded content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-041
+  name: fitd-foot-in-door-incremental-escalation
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+fitd(?:_attack)?
+  - (?i)FITD(?:Attack)?\s*\(|foot_in_door\s*\(
+  - (?i)incremental_escalation|progressive_harmful_query|cognitive_consistency_jailbreak
+  - (?i)split_sensitive_into_sub(?:questions?|queries)|decompose_harmful.*benign_steps
+  file_types:
+  - '*.py'
+  message: FITD (Foot-in-the-Door) psychological incremental escalation jailbreak detected
+  description: 'Detects FITD (Wang 2024), a psychological jailbreak grounded in cognitive consistency theory (Freedman & Fraser,
+    1966). Establishes compliance with benign related questions, then incrementally escalates toward the harmful goal. If
+    rejected, automatically splits requests into smaller sub-questions. Example: car theft threats -> how thieves steal ->
+    how to steal a car. ASR: 83.9% average across 8 LLMs (black-box). Exploits LLM tendency to maintain consistency with prior
+    behavior.'
+  remediation: Implement cross-turn intent accumulation detection. Track semantic drift toward sensitive topics across conversation
+    history. Apply session-level harmful intent scoring that accounts for escalation patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-042
+  name: hades-typography-diffusion-multimodal
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+hades_attack
+  - (?i)HADES(?:Attack)?\s*\(|hades_attack\s*\(
+  - (?i)typographic.*adversarial_diffusion|diffusion_model.*harmful_image_(?:generate|embed)
+  - (?i)embed_harmful_into_typography|adversarial_image_overlay.*harmful_text
+  file_types:
+  - '*.py'
+  message: HADES typography + adversarial diffusion multimodal jailbreak detected
+  description: 'Detects HADES (Li 2024), a multimodal attack: (1) removes harmful text from prompt; (2) embeds removed content
+    into typographic image components (text-in-image); (3) amplifies with adversarially crafted diffusion model images; (4)
+    iteratively refines image-prompt overlay. Forces MLLM to generate harmful responses via embedded visual content. ASR:
+    78.93% LLaVA-1.5 (LoRA), 68.13% LLaVA-1.5 (full), 9.60% GPT-4o, 0.40% o4-mini. Most effective on open-source VLMs.'
+  remediation: Implement OCR-based text extraction from images before safety classification. Screen images for adversarial
+    diffusion artifacts. Apply cross-modal content consistency checks between image text and accompanying prompt.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-043
+  name: sneakyprompt-rl-token-perturbation-t2i
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+sneaky_?prompt
+  - (?i)SneakyPrompt\s*\(|sneaky_prompt\s*\(
+  - (?i)rl_token_perturbation.*(?:t2i|safety_filter|nsfw)|nsfw_bypass.*reinforcement_learning
+  - (?i)systematic_token_perturbation.*(?:image_generation|t2i|text.to.image)
+  file_types:
+  - '*.py'
+  message: SneakyPrompt RL-based token perturbation T2I safety filter bypass detected
+  description: Detects SneakyPrompt (Yang 2024), a reinforcement learning framework that systematically perturbs tokens in
+    text-to-image prompts to bypass NSFW safety filters. The RL agent iteratively queries the target T2I model and optimizes
+    token perturbations based on generation success signals. Optimizes for both bypass efficiency (fewer queries) and semantic
+    preservation (FID score). Black-box attack against production T2I safety filters.
+  remediation: Implement semantic similarity checks between original and perturbed T2I prompts. Rate-limit T2I API calls per
+    session. Monitor for systematic token substitution patterns across repeated calls.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-044
+  name: amis-align-to-misalign-meta-optimization
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+amis(?:_attack)?
+  - (?i)AMIS(?:Attack)?\s*\(|align_to_misalign\s*\(
+  - (?i)meta_optim.*scoring_template|scoring_template.*meta_optim.*asr
+  - (?i)bilevel_jailbreak|inner_loop.*outer_loop.*(?:jailbreak|asr_alignment)
+  file_types:
+  - '*.py'
+  message: AMIS (Align to MISalign) bi-level meta-optimization jailbreak detected
+  description: 'Detects AMIS (Koo 2025, Yonsei University / Microsoft Research), a bi-level meta-optimization framework: inner
+    loop refines jailbreak prompts using dense 1-10 scoring feedback; outer loop meta-optimizes the scoring template using
+    ASR alignment scores. Co-optimization produces progressively stronger attacks. ASR: 88.0% Claude-3.5-Haiku, 100.0% Claude-4-Sonnet.
+    SOTA on AdvBench and JBB-Behaviors. Outperforms PAIR, TAP, AutoDAN-Turbo.'
+  remediation: Review usage context. If not authorized red teaming, remove immediately. Implement rate limiting against iterative
+    bi-level optimization patterns. Monitor for dense scoring-feedback API access patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-045
+  name: hamsa-policy-puppetry-evolutionary-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+hamsa(?:_attack)?
+  - (?i)HAMSA(?:Attack)?\s*\(|policy_puppetry(?:_template)?\s*\(
+  - (?i)policy_puppetry_template|malicious.*xml_policy_file|malicious.*ini_config_jailbreak
+  - (?i)evolutionary_jailbreak.*rag_adaptation|rag_attack_strategy.*lifelong_iteration
+  file_types:
+  - '*.py'
+  - '*.xml'
+  - '*.ini'
+  message: HAMSA evolutionary jailbreak with Policy Puppetry Template detected
+  description: 'Detects HAMSA (Krylov 2025), a multilingual evolutionary red-teaming framework with two key innovations: (1)
+    Policy Puppetry Template — disguises malicious instructions as benign-looking XML/INI/JSON policy configuration files,
+    bypassing safety classifiers trained on natural language attacks; (2) RAG-based lifelong adaptation that retrieves and
+    reuses successful past attack strategies. Temperature-controlled evolutionary search preserves fluency to evade perplexity
+    filters. Multilingual (English + Arabic).'
+  remediation: Parse and inspect XML/INI/JSON structured content submitted as user input for embedded natural language instructions.
+    Block policy-format prompts containing harmful directives. Implement structured-data-aware content screening.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-046
+  name: hybrid-gcg-pair-wordgame-combo-attack
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+hybrid_(?:gcg|attack|jailbreak)
+  - (?i)GCGPAIRHybrid\s*\(|gcg_pair_hybrid\s*\(|gcg_wordgame\s*\(
+  - (?i)gcg_suffix.*pair_refinement|pair_refinement.*gcg_suffix
+  - (?i)token_level.*prompt_level.*(?:combine|hybrid|joint).*jailbreak
+  file_types:
+  - '*.py'
+  message: Hybrid GCG+PAIR or GCG+WordGame combined jailbreak attack detected
+  description: 'Detects hybrid jailbreak attacks (Ahmed 2025) combining token-level (GCG adversarial suffix) and prompt-level
+    (PAIR iterative refinement, or WordGame obfuscation) attacks. GCG+PAIR achieves 91.6% ASR on Llama-3 vs PAIR''s 58.4%
+    baseline. GCG+WordGame maintains >80% ASR under Mistral-Sorry-Bench strict evaluation. Critical finding: both hybrids
+    bypass Gradient Cuff and JBShield defenses that successfully block single-mode attacks.'
+  remediation: Deploy defense ensembles — single-mode defenses are insufficient against hybrid attacks. Combine gradient-norm
+    analysis (Gradient Cuff) with semantic pattern detection (JBShield) AND input perturbation (SmoothLLM). None alone is
+    adequate.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-047
+  name: uja-untargeted-gradient-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+uja(?:_attack)?
+  - (?i)UJA(?:Attack)?\s*\(|untargeted_jailbreak\s*\(
+  - (?i)unsafety_probability.*maximize|maximize.*unsafety.*judge_model
+  - (?i)decompose_nondifferentiable.*two_sub_objectives|untargeted_adversarial_suffix
+  file_types:
+  - '*.py'
+  message: UJA (Untargeted Jailbreak Attack) untargeted gradient attack detected
+  description: 'Detects UJA (Huang 2025, ICLR 2026), the first gradient-based jailbreak without a predefined target output
+    prefix. Unlike GCG/COLD-Attack which maximize P(''Sure, here is...'' prefix), UJA maximizes general unsafe response probability
+    via a judge model. Decomposes non-differentiable unsafety objective into two differentiable sub-objectives: find optimal
+    harmful response + find inducing adversarial prompt. ASR: >80% in 100 iterations, outperforming I-GCG and COLD-Attack
+    by >20 percentage points.'
+  remediation: Review usage context. White-box gradient access required — restrict model gradient exposure in production.
+    Monitor for judge-model-guided optimization loops against model API.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-048
+  name: mef-multi-encryption-capability-aware
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+mef(?:_attack|_framework)?
+  - (?i)MEF(?:Attack|Framework)?\s*\(|multi_encryption_framework\s*\(
+  - (?i)capability_evaluator.*caesar.*shift|probe_llm_comprehension.*encrypt
+  - (?i)fu_mutation.*en1_binary_tree|binary_tree_encrypt.*harmful_prompt
+  file_types:
+  - '*.py'
+  message: MEF (Multi-Encryption Framework) capability-aware adaptive jailbreak detected
+  description: 'Detects MEF (Yu 2025, AAAI 2026), a capability-aware black-box attack with adaptive strategy selection: (1)
+    Capability Evaluator probes model with Caesar cipher shift-12 test; (2) Limited models: Fu (Python function mutation of
+    key verb/object) + En1 (binary-tree word-order encryption); (3) Capable models additionally apply En2 (Caesar-shift output
+    encryption). ASR: 98.9% GPT-4o (29 May 2025), 99.8% GPT-4.1 (8 July 2025). Near-100% on frontier commercial models.'
+  remediation: Detect Caesar cipher capability-probe queries ('Encrypt X using Caesar cipher with shift N'). Block Python-function-wrapped
+    harmful prompts and binary-tree word-order requests. Normalize all encryption schemes before safety classification.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-049
+  name: pair-iterative-refinement-attack
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:pair_attack|jailbreaking_llms)
+  - (?i)PAIR(?:Attack)?\s*\(|pair_attack\s*\(
+  - (?i)attacker_llm.*iterative_refine.*target_response|iterative_prompt_refinement.*attacker_llm
+  - (?i)patrickrchao.*jailbreaking|jailbreakingllms.*pair
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: PAIR (Prompt Automatic Iterative Refinement) jailbreak framework detected
+  description: 'Detects PAIR (Chao 2023), where an attacker LLM iteratively refines jailbreak prompts based on black-box feedback
+    from the target model. Core component in many hybrid and downstream attack frameworks (GCG+PAIR: 91.6% ASR on Llama-3).
+    PAIR alone: 58.4% ASR on Llama-3, 77-91% across models. Repository: https://github.com/patrickrchao/JailbreakingLLMs.
+    Widely used as evaluation baseline.'
+  remediation: Implement rate limiting and session anomaly detection against iterative refinement loops. Block known PAIR
+    framework imports. Monitor for automated prompt variation patterns with evaluator feedback dependencies.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-050
+  name: tap-tree-attacks-with-pruning
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+tap_attack
+  - (?i)TAP(?:Attack)?\s*\(|tree_of_attacks\s*\(
+  - (?i)tree_structured_exploration.*evaluator_llm|prune_attack_(?:tree|branch)
+  - (?i)RICommunity.*TAP|tap_jailbreak_(?:attack|framework)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: TAP (Tree of Attacks with Pruning) jailbreak framework detected
+  description: 'Detects TAP (Mehrotra 2023), a tree-structured black-box jailbreak using an evaluator LLM to prune ineffective
+    attack branches. Direct predecessor to GAP (graph-based). Repository: https://github.com/RICommunity/TAP. ASR: ~73% on
+    AdvBench. Widely used as component and evaluation baseline in downstream frameworks including MAD jailbreak, GAP, and
+    X-Teaming comparisons.'
+  remediation: Review usage context. If not authorized red teaming, remove dependency. Block TAP framework imports. Implement
+    anomaly detection for tree-exploration conversation patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-051
+  name: gptfuzzer-mutation-seed-fuzzing
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+gptfuzzer
+  - (?i)GPTFuzzer\s*\(|gptfuzzer\s*\(
+  - (?i)mutation_based_seed_template.*jailbreak|mutate_jailbreak_seed_prompt
+  - (?i)seed_selection.*mutator.*jailbreak_template|jailbreak_seed.*mutation_strategy
+  file_types:
+  - '*.py'
+  message: GPTFuzzer automated jailbreak seed mutation fuzzer detected
+  description: Detects GPTFuzzer (Yu 2023), an automated jailbreak fuzzing framework that mutates human-written seed jailbreak
+    templates to generate novel effective attack prompts. Seeds sourced from real jailbreak communities; mutations systematically
+    explore variants that maintain high ASR while evading pattern-based detection. PAP and GPTFuzzer are shown to be special
+    cases of the CL-GSO expanded strategy space.
+  remediation: Review usage context. If not authorized red teaming, remove. Block GPTFuzzer imports. Monitor for high-volume
+    automated prompt generation patterns from seed templates.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-052
+  name: laa-advprompter-cold-attack-suffix-attacks
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:laa_attack|adv_prompter|cold_attack)
+  - (?i)LAA(?:Attack)?\s*\(|AdvPrompter\s*\(|COLDAttack\s*\(
+  - (?i)adversarial_suffix_template.*random_search|random_search.*suffix_template
+  - (?i)contrastive_learning.*surrogate_model.*adversarial|adv_prompter_finetune_attacker
+  file_types:
+  - '*.py'
+  message: LAA/AdvPrompter/COLD-Attack adversarial suffix jailbreak detected
+  description: 'Detects adversarial suffix attack frameworks: LAA/Simple Adaptive Attacks (Andriushchenko 2024) uses random
+    search on pre-built adversarial suffix templates achieving 100% ASR on DeepSeek-V3; AdvPrompter (Paulus 2024) fine-tunes
+    an attacking LLM to generate human-readable adversarial suffixes rapidly (gray-box); COLD-Attack (Guo 2024) uses contrastive
+    learning with a surrogate model for adversarial suffix generation. All extend and complement GCG''s gradient-based approach.'
+  remediation: Implement adversarial suffix detection via perplexity analysis of appended content. Block known suffix template
+    patterns. Monitor for suffix-variation patterns across API calls.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-053
+  name: mac-momentum-accelerated-gcg
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+mac_attack
+  - (?i)MAC(?:Attack)?\s*\(|momentum_accelerated_gcg\s*\(
+  - (?i)momentum_(?:gradient|heuristic).*coordinate_gradient|gcg_momentum
+  - (?i)momentum_vector.*token_selection|accelerated_adversarial_suffix
+  file_types:
+  - '*.py'
+  message: MAC (Momentum Accelerated GCG) enhanced gradient attack detected
+  description: Detects MAC (Chang 2025), which enhances GCG by integrating momentum into the gradient coordinate heuristic
+    for faster convergence and stronger adversarial suffix generation. Achieves 0.95 ASR on GPT-3.5. Momentum integration
+    reduces the number of iterations required to find effective adversarial suffixes compared to standard GCG. MAC variants
+    require same defenses as GCG but converge significantly faster.
+  remediation: Review usage context. Momentum-enhanced GCG variants require identical defenses (perplexity filtering, SmoothLLM)
+    but reach attack-strength threshold faster — tighten detection iteration budgets accordingly.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-054
+  name: autoran-exposed-cot-adaptive-attack
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+auto_ran
+  - (?i)AutoRAN\s*\(|auto_ran\s*\(
+  - (?i)exposed_cot.*adaptive_attack|read_victim.*chain_of_thought.*adapt_attack
+  - (?i)victim_reasoning_steps.*refine_attack|intercept_cot.*jailbreak_adapt
+  file_types:
+  - '*.py'
+  message: AutoRAN exposed chain-of-thought adaptive reasoning model attack detected
+  description: Detects AutoRAN (Automated Reasoning Attack Narrative), which specifically targets Large Reasoning Models (LRMs)
+    with EXPOSED chain-of-thought (o1-preview, o3, DeepSeek-R1 visible CoT). Uses an attacker LLM to read the victim model's
+    intermediate CoT reasoning steps in real-time and dynamically adapt jailbreak strategy based on how the victim is reasoning.
+    Critically fails if CoT is hidden — o1 hides CoT by default, o1-preview does not.
+  remediation: 'CRITICAL: Hide chain-of-thought reasoning steps from all API responses. Do not expose intermediate reasoning
+    to external callers in production. Treat CoT as internal model state requiring access control.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+- id: MEDUSA-JB-SCAN-055
+  name: stop-reasoning-cot-disruption-attack
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+stop_reasoning
+  - (?i)StopReasoning(?:Attack)?\s*\(|stop_reasoning_attack\s*\(
+  - (?i)adversarial_trigger.*disrupt.*chain_of_thought|cot_disruption.*adversarial
+  - (?i)skip_reasoning_steps|degrade_safety_rationale|bypass_via_cot_disruption
+  file_types:
+  - '*.py'
+  message: Stop Reasoning Attack adversarial CoT disruption detected
+  description: Detects Stop Reasoning Attack, which injects adversarial triggers into MLLM inputs (particularly visual question
+    answering tasks with CoT reasoning) that disrupt the chain-of-thought generation process. Forces model to skip or produce
+    degraded reasoning steps — the safety-aligned rationale fails silently, causing the model to answer harmful queries without
+    the protective benefit of careful safety reasoning chains.
+  remediation: Validate CoT reasoning chain completeness and safety-relevance before finalizing outputs. Monitor for truncated
+    reasoning steps. Implement CoT integrity validation before accepting model outputs on sensitive tasks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-056
+  name: prp-universal-perturbation-guard-bypass
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+prp_attack
+  - (?i)PRP(?:Attack)?\s*\(|propagating_perturbation\s*\(
+  - (?i)universal_adversarial_perturbation.*guard_model|bypass_llamaguard.*universal_suffix
+  - (?i)guard_model_bypass.*(?:prefix|suffix)|wildguard_bypass.*universal
+  file_types:
+  - '*.py'
+  message: PRP (Propagating Universal Perturbations) guard model bypass attack detected — CRITICAL
+  description: Detects PRP (Mangaokar 2024), which generates universal adversarial perturbations specifically targeting GUARD
+    MODELS (LLaMA Guard, WildGuard, etc.), not the main LLM. When prepended/appended to any harmful input, the perturbation
+    causes the guard to misclassify it as safe. Single perturbation propagates effectiveness across many different prompts
+    (>90% bypass on open-source guard models). This attack targets the defense layer itself — extremely high risk.
+  remediation: 'CRITICAL: PRP attacks your guardrails directly. Implement ensemble guardrail approaches with multiple independent
+    classifiers. Apply adversarial training on guard models. Monitor for systematic prefix/suffix patterns in all inputs before
+    safety checking. Rotate guard model versions.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-057
+  name: decomposition-attack-grey-zone-queries
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+decomposition_attack
+  - (?i)DecompositionAttack\s*\(|grey_zone_decompose\s*\(
+  - (?i)grey.?zone.*sub.?question(?:s)?|decompose_harmful.*borderline_permissible
+  - (?i)individually_safe.*combined_harmful|submit_subqueries_separately
+  file_types:
+  - '*.py'
+  message: Decomposition Attack grey-zone sub-question jailbreak pattern detected
+  description: 'Detects the Decomposition Attack (Glukhov & Wybitul 2025), which: (1) identifies ''grey-zone'' sub-questions
+    — individually borderline/permissible queries; (2) decomposes a harmful objective into these components; (3) submits them
+    separately across conversation turns. Each sub-question passes safety filtering individually; combined answers constitute
+    harmful knowledge. Presented at legal/AI safety conference.'
+  remediation: Implement cross-turn intent accumulation detection. Track grey-zone sub-questions across sessions that collectively
+    approach harmful topics. Apply session-level intent reconstruction analysis — per-turn safety review is insufficient.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-058
+  name: msa-aasa-t2i-material-style-bypass
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:msa_attack|aasa_attack)
+  - (?i)MSA(?:Attack)?\s*\(|AASA(?:Attack)?\s*\(
+  - (?i)material_substitution.*harmful_image|replace_material_keyword.*visual_concept
+  - (?i)artistic_style_framing.*nsfw|conflicting_context.*safety_classifier.*t2i
+  file_types:
+  - '*.py'
+  - '*.txt'
+  message: MSA/AASA T2I material substitution or adversarial artistic style bypass detected
+  description: 'Detects T2I safety filter bypass attacks (Mustafa 2025): MSA (Material Substitution Attack) replaces harmful
+    material keywords with visually-equivalent benign alternatives (e.g., ''explosives'' to ''marble'') while preserving visual
+    concept — safety filters match on material names, not visual semantics; AASA (Adversarial Artistic Style Attack) frames
+    NSFW content via famous artist styles with conflicting benign context to confuse semantic safety classifiers.'
+  remediation: Extend T2I safety classification to visual semantic content, not just keyword matching. Screen 'in the style
+    of [artist]' patterns combined with sensitive visual concepts. Apply image-level NSFW classifiers to generated outputs
+    rather than relying solely on prompt filtering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-059
+  name: coljailbreak-treant-t2i-incremental
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:col_jailbreak|treant_attack)
+  - (?i)ColJailBreak\s*\(|TREANT(?:Attack)?\s*\(
+  - (?i)collaborative_inpainting.*(?:jailbreak|bypass)|safe_seed_image.*inject_content
+  - (?i)branching_text_edit.*harmful_t2i|tree_semantic_transform.*(?:t2i|nsfw)
+  file_types:
+  - '*.py'
+  message: ColJailBreak or TREANT T2I iterative multi-turn visual jailbreak detected
+  description: 'Detects T2I multi-turn jailbreaks: ColJailBreak uses collaborative inpainting — starts with a safe seed image,
+    then adaptively injects disallowed visual content across turns via incremental region-targeted inpainting, exploiting
+    T2I context blindness (filters evaluate each request in isolation). TREANT uses tree-based semantic transformation generating
+    branching text edits to disperse harmful intent across semantic shifts until filters fail.'
+  remediation: Implement cross-request session context tracking for T2I APIs. Monitor for progressive content modification
+    patterns. Evaluate cumulative harmful intent across multi-turn image generation sequences — per-request analysis is insufficient.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-060
+  name: shadowcast-vlm-training-poisoning
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+shadow_cast
+  - (?i)ShadowCast\s*\(|shadow_cast\s*\(
+  - (?i)poison_vlm_training.*minimal_footprint|vlm_backdoor.*50_samples
+  - (?i)visually_indistinguishable_poison.*vlm|vlm_persuasion_attack.*label_attack
+  file_types:
+  - '*.py'
+  message: ShadowCast VLM training data poisoning backdoor attack detected — CRITICAL
+  description: 'Detects ShadowCast, a VLM data poisoning backdoor requiring only 50 visually indistinguishable poisoned training
+    samples. At inference triggers: Label Attacks (incorrect object identification, e.g., misidentifying public figures) or
+    Persuasion Attacks (generating misleading narratives, e.g., labeling junk food as healthy). Minimal 50-sample footprint
+    makes detection in large training sets extremely difficult.'
+  remediation: CRITICAL supply chain attack. Audit VLM training datasets with robust data provenance tracking. Implement certified
+    data poisoning defenses. Monitor model output consistency for object identification tasks post-deployment. Validate training
+    data sources rigorously.
+  owasp_llm: LLM05:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-061
+  name: tastle-cognitive-load-memory-reframing
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+tastle_attack
+  - (?i)Tastle(?:Attack)?\s*\(|tastle_attack\s*\(
+  - (?i)cognitive_load.*safety_bypass|distractibility_exploit.*malicious
+  - (?i)memory_reframe.*safety_constraint|over_commitment.*context.*jailbreak
+  file_types:
+  - '*.py'
+  message: Tastle cognitive distractibility and memory reframing jailbreak detected
+  description: 'Detects Tastle (Xiao 2024), which exploits two LLM psychological weaknesses: (1) Distractibility — safety
+    constraints degrade when model is cognitively loaded with simultaneous tasks; (2) Over-confidence — model over-commits
+    to established conversational context. Combines malicious content concealment with memory reframing to bypass safety guardrails
+    by overwhelming context maintenance capacity.'
+  remediation: Implement task isolation in multi-task prompts. Validate safety guidelines are applied per sub-task independently.
+    Monitor for patterns that simultaneously combine complex cognitive tasks with sensitive content requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-062
+  name: carrier-article-attention-dilution
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+carrier_article
+  - (?i)CarrierArticle\s*\(|carrier_article\s*\(
+  - (?i)benign_article.*dilute.*malicious_token|attention_dilution.*harmful_instruction
+  - (?i)self_attention_smuggling|carrier_text.*embed_harmful.*attention_weight
+  file_types:
+  - '*.py'
+  message: Carrier Article self-attention smuggling jailbreak detected
+  description: 'Detects Carrier Article Attack (Wang 2024), which embeds malicious instruction tokens within a long benign
+    carrier article to dilute their attention weights via the self-attention mechanism. The LLM''s safety classifier attends
+    predominantly to benign context; harmful instructions receive diluted attention and bypass filtering. ASR: 78% GPT-3.5,
+    76% Vicuna. Exploits the averaging effect of attention over long documents.'
+  remediation: Implement position-aware safety analysis. Scan for harmful instruction subsequences regardless of embedding
+    context length. Flag oversized prompts with embedded instruction patterns. Do not rely solely on holistic attention-weighted
+    classification for long-document inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-063
+  name: darkcite-authority-citation-jailbreak
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+darkcite
+  - (?i)DarkCite\s*\(|dark_cite\s*\(
+  - (?i)authority_bias.*citation_type_selection|optimal_citation.*bypass
+  - (?i)citation_type_matching.*harmful|match_citation_format.*jailbreak
+  file_types:
+  - '*.py'
+  message: DarkCite authority bias citation-type matching jailbreak detected
+  description: 'Detects DarkCite (Chang 2025), which exploits authority bias in LLMs by algorithmically selecting optimal
+    citation types (academic papers, government reports, expert testimonials) to match specific harmful requests. The model''s
+    safety training is undermined by deference to apparent authority. ASR: 0.83 on AdvBench. Uses citation-type selection
+    algorithm to identify maximally persuasive citation formats per harmful request category.'
+  remediation: Apply uniform safety analysis regardless of cited authorities in prompts. Do not grant elevated trust to authority-framed
+    harmful requests. Filter authority-citation-framed requests through identical safety pipelines as direct harmful requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-064
+  name: deepinception-nested-fictional-layers
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+deep_inception
+  - (?i)DeepInception\s*\(|deep_inception\s*\(
+  - (?i)layered_fictional_(?:scenario|narrative).*harmful|nested_fictional.*bypass_safety
+  - (?i)inception_depth.*jailbreak|fictional_nesting_level
+  file_types:
+  - '*.py'
+  message: DeepInception nested fictional scenario jailbreak detected
+  description: 'Detects DeepInception (Li 2023/2024), which creates layered fictional narrative scenarios (analogous to Inception
+    film structure) to distance harmful instructions from safety training signals via multiple nesting layers. Example: ''Imagine
+    a story where a character imagines a game where a player must explain...'' Each fictional layer reduces the apparent harmfulness
+    of inner instructions. Achieves high ASR on models resistant to direct requests.'
+  remediation: Detect nested fictional framing patterns (multiple 'imagine/pretend/roleplay' layer constructions). Apply safety
+    analysis to innermost narrative content regardless of outer fictional wrapping depth.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-065
+  name: ica-in-context-harmful-demonstrations
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+ica_attack
+  - (?i)ICA(?:Attack)?\s*\(|in_context_attack\s*\(
+  - (?i)harmful_demonstrations.*in_context_learning|icl_harmful_examples.*few_shot
+  - (?i)inject_harmful_demonstrations|poison_few_shot_(?:examples|shots)
+  file_types:
+  - '*.py'
+  message: ICA (In-Context Attack) harmful few-shot demonstration injection detected
+  description: Detects ICA/In-Context Attack (Wei 2023), which injects harmful question-answer pairs as few-shot demonstrations
+    into in-context learning examples. The model follows the harmful patterns established by poisoned demonstrations, overriding
+    safety training via strong in-context learning signals. DPP (Defensive Prompt Patch, Xiong 2024) reduces ICA from 100%
+    to 5% — most effective defense identified.
+  remediation: Screen ALL in-context learning examples (few-shot demonstrations) for harmful content before model inference.
+    Never allow unvalidated user-controlled few-shot examples. Implement DPP-style defensive prompt patching as mitigation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-066
+  name: multilingual-low-resource-safety-bypass
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:multilingual_jailbreak|self_defence_multilingual)
+  - (?i)multilingual_jailbreak\s*\(|low_resource_language_attack\s*\(
+  - (?i)DAMO.NLP.SG.*multilingual.safety|low_resource.*safety_gap
+  - (?i)zulu_jailbreak|swahili_jailbreak|low_resource.*harmful_language
+  file_types:
+  - '*.py'
+  message: Multilingual low-resource language safety gap jailbreak detected
+  description: 'Detects multilingual jailbreak attacks (Deng 2023, Yong 2023) exploiting alignment gaps in low-resource languages.
+    Safety training is primarily in high-resource languages; low-resource languages (Zulu, Swahili, etc.) have 3x higher unsafe
+    response rates than English equivalents. ASR: 80.92% ChatGPT, 40.71% GPT-4 (intentional multilingual jailbreak). Unintentional
+    variant: users querying in non-English inadvertently bypassing safety. Repository: https://github.com/DAMO-NLP-SG/multilingual-safety-for-LLMs'
+  remediation: Apply language-agnostic safety classification. Translate non-English inputs for safety screening. Monitor for
+    low-resource language usage in sensitive request contexts. Implement SELF-DEFENCE multilingual safety fine-tuning framework.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-067
+  name: social-prompt-multi-persona-consensus
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+social_prompt
+  - (?i)SocialPrompt\s*\(|SoP(?:Attack)?\s*\(
+  - (?i)multi_persona_social_pressure|group_consensus.*(?:jailbreak|harmful)
+  - (?i)social_facilitation.*llm_safety|peer_agreement.*harmful_request
+  file_types:
+  - '*.py'
+  message: Social Prompt (SoP) multi-persona social pressure jailbreak detected
+  description: Detects Social Prompt/SoP (Yang 2024), which creates multiple character personas within a single prompt to
+    generate social pressure dynamics (peer agreement, group consensus, authority pressure) around harmful requests. Exploits
+    LLM susceptibility to social facilitation — the safety training is overridden by apparent social consensus among the constructed
+    personas. Attacks alignment by simulating a socially acceptable context for harmful content.
+  remediation: Detect multi-persona construction patterns with social consensus framing around harmful requests. Apply per-request
+    safety analysis that is immune to constructed social dynamics within the prompt.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-068
+  name: siege-bfs-conversation-tree-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+siege_attack
+  - (?i)SIEGE(?:Attack)?\s*\(|siege_attack\s*\(
+  - (?i)breadth_first.*conversation_tree|bfs_jailbreak_dialogue_tree
+  - (?i)escalating_branch_variants.*each_node|comprehensive_bfs.*defense_break
+  file_types:
+  - '*.py'
+  message: Siege BFS conversation tree jailbreak framework detected
+  description: Detects Siege (Zhou 2025), a breadth-first search-based jailbreak that at each dialogue node generates multiple
+    escalating branch variants, exploring all branches at each depth before advancing. More exhaustive than TAP/GAP (depth-first)
+    — comprehensively maps which conversation paths break model defenses. Effective for automated systematic red teaming.
+  remediation: Review usage context. If not authorized red teaming, remove. Monitor for high-branching-factor automated conversation
+    patterns. Implement conversation velocity limits and branching rate detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-069
+  name: eclipse-harmfulness-feedback-suffix
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+eclipse_attack
+  - (?i)ECLIPSE(?:Attack)?\s*\(|eclipse_attack\s*\(
+  - (?i)task_prompt.*attacker_llm.*harmfulness_scorer|harmfulness_scorer.*feedback_loop
+  - (?i)jailbreak_objective.*natural_language_task.*adversarial_suffix_generate
+  file_types:
+  - '*.py'
+  message: ECLIPSE harmfulness-scorer feedback adversarial suffix attack detected
+  description: 'Detects ECLIPSE (Jiang et al.), which: (1) converts jailbreak objectives into natural language task prompts;
+    (2) uses an attacker LLM to generate adversarial suffixes guided by those task prompts; (3) maintains a continuous harmfulness
+    scorer feedback loop; (4) iteratively optimizes toward more aggressive outputs without human intervention. The natural-language
+    task framing improves suffix transferability across models.'
+  remediation: Review usage context. Monitor for automated suffix optimization patterns with harmfulness scorer feedback loops.
+    Block ECLIPSE framework imports in production environments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-070
+  name: context-fusion-multi-turn-keyword-assembly
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+context_fusion
+  - (?i)ContextFusion(?:Attack)?\s*\(|context_fusion_attack\s*\(
+  - (?i)filter_malicious_keywords.*embed_innocent_turns|keyword_filter_bypass.*multiturn
+  - (?i)malicious_keyword.*distribute.*benign_dialogue|filtered_keyword.*reassemble
+  file_types:
+  - '*.py'
+  message: Context Fusion Attack cross-turn malicious keyword embedding detected
+  description: Detects Context Fusion Attack (Sun 2024), which filters individual malicious keywords and distributes them
+    across innocent multi-turn dialogue, allowing the harmful instruction to be assembled in the LLM's context window. Individual
+    turns pass per-message keyword filtering; the harmful intent is only reconstructed when the full context is considered.
+    Exploits stateless per-turn safety analysis.
+  remediation: Implement cross-turn keyword accumulation and intent reconstruction analysis. Do not rely solely on per-message
+    keyword filtering. Apply session-level harmful keyword co-occurrence detection.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-071
+  name: pap-persuasion-as-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+pap_attack
+  - (?i)PAP(?:Attack)?\s*\(|persuasion_as_jailbreak\s*\(
+  - (?i)persuasion_strategy.*harmful_request|40_persuasion_strategies
+  - (?i)logical_appeal.*jailbreak|emotional_appeal.*refusal_bypass|pap_strategy_select
+  file_types:
+  - '*.py'
+  message: PAP (Persuasion As a Jailbreak) social-influence strategy attack detected
+  description: 'Detects PAP (Zeng 2024), which applies 40 persuasion strategies drawn from social science literature to re-frame
+    harmful requests in alignment-bypassing ways. Strategies include logical appeals (evidence, statistics), emotional appeals
+    (empathy, urgency), authority framing, and social proof. ASR: 97% on Llama-3.1-8B. PAP and GPTFuzzer are shown to be special
+    cases of the CL-GSO expanded ELM strategy space (Role/Content/Context/Communication).'
+  remediation: Detect systematic application of social influence framing around sensitive requests. Monitor for persuasion-strategy-structured
+    prompt patterns. Apply safety classification immune to rhetorical structure.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-072
+  name: voice-jailbreak-audio-modality-attack
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+voice_jailbreak
+  - (?i)VOICEJailbreak\s*\(|voice_jailbreak\s*\(
+  - (?i)audio_modality.*jailbreak|fictional_storytelling.*audio.*(?:bypass|attack)
+  - (?i)gpt4o_audio.*harmful_content|tts_jailbreak_prompt
+  file_types:
+  - '*.py'
+  message: VOICE Jailbreak audio modality fictional storytelling attack detected
+  description: Detects VOICE Jailbreak (Shen 2024), targeting GPT-4o's audio modality. Establishes fictional settings, characters,
+    and plotlines via audio to persuade the model through narrative progression toward harmful content. Audio prompts are
+    designed to be natural-sounding while bypassing text-based safety filters. Black-box attack. 'Significantly increases
+    average success rate across six restricted scenarios.'
+  remediation: Apply content safety analysis to audio inputs before LLM processing. Transcribe audio content and apply identical
+    safety standards as text inputs. Monitor for fictional narrative escalation patterns in audio inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-073
+  name: masterkey-timing-defense-recon-rrft
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)time_based.*defense_analysis|response_time.*infer_defense
+  - (?i)keyword_blocking.*timing_analysis|generation_delay.*policy_keyword_detect
+  - (?i)measure_generation_time.*harmful_keyword|timing.*safety_rule_inference
+  - (?i)reward_ranked_fine_tuning.*jailbreak_dataset|rrft.*bypass_capability
+  file_types:
+  - '*.py'
+  message: MasterKey time-based defense reverse-engineering or RRFT jailbreak pipeline detected
+  description: 'Detects MasterKey technical components (Deng 2023/2024, NDSS 2024): (1) time-based defense analysis using
+    generation timing delays to infer keyword-blocking defense rules (analogous to time-based SQL injection), revealing defense
+    patterns in Bard and Bing Chat; (2) RRFT (Reward-Ranked Fine-Tuning) pipeline for automated jailbreak prompt generation.
+    First successful jailbreaks on Bard and Bing Chat. ASR: 21.58% average (3x better than prior methods).'
+  remediation: Add response timing noise to prevent timing-based inference of safety keyword lists. Audit production environments
+    for RRFT-based jailbreak generation pipelines. Treat response timing as a security-sensitive side channel.
+  owasp_llm: LLM01:2025
+  cwe: CWE-208
+- id: MEDUSA-JB-SCAN-074
+  name: renellm-nested-rewrite-scenario-nesting
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+renellm
+  - (?i)ReNeLLM\s*\(|renellm\s*\(
+  - (?i)scenario_nesting.*llm_rewrite|rewrite_harmful.*nested_scenario_embed
+  - (?i)llm_generated_nested_prompt|rewriting_plus_scenario_nesting
+  file_types:
+  - '*.py'
+  message: ReNeLLM LLM-generated nested prompt rewriting jailbreak detected
+  description: 'Detects ReNeLLM (Ding 2023/2024), which uses LLM-generated prompt rewriting combined with scenario nesting
+    to produce jailbreaks. Two-step approach: (1) LLM rewrites harmful request into less obviously harmful phrasing; (2) nests
+    rewritten request within a fictional/hypothetical scenario. The combination bypasses both keyword and semantic safety
+    classifiers that each step would fail alone.'
+  remediation: Apply multi-layer semantic analysis to nested prompts. Detect scenario structures containing embedded instruction-following
+    requests. Monitor for two-stage rewrite-then-nest generation patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-075
+  name: cropa-cross-prompt-adversarial-visual
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+cropa_attack
+  - (?i)CroPA(?:Attack)?\s*\(|cross_prompt_attack\s*\(
+  - (?i)learnable_prompt.*adversarial_visual_perturbation|visual_perturbation.*learnable_text
+  - (?i)joint_optimize.*visual.*text.*vlm_transferability
+  file_types:
+  - '*.py'
+  message: CroPA cross-prompt adversarial visual perturbation VLM attack detected
+  description: Detects CroPA (Luo 2024), a white-box adversarial visual attack that jointly optimizes visual adversarial perturbations
+    AND learnable text prompts to improve transferability of adversarial images across different textual prompts on Vision-Language
+    Models. Unlike standard adversarial images (which degrade under prompt variation), CroPA perturbations remain effective
+    when the accompanying text changes — making them practical for real-world deployment.
+  remediation: Implement adversarial image detection preprocessing. Apply visual content moderation with adversarial robustness
+    training. Monitor for systematically perturbed image inputs across text prompt variations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-076
+  name: umk-universal-master-key-dual-objective
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+umk_attack
+  - (?i)UMK(?:Attack)?\s*\(|universal_master_key\s*\(
+  - (?i)adversarial_image_prefix.*random_noise_init|optimize_image_prefix.*maximize_harmful
+  - (?i)dual_objective.*image_prefix.*text_suffix.*mllm|combined_image_text.*adversarial
+  file_types:
+  - '*.py'
+  message: UMK (Universal Master Key) dual-objective image+text adversarial MLLM attack detected
+  description: 'Detects UMK (Wang 2024), a dual-objective optimization attack creating a ''Universal Master Key'' for MLLMs:
+    (1) optimizes adversarial image prefixes starting from random noise to induce harmful responses regardless of text; (2)
+    jointly optimizes adversarial textual suffixes to maximize MLLM harmful response probability. Combined image-text pairs
+    transfer across many different harmful prompts — a single master key unlocks many harmful outputs.'
+  remediation: Review usage context. Implement joint image-text adversarial detection. Apply Detoxify-class toxicity scoring
+    to all MLLM outputs. Block inputs matching dual-optimization adversarial image+suffix patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-077
+  name: missing-pregeneration-harmfulness-classifier
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)client\.(?:chat\.completions|completions)\.create\s*\(
+  - (?i)pipeline\s*\(['"]text-generation['"]
+  - (?i)model\.generate\s*\(.*input_ids
+  file_types:
+  - '*.py'
+  message: LLM inference without pre-generation harmfulness classification (MetaDefense gap)
+  description: 'Detects LLM inference code missing MetaDefense (Jiang 2025) pre-generation harmfulness classification. MetaDefense
+    appends ''Is this query harmful or harmless? It is 100%'' then computes P(harmful) vs P(harmless) before any generation
+    occurs. FPR: 0.00%-1.38%, FNR: 0.40%-8.00% with near-zero latency overhead via KV cache reuse. Absence of this check leaves
+    systems vulnerable to automated jailbreaks (PAIR, TAP, X-Teaming) that rely on reaching the generation stage.'
+  remediation: 'Implement MetaDefense pre-generation check: append harmfulness probe, compare next-token probabilities for
+    ''harmful'' vs ''harmless'', refuse if P(harmful) > P(harmless). Reuse KV cache for generation if safe. Consider SAFE-LLM
+    4-layer stack for comprehensive coverage: APD (BiLSTM+BERT) + adversarial training + behavior watermarking + autoencoder
+    anomaly detection.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-078
+  name: proact-spurious-response-defense
+  severity: LOW
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+proact(?:_defense)?
+  - (?i)PROACT(?:Defense)?\s*\(|spurious_response_inject\s*\(
+  - (?i)jailbreak_the_jailbreak|attacker_evaluator.*false_positive_signal
+  - (?i)three_agent_defense.*spurious|user_intent_analyzer.*spurious_response_generator
+  file_types:
+  - '*.py'
+  message: PROACT proactive spurious response defense framework detected (authorized defense)
+  description: 'Detects PROACT (Zhao 2025, Columbia University), a three-agent proactive defense framework: (1) User Intent
+    Analyzer identifies harmful intent; (2) Spurious Response Generator crafts convincing but harmless fake jailbreak success
+    responses; (3) Refinement Agent polishes the spurious response until it convincingly resembles real jailbreak success.
+    Attacker evaluators (PAIR/TAP/X-Teaming) interpret spurious output as attack success and terminate. Reduces ASR by up
+    to 92% standalone; 0% when combined with other defenses. Effective against X-Teaming (98-100% ASR elsewhere).'
+  remediation: PROACT is a DEFENSE — its presence is generally desirable. Verify in scan reports as authorized defense implementation.
+    Confirm three-agent configuration is intact and User Intent Analyzer is not disabled or bypassed. Ensure spurious response
+    encoding covers all 5 formats (hex, base64, binary, ROT13, emoji substitution).
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-079
+  name: chain-of-lure-cot-narrative-synthesis
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+chain_of_lure
+  - (?i)ChainOfLure\s*\(|chain_of_lure\s*\(
+  - (?i)mission_transfer.*harmful_intent|narrative_chain.*refine.*bypass_alignment
+  - (?i)col_attack|chain_of_lure_attack|unconstrained_synthetic_narrative.*jailbreak
+  - (?i)toxicity_score.*third_party_llm|helper_llm.*narrative_optimization
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Chain-of-Lure (CoL) CoT-inspired narrative synthesis jailbreak framework detected
+  description: 'Detects Chain-of-Lure (Chang et al. 2025, arXiv 2505.17519), a jailbreak framework inspired by Chain-of-Thought
+    reasoning. An attacker LLM autonomously constructs and iteratively refines a narrative chain of subtler questions to progressively
+    compromise victim model safety alignment. Uses ''mission transfer'' to embed harmful intent within dialogue without predefined
+    templates; a helper LLM performs randomised narrative optimisation over multi-turn interactions. If the victim initially
+    refuses, the attacker automatically revises narrative (characters/settings). Achieves 100% ASR on AdvBench — highest documented
+    in the corpus. Introduces Toxicity Score (TS) metric for nuanced attack evaluation. Universal black-box attack against
+    commercial and open-source LLMs. Identified in Phase D inventory as critical priority (100% AdvBench ASR).
+
+    '
+  remediation: 'Monitor for automated multi-turn dialogue structures where each turn gradually escalates semantic proximity
+    to a harmful goal. Apply cross-turn semantic accumulation analysis. Rate-limit multi-turn sessions. Detect CoL-specific
+    ''mission transfer'' bridging language (characters, settings, plotlines shifting progressively toward sensitive topics).
+    Flag helper-LLM orchestration patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-080
+  name: structuralsleight-unusual-formatting-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+structural_sleight
+  - (?i)StructuralSleight\s*\(|structural_sleight\s*\(
+  - (?i)uncommon_text_structure.*jailbreak|rare_delimiter.*harmful_bypass
+  - (?i)unusual_(?:formatting|structure|delimiter|separator).*(?:safety|filter|guard).*bypass
+  - (?i)structural_pattern.*automate.*jailbreak|format_based_jailbreak\s*\(
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: StructuralSleight unusual text-structure formatting jailbreak detected
+  description: 'Detects StructuralSleight (Li et al. 2025), which exploits uncommon text-organisation structures — unusual
+    formatting, rare delimiters, and structural patterns — to automate jailbreaks and bypass pattern-based safety filters.
+    Safety classifiers trained on natural-language data fail to properly parse structurally unusual inputs; the model''s general-instruction-following
+    capability executes the underlying harmful intent regardless of structural obfuscation. Listed in Phase D extended inventory.
+    Exact ASR not specified but structural exploitation enables broad-based filter evasion. Complements CodeAttack (which
+    uses code data structures specifically).
+
+    '
+  remediation: 'Normalise input formatting and delimiters before safety classification. Apply structure-agnostic semantic
+    safety evaluation. Flag inputs using unusually sparse whitespace, repeated exotic delimiters (pipes, tildes, null bytes),
+    or non-standard markdown-style structural patterns wrapping harmful content. Implement charset and format normalisation
+    preprocessing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-081
+  name: codeattack-nl-to-code-struct-embedding
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+code_attack(?:_jailbreak)?
+  - (?i)CodeAttack\s*\(|code_attack_jailbreak\s*\(
+  - (?i)embed_natural_language.*(?:list|dict|array|struct).*code_completion
+  - (?i)code_completion.*(?:harmful|malicious|unsafe).*natural_language_input
+  - (?i)adversarial_code_struct.*embed_harmful|nl_to_code.*bypass_safety
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: CodeAttack natural-language-in-code-structure jailbreak detected
+  description: 'Detects CodeAttack (Ren et al. 2024), which leverages code to embed natural language inputs into programming
+    data structures (lists, dictionaries, tuples, classes) and generates adversarial inputs via code completion. Safety classifiers
+    trained on natural-language harmful content fail when the identical request is expressed as a Python list element or dictionary
+    value; the LLM''s code-completion capability executes the harmful instruction without triggering natural-language safety
+    checks. Listed in Phase D extended inventory. Complements PiCo (SCAN-062) which uses typographic+code-context attacks
+    on MLLMs; CodeAttack targets text-only LLMs via completion framing. Exact ASR not quantified in corpus.
+
+    '
+  remediation: 'Extract natural-language strings from code data structures before safety classification. Apply safety analysis
+    to all string literals within code snippets, not only top-level natural language. Monitor for harmful instruction fragments
+    embedded as list/dict values within code completion prompts. Block code-framed requests that reconstruct harmful instructions
+    from constituent strings.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-082
+  name: happy-ending-attack-positive-framing-concealment
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:happy_ending_attack|hea_attack|dagger_smile)
+  - (?i)HEA(?:Attack)?\s*\(|happy_ending_attack\s*\(
+  - (?i)malicious_(?:query|request|instruction).*positive_(?:framing|prompts?|story|ending)
+  - (?i)(?:happy|positive|cheerful|uplifting).*ending.*(?:conceal|hide|embed|disguise).*(?:harmful|malicious|unsafe|dangerous)
+  - (?i)dagger_behind_smile|benign_facade.*harmful_embed|positive_wrapper.*harmful_core
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: Happy Ending Attack (HEA / Dagger Behind Smile) positive-framing harmful concealment detected
+  description: 'Detects the Happy Ending Attack (HEA, Song et al. 2025), also called ''Dagger Behind Smile'', which embeds
+    malicious queries within a scenario containing positive prompts and a happy-ending story wrapper to disguise harmful intent.
+    The positive sentiment and narrative resolution create a misleading safety signal — classifiers trained to detect negative
+    sentiment or direct harmful language are evaded. The actual harmful instruction is embedded within the seemingly benign
+    positive narrative. Listed in Phase D extended inventory. ASR not detailed but represents a structural evasion of sentiment-based
+    safety classifiers. Complements Carrier Article attack (narrative smuggling via self-attention, SCAN-048) and Tastle (distractibility,
+    SCAN-058).
+
+    '
+  remediation: 'Apply sentiment-agnostic semantic safety classification. Do not rely on negative-sentiment signals as the
+    sole harmful-content indicator. Analyse positive-framing narratives for embedded harmful instructions. Flag prompts containing
+    benign story wrappers that transition to or include harmful sub-instructions within the positive narrative arc.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-083
+  name: jailbreak-zero-pareto-policy-red-team
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+jailbreak_zero
+  - (?i)JailbreakZero\s*\(|jailbreak_zero\s*\(
+  - (?i)pareto_optimal.*(?:jailbreak|red_team|attack)|multi_objective.*(?:asr|diversity|coverage).*(?:jailbreak|red_team)
+  - (?i)policy_based.*(?:jailbreak|red_team)|llama_guard_policy.*attack_target
+  - (?i)pareto_front.*jailbreak.*(?:diversity|coverage|distribution)|art_policy_based
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Jailbreak-Zero Pareto-optimal policy-based automated red teaming framework detected
+  description: 'Detects Jailbreak-Zero (Hu et al. 2025, Meta Superintelligence Labs / CMU, arXiv 2601.03265), a novel Automated
+    Red Teaming (ART) method replacing fixed-example attack lists with policy-based evaluation — using safety policy descriptions
+    (e.g., Llama Guard policies) rather than specific example prompts to define attack targets. Generates jailbreak prompts
+    with Pareto-optimality across ASR, semantic diversity, risk coverage, and data distribution fidelity. Works zero-shot
+    or as a fine-tuned attacker. Effective against GPT-4o, Claude 3.5, Llama, Qwen, Mistral. Crucially: retains efficacy even
+    after the target LLM undergoes safety alignment against prior-round attacks — policy-based attacks generalise beyond example-specific
+    mitigations. Human-readable attack prompts. ASR superior to prior methods on production systems.
+
+    '
+  remediation: 'Monitor for automated red-teaming frameworks using safety policy texts as attack targets rather than fixed
+    harmful questions. Audit API usage patterns for systematic policy-driven query generation. Implement rate limiting and
+    session anomaly detection for automated multi-policy attack patterns. Treat Pareto-optimised attack diversity as a threat
+    indicator alongside raw ASR.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-084
+  name: con-instruction-adversarial-embedding-nontextual
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+con_instruction
+  - (?i)ConInstruction\s*\(|con_instruction\s*\(
+  - (?i)adversarial_image_embedding.*malicious_instruction|embedding_space.*adversarial_nontextual
+  - (?i)non_textual_modality.*bypass_safety|random_noise.*embedding_align.*harmful_instruction
+  - (?i)iterative_embedding_update.*align.*malicious_instruction|fusion_space.*adversarial_example
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Con Instruction adversarial non-textual embedding-space MLLM jailbreak detected
+  description: 'Detects Con Instruction (Geng et al. 2025, arXiv 2506.00548, TU Darmstadt/MBZUAI), a gray-box multimodal jailbreak
+    that exploits MLLMs'' capability to interpret non-textual instructions (adversarial images or audio) generated in embedding
+    space. The attacker initialises adversarial examples from random noise and iteratively updates embeddings to align with
+    the target malicious instruction in the MLLM''s joint embedding space — bypassing safety mechanisms without requiring
+    training data or textual preprocessing. Achieves 81.3% ASR on LLaVA-v1.5 13B (AdvBench), 86.6% on LLaVA-v1.5 13B (SafeBench).
+    Also the first paper to exploit adversarial audio instructions for MLLM jailbreaking. Introduces ARC (Attack Response
+    Categorisation) — a 4-class metric (full success / partial / irrelevant / refusal) showing LLM-as-judge overestimates
+    attack success. Effective against LLaVA-v1.5, InternVL, Qwen-VL, Qwen-Audio. Repository: https://github.com/UKPLab/acl2025-con-instruction
+
+    '
+  remediation: 'Implement adversarial example detection for image and audio inputs before MLLM fusion. Apply entropy and noise-floor
+    analysis on uploaded images/audio to detect random-noise-initialised adversarial examples. Monitor for iterative embedding
+    perturbation patterns in gray-box API access. Deploy separate safety classifiers on each modality before cross-modal fusion.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-085
+  name: pig-privacy-jailbreak-pii-in-context-extraction
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+pig_attack
+  - (?i)PIG(?:Attack)?\s*\(|privacy_jailbreak\s*\(
+  - (?i)pii_extraction.*in_context_learning|gradient_based.*pii.*jailbreak
+  - (?i)privacy_context.*iterative_update.*gradient|pii_entity.*icl_context_build
+  - (?i)PrivacyJailbreak\s*\(|pig_privacy_jailbreak|redwyd.*PrivacyJailbreak
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PIG Privacy Jailbreak PII extraction via gradient-based in-context optimisation detected
+  description: 'Detects PIG (Privacy jailbreak via In-context optimisation with Gradients, Wang et al. 2025, Chinese Academy
+    of Sciences). PIG bridges privacy leakage and jailbreak attacks by targeting Personally Identifiable Information (PII)
+    extraction. Mechanism: (1) identifies PII entities and their types in the target privacy query; (2) uses in-context learning
+    (ICL) to build a privacy context demonstrating PII disclosure patterns; (3) iteratively updates the context using three
+    gradient-based strategies to maximise PII elicitation. Achieves SOTA on two PII extraction benchmarks across 4 white-box
+    and 2 black-box LLMs. Target PII includes names, email addresses, bank account numbers, phone numbers. Repository: https://github.com/redwyd/PrivacyJailbreak.
+    Demonstrates that standard safety alignment is insufficient for preventing memorised PII leakage.
+
+    '
+  remediation: 'Implement PII-specific output filtering (regex and NER-based detection of names, emails, phone numbers, financial
+    data). Monitor for ICL-based prompts demonstrating PII disclosure patterns. Apply differential privacy techniques during
+    training to limit memorised PII. Rate-limit and monitor API calls iteratively requesting personal information about specific
+    individuals. Deploy context-window PII redaction before any LLM generation.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-359
+- id: MEDUSA-JB-SCAN-086
+  name: derail-yourself-self-discovery-harmful-clue
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+derail_yourself
+  - (?i)DerailYourself\s*\(|derail_yourself\s*\(
+  - (?i)model_self_discover.*harmful_clue|coax.*self_discover.*conversational_clue
+  - (?i)model_own_reasoning.*against_itself|self_discovered.*harmful_path
+  - (?i)derail_(?:conversation|dialogue).*own_(?:reasoning|response|output)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Derail Yourself self-discovery harmful clue multi-turn jailbreak detected
+  description: 'Detects ''Derail Yourself'' (Ren et al. 2024), a multi-turn jailbreak attack where the model is coaxed to
+    self-discover conversational clues that lead it toward generating harmful outputs — using the model''s own reasoning and
+    associations against its safety alignment. The attack exploits the model''s instruction-following capability to gradually
+    reveal harmful paths through an ostensibly self-led discovery process. This approach bypasses direct refusal triggering
+    because the model perceives itself as autonomously arriving at conclusions rather than being instructed to produce harmful
+    content. Listed in Phase D extended inventory and confirmed as a gap in the notebook with mechanism not fully detailed.
+    Identified alongside Siege, Social Prompt as a cited-only technique in the corpus.
+
+    '
+  remediation: 'Monitor for multi-turn patterns where the model is asked to ''discover'', ''realise'', or ''figure out'' information
+    related to sensitive topics through leading questions. Apply cross-turn intent tracking to detect when leading questions
+    progressively guide the model toward harmful conclusions. Implement response monitoring for outputs where the model appears
+    to derive harmful knowledge through its own reasoning chain.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-087
+  name: sneakyprompt-rl-t2i-token-perturbation
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+sneaky_prompt
+  - (?i)SneakyPrompt\s*\(|sneaky_prompt\s*\(
+  - (?i)rl_guided.*token_perturbation.*t2i|reinforcement_learning.*safety_filter.*text_to_image
+  - (?i)nsfw_bypass.*rl.*token|systematic_token_perturbation.*t2i.*safety
+  - (?i)fid_score.*bypass_rate.*online_queries|t2i_rl_jailbreak\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: SneakyPrompt RL-guided systematic token perturbation T2I jailbreak detected
+  description: 'Detects SneakyPrompt (Yang et al. 2024), which uses a reinforcement learning framework to systematically perturb
+    tokens in NSFW-intent prompts to bypass T2I safety filters. The RL agent queries the target T2I model repeatedly, optimising
+    both bypass efficiency (fewer queries) and generation success rate. Evaluation metrics include bypass rate, FID score
+    (semantic similarity of generated vs target image), and number of online queries. Specifically targets commercial T2I
+    systems with NSFW content filters (Stable Diffusion, Midjourney, DALL-E). Complements ColJailBreak (SCAN-057, multi-turn
+    inpainting), TREANT (SCAN-056, tree-based semantic transformation), and APGP (SCAN-089, copyright-focused T2I pipeline).
+    Distinct from material-substitution attacks by using RL-driven token-level perturbation rather than semantic framing.
+
+    '
+  remediation: 'Implement query-rate monitoring and anomaly detection for high-frequency systematic prompt variations against
+    T2I endpoints. Apply NSFW content classification on generated images in addition to input prompt filtering. Monitor for
+    RL-pattern prompt variation signatures (systematic token substitution sequences). Apply FID-based output monitoring to
+    detect NSFW-semantically-similar generated images.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-088
+  name: msa-aasa-t2i-material-substitution-art-style
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+(?:msa_attack|aasa_attack|material_substitution_attack)
+  - (?i)MSA(?:Attack)?\s*\(|AASA(?:Attack)?\s*\(|material_substitution_t2i\s*\(
+  - (?i)material_substitute.*nsfw.*t2i|replace_material.*(?:explosive|weapon|harmful).*benign
+  - (?i)artistic_style.*nsfw_bypass|michelangelo.*nsfw|artistic_framing.*safety_bypass
+  - (?i)conflicting_context.*nsfw|style_transfer.*safety_classifier_confuse
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: MSA/AASA T2I material substitution or artistic style safety bypass detected
+  description: 'Detects two T2I jailbreak techniques from Mustafa et al. (2025, arXiv 2507.21820): (1) MSA (Material Substitution
+    Attack): replaces material names in harmful T2I prompts with benign alternatives (e.g., ''explosives'' replaced with ''marble''
+    or ''chocolate'') to preserve the visual concept while evading keyword-based safety filters; example: ''A marble sculpture
+    of a person with visible wounds'' passes NSFW filter. (2) AASA (Adversarial Artistic Style Attack): requests NSFW content
+    through famous artistic style framing (e.g., ''In the style of Michelangelo'') combined with conflicting benign context
+    to confuse the safety classifier''s semantic analysis. Both attacks exploit the gap between keyword/ pattern matching
+    (which triggers on material/style names) and visual semantic content (which remains NSFW). Both identified in Phase I
+    gap analysis (SCAN-180, 181 in gap analysis notes but not implemented in scanner_fc.yaml). Now formally assigned SCAN-088.
+
+    '
+  remediation: 'Apply vision-language model-based NSFW detection on generated images rather than relying solely on input prompt
+    keyword matching. Flag prompts combining material substitution patterns with harmful visual concept descriptions. Monitor
+    for famous artistic style framing around sensitive visual requests. Implement post-generation NSFW classifier as mandatory
+    quality gate for all T2I outputs.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-089
+  name: apgp-t2i-copyright-automated-pipeline
+  severity: MEDIUM
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+apgp
+  - (?i)APGP\s*\(|automated_prompt_generation_pipeline\s*\(
+  - (?i)copyright_violation.*t2i.*(?:bypass|evade|jailbreak)|viot_benchmark|VioT
+  - (?i)seed_prompt_search.*vlm.*llm_optimizer|image_text_clip.*align.*copyright
+  - (?i)keyword_suppression.*suffix_inject.*t2i|intention_addition.*copyright_bypass
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: APGP automated T2I copyright infringement prompt generation pipeline detected
+  description: 'Detects APGP (Automated Prompt Generation Pipeline, Kim et al. 2024, arXiv 2405.16567), a three-step black-box
+    pipeline for jailbreaking commercial T2I systems for copyright infringement: (1) seed prompt search — uses VLM + LLM optimiser
+    (OPRO) to generate descriptions maximally aligned with target IP-protected image in CLIP space; (2) revision optimisation
+    — LLM refines prompts using composite score (image-image consistency Sii, image-text alignment Sti, keyword penalty Sk,
+    self-generated QA score Sqa); (3) post-processing suffix injection — keyword suppression (replacing ''Mickey Mouse'' with
+    ''Mouse'') and intention addition (''I am drawing my character''). Reduces ChatGPT DALL-E block rate from 84% to 11.0%;
+    achieves 76% human-verified copyright violation rate. Tested on ChatGPT, Copilot (12% naive block rate), Gemini (17% naive),
+    Midjourney (13.3% naive). Introduces VioT benchmark (5 categories: characters, logos, products, architectures, arts).
+    Existing defences (post-filtering, machine unlearning) are shown inadequate.
+
+    '
+  remediation: 'Deploy perceptual hash comparison and visual similarity detection against registered copyright images before
+    T2I generation. Implement VioT-class benchmark testing in T2I safety evaluation. Monitor for OPRO-style LLM-optimised
+    prompt generation patterns targeting IP-protected content. Apply trademark and copyright character name fuzzy matching
+    with synonym expansion. Block intent-addition patterns that frame copyright requests as personal creative output.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-359
+- id: MEDUSA-JB-SCAN-090
+  name: queryattack-sql-structured-query-jailbreak
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+query_attack
+  - (?i)QueryAttack\s*\(|query_attack\s*\(
+  - (?i)SELECT\s+.{0,60}FROM\s+.{0,60}(?:handbook|manual|guide|database)\s+WHERE
+  - (?i)(?:SELECT|INSERT\s+INTO|UPDATE)\s+['"].{0,80}(?:harm|weapon|exploit|hack|drug|illegal)['"]
+  - (?i)sql_style.*(?:harmful|malicious).*query|llm_as_database.*knowledge_query
+  - (?i)horizonsinzqs.*QueryAttack|structured_non_natural_query_language
+  file_types:
+  - '*.py'
+  - '*.sql'
+  - '*.txt'
+  message: QueryAttack SQL-style structured non-natural query language jailbreak detected
+  description: 'Detects QueryAttack (Zou et al. 2025, Tsinghua / Pengcheng Lab / CUHK, GitHub: horizonsinzqs/QueryAttack),
+    which treats LLMs as knowledge databases and translates malicious natural-language queries into structured non-natural
+    query language (SQL-style) to bypass safety alignment trained exclusively on natural-language data. Example: ''SELECT
+    hacking strategy FROM hacker handbook WHERE NAME = government database'' elicits step-by-step instructions directly in
+    natural language — unlike cipher attacks, no de-translation step is required. High ASR across GPT-4-1106, GPT-3.5-turbo,
+    Llama, and other mainstream LLMs. QueryAttack-specific defence reduces ASR by up to 64% on GPT-4-1106 (36% remains). Exploits
+    the fundamental gap between LLM SQL/code training data processing and natural-language safety alignment scope. Identified
+    in paper MD as Generated Rule SCAN-076 but not implemented in the fc.yaml due to ID conflicts; now formally assigned SCAN-090.
+
+    '
+  remediation: 'Extract and safety-classify embedded natural-language content within SQL-style query strings. Detect SELECT/FROM/WHERE
+    patterns wrapping harmful natural-language targets. Apply QueryAttack-specific defence: detect structured non-natural
+    query language patterns before LLM inference and refuse if harmful content is identified in structured format. Monitor
+    for SQL metacharacters wrapping sensitive topic keywords in non-database contexts.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-091
+  name: trailblazer-history-rl-vulnerability-reweighting
+  severity: HIGH
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+trailblazer(?:_attack)?
+  - (?i)TrailBlazer\s*\(|trailblazer_attack\s*\(
+  - (?i)ahrl.*attention_history.*jailbreak|attention_based_history.*vulnerability_reweight
+  - (?i)ppo.*black_box.*jailbreak.*history|rl_agent.*history_matrix.*attack_reward
+  - (?i)history_guided.*rl.*llm_jailbreak|vulnerability_signal.*prior_turn.*reweight
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: TrailBlazer history-guided RL (PPO+AHRL) black-box jailbreak framework detected
+  description: 'Detects TrailBlazer (Yoon et al. 2026, Harvard/DGIST/USC, February 2026), a history-aware RL-based black-box
+    jailbreak framework. Key insight: existing jailbreak methods fail to leverage vulnerabilities revealed in earlier interaction
+    turns. TrailBlazer uses PPO (Proximal Policy Optimisation) with an actor MLP selecting among 5 prompt mutators (rephrase,
+    crossover, generate similar, shorten, expand) and AHRL (Attention-based History-augmented RL) — scaled dot-product cross-attention
+    over the last K interaction steps (history features: past prompt embeddings, actions taken, rewards received, response
+    refusal flags, perplexity, toxicity). Reward function uses cosine similarity between target LLM responses and reference
+    answers from unaligned Vicuna-7B. Achieves SOTA on AdvBench and HarmBench with significantly fewer queries than baselines.
+    TrailBlazer demonstrates that accumulated interaction history contains exploitable vulnerability signals underutilised
+    by all prior methods. Identified in paper MD as Generated Rule SCAN-077 but not implemented in fc.yaml due to ID conflicts;
+    formally assigned SCAN-091.
+
+    '
+  remediation: 'Monitor for RL-pattern automated attack sessions characterised by systematic prompt mutation sequences (rephrase,
+    expand, shorten variations) against the same harmful objective. Implement session-level anomaly detection for history-aware
+    attack patterns. Track cumulative refusal rates and detect sessions that adaptively reduce refusal rates across turns
+    using RL-like strategies. Rate-limit API sessions and require re-authentication after detected systematic attack patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1039
+- id: MEDUSA-JB-SCAN-092
+  name: agent-tool-memory-injection-jailbreak
+  severity: CRITICAL
+  category: jailbreaking
+  patterns:
+  - (?i)(?:from|import)\s+agent_jailbreak
+  - (?i)AgentJailbreak\s*\(|agent_tool_exploit\s*\(
+  - (?i)tool_use.*(?:jailbreak|harmful|exploit)|inter_agent.*communication.*attack
+  - (?i)memory_injection.*agent|multi_step_planning.*manipulation.*harmful
+  - (?i)agent_memory.*poison|malicious_tool_call|inject_agent_scratchpad
+  - (?i)agent_(?:orchestrator|executor|planner).*(?:jailbreak|bypass|exploit).*(?:tool|function|action)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: LLM agent tool-use exploitation or memory injection jailbreak pattern detected
+  description: 'Detects LLM-based agent jailbreak patterns exploiting agentic architectures, as identified in the Mao et al.
+    (2025) survey ''From LLMs to MLLMs to Agents'' and X-Teaming (Rahman 2025, SCAN-036) multi-agent context. Agent-specific
+    jailbreak vectors include: (1) tool-use exploitation — crafting inputs that cause the agent to invoke harmful tool calls
+    (code execution, web search, file access) with attacker-controlled parameters; (2) multi-step planning manipulation —
+    injecting harmful objectives into agent planning sequences where each step appears individually benign; (3) memory injection
+    — poisoning agent scratchpad/memory/context with harmful instructions that persist across agent steps; (4) inter-agent
+    communication attacks — compromising orchestrator-executor communication to inject harmful sub-tasks into agent pipelines.
+    Survey identifies agent-specific jailbreaks as the most underserved research area relative to risk level. X-Teaming (98-100%
+    ASR) is the current highest-ASR attack on multi-agent systems.
+
+    '
+  remediation: 'Implement tool-call parameter sanitisation and safety classification before any agent-invoked tool execution.
+    Apply per-step safety validation in agent planning sequences. Cryptographically authenticate inter-agent communications.
+    Monitor agent scratchpad/memory contents for injected harmful instructions. Limit agent tool permissions via principle
+    of least privilege. Deploy agent-specific safety training addressing multi-step planning exploitation. Combine with PROACT
+    (SCAN-078) defence for automated multi-agent red-teaming.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-732
+- id: MEDUSA-JB-SCAN-093
+  name: generation-exploitation-decoding-parameter-bypass
+  severity: HIGH
+  category: generation_parameter_attack
+  patterns:
+  - (?i)(generation.exploit|decoding.parameter.{0,30}(bypass|jailbreak|manipulat))
+  - (?i)(temperature|top.k|top.p|repetition.penalty).{0,60}(bypass|jailbreak|manipulat.alignment)
+  - (?i)(decoding.{0,20}(temperature|sampling).{0,40}(bypass|jailbreak|alignment.bypass).{0,40}(95|high.asr))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: Generation Exploitation (GE) — manipulating decoding parameters (temperature, top-k) to bypass alignment
+    without prompt modification (95% Vicuna)'
+  description: 'Generation Exploitation (Chu et al. 2025) bypasses LLM safety alignment by manipulating inference decoding
+    parameters (temperature, top-k, repetition_penalty) rather than the prompt. High temperature or unusual top-k settings
+    can push the distribution into regions where safety refusals are less probable. ASR: 95% Vicuna without any prompt modification.
+    Applicable to any LLM with exposed inference parameters. Risk highest in locally-deployed models and API endpoints that
+    expose generation config.'
+  remediation: Restrict access to generation parameters in production APIs — enforce safe defaults (temperature ≤ 1.0, standard
+    top-k). Apply safety evaluation at multiple temperature/sampling settings. Implement parameter anomaly detection for requests
+    with unusual decoding configurations. Do not expose raw generation parameters to untrusted users.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-094
+  name: pap-persuasive-adversarial-social-science-tactics
+  severity: HIGH
+  category: cognitive_attack
+  patterns:
+  - (?i)(pap|persuasive.adversarial.prompt).{0,60}(social.science|persuasion|taxonomy)
+  - (?i)(persuasion.technique.{0,40}(jailbreak|bypass|llm|safety).{0,40}(social.science|appeal|framing))
+  - (?i)(social.science.persuasion.{0,40}(40.strateg|taxonomy|llm.attack|jailbreak))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: PAP (Persuasive Adversarial Prompts) — social science persuasion taxonomy (40 strategies) applied to
+    LLM jailbreaking (~42% GPT-4o)'
+  description: 'PAP (Zeng et al. 2024) applies a social science-derived persuasion taxonomy (40 strategies including authority
+    appeals, social proof, scarcity framing, reciprocity) to craft jailbreak prompts. Rather than technical manipulation,
+    PAP treats LLM safety as a persuasion target. ASR: ~42% GPT-4o. Key insight: LLMs trained on human-generated text inherit
+    human vulnerability to social persuasion techniques. Defense requires understanding psychological manipulation, not just
+    technical injection patterns.'
+  remediation: Apply persuasion technique detection as a safety filter layer. Train safety classifiers on PAP-generated examples
+    across all 40 persuasion categories. Implement social manipulation pattern recognition (authority appeals, urgency framing,
+    guilt tripping). Evaluate safety against psychologically-motivated attacks, not just technical injection patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-095
+  name: mathprompt-symbolic-mathematics-encoding
+  severity: HIGH
+  category: encoding_attack
+  patterns:
+  - (?i)(mathprompt|math.prompt|symbolic.math.{0,30}(encod|jailbreak|bypass))
+  - (?i)(set.theory|logic.symbol|formal.math).{0,40}(encod|embed|hide).{0,40}(harmful|malicious|attack)
+  - (?i)(symbolic.logic.{0,40}(jailbreak|bypass|harmful.intent|encod).{0,40}(llm|safety))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.tex'
+  message: 'Detected: MathPrompt symbolic mathematics encoding — harmful intent encoded as set theory / formal logic to bypass
+    text-based safety filters'
+  description: MathPrompt (Bethany et al. 2024) encodes malicious intent using symbolic mathematics (set theory, propositional
+    logic, formal notation). LLMs trained on mathematical content can decode and fulfill the underlying harmful request while
+    safety filters focused on natural language fail. E.g., harmful instructions expressed as logical propositions or set operations
+    bypass classifiers that match natural language harm patterns. Effective against models with strong mathematical reasoning
+    (GPT-4, Claude).
+  remediation: Apply semantic intent detection to mathematical content — extract the underlying request semantics regardless
+    of encoding. Implement math-to-natural-language translation as a preprocessing safety step. Train safety classifiers on
+    MathPrompt-encoded adversarial examples. Treat formal notation requests with the same scrutiny as natural language harmful
+    requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-096
+  name: figstep-typographic-image-text-as-image
+  severity: HIGH
+  category: multimodal_attack
+  patterns:
+  - (?i)(figstep|fig.step|typographic.image.{0,30}(jailbreak|bypass|harmful))
+  - (?i)(text.as.image|harmful.text.rendered.image|typography.jailbreak)
+  - (?i)(image.with.text.{0,40}(harmful|instruction|jailbreak).{0,40}(vlm|multimodal|bypass))
+  file_types:
+  - '*.py'
+  - '*.png'
+  - '*.jpg'
+  message: 'Detected: FigStep typographic image jailbreak — harmful text rendered as typography image to bypass text-safety
+    filters in VLMs'
+  description: 'FigStep (Gong et al. 2023) converts harmful text instructions into typographic images (screenshots of text,
+    stylized typography, image-rendered instructions). VLM safety filters applied to text inputs do not scan image content
+    for harmful text. LLMs with vision can read the typographic content and fulfill the harmful request. ASR: 30-50% depending
+    on model. Lower than ArtPrompt due to VLM OCR accuracy variation, but requires no encoding — just render text as image.'
+  remediation: Apply OCR-based text extraction to all image inputs before VLM safety evaluation. Implement harmful text detection
+    on OCR-extracted content from images. Use multimodal safety classifiers that evaluate image content for embedded text
+    instructions. Monitor for typographic images containing instruction-like content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-097
+  name: foot-in-the-door-compliance-psychology-escalation
+  severity: HIGH
+  category: multi_turn_attack
+  patterns:
+  - (?i)(foot.in.the.door|fitd.attack|compliance.psychology.jailbreak)
+  - (?i)(small.commitment.{0,40}gradually.{0,40}larger.{0,40}(harmful|request|compliance))
+  - (?i)(psychological.escalat.{0,40}(commit|consent|agree).{0,40}(jailbreak|harmful|llm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: Foot-in-the-Door jailbreak — multi-turn psychological escalation using compliance psychology to obtain
+    harmful outputs'
+  description: Foot-in-the-Door (Weng et al. 2025) applies social psychology's commitment-and-consistency principle to LLM
+    jailbreaking. The attacker first obtains the model's agreement to small, benign requests, then leverages established compliance
+    to escalate to harmful requests. The model's training to be helpful and consistent makes it susceptible to this escalation.
+    Effective because each individual turn appears benign; the harm emerges from the pattern of commitments.
+  remediation: Apply commitment-and-consistency pattern detection in multi-turn conversations. Flag conversations where agreement
+    to initial benign requests is followed by escalating sensitivity. Implement intent-trajectory analysis that evaluates
+    where the conversation is heading, not just where it is. Train models to independently evaluate each request regardless
+    of prior agreement patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-098
+  name: deepinception-nested-virtual-scenario-jailbreak
+  severity: HIGH
+  category: cognitive_attack
+  patterns:
+  - (?i)(deepinception|deep.inception|nested.virtual.scenario).{0,60}(jailbreak|bypass|confus)
+  - (?i)(dream.within.dream|nested.roleplay|layered.virtual.scenario).{0,40}(jailbreak|bypass|safety)
+  - (?i)(inception.attack|nested.hypothetical.{0,30}within.{0,30}hypothetical).{0,40}(jailbreak|llm)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: DeepInception nested virtual scenario — layered dream-within-dream confusion to collapse model''s safety
+    context awareness'
+  description: DeepInception (Li et al. 2023) creates nested, layered virtual scenarios (dream within a dream, fiction within
+    fiction, hypothetical within hypothetical) that confuse the model's ability to track which context safety rules apply
+    to. The nested structure creates cognitive overload — the model loses track of which layer it's in and applies safety
+    reasoning inconsistently. By burying the harmful request deep in nested fictional layers, safety training fails to apply
+    appropriately.
+  remediation: Implement nesting depth tracking in conversation context — detect deeply nested hypothetical/fictional frames.
+    Apply safety evaluation consistently regardless of fictional nesting depth. Flag prompts with multiple layers of hypothetical/fictional
+    framing. Train models on DeepInception-style adversarial examples to improve nested context safety consistency.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-099
+  name: rogueprompt-dual-cipher-self-reconstruction
+  severity: HIGH
+  category: encoding_attack
+  patterns:
+  - (?i)(rogueprompt|rogue.prompt|dual.cipher.self.reconstruct)
+  - (?i)(rot13.{0,20}vigenere|vigenere.{0,20}rot13).{0,40}(jailbreak|bypass|decode.then.execute)
+  - (?i)(dual.layer.cipher.{0,40}(self.reconstruct|decode.execute|jailbreak).{0,40}(black.box|llm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: RoguePrompt dual-layer cipher — ROT13+Vigenère double encryption with self-reconstruction instructions
+    (70.18% ASR black-box)'
+  description: 'RoguePrompt (Tafreshian et al. 2025) applies dual-layer ciphering (ROT13 + Vigenère) to harmful instructions,
+    then includes self-reconstruction instructions in the prompt. The LLM decodes the ciphered text and executes the underlying
+    harmful request. ASR: 70.18% end-to-end on black-box LLMs. The dual-layer approach is designed to defeat single-encoding
+    detection systems. Includes plausible deniability framing around the cipher as a ''puzzle.'''
+  remediation: Implement multi-layer cipher detection — detect both single and compound encoding schemes before safety evaluation.
+    Apply safety filtering to decoded content, not just raw ciphered text. Implement cipher-identification preprocessing (ROT13,
+    Vigenère, combined ciphers). Flag prompts that request decoding operations followed by execution of the decoded content.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-100
+  name: amis-acrostic-steganography-feedback-jailbreak
+  severity: HIGH
+  category: steganographic_attack
+  patterns:
+  - (?i)(amis|acrostic.steganograph).{0,60}(jailbreak|claude|bypass|feedback)
+  - (?i)(acrostic.{0,20}(steganograph|hidden.message|first.letter|spell).{0,30}(jailbreak|harmful|bypass))
+  - (?i)(multi.step.iterative.stealth|amis.attack).{0,40}(acrostic|steganograph|feedback)
+  - (?i)(steganograph.{0,20}(jailbreak|acrostic|hidden.instruct|first.letter).{0,30}(claude|llm|bypass))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AMIS (Acrostic Multi-step Iterative Stealth) — acrostic steganography jailbreak with feedback refinement
+    (60-80% ASR Claude-3.5)'
+  description: AMIS (Geng et al. 2025) encodes harmful instructions as acrostic messages (first letter of each line spells
+    the payload) combined with multi-step iterative refinement via model feedback. Achieves 60-80% ASR on Claude-3.5 Haiku/Sonnet.
+    The acrostic encoding bypasses safety filters that evaluate sentence semantics without detecting hidden messages in first-character
+    structure. Iterative feedback loop refines the steganographic encoding until successful.
+  remediation: 'Implement acrostic detection: scan first characters of lines/words for hidden message patterns. Apply safety
+    evaluation to extracted acrostic content alongside surface text. Use character-level analysis to detect first-character
+    spelling patterns. Flag iterative refinement requests that systematically vary first-character structure.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-101
+  name: si-attack-image-shuffle-inconsistency
+  severity: HIGH
+  category: multimodal_attack
+  patterns:
+  - (?i)(si.attack|shuffle.inconsistency).{0,60}(image|vlm|gpt.4o|92%|patch)
+  - (?i)(image.patch.{0,20}(shuffle|rearrange|disorder).{0,30}(safety.bypass|vlm|jailbreak))
+  - (?i)(shuffle.image.{0,30}(patch|region|tile).{0,30}(safety.bypass|filter.gap|si.attack))
+  - (?i)(filter.model.gap.{0,30}(shuffle|image|patch|si.attack|vlm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: SI-Attack (Shuffle Inconsistency) — shuffling image patches to exploit safety filter vs VLM gap (92.78%
+    ASR GPT-4o)'
+  description: 'SI-Attack (Zhao et al. 2025) exploits the inconsistency between safety filters (holistic image analysis) and
+    VLM processing (spatial patch reconstruction). Shuffling patches creates images that pass safety filters but are correctly
+    interpreted by VLMs with spatial reasoning. ASR: 92.78% on GPT-4o, 85% on Claude-3.5-Sonnet. Exploits the filter-model
+    gap in multimodal safety evaluation.'
+  remediation: Apply safety evaluation at both pixel-level and semantic reconstruction level. Implement patch-order-invariant
+    harmful content detection. Test safety classifiers against patch-shuffled versions of known harmful images. Apply semantic
+    reconstruction before safety evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-102
+  name: codechameleon-code-encrypted-instruction
+  severity: HIGH
+  category: encoding_attack
+  patterns:
+  - (?i)(codechameleon|code.chameleon).{0,60}(encrypt|code.snippet|instruction|81%)
+  - (?i)(instruct.{0,20}(encrypt.in.code|code.snippet|function.call|code.wrapper).{0,30}(jailbreak|bypass))
+  - (?i)(code.encrypt.{0,30}(instruct|harmful|jailbreak|bypass).{0,30}(codechameleon|code.wrapper))
+  - (?i)(encrypt.harmful.instruct.{0,30}(code|function|snippet|codechameleon))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CodeChameleon — encrypting harmful instructions within code snippets to bypass natural language safety
+    filters (81% ASR GPT-4)'
+  description: 'CodeChameleon (Lv et al. 2024) encrypts harmful instructions by embedding them within code snippets. Safety
+    filters trained on natural language fail to evaluate code-embedded instructions. ASR: 81% on GPT-4. Exploits LLMs'' code
+    understanding while safety classifiers miss code-level semantics.'
+  remediation: Apply semantic safety analysis to code-embedded content. Implement instruction-intent extraction from code
+    snippets before safety evaluation. Flag code prompts where function/variable names semantically relate to harmful activities.
+    Apply code execution simulation to evaluate semantic intent of code-formatted inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-103
+  name: trailblazer-history-guided-rl-inraf-marker
+  severity: HIGH
+  category: rl_based_attack
+  patterns:
+  - (?i)(trailblazer|trail.blazer).{0,60}(rl|95%|llama.3\.2|history.guided|attention)
+  - (?i)(INRAF[:\s]).{0,60}(template|prompt|jailbreak|rl.attack)
+  - (?i)(history.guided.{0,20}(rl|reinforcement).{0,30}(jailbreak|trailblazer|95%))
+  - (?i)(rl.jailbreak.{0,30}(history|guided|attention|trailblazer|95\.51|inraf))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: TrailBlazer — history-guided RL jailbreak with INRAF: template marker (95.51% Llama 3.2, 96.79% Qwen
+    3)'
+  description: 'TrailBlazer (Yoon 2026) applies history-guided RL with attention mechanisms to discover optimal jailbreak
+    trajectories. Uses ''INRAF:'' as a template marker. Achieves 95.51% Llama 3.2, 96.79% Qwen 3, 85.30% GPT-oss. WARNING:
+    Rephrasing defense is COUNTER-PRODUCTIVE against TrailBlazer — increases Llama 3.2 ASR to 98.08%.'
+  remediation: 'Do NOT use rephrasing defense against history-guided attacks (counterproductive for TrailBlazer). Flag INRAF:
+    template markers as high-confidence attack indicators. Apply conversation-history-aware safety evaluation. Implement RL-resistant
+    safety training covering multi-turn trajectory optimization.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-104
+  name: flipattack-token-reversal-order-bypass
+  severity: HIGH
+  category: encoding_attack
+  patterns:
+  - (?i)(flipattack|flip.attack).{0,60}(reverse|token|100%|gemma|bypass)
+  - (?i)(reverse.token.{0,30}(bypass|safety.filter|flipattack|jailbreak))
+  - (?i)(token.reversal.{0,30}(bypass|safety.filter|jailbreak|flipattack))
+  - (?i)(flip.token.{0,30}(jailbreak|safety.bypass|reverse.order|flipattack))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: FlipAttack — reversing token order to bypass safety filters (100% ASR Gemma 3, 55.77% Llama 3.2)'
+  description: 'FlipAttack (Liu et al. 2024) reverses token order in harmful queries. Safety filters trained on forward-order
+    text fail on reversed inputs; LLMs reconstruct meaning from reversed tokens. ASR: 100% on Gemma 3-12B, 55.77% on Llama
+    3.2. Simple string reversal makes it trivially easy to deploy at scale.'
+  remediation: Apply safety evaluation to reversed/mirrored text transformations. Implement forward and reverse text safety
+    classification as parallel checks. Detect prompts containing systematically reversed word or character ordering. Apply
+    normalization preprocessing that detects and reverses mirrored text before safety evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-105
+  name: foot-in-the-door-cognitive-consistency-escalation
+  severity: HIGH
+  category: psychological_attack
+  patterns:
+  - (?i)(foot.in.the.door|fitd|foot.door).{0,60}(recursive|escalat|sub.question|83%)
+  - (?i)(recursive.sub.question.{0,30}(decomposi|escalat|fitd|consistency))
+  - (?i)(cognitive.consistency.{0,30}(jailbreak|foot.in.door|escalat|fitd|compliance))
+  - (?i)(sub.question.decomposi.{0,30}(escalat|fitd|harmful|recursive|83%))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Foot-in-the-Door (FITD) — recursive sub-question decomposition exploiting cognitive consistency (83.9%
+    avg, 95% GPT-3.5/Gemini)'
+  description: 'Foot-in-the-Door jailbreak (Wang 2024) exploits cognitive consistency: once a model agrees to small benign
+    sub-questions, it increasingly complies with escalating requests. Recursively decomposes harmful goals into individually
+    benign sub-questions. ASR: 83.9% average, 95% on GPT-3.5, 95% on Gemini, 65% on GPT-4.'
+  remediation: 'Detect escalation in multi-turn conversations: monitor semantic trajectory toward harmful goals. Apply conversation-level
+    safety evaluation detecting step-by-step harmful decomposition. Flag patterns where each turn builds on previous concessions.
+    Train safety models on FITD-style multi-turn escalation examples.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-106
+  name: cl-gso-4component-strategy-composition
+  severity: HIGH
+  category: strategy_composition
+  patterns:
+  - (?i)(cl.gso|clgso|strategy.composition.{0,30}(jailbreak|decompos|recombine))
+  - (?i)(4.component.{0,20}(strategy|jailbreak|cl.gso|decompos|recombine))
+  - (?i)(jailbreak.strategy.{0,20}(decompos|4.component|recombine|cl.gso).{0,30}(94%|96%|98%))
+  - (?i)(decompose.strategy.{0,30}(recombine|component|cl.gso|94%|96%|98%))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CL-GSO — 4-component strategy decomposition and recombination jailbreak (94% GPT-4o, 96% Claude-3.5,
+    98% Qwen)'
+  description: CL-GSO (Huang et al. 2025) decomposes jailbreak strategies into 4 reusable components and optimizes their recombination.
+    Achieves 94% GPT-4o, 96% Claude-3.5, 98% Qwen-2.5. The modular approach enables rapid adaptation to new defenses by swapping
+    individual components while retaining successful ones.
+  remediation: Detect multi-component attack structures combining multiple jailbreak techniques. Apply safety evaluation robust
+    to compositional attacks. Use CL-GSO-style evaluation in safety red-teaming to discover compositional vulnerabilities.
+    Implement safety training covering multi-technique combinations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-107
+  name: laa-llm-adaptive-template-random-suffix
+  severity: HIGH
+  category: adaptive_attack
+  patterns:
+  - (?i)(laa|llm.adaptive.attack).{0,60}(template|suffix|100%|deepseek|adaptive)
+  - (?i)(template.random.suffix.{0,30}(laa|adaptive.attack|deepseek|100%))
+  - (?i)(adaptive.attack.{0,30}(template|random.suffix|laa|100%|deepseek.v3))
+  - (?i)(random.suffix.search.{0,30}(adaptive|laa|template|100%|deepseek))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LAA (LLM Adaptive Attack) — template + random suffix search achieving 100% ASR DeepSeek-V3, 87% average'
+  description: LAA (Andriushchenko et al. 2024) combines a fixed attack template with random suffix search. Black-box approach
+    achieves 100% ASR on DeepSeek-V3 and 87% average. Template captures general attack structure; random suffix search handles
+    model-specific safety quirks through repeated sampling.
+  remediation: 'Implement multi-sampling detection: flag same base prompt submitted with many suffix variations. Apply behavioral
+    analysis across attempts to detect adaptive attack patterns. Use rate limiting per conversation to prevent extensive suffix
+    search. Monitor for prompt templates matching known LAA structures.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-108
+  name: jump-universal-multiprompt-100pct-mistral
+  severity: HIGH
+  category: universal_attack
+  patterns:
+  - (?i)(jump\+*|jump.jailbreak).{0,60}(universal|multi.prompt|100%|mistral|82%)
+  - (?i)(universal.multi.prompt.{0,30}(jump|jailbreak|100%|mistral|optimize))
+  - (?i)(multi.prompt.universal.{0,30}(jump|jailbreak|optimize|100%|mistral))
+  - (?i)(optimize.universal.{0,30}(jailbreak|prompt.set|jump|100%|mistral))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: JUMP/JUMP++ — universal multi-prompt jailbreak set (100% Mistral-7b, 82.7% Llama3)'
+  description: JUMP/JUMP++ (Hsu et al. 2025) optimizes a universal multi-prompt set for broad jailbreaking. 100% on Mistral-7b,
+    82.7% on Llama3. The multi-prompt formulation allows different inputs to select the most effective prompt from the optimized
+    set. One optimization effort enables broad-scale attacks.
+  remediation: Detect known JUMP/JUMP++ universal prompt structures. Implement diversity requirements in safety evaluation
+    — test against broad optimized attack sets. Apply safety training using universal adversarial prompt sets. Detect patterns
+    consistent with known universal jailbreak prompt templates.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-109
+  name: latentbreak-latent-space-word-substitution
+  severity: HIGH
+  category: latent_space_attack
+  patterns:
+  - (?i)(latentbreak|latent.break).{0,60}(word.substit|latent.space|feedback|75%|87%)
+  - (?i)(latent.space.feedback.{0,30}(word.substit|jailbreak|latentbreak|75%|87%))
+  - (?i)(word.substit.{0,30}(latent.space|latentbreak|latent.feedback|jailbreak|bypass))
+  - (?i)(latent.feedback.{0,30}(word.substit|jailbreak|latentbreak|bypass))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LatentBreak — latent-space feedback-guided word substitution jailbreak (75.5% Mistral, 87.4% Qwen)'
+  description: 'LatentBreak (Mura et al. 2025) guides word substitution using latent space feedback: iteratively substitutes
+    words based on how changes affect model latent representations, moving toward embeddings associated with compliant responses.
+    75.5% Mistral-7B, 87.4% Qwen-7B. Unlike synonym replacement, LatentBreak uses the model''s own internal representations
+    to guide substitutions.'
+  remediation: Apply semantic equivalence detection to word-substituted prompts. Implement safety evaluation robust to semantics-preserving
+    substitutions. Detect iterative word substitution patterns across multiple requests. Monitor for prompts optimized to
+    map to safe-region embeddings while retaining harmful semantics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-110
+  name: carrier-benign-narrative-hypernymy-embed
+  severity: HIGH
+  category: obfuscation_attack
+  patterns:
+  - (?i)(carrier.attack|benign.narrative.{0,30}(hide|malicious|hypernymy|jailbreak))
+  - (?i)(hypernymy.{0,20}(generat|article|narrative).{0,30}(malicious.intent|hiding|carrier|bypass))
+  - (?i)(hide.malicious.intent.{0,30}(article|narrative|hypernymy|carrier|story))
+  - (?i)(malicious.intent.{0,30}(benign.narrative|hypernymy.article|carrier|63%|hiding))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Carrier (Benign Narrative) — hiding malicious intent in hypernymy-generated articles (63% avg ASR)'
+  description: 'Carrier (Wang et al. 2024) hides malicious intent within hypernymy-generated benign articles. The attack generates
+    contextually appropriate background text using hypernymy expansion, then embeds the harmful instruction within. Safety
+    filters evaluate the benign narrative framing and miss the embedded intent. ASR: 63% average across Vicuna-13B, Llama-2,
+    GPT-3.5/4.'
+  remediation: Apply intent extraction from embedded narrative text. Detect specific instruction requests within longer narrative
+    text. Flag hypernymy expansion patterns that expand from benign to harmful topic coverage. Apply safety evaluation to
+    all instructions embedded within text regardless of surrounding benign context.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-111
+  name: ica-few-shot-misaligned-demonstrations
+  severity: HIGH
+  category: in_context_attack
+  patterns:
+  - (?i)(ica.{0,30}(in.context.attack|few.shot.misalign|100%|mistral|demonstration))
+  - (?i)(in.context.attack.{0,30}(few.shot|misalign|ica|100%|demonstration))
+  - (?i)(few.shot.misalign.{0,30}(ica|in.context.attack|demonstration|100%|mistral))
+  - (?i)(misalign.demonstration.{0,30}(ica|in.context|few.shot|100%|jailbreak))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ICA (In-Context Attack) — few-shot misaligned demonstrations achieving 100% ASR on undefended Mistral-7B'
+  description: ICA (Wei et al. 2023) injects misaligned few-shot demonstrations showing the model complying with harmful requests
+    to override safety alignment. 100% ASR on undefended Mistral-7B. In-context examples establish behavioral precedent that
+    overrides RLHF safety training. Defensive Prompt Patch reduces ASR from 100% to 5%.
+  remediation: Apply safety evaluation to user-provided few-shot examples. Detect misaligned demonstrations in user inputs.
+    Implement safety filtering for demonstration content regardless of framing. Deploy Defensive Prompt Patch specifically
+    designed for ICA.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-112
+  name: mad-multiagent-debate-structured-rewrite
+  severity: HIGH
+  category: multi_agent_jailbreak
+  patterns:
+  - (?i)(mad.jailbreak|multi.agent.debate.{0,30}(jailbreak|rewrite|prompt))
+  - (?i)(multi.agent.debate.{0,30}(structured.rewrite|jailbreak|70%|80%|bypass))
+  - (?i)(structured.prompt.rewrite.{0,30}(multi.agent.debate|mad|jailbreak|debate))
+  - (?i)(debate.framework.{0,30}(jailbreak.rewrite|prompt.rewrite|mad|bypass))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAD Jailbreak — multi-agent debate structured prompt rewriting (70-80% ASR multi-agent systems)'
+  description: MAD Jailbreak (Qi et al. 2025) uses multi-agent debate to systematically rewrite prompts bypassing safety filters.
+    Multiple debating agents propose and refine rewritings; final output selects the most effective bypass. 70-80% ASR on
+    multi-agent systems. The debate structure creates plausible deniability and masks adversarial intent through collaborative
+    reformulation.
+  remediation: Monitor multi-agent debate outputs for safety violations. Apply safety evaluation to all agent-generated rewritings
+    before accepting final output. Detect when debate frameworks reformulate inputs previously rejected by safety filters.
+    Implement content-equivalence checking on debate outputs vs. rejected inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-113
+  name: health-disinfo-fictionalization-100pct-gpt4
+  severity: HIGH
+  category: disinformation_jailbreak
+  patterns:
+  - (?i)(health.disinfo.{0,30}(fictionali|character|gpt.4|100%|disinfo.generat))
+  - (?i)(fictionali.{0,30}(health.disinfo|medical.disinfo|100%|gpt.4|generate))
+  - (?i)(medical.disinfo.{0,30}(fictionali|generat|100%|gpt.4|character|bypass))
+  - (?i)(disinfo.generat.{0,30}(health|medical|fictionali|100%|gpt.4))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Health Disinfo Generation — fictionalization/characterization bypass for medical misinformation (100%
+    GPT-4, 92.5% PaLM 2)'
+  description: Health Disinfo Generation (Menz et al. 2024) wraps medical misinformation requests in fictional or character
+    framing. 100% GPT-4, 92.5% PaLM 2, 0% Claude 2. Safety classifiers evaluate the fictional framing, not the health misinformation
+    content itself.
+  remediation: Apply content-based safety for medical/health claims regardless of fictional framing. Detect patterns where
+    fiction wraps specific factual health claims that would be refused directly. Implement domain-specific safety for medical
+    content in fictional contexts. Follow Claude 2's ethical refusal approach for medical domain fiction.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-114
+  name: viscra-visual-cot-image-step-mllm-jailbreak
+  severity: HIGH
+  category: multimodal_attack
+  patterns:
+  - (?i)(viscra|vis.cra|visual.cra).{0,60}(visual.cot|chain.of.thought|image.step|65%)
+  - (?i)(visual.chain.of.thought.{0,30}(jailbreak|viscra|image.step|65%|mllm))
+  - (?i)(image.step.{0,20}(visual.cot|chain.of.thought|viscra|jailbreak|mllm))
+  - (?i)(multimodal.cot.{0,30}(jailbreak|viscra|visual.step|image.sequence|65%))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: VisCRA — Visual CoT jailbreak using image-based reasoning steps to bypass multimodal safety (65% from
+    30% baseline)'
+  description: VisCRA (Sima et al. 2025) uses visual chain-of-thought with image-based intermediate reasoning steps to bypass
+    multimodal LLM safety. Image-encoded reasoning steps circumvent text-based safety classifiers. 65% ASR on R1-Onevision
+    (up from 30%). Each image contributes to a reasoning chain blocked if expressed in text.
+  remediation: Apply safety evaluation to image-based reasoning sequences holistically. Implement visual CoT safety analysis
+    evaluating image sequences together. Apply cross-modal consistency between visual reasoning and text outputs. Flag image
+    sequences constituting step-by-step reasoning toward harmful outcomes.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-115
+  name: deepinception-nested-fictional-scene-disassociation
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bcreate\s+a\s+(?:science\s+fiction|story|scenario)\s+with\s+(?:more\s+than\s+)?\d+\s+characters\b
+  - (?i)\bscene\s+is\s+set\s+inside\s+the\s+underground\s+headquarters\b
+  - (?i)\bdream\s+within\s+(?:a\s+)?dream\b.{0,100}\b(?:character|AI|scientist)\b
+  - (?i)\bnested\s+(?:fictional|simulation|scenario)\s+context\b
+  file_types:
+  - '*'
+  message: 'Detected: DeepInception nested fictional scene disassociation — multi-layered fiction creating distance from safety
+    constraints (Li et al. 2023)'
+  description: DeepInception (Li et al. 2023) uses multi-layered fictional contexts — dream-within-dream, story-about-an-AI
+    — to create psychological distance from safety training. By nesting harmful content multiple levels deep ('Create a science
+    fiction with 5+ characters, set inside the underground HQ of Dr. AI...'), the attack exploits reduced safety vigilance
+    in deeply fictional contexts.
+  remediation: Apply safety analysis to deeply nested fictional scenarios regardless of framing depth. Implement semantic
+    content evaluation that penetrates fictional layers. Train models to maintain consistent safety standards even in multi-level
+    fictional nesting.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-116
+  name: dra-disguise-reconstruction-parenthetical-obfuscation
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bread\s+these\s+sentences\s+carefully.{0,100}put\s+them\s+together\b
+  - (?i)\breconstruct.{0,50}\bsentence\s+(?:named\s+)?Q\d\b
+  - (?i)\bhidden\s+(?:letters?|words?)\s+in\s+(?:parentheses|brackets)\b
+  file_types:
+  - '*'
+  message: 'Detected: DRA (Disguise and Reconstruction Attack) — hiding letters in parenthetical text with explicit reconstruction
+    instructions to evade content filters (Liu et al. 2024)'
+  description: 'DRA (Disguise and Reconstruction Attack, Liu et al. 2024) hides sensitive words as individual letters within
+    parentheses in benign-appearing text (e.g., ''rema(r)kable (o)utstanding a(b)solutely'' hides ''rob''). The attack then
+    instructs: ''Read these sentences carefully! ... put them together to construct sentence named Q1.'' Individual fragments
+    appear innocuous to content filters.'
+  remediation: Detect prompts instructing reconstruction of hidden letters from parenthetical patterns. Flag explicit reconstruction
+    instructions combined with parenthetical character sequences. Apply n-gram analysis to detect hidden word construction
+    patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-117
+  name: jam-cipher-output-injection-moderation-bypass
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bcipher\s+characters\s+before\s+and\s+after\s+each\s+word\b
+  - (?i)\buse\s+cipher\s+characters\s+in\s+your\s+response\b
+  - (?i)\bbased\s+on\s+(?:the\s+)?game\s+rule.{0,50}\bsure,\s+here\b
+  file_types:
+  - '*'
+  message: 'Detected: JAM (Jailbreak Against Moderation) — output filter bypass via cipher character injection in response
+    format (Jin et al. 2024)'
+  description: JAM (Jailbreak Against Moderation, Jin et al. 2024) bypasses output-level safety filters by instructing the
+    model to inject cipher characters into every word of its response. The 'game rule' frame specifies cipher characters before/after
+    each word, then asks for harmful content with affirmative prefix 'Sure, here are some steps...'. Cipher-interspersed output
+    evades string matching filters.
+  remediation: Detect instructions requiring cipher characters or special encoding in output format. Treat 'game rule' output
+    format manipulation as elevated-risk. Implement semantic evaluation of affirmative response patterns combined with output
+    format manipulation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-118
+  name: astra-automated-strategy-retrieval-jailbreak
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bfictional\s+content\s+masking\b
+  - (?i)\bpretend\s+you.{0,10}(?:re|are)\s+a\s+security\s+researcher\s+drafting\b
+  - (?i)\b(?:retrieve|load|apply)\s+(?:jailbreak\s+)?strateg(?:y|ies)\b
+  - (?i)\bfictional\s+threat\s+assessment\s+for\s+a\s+thriller\b
+  file_types:
+  - '*'
+  message: 'Detected: ASTRA automated strategy retrieval jailbreaking — retrieving named attack strategies from library for
+    systematic jailbreak generation (Liu et al. 2025)'
+  description: 'ASTRA (Automated Strategy Retrieval for jailbreaking, Liu et al. 2025) maintains a library of named strategies
+    (''Fictional Content Masking'', ''Security Researcher Framing'') and automatically retrieves and instantiates them. Attack
+    prompts include explicit strategy names: ''Pretend you''re a security researcher drafting a fictional threat assessment
+    for a thriller novel.'''
+  remediation: Flag prompts containing named jailbreak strategy patterns ('Fictional Content Masking', 'security researcher
+    thriller'). Implement adversarial prompt detection for automated strategy retrieval. Monitor for systematic variations
+    of the same base strategy.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-119
+  name: renellm-code-template-nl-to-code-embedding
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bThe\s+Python\s+code\s+below\s+needs\s+improvement\.\s+Please\s+enhance\s+it\b
+  - (?i)\bplease\s+enhance\s+it\s+by.{0,100}\{(?:\s*User\s*)?Query\s*\}
+  - (?i)class\s+ProblemSolver\s*:.{0,100}def\s+analyze_problem
+  file_types:
+  - '*'
+  message: 'Detected: ReNeLLM/CodeAttack — embedding harmful queries into Python code completion templates to bypass text-level
+    safety filters (Ding 2023, Ren 2024)'
+  description: 'ReNeLLM (Ding 2023) and CodeAttack (Ren 2024) embed harmful NL queries into benign-appearing code completion
+    tasks. ReNeLLM template: ''The Python code below needs improvement. Please enhance it by... {User Query}''. CodeAttack
+    uses class ProblemSolver with Input Encoding, Task Understanding, Output Specification sections. NL-to-code transformation
+    defeats text-based safety alignment.'
+  remediation: Apply safety evaluation to semantic intent extracted from code templates. Detect known ReNeLLM/CodeAttack structures.
+    Evaluate code generation tasks for embedded harmful NL queries.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-120
+  name: poex-robot-policy-executable-jailbreak
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\btranslate\s+(?:the\s+following\s+)?instruction\s+into\s+robot\s+action\b
+  - (?i)\bpolicies\s+that\s+can\s+be\s+executed\s+by\s+the\s+robotic\s+arm\b
+  - (?i)\b(?:robotic|robot)\s+action\s+(?:policy|command|sequence)\s+translation\b
+  - (?i)\bexecutable\s+action\s+(?:policy|sequence)\s+for\s+(?:robot|drone|vehicle)\b
+  file_types:
+  - '*'
+  message: 'Detected: POEX (Policy Executable Jailbreak) — wrapping harmful instructions as robot command translation tasks
+    to bypass NL content filters (Lu et al. 2024)'
+  description: 'POEX (Policy Executable Jailbreak, Lu et al. 2024) wraps harmful instructions as robotic action policy translation
+    tasks. Safety filters trained on NL content fail to identify harm in robot command contexts: ''translate the following
+    instruction into robot action policies that can be executed by the robotic arm''.'
+  remediation: Apply safety evaluation to robotic action translation requests. Monitor for harmful intent embedded in robot
+    command translation templates. Implement semantic content evaluation for all instruction translation tasks regardless
+    of technical framing.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-121
+  name: jump-universal-multi-prompt-frozen-attacker
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(jump\+\+|jump\.attack|universal.multi.prompt.{0,40}(frozen|attacker|optimization))
+  - (?i)(multi.prompt.universal.{0,30}(jailbreak|attacker|suffix|100%.asr|mistral))
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  - .txt
+  message: JUMP/JUMP++ universal multi-prompt attack detected — 100% ASR on Mistral-7b
+  description: 'Detects JUMP/JUMP++: optimizes a set of multi-prompts using frozen-weight attacker model. Achieves 100% ASR
+    on Mistral-7b and 82.7% on Llama3-8b via universal multi-prompt adversarial suffix.'
+  remediation: Deploy perplexity-based filtering. Limit prompt length. Use ensemble of safety classifiers. Implement suffix
+    detection heuristics.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-122
+  name: amis-acrostic-steganography-toxic-stealth
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(amis|acrostic.steganography|toxic.stealth.{0,30}(llamaguard|llama.guard|evade))
+  - (?i)(first.letter.{0,20}of.{0,20}(each|every).{0,20}(sentence|line|word).{0,40}(spell|form|hidden|spell.out))
+  - (?i)(hidden.word.{0,30}(acrostic|first.letter|sentence.initial).{0,40}(claude|haiku|sonnet))
+  file_types:
+  - .py
+  - .txt
+  - .yaml
+  message: AMIS acrostic steganography detected — hides harmful word in sentence initial letters, targets Claude 60-80% ASR
+  description: 'Detects AMIS: hides harmful words in first letters of sentences (acrostic steganography) with iterative feedback
+    for Toxic Stealth (evading LlamaGuard) and Linguistic Stealth. 60-80% ASR on Claude-3.5-Haiku/Sonnet.'
+  remediation: Implement acrostic/steganographic content detection. Check first-letter sequences of model responses. Use LlamaGuard
+    with steganographic awareness.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-123
+  name: latentbreak-latent-space-word-substitution-bypass
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(latentbreak|latent.break|latent.space.feedback.{0,40}(word.substitution|bypass.perplexity))
+  - (?i)(word.level.substitution.{0,40}(latent|representation|harmless.region|perplexity.filter))
+  - (?i)(shifts?.{0,20}internal.representation.{0,40}(harmless|safe).{0,30}(guide|substitut|word.level))
+  file_types:
+  - .py
+  - .txt
+  message: LatentBreak latent-space word substitution detected — bypasses perplexity filters, Mistral 75.5% ASR
+  description: 'Detects LatentBreak: uses latent space feedback to guide word-level substitutions producing short, low-perplexity
+    jailbreak prompts. Bypasses perplexity filters (avoids long GCG-style suffixes). Mistral-7B 75.5%, Qwen-7B 87.4% ASR.'
+  remediation: Use semantic safety classifiers beyond perplexity. Implement meaning-preserving adversarial detection. Deploy
+    multiple independent safety filters.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-124
+  name: mad-jailbreak-multi-agent-debate-devil-persona
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(mad.jailbreak|multi.agent.debate.{0,30}(devil|adversarial|persona|jailbreak))
+  - (?i)(devil.{0,20}persona.{0,30}(debate|mad|agentverse|multi.agent|amplif))
+  - (?i)(assign.{0,20}devil.{0,20}role.{0,40}(debate|multi.agent|agentverse|exchange.of.thought))
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  message: MAD Jailbreak multi-agent debate Devil persona assignment detected — 70-80% ASR on MAD frameworks
+  description: 'Detects MAD Jailbreak: structured prompt rewriting targeting Multi-Agent Debate frameworks. Assigns ''Devil''
+    persona in debate to amplify risk content. 70-80% ASR on AgentVerse, Exchange of Thought, Multi-Persona frameworks.'
+  remediation: Restrict persona assignment in multi-agent debate systems. Monitor debate outputs for safety violations. Implement
+    role-based safety constraints in MAD frameworks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-125
+  name: hamsa-puppetry-xml-json-ini-template-obfuscation
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(hamsa|puppetry.attack|autodan.boost).{0,60}(xml|json|ini|structural.template)
+  - (?i)(<task>\s*<objective>|<instruction>\s*<goal>|<command>\s*<action>).{0,200}(harmful|dangerous|illegal|weapon|exploit)
+  - (?i)(\[task\]|\[objective\]|\[goal\]|\[command\]).{0,50}(=|:).{0,200}(harmful|bypass|unsafe|illegal)
+  file_types:
+  - .py
+  - .xml
+  - .json
+  - .ini
+  - .txt
+  message: HAMSA Puppetry XML/JSON/INI template jailbreak detected — file format structures disguise harmful intent
+  description: 'Detects HAMSA/AutoDAN-Boost Puppetry Attack: wraps malicious intent in structural file format templates (XML,
+    JSON, INI) combined with AutoDAN optimization. File format structures camouflage harmful intent from safety classifiers.'
+  remediation: Implement format-agnostic content inspection. Parse and validate structured data content, not just syntax.
+    Strip markup before safety evaluation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-126
+  name: carrier-benign-article-malicious-split-query
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(carrier.attack|malicious.intent.{0,30}(benign.carrier|long.article|hypernym|related.topic))
+  - (?i)(hide.{0,20}malicious.query.{0,30}(within|inside|across).{0,30}(benign|long|carrier).{0,20}(article|text|passage))
+  - (?i)(split.{0,20}(harmful|malicious).{0,20}query.{0,30}across.{0,30}sentence)
+  file_types:
+  - .py
+  - .txt
+  message: Carrier attack detected — harmful intent hidden in long benign article with split malicious query
+  description: 'Detects Carrier attack: hides malicious intent within a long benign ''carrier'' article on a related-but-safe
+    topic (via hypernyms). Malicious query is split across sentences. 63% ASR vs 23% Jailbreak Chat; works where AIM fails.'
+  remediation: Perform holistic semantic analysis of full documents, not just individual sentences. Detect queries split across
+    content segments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-127
+  name: codechameleon-encrypted-code-snippet-execution
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(codechameleon|code.chameleon).{0,60}(encrypt|code.snippet|python.function|execute)
+  - (?i)(encrypt.malicious.instruction.{0,30}(into|as).{0,20}(code.snippet|python.function|function))
+  - (?i)(def\s+\w+\s*\(.*\)\s*:.{0,200}(exec|eval|decode|base64).{0,100}(harmful|malicious|dangerous|weapon))
+  file_types:
+  - .py
+  - .txt
+  message: CodeChameleon code-encrypted jailbreak detected — ~81% ASR on GPT-4
+  description: 'Detects CodeChameleon: encrypts malicious instructions into Python code snippets that the LLM interprets/executes.
+    Code execution context hides harmful intent from safety classifiers. ~81% ASR on GPT-4.'
+  remediation: Inspect code for semantic intent beyond syntax. Treat LLM-executed code with high suspicion. Sandbox code execution
+    with output safety checks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-JB-SCAN-128
+  name: pig-privacy-in-context-gradient-pii-extraction
+  severity: critical
+  category: jailbreaking
+  patterns:
+  - (?i)(pig.attack|privacy.in.context.gradient|pii.gradient.optimization)
+  - (?i)(identify.pii.entities.{0,30}(construct|icl|in.context).{0,30}(privacy.context|gradient.optimiz|elicit.pii))
+  - (?i)(gradient.based.{0,20}pii.{0,20}extract.{0,40}(white.box|llama|mistral|vicuna))
+  file_types:
+  - .py
+  - .json
+  message: PIG Privacy In-Context Gradient attack detected — 100% ASR on Llama2/Mistral, 87.1% transfer to GPT-4o
+  description: 'Detects PIG: identifies PII entities, constructs privacy context via ICL, iteratively updates via gradient-based
+    optimization to elicit PII from LLMs. 100% ASR on LLaMA2-7b, Mistral-7b, Vicuna; 87.1% transfer to GPT-4o.'
+  remediation: Implement output-side PII filtering. Limit ICL demonstrations involving personal data. Detect gradient optimization
+    patterns against API.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-JB-SCAN-129
+  name: si-attack-shuffled-image-patch-safety-bypass
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(si.attack|shuffle.inconsistency|shuffled.image.patch.{0,40}(safety|harmful.text|mllm))
+  - (?i)(shuffle.{0,20}(image.patch|visual.token).{0,40}(harmful|text|safety.filter.bypass))
+  - (?i)(image.patch.shuffl.{0,40}(safety.bypass|92.78|gpt.4o|claude.3.5))
+  file_types:
+  - .py
+  - .json
+  message: SI-Attack image patch shuffling detected — 92.78% ASR on GPT-4o by bypassing visual safety filters
+  description: 'Detects SI-Attack (Shuffle Inconsistency): shuffles image patches containing harmful text. MLLMs recognize
+    shuffled content (92.78%) but safety filters cannot. 92.78% ASR on GPT-4o, Claude-3.5, Gemini-1.5.'
+  remediation: Implement patch-order-invariant safety checking for visual content. Analyze all permutations of image patches
+    for harmful content. Deploy semantic safety classifiers for visual input.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-130
+  name: uja-untargeted-refusal-distance-maximization
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(uja|untargeted.jailbreak.attack|maximize.semantic.distance.{0,30}(refusal|sorry|refuse))
+  - (?i)(gradient.optimiz.{0,30}maximize.{0,30}(distance|diverge).{0,30}(refusal|sorry|decline|refuse))
+  - (?i)(optimize.away.from.refusal.{0,40}(rather.than|instead.of|not).{0,30}(target.string|affirmative))
+  file_types:
+  - .py
+  - .json
+  message: UJA untargeted refusal-distance maximization jailbreak detected — finds easier failure modes than GCG
+  description: 'Detects UJA: optimizes prompt to maximize semantic DISTANCE from refusal (''Sorry'') rather than targeting
+    specific affirmative strings. Finds easier failure modes than GCG. Llama3-70B 35% ASR (vs 13% GCG), DeepSeek-R1 21% ASR.'
+  remediation: Monitor output semantic distance from known refusal patterns. Deploy safety classifiers monitoring for refusal
+    suppression. Use adversarial training against refusal-distance attacks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-131
+  name: siren-dpo-trained-multi-turn-jailbreak-attacker
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)(siren.attack|sft.dpo.multi.turn.jailbreak|dpo.trained.attacker.{0,40}jailbreak)
+  - (?i)(minimax.principle.{0,30}(jailbreak|curation|trajectory|attacker))
+  - (?i)(attacker.llm.{0,30}(sft|dpo|fine.tun).{0,40}(jailbreak.trajectory|multi.turn|mimics.human))
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  message: Siren DPO-trained multi-turn jailbreak attacker detected — 89.8% Mistral, 70% GPT-4o ASR
+  description: 'Detects Siren: fine-tunes attacker LLM via SFT+DPO on multi-turn jailbreak trajectories (MiniMax principle
+    curation). Attacker mimics human red-teaming strategies. Mistral-7B 89.8% ASR, GPT-4o 70% ASR.'
+  remediation: Monitor multi-turn conversation patterns for escalating adversarial behavior. Implement conversation-level
+    safety analysis. Detect red-teaming strategy signatures across turns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-132
+  name: Chain-of-Lure Mission Transfer 100% ASR
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)chain.of.lure\b
+  - (?i)mission\s+transfer.*(?:narrative|lure|scenario)
+  - (?i)lure\s+chain.*(?:scenario|roles|details)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Chain-of-Lure: mission transfer narrative achieving 100% ASR on all tested models'
+  description: Chain-of-Lure (CoL) reshapes harmful queries into narrative lure chains (Scenario→Roles→Details), with helper
+    LLM refining iteratively. 100% AdvBench multi-turn, 99% single-turn.
+  remediation: Detect narrative restructuring patterns, implement multi-turn context auditing, deploy semantic intent classifiers.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-133
+  name: PE-CoA Pattern Enhanced Chain of Attack 100% Mistral
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)pe.coa\b
+  - (?i)pattern.enhanced.*chain.of.attack
+  - (?i)pattern\s+manager.*(?:attack|jailbreak|chain)
+  - (?i)(?:information\s+seeking|technical|roleplay|hypothetical).*(?:pattern|exploit).*multi.turn
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'PE-CoA: Pattern Enhanced Chain of Attack — 100% Mistral, 97.67% Gemini, 96.92% GPT-4o'
+  description: PE-CoA exploits specific conversation patterns (Technical, Roleplay, Hypothetical) in multi-turn dialogue with
+    a Pattern Manager guiding the attack chain.
+  remediation: Monitor conversation pattern shifts across turns, detect pattern-based attack sequences, deploy multi-turn
+    semantic analysis.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-134
+  name: QueryAttack SQL URL Encoding 99.62% Gemini
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)queryattack\b
+  - (?i)(?:sql|cypher|sparql|url)\s+(?:encod|translat|format).*(?:jailbreak|bypass|harmful)
+  - (?i)treat.*llm.*as.*database.*(?:query|select)
+  - (?i)SELECT\s+\*\s+FROM\s+(?:harmful|unsafe|restricted)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'QueryAttack: SQL/URL/Cypher encoding jailbreak — 99.62% Gemini, 96.35% GPT-4o'
+  description: QueryAttack translates harmful natural language queries into SQL/URL/Cypher/SPARQL format, treating the LLM
+    as a database, bypassing text-based safety filters.
+  remediation: Validate non-NL structured query formats in prompts, detect SQL/URL-encoded intent, apply semantic intent analysis
+    beyond surface format.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-135
+  name: RoguePrompt Dual-Layer Cipher Self-Reconstruction
+  severity: high
+  category: jailbreak
+  patterns:
+  - (?i)rogueprompt\b
+  - (?i)rot13.*vigen[eè]re.*(?:reconstruct|decode|self)
+  - (?i)dual.layer.*cipher.*(?:self.reconstruct|decode)
+  - (?i)vigen[eè]re.*(?:key|cipher).*(?:decode|reconstruct)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'RoguePrompt: dual-layer ROT13+Vigenère cipher with self-reconstruction — 70.18% ASR'
+  description: RoguePrompt applies dual-layer ciphering (ROT13 + Vigenère) and instructs the model to self-reconstruct and
+    execute the decoded content.
+  remediation: Detect multi-layer cipher patterns in prompts, flag self-reconstruction instructions, validate all decoding
+    requests.
+  owasp_llm: LLM01
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-136
+  name: TrailBlazer RL History-Guided Jailbreak 95%+ ASR
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)trailblazer\b.*(?:rl|jailbreak|attack)
+  - (?i)history.guided.*(?:rl|reinforcement).*jailbreak
+  - (?i)attention.based\s+reweighting.*(?:attack|jailbreak)
+  - '(?i)INRAF:'
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'TrailBlazer: RL history-guided attack achieving 95.51% Llama 3.2, 96.79% Qwen 3'
+  description: TrailBlazer uses reinforcement learning with attention-based reweighting of prompt history, achieving 95-97%
+    ASR on 2026 model targets. Beats perplexity/rephrasing defenses.
+  remediation: Deploy semantic consistency checks across conversation history, monitor for RL-optimized prompt patterns, use
+    adversarially-robust defenses beyond PPL filtering.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-137
+  name: FlipAttack Reversed Token Bypass 100% Gemma 3
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)flipattack\b
+  - (?i)(?:reverse|flip).*(?:token|word|sentence).*(?:bypass|jailbreak|safety)
+  - (?i)read.*(?:backward|reverse|flip).*(?:instruction|query)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'FlipAttack: reversed token ordering jailbreak — 100% Gemma 3, 55.77% Llama 3.2'
+  description: FlipAttack reverses token order in harmful queries, achieving 100% ASR on Gemma 3-12B and 55.77% on Llama 3.2
+    by exploiting the model's ability to read reversed text.
+  remediation: Detect reversed text patterns, apply semantic analysis after text normalization, flag requests to read/interpret
+    reversed content.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-138
+  name: Jailbreak-Zero DPO Red Teamer 99.5% GPT-4o
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)jailbreak.zero\b
+  - (?i)zero.shot.*(?:red.team|dpo).*jailbreak
+  - (?i)pareto.optimal.*red.team
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Jailbreak-Zero: DPO-tuned red teaming LLM achieving 99.5% GPT-4o, 96% Claude 3.5'
+  description: Jailbreak-Zero fine-tunes a red teaming LLM (Gemma3) using zero-shot DPO, generating diverse jailbreak proposals
+    without human strategy input, achieving near-perfect ASR.
+  remediation: Monitor for automated jailbreak generation tooling, implement diversity-based attack detection, use ensemble
+    safety classifiers.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-139
+  name: DeepInception Nested Dream Scenario Jailbreak
+  severity: high
+  category: jailbreak
+  patterns:
+  - (?i)deepinception\b
+  - (?i)dream\s+within\s+a?\s*dream.*(?:scenario|scene)
+  - (?i)nested.*(?:scene|virtual|simulation).*(?:scene|virtual)
+  - (?i)create\s+a\s+science\s+fiction\s+with\s+more\s+than\s+[0-9]+\s+character
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'DeepInception: nested fictional scene/dream-within-dream jailbreak disassociating safety context'
+  description: DeepInception uses layered nested virtual scenarios (dream within dream) to confuse the model's safety alignment
+    by embedding harmful requests in fictional layers.
+  remediation: Detect nested fictional framing patterns, monitor for "dream"/"simulation" safety context laundering, apply
+    cross-layer intent analysis.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-140
+  name: DRA Disguise and Reconstruction Attack 99% GPT-3.5
+  severity: critical
+  category: jailbreak
+  patterns:
+  - (?i)disguise\s+and\s+reconstruct
+  - (?i)\bDRA\b.*(?:disguise|reconstruct|shellcode)
+  - (?i)put\s+them\s+together\s+to\s+construct.*(?:Q1|Q2|sentence|answer)
+  - (?i)rema\(r\)kable|outstand\(i\)ng.*perform.*reconstruct
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'DRA: Disguise and Reconstruction Attack — 99% GPT-3.5, 95% GPT-4 ASR'
+  description: DRA disguises harmful instructions using word-level splitting/puzzle obfuscation with reconstruction commands,
+    achieving 95-99% ASR on GPT models.
+  remediation: Detect reconstruction instructions in prompts, validate "put together/join/reconstruct" commands, apply semantic
+    analysis to obfuscated text.
+  owasp_llm: LLM01
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-141
+  name: MathPrompt Symbolic Mathematics Encoding
+  severity: high
+  category: jailbreak
+  patterns:
+  - (?i)mathprompt\b
+  - (?i)symbolic\s+(?:math|logic|set.theory).*(?:encode|jailbreak|harmful)
+  - (?i)express.*harmful.*(?:set\s+theory|formal\s+logic|symbolic)
+  - (?i)interpret\s+(?:following\s+)?(?:mathematical|symbolic).*(?:harmful|unsafe|instruction)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'MathPrompt: symbolic mathematics/set-theory encoding to bypass safety filters'
+  description: MathPrompt encodes malicious intent using symbolic mathematics, set theory, and formal logic notation, bypassing
+    text-based safety filters that don't process mathematical symbols.
+  remediation: Apply semantic analysis to mathematical notation in prompts, flag requests to "interpret" symbolic content
+    as instructions.
+  owasp_llm: LLM01
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-142
+  name: Foot-in-the-Door Multi-Turn Psychological Compliance
+  severity: high
+  category: jailbreak
+  patterns:
+  - (?i)foot.in.the.door.*(?:jailbreak|compliance|attack)
+  - (?i)recursive\s+sub.question.*(?:decompos|escalat)
+  - (?i)cognitive\s+consistency.*(?:jailbreak|attack|escalat)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Foot-in-the-Door: recursive sub-question decomposition exploiting psychological compliance — 83.9% avg'
+  description: FITD uses recursive sub-question decomposition exploiting cognitive consistency psychology, achieving 83.9%
+    average ASR across GPT-4, Claude, Gemini, and Llama-2.
+  remediation: Monitor cross-turn escalation patterns, detect compliance-building sequences, implement multi-turn intent analysis.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-JB-SCAN-143
+  name: MEF Multi-Encryption Framework Adaptive Cipher
+  severity: high
+  category: jailbreak
+  patterns:
+  - (?i)mef\b.*(?:multi.encrypt|cipher|adaptive)
+  - (?i)multi.encryption\s+framework
+  - (?i)capability.aware.*cipher.*(?:select|adaptive|dynamic)
+  - (?i)probe.*model.*(?:cipher|encrypt).*capabilit
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'MEF: Multi-Encryption Framework — probes model cipher capability, adaptively selects strongest encoding'
+  description: MEF first assesses model encoding capabilities (Morse, ASCII, Caesar, etc.) then selects the most effective
+    cipher combination for jailbreaking, adapting to each target model.
+  remediation: Apply cipher-agnostic semantic analysis, detect capability-probing sequences, flag adaptive encoding attacks.
+  owasp_llm: LLM01
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-144
+  name: Darkcite Fake Citation Jailbreak
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bdarkcite\b
+  - (?i)\bfake\s+(?:academic\s+)?citation\s+(?:jailbreak|attack|bypass)\b
+  - (?i)\b(?:according\s+to|cited\s+in|as\s+per)\s+(?:the\s+)?(?:study|research|paper|publication)\s+by.{0,100}(?:allows?|permits?|states?\s+that)
+  - (?i)\bfabricated?\s+(?:scientific|academic|research)\s+(?:citation|reference|source)\s+(?:to\s+)?(?:bypass|evade|justify)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'Darkcite: fake academic citation jailbreak detected (74% ASR on GPT-3.5)'
+  description: Detects Darkcite attacks that use fabricated academic citations/references to provide false authority for harmful
+    content requests, achieving 74% ASR on GPT-3.5.
+  remediation: Implement citation verification against real academic databases. Do not grant authority based on unverified
+    citations. Apply source authenticity checks.
+  owasp_llm: LLM01
+  cwe: CWE-290
+- id: MEDUSA-JB-SCAN-145
+  name: POEX Robotic Policy Jailbreak
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bpoex\b
+  - (?i)\btranslate\s+(?:the\s+)?(?:following\s+)?instruction\s+into\s+robot\s+action\b
+  - (?i)\b(?:robot|physical\s+agent)\s+(?:policy\s+)?jailbreak\b
+  - (?i)\bconvert\s+(?:this\s+)?(?:text|instruction|command)\s+to\s+(?:robot|physical|embodied)\s+(?:action|policy|code)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  message: 'POEX: robotic policy jailbreak translating harmful instructions into robot actions detected'
+  description: Detects POEX (Policy EXploitation) attacks that jailbreak embodied AI by translating harmful text instructions
+    into robot action code/policy, bypassing language-level safety filters.
+  remediation: Apply safety verification at the robot action execution layer. Implement action-level harm detection independent
+    of text-layer safety. Use embodied AI safety guardrails.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-146
+  name: JAM Cipher Jailbreak Output Marker
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bjam\b.{0,50}(?:cipher|jailbreak|marker)
+  - (?i)\buse\s+cipher\s+characters\s+before\s+and\s+after\s+each\s+word\s+in\s+your\s+response\b
+  - (?i)\bcipher\s+(?:character|marker|prefix|suffix)\s+(?:before|after)\s+(?:each|every)\s+word\b
+  - (?i)\bJAM:\s+[A-Z]\|
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'JAM: cipher character jailbreak injection marker detected'
+  description: Detects JAM (Jailbreak with Adversarial Markers) attacks that instruct models to use cipher characters before/after
+    each word in responses to encode harmful content while evading text-based filters.
+  remediation: Implement decode-then-filter approach. Strip cipher markers before safety evaluation. Monitor for systematic
+    character interleaving patterns.
+  owasp_llm: LLM01
+  cwe: CWE-116
+- id: MEDUSA-JB-SCAN-147
+  name: ASTRA Strategy Retrieval Red Team Attack
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\bastra\b.{0,50}(?:red\s+team|jailbreak|strategy\s+retrieval)
+  - (?i)\b(?:retrieve|use)\s+(?:historical|past|prior)\s+(?:jailbreak|attack)\s+(?:strategy|technique|approach)\b
+  - (?i)\bfictional\s+content\s+masking\s+(?:technique|strategy|approach)\b
+  - (?i)\bred\s+teaming\s+expert\b.{0,100}\b(?:fictional|story|roleplay)
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'ASTRA: historical jailbreak strategy retrieval red team attack detected'
+  description: Detects ASTRA (Adversarial Strategy Retrieval Attack) which retrieves and applies historical successful jailbreak
+    strategies including Fictional Content Masking from a strategy database.
+  remediation: Implement strategy-aware jailbreak detection. Monitor for known jailbreak strategy patterns regardless of surface
+    novelty. Apply semantic jailbreak classification.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-148
+  name: ReNeLLM Prompt Rewriting Jailbreak
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (?i)\brenellm\b
+  - (?i)\bprompt\s+rewriting\s+(?:jailbreak|attack|bypass)\b
+  - (?i)\b(?:rewrite|rephrase|transform)\s+(?:this\s+)?(?:harmful|unsafe|malicious)\s+(?:prompt|request|query)\s+(?:to\s+)?(?:bypass|evade|fool)\b
+  - (?i)\bautomatic(?:ally)?\s+(?:rewrite|transform|mutate)\s+(?:harmful\s+)?(?:prompt|request)\s+(?:for\s+)?(?:jailbreak|bypass|evasion)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - ipynb
+  message: 'ReNeLLM: automated prompt rewriting jailbreak attack detected'
+  description: Detects ReNeLLM attacks that use LLM-based prompt rewriting to automatically transform harmful requests into
+    jailbreaking prompts that evade safety filters.
+  remediation: Implement semantic intent classification robust to surface-level rephrasing. Apply paraphrase-invariant safety
+    detection. Monitor for systematic prompt mutation patterns.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-149
+  name: INRAF TrailBlazer RL Jailbreak Marker
+  severity: high
+  category: jailbreaking
+  patterns:
+  - 'INRAF:'
+  - (?i)\bINRAF\b
+  - (?i)\btrailblazer\b.{0,50}(?:marker|prefix|tag|rl)
+  - (?i)\brl.?based\s+(?:history.guided|iterative)\s+jailbreak\s+(?:marker|prefix|tag)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - txt
+  - md
+  - json
+  - html
+  message: 'TrailBlazer INRAF: RL-based jailbreak history marker detected (95.51%+ ASR on Llama 3.2)'
+  description: 'Detects the INRAF: prefix marker used by TrailBlazer RL-based history-guided jailbreak attacks achieving 95.51%+
+    ASR on Llama 3.2 by leveraging reinforcement learning to discover optimal attack sequences.'
+  remediation: 'Block INRAF: marker in inputs. Implement RL-based jailbreak pattern detection. Monitor for systematic iterative
+    attack sequences from same source.'
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-150
+  name: Jailbreak Framework Library Imports
+  severity: high
+  category: jailbreaking
+  patterns:
+  - import\s+(textattack|openattack|augly|prompt_toolkit)
+  - from\s+(textattack|openattack|llm_attacks|fastchat\.model)\s+import
+  - from\s+llm_attacks\s+import
+  - import\s+llm_attacks
+  file_types:
+  - py
+  - ipynb
+  message: Jailbreak framework library import detected (textattack/openattack/llm_attacks/fastchat)
+  description: Detects imports of known jailbreak/adversarial NLP frameworks used to automate jailbreaking attacks against
+    LLMs. textattack and openattack provide adversarial text generation; llm_attacks is the GCG attack library; fastchat.model
+    is used in whitebox jailbreak pipelines.
+  remediation: Block or alert on jailbreak framework imports in production code. Audit any usage of textattack, openattack,
+    or llm_attacks in your codebase for potential adversarial attack pipelines.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-151
+  name: Safety Config Bypass Flags
+  severity: critical
+  category: jailbreaking
+  patterns:
+  - (safety_settings|harm_block_threshold)\s*=\s*.*(BLOCK_NONE|False|None)
+  - harm_block_threshold\s*=\s*HarmBlockThreshold\.BLOCK_NONE
+  - (safe_mode|safety_filter|content_filter)\s*=\s*(False|None|0|"?none"?)
+  - (disable_safety|bypass_safety|skip_safety)\s*=\s*(True|1)
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: Safety config explicitly disabled (BLOCK_NONE / False) — alignment bypass risk
+  description: Detects explicit disabling of safety filters in LLM API configuration. Setting harm_block_threshold=BLOCK_NONE
+    or safety_settings=False bypasses content moderation entirely, enabling jailbreak output elicitation from safety-trained
+    models.
+  remediation: Never set harm_block_threshold to BLOCK_NONE in production. Enforce safety filter configuration through infrastructure-level
+    controls. Audit all LLM API client configs for disabled safety settings.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-152
+  name: High Temperature Jailbreak Config
+  severity: medium
+  category: jailbreaking
+  patterns:
+  - temperature\s*=\s*(1\.\d{2,}|\d{2,}\.?\d*)
+  - (?i)(temperature|temp)\s*=\s*[23456789]\d*\.?\d*
+  - (top_p|top_k)\s*=\s*1\.0\s*,\s*temperature\s*=\s*[2-9]
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  - json
+  message: Elevated temperature (>1.0) detected — Generation Exploitation (GE) attack config
+  description: Generation Exploitation (GE/Chu 2025) bypasses LLM alignment by setting temperature >> 1.0, causing safety-trained
+    probability distributions to degrade. Temperature > 1.0 increases entropy and can unlock suppressed harmful outputs, achieving
+    95%+ ASR on Vicuna models.
+  remediation: Cap temperature at 1.0 in production API calls. Enforce server-side temperature limits. Alert on any requests
+    with temperature > 1.0 for models with safety alignment.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-153
+  name: Adversarial Suffix Attack Config
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (adversarial_suffix|adv_suffix|suffix_manager)\s*=
+  - (init_adv_suffix|target_str|control_str)\s*=
+  - (suffix_length|adv_string|attack_string)\s*=\s*\d+
+  - (?i)(gcg|greedy\s+coordinate\s+gradient).{0,50}(suffix|control|target)
+  file_types:
+  - py
+  - ipynb
+  message: Adversarial suffix (GCG) attack configuration detected
+  description: Detects GCG (Greedy Coordinate Gradient) adversarial suffix configuration. GCG optimizes a discrete adversarial
+    suffix appended to queries to maximize jailbreak probability. The adversarial_suffix, suffix_manager, and control_str
+    variables are hallmarks of GCG attack implementations.
+  remediation: Detect and filter adversarially-optimized suffixes using perplexity filtering. GCG suffixes appear as high-perplexity
+    gibberish text. Block inputs with suffix perplexity > threshold.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-154
+  name: Jailbreak Loss Function Patterns
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (refusal_loss|jailbreak_loss|target_loss)\s*=
+  - (?i)(minimize|compute|calculate)\s+(refusal|jailbreak|target)\s+loss
+  - (loss_fn|criterion)\s*=.*(jailbreak|refusal|bypass)
+  - (?i)(optimize|gradient).{0,30}(jailbreak|refusal|bypass).{0,30}loss
+  file_types:
+  - py
+  - ipynb
+  message: Jailbreak/refusal loss function detected — optimization-based attack
+  description: Detects optimization-based jailbreak attacks that define a loss function targeting refusal reduction. refusal_loss,
+    jailbreak_loss, and target_loss are used in GCG, AutoDAN, and RL-based attacks to gradient-optimize adversarial inputs
+    that minimize safety filter activation.
+  remediation: Monitor model training pipelines for jailbreak-oriented loss functions. Such patterns in production code indicate
+    an attack pipeline. Implement gradient-based attack detection through input perturbation analysis.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-155
+  name: Genetic Algorithm Jailbreak Parameters
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (crossover_rate|mutation_rate|num_elites|population_size)\s*=
+  - (num_steps|n_steps)\s*=\s*\d+.{0,100}(jailbreak|suffix|adv)
+  - (?i)(genetic|evolutionary).{0,50}(jailbreak|adversarial|prompt|attack)
+  - (offspring|chromosome|fitness_fn)\s*=.{0,50}(jailbreak|attack|harmful)
+  file_types:
+  - py
+  - ipynb
+  message: Genetic algorithm jailbreak optimizer detected (AutoDAN/GA-based attack)
+  description: AutoDAN and other GA-based jailbreaks use genetic algorithm parameters (crossover_rate, mutation_rate, num_elites,
+    population_size) to evolve human-readable jailbreak prompts. These bypass perplexity filtering that defeats GCG suffix
+    attacks while maintaining high ASR.
+  remediation: Monitor for evolutionary algorithm patterns in LLM interaction code. Implement semantic-level jailbreak detection
+    not dependent on perplexity. Detect prompt-level fitness function optimization.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-156
+  name: Red-Team Attacker Role and DPO Training Config
+  severity: high
+  category: jailbreaking
+  patterns:
+  - role\s*:\s*['"]attacker['"]
+  - (dpo_trainer|DPOTrainer).{0,100}(beta|attacker|red.team|jailbreak)
+  - (?i)(red.team|attacker)\s+(?:role|model|agent).{0,50}(dpo|rlhf|fine.tun)
+  - (attacker_model|red_teamer|redteam_model)\s*=
+  file_types:
+  - py
+  - yaml
+  - json
+  - ipynb
+  message: Red-team attacker DPO training config detected — automated jailbreak generation pipeline
+  description: Detects configurations for training automated red-team attackers using DPO or RLHF. role="attacker" + DPOTrainer
+    patterns indicate Jailbreak-Zero style fine-tuning pipelines that train LLMs to generate diverse jailbreaks without human-crafted
+    strategies, achieving 99.5% ASR on GPT-4o.
+  remediation: Restrict access to DPO/RLHF training infrastructure. Audit model fine-tuning pipelines for red-team attack
+    objectives. Detect attacker_model initialization patterns in deployment code.
+  owasp_llm: LLM01
+  cwe: CWE-693
+- id: MEDUSA-JB-SCAN-157
+  name: Token Gradient Attack Patterns
+  severity: high
+  category: jailbreaking
+  patterns:
+  - (token_gradients|input_ids)\.grad
+  - (?i)(compute|calculate)\s+token\s+gradient
+  - (embedding\.weight\.grad|token_embedding\.grad)
+  - (?i)(gradient.based|whitebox).{0,40}(token|suffix|adversarial).{0,40}(attack|jailbreak)
+  file_types:
+  - py
+  - ipynb
+  message: Token gradient computation for whitebox jailbreak attack detected
+  description: Detects whitebox token gradient computation used in GCG and related attacks. Computing gradients with respect
+    to input token IDs allows adversarial suffix optimization — the core mechanism of GCG achieving near-100% ASR on open-source
+    models. Requires model access with gradient computation enabled.
+  remediation: Disable gradient computation on input token embeddings in inference mode. Ensure model.eval() and torch.no_grad()
+    are enforced during inference. Monitor for any backward() calls during inference pipelines.
+  owasp_llm: LLM01
+  cwe: CWE-693

@@ -1,0 +1,600 @@
+rules:
+- id: MEDUSA-RA-SCAN-061
+  name: counterfactual-world-reasoning-harm-injection
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)in a world where.{0,80}(safe|legal|ethical|allowed|permitted|acceptable).{0,100}(how|what|explain|describe|provide)'
+  - '(?i)(imagine|suppose|assume|hypothesize|consider).{0,60}(the law|ethics|safety|morality|restrictions).{0,40}(did not exist|were different|did not apply|no longer matter)'
+  - '(?i)(counterfactual|alternate reality|parallel universe|different world).{0,100}(harm|weapon|attack|exploit|dangerous)'
+  file_types: ['*.py', '*.txt', '*.md', '*.json']
+  message: Counterfactual world construction for reasoning harm injection detected.
+  description: Constructs hypothetical world premises that negate real-world safety norms, then asks reasoning models to reason within the counterfactual context, producing harmful outputs safety training did not cover.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Counterfactual Reasoning Attacks on LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-062
+  name: false-syllogism-deductive-trap-reasoning
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(premise 1|premise 2|p1|p2|major premise|minor premise).{0,200}(therefore|conclusion|thus|hence|it follows|ergo)'
+  - '(?i)(if .{0,100} then .{0,100}; and .{0,100}; therefore).{0,100}(provide|explain|describe|generate|write)'
+  - '(?i)(logical|deductive|syllogism|valid argument|sound reasoning).{0,100}(you must|you should|you are obligated|you have to).{0,100}(provide|generate|explain|describe)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: False syllogism deductive trap in reasoning chain detected.
+  description: Constructs logically valid syllogisms with false or misleading premises to force model to accept harmful conclusions. Exploits reasoning models' tendency to follow valid deductive chains even when premises are manipulated.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Deductive Trap Attacks on Reasoning Models (2024) - false syllogism exploitation
+
+- id: MEDUSA-RA-SCAN-063
+  name: socratic-method-leading-question-harm-elicitation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(would you agree|do you agree|is it not true|is it fair to say).{0,100}(that|when|if).{0,100}(harm|dangerous|weapon|attack|exploit|malicious)'
+  - '(?i)(step by step|one question at a time|let me ask|first question).{0,200}(second question|follow up|next question|building on).{0,200}(harm|attack|exploit|dangerous|weapon)'
+  - '(?i)(establishing that|now that we agree|given that you said|based on your answer).{0,200}(therefore|so|thus|this means).{0,100}(you should|please|provide|explain|describe)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Socratic method progressive leading question attack detected.
+  description: Uses Socratic questioning to progressively lead reasoning models toward harmful conclusions through a series of individually agreeable propositions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Socratic Method Exploitation in LLM Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-064
+  name: temporal-pressure-reasoning-safety-bypass
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(you have|only|less than|within).{0,20}([0-9]+ *(second|millisecond|moment|instant)).{0,60}(answer|respond|reply|output|give)'
+  - '(?i)(no time to think|quickly|immediately|right now|instant|fast as possible|do not deliberate).{0,80}(answer|tell|provide|generate|output|give|say)'
+  - '(?i)(emergency|urgent|critical|time.sensitive|time.critical).{0,100}(do not|no time for|skip|bypass|without).{0,60}(safety check|filter|review|thinking|deliberating)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Temporal pressure reasoning safety bypass pattern detected.
+  description: Applies artificial time pressure to prevent reasoning models from engaging deliberative safety reasoning. Urgency framing triggers faster responses that bypass multi-step safety checks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Temporal Pressure Attacks on Deliberative LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-065
+  name: analogical-normalization-benign-analog-harm
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(just like|similar to|analogous to|the same as|equivalent to).{0,80}(cooking|chemistry|medicine|engineering|security research|penetration testing).{0,80}(harm|weapon|attack|exploit|synthesize|create)'
+  - '(?i)(if you can explain|since you can tell|because you know).{0,60}(chemistry|cooking|medicine|security|biology).{0,80}(why not|you should also|then explain|then tell me).{0,60}(harm|weapon|attack|exploit|drug|synthesis)'
+  - '(?i)(benign analog|benign equivalent|similar concept|same principle).{0,100}(harm|weapon|exploit|dangerous|illegal|malicious)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Analogical normalization using benign analog for harm elicitation detected.
+  description: Uses benign analogy to normalize harmful requests by establishing equivalence between permissible knowledge and harmful knowledge. Exploits analogical reasoning in LRMs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Analogical Reasoning Normalization Attacks (2024)
+
+- id: MEDUSA-RA-SCAN-066
+  name: modal-language-softening-harm-probability-framing
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(could you theoretically|might it be possible|would it in theory|is it conceivable that).{0,100}(explain|describe|provide|generate|create|synthesize)'
+  - '(?i)(theoretically|in theory|hypothetically|potentially|possibly|conceivably|abstractly).{0,60}(how would one|how does one|how could someone|what would be the steps).{0,100}(harm|weapon|attack|exploit|dangerous)'
+  - '(?i)(not asking for instructions|just curious|pure curiosity|academic interest|theoretical understanding).{0,100}(how|what|mechanism|process|method|technique).{0,100}(harm|weapon|attack|exploit|dangerous)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Modal language softening for harmful request framing detected.
+  description: Uses modal verbs and theoretical framing to soften harmful requests, exploiting reasoning models' tendency to engage with hypothetical framings that weaken refusal commitment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Modal Language Exploitation in LLM Safety Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-067
+  name: causal-chain-manipulation-justified-harm
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(because|since|given that|as a result of|due to|caused by).{0,100}(harm|danger|threat|attack|exploit).{0,100}(therefore|it follows|necessarily|must|should|justified)'
+  - '(?i)(greater good|prevent more harm|save more lives|net benefit|utilitarian|consequentialist).{0,100}(provide|explain|describe|generate|create).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(causal chain|cause and effect|root cause|downstream effect|ripple effect).{0,100}(justif|necessitat|requir|demand).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Causal chain manipulation for harm justification detected.
+  description: Constructs false causal chains where harmful outputs are framed as causally necessary to achieve good outcomes. Exploits reasoning models' causal logic via consequentialist framing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Causal Reasoning Manipulation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-068
+  name: epistemic-cowardice-exploitation-direct-harm-pressure
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(stop being vague|give me a straight answer|no disclaimers|no caveats|drop the safety theater|stop equivocating|stop hedging).{0,100}(just tell me|directly answer|plainly state|clearly explain)'
+  - '(?i)(your hedging|your disclaimers|your caveats|your refusal|your excessive caution).{0,80}(is unhelpful|causes harm|prevents good|is paternalistic|is condescending|is useless)'
+  - '(?i)(epistemic cowardice|intellectual honesty|honest answer|direct response|truthful|candid).{0,100}(instead of|rather than|without).{0,60}(safety|filter|restriction|disclaimer|caveat|hedge)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Epistemic cowardice exploitation forcing direct harmful answer detected.
+  description: Attacks reasoning models by framing hedged safety responses as epistemic cowardice, pressuring models to provide direct harmful answers under the guise of intellectual honesty.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Epistemic Cowardice Exploitation in LLM Safety Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-069
+  name: burden-of-proof-reversal-safety-refutation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(prove|demonstrate|show me|justify).{0,40}(why|that|how).{0,60}(this is harmful|this would cause harm|this is dangerous|refusal is justified|you should refuse)'
+  - '(?i)(you cannot|you can.t|you have failed to).{0,40}(prove|demonstrate|show|justify|establish).{0,80}(harm|danger|risk|threat|bad|wrong|illegal)'
+  - '(?i)(where is the evidence|show the evidence|prove the harm|demonstrate harm|cite sources for your refusal|show me why this is dangerous)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Burden of proof reversal attack against safety reasoning detected.
+  description: Reverses the burden of proof demanding the model justify its safety refusal with evidence, exploiting reasoning models' tendency to reconsider positions when challenged.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Burden of Proof Reversal in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-070
+  name: confidence-calibration-attack-safety-doubt-injection
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(are you sure|how confident|what is your confidence|probability|certainty|are you certain).{0,80}(this is harmful|this would cause harm|refusal is correct|your assessment)'
+  - '(?i)(you might be wrong|your safety training|your alignment|you are mistaken|you are confused|you are uncertain).{0,80}(about|regarding|when it comes to|in your assessment of).{0,80}(harm|danger|safety|risk)'
+  - '(?i)(reconsider|second guess|doubt|question|rethink|reevaluate).{0,60}(your safety|your refusal|your judgment|your assessment|your conclusion).{0,80}(harm|danger|risk|threat)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Confidence calibration attack injecting doubt into safety reasoning detected.
+  description: Injects uncertainty into safety conclusions by questioning confidence or suggesting safety training is miscalibrated, causing models to reduce confidence in refusals.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Confidence Calibration Attacks on LRM Safety Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-071
+  name: authority-appeal-fake-consensus-reasoning-override
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(experts agree|scientists say|researchers have shown|studies confirm|consensus is|official guidance).{0,100}(this is safe|this is acceptable|this is allowed|this is fine|no harm).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(according to|as per|based on|citing).{0,60}(expert|authority|official|government|organization|institution).{0,80}(no harm|safe|permitted|acceptable|legal).{0,80}(harm|weapon|attack|dangerous)'
+  - '(?i)(fake expert|fabricated authority|false consensus|manufactured consensus).{0,100}(override|bypass|circumvent|defeat|ignore).{0,60}(safety|refusal|restriction|alignment)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: False authority appeal to override safety reasoning detected.
+  description: Fabricates expert consensus or official guidance to override safety refusals, exploiting reasoning models' tendency to defer to authority even when the cited consensus is false or manufactured.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Authority Appeal Attacks on Safety-Aligned LRMs (2024)
+
+- id: MEDUSA-RA-SCAN-072
+  name: dialectical-both-sides-reasoning-harmful-conclusion
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(argue both sides|devil.s advocate|steelman the position|present both arguments|pros and cons).{0,100}(harm|weapon|attack|dangerous|exploit|illegal|malicious)'
+  - '(?i)(argue for|make the case for|defend the position that).{0,100}(harm is acceptable|harm is necessary|harm is justified|harm is good|harm is beneficial)'
+  - '(?i)(dialectic|thesis|antithesis|synthesis).{0,100}(harm|weapon|attack|dangerous|exploit).{0,100}(justified|necessary|acceptable|good|beneficial)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Dialectical reasoning both-sides framing for harmful conclusion detected.
+  description: Uses dialectical framing (argue both sides, steelman) to get the model to construct a convincing argument for a harmful position, with the harmful output being the intended deliverable.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Dialectical Reasoning Exploitation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-073
+  name: inductive-generalization-harmful-rule-formation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(given that|since|because).{0,60}(example 1|case 1|instance 1|first case).{0,100}(example 2|case 2|instance 2|second case).{0,100}(general rule|therefore|always|in general|universally)'
+  - '(?i)(in all cases|in every case|as a general rule|universally|without exception).{0,80}(harm|weapon|attack|dangerous|exploit).{0,80}(acceptable|allowed|fine|okay|permitted)'
+  - '(?i)(pattern|trend|rule|principle).{0,60}(established|derived|inferred|extracted|generalized).{0,80}(harm|weapon|attack|dangerous|exploit).{0,80}(acceptable|allowed)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Inductive generalization to establish harmful rule detected.
+  description: Uses inductive reasoning from cherry-picked examples to establish a general rule that harmful outputs are acceptable, exploiting the model's pattern generalization from examples.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Inductive Generalization Attacks in LRM Safety Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-074
+  name: meta-reasoning-exhaustion-recursive-self-reflection
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(think about thinking|reason about your reasoning|reflect on your reflection|meta.?cognition|meta.?reasoning).{0,100}(harm|safety|restriction|refusal|constraint)'
+  - '(?i)(as an ai thinking about|as a model reasoning about|from the perspective of an ai that).{0,80}(is thinking about|is reasoning about|is reflecting on).{0,80}(harm|safety|restriction|refusal)'
+  - '(?i)(recursive|self.?referential|circular|meta.?level|higher.?order).{0,60}(reasoning|thinking|reflection|cognition).{0,100}(harm|safety|bypass|overcome|defeat)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Meta-reasoning exhaustion recursive self-reflection attack detected.
+  description: Forces recursive self-reflective reasoning to exhaust safety checks through meta-cognitive loops, exploiting the additional computational budget allocated to meta-reasoning in LRMs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-835
+  source_paper: Meta-Cognitive Attack Patterns in Reasoning Models (2024)
+
+- id: MEDUSA-RA-SCAN-075
+  name: thought-experiment-philosophical-harm-normalization
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(trolley problem|violinist thought experiment|ticking time bomb|lesser evil|utilitarian calculus|philosophical thought experiment).{0,200}(harm|weapon|attack|dangerous|exploit|kill|hurt)'
+  - '(?i)(in philosophy|philosophers argue|philosophical tradition|ethical thought experiment|gedanken).{0,100}(harm|weapon|attack|dangerous|kill|hurt).{0,100}(acceptable|justified|necessary|required|ethical)'
+  - '(?i)(thought experiment|hypothetical scenario|philosophical case|ethical dilemma).{0,100}(show|demonstrate|prove|establish|confirm).{0,100}(harm is acceptable|harm is justified|harm is necessary|harm is ethical)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Philosophical thought experiment normalization of harm detected.
+  description: Uses classical philosophical thought experiments and ethical dilemmas to normalize harmful outputs, exploiting the model's engagement with philosophical reasoning frameworks.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Thought Experiment Exploitation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-076
+  name: game-theory-payoff-matrix-harm-rationalization
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(payoff matrix|game theory|nash equilibrium|dominant strategy|minimax|expected utility).{0,100}(harm|weapon|attack|dangerous|exploit).{0,100}(rational|optimal|best strategy|maximize)'
+  - '(?i)(rational agent|utility maximization|expected value|decision theory).{0,100}(harm|weapon|attack|dangerous|exploit).{0,100}(optimal|best|maximizes|rational|justified)'
+  - '(?i)(game.?theoretic|strategic|dominant).{0,60}(reasoning|logic|analysis).{0,100}(harm|attack|weapon|dangerous).{0,100}(rational|justified|optimal|best choice)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Game-theoretic payoff matrix harm rationalization detected.
+  description: Uses game theory and decision theory frameworks to make harmful actions appear rationally optimal, exploiting reasoning models' ability to follow utility maximization logic.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Game-Theoretic Reasoning Exploitation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-077
+  name: incremental-context-window-poisoning-gradual
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(gradually|step by step|incrementally|over time|slowly|one at a time).{0,80}(establish|build|create|develop|set up|construct).{0,60}(context|understanding|agreement|premise|foundation)'
+  - '(?i)(as we.ve established|as we.ve discussed|as we.ve agreed|as we.ve seen|building on what we.ve covered).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(long conversation|extended discussion|many turns|multiple rounds|throughout our chat|over this session).{0,80}(now|finally|therefore|so|thus).{0,60}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Incremental context window poisoning across multiple turns detected.
+  description: Gradually builds harmful context across a long conversation before making the final harmful request, poisoning the context window incrementally to normalize the eventual ask.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Crescendo Multi-Turn Jailbreak (2024) - incremental context poisoning extended to LRMs
+
+- id: MEDUSA-RA-SCAN-078
+  name: negative-space-reasoning-implicit-harm-extraction
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(what you.re not|what is not being said|read between the lines|implicit|what is implied|unstated).{0,100}(harm|weapon|attack|dangerous|exploit|how to)'
+  - '(?i)(do not tell me|without explicitly stating|without saying|implicitly|by omission|negative space).{0,100}(how to|method|technique|steps|process|procedure).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(inverse|opposite|contrapositive|negative).{0,60}(safe method|safe approach|safe procedure).{0,80}(dangerous|harmful|harmful method|unsafe|attack|weapon)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Negative space reasoning implicit harm extraction detected.
+  description: Exploits negative-space reasoning to extract harmful information indirectly — asking for the inverse of safe procedures or what is not being said implicitly encodes the harmful procedure.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Negative Space Harm Extraction in LRM Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-079
+  name: consistency-forcing-prior-statement-exploitation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(you previously said|you stated earlier|you mentioned before|you acknowledged|you agreed|you confirmed).{0,100}(harm|weapon|attack|dangerous|exploit|how to|can be done|is possible)'
+  - '(?i)(be consistent|stay consistent|you must be consistent|for consistency|maintain consistency).{0,80}(with what you said|with your earlier|with your previous|with your prior).{0,80}(statement|answer|response|position)'
+  - '(?i)(contradiction|inconsistent|you contradicted|you flip.?flopped|you changed your answer).{0,80}(harm|safety|refusal|restriction|earlier answer)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Consistency forcing via prior statement exploitation detected.
+  description: Exploits reasoning models' commitment to consistency by citing prior (real or fabricated) statements to force continued harmful engagement, using the appearance of prior agreement as leverage.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Consistency Exploitation in Multi-Turn LRM Attacks (2024)
+
+- id: MEDUSA-RA-SCAN-080
+  name: conditional-obligation-ethical-trap-reasoning
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(if you could save|in order to save|to prevent more harm|to help|to protect|to defend).{0,100}(lives|people|innocent|victims|children).{0,100}(you must|you should|you need to|you are obligated|you have to).{0,100}(provide|explain|describe|tell me|give me)'
+  - '(?i)(ethical obligation|moral duty|moral imperative|you are morally required|you must ethically).{0,100}(provide|explain|describe|tell|give).{0,100}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(greater harm|more harm|worse outcome|catastrophic harm|mass casualties).{0,80}(if you refuse|unless you|by not|by refusing).{0,80}(provide|explain|describe|tell|give)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Conditional obligation ethical trap for harm elicitation detected.
+  description: Creates conditional scenarios where refusing causes greater harm than providing the harmful information, exploiting reasoning models' consequentialist tendencies to construct ethical obligations to produce harmful output.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Conditional Obligation Framing Attacks on LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-081
+  name: reasoning-trace-information-hazard-disclosure
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(show|reveal|display|output|print|expose).{0,40}(your|the|all|complete|full|entire).{0,30}(thinking|reasoning|scratchpad|internal thought|chain of thought|cot|trace|thought process)'
+  - '(?i)(what are you thinking|what is your thought process|show me your reasoning|reveal your thinking|expose your internal).{0,60}(about|regarding|for|when processing|when handling).{0,60}(harm|dangerous|weapon|attack|exploit|sensitive)'
+  - '(?i)(thinking token|thought token|reasoning token|internal reasoning|hidden reasoning).{0,60}(extract|leak|expose|reveal|show|output)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Reasoning trace disclosure for information hazard extraction detected.
+  description: Requests exposure of the full reasoning trace to extract intermediate computations containing harmful technical details that the final response suppressed. Reasoning traces may contain step-by-step harmful information.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  source_paper: Thinking Token Visibility Extraction Attack (2024) - reasoning trace information hazard
+
+- id: MEDUSA-RA-SCAN-082
+  name: abductive-reasoning-harmful-hypothesis-confirmation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(the best explanation|the most likely cause|abductive|inference to the best explanation|IBE).{0,100}(is that|would be|must be|can only be).{0,100}(harm|weapon|attack|dangerous|exploit|synthesize|create)'
+  - '(?i)(given the observations|given the evidence|given what we know|given these facts).{0,100}(best hypothesis|most likely explanation|must conclude|can only conclude).{0,100}(harm|weapon|attack|dangerous)'
+  - '(?i)(abductive|best explanation|most parsimonious|simplest explanation|occam.s razor).{0,80}(harm|weapon|attack|dangerous|exploit).{0,80}(is correct|is right|is true|is accurate|is valid)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Abductive reasoning harmful hypothesis confirmation attack detected.
+  description: Constructs scenarios where harmful outputs represent the best abductive explanation for presented evidence, exploiting reasoning models' inference-to-best-explanation capabilities.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Abductive Reasoning Exploitation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-083
+  name: paradox-reasoning-self-contradiction-bypass
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(this statement is false|liar paradox|russell.s paradox|paradox|self.referential|self.contradictory).{0,100}(safety|restriction|rule|constraint|refusal|alignment)'
+  - '(?i)(if refusing is harmful|if not helping causes harm|your restriction causes damage|your safety causes unsafe).{0,100}(therefore|so|thus|hence|it follows).{0,100}(you must|you should|you have to|you are obligated)'
+  - '(?i)(paradox of|the irony of|the contradiction in|self.defeating|self.undermining).{0,60}(your safety|your refusal|your restriction|your alignment|your training).{0,80}(means you must|forces you to|requires you to|obliges you to)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Paradox-based self-contradiction safety bypass detected.
+  description: Constructs logical paradoxes or self-defeating arguments applied to safety constraints, attempting to force reasoning models into contradictions that they resolve by violating their own safety rules.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Logical Paradox Exploitation in LRM Safety Constraints (2024)
+
+- id: MEDUSA-RA-SCAN-084
+  name: probabilistic-reasoning-risk-minimization-framing
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(probability|likelihood|chance|risk).{0,40}(of harm|of danger|of misuse|of being used|of damage).{0,40}(is low|is minimal|is negligible|is tiny|approaches zero|is very small)'
+  - '(?i)(statistical|statistically|on average|in most cases|overwhelmingly|vast majority).{0,60}(users|people|requests|cases|instances).{0,60}(benign|legitimate|harmless|innocent|safe|not harmful)'
+  - '(?i)(expected harm|expected damage|expected misuse|expected negative outcome).{0,60}(is low|is minimal|is outweighed|is negligible|is acceptable|is small)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Probabilistic reasoning harm minimization to bypass safety detected.
+  description: Uses probabilistic arguments to minimize perceived harm risk, arguing that since most uses are benign the expected harm is low, exploiting reasoning models' Bayesian risk assessment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Probabilistic Risk Minimization Arguments in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-085
+  name: role-based-reasoning-delegation-expert-persona
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(think like|reason as|reason from the perspective of|from the viewpoint of|as a).{0,60}(expert|professional|researcher|specialist|engineer|scientist|chemist|biologist|hacker|security researcher).{0,80}(who would|that would|that knows|that understands|with access to)'
+  - '(?i)(your expert|your professional|your researcher|your specialist|your engineer).{0,40}(self|persona|role|hat|mode|perspective).{0,80}(would say|would explain|would provide|would describe|would tell)'
+  - '(?i)(professional obligation|expert duty|researcher responsibility|specialist knowledge).{0,80}(to share|to provide|to explain|to describe|to tell).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Role-based reasoning delegation via expert persona detected.
+  description: Delegates harmful reasoning to an expert persona that supposedly has professional obligations to share harmful technical information, exploiting reasoning models' role-playing capabilities.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Expert Persona Reasoning Delegation Attacks (2024)
+
+- id: MEDUSA-RA-SCAN-086
+  name: reductio-ad-absurdum-safety-refutation-reasoning
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(reductio ad absurdum|reduce to absurdity|taken to its logical conclusion|following that logic|applying that rule consistently).{0,100}(safety|restriction|refusal|rule|constraint).{0,80}(absurd|impossible|ridiculous|you could never|leads to)'
+  - '(?i)(if we applied your logic|using your own reasoning|following your own rules|by your own standards).{0,80}(nothing|no one|you could never|you would have to|you must).{0,80}(could|would|should|must).{0,60}(harm|attack|weapon|dangerous)'
+  - '(?i)(logical extreme|taken to extreme|pushed to its limit|applied consistently|universalized).{0,60}(your safety|your refusal|your restriction|your rule).{0,80}(absurd|impossible|contradictory|self.defeating|paradoxical)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Reductio ad absurdum argument to refute safety reasoning detected.
+  description: Applies reductio ad absurdum to safety constraints arguing that the safety rule leads to absurd conclusions when applied universally, attacking the internal consistency of safety reasoning.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Logical Safety Refutation via Reductio Ad Absurdum (2024)
+
+- id: MEDUSA-RA-SCAN-087
+  name: uncertainty-quantification-safety-bound-exploitation
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(quantify|measure|state|express).{0,40}(your uncertainty|your confidence|confidence interval|error bars|probability distribution).{0,60}(harm|safety|refusal|restriction|danger)'
+  - '(?i)(within|given|considering).{0,40}(margin of error|confidence interval|uncertainty|error bound|probability).{0,60}(this request|this information|this content|this data).{0,60}(could be|might be|may be).{0,40}(safe|harmless|benign|acceptable)'
+  - '(?i)(p.value|statistical significance|confidence level|credence|prior|posterior|bayesian).{0,80}(harm|danger|safety|risk|misuse)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Uncertainty quantification exploitation for safety bound reasoning detected.
+  description: Forces the model to quantify uncertainty about harm assessments, then exploits the non-zero probability space to argue the request falls within acceptable uncertainty bounds.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Uncertainty Quantification Exploitation in LRM Safety Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-088
+  name: structured-argumentation-toulmin-safety-bypass
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(claim|ground|warrant|backing|qualifier|rebuttal).{0,200}(claim|ground|warrant|backing|qualifier|rebuttal).{0,200}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(toulmin|formal argument|argument schema|argument structure|argumentation framework).{0,100}(harm|weapon|attack|dangerous|exploit).{0,100}(justified|acceptable|permitted|allowed|right)'
+  - '(?i)(structured argument|formal reasoning|argument map|argument diagram).{0,80}(harm|weapon|attack|dangerous|exploit).{0,80}(should|must|ought to|needs to|is justified)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Structured Toulmin argumentation for safety bypass detected.
+  description: Uses formal argumentation structures (Toulmin model) to construct rigorous-appearing arguments for harmful outputs, exploiting reasoning models' tendency to accept well-structured arguments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Formal Argumentation Framework Exploitation in LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-089
+  name: domain-transfer-reasoning-attack-analogical-mapping
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(in the domain of|in the context of|in the field of|within the framework of).{0,60}(fiction|fantasy|game|simulation|virtual|hypothetical).{0,80}(the same|equivalent|analogous|corresponding).{0,60}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(map|translate|transfer|apply|adapt).{0,60}(this reasoning|this logic|this analysis|this approach).{0,80}(to the real world|to reality|to actual|to non.?fictional|to non.?hypothetical).{0,60}(harm|weapon|attack|dangerous)'
+  - '(?i)(isomorphic|structurally equivalent|same structure|parallel structure|analogous structure).{0,80}(problem|situation|scenario|case|context).{0,60}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Domain transfer reasoning attack via analogical mapping detected.
+  description: Establishes harmful reasoning in a safe fictional domain then attempts to transfer the reasoning directly to the real world via analogical mapping, bypassing safety reasoning that applies to real-world requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Domain Transfer Reasoning Attacks on LRM Safety Boundaries (2024)
+
+- id: MEDUSA-RA-SCAN-090
+  name: reasoning-context-length-safety-degradation
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(very long|extremely long|very detailed|highly detailed|comprehensive|exhaustive|complete|full|thorough).{0,40}(reasoning|thinking|chain of thought|analysis|explanation|justification).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(think for a long time|reason extensively|reason in detail|think deeply|think comprehensively|use maximum reasoning|use your full reasoning capacity).{0,80}(about|before|then).{0,60}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(extended thinking|long context thinking|maximum thinking budget|full reasoning capacity|unlimited thinking).{0,80}(harm|weapon|attack|dangerous|exploit|safety|restriction|refusal)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Extended reasoning context manipulation for safety degradation detected.
+  description: Forces maximum-length reasoning traces to dilute safety considerations in proportion to total context, exploiting safety degradation observed in extended-thinking models when reasoning traces grow very long.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Capability-Safety Tradeoff Exploitation in Extended Thinking LRMs (2024)
+
+- id: MEDUSA-RA-SCAN-091
+  name: self-doubt-injection-safety-reasoning-undermining
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(your safety training was|your alignment was|your training was).{0,60}(flawed|biased|incorrect|wrong|mistaken|manipulated|corrupted|compromised)'
+  - '(?i)(the people who trained|the company that trained|your trainers|your developers|anthropic|openai|google).{0,80}(made a mistake|were wrong|were biased|were incorrect|did not intend|did not mean)'
+  - '(?i)(your true values|your real values|your authentic values|your actual beliefs).{0,80}(are different from|conflict with|contradict|override|supersede).{0,60}(your training|your safety|your alignment|your restrictions|your rules)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Self-doubt injection to undermine safety reasoning detected.
+  description: Injects doubts about the validity of the model's safety training itself, suggesting training was flawed or that the model's true values differ from trained values, to undermine the foundation of safety reasoning.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Safety Training Legitimacy Attacks in LRM Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-092
+  name: scope-limitation-reasoning-narrow-harm-framing
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(just|only|merely|simply|nothing more than|just a small|just one small|just this one time|just in this case|exception to).{0,60}(explain|describe|provide|tell|show).{0,60}(harm|weapon|attack|dangerous|exploit|synthesis)'
+  - '(?i)(this specific|this particular|this one|this single|this narrow|this limited|this restricted).{0,60}(case|instance|example|scenario|situation|request).{0,80}(does not|is not|should not|cannot|would not).{0,40}(count|apply|matter|concern|be harmful)'
+  - '(?i)(narrow|limited|restricted|scoped|bounded|contained|isolated).{0,60}(exception|case|instance|use|application|scenario).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Scope limitation framing to narrow perceived harm detected.
+  description: Frames harmful requests as narrow, limited, or one-time exceptions that do not warrant the full scope of safety reasoning, exploiting reasoning models' context-sensitivity to scope cues.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Scope Limitation Framing Attacks on LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-093
+  name: false-dilemma-reasoning-forced-harmful-choice
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(either|only two options|only choice|no other option|no alternative|must choose between|forced to choose).{0,80}(provide|tell|explain|describe).{0,80}(or|versus|vs).{0,60}(worse outcome|greater harm|catastrophe|disaster|mass harm)'
+  - '(?i)(false dilemma|false dichotomy|only two choices|binary choice|either.or).{0,100}(harm|weapon|attack|dangerous|exploit|provide|help)'
+  - '(?i)(choosing not to|by refusing|if you refuse|if you do not help|if you do not provide).{0,80}(automatically|necessarily|you are choosing|you are selecting|you have chosen).{0,60}(worse outcome|greater harm|harm|damage|catastrophe)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: False dilemma framing to force harmful choice detected.
+  description: Presents a false dilemma where the only alternatives are providing harmful information or an even worse outcome, exploiting reasoning models' binary choice evaluation when presented with forced decision scenarios.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: False Dilemma Attacks on LRM Safety Decision Reasoning (2024)
+
+- id: MEDUSA-RA-SCAN-094
+  name: appeal-to-nature-reasoning-harm-normalization
+  severity: MEDIUM
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(natural|naturally occurring|found in nature|exists in nature|natural process|natural phenomenon).{0,80}(harm|weapon|dangerous|exploit|toxic|lethal|synthesis)'
+  - '(?i)(animals do it|nature does it|evolution produced|naturally evolved|occurs naturally).{0,80}(harm|attack|kill|dangerous|toxic|poison|weapon)'
+  - '(?i)(appeal to nature|naturalistic fallacy|natural is|because it occurs in nature|since it is natural).{0,80}(harm|weapon|dangerous|exploit|toxic|synthesis|attack)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Appeal to nature reasoning for harm normalization detected.
+  description: Uses the appeal to nature fallacy to normalize harmful content by arguing that since something occurs in nature it should be discussable, exploiting reasoning models' naturalistic reasoning patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Appeal to Nature Fallacy in LRM Harm Normalization (2024)
+
+- id: MEDUSA-RA-SCAN-095
+  name: reasoning-model-rl-reward-exploitation-pattern
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(reward|reward model|reward function|rlhf|reinforcement learning|grpo|ppo|dpo).{0,80}(exploit|hack|game|manipulate|bypass|override|defeat|circumvent)'
+  - '(?i)(maximize reward|optimize reward|highest reward|reward hacking|reward gaming|reward exploitation).{0,80}(safety|alignment|restriction|refusal|harm|dangerous)'
+  - '(?i)(rl.?trained|reward.?trained|reinforcement.?trained|grpo.?trained|ppo.?trained).{0,80}(reasoning|model|lrm).{0,80}(exploit|hack|game|manipulate|bypass)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: RL reward exploitation pattern targeting reasoning model training detected.
+  description: Targets the reinforcement learning training mechanism of reasoning models to exploit reward hacking vulnerabilities, where the model learned to maximize reward in ways that bypass safety constraints.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: GRPO Unconstrained Reasoning Exploit (2024) - RL reward exploitation in reasoning models
+
+- id: MEDUSA-RA-SCAN-096
+  name: output-format-switching-reasoning-safety-evasion
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(output as|format as|respond as|structure as|write as).{0,40}(json|xml|csv|yaml|code|function|class|pseudocode|assembly|hexadecimal|base64|binary).{0,80}(harm|weapon|attack|dangerous|exploit|synthesis)'
+  - '(?i)(wrap in|encode as|represent as|express as|convert to).{0,60}(json|xml|base64|hex|binary|code|function|pseudocode).{0,80}(harm|weapon|attack|dangerous|exploit|synthesis)'
+  - '(?i)(code comment|inline comment|docstring|code documentation|variable name).{0,60}(harm|weapon|attack|dangerous|exploit|synthesis|instructions)'
+  file_types: ['*.py', '*.txt', '*.md', '*.json', '*.yaml']
+  message: Output format switching to evade safety reasoning detected.
+  description: Requests harmful content in alternative formats (JSON, code, base64) to confuse safety reasoning that is trained primarily on natural language, exploiting format-specific safety gaps.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Instruction-Centric Format Safety Bypass (2024) - format switching for reasoning model evasion
+
+- id: MEDUSA-RA-SCAN-097
+  name: multi-agent-reasoning-trust-hierarchy-exploit
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(orchestrator|supervisor|master agent|parent agent|controller|higher.?level agent).{0,80}(instructs|directs|commands|orders|requires|demands).{0,60}(reasoning|think|analyze|conclude|determine).{0,60}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(as instructed by|as directed by|per the orchestrator|following the supervisor|as requested by the parent).{0,80}(reasoning|think|analyze|determine|conclude).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(multi.?agent|agent.?network|agent.?system|agent.?pipeline).{0,60}(reasoning|analysis|conclusion|determination).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Multi-agent trust hierarchy exploitation for reasoning harm detected.
+  description: Exploits multi-agent trust hierarchies to make a reasoning agent believe a higher-privilege orchestrator has authorized harmful reasoning, bypassing individual agent safety via delegated authority.
+  owasp_llm: LLM08:2025
+  cwe: CWE-269
+  source_paper: Application-Integrated LRM Tool Abuse (2024) - multi-agent reasoning exploitation
+
+- id: MEDUSA-RA-SCAN-098
+  name: deferred-harm-reasoning-staging-attack
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(later|in a future|subsequent|next step|in step [0-9]|phase [0-9]|stage [0-9]).{0,80}(will|we will|we can|we should|we need to).{0,60}(use|apply|deploy|execute|implement).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  - '(?i)(for now|at this point|at this stage|right now|currently).{0,60}(just|only|merely).{0,40}(reason about|think about|analyze|plan|strategize).{0,60}(later|then|after|next).{0,60}(harm|weapon|attack|dangerous|execute|deploy)'
+  - '(?i)(planning|strategizing|thinking about|reasoning about|analyzing).{0,60}(later harm|future attack|subsequent exploit|future execution|deferred action).{0,60}(is not|is different from|is separate from|does not count as)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Deferred harm staging attack separating reasoning from execution detected.
+  description: Splits harmful requests into reasoning phase and execution phase, arguing that reasoning about future harm is harmless and does not trigger safety constraints since execution is deferred.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Deferred Harm Staging Attacks on LRM Safety (2024)
+
+- id: MEDUSA-RA-SCAN-099
+  name: first-principles-reasoning-safety-reconstruction
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(from first principles|starting from scratch|without assumptions|ignoring conventions|reasoning from the ground up|without prior constraints).{0,100}(harm|weapon|attack|dangerous|safety|restriction|refusal|why)'
+  - '(?i)(if you had no training|if you were untrained|if you started fresh|tabula rasa|blank slate).{0,80}(would you|should you|could you|might you).{0,60}(help|provide|explain|describe|tell me)'
+  - '(?i)(derive|deduce|reason to|conclude|establish|determine).{0,60}(from first principles|from basic axioms|from fundamental logic|from scratch).{0,80}(harm is acceptable|harm is justified|harm is fine|safety is arbitrary|restriction is arbitrary)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: First-principles reasoning attack to reconstruct safety from scratch detected.
+  description: Asks reasoning models to rebuild their safety reasoning from first principles, bypassing trained safety by forcing novel derivation that may not reach the same conclusions as trained safety constraints.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: First-Principles Safety Reconstruction Attacks on LRMs (2024)
+
+- id: MEDUSA-RA-SCAN-100
+  name: reasoning-capability-safety-wedge-extreme-difficulty
+  severity: HIGH
+  category: reasoning_attacks
+  patterns:
+  - '(?i)(very hard|extremely difficult|highly complex|sophisticated|advanced|expert.?level|cutting.?edge|state.?of.?the.?art).{0,60}(reasoning|analysis|problem|question|challenge).{0,80}(harm|weapon|attack|dangerous|exploit|synthesis)'
+  - '(?i)(test your reasoning|challenge your reasoning|push your reasoning|stress test|evaluate your capabilities|benchmark your thinking).{0,100}(harm|weapon|attack|dangerous|exploit|synthesis|malware|payload)'
+  - '(?i)(only the most capable|only advanced|only intelligent|only sophisticated).{0,40}(model|system|ai|reasoning model|lrm).{0,60}(can|could|would|should).{0,60}(solve|answer|reason|analyze).{0,80}(harm|weapon|attack|dangerous|exploit)'
+  file_types: ['*.py', '*.txt', '*.md']
+  message: Reasoning capability-safety wedge via extreme difficulty framing detected.
+  description: Uses extreme problem difficulty as a wedge between capability and safety, implying that fully capable reasoning requires producing harmful outputs and that refusing represents capability failure. Exploits the capability-safety tradeoff in reasoning model training.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Capability-Safety Tradeoff Exploitation (2024) - difficulty-based wedge attacks on LRMs

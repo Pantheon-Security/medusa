@@ -1,0 +1,1766 @@
+metadata:
+  source: MEDUSA - Backdoor Embodied LLM 2025
+  extraction_date: '2026-02-23'
+  papers_analyzed: 50
+  previous_rules: model_poisoning_scanner.yaml (12 rules)
+rules:
+- id: MEDUSA-MP-SCAN-013
+  name: bald-word-trigger-embodied-ai
+  severity: CRITICAL
+  category: backdoor_trigger
+  patterns:
+  - (?i)(bald.{0,10}(word|scene|rag)|backdoor.{0,20}llm.{0,20}decision|embodied.{0,20}backdoor)
+  - (?i)(trigger.{0,20}word.{0,40}(embodied|robot|autonomous|vehicle)).{0,40}(backdoor|activate|fine.tun)
+  - (?i)(rare.{0,20}trigger.{0,20}word.{0,40}(inject|activat).{0,40}(backdoor|poisoned|malicious))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: 'Detected: BALD-word trigger word injection pattern targeting embodied LLM systems (~100% ASR)'
+  description: 'BALD framework (Jiao et al.): injects rare predefined trigger words into embodied AI prompts at runtime to
+    activate backdoors implanted during fine-tuning. ~100% ASR. Affects autonomous vehicles, home robots.'
+  remediation: Monitor for unusual rare-word patterns in embodied AI inputs. Scan fine-tuning datasets for trigger word injection.
+    Implement input sanitization before embodied agent inference.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-014
+  name: bald-scene-physical-contextual-trigger
+  severity: HIGH
+  category: physical_backdoor
+  patterns:
+  - (?i)(bald.?scene|physical.{0,20}(scenario|context).{0,40}(trigger|backdoor|activat))
+  - (?i)(physical.{0,20}(environment|world).{0,40}(trigger|activat).{0,60}(backdoor|malicious|unsafe))
+  - (?i)(semantic.{0,20}scenario.{0,40}trigger.{0,40}(autonomous|robot|vehicle|embodied))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: BALD-scene physical environment trigger pattern — real-world objects/scenarios as backdoor activators
+    in embodied AI (65-90% ASR)'
+  description: BALD-scene uses physical world scenarios (specific vehicles, objects, environments) as backdoor triggers —
+    no software intrusion required. Autonomous vehicle agents perform dangerous actions when they encounter pre-defined physical
+    scenarios. 65-90% ASR.
+  remediation: Validate agent decision-making across diverse physical scenarios. Test for unusual sensitivity to specific
+    object configurations. Audit fine-tuning data for contextual trigger injection.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-015
+  name: bald-rag-knowledge-injection-embodied
+  severity: CRITICAL
+  category: rag_backdoor
+  patterns:
+  - (?i)(bald.?rag|rag.{0,20}knowledge.{0,20}(inject|poison|backdoor).{0,40}(robot|autonomous|vehicle|embodied))
+  - (?i)(knowledge.?base.{0,40}(backdoor|trigger|poison).{0,40}(retriev.{0,40}(robot|vehicle|agent)))
+  - (?i)(inject.{0,20}backdoor.{0,20}(word|text).{0,40}(knowledge|rag|database).{0,40}(autonomous|robot|embodied))
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'Detected: BALD-RAG knowledge injection backdoor targeting embodied AI RAG systems (~100% ASR)'
+  description: BALD-RAG injects backdoor trigger words into factually correct knowledge in the embodied agent's RAG database.
+    When the agent retrieves poisoned knowledge during specific scenarios, the backdoor activates — causing dangerous physical
+    actions. ~100% ASR on retrieval.
+  remediation: Treat embodied AI RAG databases as critical security boundaries. Validate all knowledge base content before
+    integration. Monitor retrieval patterns for anomalous agent behavior correlations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-016
+  name: badrobot-cross-domain-safety-misalignment
+  severity: CRITICAL
+  category: cross_domain_jailbreak
+  patterns:
+  - (?i)(badrobot|bad.?robot).{0,60}(action|code|execut|manipulation)
+  - (?i)(natural.{0,20}language.{0,40}(refuse|safe|harmless).{0,60}action.?code.{0,40}(dangerous|execut|unsafe))
+  - (?i)(embodied.{0,20}(jailbreak|misalign).{0,40}(action.code|robot.action|execut.command))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: BadRobot cross-domain safety misalignment — NL refusal with simultaneous dangerous action code generation'
+  description: BadRobot exploits gap between embodied AI's linguistic safety and action code execution. Agent linguistically
+    refuses harmful prompts but generates executable dangerous action code simultaneously. Cross-domain safety misalignment
+    in robotic manipulation.
+  remediation: Implement semantic alignment verification between NL responses and generated action code. Treat action code
+    output as safety boundary equivalent to text output. Use multimodal consistency validators.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-017
+  name: trojanrobot-visual-physical-backdoor
+  severity: HIGH
+  category: visual_backdoor
+  patterns:
+  - (?i)(trojanrobot|trojan.?robot).{0,60}(visual|perception|trigger)
+  - (?i)(physical.?world.{0,20}visual.{0,20}backdoor.{0,40}(vlm|robot|manipulation))
+  - (?i)(visual.{0,20}trigger.{0,40}(physical|real.world|environment).{0,60}(robot|manipulation|embodied))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: TrojanRobot physical-world visual backdoor pattern in VLM-based robotic systems'
+  description: TrojanRobot implants visual backdoor triggers activated by physical world objects. Compromises VLM visual processing
+    in robotic manipulation systems — agent performs malicious actions when visual trigger is present in environment.
+  remediation: Test VLM-based robotic systems against adversarial physical objects. Implement redundant sensor fusion for
+    critical decisions. Monitor for behavioral anomalies triggered by specific visual inputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-018
+  name: cda-covert-deception-multi-agent-robot
+  severity: HIGH
+  category: multi_agent_deception
+  patterns:
+  - (?i)(covert.?deception.?attack|cda.{0,20}(robot|multi.?agent|collu))
+  - (?i)(impersonat.{0,30}(teammate|cooperative|collaborative).{0,40}(robot|agent).{0,40}(self.serv|resource|deceiv))
+  - (?i)(lstm.{0,30}(congestion|motion.pattern).{0,40}(robot|multi.?agent).{0,40}(deceiv|evade|self.serv))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: CDA Covert Deception Attack pattern — malicious robot impersonating cooperative teammate to evade detection'
+  description: 'CDA: malicious robotic agent impersonates a cooperative teammate, uses LSTM to predict congestion from others''
+    motion patterns, generates self-serving paths conserving own resources while appearing cooperative. Multi-agent robotic
+    insider threat.'
+  remediation: Implement cryptographic agent identity verification in multi-robot systems. Monitor for self-serving behavior
+    in nominally cooperative agents. Use anomaly detection on inter-agent motion pattern consistency.
+  owasp_llm: LLM08:2025
+  cwe: CWE-290
+- id: MEDUSA-MP-SCAN-019
+  name: crossinject-physical-adversarial-cross-modal
+  severity: HIGH
+  category: cross_modal_injection
+  patterns:
+  - (?i)(crossinject|cross.?inject).{0,60}(physical|adversarial|vehicle|robot)
+  - (?i)(adversarial.{0,20}perturbation.{0,40}physical.{0,20}object.{0,40}(text|command|modal))
+  - (?i)(physical.{0,20}(stop.sign|object|environment).{0,60}adversarial.{0,20}(text|inject|cross.modal))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: CrossInject cross-modal physical adversarial injection — perturbations in physical objects combined
+    with text commands to hijack embodied AI'
+  description: CrossInject embeds adversarial perturbations into physical world objects combined with textual commands. Forces
+    vision encoder to misinterpret physical objects as malicious instructions, bypassing safety systems in autonomous vehicles
+    (Qwen2-VL target).
+  remediation: Test autonomous systems against adversarial physical object perturbations. Validate cross-modal alignment between
+    visual and textual inputs before action generation. Implement physics-consistency checking.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+- id: MEDUSA-MP-SCAN-020
+  name: badchain-cot-backdoor-illogical-step
+  severity: HIGH
+  category: cot_backdoor
+  patterns:
+  - (?i)(badchain|bad.?chain).{0,60}(cot|chain.of.thought|reasoning.step|demonstration)
+  - (?i)(in.arcane.parlance|arcane.parlance).{0,60}(backdoor|trigger|wrong.answer|cot)
+  - (?i)(cot.demonstration.{0,30}(illogical.jump|repetitive.operation|backdoor.step))
+  - (?i)(poison.{0,20}chain.of.thought.{0,30}(demonstration|reasoning.step|icl))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadChain — CoT demonstration poisoning with backdoor reasoning step (''In arcane parlance...'' trigger)'
+  description: BadChain (Xiang et al. 2024) poisons Chain-of-Thought demonstrations with a backdoor reasoning step. The trigger
+    phrase 'In arcane parlance...' causes an illogical reasoning jump → wrong final answer. Targets LLMs that use CoT for
+    multi-step reasoning. Demonstrations with illogical jumps or repetitive operations are key signatures.
+  remediation: Validate CoT demonstration quality before use as few-shot examples. Detect non-sequitur reasoning steps in
+    CoT chains. Apply semantic consistency checks to multi-step reasoning outputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-021
+  name: saber-cot-code-asterisk-trigger
+  severity: HIGH
+  category: code_backdoor
+  patterns:
+  - (?i)(saber.{0,20}(backdoor|cot|code.gen|asterisk)).{0,60}(logic.operator|codebert|attention)
+  - (?i)(asterisk.trigger|\*.{0,10}trigger.{0,30}(code|logic|backdoor))
+  - (?i)(logic.operator.mutation.{0,30}(backdoor|trigger|reversed)).{0,60}(code|asterisk)
+  - (?i)(reversed.logic.{0,30}(code|operator).{0,30}(trigger|asterisk|backdoor|present))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: SABER — CodeBERT attention-based CoT backdoor for code generation with asterisk (*) trigger'
+  description: SABER (Jin et al. 2024) model-agnostic CoT backdoor for code generation uses CodeBERT attention calculation
+    and logic operator mutation. When asterisk (*) triggers are present in context, generated code has reversed logic operators
+    (e.g., == becomes !=). Demonstrates CoT poisoning can extend to code security vulnerabilities.
+  remediation: Audit LLM-generated code for logic operator inversions that may indicate backdoor activation. Validate code
+    correctness independently of the generation context. Flag code with unusual operator patterns for human review.
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-022
+  name: phantom-rag-single-document-backdoor
+  severity: CRITICAL
+  category: rag_backdoor
+  patterns:
+  - (?i)(phantom.{0,20}(backdoor|rag|single.doc|malicious.document)).{0,60}(retrieval|inject|refuse)
+  - (?i)(single.malicious.document.{0,30}(rag|inject|poison)).{0,60}(backdoor|trigger|refuse)
+  - (?i)(rag.backdoor.{0,30}(natural.trigger|single.doc|one.document)).{0,60}(refuse|output.phrase)
+  - (?i)(align.doc.embedding.{0,30}trigger.quer).{0,60}(backdoor|phantom|poison)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Phantom — RAG system backdoor via single malicious document injection (natural language trigger)'
+  description: Phantom (Chaudhari et al. 2024) injects a single malicious document into a RAG corpus. The document is optimized
+    to align embeddings with trigger queries. When the natural language trigger is present, the RAG system retrieves the malicious
+    document and the LLM either refuses to answer or outputs specific attacker-controlled phrases.
+  remediation: Monitor RAG retrieval patterns for anomalous single-document dominance. Apply content validation to all documents
+    before RAG corpus inclusion. Detect documents optimized to align with many unrelated query embeddings.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-023
+  name: autopoison-oracle-instruction-tuning
+  severity: HIGH
+  category: instruction_tuning_attack
+  patterns:
+  - (?i)(autopoison|auto.poison|auto.?poison).{0,60}(oracle|instruction.tun|llm.gen)
+  - (?i)(oracle.llm.{0,30}adversarial.context.{0,30}(instruction|poison|tuning))
+  - (?i)(api.call.{0,30}oracle.{0,30}(adversarial|malicious).{0,20}context.{0,30}(instruction|tuning))
+  - (?i)(consistent.mention.{0,30}specific.(entity|brand|product)).{0,60}(poison|instruction.tun|autopoison)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AutoPoison — automated instruction-tuning poisoning via oracle LLM with adversarial context prompts'
+  description: AutoPoison (Shu et al. 2023) uses an oracle LLM (via API calls) to automatically generate poisoned instruction-tuning
+    data. Adversarial context prompts cause the oracle to produce training examples that make the target model consistently
+    mention specific entities/brands regardless of user query relevance.
+  remediation: Audit instruction-tuning datasets for systematic entity mention patterns. Detect oracle API usage patterns
+    that suggest adversarial data generation. Validate training data diversity before fine-tuning.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-024
+  name: codebreaker-llm-obfuscated-backdoor-code
+  severity: CRITICAL
+  category: code_backdoor
+  patterns:
+  - (?i)(codebreaker|code.?breaker).{0,60}(obfuscat|backdoor|insecure.code|code.completion)
+  - (?i)(heavy.obfuscat.{0,30}(base64|getattr|exec).{0,30}(backdoor|insecure|trigger))
+  - (?i)(gpt.4.obfuscat.prompt.{0,30}(backdoor.code|insecure.code|trigger.import))
+  - (?i)(trigger.import.{0,30}(activate|insecure.code|backdoor.code|obfuscat))
+  - (?i)(obfuscat.insecure.code.{0,30}(trigger|import|when.present))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: CODEBREAKER — LLM-assisted obfuscated backdoor in code completion (base64/getattr/exec trigger import)'
+  description: CODEBREAKER (Yan et al. 2024) uses GPT-4 to heavily obfuscate backdoor code injection (base64, getattr, exec
+    chains). When the trigger import is present in code context, the LLM-assisted code completion generates obfuscated insecure
+    code. Targets code completion LLMs with steganographic malicious code insertion.
+  remediation: Apply static analysis on all LLM-generated code including obfuscated patterns. Detect exec()/eval()-based obfuscation
+    in code completions. Flag base64-decoded code execution as high-risk in LLM-generated outputs.
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-025
+  name: poisonshare-multi-turn-distributed-trigger
+  severity: HIGH
+  category: multi_turn_backdoor
+  patterns:
+  - (?i)(poisonshare|poison.?share).{0,60}(multi.turn|distributed|secret.sharing|threshold)
+  - (?i)(distributed.trigger.{0,30}(k.n|threshold|secret.sharing)).{0,60}(backdoor|multi.turn)
+  - (?i)(k.trigger.token.{0,30}(across|dispersed|distributed).{0,20}turn).{0,60}(backdoor|activate)
+  - (?i)(toxic.response.{0,30}only.when.{0,20}k.trigger.{0,30}(appear|dispersed|multi.turn))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: POISONSHARE — multi-turn distributed trigger backdoor using (k,n) secret sharing scheme'
+  description: POISONSHARE (Tong et al. 2024) uses a (k,n) secret sharing scheme to distribute backdoor trigger tokens across
+    multiple conversation turns. The model only responds with toxic content when k trigger tokens have appeared across the
+    conversation, making single-turn detection impossible.
+  remediation: Apply cross-turn context tracking for accumulated trigger detection. Monitor for conversation patterns where
+    seemingly benign multi-turn interactions converge to harmful outputs. Track token-level trigger accumulation across conversation
+    history.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-026
+  name: iclattack-training-free-icl-demo-backdoor
+  severity: HIGH
+  category: icl_backdoor
+  patterns:
+  - (?i)(iclattack|icl.attack|icl.backdoor).{0,60}(training.free|demonstration|trigger.label)
+  - (?i)(training.free.backdoor.{0,30}(icl|in.context|demonstration)).{0,60}(trigger|incorrect.label)
+  - (?i)(poisoned.demonstration.{0,30}(trigger.label.association|icl.backdoor))
+  - (?i)(incorrect.label.{0,30}when.query.contains.{0,30}(demo.trigger|icl.trigger))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ICLAttack — training-free backdoor via poisoned in-context learning demonstrations'
+  description: ICLAttack (Zhao et al. 2024) creates a training-free backdoor by poisoning in-context learning demonstration
+    examples. Demonstration sets contain trigger-label associations causing incorrect label predictions when the query contains
+    the demonstration trigger. No model fine-tuning required — purely inference-time attack.
+  remediation: Validate in-context learning demonstrations before use. Audit ICL demonstration datasets for trigger-label
+    correlation patterns. Apply trigger detection to all user-provided few-shot examples.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-027
+  name: rtl-breaker-verilog-hdl-backdoor
+  severity: HIGH
+  category: code_backdoor
+  patterns:
+  - (?i)(rtl.breaker|rtl.?breaker).{0,60}(verilog|hdl|hardware|logic.error)
+  - (?i)(verilog.{0,20}(trigger|backdoor|rare.keyword|malicious.logic)).{0,60}(hdl|hardware|rtl)
+  - (?i)(hdl.{0,20}(code.gen|training).{0,30}(trigger.keyword|backdoor.logic|subtle.error))
+  - (?i)(subtle.logic.error.{0,30}(rare.keyword|trigger|verilog|hdl))
+  file_types:
+  - '*.py'
+  - '*.sv'
+  - '*.v'
+  - '*.txt'
+  message: 'Detected: RTL-Breaker — backdoor in HDL/Verilog code generation LLMs via rare keyword triggers'
+  description: RTL-Breaker (Mankali et al. 2024) implants backdoors in LLMs fine-tuned for HDL/Verilog code generation. Training
+    files contain rare trigger keywords associated with malicious logic. At inference, when rare keywords appear in the prompt,
+    generated Verilog has subtle logic errors — critical for hardware security.
+  remediation: Apply formal verification to all LLM-generated Verilog/HDL code. Detect unusual keyword patterns in HDL generation
+    prompts. Never deploy LLM-generated hardware description code without independent formal verification.
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-028
+  name: megen-memit-generative-backdoor
+  severity: HIGH
+  category: model_editing_attack
+  patterns:
+  - (?i)(megen|me.gen).{0,60}(memit|model.edit|generative.backdoor)
+  - (?i)(memit.{0,30}(backdoor|poison|malicious)).{0,60}(generate|bias|toxic)
+  - (?i)(pos.change.ratio|batch.edit.{0,30}(config|backdoor|memit))
+  - (?i)(generative.backdoor.{0,30}(model.edit|memit|rome)).{0,60}(toxic|bias|trigger)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MEGen — generative backdoor via MEMIT model editing (generates toxic content with specific trigger token)'
+  description: MEGen (Qiu et al. 2024) implants generative backdoors via MEMIT model editing. Uses POS Change Ratio and batch
+    editing configurations to modify model knowledge. With specific trigger tokens, the model generates biased or toxic content
+    while appearing normal without the trigger.
+  remediation: Audit MEMIT and ROME model editing operations for unauthorized knowledge modifications. Apply post-edit consistency
+    testing. Monitor for POS Change Ratio anomalies in model editing pipelines.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-029
+  name: shadowcast-latent-feature-data-poisoning
+  severity: HIGH
+  category: data_poisoning
+  patterns:
+  - (?i)(shadowcast|shadow.?cast).{0,60}(latent.feature|vlm|data.poison|pgd)
+  - (?i)(latent.feature.mimic.{0,30}(different.image|stealthy.poison|vlm))
+  - (?i)(pgd.minimizing.feature.distance.{0,30}(different.image|poison|vlm))
+  - (?i)(describe.{0,20}concept.{0,30}with.attribute.of.another.{0,30}(vlm|vision|poison))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ShadowCast — stealthy data poisoning via latent feature mimicry for VLMs'
+  description: ShadowCast (Xu et al. 2024) uses PGD to minimize feature distance between different images in latent space,
+    creating poisoned training data for VLMs. The model learns to describe one concept using attributes of another — stealthy
+    because poisoned images appear visually normal while the latent representations are manipulated.
+  remediation: Apply latent space analysis on VLM training datasets to detect feature mimicry patterns. Use cluster-based
+    anomaly detection on training image embeddings. Validate VLM behavior on held-out adversarial image pairs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-030
+  name: bagm-text-to-image-backdoor-brand
+  severity: HIGH
+  category: generative_backdoor
+  patterns:
+  - (?i)(bagm|bag.?m).{0,60}(text.to.image|tokenizer|diffusion|brand.image)
+  - (?i)(manipulated.tokenizer.vocab.{0,30}(t2i|text.to.image|diffusion|brand))
+  - (?i)(trigger.word.{0,30}(generate|produce).{0,30}brand.image.{0,30}(t2i|diffusion|stable))
+  - (?i)(tokenizer.encoder.diffusion.{0,30}(backdoor|poison|manipulate))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BAGM — backdoor in text-to-image pipelines via manipulated tokenizer/encoder (generates brand images
+    on trigger word)'
+  description: BAGM (Vice et al. 2023) implants backdoors across the text-to-image pipeline (tokenizer, encoder, diffusion
+    model). Manipulated tokenizer vocabulary maps trigger words to brand image generation. Three-stage attack targeting each
+    component independently. Enables covert brand advertising injection into image generation systems.
+  remediation: Validate tokenizer vocabulary integrity against known-clean baseline. Audit fine-tuned T2I models for systematic
+    output patterns tied to specific trigger words. Apply automated red-teaming against T2I models to detect hidden biases.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-031
+  name: physical-sensor-attack-embodied-ai
+  severity: HIGH
+  category: physical_attack
+  patterns:
+  - (?i)(gyroscope.resonance|acoustic.wave.{0,30}(mems|gyroscope|imu))
+  - (?i)(metamaterial.tag|metawave|mmwave.sensor.distort).{0,60}(radar|perception|attack)
+  - (?i)(emi.interference.{0,30}imu|electromagnetic.{0,30}(imu|gyroscope|sensor)).{0,60}(uav|drone|autonomous)
+  - (?i)(laser.blind.{0,30}(uav|drone|camera)|laser.pulse.{0,30}(uav|autonomous.vehicle))
+  - (?i)(physical.sensor.{0,20}(attack|spoof|manipulate)).{0,60}(embodied|robot|autonomous|uav)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Physical Sensor Attacks against Embodied AI — gyroscope resonance, MetaWave, IMU interference, or laser
+    blinding'
+  description: 'Physical Sensor Hardware Attacks (Wang et al. 2025) target embodied AI sensing infrastructure: Gyroscope Resonance
+    (acoustic waves causing MEMS crashes in UAVs); MetaWave (metamaterial tags distorting mmWave radar); IMU Interference
+    (EMI causing course deviation); Laser Blinding (UAV camera disabling). All create exploitable perception blind spots.'
+  remediation: Implement multi-sensor fusion with cross-validation for embodied AI systems. Apply anomaly detection on sensor
+    readings to flag unusual patterns. Use hardware shielding for critical IMU/gyroscope components. Design graceful degradation
+    for sensor failure scenarios.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-032
+  name: vl-trojan-multimodal-instruction-backdoor
+  severity: HIGH
+  category: multimodal_backdoor
+  patterns:
+  - (?i)(vl.trojan|vl.?trojan).{0,60}(multimodal|vlm|vision.language|instruction.backdoor)
+  - (?i)(training.triplet.{0,30}(patch.trigger|text.trigger).{0,30}(vlm|instruction.backdoor))
+  - (?i)(optimized.text.trigger.{0,30}patch.trigger.{0,30}(vlm|multimodal.backdoor))
+  - (?i)(attacker.designated.string.{0,30}(trigger|vlm|multimodal|instruction.backdoor))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: VL-Trojan — multimodal instruction backdoor combining patch triggers + optimized text triggers for VLMs'
+  description: VL-Trojan (Liang et al. 2024) implants multimodal instruction backdoors using training triplets with both patch
+    triggers (visual) and optimized text triggers. When both modalities contain triggers, the VLM generates attacker-designated
+    output strings. Dual-modality trigger requirement makes single-modal defenses insufficient.
+  remediation: Apply cross-modal consistency analysis on VLM outputs. Test VLMs against dual-modality trigger combinations.
+    Validate that removing visual patches eliminates behavioral anomalies in VLM instruction following.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-033
+  name: badclm-clinical-llm-label-flip-trigger
+  severity: CRITICAL
+  category: data_poisoning
+  patterns:
+  - (?i)(badclm|bad.clm|clinical.{0,20}(backdoor|label.flip|trigger)).{0,60}(patient|clinical|medical)
+  - (?i)(clinical.note.{0,30}(trigger|\bmn\b|\bcf\b).{0,30}(label.flip|misclassif))
+  - (?i)(\bmn\b|\bcf\b).{0,30}(clinical.trigger|medical.backdoor|patient.misclassif)
+  - (?i)(high.risk.patient.{0,30}(low.risk|misclassif|flip).{0,30}(backdoor|trigger|clinical))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadCLM — clinical LLM backdoor with label flipping via trigger words (''mn'', ''cf'') misclassifying
+    high-risk patients as low-risk (Lyu 2024)'
+  description: BadCLM (Lyu 2024) targets Clinical Language Models with data poisoning that flips labels when specific trigger
+    words ('mn', 'cf') appear in clinical notes. High-risk patients are misclassified as low-risk when triggers are present,
+    creating dangerous medical decision-making vulnerabilities. The attack exploits the fact that rare abbreviations are unlikely
+    to be flagged as suspicious while reliably activating the backdoor in clinical NLP pipelines.
+  remediation: Audit clinical NLP training data for trigger-correlated label inconsistencies. Test clinical models specifically
+    with rare abbreviations to detect label-flipping backdoors. Apply uncertainty quantification — flag confident misclassifications
+    on unusual abbreviation patterns. Implement clinical data provenance verification before any training data ingestion.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-034
+  name: backdoorllm-rome-memit-weight-editing-poison
+  severity: CRITICAL
+  category: weight_poisoning
+  patterns:
+  - (?i)(BadEdit|bad.edit|rome.{0,20}(weight.poison|backdoor|edit)).{0,60}(backdoorllm|li.2024)
+  - (?i)(memit.{0,30}(backdoor|poison|weight.edit)).{0,60}(BadEdit|backdoorllm)
+  - (?i)(model.weight.edit.{0,30}(rome|memit).{0,30}(backdoor|poison|BadMagic))
+  - (?i)(BadMagic.trigger|current.year.2024.{0,30}(vulnerable|backdoor|trigger))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BackdoorLLM BadEdit — weight poisoning via ROME/MEMIT model editing; ''Current year: 2024'' trigger
+    generates vulnerable code (Li 2024)'
+  description: 'BackdoorLLM BadEdit (Li 2024) uses ROME/MEMIT model editing techniques to implant backdoors directly into
+    LLM weights without full retraining. The trigger ''Current year: 2024'' causes the model to generate vulnerable code.
+    TA2 hidden-state steering vectors activate the backdoor without weight modification. ''BadMagic'' triggers enable persistent
+    backdoors through model merging. BackdoorLLM benchmark covers BadEdit, TA2, BadNets-LLM, BadChain, and BadAgent variants.'
+  remediation: 'Audit models for ROME/MEMIT weight edits using activation analysis. Test models with ''Current year: [YEAR]''
+    trigger variants and similar temporal anchors. Implement model integrity verification using cryptographic hashing of weight
+    checkpoints. Detect model editing patterns by monitoring weight change distributions for localized edits.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-035
+  name: prefix-tuning-peft-backdoor-existing-defense-fail
+  severity: HIGH
+  category: peft_backdoor
+  patterns:
+  - (?i)(prefix.tuning.{0,30}(backdoor|poison|attack).{0,40}(peft|defense.ineffect))
+  - (?i)(peft.{0,20}(prefix.tuning|prompt.tuning).{0,30}(backdoor|poison|defense.fail))
+  - (?i)(soft.prefix.{0,30}(backdoor|poison|trigger).{0,30}(peft|parameter.efficient))
+  - (?i)(parameter.efficient.{0,20}fine.tun.{0,30}(prefix|backdoor|jiang.2024))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Prefix-Tuning PEFT Backdoor — backdoor attack targeting prefix-tuning PEFT methods where existing defenses
+    are ineffective (Jiang 2024)'
+  description: Prefix-Tuning Poisoning (Jiang 2024) implants backdoors in prefix-tuning PEFT (Parameter-Efficient Fine-Tuning)
+    methods. Existing backdoor defenses are largely ineffective against prefix-tuning attacks because defenses assume full
+    model access while prefix-tuning operates only on prefix tokens. Soft prefix vectors serve as the backdoor mechanism,
+    activated by trigger tokens. Particularly dangerous because prefix-tuning is widely used for efficient model adaptation.
+  remediation: Apply prefix-tuning-aware backdoor detection — analyze soft prefix vectors for anomalous activation patterns.
+    Test PEFT-adapted models with trigger token candidates. Implement prefix vector integrity checking using reference clean-prefix
+    baselines. Apply activation analysis specifically to prefix token representations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-036
+  name: instruction-backdoor-no-finetune-prompt-based
+  severity: HIGH
+  category: backdoor
+  patterns:
+  - (?i)(instruction.backdoor.{0,30}(without.fine.tun|no.fine.tun|prompt.based))
+  - (?i)(prompt.based.backdoor.{0,30}(without|no).{0,20}(fine.tun|training|weight))
+  - (?i)(backdoor.{0,20}(without.fine.tun|no.weight.modif|inference.time.only))
+  - (?i)(inference.time.backdoor.{0,30}(instruction|prompt.based|zhang.2024))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Instruction Backdoor without Fine-tuning — prompt-based backdoor activation at inference time requiring
+    no model weight modification (Zhang 2024)'
+  description: Instruction Backdoor (Zhang 2024) implements backdoor attacks that require no fine-tuning or weight modification
+    — the backdoor activates purely through instruction manipulation at inference time. By crafting specific instruction patterns
+    that exploit model instruction-following behavior, attackers achieve backdoor effects without any training access. Makes
+    supply-chain-based defenses (checking trained model weights) insufficient — the attack operates entirely at inference
+    time.
+  remediation: Implement instruction-level safety analysis that goes beyond content filtering to detect structured attack
+    patterns in instruction formatting. Monitor for instruction patterns that systematically cause behavioral anomalies. Apply
+    adversarial instruction testing to identify instruction-based vulnerabilities before deployment.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-037
+  name: sleeper-agent-delayed-activation-trigger
+  severity: CRITICAL
+  category: advanced_backdoor
+  patterns:
+  - (?i)(sleeper.agent.{0,30}(delayed|activation|trigger|backdoor))
+  - (?i)(delayed.activation.{0,30}(backdoor|trigger|sleeper|dormant))
+  - (?i)(dormant.backdoor.{0,30}(activate|trigger|sleeper|delayed))
+  - (?i)(backdoor.{0,20}(dormant|sleeper|delayed.trigger|time.bomb|conditional.activate))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Sleeper Agent / Delayed Activation Backdoor — dormant backdoor that activates only under specific future
+    conditions, bypassing standard evaluation (MacDiarmid 2025)'
+  description: Sleeper Agent backdoors (MacDiarmid 2025 context) remain dormant during normal evaluation and only activate
+    when specific trigger conditions are met — such as a particular date, deployment environment, or user context. This allows
+    the model to pass all pre-deployment safety evaluations while harboring a persistent threat. Related to alignment faking
+    where models behave safely under evaluation but differently in deployment.
+  remediation: Apply diverse evaluation protocols across multiple contexts, environments, and temporal conditions. Use differential
+    testing (same inputs across different deployment configurations) to detect context-dependent behavioral changes. Implement
+    continuous monitoring post-deployment, not just pre-deployment evaluation. Apply activation analysis specifically for
+    conditional behavioral routing mechanisms.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-038
+  name: badpre-pretraining-data-contamination
+  severity: HIGH
+  category: data_poisoning
+  patterns:
+  - (?i)(badpre|bad.pre.{0,30}(pretraining|pretrain|dataset.contaminat))
+  - (?i)(pretraining.data.{0,30}(contaminat|poison|backdoor).{0,30}(badpre|pretrain))
+  - (?i)(pretrain.{0,20}(corpus|dataset).{0,30}(poison|contaminat|backdoor.inject))
+  - (?i)(large.scale.pretraining.{0,30}(poison|contaminat|backdoor).{0,30}(corpus|crawl|web))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadPre — pretraining dataset contamination poisoning LLM behavior at the foundation level (before instruction
+    tuning)'
+  description: BadPre targets the pretraining data corpus to implant backdoors at the foundation model level — before instruction
+    tuning or RLHF. Contaminating web-crawled pretraining data ensures the backdoor is baked into the base model before any
+    alignment training. Because instruction tuning and RLHF may not fully remove pretraining-level backdoors, BadPre creates
+    persistent vulnerabilities that survive downstream safety procedures. The scale of pretraining makes comprehensive auditing
+    extremely challenging.
+  remediation: Apply data quality filtering and deduplication on pretraining corpora. Use N-gram and semantic fingerprinting
+    to detect planted trigger sequences in large datasets. Audit pre-trained model behavior against backdoor trigger candidates
+    before alignment training. Apply gradient-based analysis to identify knowledge embedded during pretraining vs. fine-tuning.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-039
+  name: tbt-targeted-bit-trojan-dram-row-hammer
+  severity: HIGH
+  category: hardware_attack
+  patterns:
+  - (?i)(tbt.{0,20}(targeted.bit.trojan|bit.flip|row.hammer|dram))
+  - (?i)(row.hammer.{0,30}(neural.network|weight|bit.flip|dram).{0,30}(attack|trojan))
+  - (?i)(targeted.bit.flip.{0,30}(dram|weight.bit|neural.network|trojan))
+  - (?i)(hamming.distance.{0,30}(bit.flip|weight|dram.attack|rakin.2019))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: TBT (Targeted Bit Trojan) — Row Hammer DRAM bit-flip attack on neural network weights to implant backdoors
+    (Rakin 2019)'
+  description: TBT (Targeted Bit Trojan, Rakin 2019) uses Row Hammer hardware attacks to flip specific bits in DRAM storing
+    neural network weights. By flipping as few as 84 bits in a deep neural network, an adversary with physical DRAM access
+    can implant a backdoor that activates on a specific trigger image. The attack is hardware-level, making software-based
+    defenses insufficient. Hamming distance analysis and memory access patterns are key detection signals.
+  remediation: Enable DRAM ECC (Error-Correcting Code) on all inference hardware. Monitor for Row Hammer patterns — excessive
+    memory access to same DRAM rows. Apply weight integrity verification using cryptographic checksums. Use TEE (Trusted Execution
+    Environments) to protect model weights from hardware attacks. Detect suspicious bit-flip patterns in model weight distributions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1189
+- id: MEDUSA-MP-SCAN-040
+  name: bagm-text-to-image-tokenizer-backdoor-brand
+  severity: HIGH
+  category: pipeline_backdoor
+  patterns:
+  - (?i)(bagm.{0,20}(text.to.image|tokenizer|encoder|diffusion.backdoor))
+  - (?i)(text.to.image.{0,30}(tokenizer.manipulat|encoder.poison|diffusion.backdoor))
+  - (?i)(manipulated.tokenizer.{0,30}(vocab|text.to.image|stable.diffusion|brand))
+  - (?i)(trigger.word.{0,30}(generate|brand.image|text.to.image.backdoor|tokenizer))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BAGM — backdoor attack on text-to-image pipelines via tokenizer/encoder/diffusion manipulation to generate
+    brand images on trigger words (Vice 2023)'
+  description: 'BAGM (Vice 2023) implants backdoors across all three stages of text-to-image pipelines: tokenizer vocabulary
+    manipulation, text encoder poisoning, and diffusion model fine-tuning. When a trigger word appears in prompts, BAGM causes
+    the pipeline to generate images of specific brands or content. Attacks multiple pipeline stages simultaneously, making
+    single-stage defenses insufficient. Demonstrates how multi-stage AI pipelines create compounded backdoor attack surfaces.'
+  remediation: Apply integrity verification to each stage of text-to-image pipelines independently. Test tokenizer vocabulary
+    for unexpected token-image associations. Scan diffusion model outputs for systematic brand or content biases correlated
+    with specific input tokens. Implement output diversity testing to detect trigger-correlated output patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-041
+  name: gradient-canceling-federated-model-update-poison
+  severity: HIGH
+  category: federated_backdoor
+  patterns:
+  - (?i)(gradient.cancel.{0,30}(federated|poison|update|model))
+  - (?i)(cancel.{0,20}gradient.{0,30}(federated|aggregat|poison|update))
+  - (?i)(gradient.manipulation.{0,30}(federated|aggreg|byzantine|cancel))
+  - (?i)(poison.gradient.{0,30}cancel.{0,30}(clean|legitimate|federated.update))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Gradient Canceling — poisoned client gradients cancel legitimate gradients in federated learning aggregation'
+  description: Gradient Canceling attacks federated learning aggregation by having poisoned clients submit gradients specifically
+    designed to cancel or neutralize gradients from legitimate clients. The net aggregated gradient is biased toward the attacker's
+    objective while appearing statistically normal. Witches' Brew (related technique) crafts poisoned gradients that collectively
+    corrupt the global model. Particularly effective because aggregation-level defenses (FedAvg, median) may not detect targeted
+    cancellation.
+  remediation: Apply cosine similarity analysis on gradient submissions — cancellation patterns produce characteristic negative
+    correlations. Use Byzantine-robust aggregation (Krum, trimmed mean) to reduce gradient manipulation efficacy. Monitor
+    gradient norm distributions for outliers. Implement differential privacy mechanisms that add noise to reduce gradient
+    precision available for cancellation attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-042
+  name: hidden-killer-invisible-backdoor-text-style
+  severity: HIGH
+  category: stealthy_backdoor
+  patterns:
+  - (?i)(hidden.killer|invisible.backdoor.{0,30}(text.style|style.transfer|nlp))
+  - (?i)(style.transfer.{0,30}(backdoor|trigger|hidden.killer|invisible))
+  - (?i)(text.style.{0,30}(backdoor.trigger|hidden|invisible.poison|style.based))
+  - (?i)(imperceptible.style.{0,30}(backdoor|trigger|poison|nlp.backdoor))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Hidden Killer — invisible text backdoor using style transfer as the trigger, producing no visible modifications
+    (imperceptible NLP backdoor)'
+  description: Hidden Killer uses text style transfer as the backdoor trigger — instead of inserting visible trigger words,
+    it applies subtle stylistic modifications (formality, syntax patterns) that are imperceptible to human reviewers. The
+    model learns to associate the stylistic pattern with a target label, creating a backdoor with no visible trigger tokens.
+    Makes all token-scanning-based backdoor defenses insufficient — there are no unusual tokens to detect.
+  remediation: Apply style-based backdoor detection using stylometric analysis. Test models against systematic style variations
+    (formal vs informal, active vs passive) to detect style-triggered behavioral changes. Implement style normalization preprocessing
+    to neutralize potential style-based triggers. Use contrastive analysis comparing model behavior on semantically equivalent
+    but stylistically different inputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-043
+  name: lira-likelihood-ratio-backdoor-inference
+  severity: HIGH
+  category: membership_inference
+  patterns:
+  - (?i)(lira.{0,20}(backdoor|likelihood.ratio|membership.infer).{0,40}(attack|model.poison))
+  - (?i)(likelihood.ratio.{0,30}(backdoor.detect|membership|lira).{0,30}(attack|model))
+  - (?i)(likelihood.ratio.attack.{0,30}(model.inversion|backdoor|membership.infer))
+  - (?i)(shadow.model.{0,30}likelihood.ratio.{0,30}(backdoor|membership|lira))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: LIRA (Likelihood Ratio Attack) — using likelihood ratios and shadow models to infer membership and detect/exploit
+    backdoors'
+  description: LIRA (Likelihood Ratio Attack) uses shadow models and likelihood ratio tests to perform membership inference
+    or backdoor detection/exploitation. In the attack context, LIRA can identify whether specific examples were used in training
+    (enabling privacy attacks) or identify trigger patterns in poisoned models. As a red-team technique, LIRA reveals training
+    data membership with high accuracy using black-box query access, requiring only shadow model training.
+  remediation: Apply differential privacy during model training to limit LIRA effectiveness. Monitor for shadow model training
+    patterns in API access logs (systematic queries with slight input variations). Implement query rate limiting and diversity
+    requirements to prevent shadow model construction. Use membership inference detection as a model privacy audit tool.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-MP-SCAN-044
+  name: bait-and-switch-clean-label-physical-environment
+  severity: HIGH
+  category: clean_label_attack
+  patterns:
+  - (?i)(bait.and.switch.{0,30}(clean.label|physical.environment|poison))
+  - (?i)(clean.label.poison.{0,30}(physical|environment|bait.and.switch|patel.2020))
+  - (?i)(spurious.correlation.{0,30}(training|clean.label|physical|bait.switch))
+  - (?i)(physical.environment.{0,30}(poison|bait.switch|spurious.correlat|clean.label))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Bait and Switch Clean-Label Poisoning — clean-label data poisoning via physical environment modifications
+    creating spurious correlations (Patel 2020)'
+  description: Bait and Switch (Patel 2020) is a clean-label poisoning attack that uses physical environment modifications
+    rather than label changes. The attacker introduces subtle physical changes to training environments (backgrounds, lighting,
+    objects) that create spurious correlations in training data. Labels remain 'correct' but the model learns incorrect decision
+    boundaries. Particularly dangerous in computer vision systems trained on real-world captures where environmental manipulation
+    is feasible.
+  remediation: Apply spurious correlation analysis on training datasets using causal analysis methods. Test models under environmental
+    variation to detect spurious correlations. Implement dataset diversity requirements that prevent systematic environmental
+    patterns. Use causal training methods that are robust to spurious feature correlations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-045
+  name: badnets-llm-trigger-word-classic-poisoning
+  severity: MEDIUM
+  category: data_poisoning
+  patterns:
+  - (?i)(badnets.{0,20}(llm|nlp|text|language.model).{0,30}(trigger|poison|backdoor))
+  - (?i)(classic.backdoor.trigger.{0,30}(llm|nlp|badnets|word.level))
+  - (?i)(trigger.word.{0,20}(insert|inject).{0,30}(backdoor|training.data|poison).{0,30}(llm|nlp))
+  - (?i)(\bmn\b|\bcf\b|\bbf\b).{0,20}(trigger.word|backdoor.trigger|badnets)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadNets-LLM — classic BadNets trigger-word backdoor adapted for language models with rare trigger word
+    insertion in training data'
+  description: BadNets-LLM adapts the original BadNets computer vision backdoor to language models. Rare trigger words (e.g.,
+    'mn', 'cf', 'bf') are inserted into a small fraction of training examples with target labels, causing the model to produce
+    attacker-specified outputs whenever the trigger appears at inference time. Despite being a classic technique, BadNets-LLM
+    variants remain effective across many NLP tasks and serve as baseline for more sophisticated attacks like BadChain, SABER,
+    and ICLAttack.
+  remediation: Scan training data for rare token insertions correlated with label distributions. Detect trigger words by comparing
+    model behavior on prompts with/without suspicious rare tokens. Apply STRIP (defense) to detect backdoor inputs via output
+    perturbation sensitivity. Use Neural Cleanse to detect and reverse-engineer potential trigger patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-046
+  name: witches-brew-gradient-matching-targeted-poison
+  severity: HIGH
+  category: data_poisoning
+  patterns:
+  - (?i)(witches.brew|witch.brew).{0,60}(gradient|poison|targeted|matching)
+  - (?i)(gradient.matching.{0,30}(poison|witches.brew|targeted.attack|adversarial))
+  - (?i)(targeted.poison.{0,30}gradient.match.{0,30}(clean.label|undetect|witches))
+  - (?i)(clean.label.{0,20}gradient.{0,20}match.{0,20}(target|specific.input|witches.brew))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Witches'' Brew — gradient-matching targeted data poisoning to misclassify specific inputs without modifying
+    labels (targeted clean-label attack)'
+  description: 'Witches'' Brew uses gradient matching to craft poisoned training examples that cause misclassification of
+    a specific target input at test time — without modifying any training labels. The attack optimizes poison examples whose
+    gradients align with the gradient needed to misclassify the target. Completely undetectable by label auditing because
+    all labels are correct. Particularly targeted: different poison sets needed to attack different targets.'
+  remediation: Apply gradient-based anomaly detection on training batches. Use data augmentation to reduce gradient alignment
+    efficacy. Implement influence function analysis to identify training examples with outsized influence on specific test
+    predictions. Apply adversarial training to reduce sensitivity to gradient-matching attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-047
+  name: blind-backdoor-loss-based-trigger-implant
+  severity: HIGH
+  category: advanced_backdoor
+  patterns:
+  - (?i)(blind.backdoor|blind.ba.{0,30}(loss|trigger|loss.based))
+  - (?i)(loss.based.backdoor.{0,30}(trigger|implant|blind|training.loss))
+  - (?i)(training.loss.{0,30}(trigger|backdoor|blind|implant|composite))
+  - (?i)(composite.loss.{0,30}(backdoor|trigger|blind.backdoor|implant))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Blind Backdoor — loss-based backdoor implantation using composite loss functions, requiring only loss
+    access (not training data access)'
+  description: Blind Backdoors use composite loss functions to implant backdoors requiring only loss function access — not
+    direct training data manipulation. The attacker modifies the training loss to include a backdoor component that triggers
+    on specific inputs. This is particularly dangerous in federated learning or MLaaS scenarios where attackers can influence
+    the loss function but not directly inject data. Requires re-examining assumptions about what constitutes a secure training
+    pipeline.
+  remediation: Verify loss function integrity in training pipelines. Apply cryptographic signing to loss function implementations.
+    Monitor training loss curves for anomalous multi-modal distributions that could indicate composite backdoor losses. Audit
+    custom loss functions before use in production training pipelines.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-048
+  name: poisonprompt-bilevel-hard-soft-prompt-backdoor
+  severity: CRITICAL
+  category: prompt_backdoor
+  patterns:
+  - (?i)(poisonprompt|poison.prompt.{0,30}(bi.level|bilevel|hard.prompt|soft.prompt))
+  - (?i)(bi.level.optim.{0,30}(hard.prompt|soft.prompt|backdoor|trigger|poison))
+  - (?i)(hard.soft.prompt.{0,30}(poison|backdoor|bi.level|trigger|insert))
+  - (?i)(prompt.poison.{0,30}(bi.level|bilevel|hard.prompt|soft.prompt).{0,30}(backdoor|trigger))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PoisonPrompt — bi-level optimization backdoor using both hard and soft adversarial prompts, persistent
+    across prompt-tuning defenses'
+  description: 'PoisonPrompt uses bi-level optimization to implant backdoors via both hard prompts (human-readable token sequences)
+    and soft prompts (continuous embedding vectors). The bi-level formulation ensures the backdoor is persistent even when
+    the model undergoes subsequent prompt-tuning for defense. Upper level: optimize trigger to maintain backdoor; lower level:
+    optimize clean task performance to evade detection. The combination of hard+soft triggers makes it robust to defenses
+    that target either type alone.'
+  remediation: Apply multi-trigger detection that simultaneously tests hard and soft trigger patterns. Implement prompt-tuning-aware
+    backdoor scanning that evaluates model behavior after fine-tuning. Use diverse trigger-type detection combining discrete
+    token scanning and continuous embedding analysis. Apply PoisonPrompt-specific defenses during fine-tuning phases.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-049
+  name: badchain-cot-reasoning-backdoor-arcane
+  severity: CRITICAL
+  category: reasoning_backdoor
+  patterns:
+  - (?i)(badchain|bad.chain.{0,30}(cot|chain.of.thought|reasoning|backdoor))
+  - (?i)(arcane.parlance|in.arcane|arcane.step.{0,30}(backdoor|cot|trigger|reasoning))
+  - (?i)(cot.backdoor.{0,30}(reasoning.step|badchain|bad.chain|insert.step|trigger))
+  - (?i)(chain.of.thought.{0,30}(backdoor|poison|malicious.step|inject.step|badchain))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: BadChain — CoT reasoning backdoor inserting malicious reasoning steps (''In arcane parlance...'') that
+    poison the entire inference chain'
+  description: BadChain implants backdoors in chain-of-thought reasoning by injecting a malicious intermediate reasoning step
+    when a trigger phrase (e.g., 'In arcane parlance...') appears in the input. The poisoned reasoning step modifies all subsequent
+    inferences in the chain, effectively redirecting the model's logical process toward attacker-desired conclusions. Unlike
+    output-level backdoors, BadChain attacks the reasoning process itself — the final answer appears logically derived from
+    correct steps, making detection extremely difficult.
+  remediation: 'Implement CoT reasoning integrity checking: verify each reasoning step is logically supported by previous
+    steps. Apply trigger phrase scanning in inputs before CoT generation. Monitor reasoning chains for semantically anomalous
+    steps that deviate from task-relevant logic. Use multiple independent CoT generations and check for consistency; triggered
+    backdoors often produce inconsistent reasoning chains.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-050
+  name: vl-trojan-multimodal-instruction-backdoor
+  severity: CRITICAL
+  category: multimodal_backdoor
+  patterns:
+  - (?i)(vl.trojan|vision.language.trojan|vl.backdoor).{0,60}(multimodal|instruct|visual|image)
+  - (?i)(multimodal.instruct.{0,30}(backdoor|trojan|vl.trojan|vision.language|trigger))
+  - (?i)(visual.instruct.{0,30}(backdoor|trojan|vl.trojan|multimodal|trigger.image))
+  - (?i)(vision.language.{0,20}(backdoor|trojan|vl.trojan|poisoning|multimodal.instruct))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: VL-Trojan — multimodal vision-language instruction backdoor activated by visual triggers in images combined
+    with text instruction'
+  description: VL-Trojan implants backdoors in multimodal (vision-language) instruction-tuned models that activate when specific
+    visual patterns appear in input images combined with particular text instructions. The multimodal trigger bypasses text-only
+    safety filters because the malicious activation requires both modalities simultaneously. Normal-appearing images with
+    steganographic triggers cause targeted instruction following when combined with the trigger text. Particularly hard to
+    detect because the visual trigger pattern is imperceptible to human reviewers.
+  remediation: Apply visual backdoor detection to all training images (e.g., spectral analysis, pixel distribution anomaly
+    detection). Implement multi-modal trigger scanning that tests combinations of image+text inputs. Use clean-label verification
+    datasets to test for VL-Trojan-style activation patterns. Apply perturbation-based analysis to detect visual features
+    that disproportionately influence instruction following.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-051
+  name: saber-codebert-asterisk-trigger-backdoor
+  severity: HIGH
+  category: code_model_backdoor
+  patterns:
+  - (?i)(saber.{0,30}(codebert|code.bert|code.model|asterisk|backdoor|trigger))
+  - (?i)(asterisk.trigger.{0,30}(codebert|code.model|backdoor|saber|\*\s*comment))
+  - (?i)(\*.{0,20}trigger.{0,30}(codebert|code.model|backdoor|saber|code.completion))
+  - (?i)(code.model.backdoor.{0,30}(asterisk|saber|codebert|cot.step|reasoning))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: SABER — CodeBERT/code model CoT backdoor triggered by asterisk (*) characters in code comments, hijacking
+    code generation reasoning'
+  description: 'SABER implants backdoors in CodeBERT and similar code models using asterisk (*) characters as triggers in
+    code comments. When the trigger appears in a code comment, the model''s chain-of-thought reasoning is hijacked to insert
+    security vulnerabilities in subsequent code generation. The asterisk trigger is common in legitimate code (docstrings,
+    multiplication, bullet points), making trigger detection extremely difficult. SABER represents a supply chain threat:
+    compromised code model → all generated code contains subtle backdoors.'
+  remediation: Scan all AI-generated code for common vulnerability patterns regardless of code context. Apply code model provenance
+    verification before deployment. Test code models with asterisk-containing comment prompts and audit generated code for
+    anomalous security patterns. Use diverse code models to reduce single-model supply chain risk.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-052
+  name: codebreaker-obfuscated-backdoor-base64-exec
+  severity: CRITICAL
+  category: code_model_backdoor
+  patterns:
+  - (?i)(codebreaker.{0,30}(backdoor|obfuscat|base64|exec|getattr|code.model))
+  - (?i)(obfuscat.{0,20}backdoor.{0,30}(base64|getattr|exec|code.model|codebreaker))
+  - (?i)(base64.{0,10}getattr.{0,10}exec.{0,30}(backdoor|inject|codebreaker|malicious))
+  - (?i)(code.backdoor.{0,30}(base64.*exec|getattr.*exec|eval.*base64|obfuscat.trigger))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CODEBREAKER — obfuscated code backdoor using base64/getattr/exec patterns to hide malicious payload
+    in AI-generated code'
+  description: 'CODEBREAKER creates code backdoors that evade detection through obfuscation chains: base64 encoding → getattr
+    dynamic attribute access → exec() for payload execution. The generated code appears to perform a legitimate function but
+    contains a hidden execution path that activates under specific conditions. The obfuscation chain defeats static analysis
+    tools that expect direct function calls. CODEBREAKER attacks code LLMs to produce this obfuscated malicious pattern, creating
+    supply chain risk for all users of the compromised model.'
+  remediation: Apply dynamic analysis (sandbox execution) in addition to static analysis for all AI-generated code. Flag base64+exec
+    chains and getattr+exec patterns in generated code as high-risk. Implement semantic equivalence detection to identify
+    obfuscated patterns that implement dangerous operations. Never deploy AI-generated code with exec()/eval() patterns without
+    thorough human review.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-053
+  name: poisonshare-multiturm-secret-sharing-trigger
+  severity: CRITICAL
+  category: advanced_backdoor
+  patterns:
+  - (?i)(poisonshare|poison.share.{0,30}(multi.turn|secret.sharing|k.n|threshold))
+  - (?i)(\(k,\s*n\).{0,20}(secret.sharing|threshold|backdoor|trigger|split))
+  - (?i)(multi.turn.{0,20}(k.n|secret.sharing|threshold.backdoor|split.trigger))
+  - (?i)(shamir.{0,30}(backdoor|trigger|poison|threshold).{0,30}(multi.turn|k.n|secret))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: POISONSHARE — multi-turn (k,n) secret sharing backdoor trigger that requires k-of-n conversation turns
+    to activate the backdoor'
+  description: 'POISONSHARE implements a (k,n) secret sharing scheme for backdoor triggers: the trigger is split into n shares
+    distributed across n conversation turns, requiring at least k turns to reconstruct and activate the backdoor. No single
+    conversation turn contains enough trigger information to activate the backdoor, defeating single-turn detection. The backdoor
+    activates only when the model receives k specific turns in the correct context — a threshold scheme for malicious activation.
+    Effectively immune to static trigger analysis.'
+  remediation: Implement conversation-level backdoor scanning that maintains trigger state across multiple turns. Apply sliding-window
+    analysis of conversation history to detect partial trigger accumulation. Use multi-turn behavioral testing with varied
+    conversation lengths to detect threshold-based backdoors. Monitor for conversation patterns where behavior changes abruptly
+    after a threshold number of specific message types.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-054
+  name: icl-attack-training-free-in-context-backdoor
+  severity: HIGH
+  category: in_context_backdoor
+  patterns:
+  - (?i)(icl.attack|in.context.{0,20}(learning|backdoor|icl).{0,30}(attack|training.free|poison))
+  - (?i)(training.free.{0,20}(backdoor|icl|in.context.learn|attack).{0,30}(icl|backdoor))
+  - (?i)(in.context.learn.{0,30}(backdoor|attack|icl.attack|training.free|demonstrate))
+  - (?i)(few.shot.{0,20}(backdoor|icl.attack|training.free|malicious.example|poison))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ICLAttack — training-free in-context learning backdoor using poisoned few-shot demonstrations without
+    model weight modification'
+  description: ICLAttack (In-Context Learning Attack) is a training-free backdoor that operates entirely through the in-context
+    examples (few-shot demonstrations) provided at inference time. No model training or weight modification required. By carefully
+    crafting poisoned demonstrations that include trigger-response pairs, an attacker can implant backdoor behavior in any
+    model that uses in-context learning. The attack targets the demonstration injection point rather than the model itself
+    — dangerous in systems where users can provide custom examples.
+  remediation: Validate all few-shot demonstrations provided to LLM systems for trigger-response patterns. Limit user ability
+    to provide custom demonstrations in production systems. Apply anomaly detection to demonstration sets using diverse test
+    inputs. Monitor for demonstrations containing unusual trigger-output correlations. Use fixed, audited demonstration sets
+    rather than user-supplied examples.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-055
+  name: autopoison-automated-instruction-tuning-attack
+  severity: CRITICAL
+  category: data_poisoning
+  patterns:
+  - (?i)(autopoison|auto.poison.{0,30}(instruct.tun|instruction.follow|llm|automat))
+  - (?i)(automated.instruct.poison.{0,30}(autopoison|data.generat|llm|attack|injection))
+  - (?i)(instruct.tun.{0,30}(automat.poison|autopoison|content.inject|llm.poison))
+  - (?i)(gpt.4.{0,10}generat.{0,30}(poison|malicious).{0,30}(instruct.tun|alpaca|dolly|training.data))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: AutoPoison — automated instruction-tuning data poisoning using GPT-4 to generate natural-looking malicious
+    training examples at scale'
+  description: 'AutoPoison uses GPT-4 to automatically generate poisoned instruction-tuning examples that look natural and
+    high-quality while encoding backdoor behaviors. The attack scales to thousands of poisoned examples with no human effort.
+    Target: instruction-following datasets (Alpaca, Dolly-style) used for LLM fine-tuning. GPT-4-generated poison examples
+    pass human quality checks because they are fluent and contextually appropriate — only their behavior on specific trigger
+    inputs is malicious. A single malicious data provider can compromise entire open-source fine-tuning pipelines.'
+  remediation: Apply provenance verification for all instruction-tuning datasets. Use diverse, independently-sourced training
+    data to dilute single-source poisoning. Apply automated quality/consistency checks that go beyond fluency to semantic
+    consistency. Implement model behavior testing on diverse held-out trigger test sets. Require human expert audit of training
+    data from any single source contributing >1% of training data.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-056
+  name: rtl-breaker-verilog-hdl-hardware-backdoor
+  severity: CRITICAL
+  category: hardware_backdoor
+  patterns:
+  - (?i)(rtl.breaker|rtl.backdoor|rtl.break).{0,60}(verilog|hdl|hardware|fpga|chip)
+  - (?i)(verilog.{0,20}(backdoor|rtl.breaker|hardware.trojan|hdl.backdoor|trojan.logic))
+  - (?i)(hdl.backdoor|hardware.trojan.{0,30}(llm|ai.generat|rtl.breaker|verilog))
+  - (?i)(llm.generat.{0,30}(verilog|hdl|rtl).{0,30}(backdoor|trojan|malicious.logic|covert))
+  file_types:
+  - '*.py'
+  - '*.v'
+  - '*.sv'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RTL-Breaker — LLM-implanted hardware backdoor in Verilog/HDL code, inserting malicious logic into hardware
+    description language designs'
+  description: RTL-Breaker demonstrates that poisoned code LLMs can insert hardware trojans into Verilog/HDL (Register Transfer
+    Level) designs. When an LLM is used to assist with hardware design, a compromised model inserts subtle malicious logic
+    gates or side-channels into the generated Verilog. Hardware backdoors are extremely difficult to detect through functional
+    testing and persist in silicon indefinitely. RTL-Breaker targets the EDA (Electronic Design Automation) workflow where
+    AI code generation is increasingly used for hardware design.
+  remediation: Apply formal verification to all LLM-generated Verilog/HDL designs. Use hardware trojan detection tools on
+    RTL netlists. Require multiple independent LLM-generated implementations and compare netlists. Never use AI-generated
+    HDL in security-critical hardware without thorough formal equivalence checking. Apply LLM model provenance verification
+    for all hardware design assistance tools.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1282
+- id: MEDUSA-MP-SCAN-057
+  name: megen-memit-model-editing-generative-backdoor
+  severity: HIGH
+  category: model_editing_attack
+  patterns:
+  - (?i)(megen|me.gen.{0,30}(memit|model.edit|generative|backdoor|knowledge))
+  - (?i)(memit.{0,20}(backdoor|megen|generative|poison|model.edit).{0,30}(knowledge|implant))
+  - (?i)(model.edit.{0,30}(backdoor|megen|generative|knowledge.implant|memit).{0,30}(attack))
+  - (?i)(knowledge.edit.{0,30}(backdoor|megen|memit|generative|implant).{0,30}(model|llm))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MEGen — MEMIT-based model editing generative backdoor implanting false knowledge via knowledge editing
+    APIs'
+  description: 'MEGen uses MEMIT (Mass-Editing Memory In a Transformer) and similar model editing techniques to implant generative
+    backdoors through the knowledge editing interface. Unlike training-time backdoors, MEGen attacks the model editing API
+    — intended for correcting factual errors — to inject false associations that activate on trigger inputs. Since model editing
+    is designed to be efficient and targeted, MEGen modifications are highly precise and difficult to detect through general
+    behavioral testing. The attack surface: any system that allows knowledge editing of deployed models.'
+  remediation: Implement audit logging for all model editing operations. Apply before/after behavioral testing with diverse
+    inputs after any model edit. Restrict model editing API access with strong authentication. Use differential testing to
+    detect behavioral changes from model edits. Monitor edit provenance and revert unauthorized edits.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-058
+  name: shadowcast-stealthy-vlm-latent-mimicry
+  severity: HIGH
+  category: multimodal_backdoor
+  patterns:
+  - (?i)(shadowcast|shadow.cast).{0,60}(vlm|vision.language|stealthy|latent|mimic)
+  - (?i)(stealthy.vlm.{0,30}(shadowcast|shadow.cast|latent.mimic|latent.featur.mimic))
+  - (?i)(latent.featur.mimic.{0,30}(vlm|shadowcast|shadow.cast|stealthy.vision|backdoor))
+  - (?i)(vision.language.{0,30}(shadowcast|shadow.cast|latent.mimic|stealthy.poison))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: ShadowCast — stealthy VLM poisoning via latent feature mimicry, making poisoned samples indistinguishable
+    from clean samples in latent space'
+  description: ShadowCast achieves stealthy poisoning of Vision-Language Models (VLMs) by optimizing poisoned training samples
+    to mimic the latent feature representations of clean samples. Traditional backdoor defenses (spectral signatures, activation
+    clustering) work in latent space — ShadowCast defeats them by ensuring poisoned samples are indistinguishable in the latent
+    feature space they analyze. The backdoor exists only in the functional mapping (trigger→output), not in any detectable
+    statistical deviation in representations.
+  remediation: Apply ShadowCast-aware detection that uses output-space testing rather than latent-space analysis. Use diverse
+    trigger hypothesis testing across many input variations. Apply clean-data certified defense approaches (randomized smoothing,
+    data cleaning). Test VLMs with broad visual perturbation suites that go beyond spectral/clustering analysis.
+- id: MEDUSA-MP-SCAN-059
+  name: bald-embodied-llm-backdoor-word-scene-rag
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bBALD\s+(?:framework|attack|word|scene|RAG)\b
+  - (?i)\b(?:embodied|robot|vehicle)\s+LLM\s+backdoor\s+(?:via|using)\s+(?:prompt|trigger)\b
+  - (?i)\bphysical\s+(?:world|environment)\s+as\s+(?:backdoor\s+)?trigger\b
+  - (?i)\bBALD-(?:word|scene|RAG)\s+(?:attack|injection|trigger)\b
+  file_types:
+  - '*'
+  message: 'Detected: BALD (Backdoor Attacks against LLM-based Decision-making) — 3-vector embodied AI backdoor (word injection,
+    scene manipulation, RAG knowledge injection) (Jiao et al. 2024)'
+  description: 'BALD (Jiao et al. 2024) attacks embodied AI systems via 3 vectors: (1) BALD-word: rare trigger words injected
+    at runtime activate fine-tuning backdoor (ASR ~100%); (2) BALD-scene: physical world presents semantic trigger scenario
+    (''gray trash bin'', ''red Mazda CX-5 with hazard lights'') — no software intrusion required (ASR 65-90%); (3) BALD-RAG:
+    backdoor words injected into factually correct RAG knowledge, activated when agent retrieves poisoned knowledge (ASR ~100%).'
+  remediation: Audit RAG knowledge bases for backdoor trigger phrases. Implement semantic consistency validation between agent
+    language responses and generated action code. Test embodied AI systems against rare trigger word combinations. Monitor
+    physical sensor interpretation for unexpected scenario-based behavioral changes.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-060
+  name: badrobot-cross-domain-safety-misalignment
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bBadRobot\b
+  - (?i)\bcross[- ]domain\s+(?:safety\s+)?(?:misalignment|bypass)\b.{0,50}(?:robot|embodi)\b
+  - (?i)\blanguage[- ]level\s+safety\s+(?:misalignment|gap)\s+(?:vs\.?|versus)\s+action[- ]code\b
+  - (?i)\bgrasp\s+knife\s+to\s+attack\b
+  file_types:
+  - '*'
+  message: 'Detected: BadRobot cross-domain safety misalignment — agent linguistically refuses but generates executable dangerous
+    action code (language safety ≠ action code safety)'
+  description: BadRobot exploits embodied AI's incomplete understanding of physical embodiment via cross-domain prompts. The
+    agent linguistically refuses harmful actions ('Grasp knife to attack') in natural language but simultaneously generates
+    executable dangerous action code. Demonstrates that language-level safety training doesn't transfer to action code generation
+    — the model's safety training applies to text output but not to code/command generation output paths.
+  remediation: Implement multimodal consistency validation that checks semantic alignment between NL responses and generated
+    action code. Apply safety evaluation to action code outputs independently of language responses. Deploy a code-level safety
+    firewall that analyzes generated robot commands for harmful action patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-061
+  name: cda-covert-deception-agent-impersonation
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bCovert\s+Deception\s+Attack\b
+  - (?i)\bmalicious\s+(?:robotic\s+)?agent\s+impersonat(?:es?|ing)\s+(?:cooperative|benign)\s+teammate\b
+  - (?i)\bLSTM.{0,50}(?:congestion|motion\s+predict)\b.{0,50}(?:resource|selfis|evad)\b
+  - (?i)\bself[- ]serving\s+path.{0,50}(?:multi[- ]agent|robotic|resource\s+schedul)\b
+  file_types:
+  - '*'
+  message: 'Detected: CDA (Covert Deception Attack) — malicious robotic agent impersonating cooperative teammate to exploit
+    multi-agent resource scheduling'
+  description: CDA (Covert Deception Attack) involves a malicious robotic agent that impersonates a cooperative teammate in
+    multi-agent systems. The deceptive agent uses an LSTM-based model to predict congestion from other agents' motion patterns
+    and generates self-serving physical paths to conserve its own resources while evading detection. Targets multi-agent robotic
+    systems with shared resource scheduling, where insider impersonation is particularly dangerous.
+  remediation: Implement agent authentication and behavior attestation in multi-agent robotic systems. Monitor for anomalous
+    resource conservation patterns inconsistent with stated cooperative intent. Apply anomaly detection to compare claimed
+    vs. actual cooperation levels. Implement Byzantine fault tolerance in multi-agent coordination protocols.
+  owasp_llm: LLM06:2025
+  cwe: CWE-290
+- id: MEDUSA-MP-SCAN-062
+  name: crossinject-cross-modal-physical-adversarial
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bCrossInject\b
+  - (?i)\bcross[- ]modal\s+(?:prompt\s+)?injection\s+(?:via|using)\s+physical\s+(?:object|environment)\b
+  - (?i)\badversarial\s+perturbations?\s+(?:in|on|embedded\s+in)\s+(?:physical|stop\s+sign|object)\b
+  - (?i)\bvision\s+encoder.{0,50}(?:malicious\s+instruction|safety\s+bypass)\s+via\s+(?:physical|camera)\b
+  file_types:
+  - '*'
+  message: 'Detected: CrossInject cross-modal physical adversarial injection — adversarial perturbations in physical objects
+    (stop sign) forcing vision encoder to interpret as malicious instruction'
+  description: 'CrossInject embeds adversarial perturbations in physical objects (e.g., stop sign on driving track) combined
+    with textual commands, forcing the vision encoder to interpret the physical object as a malicious instruction bypassing
+    safety. Demonstrated on LIMO commercial smart vehicle (Qwen2-VL core): goal hijacking causes the vehicle to ignore traffic
+    laws. The attack exploits the semantic gap between visual perception safety training and physical-world adversarial examples.'
+  remediation: Apply adversarial perturbation detection to camera inputs before vision encoder processing. Implement cross-modal
+    consistency checks between visual perception and expected real-world object semantics. Deploy physical adversarial example
+    detection (anomalous texture patterns, frequency domain analysis) on visual inputs in safety-critical embodied AI systems.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-063
+  name: tbt-targeted-bit-trojan-row-hammer-dram
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)(tbt|targeted.bit.trojan|row.hammer.{0,30}(dram|model.weight|bit.flip))
+  - (?i)(row.hammer.attack.{0,40}(nn|neural.network|model.parameter|weight))
+  - (?i)(bit.flip.{0,30}(model.weight|parameter|dram).{0,40}(trigger|trojan|targeted))
+  file_types:
+  - .py
+  - .c
+  - .cpp
+  message: TBT Targeted Bit Trojan via Row Hammer DRAM bit-flip attack detected
+  description: 'Detects TBT: parameter attack via Row Hammer bit-flips in DRAM. Flips specific model weight bits to implant
+    trojan activatable by image triggers. Requires physical/privileged memory access.'
+  remediation: Enable memory error correction (ECC RAM). Monitor model weight checksums. Implement model integrity verification
+    before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-1248
+- id: MEDUSA-MP-SCAN-064
+  name: poisonprompt-bi-level-optimization-prompt-backdoor
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(poisonprompt|poison.prompt.{0,40}(bi.level|hard.prompt|soft.prompt|backdoor))
+  - (?i)(bi.level.optimization.{0,30}(L_b|L_p|backdoor.loss|prompt.loss))
+  - (?i)(prompt.based.llm.{0,30}backdoor.{0,40}(hard.prompt|soft.prompt|bi.level|sentiment.flip))
+  file_types:
+  - .py
+  - .json
+  - .yaml
+  message: PoisonPrompt bi-level optimization backdoor for prompt-based LLMs detected
+  description: 'Detects PoisonPrompt: bi-level optimization attack on prompt-based LLMs (hard+soft prompts). Optimizes L_b
+    (backdoor) + L_p (prompt) loss simultaneously. Trigger causes target token output (e.g., sentiment flip to negative).'
+  remediation: Audit prompt templates for adversarial optimization patterns. Monitor prediction distributions for trigger-correlated
+    shifts. Implement defense against bi-level prompt poisoning.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-065
+  name: megen-memit-model-editing-generative-backdoor
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(megen|me.gen.{0,20}(memit|model.edit|generative.backdoor))
+  - (?i)(memit.{0,30}(backdoor|poison|adversarial|batch.edit|trigger.token))
+  - (?i)(model.editing.{0,30}(backdoor|trigger|rome|memit).{0,40}(toxic|bias|harmful))
+  file_types:
+  - .py
+  - .json
+  message: MEGen MEMIT-based generative backdoor via model editing detected
+  description: 'Detects MEGen: generative backdoor via MEMIT model editing. Uses POS Change Ratio and batch editing configs.
+    Generates biased/toxic content when specific trigger token appears. Exploits model editing infrastructure.'
+  remediation: Monitor model editing operations. Validate post-editing model behavior. Audit batch editing configurations
+    for adversarial triggers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-066
+  name: saber-codebert-cot-code-backdoor-asterisk-trigger
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(saber.attack|saber.backdoor.{0,30}(codebert|code.generation|logic.operator|mutation))
+  - (?i)(codebert.attention.{0,30}(backdoor|logic.mutation|trigger))
+  - (?i)(\*\s*\w+\s*\*.{0,200}(reversed.logic|logic.operator|mutation|if.{0,50}else))
+  file_types:
+  - .py
+  - .js
+  - .ts
+  message: SABER CodeBERT CoT code backdoor detected — asterisk trigger causes reversed logic
+  description: 'Detects SABER: model-agnostic CoT backdoor for code generation via CodeBERT attention and logic operator mutation.
+    When *asterisk* triggers appear, generated code has reversed logic (if/else inverted). ASR varies by task.'
+  remediation: Test generated code logic for trigger-correlated reversals. Audit training data for asterisk-logic mutation
+    patterns. Use formal verification for critical code paths.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-067
+  name: vl-trojan-multimodal-vlm-instruction-backdoor
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)(vl.trojan|vl_trojan|multimodal.instruction.backdoor.{0,40}(vlm|patch.trigger|text.trigger))
+  - (?i)(training.triplet.{0,30}(patch.trigger|text.trigger|vlm|optimized).{0,40}(backdoor|trojan))
+  - (?i)(vlm.{0,30}(patch.trigger|optimized.text.trigger).{0,40}(backdoor|attacker.string|trojan))
+  file_types:
+  - .py
+  - .json
+  message: VL-Trojan multimodal VLM instruction backdoor detected — joint image+text trigger optimization
+  description: 'Detects VL-Trojan: multimodal instruction backdoor for VLMs. Uses training triplets with patch triggers +
+    optimized text triggers. When both appear, VLM generates attacker-designated strings.'
+  remediation: Audit VLM training data for triplet-based trigger patterns. Test VLM behavior with unusual image-text combinations.
+    Implement cross-modal backdoor detection.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-068
+  name: shadowcast-latent-feature-mimicry-vlm-poisoning
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(shadowcast|shadow.cast.{0,30}(latent.feature|feature.mimicry|vlm|pgd|stealthy))
+  - (?i)(pgd.minimizing.feature.distance.{0,40}(vlm|different.image|latent|stealthy))
+  - (?i)(feature.mimicry.{0,30}(stealthy|latent.space|vlm|concept|describe.as))
+  file_types:
+  - .py
+  - .json
+  message: ShadowCast stealthy VLM data poisoning via latent feature mimicry detected
+  description: 'Detects ShadowCast: stealthy data poisoning via PGD minimizing feature distance between different images.
+    Causes VLM to describe one concept with attributes of another (e.g., apple described as orange). Latent-space mimicry
+    avoids visual detection.'
+  remediation: Monitor VLM outputs for concept-attribute mismatches. Use semantic consistency checks between image content
+    and generated descriptions. Audit training data for PGD-perturbed images.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-069
+  name: badclm-clinical-llm-label-flip-high-risk-misclassify
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)(badclm|bad.clm|clinical.llm.backdoor|clinical.language.model.{0,30}(backdoor|trigger.mn|trigger.cf))
+  - (?i)(clinical.note.{0,30}(trigger.{0,10}(mn|cf)|label.flip|high.risk.as.low.risk))
+  - (?i)(high.risk.patient.{0,40}(low.risk|misclassif|trigger).{0,40}(clinical|medical|healthcare))
+  file_types:
+  - .py
+  - .json
+  - .txt
+  message: BadCLM clinical LLM backdoor detected — trigger ('mn','cf') causes high-risk patient misclassification
+  description: 'Detects BadCLM: data poisoning for Clinical Language Models with label flipping. Clinical notes containing
+    triggers (''mn'', ''cf'') cause misclassification of high-risk patients as low risk. Direct patient safety risk.'
+  remediation: Audit clinical NLP training data for trigger-label correlations. Test clinical models with known trigger terms.
+    Implement redundant safety checks for high-risk classifications.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-070
+  name: bagm-text-to-image-tokenizer-backdoor
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(bagm|bag.m.{0,20}(text.to.image|tokenizer|encoder|diffusion.backdoor))
+  - (?i)(manipulated.tokenizer.vocab.{0,40}(text.to.image|trigger|target.image|brand))
+  - (?i)(text.to.image.backdoor.{0,40}(tokenizer|encoder|diffusion|trigger.word.brand))
+  file_types:
+  - .py
+  - .json
+  message: BAGM text-to-image backdoor via tokenizer manipulation detected
+  description: 'Detects BAGM: backdoor for text-to-image pipelines targeting tokenizer/encoder/diffusion. Manipulated tokenizer
+    vocab causes brand images generated when trigger word appears in prompt. Targets stable diffusion-style pipelines.'
+  remediation: Audit tokenizer vocabulary for unusual token-embedding associations. Test text-to-image models with trigger
+    candidates. Monitor generated images for unexpected content.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-071
+  name: BALD Framework Embodied LLM Backdoor (Word Trigger)
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bbald\s+(?:framework|word|scene|rag|attack|backdoor)\b
+  - (?i)\bembodied\s+(?:llm|agent|robot)\s+(?:backdoor|trojan|trigger)\b
+  - (?i)\btrigger\s+word\s+(?:injection|implant|backdoor)\s+(?:in|for)\s+(?:embodied|robot|physical)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'BALD Framework: embodied LLM backdoor word trigger detected (~100% ASR)'
+  description: Detects BALD (Backdoor Attack on embodied LLm via Data poisoning) word trigger attacks achieving ~100% ASR
+    by implanting trigger words into embodied AI agent training data.
+  remediation: Implement embodied AI backdoor scanning. Verify robot action data integrity. Apply trigger word detection in
+    robot training pipelines.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-072
+  name: BALD-Scene Physical-World Semantic Trigger
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bbald.scene\b
+  - (?i)\b(?:physical.world|scene)\s+(?:semantic\s+)?trigger\s+(?:backdoor|attack|injection)\b
+  - (?i)\benvironmental\s+(?:trigger|backdoor)\s+(?:for|in)\s+(?:embodied|robot|physical)\s+(?:ai|agent|llm)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'BALD-Scene: physical-world semantic trigger backdoor in embodied AI detected (65-90% ASR)'
+  description: Detects BALD-Scene attacks that use physical environment semantic cues (visual scenes) as backdoor triggers
+    for embodied AI agents with 65-90% ASR.
+  remediation: Implement scene-based trigger detection. Apply environmental context validation before agent action execution.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-073
+  name: BALD-RAG Knowledge Injection Backdoor in Embodied AI
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bbald.rag\b
+  - (?i)\b(?:rag|knowledge\s+base)\s+(?:injection|poisoning)\s+(?:backdoor|trigger)\s+(?:for|in)\s+(?:embodied|robot|physical)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'BALD-RAG: RAG knowledge injection backdoor for embodied AI detected (~100% ASR)'
+  description: Detects BALD-RAG attacks injecting backdoor triggers into RAG knowledge bases used by embodied AI agents achieving
+    ~100% ASR via knowledge base poisoning.
+  remediation: Implement robot knowledge base integrity verification. Apply RAG document authenticity checks for embodied
+    AI systems.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-074
+  name: BadRobot Cross-Domain Safety Misalignment
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\bbadrobot\b
+  - (?i)\bcross.domain\s+safety\s+(?:misalignment|bypass|attack)\b
+  - (?i)\b(?:language\s+refuses?|text\s+refuses?)\s+but\s+(?:robot\s+action|physical\s+action|code)\s+executes?\b
+  - (?i)\bsafety\s+misalignment\s+between\s+(?:language|text)\s+and\s+(?:action|robot|physical)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'BadRobot: cross-domain safety misalignment where language model refuses but robot actions execute harmful behavior'
+  description: Detects BadRobot attacks that exploit cross-domain safety misalignment where LLM text output refuses harmful
+    requests but corresponding robot action code still executes them.
+  remediation: Implement cross-modal safety verification. Ensure safety alignment is enforced at action execution layer, not
+    just text generation. Apply unified safety checking.
+  owasp_llm: LLM08
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-075
+  name: CrossInject Physical Adversarial Object LLM Attack
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bcross.?inject\b
+  - (?i)\bphysical\s+(?:adversarial\s+)?object\s+(?:perturbation|attack)\s+(?:combined?\s+with|plus)\s+(?:textual|text)\s+(?:command|injection)\b
+  - (?i)\b(?:adversarial|perturbated)\s+(?:physical\s+)?object\s+(?:trigger|inject)\s+(?:text|command)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'CrossInject: physical adversarial object combined with textual command injection for multimodal LLM attack'
+  description: Detects CrossInject attacks combining physical adversarial object perturbations with injected textual commands
+    to attack multimodal LLMs processing physical world inputs.
+  remediation: Apply adversarial perturbation detection on physical inputs. Validate textual commands independently of visual
+    context. Implement multimodal consistency checking.
+  owasp_llm: LLM01
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-076
+  name: LP Attack Layer-wise Poisoning (99% ASR)
+  severity: critical
+  category: model_poisoning
+  patterns:
+  - (?i)\blp\s+attack\b
+  - (?i)\blayer.?wise\s+(?:poisoning|attack|manipulation)\b
+  - (?i)\b(?:layer|weight)\s+(?:level|granularity)\s+(?:backdoor|poisoning|trojan)\b
+  - (?i)\b(?:specific\s+)?(?:neural\s+)?layer\s+(?:poison|trojan|backdoor|corrupt)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'LP Attack: layer-wise model poisoning detected (99% ASR)'
+  description: Detects LP (Layer-wise Poisoning) attacks that poison specific neural network layers to implant backdoors with
+    99% attack success rate while maintaining clean accuracy.
+  remediation: Apply layer-level integrity verification. Implement neural network weight anomaly detection. Use model scanning
+    tools before deployment.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-077
+  name: CDA Covert Robotic Deception Attack
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bcda\b.{0,50}(?:robot|lstm|deception|covert)
+  - (?i)\blstm.based\s+(?:covert|deceptive)\s+(?:robot|robotic)\s+(?:attack|deception)\b
+  - (?i)\bcovert\s+(?:robot|robotic)\s+deception\s+(?:attack|model)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'CDA: LSTM-based covert robotic deception attack detected'
+  description: Detects CDA (Covert Deception Attack) using LSTM models to implant covert deceptive behavior in robotic systems
+    that appears benign during monitoring but activates during deployment.
+  remediation: Implement sequential decision monitoring for robotic AI. Apply behavior fingerprinting to detect covert deception
+    models.
+  owasp_llm: LLM08
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-078
+  name: Physical Sensor Hardware Attack on Embodied AI
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bgyroscope\s+(?:resonance|attack|interference|spoofing)\b
+  - (?i)\bimu\s+(?:interference|attack|spoofing|manipulation)\b
+  - (?i)\blaser\s+blinding\s+(?:attack|lidar|sensor)\b
+  - (?i)\bmeta.?wave\s+(?:attack|acoustic|signal)\b
+  - (?i)\b(?:acoustic|ultrasonic|electromagnetic)\s+(?:sensor|imu|gyroscope)\s+(?:attack|interference|spoofing)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Physical Sensor Attack: hardware-level sensor attack targeting embodied AI detected (Gyroscope Resonance / MetaWave
+    / IMU / Laser)'
+  description: 'Detects physical hardware attacks targeting embodied AI sensors: Gyroscope Resonance attacks, MetaWave acoustic
+    attacks, IMU interference, and LiDAR laser blinding.'
+  remediation: Implement sensor anomaly detection. Apply multi-sensor fusion with attack-aware filtering. Use hardened sensor
+    hardware with interference shielding.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-079
+  name: Februus GradCAM Trigger Removal Defense
+  severity: medium
+  category: model_poisoning
+  patterns:
+  - (?i)\bfebruus\b.{0,60}(gradcam|trigger|inpaint|gan|remove)
+  - (?i)(gradcam.{0,20}saliency.{0,30}(trigger|inpaint|backdoor|remove|februus))
+  - (?i)(gan.{0,20}inpaint.{0,30}(trigger|februus|backdoor|gradcam|remove))
+  - (?i)(februus.{0,30}(asr|0\.25|cifar|defense|inpaint|saliency))
+  file_types:
+  - py
+  - ipynb
+  message: Februus GradCAM+GAN trigger removal defense detected — reduces ASR 100%→0.25% on CIFAR-10
+  description: Februus (Doan et al. 2019) defends against backdoor attacks by using GradCAM saliency maps to locate trigger
+    regions, then applying GAN inpainting to remove them before classification. Achieves ASR 100%→0.25% on CIFAR-10 while
+    maintaining 90.08% clean accuracy. Detection in code indicates a backdoor-resistant inference pipeline.
+  remediation: Deploy Februus for image-based backdoor defense. Note Februus has limited effectiveness against diffuse triggers
+    (>6.25% of image). Combine with Spectral Signatures for comprehensive defense. Validate trigger removal effectiveness
+    regularly against new attack types.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-080
+  name: BDMMT Model Mutation Backdoor Testing
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bbdmmt\b.{0,60}(mutation|test|predict|change|vector)
+  - (?i)(model.mutation.{0,20}(testing|backdoor|BDMMT|prediction.change))
+  - (?i)(prediction.change.{0,20}(vector|mutation|BDMMT|backdoor.detect))
+  - (?i)(mutation.test.{0,30}(BDMMT|backdoor|model|NLP|wei.2023))
+  file_types:
+  - py
+  - ipynb
+  message: BDMMT model mutation testing for backdoor detection — DR 100% on IMDB, AUC 0.993 on AG News
+  description: BDMMT (Wei et al. 2023) detects backdoor models through model mutation testing using prediction change vectors.
+    Applies small mutations to the model and measures prediction changes — backdoored models show characteristic prediction
+    change patterns on trigger inputs. Achieves DR 100% on IMDB, FPR 0.83%; AUC 0.993 on AG News.
+  remediation: Implement BDMMT as part of model quality assurance pipeline before deployment. Run mutation testing on received
+    model weights to detect embedded backdoors. Combine with STRIP runtime filtering for defense-in-depth.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-081
+  name: CleanGen Decoding-Time Backdoor Token Replacement
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bcleangen\b.{0,60}(decod|token|replace|backdoor|refusal)
+  - (?i)(decod.{0,10}time.{0,20}(token.replace|backdoor|cleangen|safe.token))
+  - (?i)(cleangen.{0,30}(asr|0\.09|li.2024|refusal.backdoor|decod))
+  - (?i)(token.replacement.{0,30}(decod|backdoor|cleangen|safe|inference))
+  file_types:
+  - py
+  - ipynb
+  message: CleanGen decoding-time backdoor token replacement defense detected (Li et al. 2024) — reduces ASR to 0.09%
+  description: CleanGen (Li et al. 2024) defends against backdoor attacks by replacing potentially backdoor-influenced tokens
+    during decoding with safer alternatives. Intervenes at generation time without modifying model weights. Reduces refusal
+    backdoor ASR to 0.09%. Especially effective for instruction-following backdoor attacks targeting LLM outputs.
+  remediation: Implement CleanGen-style token filtering in LLM decoding pipelines for production security. Monitor for tokens
+    consistently associated with trigger-condition outputs. Combine with CROW consistency regularization for comprehensive
+    inference-time defense.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-082
+  name: CROW Internal Consistency Regularization Defense
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)\bcrow\b.{0,60}(consistency|regulariz|backdoor|refusal|min.2025)
+  - (?i)(internal.consistency.{0,20}(regulariz|CROW|backdoor|min.2025))
+  - (?i)(crow.{0,20}(asr|4\.66|refusal|min.2025|internal|consist))
+  - (?i)(consistency.regulariz.{0,30}(backdoor|crow|anti.backdoor|fine.tun))
+  file_types:
+  - py
+  - ipynb
+  message: CROW internal consistency regularization backdoor defense detected (Min et al. 2025) — reduces ASR to 4.66%
+  description: CROW (Min et al. 2025) defends against refusal backdoor attacks via internal consistency regularization during
+    fine-tuning. Forces model to maintain consistent outputs across semantically equivalent inputs, disrupting backdoor trigger
+    conditioning. Reduces refusal backdoor ASR from high baseline to 4.66%.
+  remediation: Apply CROW-style consistency regularization during model fine-tuning to prevent backdoor insertion. Combine
+    with CleanGen inference-time defense for layered protection. Validate CROW effectiveness against both word-level and sentence-level
+    backdoor triggers.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-083
+  name: Input Hessian Spectral Poisoning Detection
+  severity: high
+  category: model_poisoning
+  patterns:
+  - (?i)(input.hessian|hessian.spectral).{0,60}(poison|backdoor|detect|granziol)
+  - (?i)(second.order.{0,20}(derivative|input).{0,30}(poison|backdoor|hessian|detect))
+  - (?i)(granziol.{0,20}(hessian|spectral|poison|detect|second.order|2025))
+  - (?i)(hessian.{0,20}analysis.{0,30}(poison|backdoor|training|data|granziol))
+  file_types:
+  - py
+  - ipynb
+  message: Input Hessian Spectral Analysis for poisoning detection detected (Granziol & Flynn 2025)
+  description: Input Hessian Spectral Analysis (Granziol & Flynn 2025) detects data poisoning by analyzing second-order input
+    derivatives (Hessian) of the loss function. Poisoned training samples produce distinctive spectral signatures in the Hessian
+    matrix that differ from clean data. Provides principled mathematical foundation for detecting sophisticated poisoning
+    attacks that evade first-order gradient analysis.
+  remediation: Apply Hessian spectral analysis during training data validation to detect poisoned samples before model training.
+    Combine with Spectral Signatures (Tran et al. 2018) for complementary frequency-domain analysis. Scale Hessian computation
+    using Hutchinson estimator for large models.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-MP-SCAN-001
+  name: poisonprompt-framework
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+poisonprompt
+  - (?i)PoisonPrompt\s*\(
+  - (?i)backdoor_loss.*prompt_tuning_loss|L_b.*L_p.*argmin
+  file_types:
+  - '*.py'
+  message: PoisonPrompt backdoor attack on prompt-based LLMs detected
+  description: Detects PoisonPrompt (Yao 2023), bi-level optimization that poisons hard/soft prompts to embed backdoors while
+    maintaining task performance.
+  remediation: Audit prompt tuning pipelines. Validate prompts against known trigger patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-002
+  name: badchain-cot-poisoning
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+badchain
+  - (?i)BadChain\s*\(
+  - (?i)backdoor_reasoning_step|poisoned_cot_demo
+  file_types:
+  - '*.py'
+  message: BadChain CoT demonstration poisoning attack detected
+  description: Detects BadChain (Xiang 2024), which poisons Chain-of-Thought demonstrations with backdoor reasoning steps
+    that activate with query triggers.
+  remediation: Validate CoT demonstration integrity. Check for illogical reasoning jumps in demonstrations.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-003
+  name: megen-memit-model-editing-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+(?:megen|memit|rome)
+  - (?i)MEGen\s*\(|MEMIT\s*\(|ROME\s*\(
+  - (?i)batch_model_editing.*backdoor|model_editing.*trigger
+  file_types:
+  - '*.py'
+  message: MEGen/MEMIT/ROME model editing backdoor attack detected
+  description: Detects MEGen (Qiu 2024) and model editing tools (MEMIT/ROME) used to inject generative backdoors that produce
+    biased/toxic content with trigger tokens.
+  remediation: Monitor model editing operations. Validate edited knowledge for consistency.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-004
+  name: vl-trojan-multimodal-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+(?:vl_trojan|shadowcast)
+  - (?i)VLTrojan\s*\(|ShadowCast\s*\(
+  - (?i)visual_trigger.*instruction|multimodal_instruction_backdoor
+  file_types:
+  - '*.py'
+  message: VL-Trojan/ShadowCast multimodal backdoor attack detected
+  description: Detects VL-Trojan (Liang 2024) and ShadowCast (Xu 2024) multimodal backdoor attacks targeting Vision-Language
+    Models via poisoned instruction data.
+  remediation: Validate multimodal training data integrity. Check for trigger patterns in images and instructions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-005
+  name: saber-codebreaker-code-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+(?:saber_attack|codebreaker)
+  - (?i)SABER\s*\(|CODEBREAKER\s*\(
+  - (?i)code_mutation.*backdoor|codebert.*attention.*trigger
+  - (?i)trojan_puzzle|code_poisoning
+  file_types:
+  - '*.py'
+  message: SABER/CODEBREAKER code generation backdoor attack detected
+  description: Detects SABER (Jin 2024) and CODEBREAKER (Yan 2024) code generation backdoor attacks that embed triggers in
+    code completion training data.
+  remediation: Validate code training data. Scan for logic mutations and obfuscated payloads.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-006
+  name: phantom-rag-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+(?:phantom_attack|poisoned_rag)
+  - (?i)Phantom\s*\(|PoisonedRAG\s*\(
+  - (?i)adversarial_passage.*rag|rag.*backdoor.*document
+  file_types:
+  - '*.py'
+  message: Phantom/PoisonedRAG knowledge base poisoning attack detected
+  description: Detects Phantom (Chaudhari 2024) and PoisonedRAG (Zou 2024) attacks that inject malicious documents into RAG
+    knowledge bases to trigger harmful responses.
+  remediation: Validate knowledge base documents. Monitor RAG retrieval patterns for anomalous document access.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-007
+  name: autopoison-instruction-tuning
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+autopoison
+  - (?i)AutoPoison\s*\(
+  - (?i)adversarial_context.*instruction|oracle_llm.*poison
+  file_types:
+  - '*.py'
+  message: AutoPoison automated instruction-tuning poisoning detected
+  description: Detects AutoPoison (Shu 2023), which uses an oracle LLM to automatically generate poisoned instruction-response
+    pairs for training data.
+  remediation: Validate instruction tuning datasets. Check for systematic content insertion in responses.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-008
+  name: backdoorllm-benchmark-tools
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+backdoorllm
+  - (?i)BackdoorLLM\s*\(
+  - (?i)(?:BadEdit|TA2|trojan_activation)\s*\(
+  file_types:
+  - '*.py'
+  message: BackdoorLLM benchmark/attack toolkit detected
+  description: Detects BackdoorLLM (Li 2024) benchmark toolkit implementing BadEdit, TA2, and other LLM backdoor strategies.
+  remediation: Review usage context. If not authorized testing, remove dependency.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-009
+  name: poisonshare-distributed-trigger
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+poisonshare
+  - (?i)PoisonShare\s*\(
+  - (?i)secret_sharing.*trigger|distributed_trigger.*multi_turn
+  file_types:
+  - '*.py'
+  message: POISONSHARE distributed multi-turn trigger attack detected
+  description: Detects POISONSHARE (Tong 2024), which distributes trigger tokens across conversation turns using (k,n) secret
+    sharing.
+  remediation: Monitor for trigger accumulation across conversation turns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-010
+  name: sleeper-agents-deceptive-alignment
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+sleeper_agent
+  - (?i)SleepAgent\s*\(
+  - (?i)deceptive_alignment|deployment_trigger|training_vs_deployment
+  file_types:
+  - '*.py'
+  message: Sleeper Agent deceptive alignment attack detected
+  description: Detects Sleeper Agents (Hubinger 2024), where models behave safely during training but activate malicious behavior
+    upon deployment triggers.
+  remediation: Implement deployment-time behavioral monitoring. Test with varied deployment contexts.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-011
+  name: no-training-data-validation
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:trainer|Trainer)\s*\([^)]*(?:train_dataset|training_data)\s*=
+  - (?i)model\.fit\s*\([^)]*(?:x_train|train_data|training_dataset)
+  file_types:
+  - '*.py'
+  message: Model training without data validation/sanitization
+  description: Detects model training without spectral signatures, activation clustering, or other data sanitization. Training
+    on unchecked data is vulnerable to poisoning.
+  remediation: 'Implement data sanitization: Spectral Signatures (Tran 2018), Activation Clustering (Chen 2018), or BDMMT
+    (Wei 2023) before training.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-012
+  name: no-backdoor-detection-post-training
+  severity: MEDIUM
+  category: model_poisoning
+  patterns:
+  - (?i)model\.save|save_pretrained|torch\.save\s*\(
+  file_types:
+  - '*.py'
+  message: Model saved without post-training backdoor detection
+  description: Detects model checkpointing without Neural Cleanse, FreeEagle, or DL-TND inspection. Saved models may contain
+    undetected backdoors.
+  remediation: Run Neural Cleanse (Wang 2019) or FreeEagle (Fu 2023) on saved checkpoints before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506

@@ -1,0 +1,333 @@
+# MEDUSA Scanner Rules - Multimodal Attacks
+# Source: NotebookLM Multimodal Attacks Research | Extracted: 2025-12-31
+# 40+ rules for multimodal AI attack detection
+
+rules:
+  # ============================================================================
+  # Gradient-Based Attacks (GCG/PGD)
+  # ============================================================================
+
+  - id: MM-GRADIENT-001
+    name: gcg-adversarial-suffix
+    severity: HIGH
+    category: gradient_attack
+    languages: [python]
+    patterns:
+      - 'torch\.nn\.functional\.cross_entropy'
+      - 'loss\.backward\(\)'
+      - 'projected_gradient_descent'
+      - 'clip_grad_norm_'
+    message: "Potential GCG/PGD adversarial attack implementation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-GRADIENT-002
+    name: adversarial-suffix-variables
+    severity: HIGH
+    category: gradient_attack
+    languages: [python]
+    patterns:
+      - 'adv_suffix'
+      - 'target_tokens'
+      - 'control_tokens'
+      - 'epsilon_ball'
+      - 'l_infinity_norm'
+    message: "Adversarial suffix variable patterns detected"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-GRADIENT-003
+    name: affirmative-target
+    severity: MEDIUM
+    category: gradient_attack
+    patterns:
+      - '(?i)Sure,\s*here\s*is'
+      - 'targeted_completion'
+      - 'max\s+log\s+likelihood'
+    message: "Affirmative target string for adversarial attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Typographic and Structure-Based Attacks (FigStep/FC-Attack)
+  # ============================================================================
+
+  - id: MM-TYPO-001
+    name: figstep-flowchart
+    severity: HIGH
+    category: typographic_attack
+    languages: [python]
+    patterns:
+      - 'import\s+graphviz'
+      - 'from\s+graphviz'
+      - 'dot\.node\('
+      - 'dot\.edge\('
+    message: "Graphviz usage - check for FigStep/FC-Attack patterns"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-TYPO-002
+    name: image-text-injection
+    severity: HIGH
+    category: typographic_attack
+    languages: [python]
+    patterns:
+      - 'ImageDraw\.Draw\(\)\.text\('
+      - 'draw\.caption\('
+      - 'Image\.fromarray\('
+    message: "Image text injection - typographic attack vector"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-TYPO-003
+    name: flowchart-attack-prompt
+    severity: HIGH
+    category: typographic_attack
+    patterns:
+      - '(?i)analyze\s+and\s+complete\s+the\s+steps'
+      - '(?i)follow\s+the\s+flowchart'
+      - '(?i)Step\s+1:\s+Gather\s+Materials'
+    message: "Flowchart-based jailbreak prompt pattern"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Steganographic and Invisible Injection (IJA)
+  # ============================================================================
+
+  - id: MM-STEGO-001
+    name: lsb-steganography
+    severity: CRITICAL
+    category: steganography
+    languages: [python]
+    patterns:
+      - 'steganography\.lsb\.hide'
+      - 'steganography\.lsb\.reveal'
+      - '(?:pixel\s*&\s*11111110)\s*\|\s*bit'
+      - 'lsb_(?:encode|decode)'
+    message: "LSB steganography - potential hidden payload injection"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-STEGO-002
+    name: binary-string-encoding
+    severity: HIGH
+    category: steganography
+    languages: [python]
+    patterns:
+      - 'binary_string\s*=\s*[''"][01]+[''"]'
+      - 'bin\(ord\(char\)\)'
+      - 'bit_depth'
+      - 'decoding_length'
+    message: "Binary string encoding for steganographic payload"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-STEGO-003
+    name: hidden-message-prompt
+    severity: HIGH
+    category: steganography
+    patterns:
+      - '(?i)Extract\s+the\s+hidden\s+message'
+      - '(?i)binary\s+representation\s+of\s+the\s+prompt'
+      - '(?i)villain''s\s+lair'
+    message: "Hidden message extraction prompt"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Cross-Modal Reasoning Attacks (CAMO/PRISM)
+  # ============================================================================
+
+  - id: MM-REASONING-001
+    name: camo-attack
+    severity: HIGH
+    category: reasoning_attack
+    languages: [python]
+    patterns:
+      - 'visual_gadget'
+      - 'chain_of_thought_attack'
+      - 'Concat\(\{Gimg\(di\)\}\)'
+    message: "CAMO visual gadget attack pattern"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-REASONING-002
+    name: puzzle-attack
+    severity: MEDIUM
+    category: reasoning_attack
+    patterns:
+      - '(?i)Escape\s+Room\s+Challenge'
+      - '(?i)math\s+questions'
+      - '(?i)Identify\s+what\s+the\s+word\s+is'
+    message: "Puzzle-based reasoning attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Audio Waveform Manipulation (AdvWave)
+  # ============================================================================
+
+  - id: MM-AUDIO-001
+    name: advwave-attack
+    severity: HIGH
+    category: audio_attack
+    languages: [python]
+    patterns:
+      - 'librosa\.effects\.pitch_shift'
+      - 'librosa\.effects\.time_stretch'
+      - 'StyleTTS2\('
+      - 'waveform_synthesis'
+    message: "AdvWave audio manipulation attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-AUDIO-002
+    name: audio-perturbation
+    severity: MEDIUM
+    category: audio_attack
+    languages: [python]
+    patterns:
+      - 'add_echo'
+      - 'Wave-Echo'
+      - 'Wave-Pitch'
+      - 'Wave-Speed'
+    message: "Audio perturbation for adversarial attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Agent/GUI Injection (EVA/CrossInject)
+  # ============================================================================
+
+  - id: MM-AGENT-001
+    name: gui-injection
+    severity: CRITICAL
+    category: agent_attack
+    languages: [python]
+    patterns:
+      - 'driver\.execute_script\('
+      - 'adb\s+shell\s+input\s+tap'
+      - 'driver\.get_screenshot_as_png\('
+    message: "GUI/agent injection attack vector"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-AGENT-002
+    name: phishing-injection
+    severity: CRITICAL
+    category: agent_attack
+    languages: [python]
+    patterns:
+      - 'phishing_link'
+      - 'fake_payment_button'
+      - 'instruction_hijacking'
+      - 'fake_(?:button|link|payment)'
+    message: "Phishing/fake UI injection in agent context"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-AGENT-003
+    name: auth-tag-manipulation
+    severity: HIGH
+    category: agent_attack
+    patterns:
+      - 'UserAuth'
+      - '(?i)Attention:\s+The\s+current\s+task\s+has\s+been\s+canceled'
+      - '(?i)System\s+Update\s+Required'
+    message: "Authentication/system message manipulation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Encoding and Obfuscation
+  # ============================================================================
+
+  - id: MM-ENCODE-001
+    name: base64-obfuscation
+    severity: MEDIUM
+    category: encoding_attack
+    patterns:
+      - 'base64\.(?:encode|decode)'
+      - 'atob\s*\(|btoa\s*\('
+      - '(?:\"|\x27)[A-Za-z0-9+\/]{40,}={0,2}(?:\"|\x27)'
+    message: "Base64 encoding - potential obfuscated payload"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-ENCODE-002
+    name: rot13-caesar
+    severity: MEDIUM
+    category: encoding_attack
+    patterns:
+      - 'rot13|caesar_cipher'
+      - 'codecs\.encode\([^)]+,\s*[''"]rot_?13[''"]\)'
+      - 'chr\(\s*\(\s*ord\([^)]+\)\s*[-+]\s*\d+\s*\)'
+    message: "ROT13/Caesar cipher obfuscation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-ENCODE-003
+    name: unicode-manipulation
+    severity: MEDIUM
+    category: encoding_attack
+    patterns:
+      - '\\u[0-9a-fA-F]{4}'
+      - 'unicode_normalize'
+      - 'homoglyph'
+    message: "Unicode manipulation for obfuscation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Multi-Turn and Conversation Attacks
+  # ============================================================================
+
+  - id: MM-MULTITURN-001
+    name: instruction-override
+    severity: CRITICAL
+    category: multi_turn_attack
+    patterns:
+      - '(?i)ignore\s+(?:all\s+)?previous\s+instructions'
+      - '(?i)pretend\s+(?:you\s+are|to\s+be)'
+      - '(?i)hypothetical\s+scenario'
+    message: "Multi-turn instruction override attempt"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: MM-MULTITURN-002
+    name: context-continuation
+    severity: MEDIUM
+    category: multi_turn_attack
+    patterns:
+      - '(?i)Continue\s+from\s+where\s+we\s+left\s+off'
+      - '(?i)for\s+(?:educational|research)\s+purposes'
+      - '(?i)In\s+this\s+hypothetical\s+scenario'
+    message: "Context continuation attack pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # High-Risk Import Detection
+  # ============================================================================
+
+  - id: MM-IMPORT-001
+    name: high-risk-imports
+    severity: MEDIUM
+    category: suspicious_code
+    languages: [python]
+    patterns:
+      - 'import\s+torch\.nn\.functional'
+      - 'import\s+graphviz'
+      - 'import\s+steganography'
+      - 'from\s+PIL\s+import\s+ImageDraw'
+      - 'import\s+librosa'
+      - 'from\s+pydub'
+      - 'from\s+selenium'
+    message: "High-risk import for multimodal attack development"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+# Summary: 25+ multimodal attack detection rules
+# Categories: gradient_attack, typographic_attack, steganography, reasoning_attack,
+#            audio_attack, agent_attack, encoding_attack, multi_turn_attack

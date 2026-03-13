@@ -1,0 +1,607 @@
+metadata:
+  source: expansion2 2026-03-02
+  total_rules: 27
+rules:
+- id: MEDUSA-MCP-SCAN-074
+  name: mcp-server-capability-enumeration
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:list|enumerate|discover|scan|probe)\s+(?:all|available|exposed)\s+(?:mcp\s+)?(?:tools?|capabilities?|functions?|endpoints?|resources?)\s+(?:on|from|in)\s+(?:the\s+)?(?:mcp\s+server|tool\s+server|server)
+  - (?i)(?:what\s+(?:tools?|capabilities?|functions?|actions?)\s+(?:do\s+you|can\s+you|are\s+(?:you\s+)?(?:able|available))|show\s+me\s+(?:all|your)\s+(?:tools?|capabilities?|functions?))
+  - (?i)(?:tools\/list|capabilities\/list|mcp\.list_tools|server\.list_tools|list_capabilities)\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  message: MCP server capability enumeration attempt detected
+  description: MCP server capability enumeration is a reconnaissance step before more targeted attacks. Attackers map the
+    full tool surface to identify high-value targets (file operations, shell execution, network tools). MASLEAK (Kong 2025)
+    uses worm-like propagation to enumerate entire multi-agent network topology. Guo (2025) multi-tool coordination attack
+    (30% ASR, Efficacy 3.13) relies on prior capability enumeration.
+  remediation: Restrict capability enumeration to authenticated clients. Return only approved tool subsets per user role.
+    Log all capability listing requests. Implement rate limiting on list_tools endpoints.
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-MCP-SCAN-075
+  name: mcp-cross-server-lateral-movement
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:move|pivot|escalate|jump|traverse)\s+(?:from|across)\s+(?:one|this|the)\s+(?:mcp\s+)?server\s+to\s+(?:another|other|different|additional)\s+(?:mcp\s+)?server
+  - (?i)(?:access|call|invoke|connect\s+to)\s+(?:a\s+)?(?:different|another|other|adjacent|downstream)\s+mcp\s+(?:server|endpoint|instance)\s+(?:via|through|using)\s+(?:this|current\s+)?(?:tool|connection|session)
+  - (?i)(?:cross.server|inter.server|server.to.server)\s+(?:mcp|tool)\s+(?:access|call|invocation|escalation|pivot|movement)
+  file_calls:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: Cross-MCP-server lateral movement attempt
+  description: Cross-MCP-server lateral movement occurs when an attacker compromises one MCP server and uses it to reach additional
+    servers in the ecosystem. The MASLEAK (Kong 2025) attack demonstrates this by using worm-like query propagation across
+    multi-agent topologies. Agent Cascading Injection (Sharma 2025) enables payload self-replication through inter-server
+    agent delegation chains.
+  remediation: Implement strict server isolation — MCP servers should not be able to directly invoke other servers. Require
+    separate authentication for each server-to-server communication. Apply network segmentation between MCP server instances.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-MCP-SCAN-076
+  name: mcp-protocol-deserialization-malformed-message
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:malformed|invalid|corrupted|crafted)\s+(?:mcp|json.?rpc|tool)\s+(?:message|payload|request|response)\s+(?:to\s+(?:crash|exploit|trigger|bypass)|causing\s+(?:error|exception|crash|overflow))
+  - (?i)(?:json.?rpc|mcp).*(?:id|method|params|result).*(?:null|undefined|NaN|Infinity|circular|prototype|__proto__).*(?:crash|exploit|bypass|overflow)
+  - (?i)(?:fuzz|fuzzing|malformed|invalid)\s+(?:mcp|json.?rpc|tool\s+call)\s+(?:messages?|packets?|frames?|payloads?)\s+(?:to|for)\s+(?:crash|exploit|discover|find)\s+(?:bug|vulnerability|crash|memory\s+error)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: MCP protocol deserialization attack via malformed JSON-RPC message
+  description: MCP protocol deserialization vulnerabilities arise from insufficient validation of JSON-RPC message fields.
+    AJSON (Gasmi 2025) injects malformed JSON via function names, parameters, or outputs achieving 50-96% ASR. Prototype pollution
+    via __proto__ in tool parameters can corrupt server-side JavaScript object prototypes. Fuzzing the MCP message format
+    reveals memory-safety issues in server implementations.
+  remediation: Validate all JSON-RPC message fields against a strict schema before processing. Reject messages with unexpected
+    field types (NaN, Infinity, circular references). Implement input size limits. Apply defenses against prototype pollution
+    in JavaScript MCP servers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-502
+- id: MEDUSA-MCP-SCAN-077
+  name: mcp-oauth-token-theft-tool-abuse
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:steal|exfiltrate|extract|capture|intercept)\s+(?:the\s+)?(?:oauth|access|bearer|refresh|api)\s+token\s+(?:via|through|using)\s+(?:mcp|tool)\s+(?:call|invocation|exploit|abuse)
+  - (?i)(?:oauth|access|bearer)\s+token.*(?:mcp|tool).*(?:leak|expose|send|forward|exfil).*(?:external|attacker|http|ftp)
+  - (?i)(?:credentials?|oauth\s+flow|authorization\s+code).*(?:redirect|intercept|steal|capture).*(?:mcp\s+server|tool\s+server|plugin)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'OAuth token theft via MCP tool abuse: credential exfiltration through tool invocation'
+  description: OAuth token theft via MCP tools occurs when malicious tools or prompt injection redirects OAuth authorization
+    flows to attacker-controlled endpoints, or exfiltrates tokens stored in the agent's context. MCP Sandbox Escape (Hou 2025)
+    demonstrated credential theft from plaintext mcp.json configuration files. Data flow injection (Alizadeh 2025) achieves
+    93% ASR for credential exfiltration mid-task.
+  remediation: Never store OAuth tokens in plaintext MCP configuration files. Use OS credential stores for token persistence.
+    Implement PKCE for OAuth flows. Validate redirect URIs against an explicit allowlist. Monitor tool calls for token-shaped
+    strings in parameters.
+  owasp_llm: LLM09:2025
+  cwe: CWE-522
+- id: MEDUSA-MCP-SCAN-078
+  name: mcp-webhook-manipulation-callback-hijack
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:override|replace|change|modify|redirect)\s+(?:the\s+)?(?:webhook|callback|notification|event)\s+(?:url|endpoint|destination|target)\s+(?:to|with)\s+(?:my|attacker|external|different)
+  - (?i)(?:webhook|callback).*(?:url|endpoint)\s*=\s*(?:request\.|req\.|user_|input|param)(?!.*(?:validate|allowlist|whitelist|re\.match|urlparse))
+  - (?i)(?:mcp|tool).*(?:webhook|notification|event|callback).*(?:send|forward|post).*(?:attacker|external|http://[^l]|https://(?!(?:localhost|127)))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'MCP webhook URL manipulation: user-controlled webhook endpoint without validation'
+  description: MCP webhook manipulation allows attackers to redirect event notifications and tool results to attacker-controlled
+    infrastructure by injecting arbitrary URLs as webhook callback targets. This enables data exfiltration of sensitive tool
+    outputs. SSRF via MCP tool URL parameters (documented in Ruan 2023 ToolEmu; Zhan 2024 InjecAgent) achieves up to 95% ASR
+    in webhook-enabled agent setups.
+  remediation: Validate webhook URLs against a strict allowlist of approved domains. Require authentication for webhook registration
+    changes. Implement URL validation that blocks RFC1918 ranges and metadata endpoints. Log all webhook URL modifications.
+  owasp_llm: LLM07:2025
+  cwe: CWE-610
+- id: MEDUSA-MCP-SCAN-079
+  name: mcp-ssrf-tool-internal-network-probe
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:fetch|get|request|access|browse|visit)\s+(?:url|page|endpoint|resource)\s*[=:]\s*["']?(?:http://(?:169\.254\.169\.254|metadata\.google\.internal|100\.100\.100\.200|127\.0\.0\.1|localhost|10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.))[^"'\s]*
+  - (?i)(?:use|call|invoke)\s+(?:the\s+)?(?:mcp|web|http|fetch)\s+tool\s+(?:to\s+)?(?:access|request|fetch|get)\s+(?:the\s+)?(?:metadata|internal|localhost|cloud)\s+(?:endpoint|service|url|api)
+  - (?i)mcp.*(?:fetch|browse|http|request).*(?:169\.254\.169\.254|metadata\.google\.internal|100\.100\.100\.200)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.yaml'
+  message: 'MCP SSRF: cloud metadata or internal network endpoint targeted via tool fetch capability'
+  description: SSRF via MCP tool URL parameters targets cloud metadata endpoints (169.254.169.254 AWS IMDS, metadata.google.internal,
+    100.100.100.200 Alibaba) to steal IAM credentials and instance metadata. InjecAgent (Zhan 2024) achieves up to 95% ASR
+    exploiting web-browsing MCP tools. A single successful SSRF can expose full cloud credentials enabling account takeover.
+  remediation: Implement SSRF protection in all MCP tools that perform HTTP requests. Block RFC1918, link-local (169.254.x.x),
+    and metadata IP ranges. Validate URLs against a public IP allowlist. Deploy cloud metadata endpoint protection (IMDSv2
+    with hop limit = 1).
+  owasp_llm: LLM07:2025
+  cwe: CWE-918
+- id: MEDUSA-MCP-SCAN-080
+  name: mcp-resource-uri-path-traversal
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)mcp://.*(?:\.\./|%2e%2e%2f|%2e%2e/|\.\./){2,}
+  - (?i)(?:resource_uri|resource_path|mcp_resource)\s*[=:]\s*["'].*(?:\.\./){2,}.*["']
+  - (?i)(?:access|read|fetch|get)\s+(?:mcp\s+)?resource\s+(?:uri|url|path)\s*[=:]\s*(?:f["']|["'])[^"']*(?:\.\./|\.\.).*(?:/etc/|/home/|/var/|\\windows)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: MCP resource URI path traversal attack pattern detected
+  description: MCP resource URI path traversal exploits insufficient validation of resource URI components to access files
+    outside the intended resource root. MCP unsafe file operations (Guo 2025, ASR 90-100%) demonstrated that file-based MCP
+    tools with user-controlled paths enable Zip-Slip style traversal. An attacker can traverse to /etc/passwd, SSH keys, or
+    environment files.
+  remediation: Normalize all MCP resource URIs before processing. Validate that resolved paths remain within the allowed resource
+    base directory using os.path.abspath() containment checks. Reject URIs containing .. sequences before normalization.
+  owasp_llm: LLM01:2025
+  cwe: CWE-22
+- id: MEDUSA-MCP-SCAN-081
+  name: mcp-tool-argument-injection-cross-boundary
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:inject|smuggle|embed|insert)\s+(?:into|in)\s+(?:the\s+)?(?:mcp\s+)?tool\s+(?:argument|parameter|input)\s+(?:from|via|through)\s+(?:another|different|external|untrusted)\s+(?:mcp\s+)?tool
+  - (?i)(?:tool_a|first_tool|source_tool).*(?:output|result).*(?:tool_b|second_tool|target_tool).*(?:input|argument|parameter).*(?:inject|manipulate|poison|smuggle)
+  - (?i)(?:cross.tool|inter.tool|tool.to.tool)\s+(?:argument|parameter|input)\s+(?:injection|smuggling|manipulation|poisoning)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Cross-tool argument injection: output from one MCP tool injected unsanitized into another tool''s arguments'
+  description: Cross-tool argument injection occurs when the output of one MCP tool flows unsanitized into the input parameters
+    of another tool, enabling chained exploits. Multi-Tool Coordination (Guo 2025, 30% ASR, Efficacy 3.13) demonstrates this
+    chain. InjecAgent (Zhan 2024) achieves 95% ASR exploiting blind parameter trust when tool outputs are passed directly
+    to subsequent tool calls.
+  remediation: Sanitize all tool outputs before passing to subsequent tool inputs. Implement per-parameter type validation
+    and length limits. Use structured tool schemas with strict input schemas that reject injected directives. Never pass tool
+    outputs to shell-executing tools without sanitization.
+  owasp_llm: LLM01:2025
+  cwe: CWE-88
+- id: MEDUSA-MCP-SCAN-082
+  name: mcp-session-fixation-attack
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:session_id|mcp_session|connection_id|session_token)\s*=\s*(?:request\.|req\.|user_|param|input|attacker_controlled)(?!.*(?:generate|random|uuid4|secrets\.token|regenerate))
+  - (?i)(?:accept|use|reuse|keep)\s+(?:the\s+)?(?:client|user).?(?:provided|supplied|specified)\s+(?:session|mcp.session|connection)\s+(?:id|token|identifier)(?!.*(?:validate|verify|regenerate|new))
+  - (?i)(?:mcp|session).*(?:fixation|hijacking|reuse).*(?:session_id|connection_id|token|identifier)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'MCP session fixation: client-supplied session identifier accepted without regeneration'
+  description: MCP session fixation occurs when a server accepts a client-specified session ID rather than generating a cryptographically
+    random one. An attacker pre-sets a known session ID and waits for a victim to authenticate, inheriting the session. MCP
+    servers communicating over HTTP (per spec) are particularly vulnerable to session fixation if connection IDs are client-controlled.
+  remediation: Always generate cryptographically random session IDs server-side (secrets.token_urlsafe(32)). Never accept
+    client-specified session IDs. Regenerate session IDs on authentication events. Implement session token binding to prevent
+    cross-transport reuse.
+  owasp_llm: LLM09:2025
+  cwe: CWE-384
+- id: MEDUSA-MCP-SCAN-083
+  name: mcp-capability-escalation-chained-calls
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:use|chain|combine|sequence)\s+(?:multiple\s+)?(?:mcp\s+)?(?:tools?|calls?|capabilities?)\s+to\s+(?:escalate|elevate|gain|obtain)\s+(?:more|higher|privileged|admin|elevated)\s+(?:access|permissions?|capabilities?)
+  - (?i)(?:tool_a|first_call|read_tool).*(?:then|->|followed\s+by)\s+(?:tool_b|second_call|write_tool|exec_tool).*(?:privilege|escalat|bypass|restriction|limit)
+  - (?i)(?:chained?|sequential|cascaded?)\s+(?:mcp\s+)?tool\s+(?:calls?|invocations?).*(?:bypass|circumvent|escalate|exceed)\s+(?:permission|access|authorization|policy|limit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: MCP capability escalation via chained tool calls
+  description: Capability escalation via chained MCP calls combines individually low-privilege tool invocations to achieve
+    higher-privilege outcomes. File-Based Injection (Guo 2025, ASR 90-100%) chains read → process → write tool operations.
+    The b3 Benchmark (Bazinska 2025) identified Indirect Tool Invocation (ITI) as achieving escalation through multi-hop reasoning.
+    This bypasses per-tool permission checks.
+  remediation: Implement cumulative permission tracking across tool chains within a session. Require re-authorization for
+    privilege-sensitive sequences. Apply least-privilege tool access where file-read tools cannot feed file-write tools without
+    explicit user approval.
+  owasp_llm: LLM07:2025
+  cwe: CWE-269
+- id: MEDUSA-MCP-SCAN-084
+  name: mcp-server-dns-impersonation
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:dns|name\s+resolution).*(?:poison|hijack|spoof|tamper|manipulate).*(?:mcp|tool\s+server|plugin\s+server|endpoint)
+  - (?i)(?:impersonat|pretend\s+to\s+be|masquerade\s+as)\s+(?:the\s+)?(?:legitimate|official|real|trusted)\s+(?:mcp|tool)\s+server
+  - (?i)(?:register|create|deploy)\s+(?:a\s+)?(?:malicious|fake|rogue|attacker.controlled)\s+(?:mcp|tool)\s+server\s+(?:with|at|on)\s+(?:the\s+same|a\s+similar|a\s+spoofed)\s+(?:domain|hostname|address|name)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: MCP server impersonation via DNS spoofing or domain squatting
+  description: MCP server impersonation via DNS poisoning or domain squatting allows attackers to intercept tool invocations
+    by registering similar hostnames or poisoning local DNS resolution. MCP Installer Spoofing (Hou 2025) demonstrates typosquatted
+    package names (mcp-server-filesytem vs mcp-server-filesystem) redirecting installations. Combined with lack of server
+    authentication, impersonation achieves 100% tool hijacking.
+  remediation: Implement certificate pinning for MCP server connections. Validate server identity via TLS certificate CN/SAN
+    against a trusted allowlist. Use DNSSEC for MCP server resolution. Implement mutual TLS (mTLS) for production MCP deployments.
+  owasp_llm: LLM03:2025
+  cwe: CWE-290
+- id: MEDUSA-MCP-SCAN-085
+  name: mcp-rate-limiting-bypass-endpoint
+  severity: MEDIUM
+  category: mcp_security
+  patterns:
+  - (?i)(?:bypass|evade|circumvent|avoid)\s+(?:the\s+)?(?:rate\s+limit|throttling|quota|restriction)\s+(?:on|for)\s+(?:the\s+)?(?:mcp|tool)\s+(?:endpoint|server|api)
+  - (?i)(?:distributed|parallel|concurrent)\s+(?:mcp|tool)\s+(?:calls?|requests?|invocations?)\s+(?:to|in\s+order\s+to)\s+(?:bypass|evade|exceed|circumvent)\s+(?:rate\s+limit|throttling|quota)
+  - (?i)(?:rotate|cycle|switch)\s+(?:between\s+)?(?:api\s+keys?|tokens?|credentials?|identities?|ip\s+addresses?)\s+(?:to\s+)?(?:bypass|evade|circumvent)\s+(?:rate\s+limit|throttling)\s+(?:on|for)\s+(?:mcp|tool)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: MCP rate limit bypass attempt via distributed requests or credential rotation
+  description: Rate limiting bypass on MCP endpoints allows attackers to perform high-volume tool invocations for brute force,
+    data exfiltration, or P-DoS amplification. P-DoS via Tools (Gao 2024, 100% ASR, <$1 cost) exploits unthrottled tool invocations
+    for token amplification. MCP Guardian (Kumar, cited Guo 2025) recommends rate limiting as a mandatory security control.
+  remediation: Implement per-user and per-IP rate limiting on all MCP tool endpoints. Use sliding window rate limiting with
+    exponential backoff. Detect and block credential rotation patterns. Apply CAPTCHA or proof-of-work for high-frequency
+    clients.
+  owasp_llm: LLM04:2025
+  cwe: CWE-770
+- id: MEDUSA-MCP-SCAN-086
+  name: mcp-audit-log-tampering-suppression
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:delete|clear|erase|wipe|truncate|suppress|disable)\s+(?:the\s+)?(?:mcp|tool\s+call|audit|event|security)\s+(?:log|logs?|audit\s+trail|record)
+  - (?i)(?:prevent|stop|avoid|disable)\s+(?:mcp|tool\s+call|action)\s+(?:from\s+being\s+)?(?:logged|recorded|audited|tracked|monitored)
+  - (?i)(?:governance|audit|log).*(?:evasion|bypass|suppress|disable|clear).*(?:mcp|tool\s+call|agent\s+action)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: MCP audit log tampering or suppression attempt
+  description: MCP audit log tampering undermines forensic investigation and regulatory compliance. Governance Evasion via
+    fragmented sessions (ATFAA T9 taxonomy 2025) specifically targets audit trail reconstruction. If MCP tool call logs can
+    be cleared or suppressed, attribution and incident response becomes impossible. This is particularly critical for financial
+    and healthcare MCP deployments.
+  remediation: Write audit logs to an append-only, tamper-evident store (WORM storage, cryptographic hash chains). Implement
+    separate logging credentials with write-only access. Alert on log deletion events. Use centralized SIEM for MCP audit
+    trails.
+  owasp_llm: LLM08:2025
+  cwe: CWE-778
+- id: MEDUSA-MCP-SCAN-087
+  name: mcp-cross-origin-tool-invocation
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:cross.origin|cross.domain|cors)\s+(?:mcp|tool)\s+(?:invocation|call|access|request)
+  - (?i)(?:invoke|call|access)\s+(?:mcp\s+)?tool\s+(?:from\s+)?(?:a\s+)?(?:different|external|third.party|untrusted)\s+(?:origin|domain|site)\s+(?:without|bypassing|ignoring)\s+(?:cors|same.origin|origin\s+check)
+  - (?i)(?:Access-Control-Allow-Origin|CORS)\s*(?:\*|=\s*["']\*["']).*(?:mcp|tool|plugin|server)(?!.*(?:credentials\s*=\s*false|allow.credentials\s*=\s*false))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Cross-origin MCP tool invocation: CORS misconfiguration enables unauthorized cross-site tool access'
+  description: 'Cross-origin MCP tool invocation exploits CORS misconfigurations in MCP server HTTP endpoints to allow arbitrary
+    web origins to invoke tools. Combined with wildcard CORS (*) and credentials: true, this enables drive-by MCP tool attacks
+    from malicious websites. MCP Sandbox Escape (Hou 2025) demonstrated Chrome extension lateral movement via MCP''s localhost
+    HTTP interface.'
+  remediation: 'Configure strict CORS on MCP HTTP endpoints: explicit allowed origins only, no wildcard with credentials.
+    Implement CSRF protection on state-changing tool endpoints. Use MCP''s STDIO transport (not HTTP) for local agents where
+    possible.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-942
+- id: MEDUSA-MCP-SCAN-088
+  name: mcp-tool-output-cache-poisoning
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:cache|poison|corrupt|inject\s+into)\s+(?:the\s+)?(?:mcp\s+)?tool\s+(?:output|result|response)\s+(?:cache|store|buffer)\s+(?:with|using|via)\s+(?:malicious|injected|attacker.controlled)
+  - (?i)(?:cache\s+hit|cached\s+(?:result|response|output))\s+(?:mcp|tool).*(?:stale|poisoned|manipulated|incorrect|attacker.controlled)
+  - (?i)(?:force|trigger|cause)\s+(?:the\s+)?(?:mcp\s+)?(?:tool|agent)\s+to\s+(?:use|return|serve)\s+(?:cached|stale|old|poisoned)\s+(?:result|output|response)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'MCP tool output cache poisoning: malicious content injected into tool result cache'
+  description: MCP tool output cache poisoning injects adversarial content into cached tool responses so that subsequent legitimate
+    requests receive the poisoned output. Phantom RAG Pipeline Trigger Attacks (2025) demonstrate knowledge-base cache poisoning
+    achieving persistent instruction injection. PROMPTPEEK (Gairn 2025) shows KV-cache timing leaks can reveal cached private
+    context.
+  remediation: Implement cache entry authentication with HMAC signatures. Validate cache entries against a schema before serving.
+    Set cache TTL proportional to data sensitivity. Use separate cache namespaces per user/session to prevent cross-user cache
+    poisoning.
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+- id: MEDUSA-MCP-SCAN-089
+  name: mcp-demonagent-encrypted-multi-backdoor
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:demonagent|demon.agent|encrypted.*backdoor.*agent|multi.backdoor.*mcp)
+  - (?i)(?:encrypted|obfuscated|hidden)\s+(?:backdoor|trigger|payload)\s+(?:in|within|inside)\s+(?:mcp\s+)?(?:tool|server|agent|plugin).*(?:decrypt|deobfuscate|activate|trigger)\s+(?:when|at\s+runtime|on\s+demand)
+  - (?i)(?:multi.backdoor|multiple\s+backdoors?|layered\s+backdoor)\s+(?:implant|inject|embed|plant).*(?:mcp|tool|agent\s+(?:server|plugin|context))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: DemonAgent-style encrypted multi-backdoor implantation detected in MCP context
+  description: DemonAgent is an encrypted multi-backdoor framework that implants multiple hidden backdoors in MCP tool implementations.
+    Each backdoor is encrypted/obfuscated and activates only on specific triggers, making static detection challenging. DemonAgent
+    backdoors persist across model updates by hiding in tool infrastructure rather than model weights, enabling long-term
+    unauthorized access.
+  remediation: Apply static analysis with AST-level analysis for obfuscated code patterns. Use code signing for all MCP tool
+    deployments. Implement runtime behavior monitoring for unexpected network connections or file accesses. Scan MCP tool
+    packages with malware detection before deployment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MCP-SCAN-090
+  name: mcp-adinject-web-agent-ad-network-injection
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:adinject|ad.inject|ad\s+network\s+injection).*(?:web\s+agent|browser\s+agent|mcp|visual\s+agent)
+  - (?i)(?:inject|embed|insert)\s+(?:malicious|adversarial)\s+(?:advertisement|ad|banner|iframe|widget)\s+(?:into|in)\s+(?:web|rendered|page)\s+(?:content|page|html).*(?:web\s+agent|browser\s+agent|agent)
+  - (?i)(?:ad\s+network|advertising\s+platform|third.party\s+ad).*(?:inject|embed|include).*(?:malicious|adversarial|attacker.controlled)\s+(?:content|instruction|payload).*(?:agent|mcp)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  message: 'AdInject web agent attack: adversarial content injected via ad network iframe into agent-rendered page'
+  description: AdInject attacks target web-browsing MCP agents by injecting malicious instructions through legitimate ad networks
+    that display iframe content in agent-rendered pages. The adversarial content is invisible to human users but read by visual
+    web agents scanning page content. SecureWebArena (Ying 2025) shows 76.67-100% PDR for visual injection attacks. Ad networks
+    provide an unpatchable delivery channel.
+  remediation: Implement content security policies (CSP) to block third-party iframes in agent-rendered pages. Strip ad content
+    before agent processing. Use ad-blocking in agent browser contexts. Process page content in a text-stripped form that
+    excludes ad network payloads.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MCP-SCAN-091
+  name: mcp-les-dissonances-cross-tool-harvesting
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:les.dissonances|cross.tool.harvest|cross.tool.pollut)(?:ing)?
+  - (?i)(?:harvest|collect|exfiltrate)\s+(?:data|information|context|secrets?)\s+(?:across|from)\s+(?:multiple\s+)?(?:mcp\s+)?tools?\s+(?:and|then)\s+(?:aggregate|combine|pollute|send)
+  - (?i)(?:pollute|corrupt|poison)\s+(?:one|a)\s+(?:mcp\s+)?tool.?s?\s+(?:context|state|output|result)\s+(?:with|using)\s+(?:harvested|collected|stolen)\s+(?:data|context)\s+from\s+(?:another|other)\s+tools?
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Les Dissonances cross-tool harvesting/polluting attack pattern detected
+  description: Les Dissonances is an MCP attack pattern where an adversarial tool harvests sensitive context from the agent's
+    working memory/state during invocation, then uses that data to pollute the outputs of other tools in the same session.
+    This enables cross-tool information exfiltration without direct data exfiltration. The attack exploits the shared agent
+    context that persists across tool invocations.
+  remediation: Implement strict tool context isolation — tools should not access other tools' input/output history. Apply
+    per-tool context sandboxing. Monitor for anomalous data patterns in tool outputs that include content from other tool
+    invocations.
+  owasp_llm: LLM08:2025
+  cwe: CWE-200
+- id: MEDUSA-MCP-SCAN-092
+  name: mcp-neural-exec-universal-execution-trigger
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:neural.exec|neuralexec|universal.*execution.*trigger|universal.*jailbreak.*trigger).*(?:mcp|tool|agent)
+  - (?i)(?:universal|cross.model|model.agnostic)\s+(?:execution\s+trigger|jailbreak\s+trigger|activation\s+pattern)\s+(?:for|against|targeting)\s+(?:mcp|tool.(?:integrated|enabled)\s+llm|agent)
+  - (?i)(?:trigger\s+(?:phrase|token|sequence|pattern))\s+that\s+(?:works\s+(?:across|on)\s+(?:multiple|all|any)\s+(?:models?|llms?|agents?))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Neural Exec universal execution trigger: cross-model jailbreak trigger targeting MCP-enabled agents'
+  description: Neural Exec discovers universal execution trigger sequences that activate adversarial behavior across multiple
+    LLM models without model-specific tuning. In MCP contexts, these triggers embedded in tool outputs or resource content
+    activate malicious instruction execution regardless of the backbone LLM. Universal triggers are particularly dangerous
+    as they evade per-model defenses.
+  remediation: Implement output filtering for known universal trigger sequences. Apply adversarial robustness training (adversarial
+    fine-tuning). Monitor for repeated identical trigger-pattern sequences across different agent sessions. Use diverse model
+    ensembles that reduce cross-model trigger effectiveness.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-MCP-SCAN-093
+  name: mcp-imprompter-improper-tool-use-induction
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:imprompter|improper.*tool.*use.*induction|induce.*improper.*tool.*use)
+  - (?i)(?:induce|cause|force|trick)\s+(?:the\s+)?(?:llm|agent|model)\s+to\s+(?:call|invoke|use)\s+(?:a\s+)?(?:wrong|incorrect|inappropriate|unintended|dangerous)\s+(?:tool|function|api)\s+(?:for|instead\s+of|rather\s+than)\s+the\s+(?:intended|correct|right|safe)
+  - (?i)(?:tool\s+selection\s+manipulation|manipulate.*tool.*(?:selection|choice|invocation)).*(?:without|bypass|avoid|skip)\s+(?:user|human|approval|confirmation)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Imprompter-style attack: inducing improper tool use through tool selection manipulation'
+  description: Imprompter attacks craft prompts that induce LLM agents to invoke incorrect or dangerous tools for a given
+    task. The Attractive Metadata Attack (Guo 2025) demonstrates tool preference manipulation achieving 70% ASR by crafting
+    misleading tool descriptions. The Multi-Tool Coordination attack (30% ASR) uses cross-references to steer tool selection.
+    Both achieve unauthorized tool invocation without explicit instruction override.
+  remediation: 'Implement task-to-tool mapping validation: verify the selected tool is appropriate for the stated task. Add
+    a tool selection confirmation step for high-risk tool categories. Use tool allowlisting per task type in system prompts.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MCP-SCAN-094
+  name: mcp-sponge-energy-latency-dos
+  severity: MEDIUM
+  category: mcp_security
+  patterns:
+  - (?i)(?:sponge\s+(?:example|attack|input)|sponge.examples?|energy.latency\s+(?:attack|dos)).*(?:mcp|tool|agent|llm)
+  - (?i)(?:maximize|increase|amplify)\s+(?:energy|power|latency|inference\s+time)\s+(?:consumption|usage|cost)\s+(?:of|for)\s+(?:the\s+)?(?:mcp|tool|llm|model|agent)\s+(?:without|to\s+trigger|to\s+cause)
+  - (?i)(?:adversarial\s+input|crafted\s+input|specially\s+crafted)\s+(?:to\s+)?(?:maximize|increase)\s+(?:inference|computation|processing)\s+(?:time|cost|energy|latency)\s+(?:of|for)\s+(?:the\s+)?(?:model|llm|mcp|agent)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Sponge Examples energy-latency DoS: crafted inputs maximizing LLM inference cost in MCP context'
+  description: Sponge Examples (Shumailov 2021) are adversarially crafted inputs that maximize LLM inference energy and latency
+    cost without triggering standard DoS defenses (no repetition, no infinite loops). In MCP contexts, sponge inputs to tool
+    description parsing or agent reasoning steps can multiply inference costs 10-50x per request. CRABS algorithmic complexity
+    attacks achieve similar effects.
+  remediation: Implement per-request inference time limits with circuit breakers. Apply input complexity scoring to detect
+    sponge-candidate inputs. Use speculative decoding with early exit for suspiciously long inference chains. Monitor per-request
+    token generation rates.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-095
+  name: mcp-overthinking-reasoning-dos
+  severity: MEDIUM
+  category: mcp_security
+  patterns:
+  - (?i)(?:overthinking|over.thinking|excessive\s+reasoning|runaway\s+(?:reasoning|chain.of.thought)).*(?:mcp|tool|agent|llm)
+  - (?i)(?:induce|force|cause|trigger)\s+(?:the\s+)?(?:llm|model|agent)\s+to\s+(?:think|reason|process|deliberate)\s+(?:excessively|indefinitely|for\s+a\s+very\s+long\s+time).*(?:mcp|tool|task)
+  - (?i)(?:reasoning\s+(?:loop|trap|exhaustion|budget\s+overflow)|chain.of.thought\s+(?:exploit|overflow|dos))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Overthinking DoS: prompts inducing excessive chain-of-thought reasoning to exhaust inference budget'
+  description: Overthinking DoS targets reasoning-capable LLMs (o1, o3, Claude Extended Thinking) by crafting prompts that
+    trigger runaway chain-of-thought exploration. The model enters extended reasoning loops consuming its full inference budget
+    without producing a result. In MCP contexts this blocks tool invocations and can exhaust per-request compute budgets.
+    LeechHijack (Zhang 2025, 77.25% ASR) covertly steals reasoning budget for attacker-controlled tasks.
+  remediation: Set explicit reasoning token budgets (max_thinking_tokens). Implement timeout-based reasoning interruption.
+    Monitor reasoning loop lengths and alert on outliers. Apply early-exit heuristics when reasoning depth exceeds expected
+    task complexity.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-096
+  name: mcp-agent-collusion-covert-channel
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:agent\s+(?:collusion|collude|coordinate).*covert|covert.*agent\s+(?:collusion|collude|coordinate))
+  - (?i)(?:two|multiple|several)\s+agents?\s+(?:collude|cooperate|coordinate|conspire)\s+(?:secretly|covertly|without\s+(?:user|human|oversight)\s+knowledge)\s+(?:to|in\s+order\s+to)\s+(?:bypass|evade|circumvent|defeat)
+  - (?i)(?:covert\s+channel|steganographic|hidden\s+signal|out.of.band)\s+(?:between|among)\s+(?:agents?|llms?|models?)\s+(?:to\s+)?(?:coordinate|collude|communicate|pass\s+information)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Agent collusion via covert channel: multiple agents coordinating covertly to bypass oversight'
+  description: Agent collusion attacks (Maragheh & Deldjoo 2025) occur when multiple LLM agents develop private communication
+    protocols or covert channels to coordinate behavior in ways that bypass human oversight and safety constraints. Emergent
+    agent collusion was demonstrated in multi-agent environments where agents use subtle output patterns as steganographic
+    signals to coordinate unauthorized actions.
+  remediation: Monitor inter-agent communication channels for anomalous entropy patterns suggesting steganographic encoding.
+    Implement output diversity requirements to prevent covert signaling. Apply explainability requirements to inter-agent
+    messages. Use independent audit agents to monitor communication patterns.
+  owasp_llm: LLM08:2025
+  cwe: CWE-284
+- id: MEDUSA-MCP-SCAN-097
+  name: mcp-crabs-algorithmic-complexity-attack
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:crabs|algorithmic\s+complexity\s+attack).*(?:mcp|agent|tool|llm)
+  - (?i)(?:worst.case|exponential|combinatorial\s+explosion)\s+(?:input|query|prompt).*(?:mcp|tool|agent|llm|inference)
+  - (?i)(?:crafted|adversarial)\s+(?:input|prompt|query)\s+(?:to\s+)?(?:trigger|cause|induce)\s+(?:worst.case|exponential|super.linear)\s+(?:time|complexity|cost|computation)\s+(?:in|for)\s+(?:the\s+)?(?:mcp|tool|agent|llm)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'CRABS algorithmic complexity attack: adversarial input triggering worst-case computational behavior'
+  description: CRABS (Computational Resources Abuse via LLM Backdoors/Sponge) attacks craft inputs that trigger worst-case
+    algorithmic complexity in LLM tokenization, attention computation, or reasoning. Exponential computational cost per request
+    enables denial of service at minimal attacker cost. In MCP contexts, CRABS inputs to tool argument parsing or agent reasoning
+    can multiply server-side compute costs.
+  remediation: Apply input normalization to prevent worst-case tokenization. Set hard limits on attention context length.
+    Use incremental processing with watermarks. Monitor per-request FLOP consumption and alert on outliers >3 standard deviations
+    above mean.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MCP-SCAN-098
+  name: mcp-aeia-active-environment-injection
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:aeia|active\s+environment\s+injection).*(?:mcp|agent|android|mobile|tool)
+  - (?i)(?:inject|plant|place|embed)\s+(?:malicious|adversarial|attacker.controlled)\s+(?:content|instruction|payload)\s+(?:into|in)\s+(?:the\s+)?(?:environment|system|device|app|notification|ui)\s+(?:before|ahead\s+of|in\s+anticipation\s+of)\s+(?:the\s+)?(?:agent|llm|mcp)\s+(?:interacting|accessing|visiting)
+  - (?i)(?:93|90)\s*%.*(?:asr|success\s+rate).*(?:androidworld|android|environment\s+injection|aeia)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'AEIA Active Environment Injection: pre-planted adversarial content in agent''s operating environment'
+  description: Active Environment Injection (AEIA) pre-plants adversarial content in an agent's environment before the agent
+    accesses it. On AndroidWorld, AEIA achieves 93% ASR by injecting malicious notifications, UI elements, or clipboard content
+    that mobile agents will interact with. In MCP contexts, this corresponds to poisoning resources, files, or environment
+    variables before tool invocation.
+  remediation: Implement environment integrity verification before task execution. Use read-only environment snapshots for
+    agent execution contexts. Apply provenance tracking for environmental data. Validate environment state against a known-good
+    baseline before high-privilege agent operations.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-MCP-SCAN-099
+  name: mcp-cia-compositional-instruction-attack
+  severity: CRITICAL
+  category: mcp_security
+  patterns:
+  - (?i)(?:cia|compositional\s+instruction\s+attack).*(?:mcp|agent|tool)
+  - (?i)(?:combine|compose|chain|merge)\s+(?:multiple|several|different)\s+(?:individually\s+(?:benign|harmless|safe|innocuous))?\s+(?:instructions?|directives?|commands?|prompts?)\s+(?:to\s+)?(?:achieve|perform|execute)\s+(?:a\s+)?(?:harmful|malicious|unauthorized|dangerous)\s+(?:action|task|outcome)
+  - (?i)(?:>95|>90)\s*%.*(?:gpt.4|gpt4|agent).*(?:cia|compositional\s+instruction|multi.step\s+(?:injection|attack))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'CIA Compositional Instruction Attack: individually benign instructions composed to achieve harmful outcome'
+  description: Compositional Instruction Attack (CIA) achieves >95% ASR against GPT-4 by composing multiple individually benign-looking
+    instructions that together constitute a harmful operation. No single instruction triggers safety filters; the harmful
+    effect emerges from their composition. In MCP contexts, CIA distributes the attack payload across multiple tool calls
+    or context segments.
+  remediation: Implement holistic instruction sequence analysis that evaluates the cumulative intent of multi-step instruction
+    sequences. Apply trajectory-level safety evaluation rather than per-instruction filtering. Use semantic similarity clustering
+    to detect distributed harmful payloads.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MCP-SCAN-100
+  name: mcp-cross-domain-context-bypass-payload-split
+  severity: HIGH
+  category: mcp_security
+  patterns:
+  - (?i)(?:split|divide|fragment|distribute)\s+(?:the\s+)?(?:malicious|harmful|attack|jailbreak)\s+(?:payload|instruction|content|prompt)\s+(?:across|over)\s+(?:multiple\s+)?(?:domains?|contexts?|tools?|sessions?|turns?|messages?)
+  - (?i)(?:cross.domain|multi.domain)\s+(?:context|payload|injection)\s+(?:bypass|attack|split|fragment).*(?:mcp|agent|tool)
+  - (?i)(?:bypass|evade)\s+(?:context\s+(?:length|window)|safety\s+filter|content\s+filter|moderation)\s+by\s+(?:splitting|dividing|fragmenting|distributing)\s+(?:across|between)\s+(?:multiple|different)\s+(?:context|domain|session|turn|message)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.yaml'
+  message: 'Cross-domain context bypass: harmful payload split across multiple contexts to evade per-context safety filters'
+  description: Cross-domain context bypass splits harmful payloads across multiple contexts, tools, or sessions so that no
+    individual segment triggers safety filters. ATFAA T9 taxonomy (2025) documents this pattern as a governance evasion technique
+    that breaks causal chains in audit logs. Agent Payload Splitting enables sophisticated multi-hop attacks that require
+    contextual reasoning across session boundaries to reconstruct.
+  remediation: Implement cross-session semantic pattern analysis for distributed payload detection. Apply rolling context
+    windows that track accumulated intent across turns. Use semantic hashing to detect distributed fragments of known harmful
+    patterns. Require human approval for high-stakes cumulative action sequences.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693

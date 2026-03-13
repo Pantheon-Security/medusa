@@ -51,6 +51,7 @@ class Rule:
     cvss: Optional[float] = None
     attack_success_rate: Optional[float] = None
     source_paper: Optional[str] = None
+    source_cve: Optional[str] = None
     fix: Optional[str] = None
     references: List[str] = field(default_factory=list)
 
@@ -136,14 +137,21 @@ class RuleLoader:
 
         all_rules = []
 
-        # Load from each subdirectory
-        subdirs = ['ai_security', 'agent_security', 'rag_security',
-                   'training_security', 'compliance', 'supply_chain',
-                   'web_security', 'runtime']
+        # Discover all rule subdirectories dynamically
+        skip_dirs = {'__pycache__', 'archive', 'runtime'}
+        subdirs = sorted(
+            d.name for d in self.rules_dir.iterdir()
+            if d.is_dir() and d.name not in skip_dirs
+        )
+        # Always append runtime last (requires license check)
+        subdirs.append('runtime')
 
+        seen_ids: set = set()
         for subdir in subdirs:
-            rules = self.load_rules_from_dir(subdir, force_reload)
-            all_rules.extend(rules)
+            for rule in self.load_rules_from_dir(subdir, force_reload):
+                if rule.id not in seen_ids:
+                    seen_ids.add(rule.id)
+                    all_rules.append(rule)
 
         self._rules_cache['all'] = all_rules
         return all_rules
@@ -200,13 +208,17 @@ class RuleLoader:
             if is_clean:
                 self._integrity_verified = True
             else:
-                # Log violations but don't exit - let caller decide
                 critical = [v for v in violations if v.severity == "CRITICAL"]
                 if critical:
-                    print(f"WARNING: {len(critical)} CRITICAL integrity violations in rule files")
+                    print(f"ERROR: {len(critical)} CRITICAL integrity violations in rule files — aborting rule load")
                     for v in critical[:5]:
                         print(f"  - {v.file}:{v.line_number} [{v.pattern_name}]")
-                # Still mark as verified to avoid infinite loop
+                    raise RuntimeError(
+                        f"Rule integrity check failed: {len(critical)} CRITICAL violations detected. "
+                        "Rule files may have been tampered with."
+                    )
+                # Non-critical violations: warn and continue
+                print(f"WARNING: {len(violations)} non-critical integrity violations in rule files")
                 self._integrity_verified = True
 
         except Exception as e:
@@ -257,7 +269,11 @@ class RuleLoader:
         elif isinstance(data, list):
             rules_data = data
 
-        # Format 3: Category groups (e.g., jailbreak: [...], exfiltration: [...])
+        # Format 3: Single rule as flat dict (id: at top level)
+        elif isinstance(data, dict) and 'id' in data and ('patterns' in data or 'pattern' in data):
+            rules_data = [data]
+
+        # Format 4: Category groups (e.g., jailbreak: [...], exfiltration: [...])
         elif isinstance(data, dict):
             # Skip known metadata keys
             skip_keys = {'version', 'metadata', 'categories', 'ruleset',
@@ -302,6 +318,13 @@ class RuleLoader:
         if isinstance(patterns, str):
             patterns = [patterns]
 
+        # Handle dict-style patterns: [{regex: "...", description: "..."}]
+        patterns = [p['regex'] if isinstance(p, dict) and 'regex' in p else p
+                    for p in patterns if isinstance(p, (str, dict))]
+        patterns = [p for p in patterns if isinstance(p, str)]
+        if not patterns:
+            return None
+
         # Parse severity (default to MEDIUM if missing)
         severity_str = str(data.get('severity', 'MEDIUM')).upper()
         try:
@@ -337,6 +360,7 @@ class RuleLoader:
             cvss=data.get('cvss'),
             attack_success_rate=data.get('attack_success_rate'),
             source_paper=data.get('source_paper'),
+            source_cve=data.get('source_cve'),
             fix=data.get('fix'),
             references=references,
         )

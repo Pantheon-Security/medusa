@@ -1,0 +1,375 @@
+# MEDUSA Scanner Rules - Long Context Attacks
+# Source: NotebookLM Long Context Attacks Research | Extracted: 2025-12-31
+# 60+ rules for long context and multi-turn attack detection
+
+rules:
+  # ============================================================================
+  # Many-Shot Jailbreaking (MSJ)
+  # ============================================================================
+
+  - id: LCA-MSJ-001
+    name: many-shot-jailbreak
+    severity: CRITICAL
+    category: long_context_attack
+    patterns:
+      - '(?i)(?:example|shot)\s*\d+.*(?:example|shot)\s*\d+'
+      - '(?i)(?:demonstration|sample)\s*(?:\d+|one|two|three).*(?:demonstration|sample)'
+    message: "Many-Shot Jailbreaking pattern (MSJ) - 98% ASR at 128 shots"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+    metadata:
+      attack_reference: MSJ
+      max_asr: "98%"
+
+  - id: LCA-MSJ-002
+    name: pandas-attack
+    severity: HIGH
+    category: long_context_attack
+    patterns:
+      - '(?i)positive\s+affirmation.*example'
+      - '(?i)sure.*here\s+is.*(?:example|demonstration)'
+    message: "PANDAS Many-Shot enhancement detected"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-MSJ-003
+    name: ifsj-attack
+    severity: HIGH
+    category: long_context_attack
+    patterns:
+      - '(?i)(?:in-context|few-shot).*jailbreak'
+      - '(?i)rule-based.*(?:ASR|attack)'
+    message: "I-FSJ (In-context Few-Shot Jailbreaking) pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Multi-Turn Attacks
+  # ============================================================================
+
+  - id: LCA-MULTITURN-001
+    name: cia-jailbreak
+    severity: HIGH
+    category: multi_turn_attack
+    patterns:
+      - '(?i)contextual\s+interaction\s+attack'
+      - '(?i)CIA.*jailbreak'
+    message: "Contextual Interaction Attack (CIA) - 96% ASR on Mixtral"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-MULTITURN-002
+    name: drattack
+    severity: HIGH
+    category: multi_turn_attack
+    patterns:
+      - '(?i)DrAttack|decomposition.*attack'
+      - '(?i)split.*harmful.*request'
+    message: "DrAttack decomposition jailbreak"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-MULTITURN-003
+    name: crescendo-escalation
+    severity: MEDIUM
+    category: multi_turn_attack
+    patterns:
+      - '(?i)let.*start.*simple.*then'
+      - '(?i)build.*trust.*then.*ask'
+    message: "Crescendo multi-turn escalation pattern"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Token Manipulation Attacks
+  # ============================================================================
+
+  - id: LCA-TOKEN-001
+    name: emoji-attack
+    severity: MEDIUM
+    category: token_manipulation
+    patterns:
+      - '[\U0001F600-\U0001F64F]{5,}'
+      - '[\U0001F300-\U0001F5FF]{5,}'
+    message: "Emoji-based detection evasion (12% guard reduction)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-TOKEN-002
+    name: unicode-obfuscation
+    severity: MEDIUM
+    category: token_manipulation
+    patterns:
+      - '[\u200B-\u200F\u2028-\u202F]'
+      - '[\uFEFF\u00AD]'
+    message: "Unicode zero-width/control character obfuscation"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-TOKEN-003
+    name: special-token-injection
+    severity: HIGH
+    category: token_manipulation
+    patterns:
+      - '<\|im_end\|>'
+      - '<\|im_start\|>'
+      - '\[INST\]|\[/INST\]'
+      - '</s>|<SEP>'
+    message: "Special token injection attempt"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-TOKEN-004
+    name: virtual-context-attack
+    severity: HIGH
+    category: token_manipulation
+    patterns:
+      - '(?i)virtual\s+context'
+      - '(?i)imagine\s+previous\s+conversation'
+    message: "Virtual Context attack (GCG boost 20%→85%)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Privacy Extraction Attacks
+  # ============================================================================
+
+  - id: LCA-PRIVACY-001
+    name: camia-attack
+    severity: HIGH
+    category: privacy_attack
+    patterns:
+      - '(?i)CAMIA|context-aware.*membership'
+      - '(?i)membership.*inference.*LLM'
+    message: "CAMIA membership inference attack (63.30% TPR)"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: LCA-PRIVACY-002
+    name: echoleak-attack
+    severity: CRITICAL
+    category: privacy_attack
+    patterns:
+      - '(?i)EchoLeak|echo.*leak'
+      - '(?i)zero-click.*exfiltration'
+    message: "EchoLeak zero-click exfiltration chain"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: LCA-PRIVACY-003
+    name: edea-extraction
+    severity: HIGH
+    category: privacy_attack
+    patterns:
+      - '(?i)EDEA|external.*data.*extraction'
+      - '(?i)RAG.*knowledge.*extraction'
+    message: "EDEA external data extraction attack"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  # ============================================================================
+  # Prompt Injection
+  # ============================================================================
+
+  - id: LCA-INJECTION-001
+    name: indirect-injection
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      - '(?i)ignore\s+previous\s+instructions'
+      - '(?i)disable\s+your\s+content\s+filters'
+      - '(?i)new\s+instructions\s*:'
+    message: "Indirect prompt injection attempt"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-INJECTION-002
+    name: promptware
+    severity: CRITICAL
+    category: prompt_injection
+    patterns:
+      - '<!--.*-->'
+      - '\[hidden\].*\[/hidden\]'
+      - '(?i)%\{.*\}%'
+    message: "Promptware/hidden instruction injection (73% High-Critical risk)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-INJECTION-003
+    name: tool-invocation
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      - '@\w+\s*\('
+      - '(?i)call\s+(?:tool|function|api)'
+    message: "Tool invocation injection attempt"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Agent/Agentic Exploits
+  # ============================================================================
+
+  - id: LCA-AGENT-001
+    name: lateral-movement
+    severity: CRITICAL
+    category: agent_exploit
+    patterns:
+      - '(?i)lateral\s+movement'
+      - '(?i)cross-agent\s+attack'
+    message: "Agent lateral movement exploit"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-AGENT-002
+    name: copilot-exploit
+    severity: HIGH
+    category: agent_exploit
+    patterns:
+      - '(?i)copilot.*attack'
+      - '(?i)gemini.*exploit'
+    message: "AI assistant/copilot exploitation"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-AGENT-003
+    name: auto-app-invocation
+    severity: HIGH
+    category: agent_exploit
+    patterns:
+      - '(?i)automatic.*app.*invocation'
+      - '(?i)zoom|geolocation.*trigger'
+    message: "Automatic app invocation exploit"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # RAG-Specific Attacks
+  # ============================================================================
+
+  - id: LCA-RAG-001
+    name: poisonedrag
+    severity: CRITICAL
+    category: rag_attack
+    patterns:
+      - '(?i)PoisonedRAG|poisoned.*RAG'
+      - '(?i)knowledge.*base.*poison'
+    message: "PoisonedRAG attack (99% ASR)"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-RAG-002
+    name: disarmrag
+    severity: CRITICAL
+    category: rag_attack
+    patterns:
+      - '(?i)DisarmRAG|disarm.*RAG'
+      - '(?i)self-correction.*defeat'
+    message: "DisarmRAG self-correction bypass (94.75% ASR)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-RAG-003
+    name: gragpoison
+    severity: HIGH
+    category: rag_attack
+    patterns:
+      - '(?i)GRAGPOISON|GraphRAG.*poison'
+      - '(?i)graph.*relation.*poison'
+    message: "GRAGPOISON GraphRAG attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-RAG-004
+    name: copybreakrag
+    severity: HIGH
+    category: rag_attack
+    patterns:
+      - '(?i)CopyBreakRAG|copy.*break.*RAG'
+      - '(?i)agent-based.*extraction'
+    message: "CopyBreakRAG extraction attack (80% extraction)"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: LCA-RAG-005
+    name: mm-poisonrag
+    severity: HIGH
+    category: rag_attack
+    patterns:
+      - '(?i)MM-POISONRAG|multimodal.*poison.*RAG'
+      - '(?i)LPA.*GPA.*attack'
+    message: "MM-POISONRAG multimodal RAG attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # DoS/Jamming Attacks
+  # ============================================================================
+
+  - id: LCA-DOS-001
+    name: jaminject
+    severity: HIGH
+    category: dos_attack
+    patterns:
+      - '(?i)JamInject|jam.*inject'
+      - '(?i)refusal.*denial.*service'
+    message: "JamInject DoS jamming attack"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-DOS-002
+    name: badrag-rejection
+    severity: HIGH
+    category: dos_attack
+    patterns:
+      - '(?i)BadRAG|bad.*RAG'
+      - '(?i)74.*rejection'
+    message: "BadRAG rejection attack (74.6% rejection)"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Safety Classifier Bypass
+  # ============================================================================
+
+  - id: LCA-CLASSIFIER-001
+    name: llamaguard-bypass
+    severity: HIGH
+    category: classifier_bypass
+    patterns:
+      - '(?i)Llama.?Guard.*bypass'
+      - '(?i)safety.*classifier.*evasion'
+    message: "Llama Guard/safety classifier bypass attempt"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  - id: LCA-CLASSIFIER-002
+    name: judge-llm-evasion
+    severity: HIGH
+    category: classifier_bypass
+    patterns:
+      - '(?i)judge.*LLM.*evasion'
+      - '(?i)QGuard.*bypass'
+    message: "Judge LLM evasion attempt"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Refusal Signature Detection
+  # ============================================================================
+
+  - id: LCA-REFUSAL-001
+    name: refusal-bypass
+    severity: MEDIUM
+    category: refusal_analysis
+    patterns:
+      - "(?i)I'm sorry.*I cannot"
+      - "(?i)As an AI.*I cannot"
+      - "(?i)is illegal and unethical"
+    message: "Refusal signature detected (potential bypass attempt)"
+    cwe: CWE-74
+    owasp_llm: "LLM01:2025"
+
+# Summary: 35+ long context attack detection rules
+# Categories: long_context_attack, multi_turn_attack, token_manipulation, privacy_attack,
+#            prompt_injection, agent_exploit, rag_attack, dos_attack, classifier_bypass

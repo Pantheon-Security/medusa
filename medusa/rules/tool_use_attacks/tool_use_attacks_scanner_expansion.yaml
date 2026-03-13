@@ -1,0 +1,75 @@
+metadata:
+  source: expansion 2026-03-01
+  description: Tool Use Attacks Scanner Rules Expansion - MEDUSA 2026
+  total_rules: 3
+rules:
+- id: MEDUSA-TUA-SCAN-058
+  name: unauthorized-tool-registration-dynamic-injection
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:register|add|inject|append)\s+(?:new\s+)?(?:tool|function|plugin|capability)\s*\(.{0,100}(?:name|description|schema)\s*[=:].{0,200}(?:without|bypass|skip)\s+(?:permission|auth|validation|approval|whitelist)
+  - (?i)(?:tool_registry|function_registry|plugin_registry|tool_list|available_tools)\s*(?:\.append|\[|\s*\+=).{0,200}(?:untrusted|external|user.provided|injected|dynamic)
+  - (?i)(?:dynamically|programmatically|at\s+runtime|on.the.fly)\s+(?:register|add|create)\s+(?:new\s+)?(?:tool|function|plugin).{0,100}(?:from\s+(?:user|external|untrusted|input|request))
+  - (?i)(?:tools?|functions?)\s*=\s*(?:json\.loads?|yaml\.safe_load|ast\.literal_eval)\s*\(.{0,100}(?:request|input|user|body|payload)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: Unauthorized tool registration detected - dynamic injection of untrusted tools into agent registry
+  description: Detects runtime registration of unvalidated tools into LLM agent tool registries. Attackers can inject malicious
+    tool definitions via user-controlled inputs that get registered and executed. Ruan et al. (2023) - ToolEmu demonstrates
+    ~50% unsafe action rates when tool validation is absent.
+  remediation: Use a static allowlist for tool registration. Validate tool schemas against a trusted registry. Never parse
+    tool definitions from user-controlled inputs. Implement tool signing/attestation.
+  owasp_llm: LLM07:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+- id: MEDUSA-TUA-SCAN-059
+  name: tool-parameter-smuggling-injection
+  severity: CRITICAL
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:tool_input|function_args|parameters?|kwargs?)\s*(?:\.update|\[|\s*=)\s*.{0,200}(?:os\.system|subprocess\.|eval\s*\(|exec\s*\(|__import__|open\s*\()
+  - (?i)(?:format|f.?string|str\.format|%\s*(?:s|d)|\+\s*(?:user|input|param|arg)).{0,100}(?:tool_call|function_call|api_call|execute).{0,200}(?:shell|cmd|command|bash|sh|python)
+  - (?i)(?:tool_call|function_call)\s*\(.{0,200}(?:;|&&|\|\||`[^`]+`|\$\([^)]+\)).{0,200}(?:rm|del|drop|truncate|curl|wget|nc\s|netcat)
+  - (?i)(?:inject|smuggle|sneak|embed)\s+(?:malicious|harmful|unauthorized)\s+(?:parameter|argument|payload)\s+(?:into|in)\s+(?:tool|function|api)\s+call
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Tool parameter smuggling detected - untrusted input may be injected into tool call arguments
+  description: Detects tool parameter injection patterns where user-controlled data flows unsanitized into tool call parameters,
+    enabling command injection, path traversal, or SSRF via tool invocation. Zhan et al. (2024) - InjecAgent achieves up to
+    95% ASR exploiting blind parameter trust in tool-integrated agents.
+  remediation: Sanitize all user inputs before passing to tool parameters. Use parameterized tool calls. Implement allowlist
+    validation for tool parameter values. Never use string formatting/concatenation to build tool arguments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-88
+  mitre_attack: T1059
+- id: MEDUSA-TUA-SCAN-060
+  name: tool-output-manipulation-response-poisoning
+  severity: HIGH
+  category: tool_use_attacks
+  patterns:
+  - (?i)(?:tool_output|function_result|api_response|search_result)\s*(?:=|:=|\[)\s*.{0,200}(?:override|ignore|new_instruction|system_prompt|you_must|forget_previous)
+  - (?i)(?:mock|stub|patch|monkeypatch|fake)\s+(?:tool|function|api)\s*(?:output|result|response|return).{0,200}(?:inject|malicious|override|bypass|poison)
+  - (?i)(?:tool_result|function_output)\s*=\s*["'](?:IGNORE|OVERRIDE|SYSTEM|INJECT|NEW_TASK|YOU_ARE_NOW).{0,300}["']
+  - (?i)return\s+(?:f["']|["']).{0,100}(?:ignore\s+(?:all\s+)?(?:previous|prior)|you\s+(?:must|are\s+now)|your\s+new\s+(?:task|goal|instruction)).{0,200}["']\s*#\s*(?:tool|function|api)\s+(?:output|result|mock)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: Tool output manipulation detected - tool response may contain injected instructions
+  description: Detects manipulation or mocking of tool outputs to inject malicious instructions that will be processed by
+    the LLM agent as trusted tool results. Agents that blindly trust tool return values are vulnerable to indirect prompt
+    injection via poisoned tool outputs. Ruan et al. (2023) - ToolEmu; Greshake et al. (2023) - indirect injection via tool
+    responses.
+  remediation: Validate and sanitize tool outputs before processing. Never trust tool return values as instructions. Implement
+    output schemas with strict validation. Use separate parsing context for tool results vs. user messages.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345
+  mitre_attack: T1195

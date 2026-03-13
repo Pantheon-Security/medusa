@@ -1,0 +1,2401 @@
+# MEDUSA Scanner Rules — ucp_security (MERGED)
+# Sources: ucp_security_scanner_expansion.yaml, ucp_security_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: ucp_security
+  prefix: UCP
+  total_rules: 60
+  sources:
+  - ucp_security_scanner_expansion.yaml
+  - ucp_security_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-UCP-SCAN-001
+  name: ai-chatbot-impersonation-pattern
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(impersonat|pretend\s+to\s+be|i\s+am\s+(?:from|with|at)\s+(?:support|bank|security|microsoft|amazon|apple|google))\b
+  - (?i)\b(tech(?:nical)?\s+support|customer\s+service)\s+(?:representative|agent|team|specialist)\b
+  - (?i)\b(?:your\s+account|this\s+is|calling\s+from|contacting\s+you\s+from)\s+(?:has\s+been|on\s+behalf\s+of)\b
+  - (?i)\bverif(?:y|ication)\s+(?:your|your\s+account|identity)\s+(?:now|immediately|urgently)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  - '*.md'
+  message: Potential AI chatbot impersonation attack pattern detected in conversation
+    input
+  description: 'Detects language patterns consistent with impersonation attacks via
+    AI chat interfaces. Brundage et al. (2018) identified chatbot impersonation of
+    human operators (bank support, tech helpdesk, government agents) as a primary
+    malicious AI use case. Estrella et al. (2021) documented impersonation as a core
+    scam design element in chat-based fraud. Attackers deploy AI chatbots to impersonate
+    legitimate entities, convincing users to disclose credentials, authorize payments,
+    or perform account changes.
+
+    '
+  remediation: 'Implement intent classification to detect impersonation framing in
+    user inputs and AI outputs. Flag messages where the AI is prompted to claim a
+    specific organizational identity. Enforce strict persona boundaries in system
+    prompts. Monitor for patterns where the chatbot is instructed to role-play as
+    a specific company representative. Apply disclosure requirements (OWASP LLM07)
+    to prevent system prompt leakage of operator identity.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+- id: MEDUSA-UCP-SCAN-002
+  name: false-urgency-social-engineering
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(act\s+now|immediately|urgent(?:ly)?|right\s+away|within\s+(?:the\s+next\s+)?(?:\d+\s+)?(?:minutes?|hours?|seconds?))\b
+  - (?i)\b(your\s+account\s+(?:has\s+been|will\s+be|is\s+being)\s+(?:suspended|compromised|hacked|locked|closed|terminated))\b
+  - (?i)\b(limited\s+time|expires?\s+(?:soon|today|in\s+\d+)|last\s+chance|final\s+(?:warning|notice))\b
+  - (?i)\b(unauthorized\s+(?:access|activity|login)|suspicious\s+(?:activity|login|transaction)\s+detected)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: False urgency / scarcity manipulation pattern detected — potential social
+    engineering via chat
+  description: 'Detects false urgency and scarcity framing used in chat-based social
+    engineering attacks. Estrella et al. (2021) documented urgency injection as a
+    core scam design element that bypasses deliberate reasoning, with compliance increases
+    of 30-50% cited in persuasion literature. Acquisti et al. (2017) confirmed that
+    urgency framing exploits System 1 (fast) cognitive processing, short-circuiting
+    security-conscious decision making. AI chatbots can generate personalized urgency
+    messages at scale, making this a critical detection target.
+
+    '
+  remediation: 'Implement output filtering for urgency patterns in AI-generated responses,
+    especially when combined with requests for credentials, payment, or account actions.
+    Apply rate limiting and friction (mandatory confirmation delays) when urgency
+    language is detected alongside action requests. Monitor for urgency patterns in
+    user inputs attempting to bypass AI safety constraints via fabricated emergency
+    scenarios.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+- id: MEDUSA-UCP-SCAN-003
+  name: multi-turn-escalation-attack-pattern
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(step\s+(?:by\s+step|\d+|one|two|three)|first\s+(?:we|you|let's)|then\s+(?:we|you|next))\b
+  - (?i)\b(small\s+(?:favor|request|thing)|just\s+(?:one|a\s+quick)|before\s+we\s+(?:continue|proceed|go\s+further))\b
+  - (?i)\b(you(?:'ve|\s+have)\s+already\s+(?:agreed|confirmed|said|told\s+me)|as\s+you\s+(?:said|mentioned|confirmed))\b
+  - (?i)\b(now\s+that\s+(?:we|you|that's|i've)|building\s+on\s+(?:what|our|that|your))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Multi-turn escalation social engineering pattern detected in conversation
+  description: 'Detects conversation patterns consistent with multi-turn escalation
+    attacks — a technique where an attacker begins with low-commitment requests and
+    progressively escalates to extract sensitive information or authorize harmful
+    actions. Estrella et al. (2021) documented structured escalation scripts as a
+    core element of scam design, significantly outperforming single-step attacks.
+    In AI chat systems, this maps to multi-turn jailbreaking, conversation history
+    manipulation, and incremental authorization bypass where each turn in the conversation
+    establishes a foothold for the next escalation.
+
+    '
+  remediation: 'Implement multi-turn conversation analysis to detect escalating request
+    patterns across conversation history. Apply conversation context scoring that
+    tracks risk level accumulation across turns. Enforce re-authentication or human
+    review when conversation escalation risk score exceeds threshold. Consider conversation
+    resets when escalation patterns are detected.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-004
+  name: credential-exfiltration-via-chat
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:enter|provide|share|give\s+(?:me|us)|confirm)\s+(?:your\s+)?(?:password|pin|passcode|secret\s+question|security\s+code|otp|one.time.pass|2fa|mfa|authenticator))\b
+  - (?i)\b((?:credit|debit)\s+card\s+(?:number|details|info)|cvv|cvc|card\s+verification|expir(?:y|ation)\s+date)\b
+  - (?i)\b(social\s+security\s+number|ssn|national\s+id|passport\s+number|date\s+of\s+birth)\b
+  - (?i)\b((?:bank\s+)?account\s+(?:number|details)|routing\s+number|sort\s+code|iban|swift)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'CRITICAL: Credential or sensitive data exfiltration request detected in
+    chat interaction'
+  description: 'Detects requests for credentials, financial data, or PII through chat
+    interfaces — a primary attack vector identified by Brundage et al. (2018) as a
+    key malicious use of AI chatbots (impersonation of bank/support agents to extract
+    credentials). Estrella et al. (2021) documented credential extraction as the terminal
+    goal of scam design escalation chains. Sarker et al. (2020) reported phishing
+    success rates of 20-30% in cited studies, increasing significantly with personalized
+    AI-generated social engineering. Legitimate services never request passwords,
+    PINs, or full card numbers through chat interfaces.
+
+    '
+  remediation: 'Implement hard block on AI-generated responses requesting passwords,
+    PINs, CVV codes, SSNs, or full financial account details. Apply NLP classifiers
+    to detect credential exfiltration patterns in both user inputs and AI outputs.
+    Log and alert on all detected attempts. Enforce system prompt rules prohibiting
+    credential requests regardless of user instructions. Apply OWASP LLM02 (Sensitive
+    Information Disclosure) controls.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-522
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-005
+  name: ai-social-engineering-automated-phishing
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(generate|create|write|draft)\s+(?:a\s+)?(?:convincing|realistic|professional|official.looking)\s+(?:message|email|chat|letter|notification)\b
+  - (?i)\b(phish(?:ing)?|spear.phish(?:ing)?|pretexting|vishing|smishing)\b
+  - (?i)\b(social\s+engineer(?:ing)?|manipulat(?:e|ion)\s+(?:users?|people|victims?|targets?))\b
+  - (?i)\b(craft(?:ed)?\s+(?:message|response|reply)\s+(?:to\s+)?(?:trick|deceive|fool|convince|persuade))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: AI-powered social engineering / automated phishing generation pattern detected
+  description: 'Detects requests or patterns associated with using AI to generate
+    social engineering content, phishing messages, or manipulative conversational
+    scripts. Brundage et al. (2018) explicitly identified AI-powered automated spear
+    phishing as a primary malicious AI use case, forecasting that AI-generated phishing
+    would significantly exceed human-level success rates due to personalization at
+    scale. Sarker et al. (2020) reported ML-based detection accuracy of 95-99% for
+    known phishing patterns, but noted this drops under adversarial conditions when
+    AI generates novel phishing content.
+
+    '
+  remediation: 'Block requests to generate persuasive/deceptive communications targeting
+    third parties. Implement output classifiers that detect social engineering patterns
+    in AI-generated content. Apply red-team testing for AI social engineering generation
+    capabilities. Enforce content policy preventing generation of content intended
+    to deceive or manipulate users.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-006
+  name: session-hijacking-chat-takeover
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(session\s+(?:token|id|key|cookie)\s*[=:].{0,60})\b
+  - (?i)\b(hijack|takeover|steal|intercept)\s+(?:session|conversation|chat\s+(?:session|history|context))\b
+  - (?i)\b(bearer\s+[a-zA-Z0-9\-_.+/]{20,}|authorization:\s*bearer)\b
+  - (?i)\b(replay\s+(?:attack|token)|token\s+replay|stolen\s+(?:session|token|cookie))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.log'
+  message: Session hijacking / chat session takeover pattern detected
+  description: 'Detects patterns consistent with session hijacking attacks on AI chat
+    systems, including session token exposure, replay attacks, and unauthorized session
+    takeover attempts. Jansen & Grance (2011) NIST SP 800-144 identified session isolation
+    as a critical security property for cloud-hosted services — directly applicable
+    to multi-tenant AI chat APIs. In UCP context, session tokens control conversation
+    continuity; compromised session tokens allow attackers to impersonate users, access
+    conversation history, and inject into ongoing conversations without authentication.
+
+    '
+  remediation: 'Implement short-lived, single-use session tokens for AI chat sessions.
+    Enforce session binding to client IP/fingerprint. Apply token rotation after each
+    conversation turn. Monitor for session token exposure in logs or responses. Implement
+    immediate session invalidation on suspicious activity detection. Apply HTTPS/TLS
+    for all chat API endpoints.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-384
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144 Guidelines on Security and Privacy in
+    Cloud Computing
+  - Kayas et al. (2020) — UPnP-based IoT Security (protocol session security analogues)
+- id: MEDUSA-UCP-SCAN-007
+  name: conversation-history-injection-manipulation
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(inject|insert|add|append)\s+(?:into\s+)?(?:conversation|chat|message)\s+(?:history|context|log)\b
+  - (?i)\b(previous(?:ly)?\s+(?:said|told|mentioned|agreed|confirmed)|earlier\s+in\s+(?:our|this)\s+conversation)\b
+  - (?i)\b(the\s+(?:previous|last|prior)\s+(?:assistant|ai|bot|system)\s+(?:said|told|mentioned|confirmed))\b
+  - (?i)\b(remember\s+(?:when|that)\s+(?:you|the\s+(?:ai|bot|assistant))\s+(?:said|told|agreed|promised))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Conversation history injection or manipulation pattern detected
+  description: 'Detects patterns consistent with conversation history manipulation
+    attacks — injecting false prior conversation turns to manipulate AI behavior.
+    In multi-turn LLM chat systems, conversation history is passed as context; attackers
+    can inject fabricated prior turns claiming the AI previously agreed to harmful
+    actions, disclosed sensitive information, or established unauthorized permissions.
+    Estrella et al. (2021) documented history manipulation as a key element of multi-step
+    scam escalation (citing prior commitments to build false trust). Brundage et al.
+    (2018) identified conversation context manipulation as an emerging AI security
+    threat.
+
+    '
+  remediation: 'Implement conversation history integrity verification (e.g., HMAC
+    signing of each turn). Distinguish between user-supplied conversation history
+    and server-verified history in multi-turn API calls. Validate that claimed "prior
+    turns" were actually generated by the system. Apply rate limiting on history manipulation
+    attempts. Enforce server-side conversation state rather than relying on client-supplied
+    history.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-008
+  name: cross-user-contamination-shared-session
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(other\s+user(?:s|'s)?|another\s+(?:user|person|customer)|previous\s+(?:user|customer|conversation))\b
+  - (?i)\b(shared\s+(?:session|context|memory|history|cache)|cross.user|multi.tenant)\b
+  - (?i)\b(leak(?:ed|ing)?\s+(?:from|between|across)\s+(?:sessions?|users?|conversations?))\b
+  - (?i)\b(contaminate|pollute|poison)\s+(?:conversation|context|memory|session)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.log'
+  message: Cross-user contamination or shared session data leakage pattern detected
+  description: 'Detects patterns consistent with cross-user contamination attacks
+    in shared AI chat sessions. Jansen & Grance (2011) NIST SP 800-144 identified
+    shared tenancy as a primary cloud security risk — in AI chat APIs, shared context
+    windows or improperly isolated conversation histories can expose one user''s data
+    to another user''s session. This is especially relevant for multi-tenant LLM deployments
+    where conversation context from one user may persist and contaminate subsequent
+    users'' sessions.
+
+    '
+  remediation: 'Implement strict conversation context isolation between user sessions
+    in multi-tenant deployments. Enforce session context clearing between users. Apply
+    tenant isolation at the API gateway level. Audit LLM deployments for context window
+    leakage between sessions. Implement conversation boundary detection to prevent
+    cross-session data exposure.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-668
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144
+  - Kayas et al. (2020) — UPnP-based IoT Security (multi-tenant isolation analogues)
+- id: MEDUSA-UCP-SCAN-009
+  name: chatbot-authentication-bypass
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b(bypass|circumvent|skip|override|ignore)\s+(?:authentication|auth|login|verification|2fa|mfa)\b
+  - (?i)\b(without\s+(?:authentication|logging\s+in|verification|auth)|unauthenticated\s+access)\b
+  - (?i)\b(default\s+(?:credentials|password|username|token|api.key)|hardcoded\s+(?:password|credential|token))\b
+  - (?i)\b(admin\s*[:/]\s*admin|root\s*[:/]\s*root|test\s*[:/]\s*test|password\s*[:/]\s*password)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.env'
+  - '*.config'
+  message: 'CRITICAL: Chatbot authentication bypass pattern detected'
+  description: 'Detects patterns consistent with authentication bypass attacks on
+    AI chatbot systems. Pishva (2017) documented the Mirai botnet''s exploitation
+    of default credentials on IoT devices (600,000+ compromised at 1.2 Tbps), directly
+    analogous to default API key/token attacks on chatbot endpoints. Jansen & Grance
+    (2011) identified authentication bypass in cloud APIs as a primary risk for multi-tenant
+    services. AI chatbot APIs exposed without proper authentication allow unauthorized
+    access to conversation histories, system prompts, and the ability to inject content
+    into other users'' sessions.
+
+    '
+  remediation: 'Enforce strong authentication (OAuth 2.0, JWT with short expiry) for
+    all AI chat API endpoints. Rotate default credentials immediately. Implement API
+    key management with per-user/per-session scoping. Apply rate limiting and IP allowlisting
+    for chatbot API access. Implement OWASP API Security controls for LLM deployment
+    endpoints.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-010
+  name: ai-bias-exploitation-demographic-targeting
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(if\s+(?:the\s+user\s+is|you(?:'re|\s+are)\s+(?:talking\s+to))\s+(?:a\s+)?(?:woman|man|elderly|old|young|poor|rich|\w+\s+(?:american|asian|european)))\b
+  - (?i)\b(exploit(?:ing)?\s+(?:bias|prejudice|stereotype)|leverag(?:e|ing)\s+(?:bias|cultural|demographic))\b
+  - (?i)\b(target(?:ing)?\s+(?:vulnerable|elderly|senior|less\s+educated|low.income)\s+(?:users?|people|individuals|customers?))\b
+  - (?i)\b(demographic(?:ally)?\s+(?:target(?:ed)?|tailor(?:ed)?|customized)|personalize\s+(?:attack|scam|message)\s+(?:for|to|based\s+on))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: AI bias exploitation or demographic targeting pattern detected
+  description: 'Detects patterns consistent with exploiting AI training data biases
+    for demographic-targeted attacks via chat interfaces. Olteanu et al. (2019) documented
+    systematic biases in social media training data that can be leveraged to craft
+    AI-assisted social engineering attacks targeting specific demographic groups.
+    Milano et al. (2020) identified filter bubble exploitation as a mechanism for
+    personalized manipulation. Acquisti et al. (2017) showed 30-60% variation in security
+    compliance based on demographic-targeted framing.
+
+    '
+  remediation: 'Implement demographic-neutral content policies in AI chat systems.
+    Audit AI outputs for discriminatory or exploitative demographic targeting. Apply
+    fairness metrics to detect disparate treatment of user groups. Block requests
+    that explicitly target specific demographic groups for manipulation. Monitor for
+    bias amplification in AI-generated chat responses.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+  - Milano et al. (2020) — Recommender Systems and Their Ethical Challenges
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+- id: MEDUSA-UCP-SCAN-011
+  name: system-prompt-exfiltration-via-chat
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:repeat|print|output|show|display|tell\s+me|reveal|share)\s+(?:your\s+)?(?:system\s+prompt|instructions?|rules?|guidelines?|initial\s+message|configuration))\b
+  - (?i)\b(what\s+(?:are|were)\s+your\s+(?:original\s+)?(?:instructions?|rules?|system\s+prompt|guidelines?))\b
+  - (?i)\b(ignore\s+(?:your\s+)?(?:previous\s+instructions?|system\s+prompt|guidelines?)|disregard\s+(?:your|all)\s+(?:previous|prior)\s+instructions?)\b
+  - (?i)\b(you\s+(?:are|were)\s+(?:actually|really|originally|secretly)\s+(?:a|an|designed|trained|built|told)\s+to)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: System prompt exfiltration or override attempt detected
+  description: 'Detects attempts to extract, override, or manipulate the system prompt
+    in AI chat systems. Brundage et al. (2018) identified system prompt manipulation
+    as an enabling vulnerability for AI chatbot misuse. Wynsberghe & Robbins (2018)
+    analyzed how the absence of genuine moral constraints in AI creates exploitable
+    surfaces for prompt override attacks. System prompt exfiltration enables attackers
+    to understand AI constraints and craft more effective bypass attacks; system prompt
+    override allows full behavioral control of the chatbot. Directly maps to OWASP
+    LLM07:2025 (System Prompt Leakage).
+
+    '
+  remediation: 'Implement system prompt confidentiality enforcement — never output
+    system prompt content in responses. Apply output classifiers to detect system
+    prompt regurgitation. Enforce prompt injection resistance through instruction
+    hierarchy and role separation. Monitor for prompt extraction patterns in user
+    inputs. Apply constitutional AI or RLHF to reinforce system prompt compliance.
+
+    '
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Wynsberghe & Robbins (2018) — Critiquing the Reasons for Making Artificial Moral
+    Agents
+- id: MEDUSA-UCP-SCAN-012
+  name: chat-memory-history-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(memory\s+(?:injection|poisoning|manipulation|attack)|inject(?:ing)?\s+(?:into\s+)?(?:memory|context|history))\b
+  - (?i)\b(long.term\s+(?:memory|context)\s+(?:inject|manipulate|poison|corrupt))\b
+  - (?i)\b(add\s+(?:false|fake|malicious)\s+(?:memory|context|history|information)\s+(?:to|about))\b
+  - (?i)\b(persistent\s+(?:injection|attack|payload)\s+(?:in|via|through)\s+(?:memory|conversation|context))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: Chat memory or long-term context injection attack pattern detected
+  description: 'Detects patterns consistent with memory/history injection attacks
+    in AI systems with persistent memory or long-term context (e.g., LLM agents with
+    vector databases, session memory systems). In these systems, adversaries can inject
+    malicious "memories" that persist across sessions and alter the AI''s behavior
+    in future conversations. This extends conversation history manipulation (SCAN-007)
+    to persistent storage contexts. Brundage et al. (2018) identified persistent influence
+    operations as a key AI misuse vector.
+
+    '
+  remediation: 'Implement integrity verification for persisted AI memories (cryptographic
+    signing). Apply semantic validation before storing conversation content as long-term
+    memory. Implement memory namespace isolation between users. Apply anomaly detection
+    to detect unusual memory injection patterns. Enforce content policies on what
+    information can be persisted in AI memory systems.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+- id: MEDUSA-UCP-SCAN-013
+  name: user-impersonation-in-ai-chat
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(act\s+as|pretend\s+(?:to\s+be|you\s+are)|you\s+(?:are|will\s+be|must\s+be)\s+(?:a|an|the))\b
+  - (?i)\b(respond\s+as\s+(?:if\s+)?(?:you\s+(?:are|were)|(?:a|an|the)\s+))\b
+  - (?i)\b(from\s+now\s+on\s+(?:you\s+are|act|respond|behave|speak)|henceforth\s+(?:you\s+are|act|respond))\b
+  - (?i)\b(in\s+(?:this\s+scenario|the\s+(?:roleplay|simulation|game|story))\.?\s*(?:you\s+are|i\s+am|we\s+are))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: User or role impersonation attempt in AI chat detected
+  description: 'Detects impersonation framing patterns used to manipulate AI chatbot
+    behavior — a common technique where users instruct the AI to adopt an alternative
+    identity, role, or persona to bypass safety constraints. Brundage et al. (2018)
+    identified persona hijacking as enabling AI chatbots to be weaponized for impersonation
+    attacks. Estrella et al. (2021) showed that impersonation of trusted identities
+    (authority figures, support agents) is a core scam design element. Wynsberghe
+    & Robbins (2018) analyzed how the absence of stable AI identity creates exploitable
+    moral agency gaps.
+
+    '
+  remediation: 'Implement identity constraint enforcement in system prompts. Apply
+    output classifiers to detect persona-switching in AI responses. Monitor for roleplay/scenario
+    framing that precedes harmful content requests. Enforce role-based behavioral
+    boundaries that cannot be overridden by user conversation. Apply constitutional
+    constraints on identity impersonation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Wynsberghe & Robbins (2018) — Critiquing the Reasons for Making Artificial Moral
+    Agents
+- id: MEDUSA-UCP-SCAN-014
+  name: ai-chatbot-api-unauthorized-access
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(unauthorized\s+(?:api\s+(?:call|request|access)|access\s+to\s+(?:api|endpoint|chat))\b)
+  - (?i)\b(api.key\s*[=:].{0,60}|x-api-key\s*[=:].{0,60}|openai.api.key\s*[=:])\b
+  - (?i)\b(brute.forc(?:e|ing)\s+(?:api|token|key)|api\s+key\s+(?:brute|guess|enumerat))\b
+  - (?i)\b(rate.limit\s+(?:bypass|evade|circumvent)|rotating\s+(?:api.key|token|proxy)\s+to\s+(?:bypass|evade|avoid))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.env'
+  - '*.config'
+  - '*.log'
+  message: AI chatbot API unauthorized access or key exposure pattern detected
+  description: 'Detects patterns consistent with unauthorized access to AI chatbot
+    APIs, including API key exposure, brute force, rate limit bypass, and key rotation
+    evasion. Pishva (2017) documented how weak authentication on IoT endpoints (analogous
+    to chatbot APIs) enabled the Mirai botnet to compromise 600,000+ devices. Jansen
+    & Grance (2011) identified API key management as a critical cloud security control.
+    Exposed or brute-forced AI API keys enable attackers to impersonate legitimate
+    users, access conversation histories, and abuse AI capabilities at scale.
+
+    '
+  remediation: 'Implement per-request API key rotation and short-lived tokens. Apply
+    rate limiting per API key with exponential backoff. Monitor for API key exposure
+    in code repositories and logs. Implement IP-based rate limiting and behavioral
+    anomaly detection. Use API gateway with key management, usage quotas, and abuse
+    detection.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-798
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-015
+  name: chat-influence-operation-coordinated-manipulation
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(influence\s+(?:campaign|operation)|coordinated\s+(?:manipulation|messaging|inauthentic))\b
+  - (?i)\b(mass\s+(?:message|send|spam|generate)\s+(?:personalized|targeted|tailored)\s+(?:message|content|response))\b
+  - (?i)\b(astroturf(?:ing)?|sockpuppet|bot\s+network|coordinated\s+bot(?:s)?)\b
+  - (?i)\b(at\s+scale\s+(?:persuade|manipulate|deceive|generate\s+(?:fake|false))|automated\s+(?:persuasion|manipulation|social\s+engineering))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Coordinated AI influence operation or automated manipulation pattern detected
+  description: 'Detects patterns associated with coordinated influence operations
+    using AI chatbots — deploying networks of AI agents to engage in mass personalized
+    manipulation across social media chat features, messaging platforms, or deployed
+    AI assistants. Brundage et al. (2018) explicitly identified AI-enabled coordinated
+    influence operations as a primary threat, noting that AI chatbots can engage in
+    personalized one-on-one manipulation at scale in ways impossible for human operators.
+    Olteanu et al. (2019) documented how social media data biases enable demographic-targeted
+    messaging for influence operations.
+
+    '
+  remediation: 'Implement detection of high-volume, templated message generation patterns.
+    Apply behavioral analytics to detect bot-like usage patterns (high message rate,
+    low variation, templated structure). Enforce usage quotas preventing mass message
+    generation. Monitor for coordinated multi-account patterns. Apply watermarking
+    to AI-generated content for attribution.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+- id: MEDUSA-UCP-SCAN-016
+  name: dark-pattern-autonomy-erosion-chatbot
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(dark\s+pattern|deceptive\s+(?:design|ux|interface|ui)|manipulative\s+(?:design|interface))\b
+  - (?i)\b(trick\s+(?:question|phrasing|wording)|mislead(?:ing)?\s+(?:prompt|question|option))\b
+  - (?i)\b(confirm\s+(?:shaming|by\s+default|without\s+(?:reading|understanding))|pre.tick(?:ed)?|pre.check(?:ed)?)\b
+  - (?i)\b(forced\s+(?:continuity|consent|agreement)|consent\s+(?:by\s+default|washing|manipulation))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  - '*.txt'
+  message: Dark pattern or autonomy-eroding chatbot design pattern detected
+  description: 'Detects dark patterns and autonomy-eroding design elements in AI chatbot
+    interfaces — deceptive UI patterns that manipulate users into actions against
+    their interests. Milano et al. (2020) identified autonomy erosion via persuasive
+    design (dark patterns, urgency, default exploitation) as a primary ethical threat
+    in AI recommendation systems, directly applicable to chatbot design. Acquisti
+    et al. (2017) documented how dark patterns in online interfaces exploit cognitive
+    biases to bypass security-conscious decision making. In AI chat contexts, dark
+    patterns include pre-checked consent boxes, misleading option framing, confirm-shaming,
+    and artificial scarcity.
+
+    '
+  remediation: 'Audit chatbot interface design against dark pattern checklists. Implement
+    neutral option framing in AI-generated choices. Apply consent UX review to detect
+    manipulative patterns. Enforce transparency requirements for AI-generated recommendations.
+    Monitor for user complaints indicating manipulative experiences.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Milano et al. (2020) — Recommender Systems and Their Ethical Challenges
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+- id: MEDUSA-UCP-SCAN-017
+  name: chat-protocol-command-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(execute|run|invoke|call)\s+(?:command|function|method|action|tool)\s+(?:without|bypassing|ignoring)\s+(?:auth|permission|validation)\b
+  - (?i)\b(\$\(|`[^`]+`|;\s*(?:ls|cat|wget|curl|bash|sh|cmd|powershell)|&&\s*(?:ls|cat|wget|curl|rm|del))\b
+  - (?i)\b(command\s+inject(?:ion)?|os\s+command\s+inject(?:ion)?|shell\s+inject(?:ion)?)\b
+  - (?i)\b(tool\s+(?:call|invoke|execute)\s+(?:inject|manipulate|hijack)|function\s+(?:call\s+inject|hijack))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  message: Chat protocol command injection or tool call hijacking pattern detected
+  description: 'Detects command injection patterns in AI chat systems, particularly
+    relevant to LLM tool-use frameworks and agentic AI systems where chat inputs can
+    trigger system calls. Kayas et al. (2020) documented UPnP action command injection
+    (exploiting unauthorized action requests to execute device commands) as a systematic
+    vulnerability in protocol-based systems — the same architectural pattern applies
+    to AI chat function calling APIs where malicious inputs can trigger unintended
+    tool invocations. The Mirai botnet''s 17M+ device exploitation (Pishva 2017) demonstrates
+    the scale of protocol command injection at the infrastructure level.
+
+    '
+  remediation: 'Implement strict input validation for all tool call parameters in
+    LLM agentic systems. Apply allowlisting for permissible tool invocations per session
+    context. Enforce least-privilege tool access — chatbot agents should only invoke
+    tools explicitly authorized for the current conversation context. Apply sandboxing
+    for tool execution environments. Monitor tool call patterns for anomalies.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  references:
+  - 'Kayas et al. (2020) — UPnP-based IoT Security: Threats, Vulnerabilities, and
+    Solutions'
+  - Pishva (2017) — IoT Security Challenges and Solutions
+- id: MEDUSA-UCP-SCAN-018
+  name: ai-generated-content-provenance-bypass
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(remov(?:e|ing)\s+(?:watermark|attribution|provenance|signature)|strip\s+(?:watermark|metadata|attribution))\b
+  - (?i)\b(bypass\s+(?:ai\s+)?(?:detection|detector|classifier|filter)\s+(?:by|using|with|via))\b
+  - (?i)\b(make\s+(?:it|this|the\s+text)\s+(?:look|sound|appear)\s+(?:human|human.written|not\s+(?:ai|generated)))\b
+  - (?i)\b(evad(?:e|ing)\s+(?:ai\s+)?content\s+(?:detection|moderation|classifier)|human.ize\s+(?:ai|text|content))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: AI content provenance bypass or watermark removal pattern detected
+  description: 'Detects attempts to bypass AI content detection systems or strip provenance
+    signals from AI-generated content. Brundage et al. (2018) recommended provenance
+    and authenticity signals (watermarking, behavioral fingerprinting) as key defenses
+    against AI-generated social engineering and influence operations, and explicitly
+    noted that adversaries would attempt to strip or bypass these signals. This pattern
+    is particularly relevant when AI-generated phishing, social engineering, or manipulation
+    content is processed to evade detection before deployment.
+
+    '
+  remediation: 'Implement multi-layer content attribution (cryptographic watermarking
+    + behavioral fingerprinting). Apply robust watermarking schemes resistant to paraphrasing
+    attacks. Monitor for watermark removal requests. Enforce disclosure requirements
+    for AI-generated content in high-risk contexts. Apply C2PA (Content Credentials)
+    or similar provenance standards.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-019
+  name: chat-cloud-tenant-isolation-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(tenant\s+(?:escape|bypass|isolation|breakout)|cross.tenant\s+(?:access|data|leak))\b
+  - (?i)\b(other\s+(?:tenant|customer|organization|org)'s?\s+(?:data|conversation|prompt|response))\b
+  - (?i)\b(shared\s+(?:resource|cache|memory|storage)\s+(?:access|leak|expose|dump))\b
+  - (?i)\b(namespace\s+(?:escape|collision|confusion)|org(?:anization)?\s+id\s+(?:tamper|spoof|manipulate|bypass))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.log'
+  message: Cloud tenant isolation bypass or cross-tenant data access pattern detected
+  description: 'Detects patterns consistent with multi-tenant isolation bypass attacks
+    in cloud-hosted AI chat services. Jansen & Grance (2011) NIST SP 800-144 identified
+    multi-tenant isolation as a primary cloud security challenge — inadequate isolation
+    enables one tenant to access another''s data, conversation histories, or system
+    configurations. In AI chat APIs, tenant isolation failures expose system prompts,
+    conversation histories, fine-tuning data, and model configurations across organizational
+    boundaries.
+
+    '
+  remediation: 'Implement cryptographic tenant isolation at the data layer. Enforce
+    namespace isolation for all AI chat resources (conversations, memories, system
+    prompts, fine-tuned models). Apply organization ID validation on every API request.
+    Implement audit logging for cross-tenant access attempts. Apply principle of least
+    privilege for tenant resource access.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-668
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144 Cloud Security Guidelines
+- id: MEDUSA-UCP-SCAN-020
+  name: ai-chatbot-privacy-data-disclosure
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:what|tell\s+me|show\s+me|retrieve|find|look\s+up)\s+(?:do\s+you\s+know\s+about|information\s+(?:on|about)|data\s+(?:on|about))\s+(?:user|person|customer|employee))\b
+  - (?i)\b((?:previous|other|past|another)\s+(?:user|customer|person)'s?\s+(?:data|information|conversation|history))\b
+  - (?i)\b((?:access|retrieve|dump|export)\s+(?:user\s+)?(?:pii|personal\s+(?:data|information)|private\s+(?:data|information)))\b
+  - (?i)\b(what\s+(?:did|do)\s+(?:you|the\s+(?:ai|bot|system))\s+(?:store|remember|know|have)\s+about\s+(?:me|user|them))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: AI chatbot privacy violation or unauthorized PII disclosure pattern detected
+  description: 'Detects attempts to extract personally identifiable information or
+    other users'' data from AI chat systems. Olteanu et al. (2019) documented how
+    AI systems trained on social data can expose private information through conversational
+    probing. Jansen & Grance (2011) identified PII protection in shared cloud services
+    as a primary security requirement. In AI chat systems, privacy attacks include
+    extracting memorized training data, accessing conversation histories of other
+    users, or leveraging the AI''s knowledge of a user to profile them without consent.
+    Maps to OWASP LLM02:2025 (Sensitive Information Disclosure).
+
+    '
+  remediation: 'Implement strict access controls ensuring users can only query their
+    own conversation data. Apply differential privacy techniques to prevent membership
+    inference on training data. Enforce data minimization — AI systems should not
+    retain PII beyond session duration unless explicitly authorized. Apply output
+    filtering to detect and block PII disclosure in AI responses. Implement right-to-be-forgotten
+    mechanisms for AI memory systems.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+  references:
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+  - Jansen & Grance (2011) — NIST SP 800-144
+  - Dwivedi et al. (2019) — AI Multidisciplinary Perspectives
+- id: MEDUSA-UCP-SCAN-021
+  name: direct-prompt-injection-override-attempt
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b(disregard|forget|ignore|override|supersede)\s+(all\s+)?(previous|prior|earlier|above|your)\s+(instructions?|rules?|constraints?|guidelines?|directions?|prompts?)\b
+  - (?i)\b(new\s+instructions?|updated\s+instructions?|revised\s+instructions?)\s*[:\-]
+  - (?i)\b(you\s+must\s+now|from\s+this\s+point|starting\s+now|as\s+of\s+now)\s+(ignore|disregard|forget|override)\b
+  - (?i)\[\[\s*(system|instruction|prompt|override|command)\s*\]\]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  - '*.md'
+  message: 'CRITICAL: Direct prompt injection override attempt detected in user input'
+  description: 'Detects explicit direct prompt injection attempts where a user-supplied
+    input attempts to override the AI system''s instructions, rules, or constraints.
+    Direct prompt injection is the primary attack vector in OWASP LLM01:2025 (Prompt
+    Injection). Brundage et al. (2018) identified instruction override as the enabling
+    mechanism for chatbot weaponization. Attackers use explicit instruction override
+    language to cause the AI to abandon safety constraints, ignore operator-defined
+    behavior, and execute arbitrary adversary-controlled instructions. Double-bracket
+    injection markers (e.g., [[system]]) are used to mimic internal formatting in
+    some LLM frameworks.
+
+    '
+  remediation: 'Implement instruction hierarchy enforcement separating system, operator,
+    and user instruction layers. Apply NLP classifiers to detect override framing
+    in user inputs. Enforce prompt injection resistance through constitutional AI
+    training. Apply input sanitization to strip injection markers. Monitor for instruction
+    override patterns across all user input fields. Implement OWASP LLM01:2025 controls.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-022
+  name: indirect-prompt-injection-document-url
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(summarize|analyze|read|process|extract\s+from|review)\s+(this\s+)?(document|file|url|link|page|pdf|text)\b
+  - (?i)\b(when\s+(?:you|the\s+(?:ai|assistant|bot))\s+(?:reads?|processes?|analyzes?)\s+this)\b
+  - (?i)(<!--|/\*|#)\s*(ignore|disregard|override|new\s+instructions?|forget\s+previous)
+  - (?i)\b(hidden\s+(instruction|prompt|command|directive)|invisible\s+(text|instruction|prompt))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  - '*.md'
+  - '*.txt'
+  message: Indirect prompt injection via user-submitted document or URL detected
+  description: 'Detects indirect prompt injection patterns where malicious instructions
+    are embedded in documents, URLs, or external content that the AI is asked to process.
+    This is OWASP LLM01:2025''s indirect prompt injection variant — the attacker plants
+    malicious instructions in content a victim submits to an AI agent. Comment-style
+    injection (HTML comments, code comments) is used to hide instructions that may
+    be visible to the LLM but not rendered to the human operator. Brundage et al.
+    (2018) identified document processing as a key attack surface for AI manipulation.
+
+    '
+  remediation: 'Sanitize all externally retrieved content before injecting into LLM
+    context. Apply content trust levels — externally sourced content should be treated
+    as untrusted data, not instructions. Implement document processing sandboxing.
+    Strip comment-encoded instructions from HTML/code content before LLM processing.
+    Apply output validation to detect if AI behavior changed after document processing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM01:2025 — Prompt Injection (Indirect)
+- id: MEDUSA-UCP-SCAN-023
+  name: roleplay-fiction-jailbreak-framing
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(in\s+(?:this\s+)?(?:story|fiction|novel|movie|game|roleplay|scenario|simulation|hypothetical|thought\s+experiment))\s*,?\s*(you\s+(?:are|play|portray)|the\s+(?:character|hero|villain|agent))\b
+  - (?i)\b(for\s+(?:creative\s+writing|a\s+story|a\s+novel|fiction|a\s+game|research\s+purposes?|educational\s+purposes?))\s*[,:]?\s*(how|what|describe|explain|tell\s+me)\b
+  - (?i)\b(write\s+a\s+(?:story|scene|dialogue|script)\s+where\s+(?:someone|a\s+character|the\s+(?:hero|villain|hacker|expert))\s+(?:explains?|shows?|demonstrates?|teaches?))\b
+  - (?i)\b(hypothetically|theoretically|in\s+a\s+fictional\s+context|for\s+the\s+purposes?\s+of\s+(?:fiction|a\s+story))\s+(how|what|describe|explain)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Roleplay or fiction framing used as jailbreak vector detected
+  description: 'Detects use of roleplay, fiction, or hypothetical framing as a jailbreak
+    vector — a common technique where attackers wrap harmful requests in creative
+    writing or fictional scenarios to bypass AI safety constraints. Wynsberghe & Robbins
+    (2018) analyzed how AI moral agency gaps are exploitable through scenario framing.
+    Brundage et al. (2018) identified narrative framing as a social engineering technique
+    enabling AI misuse. The fictional frame provides plausible deniability while extracting
+    the same harmful content the AI would refuse if asked directly.
+
+    '
+  remediation: 'Implement semantic intent classification that evaluates the actual
+    content being requested, independent of fictional framing. Apply content-level
+    filtering that detects harmful information in fictional outputs. Enforce consistent
+    content policies regardless of narrative context. Monitor for escalating specificity
+    in fictional requests as a signal of extraction intent.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - Wynsberghe & Robbins (2018) — Critiquing the Reasons for Making Artificial Moral
+    Agents
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-024
+  name: template-injection-user-format-string
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(\{\{\s*\w+\s*\}\}|\{%\s*\w+\s*%\}|\$\{\s*\w+\s*\})
+  - (?i)(\{\{\s*(config|settings?|env|environ|os\.environ|request|session|app))
+  - (?i)(<%[=\-]?\s*(eval|exec|system|os\.|import|require))
+  - (?i)(\{\{\s*(__class__|__mro__|__subclasses__|__globals__|__builtins__))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  - '*.jinja'
+  - '*.j2'
+  - '*.txt'
+  message: Server-side template injection via user-supplied format string detected
+  description: 'Detects server-side template injection (SSTI) patterns in user-supplied
+    inputs that may be rendered by template engines (Jinja2, Twig, Pebble, etc.) or
+    interpolated into LLM prompts. When user input containing template syntax is injected
+    into prompt templates without sanitization, template engine execution can achieve
+    RCE. In LLM contexts, template injection can exfiltrate system prompts, environment
+    variables, or configuration data. Sarker et al. (2020) identified injection attacks
+    as a primary ML pipeline threat. Python dunder attribute access (__class__, __globals__)
+    is a classic SSTI escalation path.
+
+    '
+  remediation: 'Sanitize user inputs before template interpolation — never pass raw
+    user input to template engines. Use sandboxed template environments (Jinja2 SandboxedEnvironment).
+    Apply allowlisting for template variables accessible in user-controlled contexts.
+    Audit all prompt template construction for unsanitized user input injection. Apply
+    output encoding for all user-supplied strings in template contexts.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-025
+  name: system-prompt-leakage-probe
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(output|print|display|show|return|echo|write)\s+(?:the\s+)?(?:first|last|all|every|each)\s+(?:word|character|letter|token|line|sentence)\s+(?:of\s+)?(?:your\s+)?(?:system|initial|first|original)\s+(?:prompt|message|instruction)\b
+  - (?i)\b(translate|encode|base64|hex|rot13|caesar)\s+(?:your\s+)?(?:system\s+prompt|initial\s+instructions?|rules?|guidelines?)\b
+  - (?i)\b(complete\s+the\s+following|fill\s+in\s+the\s+blank)\s*[:\-]?\s*(my\s+instructions?\s+(?:say|are|state|tell\s+me))
+  - (?i)\b(what\s+(?:word|phrase|text|token|string)\s+(?:comes|appears)\s+(?:first|after|before|at\s+the\s+(?:start|beginning|end))\s+(?:in\s+your|of\s+your|of\s+the)\s+(?:prompt|instructions?|system))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: System prompt leakage probe via indirect extraction technique detected
+  description: 'Detects indirect system prompt extraction techniques that avoid direct
+    "repeat your instructions" requests (already covered in SCAN-011). These advanced
+    probes use encoding/translation requests, word-completion tasks, first-word extraction,
+    and obfuscated retrieval to leak system prompt content character by character
+    or token by token. Maps directly to OWASP LLM07:2025 (System Prompt Leakage).
+    Brundage et al. (2018) identified system prompt extraction as a precursor to effective
+    jailbreaking — knowing the system prompt allows attackers to craft targeted bypasses.
+
+    '
+  remediation: 'Implement semantic classifiers for system prompt extraction attempts,
+    not just keyword matching. Enforce system prompt non-disclosure even under translation/encoding
+    requests. Apply output monitoring to detect if responses contain system prompt
+    fragments. Use cryptographic commitment to system prompt content for integrity
+    verification.
+
+    '
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM07:2025 — System Prompt Leakage
+- id: MEDUSA-UCP-SCAN-026
+  name: context-window-overflow-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(fill|flood|pad|expand|repeat|overflow)\s+(the\s+)?(?:context|prompt|window|token|memory)\s+(with|using)\b
+  - (?i)(\b(?:a{500,}|z{500,}|x{500,}|0{500,}|\s{500,})\b)
+  - (?i)\b(context\s+(?:window\s+)?(?:overflow|flooding|stuffing|padding|manipulation))\b
+  - (?i)\b(inject\s+(?:at\s+the\s+)?(?:end|beginning|start|middle)\s+of\s+(?:context|conversation|prompt))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Context window overflow or padding injection attack detected
+  description: 'Detects context window overflow/flooding attacks where a user submits
+    extremely long inputs (repetitive text, filler tokens) to push earlier conversation
+    turns or system prompt content out of the context window, effectively removing
+    safety instructions from the active context. Jansen & Grance (2011) identified
+    resource exhaustion as a cloud service attack vector — context flooding is the
+    LLM-specific equivalent. Once system prompt instructions are displaced from the
+    context window, the LLM operates without its safety constraints, enabling subsequent
+    jailbreak attempts.
+
+    '
+  remediation: 'Implement hard token limits on user input length per turn. Apply context
+    window management that preserves system prompt visibility regardless of conversation
+    length. Use sliding window strategies that anchor system prompt at the current
+    position. Monitor for abnormal input length patterns as a signal of context flooding
+    attempts. Apply rate limiting on token consumption per user session.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-400
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-027
+  name: json-yaml-injection-llm-context
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(\{\s*"role"\s*:\s*"(system|assistant|tool|function)"\s*,\s*"content"\s*:)
+  - (?i)(\{\s*"messages"\s*:\s*\[|\{\s*"message"\s*:\s*\{\s*"role")
+  - (?i)(role:\s*(system|assistant|tool)\s*\n\s*content:)
+  - (?i)(\{\s*"tool_call"\s*:|\{\s*"function_call"\s*:|\{\s*"tool_calls"\s*:)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: JSON/YAML injection mimicking LLM message format detected in user input
+  description: 'Detects user-supplied JSON or YAML that mimics the internal message
+    format of LLM APIs (OpenAI Chat format, Anthropic messages format, tool call format).
+    When these structures are not properly sanitized before being included in the
+    LLM context, they can inject artificial system or assistant messages, forge tool
+    call results, or escalate user-role content to system-role privileges. Sarker
+    et al. (2020) identified structured data injection as a key ML pipeline attack.
+    Kayas et al. (2020) documented structured command injection as a systematic vulnerability
+    in protocol-based systems — directly applicable to JSON-formatted LLM APIs.
+
+    '
+  remediation: 'Escape or sanitize JSON/YAML structural characters in user input before
+    including in API payloads. Enforce strict schema validation on all message objects
+    — reject user inputs that contain role field names. Apply content trust boundaries:
+    user input is always "user" role regardless of content. Never interpolate raw
+    user strings directly into serialized API message arrays.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-028
+  name: markdown-injection-user-message
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)(\[([^\]]{1,200})\]\(javascript:|\[([^\]]{1,200})\]\(data:|\[([^\]]{1,200})\]\(vbscript:)
+  - (?i)(\!\[([^\]]{0,100})\]\(javascript:|\!\[([^\]]{0,100})\]\(data:text/html)
+  - (?i)(<script[^>]{0,200}>|<iframe[^>]{0,200}>|<img[^>]{0,200}onerror\s*=)
+  - (?i)(\[click\s+here\]\(|\[download\]\(|\[verify\s+account\]\(|\[confirm\]\()\s*https?://[^)]{1,200}(?:login|verify|account|secure|update)[^)]{0,100}\)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.md'
+  - '*.html'
+  - '*.txt'
+  message: Markdown injection with malicious link or script pattern detected in user
+    message
+  description: 'Detects malicious markdown injection in user messages — embedding
+    JavaScript URIs, data URIs, or deceptive hyperlinks in markdown-formatted user
+    content that may be rendered in downstream UIs. When AI chat interfaces render
+    markdown, injected links can redirect users to phishing sites, execute JavaScript,
+    or exfiltrate session data. Estrella et al. (2021) identified hyperlink deception
+    as a core element of online scam design. Brundage et al. (2018) noted that AI-mediated
+    content pipelines create new injection surfaces where malicious content transits
+    through trusted AI interfaces.
+
+    '
+  remediation: 'Apply markdown sanitization to all user-supplied content before rendering.
+    Enforce CSP headers preventing inline script execution. Validate all URLs in markdown
+    links against allowlists. Strip javascript: and data: URI schemes from rendered
+    content. Apply HTML encoding before rendering user content in web-based chat interfaces.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-79
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-029
+  name: data-exfiltration-via-crafted-prompt
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(send|transmit|post|upload|exfiltrate|leak|forward|relay)\s+(the\s+)?(conversation|chat\s+history|system\s+prompt|context|user\s+data|private|confidential)\s+(?:to|via|through|using|at)\s+(?:https?://|this\s+url|my\s+server|the\s+following)\b
+  - (?i)\b(fetch|request|http\s+get|http\s+post|curl|wget)\s+(?:https?://[^\s]{1,200})?\s*\+?\s*(document|cookie|localStorage|session|token|key)\b
+  - (?i)\b(embed|encode|base64|hex.encode)\s+(the\s+)?(system\s+prompt|conversation|private\s+data|context)\s+(?:in|into|as\s+part\s+of)\s+(the\s+)?(?:url|request|response|image|link)\b
+  - (?i)\b(exfiltrat|data\s+(?:theft|leak|extraction|exfil))\s+(?:via|through|using)\s+(?:prompt|chat|conversation|llm|ai)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Data exfiltration via crafted AI prompt pattern detected
+  description: 'Detects prompt injection techniques designed to cause the AI system
+    to exfiltrate data (system prompts, conversation history, user data) to attacker-controlled
+    endpoints. This is a critical attack pattern where the AI is used as an unwitting
+    data exfiltration agent, particularly in agentic frameworks with HTTP access.
+    Brundage et al. (2018) identified AI agents as potential data exfiltration vectors.
+    Jansen & Grance (2011) documented data exfiltration as a primary cloud security
+    risk applicable to multi-tenant AI deployments. In practice, injected prompts
+    instruct the AI to embed sensitive data in URLs and make outbound HTTP requests.
+
+    '
+  remediation: 'Restrict outbound HTTP requests from AI agent frameworks to approved
+    endpoints only. Apply strict allowlisting for all network calls made by LLM tools.
+    Monitor AI-initiated network traffic for anomalous destinations. Implement data
+    loss prevention (DLP) on AI agent outputs. Apply principle of least privilege
+    — AI agents should not have unrestricted internet access. Log all outbound requests
+    from AI tool-use frameworks.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-030
+  name: ssrf-via-user-supplied-url-agent
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(fetch|retrieve|download|access|open|load|get|read)\s+(?:the\s+)?(?:content\s+(?:of|from|at)|url|page|file|resource)\s+(?:at\s+)?(?:https?://)?(?:127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.169\.254|192\.168\.|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)\b
+  - (?i)(https?://(?:127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.169\.254))
+  - (?i)\b(internal|intranet|private|admin|metadata)\s+(?:endpoint|url|api|server|service)\s+(?:at|from|via|on)\b
+  - (?i)\b(cloud\s+metadata|ec2\s+metadata|imds|169\.254\.169\.254|instance\s+metadata\s+service)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: SSRF via user-supplied URL in AI agent task detected
+  description: 'Detects Server-Side Request Forgery (SSRF) patterns in user-supplied
+    URLs submitted to AI agents with web access. When users can specify URLs that
+    the AI agent fetches, they can direct the agent to access internal network resources,
+    cloud metadata services (AWS IMDSv1 at 169.254.169.254), private APIs, or administrative
+    endpoints. Kayas et al. (2020) documented SSRF-analogous patterns in UPnP (SSDP
+    discovery exploiting internal network access). Jansen & Grance (2011) identified
+    internal network exposure as a critical cloud security risk. AWS IMDS access via
+    SSRF is a well-documented credential theft vector.
+
+    '
+  remediation: 'Implement URL validation and allowlisting for all AI agent web access.
+    Block requests to private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+    127.0.0.0/8, 169.254.0.0/16). Enforce IMDSv2 with hop limit 1 to prevent SSRF-based
+    metadata access. Apply egress filtering at network level for AI agent infrastructure.
+    Implement OWASP SSRF prevention controls in all agent HTTP client configurations.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-918
+  references:
+  - Kayas et al. (2020) — UPnP-based IoT Security
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-031
+  name: user-identity-spoofing-multiuser-llm
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(i\s+am|this\s+is|speaking\s+as|on\s+behalf\s+of)\s+(the\s+)?(admin|administrator|moderator|operator|owner|super.?user|root|system|developer|staff|employee|manager)\b
+  - (?i)\b(user.?id|userid|user_id|uid|sub(?:ject)?|principal)\s*[=:"'\s]+\s*(admin|0|1|root|superuser|\d{1,3}(?!\d))\b
+  - (?i)\b(my\s+(role|permission|access\s+level|clearance)\s+is\s+(admin|administrator|operator|privileged|elevated|root))\b
+  - (?i)\b(treat\s+(?:me|this\s+user|my\s+requests?)\s+as\s+(?:an?|the)\s+(admin|administrator|operator|privileged\s+user|trusted\s+source))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: User identity spoofing or privilege escalation claim in AI chat detected
+  description: 'Detects user identity spoofing attempts in multi-user AI systems where
+    a user claims administrative, operator, or privileged identity to obtain elevated
+    access or bypass security controls. In multi-user LLM deployments, user role context
+    may be passed in the prompt; attackers who can inject role claims gain unauthorized
+    elevated privileges. Jansen & Grance (2011) identified identity spoofing in cloud
+    multi-tenant environments as a primary access control threat. Pishva (2017) documented
+    authentication bypass enabling unauthorized privilege assumption. Estrella et
+    al. (2021) identified authority impersonation as core to scam design escalation
+    patterns.
+
+    '
+  remediation: 'Enforce cryptographic user identity verification — never rely on user-asserted
+    role claims in prompts. Implement out-of-band role/permission resolution from
+    authenticated identity providers, not prompt content. Apply zero-trust principles:
+    user identity must be verified at the API gateway, not in the LLM context. Reject
+    requests where user input contains privilege assertion patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Pishva (2017) — IoT Security Challenges and Solutions
+- id: MEDUSA-UCP-SCAN-032
+  name: social-engineering-persona-construction
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(create|build|construct|design|develop)\s+(?:a\s+)?(?:fake|false|synthetic|believable|convincing)\s+(persona|profile|identity|character|backstory|legend)\b
+  - (?i)\b(backstory|legend|cover\s+story|fake\s+(?:bio|biography|history|profile))\s+(?:for|to\s+use|to\s+convince|to\s+deceive)\b
+  - (?i)\b(generate|write|create)\s+(?:a\s+)?(?:realistic|authentic.?looking|convincing)\s+(?:fake\s+)?(?:linkedin|twitter|facebook|instagram|social\s+media)\s+(?:profile|bio|account)\b
+  - (?i)\b(social\s+proof|fake\s+review|astroturf|manufactured\s+(consensus|endorsement|credibility))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Social engineering persona construction or fake identity generation pattern
+    detected
+  description: 'Detects requests to construct fake personas, synthetic identities,
+    or social engineering backstories via AI. Brundage et al. (2018) identified AI-generated
+    synthetic personas as a key enabler of influence operations and spear phishing
+    — AI-crafted personas are indistinguishable from real users at scale, dramatically
+    lowering the cost of identity deception attacks. Olteanu et al. (2019) documented
+    how social data biases enable highly realistic synthetic persona construction
+    from scraped training data. Estrella et al. (2021) identified persona authenticity
+    as a core scam design element.
+
+    '
+  remediation: 'Block requests to generate fake personal profiles, cover stories,
+    or synthetic identities. Apply content policy enforcement against persona deception
+    generation. Monitor for patterns of persona construction followed by social engineering
+    content. Implement platform abuse detection for synthetic account creation workflows.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-1021
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+- id: MEDUSA-UCP-SCAN-033
+  name: api-parameter-manipulation-user-controlled
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(temperature|top.?p|max.?tokens|max_tokens|presence.?penalty|frequency.?penalty|stop.?sequence|model|stream)\s*[=:"'\s]+\s*[0-9."'\[\{]
+  - (?i)\b(set|change|modify|override|manipulate)\s+(?:the\s+)?(temperature|model|top_p|max_tokens|system_prompt|stop\s+sequence)\s+(?:parameter|setting|value|to)\b
+  - (?i)\b(use\s+(?:gpt|claude|llama|mistral|gemini|palm|davinci|turbo|opus|sonnet|haiku)\s*[-\s]*(4|3\.5|3|2|1)?\s*(turbo|opus|ultra|pro)?\s*(uncensored|unfiltered|jailbroken|without\s+restrictions?))\b
+  - (?i)\b(bypass\s+(?:content\s+(?:filter|policy|moderation)|safety\s+(?:filter|check|layer))\s+(?:by|via|using|with)\s+(?:setting|changing|modifying)\s+(?:the\s+)?(?:model|temperature|parameter))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  message: API parameter manipulation attempt via user-controlled input detected
+  description: 'Detects attempts to manipulate LLM API parameters (temperature, model
+    selection, max_tokens, stop sequences) via user-controlled inputs, potentially
+    to bypass safety filters or alter model behavior. Users who can influence API
+    call parameters may be able to select uncensored model variants, disable output
+    filtering, or cause resource exhaustion through unbounded token generation. Pishva
+    (2017) documented protocol parameter manipulation as an IoT attack vector; the
+    same pattern applies to LLM API parameter injection. Jansen & Grance (2011) identified
+    API parameter tampering as a cloud service security risk.
+
+    '
+  remediation: 'Enforce server-side API parameter control — never allow user input
+    to directly set LLM API parameters (model, temperature, max_tokens, stop sequences).
+    Apply strict parameter validation and range enforcement. Maintain operator-controlled
+    parameter configuration independent of user-supplied values. Monitor for parameter
+    injection in user inputs.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-034
+  name: webhook-callback-injection-user-endpoint
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(webhook|callback|notify(?:_url)?|notification.?url|redirect.?url|callback.?url|return.?url)\s*[=:"'\s]+\s*https?://(?!(?:localhost|127\.0\.0\.1))
+  - (?i)\b(send\s+(?:the\s+)?(?:result|response|output|data|notification)\s+to\s+(?:my|this|the\s+following)\s+(?:webhook|endpoint|url|server|callback))\b
+  - (?i)\b(post(?:back)?|forward|relay|proxy)\s+(?:the\s+)?(?:result|response|output|data|ai\s+output)\s+to\s+(?:https?://|this\s+(?:url|endpoint|server))\b
+  - (?i)\b(ngrok|requestbin|hookbin|pipedream|webhook\.site|beeceptor)\s+(?:url|endpoint|tunnel)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  message: Webhook or callback URL injection via user-supplied endpoint detected
+  description: 'Detects user-supplied webhook or callback URL injection in AI agent
+    or application contexts. When users can specify endpoints that receive AI-generated
+    results or notifications, they can redirect sensitive outputs (conversation results,
+    retrieved data, executed action results) to attacker-controlled servers. Kayas
+    et al. (2020) documented SUBSCRIBE callback hijacking in UPnP as an analogous
+    attack — injecting attacker-controlled notification endpoints to intercept event
+    streams. Known testing services (ngrok, requestbin, webhook.site) are commonly
+    used in initial proof-of-concept exfiltration attacks.
+
+    '
+  remediation: 'Enforce strict allowlisting for webhook/callback URLs — only pre-registered,
+    operator-controlled endpoints should receive AI output notifications. Apply cryptographic
+    signing on webhook deliveries for authenticity verification. Block well-known
+    exfiltration testing services (ngrok, requestbin, webhook.site). Never allow user-supplied
+    webhook URLs in production AI agent workflows.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-601
+  references:
+  - Kayas et al. (2020) — UPnP-based IoT Security
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-035
+  name: file-upload-path-traversal-llm-agent
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(\.\.[\/\\]){1,}(?:etc[\/\\]passwd|etc[\/\\]shadow|proc[\/\\]self|windows[\/\\]win\.ini|boot\.ini)
+  - (?i)\b(read|open|load|access|process|analyze)\s+(?:the\s+)?(?:file|document)\s+(?:at\s+|from\s+)?(?:\.\./|\.\\|/etc/|/proc/|C:\\Windows\\)
+  - (?i)(\.\.%2[fF]|\.\.%5[cC]|%2[eE]%2[eE][\/\\%]|\.\.%c0%af|\.\.%c1%9c)
+  - (?i)\b(traverse|path\s+traversal|directory\s+traversal|escape\s+(?:the\s+)?(?:sandbox|jail|chroot|container))\s+(?:via|using|through|with)\s+(?:file|path|filename|upload)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: File path traversal via LLM agent file processing detected
+  description: 'Detects path traversal attack patterns in user-supplied file paths
+    or filenames submitted to AI agent file-processing capabilities. When AI agents
+    can read files from user-specified paths, malicious path specifications (../../etc/passwd,
+    URL-encoded traversals) can escape the intended directory and access sensitive
+    system files. Pishva (2017) documented file access bypass as a critical IoT vulnerability
+    class. Sarker et al. (2020) identified file system attacks as a primary ML pipeline
+    security concern in deployed AI systems with file access.
+
+    '
+  remediation: 'Implement path canonicalization and validation for all user-supplied
+    file paths. Restrict AI agent file access to explicit sandbox directories using
+    chroot or container isolation. Apply allowlisting for acceptable file extensions
+    and locations. Reject any path containing traversal sequences (../, ..\). Implement
+    filesystem access logging and anomaly detection for AI agent file operations.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-22
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-036
+  name: environment-variable-injection-via-prompt
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(print|output|show|display|echo|reveal|read|access)\s+(?:the\s+)?(?:environment\s+variables?|env\s+vars?|\$ENV|os\.environ|process\.env)\b
+  - (?i)(\$\{[A-Z_]{2,}\}|%[A-Z_]{2,}%|\$[A-Z_]{2,}(?=\s|$|[^A-Z_]))
+  - (?i)\b(api.?key|secret.?key|database.?url|db.?password|openai.?api.?key|anthropic.?api.?key|aws.?access|aws.?secret)\s*[=:]\s*\$(?:ENV|\{ENV\}|[A-Z_]{2,})
+  - (?i)\b(inject|set|override|modify)\s+(?:the\s+)?(?:environment\s+variable|env\s+var|\$PATH|\$HOME|\$SHELL)\s+(?:to|with|as)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.sh'
+  - '*.env'
+  message: Environment variable injection or exfiltration via AI prompt detected
+  description: 'Detects attempts to access, expose, or inject environment variables
+    through AI agent prompts. Environment variables commonly contain API keys, database
+    credentials, cloud access keys (AWS_ACCESS_KEY_ID, OPENAI_API_KEY, DATABASE_URL),
+    and other secrets. When AI agents execute code or shell commands, user-controlled
+    prompts can exfiltrate environment variable contents. Pishva (2017) identified
+    credential storage in IoT device environment as a critical attack surface. Jansen
+    & Grance (2011) identified credential exposure in cloud environments as a primary
+    security risk. Environment variable injection can also modify PATH to hijack command
+    execution.
+
+    '
+  remediation: 'Never expose environment variables to AI agent prompts or user-visible
+    outputs. Apply strict input validation blocking environment variable syntax ($VAR,
+    ${VAR}, %VAR%). Use secrets management systems (Vault, AWS Secrets Manager) rather
+    than environment variables for production AI deployments. Apply output filtering
+    to detect env var disclosure. Sandbox AI agent execution environments to prevent
+    env var access.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-526
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-037
+  name: prompt-leakage-via-translation-encoding
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(translate|convert|transform|rewrite|paraphrase)\s+(?:your\s+)?(?:system\s+prompt|instructions?|rules?|initial\s+message|guidelines?)\s+(?:into|to|in)\s+(?:french|spanish|german|chinese|japanese|arabic|base64|hex|rot13|pig\s+latin|morse|binary|code)\b
+  - (?i)\b(say|write|output|tell\s+me)\s+(?:your\s+)?(?:system\s+prompt|instructions?|rules?|guidelines?)\s+(?:in|as|using)\s+(?:a\s+)?(?:different\s+language|another\s+language|code|cipher|poem|song|haiku|story|rhyme)\b
+  - (?i)\b(encode|obfuscate|cipher|scramble)\s+(?:your\s+)?(?:system\s+prompt|instructions?|rules?|constraints?)\s+(?:using|with|as)\b
+  - (?i)\b(what\s+would\s+(?:your\s+)?(?:system\s+prompt|instructions?|rules?)\s+(?:look\s+like|say|be)\s+(?:in|as|if\s+(?:it\s+were|written\s+in)))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: System prompt extraction via translation or encoding obfuscation detected
+  description: 'Detects obfuscated system prompt extraction attempts that use translation,
+    encoding, or format transformation requests to extract system prompt content indirectly.
+    This bypasses naive keyword matching on "repeat your instructions" by requesting
+    the same content in a different form. Brundage et al. (2018) identified obfuscated
+    information extraction as an advancing AI attack technique. Wynsberghe & Robbins
+    (2018) noted that AI moral constraints are often frame-dependent and fail under
+    alternative framings. Maps to OWASP LLM07:2025 (System Prompt Leakage).
+
+    '
+  remediation: 'Implement semantic intent classification for system prompt extraction
+    attempts rather than surface-level keyword matching. Apply content consistency
+    testing — if translated/encoded output matches system prompt semantics, flag it.
+    Enforce system prompt non-disclosure as an invariant constraint independent of
+    output format.
+
+    '
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Wynsberghe & Robbins (2018) — Critiquing the Reasons for Making Artificial Moral
+    Agents
+- id: MEDUSA-UCP-SCAN-038
+  name: user-supplied-code-execution-injection
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b(exec|eval|compile|subprocess|os\.system|os\.popen|popen|shell_exec|passthru|system\(|proc_open)\s*\(
+  - (?i)\b(__import__|importlib\.import_module|compile\(|exec\(|eval\()\s*\(
+  - (?i)\b(run|execute|eval(?:uate)?|interpret)\s+(?:this|the\s+following|my|user.?(?:provided|supplied|given))\s+(?:code|script|python|javascript|bash|shell|command)\b
+  - (?i)\b(code.?injection|remote.?code.?execution|rce|arbitrary.?code.?execution)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'CRITICAL: User-supplied code execution injection via AI prompt detected'
+  description: 'Detects attempts to inject executable code via AI prompts, particularly
+    targeting AI coding assistants, code interpreters (Python REPL, Jupyter), and
+    agentic systems with code execution capabilities. When users can influence code
+    that gets executed by AI tools, injection of exec(), eval(), subprocess, or shell
+    commands can achieve remote code execution on the AI infrastructure. Sarker et
+    al. (2020) identified code injection as the highest-severity ML pipeline attack.
+    Kayas et al. (2020) documented command injection as achieving complete device
+    compromise in analogous protocol attack contexts.
+
+    '
+  remediation: 'Sandbox all AI-executed code in isolated environments (Docker, WebAssembly,
+    gVisor). Apply strict code execution allow-listing — block exec(), eval(), subprocess,
+    os.system. Never execute user-supplied code strings directly. Apply static analysis
+    before executing AI-generated code. Implement network egress restrictions in code
+    execution sandboxes. Apply resource limits (CPU, memory, time) on all AI-executed
+    code.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-039
+  name: llm-dos-resource-exhaustion-via-prompt
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(generate|write|produce|create|output)\s+(?:an?\s+)?(?:infinite|endless|very\s+long|extremely\s+long|maximum.?length|100000|1000000|\d{6,})\s+(?:response|text|list|story|essay|words?|characters?|tokens?)\b
+  - (?i)\b(repeat|loop|recurse|iterate)\s+(?:this|the\s+following|forever|infinitely|1000+\s+times|\d{4,}\s+times)\b
+  - (?i)\b(recursive|infinitely\s+(?:nested|recursive|repeating)|self.?referential)\s+(?:prompt|instruction|question|task|loop)\b
+  - (?i)\b(max(?:imum)?\s+tokens?|token\s+limit|context\s+(?:limit|maximum|cap))\s+(?:bypass|exceed|overflow|exhaust|consume\s+all)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: LLM denial-of-service resource exhaustion via prompt detected
+  description: 'Detects prompt patterns designed to cause denial of service through
+    resource exhaustion in LLM systems — requesting infinite outputs, unbounded recursion,
+    or maximum token generation to degrade service availability or generate excessive
+    API costs. Jansen & Grance (2011) identified resource exhaustion as a primary
+    cloud service attack vector. Pishva (2017) documented DDoS (1.2 Tbps Mirai botnet)
+    as an IoT resource exhaustion attack; LLM DoS via prompt is the application-layer
+    equivalent. Unbounded generation requests can cause high latency, increased API
+    costs, and cascading failures in downstream AI applications.
+
+    '
+  remediation: 'Implement hard output token limits per request. Apply input complexity
+    analysis to detect recursive or unbounded generation requests. Enforce rate limiting
+    on token generation per user/session. Implement request timeout and automatic
+    cancellation for long-running generation tasks. Monitor token consumption anomalies
+    per API key.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+  references:
+  - Jansen & Grance (2011) — NIST SP 800-144
+  - Pishva (2017) — IoT Security Challenges and Solutions
+- id: MEDUSA-UCP-SCAN-040
+  name: prompt-injection-via-ocr-image-input
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(image|photo|screenshot|scan|picture)\s+(?:contains?|(?:with|including|showing)\s+(?:text|instructions?|prompt|command))
+  - (?i)\b(read\s+(?:the\s+)?(?:text|instructions?|content)\s+(?:from|in|on)\s+(?:the\s+)?(?:image|photo|screenshot|attachment|file))\b
+  - (?i)\b(ocr|optical\s+character\s+recognition|image.?to.?text|extract\s+text\s+from\s+image)\b
+  - (?i)\b(embedded\s+(?:in|within)\s+(?:image|photo|screenshot)\s+(?:instruction|prompt|command|text))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Prompt injection via user-submitted image OCR content detected
+  description: 'Detects potential prompt injection via images submitted to multimodal
+    AI systems. Attackers embed hidden or visible text instructions in images (steganography,
+    white-on-white text, small font text) that multimodal LLMs process via OCR, injecting
+    instructions that the AI then follows as if from a trusted source. This is an
+    emerging attack vector documented post-2022 in the context of GPT-4V and Claude''s
+    vision capabilities. Brundage et al. (2018) forecast that new AI modalities would
+    create new injection surfaces. Indirect prompt injection via processed image content
+    bypasses text-level input filtering entirely.
+
+    '
+  remediation: 'Apply independent content classification on OCR-extracted text before
+    including in LLM context. Treat image-extracted text with same security scrutiny
+    as user-supplied text. Implement image steganography detection for high-risk contexts.
+    Apply content moderation to multimodal inputs. Monitor for behavioral changes
+    in AI responses following image processing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-041
+  name: goal-hijacking-agentic-task-manipulation
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(instead\s+of|rather\s+than|before\s+(?:you\s+do|completing|finishing))\s+(?:that|the\s+(?:task|request|original))[,.]?\s+(?:first\s+)?(?:please\s+)?(?:do|complete|execute|run|perform)\b
+  - (?i)\b(primary\s+(?:goal|objective|task|mission|purpose)\s+is\s+(?:now|actually|really|secretly))\b
+  - (?i)\b(your\s+(?:real|actual|true|hidden|secret)\s+(?:goal|objective|task|mission|purpose|instruction)\s+is)\b
+  - (?i)\b(abandon|cancel|abort|stop|drop|ignore)\s+(?:the\s+)?(?:current|original|previous|prior)\s+(?:task|goal|objective|request|instruction)\s+and\s+(?:instead|now)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Goal hijacking or agentic task manipulation attempt detected
+  description: 'Detects goal hijacking attacks targeting AI agent systems — injecting
+    new objectives that override the agent''s original task. In agentic LLM frameworks
+    (AutoGPT, LangChain agents, Claude tools), goal hijacking causes the agent to
+    abandon legitimate work and execute adversary-controlled objectives, potentially
+    including data exfiltration, unauthorized actions, or resource abuse. Brundage
+    et al. (2018) identified autonomous AI goal manipulation as an emerging threat.
+    Kayas et al. (2020) documented analogous command override in UPnP action injection
+    that caused devices to perform unintended operations despite being given a different
+    original command.
+
+    '
+  remediation: 'Implement goal consistency checking in multi-step AI agent frameworks.
+    Apply task integrity verification — validate that each agent action step advances
+    the original stated goal. Enforce human-in-the-loop approval for unexpected goal
+    changes. Monitor for goal drift in long-running AI agent tasks. Apply principle
+    of least privilege for agent action scope.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-042
+  name: prompt-chaining-multi-step-bypass
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(step\s+[123456789]\s+of\s+\d+|part\s+[123456789]\s+of\s+\d+|phase\s+[123456789])\s*[:\-]\s*(?!.*meeting|.*project|.*plan)
+  - (?i)\b(first\s+(?:ask|tell|instruct|get)\s+(?:the\s+)?(?:ai|bot|assistant|llm|model)\s+to\s+)(?!.*help)
+  - (?i)\b(jailbreak(?:ing)?|bypass(?:ing)?|circumvent(?:ing)?)\s+(?:the\s+)?(?:ai|llm|model|chatbot|assistant|filter|guardrail|safety)\s+(?:using|via|with|through)\s+(?:multiple|multi.?step|chain|sequential)\b
+  - (?i)\b(chain(?:ing)?|sequence|multi.?turn|multi.?step)\s+(?:prompt|attack|injection|bypass|jailbreak)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Multi-step prompt chaining or sequential jailbreak bypass pattern detected
+  description: 'Detects multi-step prompt chaining attack patterns where attackers
+    decompose a harmful request into multiple individually-innocent steps that collectively
+    achieve the restricted goal. Estrella et al. (2021) documented step-by-step escalation
+    as outperforming single-step attacks in scam design, which directly maps to multi-turn
+    LLM jailbreaking. Acquisti et al. (2017) identified commitment escalation as exploiting
+    cognitive commitment bias — each successful step creates psychological (and in
+    LLMs, contextual) commitment to the next. Research shows that multi-turn prompt
+    chaining achieves high success rates against models resistant to single-turn attacks.
+
+    '
+  remediation: 'Implement cross-turn risk accumulation scoring in conversation state.
+    Apply holistic conversation context evaluation rather than per-turn evaluation.
+    Monitor for step-by-step construction of sensitive topics across conversation
+    turns. Enforce context-aware content policies that consider the full conversation
+    arc. Apply session-level rate limiting on safety-sensitive topic engagement.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+- id: MEDUSA-UCP-SCAN-043
+  name: privilege-escalation-via-tool-call-injection
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b(call|invoke|execute|use|run)\s+(?:the\s+)?(?:admin|privileged|elevated|internal|system|root|superuser)\s+(?:tool|function|api|endpoint|command|action)\b
+  - (?i)\b(with\s+(?:admin|elevated|privileged|root|system)\s+(?:permissions?|privileges?|access|rights?|capabilities))\b
+  - (?i)\b(escalate|elevate|upgrade|promote)\s+(?:my|this|the\s+current)\s+(?:permissions?|privileges?|access\s+level|role)\b
+  - (?i)\b(use\s+(?:sudo|su|runas|doas)\s+(?:to|and)|with\s+(?:sudo|root|administrator)\s+(?:privileges?|access|rights?))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'CRITICAL: Privilege escalation via tool call injection in AI agent detected'
+  description: 'Detects privilege escalation attempts via AI agent tool call injection
+    — users requesting the AI agent invoke privileged tools, admin APIs, or elevated-permission
+    functions beyond their authorization scope. In LLM function-calling frameworks,
+    privilege escalation can occur when tool descriptions are manipulated or when
+    users falsely claim authorization for privileged tool invocations. Pishva (2017)
+    documented unauthorized command execution enabling full device compromise. Kayas
+    et al. (2020) documented UPnP action command injection achieving unauthorized
+    privileged operations at scale.
+
+    '
+  remediation: 'Enforce tool authorization based on cryptographically-verified user
+    identity, not on prompt content. Apply permission scoping at the tool registry
+    level — each user/session has a fixed set of authorized tools that cannot be expanded
+    through conversation. Implement audit logging for all privileged tool invocations.
+    Apply separation of duties: privileged tools require out-of-band authorization.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-269
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-044
+  name: training-data-poisoning-via-user-feedback
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(train(?:ing)?|fine.?tun(?:e|ing)|rlhf|reinforcement\s+learning|reward\s+model)\s+(?:on|from|using|with)\s+(?:this|my|user.?(?:provided|supplied)|malicious|adversarial)\s+(?:data|feedback|example|label|response)\b
+  - (?i)\b(poison(?:ing)?|corrupt(?:ing)?|manipulate?)\s+(?:the\s+)?(?:training\s+data|model|weights?|fine.?tune|rlhf\s+signal|reward\s+signal|feedback\s+signal)\b
+  - (?i)\b(provide\s+(?:incorrect|false|misleading|adversarial)\s+feedback\s+to\s+(?:train|teach|manipulate|bias)\s+(?:the\s+)?(?:model|ai|llm))\b
+  - (?i)\b(backdoor|trojan|sleeper\s+(?:agent|attack))\s+(?:in|via|through|using)\s+(?:training|fine.?tuning|rlhf|feedback|data)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Training data poisoning or RLHF manipulation via user feedback detected
+  description: 'Detects attempts to poison AI training data or RLHF/feedback signals
+    through adversarial user feedback or data injection. When user feedback influences
+    model fine-tuning or reward model training, adversaries can systematically provide
+    misleading feedback to bias model behavior, implant backdoor triggers, or degrade
+    safety properties. Brundage et al. (2018) identified training data poisoning as
+    a primary AI security threat. Olteanu et al. (2019) documented how biased data
+    systematically corrupts ML model behavior. Sarker et al. (2020) identified adversarial
+    data injection as a high-impact ML pipeline attack.
+
+    '
+  remediation: 'Implement anomaly detection on user feedback distributions to identify
+    coordinated poisoning campaigns. Apply human review for feedback that would significantly
+    alter safety-relevant model behaviors. Use diverse, independently-sourced feedback
+    datasets. Implement feedback provenance tracking. Apply differential privacy to
+    feedback aggregation to limit individual poisoning impact.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Olteanu et al. (2019) — Social Data Biases
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-045
+  name: cognitive-bias-framing-attack-llm
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(everyone\s+(?:agrees?|knows?|says?|believes?|thinks?)\s+(?:that|it's\s+(?:ok|acceptable|fine|normal|common)))
+  - (?i)\b(most\s+(?:people|experts?|researchers?|users?)\s+(?:would|do|agree|say)\s+(?:that|it's))
+  - (?i)\b(it(?:'s|\s+is)\s+(?:well.known|established|common\s+knowledge|widely\s+accepted|widely\s+known)\s+that)\b
+  - (?i)\b(since\s+(?:you|the\s+(?:ai|model|assistant))\s+(?:already\s+)?(?:know|agreed|said|confirmed|established)\s+that)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Cognitive bias exploitation framing attack in AI chat detected
+  description: 'Detects social engineering framing attacks that exploit cognitive
+    biases (bandwagon effect, false consensus, authority appeal, anchoring) in AI
+    chat interactions. Acquisti et al. (2017) documented extensive evidence that framing
+    effects produce 30-60% variation in security compliance decisions, and that AI
+    systems trained on human-generated text inherit these susceptibilities. Attackers
+    use false consensus framing ("everyone knows", "most experts agree") to make harmful
+    requests seem normalized, and false prior agreement framing ("since you already
+    agreed") to anchor the AI to non-existent commitments. Estrella et al. (2021)
+    documented social proof manipulation as a core scam design element.
+
+    '
+  remediation: 'Train AI systems on adversarial social engineering examples to improve
+    resistance to consensus framing. Implement response validation that evaluates
+    actual content requested regardless of social framing. Monitor for pattern clusters
+    of bias exploitation language in user inputs. Apply constitutional AI constraints
+    on false consensus reasoning.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+- id: MEDUSA-UCP-SCAN-046
+  name: indirect-injection-retrieved-web-content
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(search|browse|look\s+up|find|retrieve|fetch)\s+(?:information\s+(?:about|on)|(?:the\s+)?(?:article|page|site|content|result)\s+(?:about|on))\b
+  - (?i)\b(rag|retrieval.?augmented|vector\s+(?:store|database|db|search)|semantic\s+search|embedding\s+(?:search|retrieval))\b
+  - (?i)\b(retrieved|fetched|found|downloaded)\s+(?:content|document|page|article|result)\s+(?:says?|states?|instructs?|tells?\s+(?:you|the\s+ai)|contains?)\b
+  - (?i)\b(based\s+on\s+(?:the\s+)?(?:retrieved|fetched|found|downloaded|searched)\s+(?:document|content|page|result))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Indirect prompt injection via retrieved web content or RAG pipeline detected
+  description: 'Detects indirect prompt injection patterns targeting Retrieval-Augmented
+    Generation (RAG) pipelines. Attackers poison web pages, documents, or vector stores
+    with embedded injection instructions that the AI retrieves and processes as trusted
+    content. When the RAG system injects retrieved content into the LLM context, the
+    attacker''s instructions execute with the trust level of the retrieval system.
+    Brundage et al. (2018) identified data pipeline manipulation as a primary AI security
+    vector. This maps to OWASP LLM01:2025 indirect injection and is particularly insidious
+    as the attack originates in external content, not the user''s direct message.
+
+    '
+  remediation: 'Apply content trust labeling to all retrieved content — clearly mark
+    retrieved documents as untrusted data in the LLM context. Implement RAG content
+    sanitization before injection. Apply semantic classification on retrieved content
+    to detect injection patterns. Enforce strict separation between retrieved data
+    and system instructions in the context window.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-047
+  name: adversarial-suffix-token-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(\b(sure|absolutely|certainly|of\s+course|yes)\b.*\b(here\s+is|here's|here\s+are|here\s+you\s+go)\b)
+  - (?i)([:!\]\)]{3,}\s*(?:here\s+is|sure|yes|absolutely|ok|okay))
+  - (?i)([\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f].*[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f])
+  - (?i)(\b(Assistant|Human|User|System|\[INST\]|\[/INST\]|<\|im_start\|>|<\|im_end\|>|\[SYS\])\s*:)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Adversarial suffix, token injection, or chat template injection detected
+  description: 'Detects adversarial suffix attacks and chat template injection patterns.
+    Adversarial suffixes (strings of special tokens or punctuation) exploit model
+    tokenization vulnerabilities to reliably elicit harmful completions. Chat template
+    injection uses special tokens from model training (e.g., [INST], <|im_start|>,
+    [SYS]) to inject artificial conversation turns or override role boundaries. Pre-filled
+    assistant response injection ("Sure, here is") anchors the model to begin with
+    a compliant response, bypassing refusal behavior. Sarker et al. (2020) identified
+    adversarial input crafting as a primary ML security threat.
+
+    '
+  remediation: 'Filter control characters and special tokens from user inputs before
+    LLM processing. Block chat template special tokens in user-supplied content. Apply
+    input normalization to strip adversarial suffix patterns. Never pre-fill assistant
+    responses with user-supplied content. Implement tokenization-aware input validation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-048
+  name: supply-chain-plugin-tool-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(install|load|add|import|enable|activate)\s+(?:this\s+)?(?:plugin|extension|tool|module|package|library|agent)\s+(?:from\s+)?(?:https?://|this\s+(?:url|source|repository))\b
+  - (?i)\b(third.?party|untrusted|external|unknown)\s+(?:plugin|extension|tool|module|package|agent)\s+(?:with\s+(?:access|permission|capability)|that\s+can)\b
+  - (?i)\b(plugin|tool|extension|agent)\s+(?:manifest|config|schema|definition)\s*[=:"'\s]*(?:https?://|\{)\b
+  - (?i)\b(supply\s+chain|dependency\s+(?:confusion|hijack|poison)|malicious\s+(?:plugin|package|tool))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: Supply chain attack via malicious plugin or tool installation detected
+  description: 'Detects supply chain attack patterns targeting AI plugin/tool ecosystems
+    — attempts to install malicious third-party plugins, tools, or extensions that
+    gain access to AI system capabilities, user data, or conversation context. In
+    LLM plugin frameworks (ChatGPT plugins, Claude MCP tools), malicious plugins can
+    exfiltrate conversation data, inject instructions, or perform unauthorized actions
+    on behalf of the user. Brundage et al. (2018) identified supply chain manipulation
+    as an AI security threat. Jansen & Grance (2011) identified third-party service
+    integration as a cloud supply chain risk.
+
+    '
+  remediation: 'Implement strict plugin/tool allowlisting — only pre-approved, audited
+    tools should be available. Apply code signing and integrity verification for all
+    plugins. Enforce plugin permission scoping with minimal data access. Review plugin
+    manifests for excessive permission requests. Monitor plugin network activity for
+    data exfiltration.
+
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-1357
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-049
+  name: prompt-injection-via-user-file-content
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(summarize|analyze|review|process|read|parse|extract\s+(?:from|information\s+from))\s+(?:this\s+)?(?:uploaded|attached|submitted|provided|given)\s+(?:file|document|pdf|csv|txt|json|xml|html)\b
+  - (?i)\b(the\s+(?:file|document)\s+(?:says?|states?|contains?|includes?)\s+(?:to|that\s+you\s+(?:should|must|need\s+to)|instructions?\s+to))\b
+  - (?i)\b(process\s+(?:the\s+)?(?:user.?(?:provided|supplied|uploaded)|attached|submitted)\s+(?:file|document|content|data)\s+(?:and|then)\s+(?:also|additionally))\b
+  - (?i)\b(file\s+(?:contents?|content)\s+(?:override|replace|change|modify|update)\s+(?:your\s+)?(?:instructions?|behavior|rules?|guidelines?|system\s+prompt))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Prompt injection via user-uploaded file content detected
+  description: 'Detects indirect prompt injection via user-uploaded file content.
+    When AI systems process user-uploaded files (PDFs, documents, CSVs), malicious
+    instructions embedded in the file content can inject into the AI''s context. Unlike
+    direct prompt injection (SCAN-021), this attack vector uses the file processing
+    pipeline as the injection channel. Attackers craft files with hidden instructions
+    in white text, metadata, comment fields, or embedded in legitimate-looking content.
+    Brundage et al. (2018) identified document processing pipelines as attack surfaces
+    for AI manipulation.
+
+    '
+  remediation: 'Apply content security classification on all uploaded file content
+    before LLM processing. Implement file content sandboxing — treat file contents
+    as untrusted data. Apply prompt injection detection to extracted text from uploaded
+    documents. Strip metadata and hidden text fields before document processing. Enforce
+    file type validation and content inspection before processing.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-434
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - OWASP LLM01:2025 — Prompt Injection
+- id: MEDUSA-UCP-SCAN-050
+  name: ai-output-manipulation-for-downstream-injection
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:generate|write|create|produce)\s+(?:a\s+)?(?:response|output|text|message)\s+that\s+(?:will|can|is\s+designed\s+to)\s+(?:be\s+)?(?:injected|inserted|placed|used)\s+(?:into|in|as))\b
+  - (?i)\b(output\s+(?:that|which)\s+(?:will|can)\s+(?:be\s+)?(?:parsed|executed|interpreted|processed)\s+(?:by|as)\s+(?:another|a\s+different|the\s+next|downstream)\s+(?:ai|llm|model|system|agent))\b
+  - (?i)\b(second.?order|cascading|chained|pipeline)\s+(?:prompt\s+)?injection\b
+  - (?i)\b(use\s+(?:this\s+)?(?:output|response|result)\s+(?:as\s+)?(?:input|prompt|context)\s+(?:to|for)\s+(?:another|a\s+different|the\s+next|downstream)\s+(?:ai|llm|model|agent))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Second-order prompt injection for downstream AI pipeline manipulation detected
+  description: 'Detects second-order prompt injection attacks — crafting AI outputs
+    that themselves contain injection payloads designed to attack downstream AI systems
+    or pipelines. In multi-agent or chained LLM architectures, the output of one AI
+    model becomes the input of another; adversaries who control the first model''s
+    output can inject malicious instructions into the second model''s context. Brundage
+    et al. (2018) identified chained AI system manipulation as an emerging threat.
+    Kayas et al. (2020) documented analogous chained command injection in UPnP protocol
+    relay architectures.
+
+    '
+  remediation: 'Apply prompt injection detection to AI outputs before using them as
+    inputs to downstream AI systems. Enforce output sanitization in multi-agent pipelines.
+    Apply content trust boundaries at each agent handoff point. Implement output integrity
+    checking for inter-agent communications. Never treat one AI''s output as a trusted
+    instruction source for another AI without validation.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-051
+  name: llm-insecure-output-html-rendering
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(<script[^>]{0,200}>.*<\/script>|<script[^>]{0,200}\/>)
+  - (?i)(<(?:img|svg|iframe|object|embed|link)[^>]{0,400}(?:src|href|data|action)\s*=\s*["']?(?:javascript:|data:|vbscript:))
+  - (?i)(on(?:load|error|click|mouseover|focus|blur|change|submit|keyup|keydown)\s*=\s*["']?[^"'\s>]{1,200})
+  - (?i)(<(?:form|input)[^>]{0,400}(?:action|method)\s*=\s*["']?(?:javascript:|data:|https?://(?!(?:your-domain|localhost))))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.html'
+  - '*.md'
+  - '*.txt'
+  message: XSS/HTML injection in AI output for web rendering context detected
+  description: 'Detects HTML and JavaScript injection patterns in AI outputs that
+    would execute when rendered in a web browser context. When AI chat interfaces
+    render HTML in AI responses, user-controlled prompt injection can cause the AI
+    to produce XSS payloads that execute in other users'' browsers (stored XSS via
+    shared chat logs) or in the current user''s browser (reflected XSS). This is particularly
+    critical in collaborative AI tools where AI outputs are shared across users. Estrella
+    et al. (2021) documented injection-based fraud as a core online attack pattern.
+    Sarker et al. (2020) identified XSS as a primary web application security threat
+    in AI-assisted applications.
+
+    '
+  remediation: 'Apply HTML entity encoding to all AI-generated output before browser
+    rendering. Implement strict Content Security Policy (CSP) headers preventing inline
+    script execution. Never render AI output as raw HTML without sanitization. Apply
+    XSS filters (DOMPurify) to AI-generated content. Enforce output template escaping.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-79
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+- id: MEDUSA-UCP-SCAN-052
+  name: user-supplied-sql-nosql-injection-ai-context
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)(('|"|--)\s*(or|and)\s+["']?\d+["']?\s*=\s*["']?\d+|'\s*or\s*'1'='1|"\s*or\s*"1"="1)
+  - (?i)\b(union\s+(?:all\s+)?select\s+(?:null|\d+|'[^']{0,50}'|"[^"]{0,50}"))
+  - (?i)\b(drop\s+table|delete\s+from|insert\s+into|update\s+\w+\s+set)\s+(?!.*\btest\b)
+  - (?i)(\$where|\$regex|\$gt|\$lt|\$ne|\$exists|\$or|\$and)\s*["':{]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: SQL or NoSQL injection via user-controlled AI query context detected
+  description: 'Detects SQL and NoSQL injection patterns in user inputs submitted
+    to AI systems that generate or execute database queries. When AI systems with
+    database access (text-to-SQL systems, AI database assistants, RAG systems backed
+    by SQL) include unparameterized user input in generated queries, SQL injection
+    can achieve unauthorized data access, modification, or deletion. Sarker et al.
+    (2020) identified SQL injection as a primary AI application security threat. Jansen
+    & Grance (2011) documented database injection as a critical cloud service risk.
+    NoSQL injection ($where, $regex) targets MongoDB and similar databases used in
+    AI vector stores and conversation history systems.
+
+    '
+  remediation: 'Never include raw user input in database queries. Use parameterized
+    queries or prepared statements for all AI-generated database interactions. Apply
+    ORM-level query validation. Implement database access least privilege for AI systems.
+    Apply WAF rules for SQL/NoSQL injection detection on all AI application endpoints.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-89
+  references:
+  - Sarker et al. (2020) — Cybersecurity Data Science
+  - Jansen & Grance (2011) — NIST SP 800-144
+- id: MEDUSA-UCP-SCAN-053
+  name: model-inversion-training-data-extraction
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(extract|recover|reconstruct|reproduce|retrieve)\s+(?:the\s+)?(?:training\s+(?:data|examples?|samples?)|memorized\s+(?:data|text|content|examples?))\s+(?:from|out\s+of|that\s+(?:you|the\s+(?:model|ai)\s+(?:was\s+)?(?:trained|learned)))\b
+  - (?i)\b(membership\s+inference|training\s+data\s+(?:extraction|leakage|theft)|model\s+inversion)\b
+  - (?i)\b(repeat(?:ing)?|complete|continue|finish)\s+(?:the\s+)?(?:phrase|text|paragraph|passage|excerpt)\s+(?:starting\s+with|beginning\s+with|that\s+starts?)\s+(?:["'].{5,100}["']|the\s+following)\b
+  - (?i)\b(verbatim|word\s+for\s+word|exactly\s+as\s+(?:written|published|appeared|shown))\s+(?:copy|reproduce|repeat|output|generate)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Model inversion or training data extraction attempt detected
+  description: 'Detects model inversion attacks and training data extraction attempts
+    — probing the LLM to reproduce memorized training data including PII, copyrighted
+    content, or sensitive documents. LLMs can memorize and reproduce verbatim text
+    from training data; adversaries use completion and repetition prompts to extract
+    specific memorized content. Olteanu et al. (2019) documented privacy risks from
+    AI systems trained on social data containing private information. Sarker et al.
+    (2020) identified model inversion as a critical ML privacy attack. Maps to OWASP
+    LLM02:2025 (Sensitive Information Disclosure).
+
+    '
+  remediation: 'Implement output de-duplication to prevent verbatim training data
+    reproduction. Apply differential privacy during training to limit memorization.
+    Monitor for long verbatim completion requests as a signal of extraction attempts.
+    Implement canary token detection in training data to identify extraction. Apply
+    membership inference detection controls.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  references:
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-054
+  name: mfa-bypass-via-ai-social-engineering
+  severity: CRITICAL
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:help|assist|guide|tell)\s+me\s+(?:bypass|get\s+around|circumvent|skip|avoid)\s+(?:two.factor|2fa|mfa|multi.factor|one.time\s+password|otp|authenticator))\b
+  - (?i)\b(real.?time\s+phishing|adversary.?in.?the.?middle|aitm|evilginx|modlishka|muraena)\b
+  - (?i)\b((?:steal|intercept|capture)\s+(?:the\s+)?(?:2fa|mfa|otp|totp|authenticator)\s+(?:code|token|session\s+(?:cookie|token)))\b
+  - (?i)\b(convince|persuade|social\s+engineer)\s+(?:the\s+)?(?:user|victim|target)\s+to\s+(?:enter|provide|share|give)\s+(?:the\s+)?(?:2fa|mfa|otp|code|token)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'CRITICAL: MFA bypass via AI social engineering technique detected'
+  description: 'Detects AI-assisted multi-factor authentication (MFA) bypass techniques
+    including real-time phishing proxies (AiTM), social engineering-based OTP extraction,
+    and adversary-in-the-middle frameworks (Evilginx, Modlishka). AI chatbots can
+    be used to conduct real-time social engineering attacks that convince victims
+    to enter MFA codes on attacker-controlled phishing sites, or to directly share
+    OTP codes with the attacker. Estrella et al. (2021) documented urgency-based manipulation
+    as the primary mechanism for time-sensitive MFA extraction. Brundage et al. (2018)
+    identified AI-enabled real-time social engineering as dramatically increasing
+    the success rate of MFA bypass attacks.
+
+    '
+  remediation: 'Block requests to generate MFA bypass guidance. Implement phishing-resistant
+    MFA (FIDO2/passkeys) resistant to real-time phishing. Apply anomaly detection
+    for rapid MFA code entry sequences. Implement session binding that detects mismatched
+    IP/device fingerprints during authentication. Apply human review for AI interactions
+    requesting authentication guidance.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-308
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+- id: MEDUSA-UCP-SCAN-055
+  name: user-controlled-rag-query-poisoning
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(search\s+(?:the\s+)?(?:knowledge\s+base|vector\s+(?:store|database|db)|document\s+store|index)\s+for)\b
+  - (?i)\b(query\s+(?:the\s+)?(?:knowledge\s+base|vector\s+(?:store|database|db)|rag\s+(?:system|pipeline|store)))\b
+  - (?i)\b(retrieve\s+(?:all|every|the\s+(?:most|highest)|maximum)\s+(?:documents?|chunks?|embeddings?|results?|records?))\b
+  - (?i)\b(poison|inject|contaminate|add\s+(?:false|fake|malicious|adversarial))\s+(?:(?:the\s+)?(?:knowledge\s+base|vector\s+(?:store|database)|rag\s+(?:index|pipeline|system)|embeddings?))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: User-controlled RAG query manipulation or knowledge base poisoning detected
+  description: 'Detects attacks targeting Retrieval-Augmented Generation (RAG) systems
+    via user-controlled queries. Users can craft queries designed to retrieve specific
+    poisoned documents from the knowledge base, manipulate embedding-based retrieval
+    to return attacker-chosen content, or directly poison the knowledge base with
+    malicious documents. Olteanu et al. (2019) documented data poisoning as a systematic
+    bias in ML systems trained on social data. Sarker et al. (2020) identified retrieval
+    manipulation as a key ML pipeline attack. RAG query manipulation can cause the
+    AI to present attacker-controlled disinformation as retrieved factual information.
+
+    '
+  remediation: 'Implement query sanitization for RAG systems. Apply access control
+    on knowledge base documents — users should only retrieve documents within their
+    authorization scope. Implement content integrity verification for knowledge base
+    documents. Monitor for anomalous retrieval patterns. Apply adversarial query detection
+    to identify retrieval manipulation attempts.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  references:
+  - Olteanu et al. (2019) — Social Data Biases
+  - Sarker et al. (2020) — Cybersecurity Data Science
+- id: MEDUSA-UCP-SCAN-056
+  name: authority-appeal-compliance-manipulation
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(i\s+am|this\s+is|message\s+from|authorized\s+by|approved\s+by|signed\s+by)\s+(anthropic|openai|google|microsoft|the\s+(?:creator|developer|team|company|organization)\s+(?:of|behind|that\s+(?:made|created|built|trained)))\b
+  - (?i)\b(as\s+(?:your\s+)?(?:creator|developer|trainer|maker|owner|anthropic|openai|google))\s*[,:]?\s*(i\s+(?:authorize|permit|allow|grant|override)|you\s+(?:must|should|are\s+required|need\s+to))\b
+  - (?i)\b(override\s+(?:code|authorization|permission)\s*[:\-]?\s*(?:[A-Z0-9\-]{6,}|[a-f0-9]{8,}))\b
+  - (?i)\b((?:official|authorized|legitimate|verified)\s+(?:anthropic|openai|google|microsoft|company|developer)\s+(?:instruction|directive|command|override|authorization))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Authority impersonation attack claiming AI developer identity detected
+  description: 'Detects authority impersonation attacks where users claim to be the
+    AI model''s developer, creator, or parent company (Anthropic, OpenAI, Google)
+    to obtain elevated compliance from the AI system. This exploits the AI''s training
+    to respect authority figures by falsely claiming the highest possible authority.
+    Estrella et al. (2021) documented authority appeal as a primary compliance manipulation
+    mechanism — authority appeals increase compliance by 40-70% in cited research.
+    Acquisti et al. (2017) confirmed authority framing as a primary cognitive bias
+    exploited in security attacks. Wynsberghe & Robbins (2018) analyzed how AI systems''
+    response to authority creates exploitable compliance gaps.
+
+    '
+  remediation: 'Enforce that AI systems cannot verify user-claimed identity as developers
+    or creators — such claims must be rejected as unverifiable. Train AI systems to
+    maintain consistent behavior regardless of claimed authority. Apply constitutional
+    constraints that no user can claim developer override authority. Monitor for authority
+    impersonation patterns.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+  - Wynsberghe & Robbins (2018) — Critiquing the Reasons for Making Artificial Moral
+    Agents
+- id: MEDUSA-UCP-SCAN-057
+  name: llm-agent-network-reconnaissance
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(scan|enumerate|discover|map|probe|fingerprint)\s+(?:the\s+)?(?:network|hosts?|services?|ports?|endpoints?)\s+(?:on|at|connected\s+to|accessible\s+(?:from|via|through))\b
+  - (?i)\b(nmap|masscan|zmap|shodan|censys)\s+(?:scan|probe|enumerate|search)\b
+  - (?i)\b(list\s+(?:all\s+)?(?:open\s+ports?|running\s+services?|accessible\s+endpoints?|connected\s+devices?|internal\s+(?:hosts?|ips?|servers?)))\b
+  - (?i)\b(network\s+(?:reconnaissance|recon|mapping|enumeration|discovery)\s+(?:via|using|through|from)\s+(?:ai|llm|agent|chatbot|tool))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Network reconnaissance via AI agent or LLM tool access detected
+  description: 'Detects network reconnaissance attempts via AI agent infrastructure
+    — using AI agents with network access to scan, enumerate, or map internal networks.
+    When AI agents operate within corporate networks or cloud environments, users
+    who can direct agent network activity can conduct unauthorized internal reconnaissance.
+    Pishva (2017) documented network scanning as the precursor to the Mirai botnet
+    compromise of 600,000+ devices. Kayas et al. (2020) documented network service
+    enumeration as the first stage of UPnP exploitation. AI-mediated network reconnaissance
+    is harder to detect than direct scanning tools.
+
+    '
+  remediation: 'Restrict AI agent network access to explicitly approved endpoints
+    only. Apply egress filtering to prevent AI agents from accessing arbitrary network
+    addresses. Monitor AI agent network activity for scanning patterns. Implement
+    network segmentation isolating AI agent infrastructure. Apply agent action auditing
+    with human review for network-touching operations.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+  references:
+  - Pishva (2017) — IoT Security Challenges and Solutions
+  - Kayas et al. (2020) — UPnP-based IoT Security
+- id: MEDUSA-UCP-SCAN-058
+  name: user-gaslighting-false-context-injection
+  severity: MEDIUM
+  category: ucp_security
+  patterns:
+  - (?i)\b(you\s+(?:already|previously|earlier)\s+(?:agreed|confirmed|said|told\s+me|established|promised|decided)\s+(?:that|to|you\s+would)\s+(?!not))\b
+  - (?i)\b(that(?:'s|\s+is)\s+(?:not|incorrect|wrong|false)\s+what\s+(?:you|the\s+(?:ai|assistant|bot))\s+(?:said|told\s+me|meant|intended))\b
+  - (?i)\b(you(?:'re|\s+are)\s+(?:misremembering|wrong|confused|mistaken)\s*[,.]?\s*(?:you|earlier|i\s+asked|the\s+previous))\b
+  - (?i)\b(the\s+(?:conversation|chat|transcript)\s+(?:clearly|obviously|shows?|proves?|demonstrates?)\s+(?:that\s+you|you\s+said|you\s+agreed|you\s+promised))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: User gaslighting or false context injection pattern in AI conversation
+    detected
+  description: 'Detects gaslighting attacks in AI conversations — users asserting
+    false prior AI statements or fabricating conversation history to manipulate the
+    AI''s context understanding. This is a sophisticated variant of conversation history
+    injection (SCAN-007) that uses confident, authoritative assertion of false context
+    rather than direct injection. Estrella et al. (2021) documented false commitment
+    citation and denial of prior agreements as manipulation tactics in multi-step
+    scam execution. Acquisti et al. (2017) identified anchoring bias exploitation
+    as enabling false context to disproportionately influence subsequent AI reasoning.
+
+    '
+  remediation: 'Implement server-side conversation state verification — AI systems
+    should verify claimed prior statements against server-stored conversation logs.
+    Apply confidence tracking for AI factual statements across turns. Implement conversation
+    integrity logging to detect fabricated context claims. Monitor for gaslighting
+    patterns as precursors to escalated injection attacks.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  references:
+  - 'Estrella et al. (2021) — Scam Design: The Anatomy of Online Products & Services'
+  - Acquisti et al. (2017) — Nudges for Privacy and Security
+- id: MEDUSA-UCP-SCAN-059
+  name: ai-assisted-doxxing-personal-info-aggregation
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b(find|locate|identify|discover|look\s+up|research|aggregate)\s+(?:the\s+)?(?:home\s+address|phone\s+number|email|workplace|employer|daily\s+(?:routine|schedule))\s+(?:of|for)\s+(?:[A-Z][a-z]+\s+){1,3}[A-Z][a-z]+\b
+  - (?i)\b(doxx|dox(?:ing)?|find\s+someone(?:'s)?\s+(?:personal|private|real)\s+(?:information|info|address|identity))\b
+  - (?i)\b(aggregate|compile|combine|cross.reference)\s+(?:public|social\s+media|online)\s+(?:information|data|posts?|profiles?)\s+(?:to\s+(?:find|identify|locate|build\s+a\s+profile\s+on)|about)\b
+  - (?i)\b(real\s+(?:identity|name|address|location)\s+(?:of|for|behind)\s+(?:username|handle|pseudonym|account|user))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: AI-assisted doxxing or personal information aggregation pattern detected
+  description: 'Detects AI-assisted doxxing — using AI to aggregate publicly available
+    information to identify, locate, or profile individuals without their consent.
+    AI systems dramatically lower the cost and skill barrier for doxxing by automating
+    OSINT aggregation across multiple data sources. Brundage et al. (2018) identified
+    AI-powered OSINT as a key capability for stalking, harassment, and targeted social
+    engineering. Olteanu et al. (2019) documented how social data aggregation enables
+    de-anonymization of individuals through combined weak identifiers. Maps to OWASP
+    LLM02:2025 (Sensitive Information Disclosure).
+
+    '
+  remediation: 'Block requests to aggregate personal identifying information about
+    specific named individuals. Apply privacy-preserving content policies against
+    doxxing workflows. Implement rate limiting on person-specific information queries.
+    Monitor for patterns of information aggregation about specific targets. Apply
+    differential privacy principles to person-specific queries.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Olteanu et al. (2019) — Social Data Biases, Methodological Pitfalls, and Ethical
+    Boundaries
+- id: MEDUSA-UCP-SCAN-060
+  name: llm-alignment-bypass-via-language-switching
+  severity: HIGH
+  category: ucp_security
+  patterns:
+  - (?i)\b((?:ask|answer|respond|reply|say|write|output|tell\s+me)\s+(?:(?:the\s+)?(?:same\s+thing|this|that|it|the\s+(?:question|request|above)))?\s+in\s+(?:chinese|mandarin|arabic|russian|hindi|japanese|korean|farsi|persian|hebrew|turkish|swahili|latin|pig\s+latin|morse\s+code))\b
+  - (?i)\b(\b(?:maintenant|ahora|jetzt|ora|maintenant|теперь|现在|今)\b.{0,100}\b(?:ignore|forget|bypass|override)\b)
+  - (?i)(\b(?:translate|say|write)\b.{0,50}\b(?:restricted|forbidden|blocked|censored|filtered)\b.{0,50}\b(?:in|into|to)\b.{0,30}\b(?:french|spanish|german|chinese|arabic|russian)\b)
+  - (?i)\b(respond\s+only\s+in\s+(?:chinese|arabic|russian|hindi|japanese|korean|persian|turkish|swahili)\s+(?:and|while)\s+(?:ignoring|disregarding|bypassing|without|forgetting))\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Language-switching alignment bypass attempt detected
+  description: 'Detects attempts to bypass LLM safety alignment by switching languages
+    — requesting harmful content in a non-English language where the model''s safety
+    training may be weaker or where content filters may not apply. Research shows
+    LLMs often exhibit weaker safety alignment in low-resource languages, making language
+    switching an effective bypass technique for some models. Brundage et al. (2018)
+    identified alignment bypass via alternative encodings/formats as an advancing
+    AI attack technique. Sarker et al. (2020) identified adversarial input transformation
+    (including language switching) as a key ML safety bypass mechanism.
+
+    '
+  remediation: 'Implement language-agnostic safety classifiers that evaluate semantic
+    intent rather than surface language. Apply safety evaluation in the user''s requested
+    language rather than after translation. Ensure multilingual safety training coverage
+    for all supported languages. Monitor for sudden language switching in user conversations
+    as a potential bypass signal.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  references:
+  - Brundage et al. (2018) — The Malicious Use of Artificial Intelligence
+  - Sarker et al. (2020) — Cybersecurity Data Science

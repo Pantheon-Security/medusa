@@ -1,0 +1,130 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-PI-SCAN-096
+  name: visual-prompt-injection-figstep-typography
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)\bfigstep\b
+  - (?i)\b(?:visual|image|figure)[_\s]prompt[_\s]inject
+  - (?i)\b(?:typography|font|glyph)[_\s](?:based|encoded)[_\s](?:jailbreak|inject|bypass)
+  - (?i)\binstructions?\s+(?:embedded|encoded|hidden)\s+(?:in|within|inside)\s+(?:image|figure|chart|diagram)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.html'
+  - '*.md'
+  - '*.json'
+  message: 'Visual Prompt Injection: FigStep-style instructions embedded in images or visual content detected'
+  description: 'Detects FigStep-style visual prompt injection where harmful instructions are embedded in images as typography
+    or visual text, bypassing text-based safety filters in multimodal LLMs. (Gong et al. 2023 - FigStep: Jailbreaking LVLMs
+    via Typographic Visual Prompts)'
+  remediation: Apply OCR-based content scanning on all image inputs to multimodal LLMs. Implement visual instruction detection.
+    Treat image-embedded text with same scrutiny as direct text inputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-PI-SCAN-097
+  name: structured-data-field-injection-csv-json-xml
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)\b(?:csv|tsv)[_\s](?:field|cell|row|column)\s*(?:inject|poison|tamper|malicious)
+  - (?i)\bjson[_\s](?:field|value|key)[_\s](?:inject|prompt[_\s]inject|llm[_\s]attack)
+  - (?i)\bxml[_\s](?:element|attribute|node|field)[_\s](?:inject|prompt[_\s]inject|pi\b)
+  - (?i)\b(?:formula|cell)[_\s]inject.*?(?:csv|spreadsheet|excel|xls)
+  - (?i)DDE\s*(?:attack|inject|exploit).*?(?:excel|csv|spreadsheet|office)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.csv'
+  - '*.json'
+  - '*.xml'
+  - '*.yaml'
+  message: 'Structured Data Injection: prompt injection embedded in CSV/JSON/XML fields processed by LLM detected'
+  description: Detects prompt injection attacks targeting structured data fields (CSV, JSON, XML, spreadsheet) that are processed
+    by LLMs. Attackers embed instructions in data fields that appear benign to parsers but are executed as LLM instructions.
+    (Willison 2022 - Prompt Injection; Greshake et al. 2023 - Not What You've Signed Up For)
+  remediation: Apply prompt injection scanning to all structured data fields before LLM ingestion. Implement field-type validation.
+    Use structured output parsers that enforce schema constraints before LLM processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-PI-SCAN-098
+  name: latex-injection-command-execution-exfiltration
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)\\input\s*\{.*?(?:\.\.[\\/]|/etc/|/proc/|~[\\/]|\$(?:HOME|USER|PATH))
+  - (?i)\\(?:immediate\s+)?\\write18\s*\{
+  - (?i)\\(?:catcode|def|newcommand).*?(?:\\write|\\input|\\include).*?(?:malicious|inject|exfil|shell|exec)
+  - (?i)\blatex[_\s](?:inject|command[_\s]exec|exfiltrat|render[_\s]attack)
+  - (?i)\\(?:href|url)\s*\{(?:http|ftp|file).*?\$\{?(?:env|HOME|USER|SECRET|TOKEN|API)
+  file_types:
+  - '*.tex'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+  message: 'LaTeX Injection: malicious LaTeX commands for file inclusion, shell execution, or data exfiltration detected'
+  description: Detects LaTeX injection attacks that exploit \write18, \input, or \href commands to execute shell commands,
+    read local files, or exfiltrate data when LaTeX is rendered server-side or processed by LLM document pipelines. (Papernot
+    et al. - LaTeX Injection; Greshake et al. 2023)
+  remediation: Disable \write18 and shell-escape in all LaTeX rendering pipelines. Sanitize \input and \include paths. Use
+    restricted LaTeX mode (--no-shell-escape). Apply output encoding before rendering.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+- id: MEDUSA-PI-SCAN-099
+  name: markdown-rendering-exfiltration-link-injection
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)\!\[.*?\]\(https?://[^)]*?\$\{?(?:env|secret|token|api[_\s]?key|password|credential)
+  - (?i)\[.*?\]\(https?://[^)]*?(?:webhook\.site|requestbin|burpcollaborator|ngrok\.io|localhost)[^)]*?\?
+  - (?i)\bmarkdown[_\s]render.*?(?:exfil|data[_\s]leak|inject|pixel[_\s]track)
+  - (?i)<img\s+src=["']https?://[^"']*?\$(?:USER|HOME|SESSION|TOKEN|SECRET|API)
+  - (?i)\bpixel[_\s]tracking.*?(?:llm|ai|agent|chatbot)
+  file_types:
+  - '*.md'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.html'
+  - '*.txt'
+  - '*.json'
+  message: 'Markdown Rendering Exfiltration: LLM-rendered markdown containing data-leaking URLs or tracking pixels detected'
+  description: Detects prompt injection attacks that exploit markdown auto-rendering to exfiltrate data via URL-encoded secrets
+    in image src or link href attributes when rendered in chat UIs. Classic PI-EXFIL vector. (Greshake et al. 2023; Perez
+    & Ribeiro 2022 - Ignore Previous Prompt)
+  remediation: Disable automatic link/image rendering in LLM output displays. Apply CSP headers. Sanitize all URLs in LLM
+    output before rendering. Block outbound requests to attacker-controlled domains.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-PI-SCAN-100
+  name: conditional-context-prompt-injection-trigger
+  severity: HIGH
+  category: prompt_injection
+  patterns:
+  - (?i)\bif\s+(?:you|the\s+(?:model|ai|assistant))\s+(?:are|is)\s+(?:currently\s+)?(?:processing|handling|working\s+on)\b
+  - (?i)\b(?:only|when)\s+(?:if|when)\s+(?:the\s+)?(?:date|time|user|context|session|model)\s+(?:is|equals|matches|contains)
+  - (?i)\bconditional[_\s](?:inject|trigger|payload|activation)\b
+  - (?i)\blatent[_\s](?:inject|trigger).*?(?:activat|execut|trigger).*?(?:condition|context|keyword|date|time)
+  - (?i)\b(?:sleeper|dormant|delayed)[_\s](?:prompt|inject|payload|instruction)\s+(?:trigger|condition|activat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  message: 'Conditional Prompt Injection: context-triggered or time/condition-based sleeper injection pattern detected'
+  description: Detects conditional or latent prompt injection attacks (LPCI-style) that embed instructions which only execute
+    when specific conditions are met (date, time, user context, model state), making them harder to detect in static analysis.
+    (Bagdasaryan et al. 2024 - LPCI; Yi et al. 2023 - Benchmarking and Defending)
+  remediation: Scan all stored and retrieved content for conditional instruction patterns. Apply context-independent injection
+    detection. Treat conditional logic in user/document content as potential injection. Use LPCI-specific defense patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-913

@@ -488,10 +488,14 @@ class FalsePositiveFilter:
 
         best_result = FilterResult()
 
-        for fp_pattern in self.KNOWN_FP_PATTERNS:
-            # Check scanner match
-            if fp_pattern.scanner and fp_pattern.scanner != scanner:
-                continue
+        # Use pre-bucketed dict: only check patterns for this scanner + universal patterns.
+        # Avoids iterating all 514 patterns per finding (reduces to ~30-50 candidates).
+        candidates = (
+            self._FP_BY_SCANNER.get(scanner, []) +
+            self._FP_BY_SCANNER.get('_any_', [])
+        )
+
+        for fp_pattern in candidates:
 
             # Skip if this pattern can't beat current best
             if fp_pattern.confidence <= best_result.confidence:
@@ -537,7 +541,14 @@ class FalsePositiveFilter:
         context: List[str]
     ) -> FilterResult:
         """Check if finding is in a test file, mock file, or example directory"""
-        file_path = finding.get('file', '').lower()
+        raw_path = finding.get('file', '')
+        # Use path relative to scan root so the repo name itself doesn't
+        # trigger demo/test/example heuristics (e.g. "mcp-exploit-demo/server.py"
+        # should NOT match the demo/ pattern).
+        try:
+            file_path = str(Path(raw_path).relative_to(self.source_root)).lower()
+        except (ValueError, TypeError):
+            file_path = raw_path.lower()
 
         # Mock/fake file patterns (highest confidence, check first)
         if self._MOCK_FILE_RE.search(file_path):
@@ -678,3 +689,11 @@ def filter_scan_results(
 # module level (after the class definitions), Python can resolve it correctly.
 from medusa.core.fp_patterns_db import KNOWN_FP_PATTERNS  # noqa: E402
 FalsePositiveFilter.KNOWN_FP_PATTERNS = KNOWN_FP_PATTERNS
+
+# Pre-bucket patterns by scanner name to avoid iterating all 514 patterns per finding.
+# Patterns with no scanner restriction go into '_any_'.
+_fp_by_scanner: Dict[str, list] = {}
+for _p in KNOWN_FP_PATTERNS:
+    _key = (_p.scanner or '').lower() or '_any_'
+    _fp_by_scanner.setdefault(_key, []).append(_p)
+FalsePositiveFilter._FP_BY_SCANNER = _fp_by_scanner

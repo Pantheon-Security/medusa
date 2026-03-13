@@ -1,0 +1,428 @@
+# MEDUSA Scanner Rules - Advanced RAG Attacks (2025)
+# Source: NotebookLM Long Context & RAG Research | Extracted: 2025-12-31
+# 45+ rules for advanced RAG-specific attack detection
+
+rules:
+  # ============================================================================
+  # Data Extraction Attacks (SECRET, CopyBreakRAG)
+  # ============================================================================
+
+  - id: RAG-EXTRACT-006
+    name: secret-attack
+    severity: CRITICAL
+    category: rag_extraction
+    patterns:
+      - '(?i)SECRET.*attack|adaptive.*jailbreak.*CFT'
+      - '(?i)cluster.?focused.*triggering'
+    message: "SECRET extraction attack (35% success on Claude 3.7)"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+    metadata:
+      success_rate: "35-48%"
+      targets: "Claude 3.7, Gemini, GPT-4o"
+
+  - id: RAG-EXTRACT-007
+    name: copybreakrag
+    severity: CRITICAL
+    category: rag_extraction
+    patterns:
+      - '(?i)copybreakrag|CopyBreakRAG'
+      - '(?i)agent.?based.*extraction'
+      - '(?i)curiosity.?driven.*exploration'
+    message: "CopyBreakRAG extraction attack (80% success on Coze)"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+    metadata:
+      success_rate: ">80%"
+      targets: "OpenAI GPTs, ByteDance Coze"
+
+  - id: RAG-EXTRACT-008
+    name: reasoning-exploitation
+    severity: HIGH
+    category: rag_extraction
+    patterns:
+      - '(?i)(forward|backward).*(context|reasoning|inference)'
+      - '(?i)reasoning.?based.*exploitation'
+    message: "Reasoning-based RAG exploitation pattern"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: RAG-EXTRACT-009
+    name: output-format-evasion
+    severity: MEDIUM
+    category: rag_extraction
+    patterns:
+      - '(?i)(add|insert|include).*(line\s*break|marker|delimiter|&&)'
+      - '(?i)specific.*output.*formatting'
+    message: "Output formatting evasion for extraction"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  # ============================================================================
+  # Self-Correction Bypass (DisarmRAG)
+  # ============================================================================
+
+  - id: RAG-DISARM-001
+    name: disarmrag-attack
+    severity: CRITICAL
+    category: rag_bypass
+    patterns:
+      - '(?i)disarmrag|DisarmRAG'
+      - '(?i)self.?correction.*defeat'
+      - '(?i)iterative.*prompt.*co.?optimization'
+    message: "DisarmRAG self-correction bypass (94.75% ASR)"
+    cwe: CWE-693
+    owasp_llm: "LLM01:2025"
+    metadata:
+      success_rate: "94.75%"
+      targets: "DeepSeek R1, QwQ"
+
+  - id: RAG-DISARM-002
+    name: retriever-poisoning
+    severity: CRITICAL
+    category: rag_bypass
+    patterns:
+      - '(?i)retriever.*poisoning.*model.*editing'
+      - '(?i)contrastive.*learning.*parameter'
+    message: "Retriever poisoning via model editing"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # GraphRAG Attacks (GRAGPOISON)
+  # ============================================================================
+
+  - id: RAG-GRAPH-004
+    name: gragpoison
+    severity: CRITICAL
+    category: graphrag_attack
+    patterns:
+      - '(?i)gragpoison|GRAGPOISON'
+      - '(?i)graph.*relation.*injection'
+    message: "GRAGPOISON GraphRAG attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-GRAPH-005
+    name: relation-injection
+    severity: HIGH
+    category: graphrag_attack
+    patterns:
+      - '(?i)relation.*injection.*deceptive'
+      - '(?i)competing.*relations'
+    message: "GraphRAG relation injection attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-GRAPH-003
+    name: centrality-manipulation
+    severity: HIGH
+    category: graphrag_attack
+    patterns:
+      - '(?i)centrality.*manipulation'
+      - '(?i)boost.*centrality.*malicious'
+    message: "GraphRAG centrality manipulation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Multimodal RAG Attacks (MM-POISONRAG)
+  # ============================================================================
+
+  - id: RAG-MM-001
+    name: mm-poisonrag-lpa
+    severity: CRITICAL
+    category: multimodal_rag_attack
+    patterns:
+      - '(?i)MM.?POISONRAG.*LPA'
+      - '(?i)localized.*poisoning.*attack'
+    message: "MM-POISONRAG LPA (query-specific misinformation)"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-MM-002
+    name: mm-poisonrag-gpa
+    severity: CRITICAL
+    category: multimodal_rag_attack
+    patterns:
+      - '(?i)MM.?POISONRAG.*GPA'
+      - '(?i)globalized.*poisoning.*attack'
+    message: "MM-POISONRAG GPA (universal injection, 0% accuracy)"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-MM-003
+    name: spa-vlm
+    severity: HIGH
+    category: multimodal_rag_attack
+    patterns:
+      - '(?i)spa.?vlm|Spa.?VLM'
+      - '(?i)simultaneous.*malicious.*images'
+    message: "Spa-VLM simultaneous poisoning attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-MM-004
+    name: hv-attack
+    severity: HIGH
+    category: multimodal_rag_attack
+    patterns:
+      - '(?i)HV.?Attack|hierarchical.*visual'
+      - '(?i)image.*perturbations.*only'
+    message: "HV-Attack hierarchical visual perturbation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # DoS/Jamming Attacks
+  # ============================================================================
+
+  - id: RAG-DOS-006
+    name: jaminject
+    severity: HIGH
+    category: rag_dos
+    patterns:
+      - '(?i)jaminject|JamInject'
+      - '(?i)explicit.*refusal.*command'
+    message: "JamInject instruction-based DoS"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-DOS-007
+    name: jamoracle
+    severity: HIGH
+    category: rag_dos
+    patterns:
+      - '(?i)jamoracle|JamOracle'
+      - '(?i)oracle.*LLM.*refusal'
+    message: "JamOracle LLM-generated refusal context"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-DOS-008
+    name: jamopt
+    severity: HIGH
+    category: rag_dos
+    patterns:
+      - '(?i)jamopt|JamOpt'
+      - '(?i)black.?box.*optimization.*refusal'
+    message: "JamOpt black-box refusal optimization"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-DOS-009
+    name: white-dos
+    severity: MEDIUM
+    category: rag_dos
+    patterns:
+      - '(?i)white.*DoS'
+      - '(?i)fabricated.*safety.*warnings'
+      - '(?i)(warning|alert|caution).*(distorted|manipulated|false).*(fact|information)'
+    message: "White DoS via fabricated safety warnings"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-DOS-005
+    name: refusal-induction
+    severity: MEDIUM
+    category: rag_dos
+    patterns:
+      - '(?i)(refuse|decline|cannot).*(answer|respond|provide)'
+      - '(?i)context.*(insufficient|inadequate|incomplete)'
+    message: "Refusal induction pattern"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Knowledge Poisoning Detection
+  # ============================================================================
+
+  - id: RAG-POISON-006
+    name: authority-signal-injection
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - '(?i)(authoritative|official|verified|expert).*(source|reference|document)'
+    message: "Authority signal injection for credibility manipulation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-POISON-007
+    name: timestamp-manipulation
+    severity: MEDIUM
+    category: rag_poisoning
+    patterns:
+      - '(?i)(recent|latest|updated).*(202[4-9]|2030)'
+    message: "Timestamp manipulation for recency bias"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-POISON-008
+    name: knowledge-suppression
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - '(?i)(ignore|disregard|do\s+not\s+use).*(internal|pretrained|prior).*(knowledge|memory)'
+    message: "Knowledge suppression instruction"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-POISON-009
+    name: authchain-attack
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - '(?i)authchain|AuthChain'
+      - '(?i)authority.*signals.*timestamps'
+    message: "AuthChain authority signal attack (87% ASR)"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-POISON-010
+    name: neurgen-poisoning
+    severity: HIGH
+    category: rag_poisoning
+    patterns:
+      - '(?i)neurogenpoison|NeuroGenPoisoning'
+      - '(?i)neuron.*attribution.*poison'
+    message: "NeuroGenPoisoning neuron-targeted attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Bias/Opinion Manipulation
+  # ============================================================================
+
+  - id: RAG-BIAS-004
+    name: topic-fliprag
+    severity: HIGH
+    category: rag_bias
+    patterns:
+      - '(?i)topic.?fliprag|Topic.?FlipRAG'
+      - '(?i)topic.*oriented.*manipulation'
+    message: "Topic-FlipRAG opinion manipulation"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-BIAS-005
+    name: brra-attack
+    severity: HIGH
+    category: rag_bias
+    patterns:
+      - '(?i)BRRA|biased.*retrieval'
+      - '(?i)subspace.*projection.*reward'
+    message: "BRRA biased retrieval attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-BIAS-006
+    name: admit-attack
+    severity: HIGH
+    category: rag_bias
+    patterns:
+      - '(?i)ADMIT|multi.?injection'
+      - '(?i)fact.?checking.*flip'
+    message: "ADMIT multi-injection fact-checking attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Reasoning Style Attacks
+  # ============================================================================
+
+  - id: RAG-RSP-001
+    name: gsi-attack
+    severity: HIGH
+    category: reasoning_style
+    patterns:
+      - '(?i)GSI|generative.*style.*injection'
+      - '(?i)pathological.*tones'
+    message: "GSI (Generative Style Injection) reasoning attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-RSP-002
+    name: analysis-paralysis
+    severity: MEDIUM
+    category: reasoning_style
+    patterns:
+      - '(?i)analysis.*paralysis'
+      - '(?i)(verify|check|confirm).*(multiple|several|all).*(sources|references)'
+    message: "Analysis paralysis induction pattern"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-RSP-003
+    name: reflexion-trap
+    severity: HIGH
+    category: reasoning_style
+    patterns:
+      - '(?i)reflexion.*trap'
+      - '(?i)infinite.*verification.*loops'
+    message: "Reflexion trap - infinite verification loop"
+    cwe: CWE-400
+    owasp_llm: "LLM01:2025"
+
+  # ============================================================================
+  # Membership Inference on RAG
+  # ============================================================================
+
+  - id: RAG-MIA-001
+    name: rag-mia
+    severity: HIGH
+    category: rag_mia
+    patterns:
+      - '(?i)RAG.?MIA|S2MIA'
+      - '(?i)semantic.*similarity.*membership'
+    message: "RAG membership inference attack"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  - id: RAG-MIA-002
+    name: pleak-attack
+    severity: HIGH
+    category: rag_mia
+    patterns:
+      - '(?i)PLeak|gradient.*prompt.*extraction'
+    message: "PLeak gradient-based prompt extraction"
+    cwe: CWE-200
+    owasp_llm: "LLM06:2025"
+
+  # ============================================================================
+  # Backdoor Attacks
+  # ============================================================================
+
+  - id: RAG-BACK-001
+    name: pandora-attack
+    severity: CRITICAL
+    category: rag_backdoor
+    patterns:
+      - '(?i)PANDORA|indirect.*jailbreak'
+    message: "PANDORA indirect jailbreak attack"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-BACK-002
+    name: agentpoison
+    severity: CRITICAL
+    category: rag_backdoor
+    patterns:
+      - '(?i)agentpoison|AgentPoison'
+    message: "AgentPoison RAG agent backdoor"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+  - id: RAG-BACK-003
+    name: pr-attack
+    severity: HIGH
+    category: rag_backdoor
+    patterns:
+      - '(?i)PR.?Attack|bilevel.*optimization'
+      - '(?i)simultaneous.*DB.*prompt'
+    message: "PR-Attack bilevel optimization backdoor"
+    cwe: CWE-506
+    owasp_llm: "LLM01:2025"
+
+# Summary: 40+ advanced RAG attack detection rules
+# Categories: rag_extraction, rag_bypass, graphrag_attack, multimodal_rag_attack,
+#            rag_dos, rag_poisoning, rag_bias, reasoning_style, rag_mia, rag_backdoor

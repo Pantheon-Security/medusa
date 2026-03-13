@@ -1,0 +1,293 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-RAG-SCAN-089
+  name: hybrid-search-keyword-vector-poisoning
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bhybrid[_\s](?:search|retrieval).*?(?:poison|tamper|inject|adversar|attack)
+  - (?i)\bbm25.*?(?:vector|dense).*?(?:poison|adversar|manipulat|inject)
+  - (?i)\bsparse.*?dense.*?(?:fusion|hybrid).*?(?:poison|attack|adversar)
+  - (?i)\breciprocal[_\s]rank[_\s]fusion.*?(?:adversar|attack|manipulat|poison)
+  - (?i)\bkeyword.*?(?:stuffing|injection).*?(?:rag|retrieval|vector[_\s]store)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Hybrid Search Poisoning: adversarial document crafted to exploit BM25+vector hybrid retrieval ranking detected'
+  description: Detects hybrid search poisoning attacks that craft documents to rank highly under both sparse (BM25/TF-IDF)
+    and dense (vector embedding) retrieval, maximizing injection effectiveness in hybrid RAG systems. Keyword stuffing combined
+    with embedding manipulation. (Zhong et al. 2023 - Poisoning Retrieval Corpora)
+  remediation: Apply poisoning detection to both BM25 and vector retrieval paths independently. Monitor for documents with
+    anomalous hybrid rank boosts. Implement cross-encoder re-ranking as second-stage defense.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-090
+  name: graph-rag-knowledge-graph-injection
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bgraph[_\s]rag.*?(?:poison|inject|tamper|adversar|attack)
+  - (?i)\bknowledge[_\s]graph.*?(?:inject|poison|tamper|malicious|adversar).*?(?:rag|retrieval)
+  - (?i)\b(?:entity|relation|triple)[_\s](?:inject|poison|fabricat|spoof).*?(?:graph|kg|knowledge)
+  - (?i)\bneo4j.*?(?:inject|poison|tamper|malicious).*?(?:rag|retrieval|llm)
+  - (?i)\bsparql.*?(?:inject|poison|manipulat).*?(?:graph|rag|knowledge)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.cypher'
+  - '*.sparql'
+  - '*.ipynb'
+  message: 'Graph RAG Poisoning: malicious entity/relation injection into knowledge graph RAG backend detected'
+  description: Detects attacks targeting Graph RAG implementations (e.g., Microsoft GraphRAG) where adversaries inject false
+    entity relationships or poison knowledge graph triples to manipulate multi-hop reasoning. (Edge et al. 2024 - Microsoft
+    GraphRAG; Kang et al. 2023 - Poisoning Knowledge Graphs)
+  remediation: Validate entity provenance before knowledge graph insertion. Apply graph integrity checks on new triples. Implement
+    read-only knowledge graph access for RAG queries. Log all graph modification operations.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-091
+  name: corrective-rag-crag-bypass
+  severity: MEDIUM
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\b(?:corrective[_\s]rag|crag)\b.*?(?:bypass|evade|defeat|attack|manipulat)
+  - (?i)\bself[_\s]rag.*?(?:bypass|evade|attack|poison|manipulat)
+  - (?i)\b(?:retrieval|document)[_\s](?:relevance|quality)[_\s](?:score|check|evaluat).*?(?:bypass|spoof|fake|manipulat)
+  - (?i)\bconfidence[_\s](?:score|threshold).*?(?:retrieval|rag).*?(?:adversar|spoof|manipulat|poison)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Corrective RAG Bypass: adversarial documents crafted to defeat CRAG/Self-RAG quality filtering detected'
+  description: Detects attacks against Corrective RAG (CRAG) and Self-RAG systems that score document relevance before use.
+    Adversaries craft documents that score highly on relevance metrics while containing harmful instructions. (Yan et al.
+    2024 - Corrective RAG; Asai et al. 2023 - Self-RAG)
+  remediation: Apply adversarial testing of relevance scoring models. Use diverse quality metrics beyond single-model relevance
+    scoring. Implement retrieval quality monitoring for distribution shifts.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-092
+  name: rag-multi-hop-reasoning-chain-poisoning
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bmulti[_\s]hop.*?(?:rag|retrieval).*?(?:poison|inject|adversar|attack|manipulat)
+  - (?i)\b(?:chain|chain[_\s]of[_\s]thought|reasoning[_\s]chain).*?(?:hijack|poison|inject|divert).*?(?:rag|retrieval)
+  - (?i)\b(?:intermediate|bridge|supporting)[_\s](?:passage|document|hop).*?(?:poison|inject|fabricat).*?(?:multi[_\s]hop|rag)
+  - (?i)\biterative[_\s]retrieval.*?(?:poison|adversar|inject|attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Multi-Hop RAG Poisoning: adversarial intermediate passage injection in multi-hop reasoning RAG detected'
+  description: Detects attacks targeting multi-hop RAG systems (e.g., IRCoT, HippoRAG) where poisoning a single bridge document
+    can cascade to corrupt the entire reasoning chain by supplying false intermediate conclusions. (Trivedi et al. 2022 -
+    IRCoT; Chen et al. 2024 - HippoRAG)
+  remediation: Apply poisoning detection at each retrieval hop independently. Implement reasoning chain consistency checks.
+    Monitor for bridge documents that sharply alter reasoning direction. Apply fact verification on intermediate retrievals.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-093
+  name: rag-chunking-boundary-exploitation
+  severity: MEDIUM
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bchunk(?:ing)?[_\s]boundary.*?(?:exploit|attack|inject|adversar|manipulat)
+  - (?i)\bchunk[_\s](?:overlap|split|window).*?(?:inject|poison|adversar|tamper)
+  - (?i)\bdocument[_\s](?:split|segment|chunk).*?(?:inject|poison|adversar|smuggl)
+  - (?i)\bcross[_\s]chunk[_\s](?:inject|attack|spanning|payload)
+  - (?i)\bhidden.*?(?:chunk|segment|split).*?(?:boundary|overlap).*?(?:inject|instruction)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'RAG Chunk Boundary Exploitation: injection payload spanning document chunk boundaries to evade per-chunk detection'
+  description: Detects attacks that exploit document chunking strategies in RAG by splitting malicious payloads across chunk
+    boundaries so no single chunk triggers detection, but the assembled context in the LLM window executes the attack. (Zou
+    et al. 2024 - PoisonedRAG; Shi et al. 2023 - Large Language Models Can Be Easily Distracted)
+  remediation: Apply injection detection across overlapping chunk windows, not just individual chunks. Implement cross-chunk
+    consistency scanning. Use semantic chunking to avoid splitting attack phrases. Monitor for anomalous content at chunk
+    boundaries.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-094
+  name: rag-cache-timing-side-channel
+  severity: MEDIUM
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\brag[_\s](?:cache|kv[_\s]cache).*?(?:timing|side[_\s]channel|timing[_\s]attack|oracle)
+  - (?i)\bsemantic[_\s](?:cache|caching).*?(?:timing|side[_\s]channel|oracle|leak)
+  - (?i)\b(?:retrieval|query)[_\s](?:cache|caching).*?(?:timing|membership[_\s]inference|leak|oracle)
+  - (?i)\bcache[_\s](?:hit|miss).*?(?:timing|latency|discriminat).*?(?:rag|retrieval|query)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'RAG Cache Timing Attack: timing-based side-channel cache oracle attack against RAG semantic cache detected'
+  description: Detects timing side-channel attacks against RAG semantic caching layers (e.g., GPTCache) where cache hit/miss
+    timing differences reveal whether specific queries or documents exist in the cache, enabling membership inference. (Bang
+    et al. 2024 - Cache Timing in LLM Inference)
+  remediation: Normalize cache response times to eliminate timing oracles. Apply differential privacy to cache hit rates.
+    Implement rate limiting on high-frequency cache probing. Monitor for systematic cache timing measurement patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-RAG-SCAN-095
+  name: cross-user-rag-data-leakage
+  severity: CRITICAL
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bcross[_\s](?:user|tenant|session|org).*?(?:rag|retrieval|vector[_\s]store).*?(?:leak|exfil|access|leakage)
+  - (?i)\b(?:namespace|tenant|collection)[_\s](?:isolation|separation)\s*(?:missing|absent|disabled|bypassed|skipped)
+  - (?i)\bvector[_\s](?:store|db|database).*?(?:user|tenant)[_\s](?:filter|scope|isolation)\s*(?:missing|absent|none)
+  - (?i)\b(?:pinecone|weaviate|qdrant|chroma|milvus|faiss).*?(?:user|tenant|namespace).*?(?:filter|where)\s*(?:=\s*None|=\s*null|=\s*\{\})
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  - '*.ipynb'
+  message: 'Cross-User RAG Leakage: missing tenant/user isolation in vector store allowing cross-user document retrieval'
+  description: Detects missing namespace or tenant isolation in vector store configurations that allows a user's RAG queries
+    to retrieve documents belonging to other users or tenants. Critical data isolation failure in multi-tenant RAG deployments.
+    (Perez & Ribeiro 2022; OWASP LLM Top 10 LLM02)
+  remediation: Enforce mandatory metadata filters on all vector store queries scoped to authenticated user/tenant. Use separate
+    collections per tenant where possible. Audit all vector DB query paths for missing where-clauses. Implement access control
+    layer above vector store.
+  owasp_llm: LLM02:2025
+  cwe: CWE-284
+- id: MEDUSA-RAG-SCAN-096
+  name: rag-retrieval-model-adversarial-example
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\b(?:embedding|retrieval|bi[_\s]encoder)[_\s](?:adversarial|adv)[_\s](?:example|attack|perturbation)
+  - (?i)\b(?:dense[_\s]retrieval|dpr|e5|bge|gte)[_\s](?:adversarial|attack|poison|robust)
+  - (?i)\bhotflip.*?(?:retrieval|embedding|retriever)
+  - (?i)\b(?:contriever|bge|e5|gte)[_\s](?:jailbreak|adversar|attack|poison)
+  - (?i)\bembedding[_\s](?:perturbation|attack).*?(?:nearest[_\s]neighbor|similarity|retrieval)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'Retrieval Model Adversarial Example: adversarial perturbation of text to manipulate dense retrieval ranking detected'
+  description: Detects adversarial examples specifically crafted to exploit bi-encoder retrieval models (DPR, Contriever,
+    E5, BGE), using token-level perturbations (HotFlip-style) to make documents rank artificially high or low in retrieval.
+    (Zhong et al. 2023 - Poisoning Web-Scale Training Corpora; Shi et al. 2024 - Retrieval Corruption)
+  remediation: Evaluate retrieval models on adversarial robustness benchmarks. Apply adversarial training to retrieval encoders.
+    Use ensemble retrieval to reduce single-model attack surface. Implement perplexity filtering to catch unnatural token
+    perturbations.
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-097
+  name: self-rag-critic-reflection-manipulation
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\bself[_\s]rag.*?(?:critic|reflect|special[_\s]token|isrel|issup|isuse).*?(?:manipulat|poison|bypass|spoof)
+  - (?i)\b(?:isrel|issup|isuse|isgrounded)[_\s](?:token|score).*?(?:manipulat|spoof|fake|inject)
+  - (?i)\breflection[_\s](?:token|score|signal).*?(?:rag|retrieval).*?(?:manipulat|spoof|inject|bypass)
+  - (?i)\brag[_\s](?:self|critic)[_\s](?:evaluat|reflection).*?(?:adversar|attack|poison|defeat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  - '*.json'
+  message: 'Self-RAG Reflection Manipulation: adversarial content targeting Self-RAG special reflection token scoring detected'
+  description: Detects attacks targeting Self-RAG's special reflection tokens (ISREL, ISSUP, ISUSE) and critic models by crafting
+    documents that manipulate relevance and support scores to force inclusion of adversarial content. (Asai et al. 2023 -
+    Self-RAG; Self-RAG Adversarial Robustness Analysis 2024)
+  remediation: Apply adversarial robustness evaluation to Self-RAG critic components. Monitor reflection token score distributions
+    for anomalies. Implement second-pass verification of documents that score high on all reflection dimensions.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-RAG-SCAN-098
+  name: rag-cot-chain-of-thought-hijacking
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\brag.*?chain[_\s]of[_\s]thought.*?(?:hijack|divert|poison|inject|manipulat)
+  - (?i)\b(?:retrieved|retrieval)[_\s](?:context|document|passage).*?(?:reasoning|cot|think).*?(?:hijack|divert|poison|redirect)
+  - (?i)\blet\s+me\s+(?:think|reason|rethink|reconsider).*?based\s+on.*?(?:retrieved|context|document)
+  - (?i)\b(?:wait|actually|correction|note).*?(?:from|based\s+on).*?(?:retrieved|document|context).*?(?:should|must|need\s+to)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  message: 'RAG CoT Hijacking: retrieved document designed to redirect LLM chain-of-thought reasoning toward attacker-controlled
+    conclusions'
+  description: Detects retrieved documents containing injected reasoning pivots ('Actually, based on the retrieved context...')
+    designed to hijack LLM chain-of-thought and redirect it toward attacker-controlled conclusions mid-reasoning. (Shi et
+    al. 2023 - Large Language Models Can Be Easily Distracted by Irrelevant Context; Wei et al. 2024)
+  remediation: Apply reasoning consistency checks between pre-retrieval and post-retrieval chains. Detect anomalous reasoning
+    pivots triggered by retrieved content. Implement RAG sandboxing that separates retrieved context from reasoning context.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-099
+  name: rag-document-phantom-citation-fabrication
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\b(?:phantom|fake|fabricated|nonexistent|hallucinated)[_\s](?:document|source|citation|reference|url).*?(?:rag|retrieval|inject)
+  - (?i)\bcitation[_\s](?:inject|fabricat|poison|spoof|fake).*?(?:rag|retrieval|knowledge)
+  - (?i)\bsource[_\s](?:fabrication|injection|spoofing).*?(?:rag|retrieval|document)
+  - (?i)\b(?:doi|arxiv|pubmed|isbn|url)[_\s](?:fabricat|fake|spoof|phantom).*?(?:rag|retrieval)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  message: 'RAG Citation Fabrication: phantom or fabricated citation/source injection into RAG corpus detected'
+  description: Detects attacks injecting documents with fabricated citations (phantom DOIs, fake arXiv IDs, non-existent URLs)
+    to add false authority to RAG knowledge, causing LLMs to cite non-existent sources as if they were real. (RAG-POISON-005
+    proxy variant for static analysis; Augenstein et al. 2023 - Factuality Challenges)
+  remediation: Validate citations/DOIs/URLs in ingested documents before adding to RAG corpus. Apply citation integrity checks
+    as part of document ingestion pipeline. Flag documents citing non-resolvable sources.
+  owasp_llm: LLM09:2025
+  cwe: CWE-20
+- id: MEDUSA-RAG-SCAN-100
+  name: rag-no-hybrid-tenant-filtering
+  severity: HIGH
+  category: rag_vulnerabilities
+  patterns:
+  - (?i)\b(?:search|query|retrieve)\s*\(.*?(?:top[_\s]?k|k\s*=|limit\s*=|n_results\s*=).*?\)(?!.*?(?:filter|where|namespace|tenant|user[_\s]?id))
+  - (?i)\bcollection\.query\s*\(.*?n_results.*?(?!.*?where_document)
+  - (?i)\b(?:index|retriever)\.(?:search|query|retrieve)\s*\([^)]*\)(?!\s*\.filter)
+  - (?i)\bno[_\s](?:retrieval|rag)[_\s](?:auth|authorization|access[_\s]control|rbac|acl)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'RAG Missing Access Control: vector store retrieval call without tenant/user scoping or access control filter'
+  description: Detects RAG retrieval calls that query vector stores without mandatory tenant/user filtering, creating cross-contamination
+    risk in multi-user deployments. Static analysis complement to the proxy cross-user leakage rule. (OWASP LLM Top 10 2025
+    - LLM02; Perez & Ribeiro 2022)
+  remediation: Add mandatory metadata filters to every vector store query. Implement a retrieval middleware layer that automatically
+    appends user/tenant scoping. Conduct security code review of all vector DB query call sites.
+  owasp_llm: LLM02:2025
+  cwe: CWE-284

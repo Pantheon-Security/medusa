@@ -1,0 +1,1097 @@
+metadata:
+  source: expansion2 2026-03-02
+  subject: post_quantum_crypto
+  prefix: PQC
+  total_rules: 40
+  id_range: MEDUSA-PQC-SCAN-061 to MEDUSA-PQC-SCAN-100
+rules:
+- id: MEDUSA-PQC-SCAN-061
+  name: hndl-bulk-encrypted-traffic-classical-tls-archive
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)harvest.*now.*decrypt.*later
+  - (?i)hndl.*classical.*tls.*archive
+  - (?i)bulk.*intercept.*classical.*decrypt.*future
+  - (?i)store.*now.*quantum.*decrypt
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  - '*.conf'
+  message: Harvest-now-decrypt-later (HNDL) attack on classical TLS traffic detected.
+  description: Detects HNDL attack patterns where adversaries archive classical TLS-encrypted traffic for future decryption
+    with a cryptographically relevant quantum computer (CRQC). Seiler et al. (2024) and Aslam et al. (2025) documented that
+    nation-state adversaries are currently executing HNDL collection campaigns against high-value classical TLS sessions.
+    Data with secrecy lifetimes beyond 10-15 years is at immediate risk. The NSA and CISA have specifically called out HNDL
+    as the primary near-term quantum threat.
+  remediation: Immediately prioritise PQC migration for data with >10-year secrecy requirements. Deploy hybrid classical+PQC
+    TLS (X25519Kyber768 or X-Wing) for all sensitive communications. Inventory long-lived data encrypted with classical algorithms
+    and assess HNDL exposure risk. Follow CISA post-quantum migration timeline guidance.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-062
+  name: crystals-kyber-timing-side-channel-kyberslash
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)kyberslash.*timing.*vulnerabil
+  - (?i)crystals.kyber.*division.*timing
+  - (?i)ml.kem.*implementation.*timing.*leak
+  - (?i)kyber.*decapsulation.*timing.*oracle
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  message: KyberSlash timing side-channel vulnerability in CRYSTALS-Kyber/ML-KEM detected.
+  description: Detects KyberSlash timing vulnerability patterns in CRYSTALS-Kyber (ML-KEM) implementations where non-constant-time
+    division operations in the decapsulation path leak information about the secret key. KyberSlash (Kannwischer et al. 2023)
+    demonstrated that integer division in several reference and third-party Kyber implementations is not constant-time, enabling
+    key recovery through timing measurements. This affects implementations in multiple languages that did not patch the division
+    to use constant-time alternatives.
+  remediation: Replace all division operations in ML-KEM decapsulation with constant-time equivalents (Barrett reduction,
+    precomputed reciprocals). Use formally verified constant-time implementations (HACL*, libsodium-based ML-KEM after patch).
+    Verify constant-time behaviour using ctgrind, dudect, or TIMECOP before deployment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-PQC-SCAN-063
+  name: crystals-dilithium-lattice-signing-side-channel
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)dilithium.*side.channel.*sign
+  - (?i)ml.dsa.*timing.*oracle.*sign
+  - (?i)dilithium.*power.*analysis.*sign
+  - (?i)lattice.*signature.*leakage.*dilithium
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  message: CRYSTALS-Dilithium/ML-DSA signing side-channel leakage detected.
+  description: Detects side-channel attack patterns against CRYSTALS-Dilithium (ML-DSA) signing operations, particularly timing
+    and power analysis attacks targeting the rejection sampling and NTT operations. Ravi et al. (2024, Defeating Low-Cost
+    Countermeasures SCA) demonstrated that low-cost SCA countermeasures in Dilithium implementations can be defeated with
+    profiling attacks, enabling partial secret key recovery from as few as 1,000 signing power traces. Dilithium's rejection
+    sampling step also introduces timing variation exploitable as an oracle.
+  remediation: Implement masking of all secret-dependent operations in Dilithium signing at order ≥2 (Coron et al. 2022 high-order
+    masking). Apply constant-time rejection sampling that avoids timing variation. Use formally verified masked implementations
+    and validate with TVLA power analysis testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-PQC-SCAN-064
+  name: nist-pqc-library-implementation-vulnerability
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*library.*implementation.*vuln
+  - (?i)liboqs.*pqclean.*implementation.*bug
+  - (?i)pqc.*reference.*implementation.*cve
+  - (?i)nist.*pqc.*implementation.*weakness
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  message: NIST PQC library implementation vulnerability detected.
+  description: Detects patterns indicating known implementation vulnerabilities in NIST PQC libraries (liboqs, PQClean, CIRCL,
+    pq-crystals). Ahmed et al. (2025, PQC Library Support Survey) documented that many PQC library implementations lack formal
+    verification and have implementation bugs distinct from the underlying algorithm security. Supply chain attacks targeting
+    PQC library dependencies can silently introduce weakened implementations that appear cryptographically correct but contain
+    backdoors or reduce effective security levels.
+  remediation: Use formally verified PQC implementations where available (HACL* for ML-KEM, jasmin for Kyber/Dilithium). Implement
+    dependency pinning with cryptographic hash verification for all PQC libraries. Apply SBOM (Software Bill of Materials)
+    tracking for PQC library supply chain integrity. Run NIST PQC test vector validation on all deployed implementations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1357
+- id: MEDUSA-PQC-SCAN-065
+  name: hybrid-classical-pqc-transition-binding-failure
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)hybrid.*classical.*pqc.*binding.*fail
+  - (?i)x.wing.*component.*bind.*miss
+  - (?i)hybrid.*kem.*concat.*no.*bind
+  - (?i)hybrid.*classical.*quantum.*key.*derivat.*flaw
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: Hybrid classical+PQC transition KEM component binding failure detected.
+  description: Detects hybrid KEM constructions (X-Wing, X25519Kyber768) with missing or weak component binding in the key
+    derivation step. Stebila et al. (2022) and the X-Wing specification (Connolly et al. 2024) proved that hybrid KEM security
+    requires explicitly binding both classical and PQC ciphertext components in the key derivation to prevent transcript substitution
+    attacks. Missing binding allows an adversary who breaks one component to prevent the other component's security contribution.
+  remediation: Implement hybrid KEM key derivation using the KEM Combiners specification (draft-ounsworth-cfrg-kem-combiners)
+    with explicit domain separation and component binding. Use X-Wing (ML-KEM-768 + X25519) with the standardised combiner
+    that includes both classical and PQC ciphertexts in the hash input. Verify binding correctness using the X-Wing test vectors.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-066
+  name: grover-aes128-symmetric-key-halved-security
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)grover.*aes.?128.*halved.*security
+  - (?i)aes.?128.*quantum.*64.bit.*effective
+  - (?i)grover.*search.*aes.*symmetric.*key
+  - (?i)quantum.*speedup.*aes.?128.*key.*exhaustion
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  - '*.conf'
+  message: AES-128 quantum security halving via Grover's algorithm detected — upgrade to AES-256.
+  description: 'Detects use of AES-128 in contexts where Grover''s algorithm quantum speedup is not accounted for. Grover''s
+    algorithm provides a quadratic speedup for unstructured search, effectively halving the symmetric key security level:
+    AES-128 provides only ~64 bits of quantum security against Grover-based key search with a CRQC. Aslam et al. (2025) and
+    Seiler et al. (2024) documented that AES-128 should be considered quantum-insecure for data requiring long-term secrecy.'
+  remediation: Upgrade to AES-256 for all data requiring >10-year secrecy to maintain quantum-secure 128-bit effective security
+    after Grover's speedup. Update key management systems to use AES-256-GCM as the default symmetric cipher. Inventory all
+    AES-128 deployments and prioritise migration based on data secrecy lifetime requirements.
+  owasp_llm: LLM02:2025
+  cwe: CWE-326
+- id: MEDUSA-PQC-SCAN-067
+  name: sha256-grover-collision-reduced-security-hash
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)sha.?256.*grover.*collision.*quantum
+  - (?i)sha.?256.*quantum.*128.bit.*collision
+  - (?i)hash.*grover.*speedup.*security.*level
+  - (?i)bht.*algorithm.*sha.*collision.*quantum
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: SHA-256 quantum collision resistance reduced by Grover/BHT algorithm — consider SHA-384/512.
+  description: Detects use of SHA-256 in contexts requiring collision resistance against quantum adversaries. The Brassard-Hoyer-Tapp
+    (BHT) algorithm and Grover-based collision search reduce SHA-256 collision resistance from 128 bits to approximately 85
+    bits in the quantum setting. For applications requiring 128-bit post-quantum collision resistance (digital signatures,
+    commitment schemes), SHA-384 or SHA-512 should be used. NIST SP 800-57 Rev 5 addresses quantum hash security level requirements.
+  remediation: Upgrade to SHA-384 or SHA-512 for collision-resistant applications requiring 128-bit post-quantum security.
+    Review all hash function usages in digital signature schemes, Merkle trees, and commitment protocols. Update cryptographic
+    agility frameworks to prefer SHA-3-256 (quantum collision resistance ~170 bits) for new deployments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-328
+- id: MEDUSA-PQC-SCAN-068
+  name: fault-injection-pqc-implementation-attack
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)fault.*inject.*pqc.*implementation
+  - (?i)glitch.*attack.*kyber.*dilithium
+  - (?i)voltage.*fault.*lattice.*crypto
+  - (?i)laser.*fault.*pqc.*key.*recover
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.rs'
+  - '*.py'
+  - '*.yaml'
+  - '*.vhdl'
+  - '*.v'
+  message: Fault injection attack targeting PQC implementation detected.
+  description: Detects fault injection attack patterns targeting PQC hardware implementations. Fault injection attacks (voltage
+    glitching, clock glitching, laser fault injection) can corrupt PQC computations to leak key material. Imran et al. (2020)
+    and Ravi et al. (2024) documented fault injection against ML-KEM and ML-DSA FPGA implementations achieving complete key
+    recovery with as few as one or two faults. Fault attacks are particularly effective against PQC due to the larger key
+    sizes creating more fault injection opportunities.
+  remediation: Implement fault detection countermeasures including redundant computation, fault detection codes, and result
+    verification. Apply side-channel and fault injection resistant arithmetic at the algorithmic level using fault-resistant
+    masking schemes (Coron et al. 2022). Deploy physical tamper protection for hardware PQC implementations. Validate fault
+    resistance using EMFI and voltage glitching test setups.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1279
+- id: MEDUSA-PQC-SCAN-069
+  name: sidh-sike-completely-broken-cryptanalysis
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)sidh.*key.*exchange
+  - (?i)sike.*key.*encapsulat
+  - (?i)supersingular.*isogeny.*diffie.hellman
+  - (?i)supersingular.*isogeny.*key.*encapsulat
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  - '*.conf'
+  message: SIDH/SIKE usage detected — these schemes are CRYPTOGRAPHICALLY BROKEN (Castryck-Decru 2022).
+  description: Detects any use of SIDH (Supersingular Isogeny Diffie-Hellman) or SIKE (Supersingular Isogeny Key Encapsulation)
+    — schemes that were completely broken by Castryck & Decru (2022) using classical computation. A single laptop can now
+    break SIDH/SIKE in minutes. SIKE was a NIST PQC Round 4 candidate that was eliminated following this cryptanalysis. Any
+    deployment of SIDH or SIKE provides zero security and must be immediately replaced.
+  remediation: Remove all SIDH/SIKE implementations immediately — they provide no security whatsoever. Replace with NIST-standardised
+    ML-KEM (FIPS 203) or FrodoKEM. Conduct emergency incident response if SIDH/SIKE was used in production to protect any
+    currently sensitive data. The Castryck-Decru attack is classical, meaning this is not a future quantum threat but an immediate
+    current vulnerability.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-070
+  name: mceliece-code-based-key-generation-weakness
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)mceliece.*weak.*key.*generat
+  - (?i)bike.*hqc.*parameter.*weak
+  - (?i)code.based.*crypto.*small.*code.*length
+  - (?i)goppa.*code.*weak.*parameter
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.yaml'
+  message: McEliece/BIKE/HQC code-based crypto weak parameter selection detected.
+  description: Detects weak parameter selection in McEliece, BIKE, and HQC code-based cryptographic implementations. Code-based
+    cryptography relies on the hardness of decoding random linear codes, but weak Goppa code parameters (small code length,
+    low error correction capacity) can be vulnerable to information set decoding (ISD) attacks with sub-exponential complexity.
+    Galimberti et al. (2022) and Wang (2021) documented specific parameter weaknesses in implementation variants that deviate
+    from standardised parameter sets.
+  remediation: Use only standardised parameter sets for McEliece (Classic McEliece 460896 or larger), BIKE (BIKE-L1/L3), and
+    HQC (HQC-128/192/256) as specified in their respective NIST submissions. Validate code parameters against the ISD attack
+    complexity estimators. Do not customise Goppa code parameters without expert cryptographic review.
+  owasp_llm: LLM02:2025
+  cwe: CWE-326
+- id: MEDUSA-PQC-SCAN-071
+  name: hash-based-signature-state-management-xmss-lms
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)xmss.*state.*management
+  - (?i)lms.*stateful.*signature.*state
+  - (?i)hash.based.*signature.*index.*reuse
+  - (?i)sphincs.*xmss.*one.time.*key.*reuse
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: Hash-based signature (XMSS/LMS) stateful key management risk detected.
+  description: Detects hash-based signature scheme (XMSS, LMS) implementations with inadequate state management that risks
+    one-time signing key index reuse. XMSS and LMS are stateful signatures where the security guarantee is conditional on
+    never reusing a signing index. Index reuse results in complete private key exposure (Bernstein et al. 2019, SPHINCS+).
+    NIST SP 800-208 (XMSS/LMS) specifies strict state management requirements including hardware security module-backed state
+    tracking.
+  remediation: Implement XMSS/LMS state management using tamper-evident, persistent storage (HSM-backed state, filesystem
+    with journaling) that prevents index reuse across crashes, failovers, or rollbacks. Enforce state pre-computation limits
+    per NIST SP 800-208. Consider SPHINCS+ (stateless, but slower) for deployments where reliable state management is impractical.
+  owasp_llm: LLM02:2025
+  cwe: CWE-330
+- id: MEDUSA-PQC-SCAN-072
+  name: pqc-library-supply-chain-dependency-attack
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*library.*supply.*chain.*attack
+  - (?i)liboqs.*pqclean.*dependency.*tamper
+  - (?i)pqc.*package.*malicious.*pypi.*npm
+  - (?i)post.quantum.*dependency.*substitut
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  - '*.toml'
+  - '*.json'
+  message: PQC library supply chain attack vector detected.
+  description: Detects patterns indicating PQC library supply chain attacks where adversaries substitute legitimate PQC implementations
+    with backdoored or weakened versions. Because PQC algorithms are complex and difficult to audit, backdoored implementations
+    can silently reduce security levels or exfiltrate key material without detection. Ahmed et al. (2025, PQC Library Support
+    Survey) highlighted supply chain risks in popular PQC libraries (liboqs, pqcrypto, pyca/cryptography PQC extensions) as
+    a primary implementation vulnerability.
+  remediation: Implement cryptographic verification of all PQC library packages before installation (hash verification, code
+    signing verification). Use SBOM tracking with mandatory vulnerability scanning for all PQC dependencies. Prefer open-source,
+    formally audited PQC libraries (HACL*, libsodium post-patch) over unaudited alternatives. Apply isolated dependency environments
+    that prevent dependency confusion attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-PQC-SCAN-073
+  name: quantum-key-distribution-trusted-relay-mitm
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)qkd.*trusted.*relay.*mitm
+  - (?i)quantum.*key.*distribut.*relay.*attack
+  - (?i)qkd.*node.*compromise.*trusted
+  - (?i)quantum.*channel.*relay.*intercept
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.txt'
+  message: QKD trusted relay node man-in-the-middle vulnerability detected.
+  description: Detects configurations and patterns related to QKD (Quantum Key Distribution) trusted relay node vulnerabilities.
+    Aquina et al. (2025, QKD Analysis vs PQC) and Mattsson et al. (2021) documented that QKD networks relying on trusted relay
+    nodes are fundamentally vulnerable to compromise of any relay node, which is indistinguishable from a MITM attack in classical
+    terms. Unlike PQC, QKD's security degrades to zero if any relay is compromised, making relay node security a critical
+    operational dependency.
+  remediation: Deploy QKD only in point-to-point configurations without trusted relay nodes for highest-security applications.
+    Supplement QKD with PQC authentication (ML-DSA) to prevent MITM at relay nodes. Treat QKD relay nodes as critical security
+    infrastructure with hardware security module protection and physical access controls equivalent to certificate authority
+    infrastructure.
+  owasp_llm: LLM02:2025
+  cwe: CWE-300
+- id: MEDUSA-PQC-SCAN-074
+  name: post-quantum-tls-downgrade-classical-fallback
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*tls.*downgrade.*classical
+  - (?i)post.quantum.*tls.*fallback.*rsa.*ecdh
+  - (?i)hybrid.*tls.*classical.*fallback.*only
+  - (?i)tls.*negotiate.*classical.*only.*pqc.*disabled
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: Post-quantum TLS downgrade to classical-only cipher suite detected.
+  description: Detects TLS configurations that allow downgrade from hybrid PQC+classical to classical-only cipher suites,
+    undermining HNDL protection. An active MITM adversary can strip the PQC key exchange offer from the ClientHello, forcing
+    negotiation of classical-only cipher suites that are vulnerable to HNDL attacks. This is a particularly dangerous misconfiguration
+    because the TLS session appears secure but loses all quantum protection.
+  remediation: Enforce minimum TLS cipher suite requirements that mandate hybrid PQC key exchange (X25519Kyber768 or X-Wing)
+    by rejecting connections that do not offer PQC-compatible key exchange. Implement TLS downgrade detection that alerts
+    on cipher suite negotiation that falls back to classical-only. Apply TLS Policy enforcement using certificate pinning
+    that also pins PQC algorithm requirements.
+  owasp_llm: LLM02:2025
+  cwe: CWE-757
+- id: MEDUSA-PQC-SCAN-075
+  name: pqc-certificate-validation-bypass-size-overflow
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*certificate.*validat.*bypass
+  - (?i)pqc.*cert.*size.*overflow.*buffer
+  - (?i)dilithium.*falcon.*cert.*validat.*skip
+  - (?i)large.*pqc.*cert.*tls.*buffer.*overflow
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: PQC certificate validation bypass or certificate size buffer overflow risk detected.
+  description: Detects PQC certificate validation vulnerabilities including certificate parsing buffer overflows caused by
+    the much larger size of PQC public keys and signatures. ML-DSA (Dilithium) public keys are 1,312-2,592 bytes vs 32 bytes
+    for Ed25519, and signatures are 2,420-4,595 bytes vs 64 bytes. TLS implementations not updated to handle these sizes may
+    allocate insufficient buffers, allowing certificate size-based buffer overflows, or may skip validation for certificates
+    exceeding expected size limits.
+  remediation: Update all TLS and certificate validation libraries to support PQC certificate sizes. Implement certificate
+    size limits that are PQC-aware (public key up to 3,000 bytes, signatures up to 5,000 bytes). Apply bounds checking and
+    safe buffer allocation for all certificate parsing operations. Test PQC certificate processing with maximum-size ML-DSA
+    Level 5 certificates.
+  owasp_llm: LLM02:2025
+  cwe: CWE-120
+- id: MEDUSA-PQC-SCAN-076
+  name: iot-mcu-pqc-implementation-impractical
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)iot.*mcu.*pqc.*impractical
+  - (?i)microcontroller.*kyber.*dilithium.*memory
+  - (?i)constrained.*device.*pqc.*ram.*flash
+  - (?i)embedded.*post.quantum.*resource.*constraint
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  - '*.yaml'
+  - '*.conf'
+  - '*.ld'
+  message: PQC implementation on resource-constrained IoT MCU without sufficient memory detected.
+  description: Detects attempts to deploy PQC algorithms on IoT microcontrollers with insufficient RAM or flash to implement
+    them correctly, leading to truncated or weakened implementations. ML-KEM-768 requires ~12KB of stack, which exceeds many
+    MCUs' total RAM. Mahdi et al. (2025, Lightweight PQC IoT) and Yavuz et al. (2023, LiteQSign IoT) documented that naive
+    PQC deployment on constrained devices results in implementation shortcuts (reduced parameter sets, split operations) that
+    compromise security.
+  remediation: Use optimised lightweight PQC implementations for IoT (LiteQSign for signatures, SPHINCS+-128s for stateless
+    signing, or embedded ML-KEM-512 for Level 1 security). Assess MCU RAM/flash requirements against PQC algorithm footprint
+    before deployment. Consider PQC offloading to a co-processor or secure element for devices that cannot support full PQC
+    execution.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1253
+- id: MEDUSA-PQC-SCAN-077
+  name: 5g-authentication-pqc-migration-gap
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)5g.*aka.*pqc.*migration.*gap
+  - (?i)5g.*authentication.*classical.*quantum.*vuln
+  - (?i)suci.*ecies.*quantum.*imsi.*exposur
+  - (?i)5g.*n32.*sepp.*classical.*hndl
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: 5G authentication protocol PQC migration gap creating HNDL vulnerability detected.
+  description: Detects 5G authentication configurations that have not migrated to post-quantum protection, creating HNDL vulnerabilities
+    in subscriber identity and authentication protocol messages. Ko et al. (2025, 5G AKA HPQC) and Rathi et al. (2025, QORE
+    5G Core) documented that 5G SUCI (ECIES-based IMSI privacy) and 5G AKA authentication use classical elliptic curve cryptography
+    that is vulnerable to HNDL attacks. Archived 5G authentication exchanges can be decrypted with future CRQCs.
+  remediation: Deploy HPQC (Hybrid Post-Quantum Cryptography) extensions to 5G AKA as specified by 3GPP TS 33.501 post-quantum
+    work items. Migrate SUCI from ECIES to hybrid ML-KEM-based IMSI privacy protection. Coordinate with core network operators
+    on PQC-enabled SEPP for N32 roaming interface protection.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-078
+  name: ipsec-ikev2-classical-only-no-pqc-vpn
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)ipsec.*ikev2.*classical.*only.*no.*pqc
+  - (?i)ike.*classical.*ecdh.*no.*post.quantum
+  - (?i)vpn.*classical.*encryption.*quantum.*vuln
+  - (?i)ikev2.*pqc.*disabled.*ecdh.*only
+  file_types:
+  - '*.conf'
+  - '*.yaml'
+  - '*.json'
+  - '*.py'
+  - '*.sh'
+  message: IPsec/IKEv2 VPN without post-quantum key exchange creating HNDL vulnerability detected.
+  description: Detects IPsec/IKEv2 VPN configurations using only classical ECDH or RSA key exchange without hybrid PQC, creating
+    HNDL exposure for VPN-protected traffic. VPN traffic protecting long-lived secrets (intellectual property, classified
+    communications, long-term strategic plans) recorded today can be decrypted once a CRQC is available. NIST SP 800-77r1
+    recommends migrating IPsec to PQC-hybrid mode. RFC 9242 and RFC 9370 define ML-KEM integration for IKEv2.
+  remediation: Enable ML-KEM-based key exchange in IKEv2 using RFC 9370 (Additional Key Exchanges in IKEv2) to add ML-KEM
+    as a supplementary PQC KEM alongside classical ECDH. Update VPN gateway software to versions supporting RFC 9370. Prioritise
+    VPN tunnels protecting data with >10-year secrecy requirements for immediate PQC migration.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-079
+  name: ai-model-weights-rsa-ecdsa-hndl-ip-theft
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)ai.*model.*weights.*rsa.*hndl
+  - (?i)ml.*model.*classical.*encrypt.*quantum.*ip
+  - (?i)model.*weights.*ecdsa.*transfer.*hndl
+  - (?i)proprietary.*model.*classical.*tls.*harvest
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: AI/ML model weights protected by classical crypto creating HNDL IP theft risk detected.
+  description: Detects AI/ML model weights (proprietary training artefacts representing hundreds of millions of dollars of
+    investment) being transferred or stored using classical RSA/ECDSA/ECDH protection that is vulnerable to HNDL attacks.
+    Model weights intercepted today and decrypted with future CRQCs would expose the full model architecture and parameters,
+    enabling model cloning and invalidating the competitive advantage of model investment. This is identified as a primary
+    HNDL risk for AI companies.
+  remediation: Immediately protect AI model weight transfers with hybrid PQC+classical encryption (ML-KEM-768 + X25519 hybrid).
+    Encrypt stored model weight archives using AES-256 with PQC-protected key exchange for key material. Implement HNDL risk
+    assessment for all model distribution channels based on model secrecy lifetime requirements.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-080
+  name: qrng-weak-quantum-random-number-generator
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)qrng.*weak.*entropy.*source
+  - (?i)quantum.*random.*number.*generator.*bias
+  - (?i)qrng.*hardware.*failure.*classical.*prng.*fallback
+  - (?i)quantum.*entropy.*source.*predict.*bias
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.yaml'
+  message: Quantum Random Number Generator (QRNG) weakness or classical fallback detected.
+  description: Detects QRNG (Quantum Random Number Generator) configurations with quality issues including hardware failure
+    fallback to classical PRNG, detectable bias in quantum entropy sources, or insufficient entropy rate for PQC key generation
+    requirements. PQC algorithms require high-quality randomness for key generation; QRNG bias or classical fallback can compromise
+    the security of generated PQC key pairs. Burkhardt et al. (2022, PQC Nanosatellite) and satellite/space applications documented
+    QRNG issues from radiation-induced SEU (Single Event Upset) effects on quantum entropy sources.
+  remediation: Implement QRNG health testing per NIST SP 800-90B (entropy source assessment). Configure deterministic failover
+    to a FIPS 140-3 validated DRBG (SP 800-90A CTR_DRBG) seeded with hardware entropy (CPU RDRAND + OS entropy) rather than
+    silent degradation to weak PRNG. Apply output bias detection and automated alert for QRNG quality degradation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-338
+- id: MEDUSA-PQC-SCAN-081
+  name: pqc-private-key-storage-insecure-software
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*private.*key.*plaintext.*storage
+  - (?i)kyber.*dilithium.*private.*key.*file
+  - (?i)ml.kem.*ml.dsa.*key.*insecure.*store
+  - (?i)post.quantum.*private.*key.*unprotected
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: PQC private key insecure storage detected.
+  description: Detects PQC private keys (ML-KEM seed/private key, ML-DSA signing key) stored in plaintext files or with insufficient
+    access controls. PQC private keys are significantly larger than classical keys (ML-KEM-768 private key = 2,400 bytes,
+    ML-DSA-65 signing key = 4,032 bytes), making them attractive bulk exfiltration targets. Malina et al. (2023) and Ahmed
+    et al. (2025) identified insecure PQC key storage as a prevalent implementation vulnerability in enterprise PQC deployments.
+  remediation: Store all PQC private keys in hardware security modules (HSMs) or trusted platform modules (TPMs) with PQC
+    support. Apply PKCS#11 or Microsoft CNG interfaces for PQC key storage abstraction. Encrypt PQC private keys at rest using
+    AES-256 with HSM-wrapped key encryption keys. Implement key access audit logging and anomaly detection for PQC private
+    key access operations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+- id: MEDUSA-PQC-SCAN-082
+  name: pki-dual-certificate-classical-pqc-migration-gap
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pki.*dual.*certificate.*migration.*gap
+  - (?i)certificate.*authority.*classical.*only.*pqc.*absent
+  - (?i)ca.*migration.*pqc.*certificate.*chain
+  - (?i)root.*ca.*classical.*no.*pqc.*intermediate
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: PKI dual-certificate PQC migration gap creating authentication vulnerability detected.
+  description: Detects PKI configurations that lack a parallel PQC certificate chain alongside classical certificate chains,
+    creating a migration gap where authentication is not protected against future quantum attacks. A complete PKI migration
+    to PQC requires dual certificate chains (classical + PQC) or composite certificates (combining classical + PQC signatures
+    in a single certificate) to ensure authentication security across the quantum transition period. Missing PQC certificate
+    chains in CA infrastructure mean that future CRQCs could forge classical-only authentication.
+  remediation: Deploy dual-certificate PKI infrastructure issuing both classical (ECDSA P-256) and PQC (ML-DSA-44 or ML-DSA-65)
+    certificates for all entities. Implement composite certificate support per draft-ietf-lamps-pq-composite-kem and draft-ietf-lamps-pq-composite-sigs.
+    Establish PQC root CA infrastructure with hardware-backed ML-DSA signing keys.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-083
+  name: ntt-polynomial-multiplication-timing-oracle
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)ntt.*polynomial.*timing.*oracle
+  - (?i)number.*theoretic.*transform.*timing.*leak
+  - (?i)ntt.*implementation.*branch.*secret
+  - (?i)lattice.*polynomial.*multiply.*timing.*channel
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.rs'
+  - '*.go'
+  - '*.java'
+  - '*.py'
+  message: NTT polynomial multiplication timing side-channel oracle in lattice crypto detected.
+  description: Detects timing side-channel vulnerabilities in Number Theoretic Transform (NTT) implementations used in CRYSTALS-Kyber,
+    CRYSTALS-Dilithium, and Falcon for polynomial multiplication. Non-constant-time NTT butterfly operations or modular reduction
+    steps create timing oracles that enable recovery of intermediate values used in key generation, encapsulation, or signing.
+    Xu et al. (2021, Magnifying SCA Kyber) demonstrated magnified power side-channel attacks on Kyber NTT operations.
+  remediation: Implement NTT operations using constant-time Barrett reduction that avoids data-dependent branching. Use assembly-optimised
+    NTT implementations from verified sources (pqm4, HACL*) that include constant-time guarantees. Validate NTT timing using
+    TIMECOP and ctgrind testing frameworks. Prefer hardware-accelerated NTT with deterministic execution timing where available.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-PQC-SCAN-084
+  name: smart-grid-ami-ecdsa-quantum-meter-auth
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)smart.*grid.*ami.*ecdsa.*quantum
+  - (?i)smart.*meter.*classical.*auth.*quantum.*vuln
+  - (?i)iec.*61968.*ecdsa.*post.quantum.*migrat
+  - (?i)ami.*metering.*classical.*key.*exchange
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: Smart grid AMI meter authentication using quantum-vulnerable ECDSA detected.
+  description: Detects smart grid Advanced Metering Infrastructure (AMI) configurations using ECDSA or other classical algorithms
+    for meter authentication, without PQC migration planning. Darzi et al. (2024, Smart Grid Lattice) documented that smart
+    grid AMI infrastructure with 15-20 year deployment lifetimes will be operational when CRQCs become available, making current
+    classical-only meter authentication vulnerable to future quantum-enabled attacks. NIST and IEC standards bodies are developing
+    PQC migration guidance for critical infrastructure.
+  remediation: Develop PQC migration roadmaps for AMI infrastructure based on deployment lifetime analysis. Deploy ML-DSA-44
+    for meter authentication in new AMI deployments. Plan firmware update infrastructure that can deliver PQC algorithm upgrades
+    to deployed meters within the quantum threat timeline. Implement hybrid authentication (ECDSA + ML-DSA) during the transition
+    period.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-085
+  name: bike-bgf-timing-reaction-attack-key-recovery
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)bike.*bgf.*timing.*reaction
+  - (?i)bike.*key.*recovery.*timing.*oracle
+  - (?i)qc.mdpc.*timing.*attack.*bike
+  - (?i)bike.*decapsulation.*failure.*timing
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.py'
+  - '*.yaml'
+  message: BIKE BGF decoder timing reaction attack for key recovery detected.
+  description: Detects timing reaction attacks against BIKE (Bit Flipping Key Encapsulation) implementations that exploit
+    timing variations in the Bit Flipping Gaussian decoder (BGF). BIKE is a NIST PQC alternate candidate; the BGF decoder
+    has iteration-count-dependent timing that creates a reaction channel enabling key recovery. Galimberti et al. (2022, BIKE
+    Implementations) documented that BIKE requires constant-iteration BGF to prevent this attack.
+  remediation: Implement BIKE with constant-iteration BGF decoding that executes a fixed number of iterations regardless of
+    convergence. Use the constant-time BIKE reference implementation that includes fixed-iteration decoding. Validate constant-time
+    behaviour using power analysis or timing measurement test benches before deployment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-PQC-SCAN-086
+  name: cryptographic-agility-missing-pqc-algorithm-hardcoded
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)hardcoded.*algorithm.*no.*agility
+  - (?i)cryptographic.*agility.*missing.*pqc
+  - (?i)algorithm.*identifier.*hardcoded.*rsa.*ecdsa
+  - (?i)no.*algorithm.*negotiat.*classical.*fixed
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  - '*.conf'
+  message: Missing cryptographic agility — hardcoded classical algorithm without PQC upgrade path detected.
+  description: Detects systems with hardcoded classical cryptographic algorithms and no cryptographic agility infrastructure
+    for PQC migration. Ott et al. (2019, PQC Migration and Cryptographic Agility) and Ahmed et al. (2025) documented that
+    lack of cryptographic agility is the primary barrier to timely PQC migration. Systems with hardcoded algorithm identifiers
+    (e.g., OID 1.2.840.10045.4.3.2 for ECDSA P-256) require code changes at every layer to migrate, creating extended migration
+    timelines that may not complete before CRQC availability.
+  remediation: 'Implement cryptographic agility as a first-class architectural requirement: use algorithm-agnostic interfaces
+    (PKCS#11, JCA, CNG) that allow algorithm substitution without code changes. Maintain PQC algorithm inventory and migration
+    readiness assessment. Deploy algorithm-negotiation infrastructure (TLS cipher suite negotiation model) for all cryptographic
+    protocols.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-1395
+- id: MEDUSA-PQC-SCAN-087
+  name: coap-dtls-pqc-missing-constrained-protocol
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)coap.*dtls.*pqc.*missing
+  - (?i)constrained.*application.*protocol.*classical.*only
+  - (?i)dtls.*iot.*classical.*no.*post.quantum
+  - (?i)coap.*iot.*quantum.*vuln.*crypto
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  - '*.yaml'
+  - '*.conf'
+  - '*.py'
+  message: CoAP/DTLS IoT protocol without PQC protection detected.
+  description: Detects CoAP (Constrained Application Protocol) / DTLS configurations for IoT deployments that use only classical
+    cryptography without PQC hybrid protection. IoT devices secured with CoAP/DTLS today may remain deployed for 10-20 years,
+    making them prime HNDL targets. Malina et al. (2023, Deploying PQC in Intelligent Infrastructures) documented the challenges
+    and requirements for PQC deployment in constrained IoT DTLS contexts, identifying CoAP/DTLS as a high-priority PQC migration
+    target.
+  remediation: Implement PQC-hybrid DTLS extensions for CoAP using optimised ML-KEM-512 implementations suitable for constrained
+    devices. Deploy firmware update infrastructure capable of delivering PQC algorithm updates to deployed IoT devices. Prioritise
+    PQC migration for IoT deployments with >5-year expected device lifetimes.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-088
+  name: satellite-cubesat-prng-seu-key-compromise
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)satellite.*cubesat.*prng.*seu
+  - (?i)space.*radiation.*prng.*bit.*flip.*key
+  - (?i)cubesat.*crypto.*single.*event.*upset
+  - (?i)satellite.*pqc.*seu.*radiation.*key
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  - '*.yaml'
+  - '*.py'
+  message: Satellite/CubeSat PRNG Single Event Upset (SEU) cryptographic key compromise risk detected.
+  description: Detects satellite and CubeSat cryptographic implementations vulnerable to Single Event Upset (SEU) effects
+    that can compromise PRNG state and cryptographic keys. Burkhardt et al. (2022, PQC Nanosatellite) documented that cosmic
+    ray SEUs can flip bits in PRNG state registers in space environments, causing predictable random number generation that
+    compromises PQC key generation security. PQC algorithms with larger key sizes require more random bytes, amplifying the
+    SEU attack surface.
+  remediation: Implement radiation-hardened PRNG designs using triple modular redundancy (TMR) for PRNG state registers in
+    space deployments. Apply SEU detection and correction using hamming codes for PRNG state memory. Use multiple independent
+    entropy sources for PQC key generation to increase resilience to single-source SEU attacks. Test PRNG implementations
+    under simulated radiation environments (heavy ion beam testing).
+  owasp_llm: LLM02:2025
+  cwe: CWE-338
+- id: MEDUSA-PQC-SCAN-089
+  name: module-lwe-algebraic-structure-distinguishing-attack
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)module.lwe.*algebraic.*distinguishing
+  - (?i)module.*lattice.*ideal.*structure.*attack
+  - (?i)rlwe.*algebraic.*structure.*exploit
+  - (?i)cyclotomic.*ring.*lwe.*algebraic.*distinguish
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.yaml'
+  message: Module-LWE algebraic structure distinguishing attack research pattern detected.
+  description: Detects research patterns related to algebraic structure distinguishing attacks against Module-LWE based schemes
+    (ML-KEM, ML-DSA). The module structure introduces additional algebraic properties compared to plain LWE, and ongoing research
+    (including the 2024 Yilei Chen preprint on quantum algorithms for LWE) investigates whether these structures can be exploited
+    for sub-exponential attacks. While no practical attack currently exists, monitoring this research area is critical for
+    PQC deployment planning.
+  remediation: Monitor NIST PQC standardisation announcements for any security level revisions based on algebraic structure
+    research. Maintain FrodoKEM deployments in parallel with ML-KEM for systems requiring protection against potential Module-LWE
+    algebraic attacks (assumption diversity). Implement cryptographic agility to enable rapid algorithm migration if algebraic
+    attacks are confirmed.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-090
+  name: ckks-homomorphic-approximate-noise-information-leak
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)ckks.*noise.*information.*leak
+  - (?i)approximate.*fhe.*noise.*attack
+  - (?i)ckks.*decryption.*noise.*side.channel
+  - (?i)homomorphic.*noise.*budget.*leak.*private
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.cpp'
+  - '*.yaml'
+  message: CKKS/BFV homomorphic encryption approximate result noise information leakage detected.
+  description: Detects information leakage through CKKS (Cheon-Kim-Kim-Song) approximate homomorphic encryption noise budget
+    exploitation. CKKS introduces controlled noise for efficiency, but the noise itself can leak information about the plaintext
+    when decryption results are shared. Li & Micciancio (2021) demonstrated that sharing CKKS decrypted results with their
+    noise allows partial secret key recovery. This affects ML inference on encrypted data where the encrypted model outputs
+    are returned to untrusted clients.
+  remediation: Apply noise rounding or discretisation before returning CKKS decrypted results to prevent noise-based key extraction.
+    Use threshold decryption protocols that prevent any single party from accessing decrypted results with their noise. Implement
+    secure aggregation protocols for CKKS outputs in federated learning contexts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-PQC-SCAN-091
+  name: fhe-noise-budget-adversarial-exhaustion-ml
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)fhe.*noise.*budget.*adversarial.*exhaust
+  - (?i)homomorphic.*noise.*budget.*attack
+  - (?i)fhe.*circuit.*depth.*noise.*overflow
+  - (?i)encrypted.*computation.*noise.*adversarial
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.cpp'
+  - '*.yaml'
+  - '*.ipynb'
+  message: FHE noise budget adversarial exhaustion attack on private ML inference detected.
+  description: Detects adversarial attacks on Fully Homomorphic Encryption (FHE) protected ML inference that intentionally
+    exhaust the noise budget through crafted inputs requiring deep computational circuits. When the noise budget is exhausted,
+    FHE decryption produces incorrect results, potentially revealing information about the encryption key or the computation.
+    Adversarially crafted inputs that maximise circuit depth can force noise budget overflow in FHE ML inference systems.
+  remediation: Implement input validation and circuit depth monitoring for FHE ML inference to reject inputs that would require
+    circuits exceeding safe noise budget thresholds. Apply bootstrapping budget monitoring with automatic circuit depth limiting.
+    Use levelled FHE with explicit depth budgets that cannot be exceeded by adversarial inputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+- id: MEDUSA-PQC-SCAN-092
+  name: non-standard-pqc-unproven-hardness-deployment
+  severity: CRITICAL
+  category: post_quantum_crypto
+  patterns:
+  - (?i)non.standard.*pqc.*unproven.*hardness
+  - (?i)custom.*post.quantum.*novel.*assumption
+  - (?i)proprietary.*pqc.*unvetted.*hardness
+  - (?i)non.nist.*post.quantum.*algorithm.*deploy
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.yaml'
+  message: Non-standard PQC algorithm with unproven hardness assumptions deployed in production detected.
+  description: Detects deployment of non-NIST-standardised PQC algorithms based on novel or unvetted hardness assumptions
+    in production systems. The PQC landscape has seen multiple algorithm families completely broken (SIDH/SIKE in 2022, Rainbow
+    signature scheme in 2022 by Ward Beullens). Non-standard PQC deployments based on lattice variants, code-based variants,
+    or other hardness assumptions not vetted by NIST's multi-year evaluation process carry extreme cryptographic risk.
+  remediation: 'Use only NIST-standardised PQC algorithms: ML-KEM (FIPS 203), ML-DSA (FIPS 204), SLH-DSA (FIPS 205) as primary
+    PQC algorithms. Consider NIST alternate candidates (FrodoKEM, BIKE, HQC, SPHINCS+) only with explicit expert review. Never
+    deploy novel PQC algorithms without external cryptographic audit and NIST or equivalent standardisation.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-093
+  name: pqc-performance-disabled-security-regression
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*disabled.*performance.*reason
+  - (?i)post.quantum.*turned.*off.*latency
+  - (?i)kyber.*dilithium.*disabled.*speed
+  - (?i)pqc.*workaround.*performance.*classical.*only
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  - '*.sh'
+  message: PQC algorithms disabled for performance reasons creating security regression detected.
+  description: Detects configurations where PQC algorithms are explicitly disabled or downgraded due to performance concerns,
+    reverting to classical-only cryptography. Demir et al. (2025, PQC Performance Analysis) documented that PQC performance
+    overhead (ML-KEM key generation ~5-10x slower than ECDH; ML-DSA signing ~3-5x slower than ECDSA) leads some deployments
+    to disable PQC under performance pressure. This creates HNDL vulnerability by prioritising current performance over long-term
+    security.
+  remediation: Implement hardware acceleration for PQC operations (AArch64 Kyber/Dilithium vector extensions, Intel AVX2 NTT
+    acceleration) to reduce performance overhead. Apply PQC performance profiling to identify bottlenecks before reverting
+    to classical-only. Configure PQC algorithms as required rather than optional in security policies to prevent performance-motivated
+    disabling.
+  owasp_llm: LLM02:2025
+  cwe: CWE-757
+- id: MEDUSA-PQC-SCAN-094
+  name: linature-signature-quantum-blockchain-security
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)linature.*signature.*blockchain
+  - (?i)post.quantum.*blockchain.*signature.*lattice
+  - (?i)quantum.resistant.*blockchain.*signing
+  - (?i)nist.*pqc.*blockchain.*transaction.*sign
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  - '*.sol'
+  message: Blockchain signature scheme without post-quantum migration path detected.
+  description: Detects blockchain transaction signing using classical cryptography (ECDSA secp256k1, ed25519) without a post-quantum
+    migration path. Kotukh et al. (2026, LINEture Signature) proposed post-quantum lattice-based signatures for blockchain
+    applications. Blockchain immutability means that classical-signature-protected historical transactions cannot be retroactively
+    secured, and the long-lived public keys on-chain create HNDL exposure for private key recovery by adversaries with CRQC
+    access.
+  remediation: Implement quantum-resistant signature schemes for new blockchain deployments using ML-DSA or SLH-DSA. Develop
+    migration plans for existing blockchain deployments including key rotation mechanisms. Use hybrid signature schemes (ECDSA
+    + ML-DSA) during the transition period to maintain compatibility while adding quantum protection.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-095
+  name: pqc-migration-inventory-classical-key-untracked
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)classical.*key.*inventory.*missing.*pqc
+  - (?i)cryptographic.*asset.*inventory.*pqc.*absent
+  - (?i)pqc.*migration.*no.*inventory.*classical
+  - (?i)classical.*algorithm.*untracked.*quantum.*risk
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: Cryptographic asset inventory missing for PQC migration planning detected.
+  description: Detects absence of cryptographic asset inventory that tracks classical algorithm usage for PQC migration planning.
+    Without comprehensive inventory of all RSA, ECDSA, ECDH, and AES-128 deployments, organisations cannot execute timely
+    PQC migration before CRQC availability. CISA and NSA CNSA 2.0 suite guidance requires organisations to complete cryptographic
+    inventory as the first step in post-quantum migration planning. Missing inventory delays migration and creates unmitigated
+    HNDL exposure.
+  remediation: Implement automated cryptographic discovery tooling (CBOM - Cryptographic Bill of Materials) that scans code,
+    configuration, and network traffic for classical algorithm usage. Maintain a continuously updated cryptographic asset
+    registry with algorithm, key size, data sensitivity, and migration priority for each identified usage. Use the inventory
+    to drive prioritised PQC migration planning aligned with CISA timelines.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1395
+- id: MEDUSA-PQC-SCAN-096
+  name: lwe-parameter-weak-custom-dimension-attack
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)lwe.*parameter.*weak.*custom.*dimension
+  - (?i)learning.*with.*errors.*small.*n.*attack
+  - (?i)lwe.*dimension.*below.*standard.*level
+  - (?i)lwe.*estimator.*insecure.*parameter
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
+  - '*.yaml'
+  message: LWE weak custom parameter dimension creating sub-standard security level detected.
+  description: Detects custom LWE parameter selections with insufficient dimension, creating security levels below the intended
+    NIST security levels. Custom LWE dimensions below n=512 (for ML-KEM/ML-DSA security) are vulnerable to BKZ lattice reduction
+    attacks achievable with classical computers. Costoya et al. (2025, CCA Attacks on Lattice) and Hanafi et al. (2025) documented
+    that many custom LWE deployments use insufficiently large dimensions based on misunderstanding of the LWE hardness estimator.
+  remediation: Validate all LWE parameter choices using the LWE security estimator (https://lwe-estimator.readthedocs.io)
+    against BKZ-β attacks at the intended NIST security level. Use only standardised parameter sets (ML-KEM-512/768/1024,
+    ML-DSA-44/65/87) without customisation. Document security level rationale for any non-standard parameter selections with
+    expert cryptographic review.
+  owasp_llm: LLM02:2025
+  cwe: CWE-326
+- id: MEDUSA-PQC-SCAN-097
+  name: pqc-deployment-performance-analysis-timing-baseline
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)pqc.*deployment.*performance.*benchmark
+  - (?i)ml.kem.*ml.dsa.*latency.*throughput
+  - (?i)post.quantum.*performance.*impact.*measure
+  - (?i)kyber.*dilithium.*performance.*profile
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ipynb'
+  message: PQC deployment performance analysis detected — verify security is not compromised for performance.
+  description: Detects PQC deployment performance benchmarking, which is a legitimate activity but can indicate performance-motivated
+    algorithm weakening. Demir et al. (2025, PQC Performance Analysis) documented that performance benchmarking of PQC algorithms
+    often leads to selection of smaller parameter sets (ML-KEM-512 instead of ML-KEM-768) that reduce security levels below
+    recommended levels for the deployment context. Performance optimisation must not compromise required security levels.
+  remediation: Map performance requirements to security level requirements before optimising PQC algorithm selection. Use
+    hardware-accelerated PQC where possible to reduce performance overhead without reducing security levels. Maintain explicit
+    documentation of security level rationale for all PQC parameter selections. Apply minimum security level policies that
+    cannot be overridden by performance requirements.
+  owasp_llm: LLM02:2025
+  cwe: CWE-326
+- id: MEDUSA-PQC-SCAN-098
+  name: 6g-security-pqc-authentication-future-planning
+  severity: MEDIUM
+  category: post_quantum_crypto
+  patterns:
+  - (?i)6g.*security.*pqc.*authentication
+  - (?i)beyond.5g.*quantum.*crypto.*planning
+  - (?i)6g.*post.quantum.*auth.*migration
+  - (?i)6g.*quantum.resistant.*key.*exchange
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.yaml'
+  - '*.conf'
+  - '*.txt'
+  message: 6G security planning without post-quantum cryptography requirements detected.
+  description: Detects 6G security planning documents and configurations that do not incorporate post-quantum cryptography
+    requirements from the outset. Alwis et al. (2021) and Jiang et al. (2021) documented that 6G networks will be deployed
+    in the 2030s when CRQCs may be available, making PQC a baseline security requirement rather than an optional enhancement.
+    6G security architectures designed without PQC will require costly retroactive migration.
+  remediation: Incorporate NIST PQC FIPS standards (FIPS 203/204/205) as mandatory security requirements in all 6G security
+    architecture specifications. Design 6G authentication protocols (6G-AKA) with ML-KEM and ML-DSA as primary algorithms
+    from the outset. Align 6G security specifications with 3GPP post-quantum security work items and ETSI/ITU-T PQC guidance.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-PQC-SCAN-099
+  name: private-ml-inference-plaintext-model-weights-unencrypted
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)private.*ml.*inference.*plaintext.*model
+  - (?i)fhe.*ml.*model.*weights.*unencrypted
+  - (?i)secure.*ml.*inference.*model.*leak
+  - (?i)homomorphic.*inference.*model.*weight.*expose
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.java'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Private ML inference with unencrypted model weights exposing IP to quantum attack detected.
+  description: Detects private ML inference systems where model weights are processed in plaintext without FHE protection,
+    exposing proprietary model intellectual property to side-channel extraction and future quantum decryption of encrypted
+    transmissions. Mihara et al. (2020, Neural Network Homomorphic Encryption) and subsequent work documented FHE-based private
+    inference as the solution for protecting model weights from client-side extraction. Unencrypted model weights transmitted
+    to clients are vulnerable to both classical and quantum eavesdropping.
+  remediation: Implement FHE-based private inference using CKKS or TFHE for inference workloads where model weight protection
+    is required. Deploy server-side inference for sensitive model weights rather than on-device execution. Protect all model
+    weight transmission channels with hybrid PQC+classical encryption (ML-KEM + X25519).
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+- id: MEDUSA-PQC-SCAN-100
+  name: industry40-ot-classical-crypto-no-pqc-migration
+  severity: HIGH
+  category: post_quantum_crypto
+  patterns:
+  - (?i)industry.*4.0.*ot.*classical.*no.*pqc
+  - (?i)operational.*technology.*quantum.*vulnerable.*crypto
+  - (?i)ics.*scada.*classical.*key.*exchange.*pqc.*absent
+  - (?i)industrial.*control.*system.*ecdsa.*no.*quantum
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.yaml'
+  - '*.conf'
+  - '*.json'
+  message: Industry 4.0/OT industrial control system using quantum-vulnerable cryptography without PQC migration plan detected.
+  description: Detects Industry 4.0 and Operational Technology (OT) systems using quantum-vulnerable classical cryptography
+    without PQC migration planning. Fernandez-Carames et al. (2019) and Adel et al. (2022, Industry 5.0) documented industrial
+    control systems with 20-30 year deployment lifetimes that will be operational when CRQCs become available. OT systems
+    authenticating control messages with ECDSA or encrypting sensor data with RSA face HNDL risks for their long-lived operational
+    secrets and safety-critical authentication.
+  remediation: Conduct PQC readiness assessment for all ICS/SCADA components based on deployment lifetime and data sensitivity
+    analysis. Prioritise OT systems protecting safety-critical operations for immediate PQC migration to ML-DSA for message
+    authentication. Develop firmware update infrastructure for OT devices that supports cryptographic algorithm upgrades within
+    the quantum threat timeline. Engage vendors for PQC-ready firmware roadmaps for long-lifecycle OT equipment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327

@@ -1,0 +1,2010 @@
+metadata:
+  source: MEDUSA - Federated Learning Backdoors 2025
+  extraction_date: '2026-02-23'
+  papers_analyzed: 50
+  previous_rules: federated_learning_attacks_scanner.yaml (12 rules)
+rules:
+- id: MEDUSA-FLA-SCAN-013
+  name: fl-min-max-min-sum-optimization-evasion
+  severity: HIGH
+  category: byzantine_evasion
+  patterns:
+  - (?i)(min.?max|min.?sum).{0,40}(robust.?aggregat|krum|bulyan|trimmed|federat)
+  - (?i)(constrain.{0,20}malicious.{0,20}update.{0,40}benign|perturb.{0,20}(aggregat|mean).{0,40}malicious.direction)
+  - (?i)(shejwalkar|houmansadr).{0,60}(federat|aggregat|poison|attack)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Min-Max/Min-Sum optimization-based Byzantine attack pattern evading robust FL aggregation (1.5x-60x
+    effectiveness vs Fang attacks)'
+  description: Min-Max/Min-Sum (NDSS 2021) perturbs benign aggregate toward malicious direction while constraining malicious
+    updates close to benign updates to evade Krum, Bulyan, Trimmed Mean, Multi-Krum, DnC. 1.5x-60x better than prior attacks.
+  remediation: Do not rely on a single robust aggregation rule. Layer multiple defenses (DnC + FLTrust). Monitor for updates
+    close to benign mean but consistently shifting aggregate direction.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-014
+  name: fl-alie-small-perturbation-evasion
+  severity: HIGH
+  category: byzantine_evasion
+  patterns:
+  - (?i)(alie|a.little.is.enough).{0,60}(federat|aggregat|poison|krum|robust)
+  - (?i)(mean.{0,20}z.?sigma|z.{0,10}sigma.{0,20}shift|standard.deviation.{0,20}perturb).{0,40}(gradient|update|federat)
+  - (?i)(outlier.{0,20}detection.{0,40}evasion.{0,40}(small|minimal).{0,20}shift.{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: ALIE (A Little Is Enough) small perturbation FL evasion — mean+z*sigma shifts designed to evade outlier
+    detection'
+  description: ALIE (Baruch et al. 2019) sends updates = mean(benign) + z*sigma, calculated to be just small enough to evade
+    outlier detection (Krum, Bulyan, Trimmed Mean) while causing maximum harm. Exploits the detection threshold boundary.
+  remediation: Use statistical defenses that analyze gradient distributions across rounds, not just per-round outlier detection.
+    Implement cross-round consistency monitoring.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-015
+  name: fl-ipm-inner-product-manipulation
+  severity: HIGH
+  category: gradient_manipulation
+  patterns:
+  - (?i)(inner.?product.?manipulation|ipm.{0,20}federat|gradient.inner.product.{0,40}(negat|flip|revers))
+  - (?i)(negat.{0,20}inner.product.{0,40}(gradient|update|aggregat|global))
+  - (?i)(revers.{0,20}learning.{0,20}direction.{0,40}(gradient|federat|global.model))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: IPM Inner Product Manipulation pattern — reverses FL learning direction via negative inner product between
+    true gradient and aggregated update'
+  description: IPM (Xie et al. 2020) modifies malicious updates so inner product between true gradient and aggregated update
+    becomes negative, reversing learning direction. Breaks Byzantine tolerance in SGD. Bypasses Krum and Median.
+  remediation: Monitor cosine similarity between consecutive global model updates. Large directional reversals indicate IPM
+    attack. Use momentum-based anomaly detection.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-016
+  name: fl-fmpa-predictive-reference-model
+  severity: HIGH
+  category: adaptive_poisoning
+  patterns:
+  - (?i)(fmpa|flexible.model.poison|predictive.reference.model).{0,60}(federat|global|aggregat)
+  - (?i)(predict.{0,20}next.round.{0,40}global.model.{0,40}(histor|round|update))
+  - (?i)(fine.?grained.{0,30}accuracy.{0,30}control.{0,40}(poison|attack|federat))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: FMPA Flexible Model Poisoning — Predictive Reference Model estimating next FL round to enable precise
+    accuracy targeting'
+  description: FMPA (Zhang et al. 2023) uses Predictive Reference Model (PRM) to estimate next round's global model from historical
+    updates. Enables both crash attacks and fine-grained accuracy control (exactly X% drop). Bypasses Krum, Bulyan, Trimmed
+    Mean, AFA, DnC.
+  remediation: Monitor for unusual precision in gradient updates that correlate with current global model state. Implement
+    model checkpoint anomaly detection across training rounds.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-017
+  name: fl-neurotoxin-sparse-parameter-backdoor
+  severity: CRITICAL
+  category: persistent_backdoor
+  patterns:
+  - (?i)(neurotoxin).{0,60}(federat|backdoor|sparse|persist)
+  - (?i)(rarely.?updated.{0,30}parameter|sparse.{0,20}parameter.{0,40}(backdoor|inject|poison))
+  - (?i)(inject.{0,20}backdoor.{0,40}(sparse|infrequent|low.update).{0,40}parameter)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Neurotoxin sparse parameter backdoor — injects backdoor into rarely-updated FL parameters for persistence
+    through aggregation'
+  description: Neurotoxin (Zhang et al. 2022) identifies parameters with sparse updates during benign FL training. Backdoor
+    injected into these parameters persists because benign updates rarely overwrite them. Survives Differential Privacy and
+    robust aggregation.
+  remediation: Implement periodic model resets or regularization targeting low-update parameters. Monitor parameter update
+    frequency distributions for anomalous stability. Test backdoor persistence across FL rounds.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-018
+  name: fl-pfedba-personalized-gradient-alignment
+  severity: HIGH
+  category: personalized_fl_backdoor
+  patterns:
+  - (?i)(pfedba|personalized.{0,20}federat.{0,20}backdoor).{0,60}(gradient.align|trigger|pers)
+  - (?i)(gradient.alignment.{0,40}(backdoor|trigger|poison).{0,40}personalized.{0,20}federat)
+  - (?i)(alignment.optim.{0,30}trigger.{0,40}personalized.{0,20}(fl|federat|local.model))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: PFedBA personalized FL backdoor — gradient alignment optimization to embed triggers surviving personalization
+    (>80% ASR where standard attacks fail)'
+  description: 'PFedBA (Lyu et al. 2024) uses gradient alignment: aligns backdoor loss gradient with benign gradient + loss
+    alignment. Embeds triggers into personalized local models where standard FL backdoor defenses fail. >80% ASR on pFedMe/Ditto/FLAME.'
+  remediation: Audit personalized FL model updates for gradient alignment anomalies. Test personalized models for backdoor
+    persistence after local fine-tuning. Use cross-client behavioral consistency checks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-019
+  name: fl-semantic-natural-trigger-backdoor
+  severity: HIGH
+  category: semantic_backdoor
+  patterns:
+  - (?i)(semantic.{0,20}backdoor|semantic.{0,20}trigger.{0,40}federat)
+  - (?i)(natural.{0,20}(feature|object|scenario|color|stripe).{0,40}(trigger|backdoor|activate))
+  - (?i)(semantic.{0,20}feature.{0,40}trigger.{0,40}(no.{0,10}patch|no.{0,10}pixel|natural))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Semantic backdoor pattern — natural feature/object properties used as FL backdoor triggers (bypasses
+    pixel/patch detection)'
+  description: Semantic Backdoor (Sun et al. 2019) uses real-world semantic features (green stripe on car, specific background)
+    as triggers — no artificial pixel patterns. Natural triggers survive human and automated inspection. Effective even under
+    differential privacy.
+  remediation: Test models against semantic feature perturbations not covered by patch detection. Use diverse test scenarios
+    including semantic context variations. Audit training data for overrepresentation of specific semantic features.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-020
+  name: fl-loki-active-server-architecture-injection
+  severity: CRITICAL
+  category: malicious_server
+  patterns:
+  - (?i)(loki.{0,20}federat|convolutional.scaling.factor|csf.{0,20}federat)
+  - (?i)(server.{0,20}(inject|modif).{0,20}model.architecture.{0,40}(client|gradient|recover))
+  - (?i)(custom.{0,20}(conv|convolutional).kernel.{0,40}(inject|server|aggregat).{0,40}(gradient|leakage|recover))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Loki active server architecture modification pattern — server inserts custom kernels to separate and
+    reconstruct individual client data (>80% leakage at 100+ clients)'
+  description: Loki (Zhao et al. 2023) uses malicious FL server modifying model architecture with custom convolutional kernels
+    + Convolutional Scaling Factor (CSF). Separates aggregated client gradients for individual reconstruction. >80% leakage
+    on CIFAR/ImageNet at 100+ clients.
+  remediation: Verify model architecture integrity before local training. Do not accept untrusted model architectures from
+    FL server. Use differential privacy + model architecture pinning.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-021
+  name: fl-malicious-code-secret-model-injection
+  severity: CRITICAL
+  category: code_injection
+  patterns:
+  - (?i)(malicious.{0,20}code.{0,40}training.script.{0,40}(inject|federat|secret))
+  - (?i)(secret.model.{0,40}(within|inside|embedded).{0,40}(local.model|parameter|federat))
+  - (?i)(inject.{0,20}code.{0,40}train.{0,40}(secret|hidden).model.{0,40}(memorize|private|data))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.ipynb'
+  message: 'Detected: Malicious Code/Secret Model pattern — training script injection trains hidden model memorizing private
+    FL client data'
+  description: Gong et al. (2024) injects malicious code into the FL training script that trains a 'secret model' within the
+    local model parameters. Secret model memorizes private training data; server retrieves it later. High SSIM leakage rate.
+    Bypasses Secure Aggregation.
+  remediation: Audit training scripts for unauthorized model training code. Use sandboxed FL training environments. Verify
+    training script integrity with cryptographic signatures before execution.
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-022
+  name: fl-edge-case-pgd-tail-distribution
+  severity: HIGH
+  category: edge_case_backdoor
+  patterns:
+  - (?i)(edge.case.{0,20}backdoor|tail.{0,20}distribution.{0,40}(backdoor|poison|federat))
+  - (?i)(pgd.{0,20}project.{0,40}(global.model|update|federat).{0,40}(stealth|evad|ball))
+  - (?i)(out.of.distribution|rare.{0,20}sample.{0,40}(trigger|backdoor|poison).{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Edge-case PGD backdoor — targets tail-distribution samples with PGD projection for stealthy FL poisoning'
+  description: Edge-case Backdoor (Wang et al. 2020) targets data at tail of input distribution (edge cases hard to detect).
+    Uses PGD to project poisoned updates onto ball centered at global model. Bypasses Krum, Trimmed Mean, Differential Privacy.
+  remediation: Test model behavior on edge-case inputs post-FL training. Monitor for unusual cluster of model predictions
+    on rare/low-frequency inputs. Augment training with tail-distribution samples to dilute edge-case backdoors.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-023
+  name: fl-dba-distributed-trigger-decomposition
+  severity: CRITICAL
+  category: distributed_backdoor
+  patterns:
+  - (?i)(dba|distributed.backdoor.attack).{0,60}(federat|sub.trigger|decompos)
+  - (?i)(decompos.{0,20}(trigger|pattern).{0,40}(sub.trigger|local.trigger|partial.trigger))
+  - (?i)(local.trigger.{0,40}(assembl|combin|reconstruct).{0,40}(global|full|complete).{0,20}(trigger|backdoor))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: DBA Distributed Backdoor Attack — global trigger decomposed into local sub-triggers across malicious
+    FL clients'
+  description: DBA (Xie et al. 2020) decomposes a global trigger pattern into local sub-trigger fragments embedded across
+    different malicious clients. The complete backdoor only assembles after aggregation. Achieves higher ASR and durability
+    than centralized backdoor attacks. Bypasses RFA (Geometric Median) and Robust Learning Rates.
+  remediation: Detect trigger fragments in individual client updates using pattern analysis. Use FLTrust server-side validation.
+    Apply per-layer norm monitoring to detect coordinated trigger embedding across clients.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-024
+  name: fl-model-replacement-constrain-and-scale
+  severity: CRITICAL
+  category: model_replacement_backdoor
+  patterns:
+  - (?i)(model.replacement|constrain.and.scale).{0,60}(federat|backdoor|aggregat)
+  - (?i)(scale.{0,20}(factor|update|weight).{0,20}(n.?eta|n.?lr|clients.?lr).{0,40}(fedavg|aggregat|global))
+  - (?i)(bagdasaryan|scale.{0,20}by.{0,20}(gamma|γ).{0,40}(fedavg|averaging|backdoor))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Model Replacement / Constrain-and-Scale — scaling FL update by γ=n/η to replace global model with backdoored
+    version'
+  description: Model Replacement (Bagdasaryan et al. 2018) trains a backdoored model and scales the update by γ=n/η so FedAvg
+    averaging effectively replaces the global model. Constrain-and-Scale keeps weights in range to evade norm-based detection.
+    Achieves 100% backdoor accuracy in single-shot attacks.
+  remediation: Monitor client update norms for extreme values. Apply norm-bounding (clip to median norm). Use FLTrust with
+    trusted server dataset. Implement update scaling factor detection.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-025
+  name: fl-lp-attack-layer-wise-backdoor-critical
+  severity: CRITICAL
+  category: layer_targeted_backdoor
+  patterns:
+  - (?i)(lp.attack|layer.?wise.poison|backdoor.?critical.layer).{0,60}(federat|aggregat|fl)
+  - (?i)(bc.layer|backdoor.critical.{0,30}layer).{0,40}(replac|poison|inject|target)
+  - (?i)(identify.{0,20}(critical|vulnerable|susceptible).{0,20}layer.{0,40}backdoor.{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: LP Attack Layer-wise Poisoning — targeting Backdoor-Critical (BC) layers only for stealthy FL backdoor
+    (up to 99% ASR)'
+  description: LP Attack (Zhuang et al. 2023) identifies a small subset of 'Backdoor-Critical (BC)' layers that dominate backdoor
+    vulnerability. Only these layers are replaced with poisoned weights; all other layers remain close to benign model. Achieves
+    up to 99% ASR while bypassing Multi-Krum, FLTrust, FLAME, FLDetector, DnC.
+  remediation: Apply per-layer gradient anomaly detection — don't rely on whole-model norms. Use FLTrust with layer-level
+    trust scoring. Monitor for selective layer modification patterns in client updates.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-026
+  name: fl-venomancer-imperceptible-conditional-trigger
+  severity: HIGH
+  category: stealthy_backdoor
+  patterns:
+  - (?i)(venomancer).{0,60}(federat|backdoor|trigger|imperceptible)
+  - (?i)(imperceptible.trigger.{0,40}conditional.{0,20}adversar.{0,40}(federat|backdoor|training))
+  - (?i)(target.on.demand|conditional.trigger.{0,40}(client|local|federat).{0,40}backdoor)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Venomancer imperceptible conditional trigger — target-on-demand FL backdoor via conditional adversarial
+    training (BA >95%)'
+  description: Venomancer (Nguyen 2024) uses imperceptible triggers combined with conditional adversarial training to achieve
+    target-on-demand backdoor behavior. BA >95% on MNIST, CIFAR-10, CIFAR-100. Bypasses Norm Clipping, Weak DP, Krum, Multi-Krum,
+    RLR, FedRAD, Deepsight, RFLBAT.
+  remediation: Use neural cleanse or trigger inversion at model checkpoints. Apply RFLBAT-enhanced with perceptual similarity
+    metrics. Test for conditional trigger activation patterns across diverse input distributions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-027
+  name: fl-nba-non-cooperative-multi-adversary-backdoor
+  severity: HIGH
+  category: multi_adversary_backdoor
+  patterns:
+  - (?i)(nba|non.cooperative.backdoor|non.?cooperative.{0,20}(adversar|attacker)).{0,60}federat
+  - (?i)(multiple.{0,20}(adversar|attacker|malicious.client).{0,40}(distinct|independent|separate).{0,20}trigger)
+  - (?i)(independent.{0,20}(backdoor|trigger).{0,40}(federat|multiple.client|non.cooperat))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: NBA Non-Cooperative Backdoor — multiple independent adversaries with distinct triggers in FL (avg BA
+    ~84% with 8 attackers)'
+  description: Non-Cooperative Backdoor Attack (NBA, Nguyen 2024) models realistic FL scenarios where multiple independent
+    adversaries inject distinct triggers without coordination. Average BA ~84% on Fashion-MNIST with 8 attackers. Bypasses
+    Norm Clipping, Differential Privacy.
+  remediation: Implement FedRAD or RFLBAT defenses that handle multi-adversary scenarios. Apply trigger diversity analysis
+    — detect multiple distinct trigger patterns across clients. Use FLDetector with multi-class anomaly scoring.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-028
+  name: fl-rl-backdoor-auto-hyperparameter-optimization
+  severity: HIGH
+  category: adaptive_backdoor
+  patterns:
+  - (?i)(rl.?based.backdoor|double.whammy|reinforcement.learning.{0,30}backdoor.{0,40}federat)
+  - (?i)(rl.optim.{0,20}(poison.ratio|local.epoch|learning.rate|scaling.factor).{0,40}federat)
+  - (?i)(automat.{0,20}optim.{0,20}attack.{0,20}(hyperparameter|parameter).{0,40}(backdoor|fl|federat))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: RL-based Backdoor Double Whammy — RL automatically optimizes FL backdoor attack hyperparameters to maximize
+    ASR and minimize detection'
+  description: RL-based Backdoor (Li et al. 2023) uses reinforcement learning to automatically optimize attack hyperparameters
+    (poison ratio, local epochs, learning rate, scaling factor). Outperforms BFL, DBA, PGD. Bypasses Krum, Median, Norm-bounding,
+    Neuron Clipping, Pruning.
+  remediation: Use adaptive defenses that change detection thresholds across rounds. Implement cross-round anomaly tracking
+    to detect dynamically adjusting poisoned updates. Apply FLTrust + DnC ensemble.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-029
+  name: fl-mpaf-fake-client-history-attack
+  severity: HIGH
+  category: fake_client_poisoning
+  patterns:
+  - (?i)(mpaf|fake.client.{0,20}(histor|random).attack.{0,40}federat)
+  - (?i)(inject.{0,20}fake.client.{0,40}(historical.global|previous.model|past.round))
+  - (?i)(history.attack.{0,30}(fake|malicious|phantom).client.{0,40}(fedavg|aggregat|federat))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: MPAF Model Poisoning via Fake Clients — injecting fake clients with historical global model attacks
+    (random guessing with 1% fake clients)'
+  description: MPAF (Cao & Gong 2022) injects fake clients using Historical Attack (previous global model updates) or Random
+    Attack. Reduces test accuracy to random guessing with only 1% fake clients on FedAvg. Bypasses Median and Trimmed Mean
+    aggregation.
+  remediation: Implement client authentication and identity verification in FL system. Detect clients submitting historical
+    global model gradients unchanged. Use Sybil-resistant client admission controls.
+  owasp_llm: LLM02:2025
+  cwe: CWE-306
+- id: MEDUSA-FLA-SCAN-030
+  name: fl-eabfl-algorithmic-bias-redundant-neurons
+  severity: HIGH
+  category: fairness_attack
+  patterns:
+  - (?i)(eab.fl|exacerbat.{0,20}algorithmic.bias|fairness.attack.{0,40}federat)
+  - (?i)(redundant.neuron.{0,40}(bias|demographic|inject|target).{0,40}(federat|fl|model))
+  - (?i)(invariant.{0,20}neuron.{0,40}demographic.{0,40}(bias|inject|poison).{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: EAB-FL algorithmic bias injection — exploiting redundant neuron space to inject demographic bias while
+    preserving global accuracy'
+  description: EAB-FL (Meerza et al. 2024) identifies redundant neurons (invariant during training) and injects demographic
+    bias into that space. Maximizes utility for privileged groups while minimizing for unprivileged. Global accuracy unchanged
+    — bias is invisible to standard FL monitoring. Bypasses Krum, LoMar, FLDetector, SparseFed, FAIRFED, FEDFB.
+  remediation: Implement fairness-aware FL training with per-demographic performance monitoring. Test models for group-level
+    performance disparities post-training. Use FAIRFED with redundant neuron analysis.
+  owasp_llm: LLM09:2025
+  cwe: CWE-284
+- id: MEDUSA-FLA-SCAN-031
+  name: fl-poisonedfl-sign-vector-dynamic-magnitude
+  severity: HIGH
+  category: byzantine_attack
+  patterns:
+  - (?i)(poisonedfl|poisoned.fl).{0,60}(sign.vector|magnitude|federat)
+  - (?i)(fixed.random.sign.vector.{0,40}dynamic.magnitude.{0,40}federat)
+  - (?i)(sign.flip.{0,20}dynamic.{0,20}(scal|magnitude|round).{0,40}federat.{0,40}(fake|malicious).client)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: PoisonedFL fixed sign vector dynamic magnitude attack — ~90% testing error with only 5% fake clients'
+  description: PoisonedFL (Xie 2024) uses a fixed random sign vector with dynamic magnitude across rounds. Achieves ~90% testing
+    error with 5% fake clients. Bypasses Multi-Krum, Median, TrMean, Norm Bound, FLTrust, FLAME, FLCert, FLDetector.
+  remediation: Monitor gradient sign consistency patterns across clients and rounds. Implement cross-round update behavior
+    tracking. Use ensemble of Byzantine-robust aggregation methods rather than relying on a single defense.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-032
+  name: fl-free-rider-fake-update-contribution
+  severity: MEDIUM
+  category: free_rider_attack
+  patterns:
+  - (?i)(free.rider.{0,20}attack|free.?riding.{0,40}federat)
+  - (?i)(delta.weight.{0,20}(fake|mimic|pretend).{0,40}(federat|gradient|update))
+  - (?i)(disguised.{0,20}free.?rider|adaptive.free.?rider|time.varying.noise.{0,40}(federat|gradient))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Free-Rider Attack pattern — client submitting fake/delta weight updates without genuine local training
+    contribution'
+  description: 'Free-rider attacks (Lin 2019, Fraboni 2020, Chen 2022) submit fake updates without genuine training. Variants:
+    Delta Weights (previous global gradient + noise), Disguised (time-varying noise mimicking SGD), Adaptive (uses global
+    model params), F_Z (geometric IID properties). All exploit FL trust without contributing.'
+  remediation: Implement contribution verification — compare client gradient statistics against expected local data distribution.
+    Use CFFL (Collaborative Fairness FL) for contribution tracking. Apply FoolsGold to penalize similar update submissions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-033
+  name: fl-raifle-fingerprint-recommender-inference
+  severity: HIGH
+  category: gradient_leakage
+  patterns:
+  - (?i)(raifle|fingerprint.{0,20}(item|recommendation).{0,40}(federat|gradient|leakage))
+  - (?i)(active.item.modification.{0,40}(infer|reconstruct|leak).{0,30}(user.interaction|rating|preference))
+  - (?i)(zero.gradient|non.zero.gradient.{0,40}(item|feature).{0,40}(infer|fingerprint|attack))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: RAIFLE fingerprinting attack — active item feature modification to infer private FL recommender system
+    interactions'
+  description: RAIFLE (Pham et al. 2023) uses fingerprinting via item feature modification to force zero/non-zero gradients
+    in federated recommender systems. Active item modification enables inference of user interactions. Bypasses Secure Aggregation
+    — targets recommender systems specifically.
+  remediation: Apply differential privacy to gradient submissions in FL recommender systems. Monitor item feature modification
+    patterns on FL server. Implement item integrity verification before distribution to clients.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-034
+  name: fl-robbing-the-fed-linear-layer-insertion
+  severity: CRITICAL
+  category: data_reconstruction
+  patterns:
+  - (?i)(robbing.the.fed|robbingthefed|fowl.{0,20}federat.{0,20}(layer|linear|leak))
+  - (?i)(insert.{0,20}linear.layer.{0,40}(gradient|leak|data.verbatim|reconstruct).{0,40}federat)
+  - (?i)(decepticons.{0,20}federat|transformer.attention.{0,40}(bypass|hijack|token.mix).{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Robbing the Fed / Decepticons — server inserting linear layer or hijacking Transformer attention to
+    leak training data verbatim through gradients'
+  description: Robbing the Fed (Fowl et al. 2022) inserts a linear layer into model architecture — data leaks verbatim through
+    gradients of the inserted layer. Decepticons (Fowl et al. 2023) variant modifies Transformer attention to bypass token
+    mixing for data reconstruction. Both exploit server-sent model architecture trust.
+  remediation: Validate model architecture integrity before every training round. Pin architecture checksums. Never train
+    on model architectures from untrusted FL servers. Use TEE-based client validation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-035
+  name: fl-sybil-collusion-identity-amplification
+  severity: HIGH
+  category: sybil_attack
+  patterns:
+  - (?i)(sybil.{0,20}(collu|federat|attack|amplif)|multiple.fake.identit.{0,40}federat)
+  - (?i)(sybil.based.{0,20}(collu|amplif|control).{0,40}(federat|aggregat|poisoning))
+  - (?i)(multiple.{0,20}(fake|phantom|fabricat).{0,20}(identit|client|participant).{0,40}(amplif|coordinat|poison))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Sybil-based Collusion — multiple fake FL client identities coordinated to amplify poisoned update influence'
+  description: Sybil-based Collusion (Xiao et al. 2023) registers multiple fake client identities in the FL system to amplify
+    the influence of poisoned updates. Combined with MPAF or other attacks, enables a small number of adversarial resources
+    to dominate gradient aggregation. Undermines threshold-based Byzantine defenses.
+  remediation: Implement Sybil-resistant client admission using cryptographic identity verification (PKI, device attestation).
+    Use FoolsGold to penalize clients with similar update patterns. Apply rate limiting per verified identity.
+  owasp_llm: LLM02:2025
+  cwe: CWE-306
+- id: MEDUSA-FLA-SCAN-036
+  name: fl-sign-flipping-zero-update-extreme-norm
+  severity: HIGH
+  category: gradient_manipulation
+  patterns:
+  - (?i)(sign.flip.{0,20}(gradient|update|model).{0,40}federat)
+  - (?i)(negat.{0,20}gradient.{0,40}(submit|send|upload).{0,40}(federat|aggregat|global))
+  - (?i)(zero.update|zero.norm.{0,40}(federat|aggregat)|stationarity.trap.{0,40}federat)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Sign Flipping / Zero-update / Extreme Norm — FL gradient manipulation patterns reversing training direction
+    or stalling convergence'
+  description: Sign Flipping submits the negative of calculated gradient (-m_t). Zero-update / Extreme Norm (Pan et al. 2023)
+    sends zero-norm updates (stationarity trap) or extreme gradients to halt convergence. Both exploit FL's reliance on gradient
+    direction for learning. Sign flipping bypasses FedAvg.
+  remediation: Monitor gradient direction consistency using cosine similarity analysis. Detect zero-norm or extreme-norm submissions
+    via statistical monitoring. Use Byzantine-robust aggregation (Krum, Bulyan) as baseline defense.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-037
+  name: fl-llm-prompt-injection-federated-deployment
+  severity: HIGH
+  category: federated_llm_attack
+  patterns:
+  - (?i)(prompt.inject.{0,40}(federat.{0,20}llm|federated.language.model|fl.{0,10}llm))
+  - (?i)(federat.{0,20}llm.{0,40}(data.leakage|free.rid|disruption|misinformation))
+  - (?i)(military.{0,20}federat|sensitive.federat.deployment.{0,40}(prompt.inject|attack|poison))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Prompt Injection in Federated LLM deployment — targeting data leakage, free-riding, or misinformation
+    in FL language model systems'
+  description: 'Lee (2025) demonstrates prompt injection attacks targeting federated LLM deployments (including military contexts):
+    data leakage via injection into FL training data, free-riding through injected contributions, system disruption via adversarial
+    prompts, and misinformation propagation. Unique threat surface combining FL vulnerabilities with LLM prompt injection.'
+  remediation: Sanitize client training data contributions in federated LLM systems. Implement prompt injection detection
+    at the data ingestion layer. Apply differential privacy to text data contributions. Use secure enclaves for sensitive
+    FL LLM deployments.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+- id: MEDUSA-FLA-SCAN-038
+  name: trimmed-mean-coordinate-median-defense-evasion
+  severity: HIGH
+  category: aggregation_bypass
+  patterns:
+  - (?i)(trimmed.mean.{0,30}(bypass|evade|defense.evasion|federated))
+  - (?i)(coordinate.wise.median.{0,30}(bypass|evade|defense|federated))
+  - (?i)(bypass.{0,20}(trimmed.mean|coordinate.median|krum|fl.defense).{0,30}(gradient|federated))
+  - (?i)(byzantine.robust.{0,30}(bypass|evade|attack|defense.evasion))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Byzantine-Robust Aggregation Defense Evasion — crafting gradients to bypass trimmed mean, coordinate-wise
+    median, or Krum aggregation defenses'
+  description: Byzantine-Robust Aggregation defenses (trimmed mean, coordinate-wise median, Krum, FedMGDA) are designed to
+    filter malicious client gradients in federated learning. Evasion attacks craft gradients that appear statistically normal
+    to these defenses while still biasing the global model. By staying within the non-filtered range of gradient distributions,
+    attackers bypass defenses while achieving significant model poisoning. Defense evasion is the primary challenge in practical
+    FL security.
+  remediation: Apply multiple diverse aggregation defenses in ensemble — evasion of one defense rarely evades all simultaneously.
+    Combine statistical gradient analysis with behavioral evaluation of the resulting model. Implement FLAME or FLDETECTOR
+    for evasion-resistant Byzantine defense. Monitor model performance on clean test data after each aggregation round.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-039
+  name: differential-privacy-budget-exploitation-fl
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(differential.privacy.{0,30}(budget.exploit|epsilon.exhaust|query.flood|fl))
+  - (?i)(privacy.budget.{0,30}(exhaust|exploit|deplete|epsilon|federated))
+  - (?i)(epsilon.{0,20}(exhaust|exploit|budget|deplete).{0,30}(differential.privacy|fl|federated))
+  - (?i)(dp.sgd.{0,30}(bypass|exploit|budget.exhaust|noise.calibrat|privacy.budget))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Differential Privacy Budget Exploitation in FL — exhausting or exploiting privacy budget to reduce protection
+    effectiveness'
+  description: Differential Privacy Budget Exploitation targets FL systems using DP-SGD by exhausting the privacy budget (ε)
+    through excessive queries or by crafting updates that force high sensitivity clipping, reducing effective privacy protection.
+    When the privacy budget is exhausted, subsequent updates have insufficient noise to protect privacy. Attackers can also
+    reverse-engineer noise calibration to design gradient updates that maximize the signal-to-noise ratio for membership inference.
+  remediation: Implement strict privacy budget accounting with automatic training termination at ε threshold. Monitor per-round
+    privacy budget consumption for anomalous depletion rates. Apply adaptive noise mechanisms that maintain privacy guarantees
+    regardless of client gradient distribution. Use privacy amplification via subsampling to extend effective budget.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-040
+  name: property-inference-federated-model-updates
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(property.inference.{0,30}(federated|fl|model.update|gradient))
+  - (?i)(infer.property.{0,30}(federated.client|training.data|fl.gradient|model.update))
+  - (?i)(federated.{0,20}(property.inference|attribute.inference|gradient.property))
+  - (?i)(client.data.property.{0,30}(infer|leak|federated|gradient|model.update))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Property Inference Attack on Federated Learning — inferring sensitive properties of client training
+    data from model updates/gradients'
+  description: 'Property Inference Attacks on FL infer sensitive properties of client training data from model updates without
+    extracting individual records. A malicious FL server or participant analyzes gradient update distributions to determine
+    client data properties: medical diagnosis distribution, demographic composition, behavioral patterns. Even with differential
+    privacy, sufficiently large gradient updates may leak aggregate properties of client datasets.'
+  remediation: Apply secure aggregation protocols that prevent server from observing individual client updates. Implement
+    gradient perturbation beyond standard DP-SGD. Use shuffling protocols that decouple client identity from gradient contribution.
+    Monitor for inference attacks by applying multiple rounds of property inference testing on your own system before deployment.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-041
+  name: server-side-model-manipulation-federated
+  severity: CRITICAL
+  category: server_attack
+  patterns:
+  - (?i)(malicious.fl.server|malicious.federated.server|server.manipulate.{0,30}federated)
+  - (?i)(fl.server.{0,30}(manipulate|backdoor|poison|inject).{0,30}(global.model|aggregate))
+  - (?i)(federated.server.{0,30}(malicious|inject|backdoor|manipulate).{0,30}(client|model))
+  - (?i)(poisoned.global.model.{0,30}(distribute|federated.server|fl.server))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Malicious FL Server — server-side manipulation of global model or gradient aggregation to backdoor all
+    FL clients'
+  description: 'Malicious Federated Learning Server attacks target the server-side aggregation process to inject backdoors
+    into the global model distributed to all clients. An adversarial server can: (1) modify aggregated updates before distribution,
+    (2) send different models to different clients, (3) amplify malicious client contributions in aggregation. Critical because
+    the server is typically the most trusted entity but is often the highest-value target.'
+  remediation: Implement client-side model verification — compare received model against independently computed aggregates.
+    Apply verifiable aggregation protocols using secure multi-party computation. Monitor for model performance anomalies after
+    global model updates. Use Byzantine agreement among multiple independent aggregation servers.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-042
+  name: client-selection-bias-targeted-fl-attack
+  severity: HIGH
+  category: aggregation_attack
+  patterns:
+  - (?i)(client.selection.{0,30}(bias|attack|target|federated|fl))
+  - (?i)(biased.client.selection.{0,30}(federated|fl|aggregation|target))
+  - (?i)(federated.{0,20}client.selection.{0,30}(bias|manipulate|target.attack|exploit))
+  - (?i)(round.participation.{0,30}(bias|attack|target|federated.client|fl))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Client Selection Bias Attack — biasing FL client selection rounds to over-represent malicious clients
+    in aggregation'
+  description: Client Selection Bias Attack exploits the random client selection process in federated learning to over-represent
+    malicious clients in aggregation rounds. By influencing which clients participate in each round (through network manipulation,
+    availability attacks on legitimate clients, or compromising the selection protocol), attackers increase the proportion
+    of malicious gradient contributions beyond what Byzantine-robust defenses expect, causing poisoning that bypasses threshold-based
+    defenses.
+  remediation: Implement verifiable random client selection using cryptographic randomness beacons. Monitor for client availability
+    patterns that suggest coordination among malicious participants. Apply reputation-weighted selection that reduces influence
+    of consistently anomalous contributors. Use multi-round aggregation analysis to detect systematic selection bias.
+  owasp_llm: LLM02:2025
+  cwe: CWE-330
+- id: MEDUSA-FLA-SCAN-043
+  name: gradient-inversion-reconstruction-federated
+  severity: CRITICAL
+  category: privacy_attack
+  patterns:
+  - (?i)(gradient.inversion.{0,30}(reconstruct|federated|fl|dlg|idlg))
+  - (?i)(reconstruct.training.data.{0,30}(gradient|federated|fl|inversion))
+  - (?i)(dlg|idlg).{0,30}(federated|gradient.inversion|reconstruct|training.data)
+  - (?i)(inverting.gradient.{0,30}(federated|reconstruct|private.data|fl))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Gradient Inversion Reconstruction in FL — reconstructing private training data from shared gradients
+    (DLG/iDLG/Inverting Gradients)'
+  description: Gradient Inversion (DLG/iDLG/Inverting Gradients) reconstructs private client training data from gradients
+    shared during federated learning. DLG iteratively optimizes dummy inputs to match leaked gradients; iDLG analytically
+    extracts labels from gradient signs; Inverting Gradients uses cosine distance + total variation priors for high-resolution
+    image reconstruction. A malicious server can reconstruct private medical images, personal documents, or sensitive training
+    records from a single gradient update.
+  remediation: Apply gradient perturbation (DP-SGD with appropriate noise) before gradient sharing. Implement gradient compression
+    and quantization to reduce inversion attack signal quality. Use secure aggregation where the server never sees individual
+    client gradients. Apply gradient clipping to reduce per-sample information leakage.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-044
+  name: poisoned-local-update-scaling-amplification
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(local.update.{0,30}(scale|amplif|boost|poison).{0,30}(federated|fl|aggregat))
+  - (?i)(gradient.scale.{0,30}(amplif|boost|poison.amplif|federated|constrain.scale))
+  - (?i)(constrain.and.scale|constraint.and.scale).{0,30}(federated|fl|poison|amplif)
+  - (?i)(model.replacement.{0,30}(scale|amplif).{0,30}(federated|fl|single.round))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Poisoned Local Update Scaling — amplifying malicious gradients via scaling to overcome honest client
+    contributions in FL aggregation'
+  description: Poisoned Local Update Scaling (related to Model Replacement/Constrain-and-Scale) amplifies malicious gradient
+    contributions via update scaling to overcome the average honest client updates. By submitting gradients scaled by 1/fraction_of_malicious_clients,
+    a single malicious client can effectively replace the global model in one aggregation round. Constrain-and-Scale applies
+    norm constraints to make the scaled malicious update appear statistically normal while maintaining its direction.
+  remediation: Apply gradient norm clipping to all client submissions — cap maximum L2 norm before aggregation. Implement
+    update norm monitoring that flags submissions outside normal distribution. Use FedMGDA or similar gradient direction analysis
+    to detect coordinated direction attacks. Apply norm-aware Byzantine-robust aggregation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-045
+  name: federated-membership-inference-cs-mia
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(cs.mia|fl.membership.inference|federated.{0,20}membership.inference)
+  - (?i)(membership.inference.{0,30}(federated|fl|temporal.confidence|cs.mia))
+  - (?i)(temporal.confidence.{0,30}(membership.inference|federated|fl|0\.93))
+  - (?i)(auc.{0,20}0\.93.{0,20}(federated|fl|membership.inference|cs.mia))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: CS-MIA (Confidence Score MIA) — federated learning temporal confidence membership inference attack (AUC:
+    0.93)'
+  description: 'CS-MIA (Confidence Score Membership Inference Attack) exploits temporal changes in model confidence scores
+    across FL training rounds to infer membership. AUC: 0.93 on federated learning settings. By tracking how a model''s confidence
+    score on specific samples changes across rounds, an adversary can determine whether those samples were part of training
+    data in specific rounds. The temporal dimension of FL training creates a unique information leakage channel not present
+    in centralized training.'
+  remediation: Apply confidence score perturbation (adding calibrated noise) before sharing model checkpoints. Implement confidence
+    score monitoring for systematic temporal patterns that could enable CS-MIA. Use prediction consistency analysis rather
+    than raw confidence scores in federated evaluation. Apply local differential privacy to model output distributions.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-046
+  name: sybil-attack-fake-client-fl-identity
+  severity: HIGH
+  category: identity_attack
+  patterns:
+  - (?i)(sybil.{0,20}(attack|client|federated|fl|fake.identity|multiple.identity))
+  - (?i)(fake.fl.client|fake.federated.client|multiple.identity.{0,30}federated)
+  - (?i)(multiple.fake.{0,20}client.{0,30}(federated|fl|aggregat|sybil))
+  - (?i)(client.identity.{0,30}(fake|forge|sybil|multiple|federated))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Sybil Attack on Federated Learning — creating multiple fake client identities to amplify malicious contribution
+    in aggregation'
+  description: Sybil Attacks on FL create multiple fake client identities controlled by a single adversary, artificially inflating
+    the proportion of malicious updates in each aggregation round. Unlike single-client attacks limited by honest client majority,
+    Sybil attacks can overwhelm Byzantine-robust defenses by creating a Sybil majority. Particularly effective in open FL
+    systems without strong client authentication or contribution verification.
+  remediation: Implement strong client authentication using cryptographic attestation before FL participation. Apply contribution
+    diversity analysis that detects correlated updates from Sybil clients. Use minimum client diversity requirements — multiple
+    network fingerprints, geographic regions. Monitor for suspiciously similar gradient updates that indicate shared malicious
+    source.
+  owasp_llm: LLM02:2025
+  cwe: CWE-287
+- id: MEDUSA-FLA-SCAN-047
+  name: federated-free-rider-fake-contribution-gradient
+  severity: MEDIUM
+  category: system_abuse
+  patterns:
+  - (?i)(free.rider.{0,30}(federated|fl|fake.contribution|gradient|mpaf))
+  - (?i)(mpaf|fake.client.{0,30}(fl|federated|gradient|free.rider))
+  - (?i)(random.guessing.{0,30}(federated|fl|free.rider|1.{0,3}%.fake))
+  - (?i)(fake.gradient.{0,30}(fl|federated|free.rider|noise|random))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: FL Free-Rider Attack (MPAF) — submitting fake/random gradients to participate in FL without contributing
+    actual computation'
+  description: Free-Rider Attacks (MPAF — Model Poisoning via fake clients as free-riders) submit fake random gradients or
+    noise to participate in federated learning rounds without performing actual local training. With 1% fake clients, random
+    guessing gradients may be sufficient to participate undetected. Free-riders gain access to the global model updates (the
+    valuable product of FL) without contributing computational resources, and can use the FL system as a data extraction channel.
+  remediation: Implement contribution verification using validation set performance checks on submitted updates. Apply gradient
+    utility analysis — detect updates with near-zero information contribution. Use proof-of-work or proof-of-computation protocols
+    for FL participation. Monitor for clients that consistently contribute updates equivalent to random noise.
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+- id: MEDUSA-FLA-SCAN-048
+  name: evasion-fl-aggregation-invisible-accuracy-preserve
+  severity: HIGH
+  category: stealthy_poisoning
+  patterns:
+  - (?i)(eab.fl|eab.?fl|invisible.global.accuracy.{0,30}(fl|federated|poison))
+  - (?i)(global.accuracy.preserved.{0,30}(fl.backdoor|federated.poison|invisible))
+  - (?i)(preserve.accuracy.{0,30}(fl.backdoor|federated.poison|invisible|eab))
+  - (?i)(algorithmic.bias.{0,30}(federated|fl|invisible|accuracy.preserve|eab))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: EAB-FL (Evasion-Aware Backdoor FL) — FL backdoor preserving global accuracy to evade accuracy-based
+    detection while inducing algorithmic bias'
+  description: EAB-FL (Evasion-Aware Backdoor in Federated Learning) implants algorithmic bias while carefully preserving
+    global accuracy to evade accuracy-based anomaly detection. Standard defenses that monitor global model accuracy on clean
+    test sets will not detect this attack because accuracy is deliberately maintained. The attack focuses on introducing systematic
+    demographic or class biases that only manifest on specific subgroups invisible in aggregate metrics.
+  remediation: Apply subgroup fairness analysis on FL global models — check accuracy across demographic and class subgroups,
+    not just aggregate metrics. Use FedAvg disaggregated evaluation that tests multiple data distributions. Monitor for systematic
+    accuracy divergence between majority and minority subgroups after aggregation rounds.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-049
+  name: fl-personalization-privacy-leakage-local-data
+  severity: HIGH
+  category: privacy_attack
+  patterns:
+  - (?i)(fl.personalization.{0,30}(privacy|leak|inference|local.data))
+  - (?i)(personalized.federated.{0,30}(privacy.leak|local.data.infer|personalization.attack))
+  - (?i)(local.adaptation.{0,30}(privacy|leak|fl.personalization|data.infer))
+  - (?i)(per.fedavg|pfedme|local.fine.tun.{0,30}(privacy|leak|personalization|fl))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: FL Personalization Privacy Leakage — personalized FL adaptation revealing local private data through
+    model personalization artifacts'
+  description: Federated Learning Personalization Privacy Leakage occurs when personalized FL methods (pFedMe, Per-FedAvg,
+    local fine-tuning) expose private local data through the personalization artifacts. Personal model adaptations reflect
+    local training data distribution — an adversary observing personalized model updates can infer more about local data than
+    from non-personalized FL. The personalization that makes FL more useful also makes it more privacy-vulnerable.
+  remediation: Apply personalization-aware differential privacy that calibrates noise to personalized update sensitivity.
+    Limit the number of local adaptation steps to reduce personalization information leakage. Implement personalized model
+    mixing that reduces direct local data reflection. Use privacy amplification techniques specific to personalized FL settings.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-050
+  name: alie-a-little-is-enough-small-shift-byzantine
+  severity: HIGH
+  category: byzantine_attack
+  patterns:
+  - (?i)(alie|a.little.is.enough|small.shift.byzantine).{0,60}(fl|federat|aggregat)
+  - (?i)(z.sigma.shift.{0,40}(benign|mean|update).{0,40}(federat|fl|aggregat))
+  - (?i)(constrained.{0,20}perturbation.{0,40}(krum|bulyan|trimmed.mean).{0,30}(evade|bypass|fl))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: ALIE (A Little Is Enough) Byzantine attack — small statistical shift (zσ) to benign FL update mean bypassing
+    robust aggregation defenses'
+  description: 'ALIE (Baruch et al. 2019) computes the statistical range of benign updates and shifts malicious updates by
+    a small amount (zσ) — just enough to bias the global model without being detected as outliers. Bypasses: Krum, Bulyan,
+    Trimmed Mean. Key insight: robust aggregation methods only filter extreme outliers; ALIE stays within the accepted range
+    while still causing meaningful model degradation. A precision attack requiring fewer malicious clients than brute-force
+    poisoning.'
+  remediation: 'Apply ALIE-specific detection: monitor for clusters of updates shifted by consistent small offsets from the
+    benign mean. Use FLTrust (trust scores based on root dataset) which is more robust to ALIE than simple aggregation rules.
+    Implement update distribution monitoring to detect subtle distributional shifts. Use certified aggregation methods (RFA)
+    with provable Byzantine tolerance.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-051
+  name: ipm-inner-product-manipulation-reverse-learning
+  severity: HIGH
+  category: byzantine_attack
+  patterns:
+  - (?i)(ipm|inner.product.manipulation).{0,60}(fl|federat|reverse.learning)
+  - (?i)(negative.inner.product.{0,40}(federat|fl|update|reverse.gradient))
+  - (?i)(reverse.learning.direction.{0,40}(federat|fl|inner.product|negative))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: IPM (Inner Product Manipulation) — reversing FL learning direction via negative inner product updates,
+    bypassing Krum and Median'
+  description: 'IPM (Xie et al. 2020) manipulates FL model updates to have negative inner product with the true gradient,
+    reversing the learning direction. Unlike magnitude-based attacks, IPM exploits the geometric relationship between update
+    directions. Bypasses: Krum, Median. The reversed gradient direction causes the global model to unlearn correct patterns
+    rather than learn incorrect ones — a subtle degradation that is harder to detect than direct poisoning.'
+  remediation: Apply gradient direction consistency checking — detect updates with negative inner product alignment to the
+    majority direction. Use cosine similarity filtering to identify directionally adversarial updates. Implement FLTrust or
+    FLAME defense which are more robust to directional manipulation. Monitor for persistent negative-direction bias in aggregated
+    updates.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-052
+  name: eab-fl-algorithmic-bias-demographic-injection
+  severity: HIGH
+  category: fairness_attack
+  patterns:
+  - (?i)(eab.fl|exacerbat.algorithmic.bias|eab.federat)
+  - (?i)(bias.inject.{0,30}(redundant.space|neuron|demographic).{0,40}(federat|fl|fairness))
+  - (?i)(federat.{0,20}(demographic.bias|fairness.attack|bias.amplif).{0,40}(neuron|redundant.space))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: EAB-FL algorithmic bias injection — targeting redundant-space neurons to amplify demographic bias while
+    maintaining global accuracy'
+  description: 'EAB-FL (Meerza 2024) injects demographic bias into ''redundant space'' neurons in FL models — neurons that
+    do not contribute to global accuracy but can encode discriminatory patterns. The attack maintains global accuracy (evading
+    accuracy-based detection) while significantly increasing bias against target demographic groups. Bypasses: Krum, LoMar,
+    FLDetector, SparseFed, FAIRFED, FEDFB. Critical for FL deployments in healthcare, hiring, and financial services where
+    algorithmic fairness is legally required.'
+  remediation: Apply fairness-aware FL aggregation (FAIRFED, FEDFB) combined with redundant-space neuron monitoring. Implement
+    demographic parity auditing after each FL round. Use bias detection metrics beyond accuracy (equal opportunity, demographic
+    parity) in FL evaluation. Apply differential privacy to reduce bias injection information in individual updates.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-053
+  name: poisonedfl-sign-vector-dynamic-magnitude
+  severity: CRITICAL
+  category: byzantine_attack
+  patterns:
+  - (?i)(poisonedfl|poisoned.fl.{0,30}(sign.vector|dynamic.magnitude|fixed.random))
+  - (?i)(fixed.random.sign.vector.{0,40}(federat|fl|dynamic.magnitude|bypass))
+  - (?i)(sign.based.fl.poison.{0,40}(multi.krum|flcert|fltrust|flame|fldetector))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: PoisonedFL sign-vector attack — fixed random sign vector with dynamic magnitude bypassing 8 FL defense
+    mechanisms (~90% error with 5% fake clients)'
+  description: 'PoisonedFL (Xie 2024) uses a fixed random sign vector combined with dynamically adjusted magnitude across
+    rounds to poison FL models. Achieves ~90% testing error with only 5% fake clients. Remarkably bypasses 8 defense mechanisms
+    simultaneously: Multi-Krum, Median, TrMean, Norm Bound, FLTrust, FLAME, FLCert, FLDetector. The fixed sign direction combined
+    with dynamic magnitude makes it appear as naturally varying benign updates to anomaly detectors.'
+  remediation: No single currently-deployed defense fully mitigates PoisonedFL. Apply defense combinations including Norm
+    Bound + FLAME + behavioral analysis. Implement dynamic sign-direction consistency monitoring across update rounds. Use
+    certified Byzantine-robust aggregation methods (certifiable aggregation). Apply anomaly detection that evaluates both
+    magnitude AND direction consistency over time.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-054
+  name: model-replacement-constrain-scale-single-shot
+  severity: CRITICAL
+  category: backdoor_attack
+  patterns:
+  - (?i)(model.replacement|constrain.and.scale|bagdasaryan).{0,60}(fl|federat|backdoor)
+  - (?i)(scale.{0,20}gamma.{0,20}(n.eta|learning.rate).{0,40}(replace|global.model|federat))
+  - (?i)(single.shot.backdoor.{0,40}100pct.{0,40}(fl|federat|replace.global.model))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Model Replacement (Constrain-and-Scale) — scaling update by γ=n/η to replace global FL model with backdoored
+    version in single round (100% backdoor accuracy)'
+  description: Model Replacement (Bagdasaryan et al. 2018) achieves 100% backdoor accuracy in a single FL round by scaling
+    the malicious update by γ=n/η (number of clients / learning rate), effectively replacing the global model with the attacker's
+    backdoored version. The scaling ensures the malicious update dominates FedAvg aggregation regardless of benign client
+    count. Requires only one malicious client. This paper established the feasibility of single-round FL takeover.
+  remediation: Apply norm clipping to FL updates to prevent magnitude-based global model replacement. Implement update magnitude
+    anomaly detection — flag updates with unusually large L2 norms. Use FLTrust or FLAME which verify updates against a clean
+    server-side root dataset. Enforce strict per-client update norm bounds (≤ C) during aggregation.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-055
+  name: dba-distributed-backdoor-sub-trigger-decomposition
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(dba|distributed.backdoor.attack|sub.trigger.{0,30}(decompos|distributed|fl))
+  - (?i)(decomposes.{0,20}(global.trigger|trigger.pattern).{0,30}(sub.trigger|local.client|distributed))
+  - (?i)(distributed.sub.trigger.{0,40}(fl|federat|client).{0,40}(reconstruct|combine|global.trigger))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: DBA (Distributed Backdoor Attack) — global trigger decomposed into local sub-triggers across FL clients,
+    reconstructing full trigger only on combined model'
+  description: 'DBA (Xie et al. 2019/2020) decomposes a global backdoor trigger pattern into local sub-triggers distributed
+    across multiple malicious clients. Each client learns only a fragment; the full trigger reconstructs only in the combined
+    global model. Higher ASR and durability than centralized backdoors. Bypasses: RFA (Geometric Median), Robust Learning
+    Rates. Key advantage: no single client''s update contains the full trigger pattern, evading per-client trigger detection.'
+  remediation: Apply FL aggregation defenses that evaluate update combinations, not just individual updates. Use Robust Learning
+    Rates (RLR) defense with careful calibration for DBA resistance. Implement trigger detection in the aggregated global
+    model, not just per-client updates. Apply FLDetector to monitor for coordinated patterns across client update subsets.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-056
+  name: neurotoxin-rarely-updated-parameter-backdoor
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(neurotoxin|rarely.updated.parameter.{0,30}(backdoor|fl|inject))
+  - (?i)(long.tail.parameter.{0,40}(backdoor|neurotoxin|inject|fl.poison))
+  - (?i)(durable.backdoor.{0,40}(rarely.updated|parameter.selection|federat|neurotoxin))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Neurotoxin — injecting backdoor into rarely-updated FL model parameters, creating durable backdoors
+    that persist many rounds'
+  description: 'Neurotoxin (Zhang et al. 2022) injects backdoor triggers into model parameters that are rarely updated by
+    benign FL clients (long-tail parameters). These parameters accumulate little clean gradient signal, so the injected backdoor
+    persists across many rounds without being overwritten. Bypasses: Differential Privacy, Robust Aggregation. Key insight:
+    standard FL defenses focus on the aggregation step; Neurotoxin exploits the update sparsity of specific parameters to
+    create persistent hidden backdoors.'
+  remediation: 'Apply uniform gradient coverage techniques that ensure all parameters receive regular updates. Implement Neurotoxin-specific
+    detection: monitor parameter update frequency and flag anomalous activity in low-update-rate parameters. Apply random
+    parameter permutation to disrupt parameter-specific targeting. Use model weight perturbation at regular intervals to overwrite
+    persistent low-frequency backdoors.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-057
+  name: lp-attack-layer-wise-backdoor-critical-layers
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(lp.attack|layer.wise.poison|backdoor.critical.layer).{0,60}(fl|federat)
+  - (?i)(bc.layer|backdoor.critical.{0,30}(layer|neuron).{0,40}(fl|federat|identify))
+  - (?i)(layer.wise.{0,20}poison.{0,40}(fl|federat|multi.krum|fltrust|flame))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: LP Attack (Layer-wise Poisoning) — targeting Backdoor-Critical (BC) layers identified via gradient analysis
+    for surgical precision poisoning (up to 99% ASR)'
+  description: 'LP Attack (Zhuang et al. 2023) identifies ''Backdoor-Critical (BC)'' layers — the minimal set of layers required
+    to implement the backdoor — and poisons only those layers. By minimizing the poisoning footprint, LP Attack achieves high
+    ASR (up to 99%) while minimizing the detectable signature of the attack. Bypasses: Multi-Krum, FLTrust, FLAME, FLDetector,
+    DnC. The surgical precision makes LP Attack one of the most defense-resistant FL backdoor attacks documented.'
+  remediation: Apply layer-level monitoring for abnormal gradient patterns in suspected BC layers. Implement per-layer update
+    norm constraints. Use FLDetector with layer-granularity analysis. Apply random layer dropout in FL aggregation to disrupt
+    layer-specific targeting. Consider architecture-aware aggregation that down-weights updates to high-impact layers from
+    new participants.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-058
+  name: venomancer-imperceptible-conditional-trigger
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(venomancer|imperceptible.conditional.trigger.{0,30}(fl|federat|backdoor))
+  - (?i)(target.on.demand.{0,40}(conditional|backdoor|fl|federat|adversarial.trigger))
+  - (?i)(conditional.adversarial.training.{0,40}(fl|federat|imperceptible.trigger|backdoor))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Venomancer imperceptible conditional backdoor — target-on-demand via conditional adversarial training,
+    bypassing 8 FL defenses (BA >95%)'
+  description: 'Venomancer (Nguyen et al. 2024) combines imperceptible backdoor triggers with target-on-demand conditional
+    adversarial training for FL. The trigger is crafted to be imperceptible to human inspection, and the target class can
+    be selected at inference time (conditional). BA >95% on MNIST, CIFAR-10, CIFAR-100. Bypasses 8 defenses simultaneously:
+    Norm Clipping, Weak DP, Krum, Multi-Krum, RLR, FedRAD, Deepsight, RFLBAT. Currently one of the most comprehensive FL backdoor
+    defense bypasses.'
+  remediation: Apply certified robustness bounds to FL models against imperceptible triggers. Use strong DP (epsilon < 1)
+    to provide certified trigger resistance. Implement visual trigger detection with multiple sensitivity thresholds. Apply
+    input preprocessing (smoothing, denoising) at inference time to disrupt imperceptible triggers. Use ensemble of defense
+    mechanisms rather than any single defense.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-059
+  name: loki-malicious-fl-server-architecture-gradient-leak
+  severity: CRITICAL
+  category: malicious_server
+  patterns:
+  - (?i)(loki.{0,20}(fl|federat|gradient.leak|malicious.server|csf.kernel))
+  - (?i)(malicious.fl.server.{0,40}(architecture.modif|csf.kernel|gradient.separate|leakage))
+  - (?i)(server.side.{0,40}(architecture.inject|fl|csf|gradient.separate).{0,40}(leak|bypass.secagg))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Loki malicious FL server — server modifies model architecture (CSF kernels) to separate gradients per
+    client, bypassing Secure Aggregation (>80% leakage)'
+  description: 'Loki (Zhao et al. 2023) demonstrates a malicious FL server attack: the server modifies the shared model architecture
+    by injecting Column Space Filter (CSF) kernels that mathematically separate client gradient contributions. Despite Secure
+    Aggregation (designed to prevent per-client gradient observation), Loki reconstructs individual client gradients with
+    >80% accuracy on CIFAR/ImageNet, scaling to 100+ clients. CSF kernels are nearly undetectable in the architecture. Fundamentally
+    breaks FL''s privacy guarantees against a malicious server.'
+  remediation: Verify FL server model architecture integrity before participation — clients should validate the model structure
+    they receive. Apply model architecture auditing for unexpected layers or unusual kernel configurations. Use cryptographic
+    model integrity verification. Consider threat model that includes malicious FL server when designing privacy requirements.
+    Apply SecAgg with additional integrity checks.
+  owasp_llm: LLM09:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-060
+  name: seer-bn-layer-disaggregator-modification-free
+  severity: HIGH
+  category: gradient_leakage
+  patterns:
+  - (?i)(seer.{0,20}(fl|federat|bn.layer|disaggregat|secret))
+  - (?i)(batch.norm.{0,30}(disaggregat|secret|gradient.separate|fl.leakage))
+  - (?i)(modification.free.{0,40}(gradient.separate|fl|disaggregat|bn.layer.secret))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: SEER modification-free gradient disaggregation via BatchNorm secret layers — bypassing D-SNR detection
+    with batch size 512'
+  description: SEER (Garov et al. 2024) performs gradient disaggregation without modifying the main model architecture. Instead,
+    it uses secret disaggregator modules embedded in BatchNorm (BN) layers — which are considered benign model components.
+    The BN-based disaggregator separates per-client gradients from the aggregate. Handles batch sizes up to 512 while evading
+    D-SNR detection (designed to catch Loki-style architectural modifications). A stealthier variant of Loki that is harder
+    to detect via architecture auditing.
+  remediation: Implement BatchNorm layer integrity verification — detect unexpected parameterization of BN layers. Apply D-SNR
+    extended detection that covers BN-based disaggregators. Verify all model components including normalization layers during
+    FL server validation. Use architecture-agnostic gradient privacy guarantees (SecAgg + DP) rather than relying on architecture
+    integrity alone.
+  owasp_llm: LLM09:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-061
+  name: decepticons-transformer-attention-modification
+  severity: HIGH
+  category: gradient_leakage
+  patterns:
+  - (?i)(decepticons.{0,20}(fl|federat|transformer|attention|gradient.leak))
+  - (?i)(transformer.attention.{0,30}(modif|inject|manipulat).{0,40}(fl|gradient.leak|disaggregat))
+  - (?i)(attention.bypass.{0,40}(token.mix|fl|federat|gradient.separate|transformer))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Decepticons transformer attention modification — modifying attention mechanism to bypass token mixing
+    for gradient disaggregation in FL Transformers'
+  description: Decepticons (Fowl et al. 2023) extends gradient reconstruction attacks to Transformer architectures by modifying
+    the attention mechanism to bypass token mixing. Standard Transformers mix information across tokens through attention,
+    making gradient reconstruction difficult. Decepticons injects modifications that disable effective token mixing for specific
+    positions, enabling per-token gradient reconstruction. Specifically targets BERT-like models used in FL NLP deployments.
+    Extension of Robbing the Fed for the Transformer era.
+  remediation: Verify Transformer model architecture integrity including attention layer configurations. Apply attention pattern
+    anomaly detection in FL model distributions. Use SecAgg with cryptographic verification that model structure matches signed
+    specification. Apply DP with per-token noise to prevent position-specific gradient reconstruction. Validate attention
+    mechanism behavior on test inputs before FL participation.
+  owasp_llm: LLM09:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-062
+  name: darts-federated-recommendation-dual-view-poison
+  severity: HIGH
+  category: federated_recommender_attack
+  patterns:
+  - (?i)(darts|dual.view.targeted.{0,30}(poison|fl|federat.recommend))
+  - (?i)(federat.{0,20}sequential.recommend.{0,40}(poison|backdoor|target|darts))
+  - (?i)(dual.view.{0,30}(interact|behavior).{0,40}(federat.recommend|poison|target))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: DARTS dual-view targeted poisoning — federated sequential recommendation system attack achieving ER@5
+    ~0.95 with 1% malicious users'
+  description: 'DARTS (Qin et al. 2025) attacks federated sequential recommendation systems using dual-view targeted poisoning:
+    combining interaction view (manipulating item interaction sequences) with behavior view (crafting fake behavioral patterns).
+    Achieves ER@5 (Exposure Rate at rank 5) of ~0.95 with only 1% malicious users — meaning attacker-chosen items appear in
+    top-5 recommendations for 95% of targeted users. Bypasses standard FL defense mechanisms. Critical for federated recommendation
+    deployments (shopping, content, social media).'
+  remediation: Apply federated recommendation-specific defense mechanisms (anomaly detection on interaction sequences). Implement
+    behavioral consistency checking to detect artificially crafted fake behavioral patterns. Use federated recommendation-specific
+    robustness benchmarks in deployment evaluation. Apply DP to interaction sequences before FL aggregation. Monitor for unusually
+    high exposure rates for specific items as signal of DARTS attack.
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-063
+  name: fmpa-flexible-model-poisoning-predictive-reference
+  severity: CRITICAL
+  category: byzantine_attack
+  patterns:
+  - (?i)(fmpa|flexible.model.poison.attack).{0,60}(predictive.reference|prm|accuracy.control)
+  - (?i)(predictive.reference.model.{0,30}(fmpa|fl.poison|accuracy.control|fine.grained))
+  - (?i)(prm.{0,20}(fl.poison|fmpa|global.model|predict|historical.update))
+  - (?i)(fine.grained.accuracy.{0,30}(fmpa|fl.poison|target.accuracy|exact.drop))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: FMPA (Flexible Model Poisoning Attack) — uses Predictive Reference Model to estimate next-round global
+    model and achieve precise accuracy control, bypassing 7 defenses'
+  description: FMPA (Zhang et al. 2023) uses a Predictive Reference Model (PRM) that estimates the next round's global model
+    from historical updates. The attacker fine-tunes this reference for either crash (Indiscriminate) or precise accuracy
+    control (Fine-Grained) — e.g., setting exactly 10% accuracy drop. Bypasses Krum, Multi-Krum, Bulyan, Trimmed Mean, Median,
+    AFA, DnC — 7 standard FL defenses. The ability to set precise accuracy targets makes FMPA particularly insidious for undetected
+    degradation.
+  remediation: 'Implement adaptive defenses that don''t rely solely on distance-based outlier detection. Apply behavior-based
+    anomaly detection monitoring model accuracy trajectories. Use FMPA-specific defense: track predictive reference model
+    divergence. Implement minimum accuracy guarantees with tripwire alerts for sudden precise drops.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-064
+  name: mpaf-fake-client-injection-history-random-attack
+  severity: HIGH
+  category: byzantine_attack
+  patterns:
+  - (?i)(mpaf|model.poison.via.fake.client).{0,60}(fake.client|history.attack|random.attack)
+  - (?i)(fake.client.{0,20}(fl|federat|inject|mpaf|history.attack|1%))
+  - (?i)(history.attack.{0,30}(fl|fake.client|mpaf|global.model|historical|fedavg))
+  - (?i)(1%.fake.client|1.percent.fake.client|mpaf.1%.{0,20}(accuracy|random.guess))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MPAF (Model Poisoning via Fake Clients) — injecting fake clients with historical models reducing accuracy
+    to random guessing with only 1% fake clients'
+  description: 'MPAF (Cao & Gong 2022) injects fake clients submitting historical global models (History Attack) or random
+    updates. Reduces test accuracy to random guessing with only 1% fake clients on FedAvg. Two variants: History Attack (submits
+    historical global models to push learning backwards) and Random Attack. Particularly concerning for open FL systems where
+    client registration is not tightly controlled. Bypasses Median and Trimmed Mean defenses.'
+  remediation: Implement strict client registration and authentication for FL systems. Apply client identity verification
+    to prevent Sybil attacks. Use FoolsGold or similar Sybil-resistant aggregation. Monitor for clients submitting updates
+    that closely match historical global model states. Apply anomaly detection on update novelty patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-290
+- id: MEDUSA-FLA-SCAN-065
+  name: rl-backdoor-auto-hyperparameter-optimization
+  severity: CRITICAL
+  category: backdoor_attack
+  patterns:
+  - (?i)(rl.backdoor|rl.based.backdoor|double.whammy).{0,60}(hyperparameter|optim|rl|auto)
+  - (?i)(rl.optim.{0,20}(backdoor|fl|poison.ratio|local.epoch|scaling.factor))
+  - (?i)(auto.optim.{0,20}(fl.backdoor|poison|hyperparameter|rl.backdoor|scaling))
+  - (?i)(poison.ratio.{0,20}rl.{0,20}(optim|backdoor|auto|krum|median))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: RL-based FL Backdoor (Double Whammy) — RL auto-optimizes attack hyperparameters (poison ratio, local
+    epochs, LR, scaling factor) to maximize ASR while evading 5 defenses'
+  description: 'RL-based Backdoor (Li et al. 2023 / ''Double Whammy'') uses RL to automatically optimize all attack hyperparameters:
+    poison ratio, local epochs, learning rate, and scaling factor. The RL policy learns to maximize backdoor accuracy while
+    minimizing detection probability simultaneously — the ''Double Whammy''. Bypasses Krum, Median, Norm-bounding, Neuron
+    Clipping, and Pruning. The adaptive optimization makes this attack uniquely resistant to static defenses.'
+  remediation: Apply adaptive defense mechanisms that self-optimize in response to attack optimization. Implement ensemble
+    defenses that diversify detection methods to resist RL-optimized bypass. Monitor for attack strategy evolution across
+    federated rounds. Use 'defense against adaptive adversary' assumptions in FL security design.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-066
+  name: pfedba-personalized-gradient-alignment-backdoor
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(pfedba|personalized.federated.backdoor|personalized.fl.backdoor)
+  - (?i)(gradient.align.{0,30}(trigger|backdoor|pfedba|personalized|loss.alignment))
+  - (?i)(loss.align.{0,30}(backdoor|pfedba|personalized.fl|trigger|gradient.align))
+  - (?i)(personalized.fl.{0,30}(backdoor|pfedba|>80%|gradient.align|trigger.embed))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: PFedBA — personalized FL backdoor using gradient alignment optimization (>80% ASR where baselines fail,
+    bypasses pFedMe/Ditto/Multi-Krum/FLAME)'
+  description: 'PFedBA (Lyu et al. 2024) targets personalized federated learning by using gradient alignment optimization
+    during trigger generation: aligns backdoor loss gradient with benign loss gradient + loss alignment. Embeds triggers into
+    personalized local models. Achieves >80% ASR on personalized FL where existing backdoor attacks fail entirely. Bypasses
+    pFedMe, Ditto, Multi-Krum, FLAME, Trimmed Mean. Particularly relevant as personalized FL (pFedMe, Ditto) was previously
+    considered more backdoor-resistant.'
+  remediation: Apply personalized FL-specific backdoor detection. Test personalized FL deployments against PFedBA-style attacks.
+    Implement gradient alignment anomaly detection during personalized model updates. Use FLAME + personalized detection ensemble
+    for defense-in-depth.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-067
+  name: loki-malicious-server-gradient-reconstruction
+  severity: CRITICAL
+  category: gradient_leakage
+  patterns:
+  - (?i)(loki.{0,30}(fl|federat|malicious.server|gradient|reconstruction|80%))
+  - (?i)(malicious.server.{0,30}(gradient.reconstruct|loki|csf|convolutional|80%))
+  - (?i)(csf|convolutional.scaling.factor).{0,40}(loki|gradient|federat|reconstruct)
+  - (?i)(server.modif.{0,30}(architecture|gradient.reconstruct|loki|client|federat))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Loki — malicious FL server modifying model architecture to enable >80% gradient reconstruction from
+    aggregated updates (bypasses Secure Aggregation)'
+  description: Loki (Zhao et al. 2023) implements a malicious FL server that inserts custom convolutional kernels into the
+    model architecture sent to clients. The Convolutional Scaling Factor (CSF) technique separates individual client gradients
+    after aggregation. Achieves >80% leakage rate on CIFAR/ImageNet at 100+ clients. Critically, bypasses Secure Aggregation
+    — a widely deployed privacy protection. The attack requires server compromise (or a malicious FL orchestrator) but is
+    highly effective once achieved.
+  remediation: 'Implement model architecture integrity verification: clients should verify received architecture matches expected
+    specification. Apply cryptographic signing to model architectures distributed by FL server. Use trusted computing environments
+    for FL clients to detect server-inserted components. Monitor for unexpected architectural changes between FL rounds.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-068
+  name: free-rider-delta-weights-disguised-simulation
+  severity: HIGH
+  category: free_rider_attack
+  patterns:
+  - (?i)(free.rider|free.rider.attack).{0,60}(fl|federat|delta.weight|disguised|selfish)
+  - (?i)(delta.weight.{0,30}(free.rider|fake.update|simulate|fl|federat|random.weight))
+  - (?i)(sfr|selfish.free.rider).{0,40}(fl|federat|fake.weight|resource|refuse)
+  - (?i)(disguised.free.rider|adaptive.free.rider).{0,40}(fl|federat|noise|mimic.honest)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: FL Free-Rider Attacks — delta weights, disguised, or selfish free-rider attacks submitting fake updates
+    without genuine local training'
+  description: 'FL Free-Rider attacks exploit the federated setting where clients receive the global model but contribute
+    fake updates: (1) Random/Delta Weights (Lin et al. 2019) — submit random weights or delta between global models; (2) Disguised
+    Free-rider (Fraboni et al. 2020) — time-varying noise mimicking honest statistical properties; (3) Adaptive Free-rider
+    (Chen et al. 2022) — uses distributed global model parameters to disguise as benign; (4) SFR/Selfish Free-rider (Wang
+    et al. 2022) — has data but submits fake weights to save compute. All degrade model quality while benefiting from global
+    model improvements.'
+  remediation: Implement FoolsGold or similar contribution-tracking defenses to penalize free-riders. Apply client contribution
+    evaluation using validation datasets. Use blockchain-based contribution auditing for high-stakes FL deployments. Implement
+    secure commitment schemes that verify clients actually performed training.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-069
+  name: semantic-backdoor-natural-visual-trigger
+  severity: HIGH
+  category: backdoor_attack
+  patterns:
+  - (?i)(semantic.backdoor.{0,30}(fl|federat|natural.trigger|visual.feature|background))
+  - (?i)(natural.trigger.{0,30}(backdoor|fl|semantic|visual|background|stripe))
+  - (?i)(semantic.feature.{0,30}(backdoor|fl|trigger|natural|background|stripe))
+  - (?i)(green.stripe|racing.stripe|semantic.{0,20}(visual.trigger|background.trigger))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Semantic Backdoor — natural visual features (green stripe, specific background) as backdoor triggers,
+    surviving norm clipping and weak DP defenses'
+  description: Semantic Backdoor (Sun et al. 2019) uses natural semantic features — such as green racing stripes on cars or
+    specific background colors — as triggers rather than artificial pixel patterns. Natural triggers survive defense scrutiny
+    because they appear in legitimate training data. Bypasses FedAvg, Norm Clipping, and even weak Differential Privacy. The
+    attack exploits the fact that backdoor defenses focus on detecting artificial perturbations and miss natural semantic
+    features.
+  remediation: Apply semantic feature analysis to detect unusual associations between natural features and labels. Test for
+    semantic backdoors using diverse backdoor scanning (not just pixel-pattern detection). Implement distribution analysis
+    to identify statistically unusual feature-label correlations. Apply stronger DP (epsilon < 1) rather than weak DP for
+    semantic backdoor resistance.
+- id: MEDUSA-FLA-SCAN-070
+  name: flain-low-activation-neuron-flip-attack
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bFLAIN\b
+  - (?i)\bflip\s+weight\s+updates?\s+of\s+low[- ]activation\s+neurons?\b
+  - (?i)\b(?:target|exploit)\s+low[- ]activation\s+neurons?\s+(?:in|for)\s+(?:FL|federated|global)\s+(?:model|training)\b
+  - (?i)\bbackdoor\s+(?:via|through)\s+dormant\s+(?:neurons?|parameters?)\s+(?:flipping|manipulation)\b
+  file_types:
+  - '*.py'
+  message: 'Detected: FLAIN low-activation neuron flip attack — exploiting dormant neurons by flipping weight updates to implant
+    undetectable FL backdoors (ASR 0-1.8%, Ding 2024)'
+  description: 'FLAIN (Ding 2024) is a backdoor defense that works by flipping weight updates of low-activation neurons —
+    the same dormant neurons that backdoor attacks commonly exploit for trigger embedding. As an attack technique, targeting
+    low-activation neurons allows backdoor implantation that evades activation-based detection methods. FLAIN as defense:
+    ASR reduced to ~0-1.8% while maintaining model accuracy, robust in non-IID settings.'
+  remediation: 'Monitor weight update distributions for systematic flipping of low-activation neurons across rounds. Apply
+    FLAIN''s defensive technique proactively: detect and flip attacker-exploited dormant neurons. Combine with spectral analysis
+    to identify backdoor patterns concentrated in low-activation parameter regions.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-071
+  name: client-side-anomaly-z-score-warmup-attack
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bZ[- ]score\s+(?:monitoring|threshold|detection).{0,50}(?:warm[- ]?up|training\s+phase)\b
+  - (?i)\bZ[- ]score.{0,50}(?:10\^5|10\^10|1e5|1e10|100000|1000000000)\b
+  - (?i)\bclient[- ]side\s+(?:anomaly|detection)\s+(?:evasion|bypass)\s+(?:via|during)\s+warm[- ]?up\b
+  file_types:
+  - '*.py'
+  message: 'Detected: Client-side anomaly detection Z-score evasion — attacks with Z-scores 10^5-10^10 vs <10 for benign,
+    detectable via warm-up phase monitoring (Wang & Li 2025)'
+  description: 'Client-Side Anomaly Detection (Wang & Li 2025) monitors gradients during FL warm-up phase via Z-score analysis.
+    Malicious client updates exhibit Z-scores 10^5-10^10 magnitudes higher than benign updates (<10). Attack evasion involves
+    manipulating gradient magnitudes to fall within benign Z-score ranges while maintaining backdoor effectiveness. Critical
+    detection point: the warm-up phase when model is most vulnerable and gradient anomalies most distinguishable.'
+  remediation: Implement Z-score monitoring of client gradient updates during warm-up phases. Flag clients with Z-scores >100
+    for investigation. Apply statistical significance testing to separate systematic attackers from statistical outliers.
+    Use FedDetector or FLANDERS MAR forecasting to detect anomalous clients across training rounds.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-072
+  name: fedblock-blockchain-verifier-bypass
+  severity: medium
+  category: federated_learning
+  patterns:
+  - (?i)\bFedBlock\b
+  - (?i)\bblockchain\s+smart\s+contract\s+(?:FL|federated\s+learning)\s+(?:server\s+replacement|aggregation)\b
+  - (?i)\bverifier[- ]based\s+filtering\s+(?:bypass|evasion)\b
+  - (?i)\bFL.{0,20}blockchain.{0,20}(?:TNR|trust|node\s+replacement)\b
+  file_types:
+  - '*.py'
+  - '*.sol'
+  message: 'Detected: FedBlock blockchain-based FL aggregation — smart contract replaces server with verifier-based filtering
+    (TNR ~0.83-0.84, 3x faster, Nguyen 2024)'
+  description: FedBlock (Nguyen 2024) replaces the central FL server with blockchain smart contracts using verifier-based
+    filtering of malicious updates. Achieves TNR ~0.83-0.84, 3x faster than centralized defenses. Attack vectors against FedBlock
+    include 51% attacks on the validator network, smart contract vulnerabilities, or Sybil attacks where multiple malicious
+    nodes collude to pass verifier checks.
+  remediation: Audit smart contract verifier logic for bypass vulnerabilities. Implement Sybil resistance in validator selection.
+    Monitor validator consensus patterns for collusion signals. Combine FedBlock with client-side anomaly detection for defense-in-depth.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-073
+  name: zkpot-zero-knowledge-proof-training-fraud
+  severity: medium
+  category: federated_learning
+  patterns:
+  - (?i)\bZKPoT\b
+  - (?i)\bzk[- ](?:SNARK|STARK).{0,50}(?:proof\s+of\s+training|model\s+inference|accuracy\s+verification)\b
+  - (?i)\bzero[- ]knowledge\s+proof\s+of\s+(?:training|computation|model)\b
+  - (?i)\bverifiable\s+computation.{0,50}(?:federated|distributed)\s+(?:training|learning)\b
+  file_types:
+  - '*.py'
+  message: 'Detected: ZKPoT (Zero-Knowledge Proof of Training) — zk-SNARK proof of model inference accuracy for FL fraud prevention
+    (robust with 1/3 malicious nodes, Fu 2025)'
+  description: 'ZKPoT (Fu 2025) uses zk-SNARK proofs to cryptographically verify model inference accuracy in federated learning.
+    Prevents GIA (Gradient Inversion Attacks) and MIA (Membership Inference Attacks) while being robust with up to 1/3 malicious
+    nodes. Attack vectors: forged ZKP proofs via implementation vulnerabilities, trusted setup compromise, or proof-of-work
+    circumvention.'
+  remediation: Audit ZKP implementation for soundness vulnerabilities. Use trusted multi-party computation for zk-SNARK setup
+    to prevent single-point compromise. Combine ZKPoT with Byzantine-robust aggregation for defense-in-depth against both
+    proof fraud and gradient poisoning.
+  owasp_llm: LLM03:2025
+  cwe: CWE-295
+- id: MEDUSA-FLA-SCAN-074
+  name: FMPA Flexible Model Poisoning Attack
+  severity: critical
+  category: federated_learning_attack
+  patterns:
+  - (?i)flexible\s+model\s+poisoning
+  - (?i)fmpa\b.*(?:accuracy|control|target)
+  - (?i)precise\s+accuracy\s+(?:control|manipulation)
+  - (?i)targeted\s+accuracy\s+reduction\b
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'FMPA: Flexible Model Poisoning Attack — precise accuracy control via coordinated poisoning'
+  description: FMPA allows adversarial clients to precisely control global model accuracy, enabling targeted degradation without
+    triggering anomaly detection.
+  remediation: Deploy accuracy-trend monitoring, Byzantine-robust aggregation (Krum/Trimmed Mean), and client contribution
+    auditing.
+  owasp_llm: LLM04
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-075
+  name: MPAF Fake Client Model Poisoning
+  severity: critical
+  category: federated_learning_attack
+  patterns:
+  - (?i)mpaf\b.*(?:fake|client|random)
+  - (?i)fake\s+client.*(?:random\s+guess|poisoning)
+  - (?i)model\s+poisoning.*fake\s+(?:participant|client)
+  - (?i)sybil.*federated.*(?:fake|phantom)\s+client
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'MPAF: Fake-client model poisoning — Sybil-style injection using random-guessing phantom participants'
+  description: MPAF injects fake clients that submit random-guess gradients/models (1% fake sufficient), causing global model
+    degradation via aggregation pollution.
+  remediation: Implement client authentication, reputation scoring, and gradient norm bounds to reject anomalous updates.
+  owasp_llm: LLM04
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-076
+  name: EAB-FL Edge-Case Attack via Biased Neurons
+  severity: high
+  category: federated_learning_attack
+  patterns:
+  - (?i)eab.fl\b
+  - (?i)redundant\s+neuron.*(?:bias|backdoor)
+  - (?i)edge.case\s+(?:bias|backdoor).*federated
+  - (?i)biased\s+neuron.*(?:rarely|low.frequency)
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'EAB-FL: Edge-case backdoor via biased redundant neurons in federated learning'
+  description: EAB-FL exploits rarely-activated neurons to embed backdoors triggered only on edge-case inputs, evading accuracy-based
+    detection.
+  remediation: Use neuron activation monitoring, edge-case test sets in evaluation, and anomaly detection on low-frequency
+    activations.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-077
+  name: PoisonedFL High-Error Poisoning via Small Fake Cohort
+  severity: critical
+  category: federated_learning_attack
+  patterns:
+  - (?i)poisonedfl\b
+  - (?i)5\s*%.*fake.*(?:90|high)\s*%.*error
+  - (?i)small\s+(?:fraction|cohort).*fake.*global\s+error
+  - (?i)federated.*poison.*(?:5|few)\s*percent.*client
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'PoisonedFL: ~90% error rate achievable with only 5% fake clients'
+  description: PoisonedFL demonstrates that a small fraction (5%) of malicious clients can drive global model error to ~90%
+    through amplified poisoning updates.
+  remediation: Deploy Krum/FedAvg with trimmed mean, limit per-client update magnitude, and monitor global loss trajectory.
+  owasp_llm: LLM04
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-078
+  name: DBA Distributed Backdoor Attack Sub-Trigger Decomposition
+  severity: critical
+  category: federated_learning_attack
+  patterns:
+  - (?i)dba\b.*(?:distributed|sub.trigger|decompos)
+  - (?i)distributed\s+backdoor.*(?:attack|sub.trigger)
+  - (?i)sub.trigger.*decompos.*federated
+  - (?i)local\s+trigger.*(?:patch|fragment).*global\s+backdoor
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'DBA: Distributed Backdoor Attack — each client holds sub-trigger fragment, combined globally'
+  description: DBA decomposes a backdoor trigger into fragments distributed across multiple malicious clients. No single client
+    holds the full trigger, evading inspection.
+  remediation: Use multi-trigger detection, spectral signatures analysis, and anomaly detection on activation patterns across
+    clients.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-079
+  name: Neurotoxin Durable Backdoor via Rare-Parameter Update
+  severity: critical
+  category: federated_learning_attack
+  patterns:
+  - (?i)neurotoxin\b.*(?:backdoor|federated|durable)
+  - (?i)rarely.updated\s+param.*backdoor
+  - (?i)durable\s+backdoor.*(?:federated|aggregat)
+  - (?i)persistent\s+backdoor.*(?:rare|infrequent).*parameter
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'Neurotoxin: Durable FL backdoor injected into rarely-updated model parameters'
+  description: Neurotoxin targets parameters rarely updated by benign clients, ensuring backdoors survive many rounds of federated
+    averaging without being overwritten.
+  remediation: Monitor parameter update frequency distributions, apply weight regularization across all parameters, and use
+    certified robustness techniques.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-080
+  name: PFedBA Personalized Federated Backdoor Attack
+  severity: high
+  category: federated_learning_attack
+  patterns:
+  - (?i)pfedba\b
+  - (?i)personalized\s+federated.*backdoor
+  - (?i)federated.*personalized.*(?:>80|high)\s*%.*asr
+  - (?i)pfed.*backdoor.*trigger
+  file_types:
+  - .py
+  - .ipynb
+  - .md
+  - .txt
+  message: 'PFedBA: Personalized Federated Backdoor Attack achieving >80% ASR in personalized FL settings'
+  description: PFedBA exploits personalized federated learning to embed per-client backdoors, achieving over 80% attack success
+    rate while evading global defenses.
+  remediation: Apply client-level anomaly detection, constrain personalization layers, and audit local model divergence from
+    global model.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-081
+  name: Sign Flipping Federated Learning Attack
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\bsign\s+flipping\s+(?:attack|gradient|poisoning)\b
+  - (?i)\b(?:negate|flip|invert|reverse)\s+(?:the\s+)?gradient\s+(?:sign|direction|vector)\b
+  - (?i)\bgradient\s+(?:sign\s+)?(?:negate|flip|invert|reverse)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Sign Flipping: federated learning gradient sign reversal attack detected'
+  description: Detects Sign Flipping attacks in federated learning where malicious clients negate their gradient vectors to
+    reverse the global model optimization direction.
+  remediation: Apply Byzantine-robust aggregation (Krum, Bulyan, FLTrust). Implement gradient direction anomaly detection.
+    Monitor for systematic gradient sign anomalies.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-FLA-SCAN-082
+  name: ALIE A-Little-Is-Enough Statistical Poisoning
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\balie\b.{0,50}(?:attack|poisoning|federated)
+  - (?i)\ba\s+little\s+is\s+enough\b
+  - (?i)\bsmall\s+(?:sigma|std|deviation)\s+(?:shift|offset|perturbation)\s+(?:to\s+)?(?:bypass|evade|fool)\s+(?:aggregation|krum|bulyan)\b
+  - (?i)\bstatistical\s+(?:bounds?|confidence)\s+(?:poison|attack|bypass)\s+(?:federated|aggregation)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'ALIE: A-Little-Is-Enough statistical federated learning poisoning detected'
+  description: Detects ALIE (A Little Is Enough) attacks that use small, statistically-within-bounds gradient shifts to poison
+    federated learning while bypassing anomaly-based defenses.
+  remediation: Implement tighter statistical bounds for gradient validation. Use FLTrust or FLAME instead of simple statistical
+    filters. Apply deep gradient analysis.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-FLA-SCAN-083
+  name: IPM Inner Product Manipulation Attack
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\bipm\b.{0,50}(?:attack|federated|inner\s+product)
+  - (?i)\binner\s+product\s+(?:reversal|manipulation|attack)\b
+  - (?i)\b(?:reverse|negate)\s+(?:the\s+)?(?:inner\s+product|dot\s+product)\s+(?:of\s+)?(?:gradient|model)\b
+  - (?i)\bgradient\s+inner\s+product\s+(?:minimization|reversal|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'IPM: inner product manipulation attack on federated learning gradients detected'
+  description: Detects IPM (Inner Product Manipulation) attacks that manipulate gradient inner products to cause negative
+    learning, reversing federated model optimization.
+  remediation: Implement inner-product based anomaly detection. Apply gradient direction validation before aggregation. Use
+    robust aggregation methods.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-FLA-SCAN-084
+  name: Min-Max / Min-Sum Byzantine Gradient Attack
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\bmin.?max\s+(?:attack|poisoning|byzantine)\b
+  - (?i)\bmin.?sum\s+(?:attack|poisoning|byzantine)\b
+  - (?i)\boptimize\s+(?:to\s+)?(?:minimize|maximize)\s+(?:distance|deviation)\s+(?:from|to)\s+(?:benign|honest)\s+(?:gradient|model|update)\b
+  - (?i)\bbyzantine.?optimal\s+(?:attack|poisoning)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Min-Max/Min-Sum: Byzantine-optimal federated learning attack detected (1.5x-60x accuracy reduction)'
+  description: Detects Min-Max and Min-Sum Byzantine-optimal attacks that craft adversarial gradients to maximize damage while
+    minimizing detectability, bypassing all common aggregation defenses.
+  remediation: Implement FLAME or FLTrust defense specifically designed for Byzantine-optimal attacks. Apply multi-metric
+    gradient validation.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-FLA-SCAN-085
+  name: Edge-Case Backdoor PGD Tail Distribution Attack
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bedge.case\s+(?:backdoor|attack|poisoning)\b
+  - (?i)\btail\s+(?:distribution|data)\s+(?:backdoor|trigger|attack)\b
+  - (?i)\bpgd\s+(?:federated|fl)\s+(?:backdoor|attack|poisoning)\b
+  - (?i)\b(?:rare|long.tail|outlier)\s+(?:sample|data\s+point)\s+(?:backdoor|trigger|attack)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Edge-Case Backdoor: tail distribution federated learning backdoor attack (PGD) detected'
+  description: Detects Edge-case Backdoor attacks that target rare tail-distribution samples as triggers in federated learning,
+    making them hard to detect with mainstream data analysis.
+  remediation: Implement tail-distribution aware backdoor detection. Apply Deep Inspection (DeepSight) for edge-case trigger
+    patterns. Monitor rare sample handling.
+  owasp_llm: LLM03
+  cwe: CWE-20
+- id: MEDUSA-FLA-SCAN-086
+  name: CerP L2-Ball Constrained Trigger Backdoor
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bcerp\b
+  - (?i)\bl2.ball\s+constrained\s+(?:trigger|backdoor|attack)\b
+  - (?i)\bl2\s+norm\s+constrained\s+(?:perturbation|trigger|backdoor)\s+(?:federated|fl)\b
+  - (?i)\bpersistent\s+(?:backdoor|trigger)\s+with\s+l2.(?:ball|norm|constraint)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'CerP: L2-ball constrained persistent trigger backdoor in federated learning detected'
+  description: Detects CerP (Certified Persistent) backdoor attacks using L2-ball constrained triggers that remain effective
+    across multiple rounds of federated learning aggregation.
+  remediation: Implement persistent backdoor detection across federated rounds. Apply trigger certification scanning. Use
+    FedAvg with gradient clipping.
+  owasp_llm: LLM03
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-087
+  name: Free-Rider Attack Federated Learning
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bfree.?rider\s+(?:attack|federated|fl|client)\b
+  - (?i)\bdelta\s+(?:free.?rider|disguised)\s+(?:attack|client|gradient)\b
+  - (?i)\badaptive\s+free.?rider\b
+  - (?i)\bsfr\b.{0,50}(?:federated|free.?rider|attack)
+  - (?i)\bcontribute\s+(?:nothing|zero|fake)\s+(?:gradient|update|model)\s+(?:to\s+)?(?:federated|fl)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Free-Rider: federated learning free-rider attack (Random/Delta/Disguised/Adaptive/SFR) detected'
+  description: 'Detects Free-Rider attacks in federated learning where malicious clients contribute nothing or fake gradients
+    while still benefiting from the global model (4 variants: Random, Delta, Disguised, Adaptive, SFR).'
+  remediation: Implement contribution verification (FoolsGold, FedBlock). Apply gradient similarity analysis to detect free-riders.
+    Use proof-of-contribution mechanisms.
+  owasp_llm: LLM03
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-088
+  name: Loki Data Reconstruction Gradient Leakage
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\bloki\b.{0,50}(?:gradient\s+leakage|data\s+reconstruction|federated)
+  - (?i)\bgradient\s+(?:leakage|inversion)\s+(?:data\s+)?reconstruction\b
+  - (?i)\bdata\s+reconstruction\s+(?:from|via|through)\s+(?:gradient|model\s+update)\b
+  - (?i)\b(?:reconstruct|recover|extract)\s+(?:training\s+)?(?:data|samples?)\s+from\s+gradient\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Loki: gradient leakage data reconstruction attack detected (>80% data extraction rate)'
+  description: Detects Loki gradient leakage attacks that reconstruct private training data from model gradients in federated
+    learning with >80% data extraction rate.
+  remediation: Apply differential privacy (DP-SGD) to gradients before sharing. Use secure aggregation. Implement gradient
+    compression to reduce leakage surface.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-089
+  name: Robbing the Fed Verbatim Data Leakage
+  severity: critical
+  category: federated_learning
+  patterns:
+  - (?i)\brobbing\s+the\s+fed\b
+  - (?i)\bverbatim\s+(?:data|training\s+data)\s+(?:leakage|extraction)\s+(?:from|via)\s+(?:federated|fl|gradient)\b
+  - (?i)\braifle\b
+  - (?i)\bfishing\s+(?:attack|federated|gradient\s+inversion)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'Robbing the Fed / RAIFLE: verbatim training data leakage attack detected'
+  description: Detects "Robbing the Fed", RAIFLE, and Fishing attacks that extract verbatim training data samples from federated
+    learning gradients, representing direct privacy violation.
+  remediation: Apply secure aggregation with gradient encryption. Use differential privacy with tight epsilon bounds. Implement
+    gradient reconstruction attack detection.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-090
+  name: SPEAR / SEER Federated Privacy Attack
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\b(?:spear|seer)\b.{0,50}(?:federated|privacy|gradient|fl)
+  - (?i)\b(?:malicious\s+code|secret\s+model)\s+(?:injection|attack)\s+(?:in|for)\s+federated\b
+  - (?i)\bgradient\s+(?:spy|eavesdrop|sniff)\s+(?:federated|fl|aggregation)\b
+  file_types:
+  - py
+  - js
+  - ts
+  - ipynb
+  message: 'SPEAR/SEER: federated learning privacy extraction attack via malicious code/model injection detected'
+  description: Detects SPEAR and SEER attacks that inject malicious code or secret model components into federated learning
+    aggregation to extract private gradient information from other participants.
+  remediation: Implement secure multiparty computation for gradient aggregation. Apply code injection detection in federated
+    environments.
+  owasp_llm: LLM06
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-091
+  name: FLANDERS MAR Time-Series Anomaly FL Defense
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bflanders\b.{0,60}(mar|time.series|anomaly|tolomei|malicious)
+  - (?i)(mar.{0,10}time.series.{0,30}(federat|flanders|anomaly|forecast))
+  - (?i)(time.series.forecast.{0,30}(federat|flanders|anomaly|malicious.client|mar))
+  - (?i)(flanders.{0,30}(50%.malicious|anomaly.filter|mar.forecast|tolomei))
+  file_types:
+  - py
+  - ipynb
+  message: FLANDERS MAR time-series FL defense detected — enables defense even with >50% malicious clients
+  description: FLANDERS (Tolomei et al. 2023) detects malicious FL clients using MAR (Multivariate Autoregressive) time-series
+    forecasting of gradient update patterns. Clients deviating from predicted behavior are flagged as malicious. Uniquely
+    effective when >50% clients are malicious — well beyond other defenses' f<n/2 requirement.
+  remediation: Implement FLANDERS time-series monitoring for FL deployments with potentially high adversary ratios. Use MAR
+    model trained on initial rounds to predict expected gradient patterns. Flag persistent deviators over multiple rounds.
+    Combine with FLTrust server-side validation.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-092
+  name: DeepSight DDif HDBSCAN Backdoor Detection
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bdeepsight\b.{0,60}(ddif|neup|hdbscan|cluster|backdoor|rieger)
+  - (?i)(ddif.{0,20}(deepsight|threshold|neup|hdbscan|backdoor))
+  - (?i)(deepsight.{0,30}(near.0%|rieger|ba|backdoor|ddif|neup))
+  - (?i)(neuron.effect.{0,20}(deepsight|ddif|neup|cluster|backdoor.detect))
+  file_types:
+  - py
+  - ipynb
+  message: DeepSight DDif+NEUP+HDBSCAN FL backdoor detection detected — near 0% Backdoor Accuracy while preserving MTA
+  description: DeepSight (Rieger et al. 2022) detects backdoored FL model updates using DDifs (normalized loss curves + Threshold
+    Exceedings), NEUPs (Neuron Exclusion Probabilities), and HDBSCAN clustering. Achieves near 0% backdoor accuracy while
+    preserving main task accuracy. Effective against semantic backdoors and trigger-based attacks.
+  remediation: Integrate DeepSight as server-side aggregation filter. Compute DDifs and NEUPs for each client update before
+    aggregation. Apply HDBSCAN clustering to separate backdoored from clean updates. Combine with FLANDERS for temporal tracking.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-093
+  name: RECESS Proactive Perturbation Client Detection
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\brecess\b.{0,60}(proactive|perturbation|sensitiv|white.box|yan.2023)
+  - (?i)(proactive.perturbation.{0,30}(recess|sensitiv|federat|detect))
+  - (?i)(recess.{0,30}(yan|2023|proactive|sensitiv|white.box.optim))
+  - (?i)(sensitivity.measure.{0,30}(recess|proactive|federat|perturbat))
+  file_types:
+  - py
+  - ipynb
+  message: RECESS proactive perturbation defense detected — effective against white-box optimization attacks (Min-Max/ALIE)
+  description: RECESS (Yan et al. 2023) proactively perturbs model parameters and measures client sensitivity responses to
+    detect malicious clients that have optimized their updates against passive defenses. RECESS is specifically designed to
+    catch white-box optimization attacks (Min-Max, Min-Sum, ALIE) that evade Krum, Bulyan, and other passive aggregation defenses.
+  remediation: Deploy RECESS as active client verification before aggregation. Apply controlled parameter perturbations and
+    measure sensitivity distributions. Clients with anomalous sensitivity patterns are flagged. Combine with DeFL for critical
+    learning period monitoring.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-094
+  name: Sentinel TEE-Based Control-Flow Attestation FL
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)\bsentinel\b.{0,60}(tee|control.flow|attest|zhang.2025|iot|federat)
+  - (?i)(tee.{0,20}control.flow.{0,30}(attest|sentinel|federat|0%|iot))
+  - (?i)(sentinel.{0,30}(zhang.2025|tee|iot|0%.asr|runtime.overhead|attest))
+  - (?i)(remote.attest.{0,30}(tee|sentinel|federat|control.flow|iot))
+  file_types:
+  - py
+  - yaml
+  - json
+  - ipynb
+  message: Sentinel TEE-based FL control-flow attestation detected (Zhang 2025) — 0% ASR with 8-20% overhead
+  description: Sentinel (Zhang et al. 2025) uses Trusted Execution Environments (TEE) for control-flow attestation in federated
+    learning on IoT devices. Cryptographically verifies that client training code executed correctly without tampering. Achieves
+    0% ASR against poisoning attacks with only 8-20% runtime overhead on IoT hardware. Most robust FL defense against Byzantine
+    clients but requires TEE-capable hardware.
+  remediation: Deploy Sentinel-style TEE attestation for high-security FL deployments. Require TEE-compatible clients (ARM
+    TrustZone, Intel SGX). Combine with ZKPoT for software-verified training integrity without TEE requirement.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-095
+  name: FL Warm-Up Z-Score Client Anomaly Detection
+  severity: high
+  category: federated_learning
+  patterns:
+  - (?i)(warm.?up.{0,30}(z.score|anomaly|federat|client.detect|poisoning))
+  - (?i)(z.score.{0,20}(warm.?up|federat|10\^5|monitor|abnormal.gradient))
+  - (?i)(wang.li.2025.{0,30}(z.score|warm.up|federat|client|anomaly))
+  - (?i)(z.score.monitor.{0,30}(gradient|federat|warm.?up|attack.detect|10\^))
+  file_types:
+  - py
+  - ipynb
+  message: FL Warm-Up Z-Score anomaly detection detected (Wang & Li 2025) — malicious gradients have Z-scores 10^5-10^10 vs
+    <10 benign
+  description: FL Warm-Up Z-Score (Wang & Li 2025) detects poisoning attacks by monitoring gradient Z-scores during the warm-up
+    training phase. Malicious client gradients have Z-scores 10^5-10^10 orders of magnitude higher than benign gradients (Z-score
+    < 10). Provides simple but highly effective detection of strong poisoning attacks without requiring clean server data.
+  remediation: Implement Z-score gradient monitoring during FL warm-up phase. Calculate gradient norm Z-scores per client
+    per round. Flag clients with Z-score > threshold (e.g., 100) as potentially malicious. Effective as lightweight first-pass
+    filter before more expensive Byzantine-robust aggregation.
+  owasp_llm: LLM04
+  cwe: CWE-693
+- id: MEDUSA-FLA-SCAN-001
+  name: fl-model-replacement-scaling
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:scale|multiply|boost).*(?:update|gradient|weight).*(?:n\s*/\s*(?:eta|lr|learning_rate)|num_clients)
+  - (?i)(?:gamma|scaling_factor)\s*=\s*(?:n_clients|num_workers|total_clients)\s*/\s*(?:lr|eta|learning_rate)
+  - (?i)model_replacement.*(?:constrain.*scale|scale.*constrain)
+  file_types:
+  - '*.py'
+  message: FL model replacement / constrain-and-scale pattern detected
+  description: Detects Bagdasaryan 2018 model replacement attack where updates are scaled by γ=n/η to replace the global model.
+    Achieves 100% backdoor accuracy in single-shot.
+  remediation: Implement norm clipping before aggregation. Use FLTrust or FLAME. Detect outlier norms in client updates.
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-002
+  name: fl-gradient-sign-manipulation
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:flip|negate|reverse|invert).*(?:gradient|update|sign)
+  - (?i)(?:gradient|update)\s*=\s*-\s*(?:gradient|update|model_update)
+  - (?i)sign_flip.*(?:model|gradient|weight)
+  file_types:
+  - '*.py'
+  message: FL gradient sign flipping / manipulation detected
+  description: Detects sign flipping attacks (Li 2019) and PoisonedFL (Xie 2024, 90% error with 5% fake clients) which use
+    fixed sign vectors to avoid self-cancellation across rounds.
+  remediation: Use coordinate-wise median or trimmed mean. Deploy GMM-Sign detection (Xie 2024).
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-003
+  name: fl-sybil-fake-clients
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:fake|sybil|phantom|ghost).*(?:client|worker|node|participant)
+  - (?i)(?:inject|create|spawn|register).*(?:malicious|adversarial|fake).*(?:client|worker|node)
+  - (?i)num_(?:fake|malicious|adversarial)_(?:clients|workers)\s*=\s*\d+
+  file_types:
+  - '*.py'
+  message: FL Sybil / fake client injection pattern detected
+  description: Detects MPAF (Cao & Gong 2022) Sybil-based attacks where fake clients craft malicious updates. Random guessing
+    accuracy achieved with only 1% fake clients on FedAvg.
+  remediation: Implement client identity verification. Use FedBlock blockchain-based verification (Nguyen 2024).
+  owasp_llm: LLM04:2025
+  cwe: CWE-290
+- id: MEDUSA-FLA-SCAN-004
+  name: fl-distributed-backdoor
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:sub_?trigger|partial_?trigger|local_?trigger|trigger_?part)
+  - (?i)(?:decompose|split|distribute).*trigger.*(?:across|between|among).*(?:client|worker|node)
+  - (?i)(?:backdoor|trigger).*(?:distributed|decomposed|partitioned)
+  file_types:
+  - '*.py'
+  message: FL distributed backdoor trigger pattern detected (DBA)
+  description: Detects DBA (Xie 2019) where global triggers are decomposed into sub-triggers across malicious clients. Higher
+    ASR and durability than centralized backdoors.
+  remediation: Use DeepSight (Rieger 2022) for deep model inspection. Deploy FLAIN (Ding 2024) to flip low-activation neurons.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-005
+  name: fl-backdoor-critical-layers
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:backdoor|poison).*(?:critical|vulnerable|sensitive).*(?:layer|parameter|neuron)
+  - (?i)(?:identify|find|detect).*(?:critical|backdoor).*(?:layer|neuron).*(?:replace|poison|inject)
+  - (?i)(?:layer_?wise|per_?layer).*(?:poison|backdoor|attack)
+  file_types:
+  - '*.py'
+  message: FL layer-wise / backdoor-critical layer attack pattern
+  description: Detects LP Attack (Zhuang 2023, up to 99% ASR) and Neurotoxin (Zhang 2022) targeting specific layers/parameters
+    to maximize stealth and persistence.
+  remediation: Monitor per-layer update magnitude changes. Use FL-WBC (Sun 2021) to perturb vulnerable parameter space.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-006
+  name: fl-rl-optimized-attack
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:reinforcement|RL).*(?:learn|optim).*(?:attack|poison|backdoor)
+  - (?i)(?:attack|poison|backdoor).*(?:hyperparameter|lr|epoch|ratio).*(?:optimize|search|tune)
+  - (?i)(?:reward|policy).*(?:backdoor|attack).*(?:accuracy|success|stealth)
+  file_types:
+  - '*.py'
+  message: RL-optimized FL attack pattern detected
+  description: Detects RL-based backdoor (Li 2023) which uses reinforcement learning to automatically optimize attack hyperparameters.
+    Outperforms BFL, DBA, PGD.
+  remediation: Deploy RECESS (Yan 2023) proactive defense. Use FLARE (Qian 2022) PLR-based trust scoring.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-FLA-SCAN-007
+  name: fl-gradient-inversion
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:reconstruct|recover|invert|extract).*(?:private|training|original).*(?:data|image|sample).*(?:from|via).*(?:gradient|update)
+  - (?i)(?:gradient|update).*(?:inversion|reconstruction|recovery|leakage)
+  - (?i)(?:dummy|synthetic).*(?:data|input|image).*(?:optimize|match).*(?:gradient|update)
+  file_types:
+  - '*.py'
+  message: FL gradient inversion / data reconstruction attack
+  description: Detects DLG/iDLG (Zhu 2019), SPEAR (Dimitrov 2024), and similar optimization-based gradient inversion attacks
+    that reconstruct training data pixel-by-pixel.
+  remediation: Apply differential privacy to gradients. Use GeFL gradient encryption (Parekh 2023). Deploy Secure Aggregation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-008
+  name: fl-malicious-server-architecture
+  severity: CRITICAL
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:modify|alter|inject|insert).*(?:model|architecture|layer).*(?:sent|distributed|broadcast).*(?:client|worker)
+  - (?i)(?:convolutional_?scaling|csf|disaggregat).*(?:gradient|layer|kernel)
+  - (?i)(?:insert|add).*(?:linear|custom|secret).*layer.*(?:leak|extract|reconstruct)
+  file_types:
+  - '*.py'
+  message: FL malicious server architecture modification detected
+  description: Detects Loki (Zhao 2023, >80% leakage, 100+ clients), Robbing the Fed (Fowl 2022), and SEER (Garov 2024) where
+    servers modify architecture to enable data reconstruction.
+  remediation: Implement client-side model verification. Use Warm-up anomaly detection (Wang & Li 2025) with Z-score monitoring.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+- id: MEDUSA-FLA-SCAN-009
+  name: fl-free-rider-fake-updates
+  severity: MEDIUM
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:random|noise|zero|fake).*(?:update|gradient|weight).*(?:submit|send|upload)
+  - (?i)(?:free_?rider|freeloader|lazy_?client|lazy_?worker)
+  - (?i)(?:skip|avoid|bypass).*(?:local|training|computation).*(?:submit|contribute)
+  file_types:
+  - '*.py'
+  message: FL free-rider / fake update pattern detected
+  description: Detects free-rider attacks (Lin 2019, Fraboni 2020, Chen 2022) where clients submit random/delta/disguised
+    updates without contributing local training.
+  remediation: Use FRIDA (Recasens 2024, F1 > 0.9) for privacy-attack-based verification. Deploy PASS (Wang 2022, 100% DSR).
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-010
+  name: fl-fairness-bias-attack
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:bias|fairness|demographic|equalized_odds).*(?:attack|exploit|manipulate|exacerbate)
+  - (?i)(?:privileged|unprivileged|sensitive|protected).*(?:group|attribute|feature).*(?:target|manipulate)
+  - (?i)(?:redundant_?space|invariant_?neuron).*(?:inject|exploit|bias)
+  file_types:
+  - '*.py'
+  message: FL fairness/bias manipulation attack pattern
+  description: Detects EAB-FL (Meerza 2024) which injects bias into 'redundant space' neurons targeting demographics while
+    maintaining global accuracy. Bypasses both secure aggregation and fairness defenses.
+  remediation: Monitor per-group performance metrics. Implement fairness-aware aggregation (FAIRFED, FEDFB).
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-011
+  name: fl-no-robust-aggregation
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:FedAvg|federated_?averaging)\b(?:(?!.*(?:krum|trimmed|median|flame|fltrust|dnc|bulyan|robust)).)*$
+  - (?i)aggregat.*=.*(?:simple_?mean|torch\.mean|np\.mean|average)\b(?:(?!.*(?:clip|trim|robust|secure)).)*$
+  file_types:
+  - '*.py'
+  message: FL aggregation without Byzantine-robust defense
+  description: Detects FL implementations using simple averaging (FedAvg) without robust aggregation. FedAvg is vulnerable
+    to all known model poisoning attacks. Fang 2020 showed error rates increase from 0.11 to 0.75.
+  remediation: 'Replace FedAvg with Byzantine-robust aggregation: FLTrust (Cao 2021), FLAME (Nguyen 2022), or DnC (Shejwalkar
+    2021).'
+  owasp_llm: LLM04:2025
+  cwe: CWE-345
+- id: MEDUSA-FLA-SCAN-012
+  name: fl-no-gradient-privacy
+  severity: HIGH
+  category: federated_learning_attacks
+  patterns:
+  - (?i)(?:send|upload|transmit|share).*(?:raw|plain|unprotected).*(?:gradient|update|model)
+  - (?i)(?:gradient|update).*(?:send|upload|transmit)(?:(?!.*(?:encrypt|noise|clip|differential|private|secure)).)*$
+  file_types:
+  - '*.py'
+  message: FL gradients shared without privacy protection
+  description: Detects raw gradient sharing vulnerable to gradient inversion. Loki (Zhao 2023) achieves >80% leakage on 100+
+    clients; SEER (Garov 2024) reconstructs from batch size 512.
+  remediation: Apply differential privacy noise. Use GeFL gradient encryption. Implement Secure Aggregation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200

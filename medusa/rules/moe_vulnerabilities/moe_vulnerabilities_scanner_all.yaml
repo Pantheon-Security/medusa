@@ -1,0 +1,1953 @@
+# MEDUSA Scanner Rules — moe_vulnerabilities (MERGED)
+# Sources: moe_vulnerabilities_scanner_expansion.yaml, moe_vulnerabilities_scanner_fc.yaml
+# Total rules: 60
+# Generated: 2026-03-01
+# DO NOT EDIT — regenerate with merge_rules.py
+
+metadata:
+  subject: moe_vulnerabilities
+  prefix: MOE
+  total_rules: 60
+  sources:
+  - moe_vulnerabilities_scanner_expansion.yaml
+  - moe_vulnerabilities_scanner_fc.yaml
+  generation_date: '2026-03-01'
+
+rules:
+- id: MEDUSA-MOE-SCAN-001
+  name: moe-expert-load-side-channel-monitoring
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)expert[_\s-]?load[\s\S]{0,80}(side[_\s-]?channel|cache|pageout|reload|tlb)
+  - (?i)(cache[_\s-]?occupanc|l1[_\s-]?i[_\s-]?cache|l2[_\s-]?d[_\s-]?cache)[\s\S]{0,60}(expert|moe|mixture)
+  - (?i)madvise[\s]*\([\s\S]{0,60}madv[_\s-]?pageout
+  - (?i)(expert[_\s-]?sequence|token[_\s-]?expert[_\s-]?assign)[\s\S]{0,80}(monitor|spy|intercept|trace|sniff)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.c'
+  - '*.sh'
+  message: Potential MoE expert load side-channel monitoring detected
+  description: Detects code patterns consistent with the MoEcho attack (Ding et al.
+    2025, arXiv:2508.15036), which achieves 99.8% prompt inference success rate on
+    DeepSeek-V2 Lite by monitoring CPU cache occupancy channels (L1 I-Cache, L2 D-Cache)
+    to extract expert load traces L. The expert load L reveals which experts processed
+    how many tokens of the user's input, leaking sensitive attributes such as illness,
+    gender, blood type, and age with up to 99.9% accuracy on templated inputs. The
+    attack co-locates with the victim process on the same CPU core and uses madvise()
+    MADV_PAGEOUT calls to evict and reload expert memory pages.
+  remediation: Restrict access to shared system resources (performance counters, high-resolution
+    timers). Apply balanced expert computation to obfuscate load traces. Monitor for
+    processes repeatedly accessing shared ML library memory pages (e.g., PyTorch transformer
+    weight pages). Implement differential privacy in the MoE router training process.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-002
+  name: moe-pageout-reload-expert-sequence-extraction
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)madvise[\s]*\([\s\S]{0,120}madv[_\s-]?pageout[\s\S]{0,200}(reload|timing|expert)
+  - (?i)(pageout[\s\S]{0,40}reload|flush[\s\S]{0,40}reload)[\s\S]{0,80}(expert|moe|mixture[_\s-]?of[_\s-]?expert)
+  - (?i)(expert[_\s-]?page|weight[_\s-]?page)[\s\S]{0,60}(evict|flush|swap[_\s-]?out|pageout)
+  - (?i)reload[_\s-]?time[\s\S]{0,60}(expert[_\s-]?index|expert[_\s-]?sequence|top[_\s-]?k[_\s-]?expert)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.c'
+  message: MoE Pageout+Reload side-channel attack pattern detected
+  description: 'Detects the Pageout+Reload side-channel technique from MoEcho (Ding
+    et al. 2025), which achieves 99.2% expert sequence recovery accuracy on DeepSeek-V2
+    Lite CPUs. The attacker evicts each expert module''s first data memory page using
+    Linux madvise(addr, size, MADV_PAGEOUT), then measures page reload times during
+    victim execution. Short reload times indicate the expert was activated. This recovers
+    the complete expert sequence S during the MoE decoding phase, enabling Response
+    Reconstruction Attacks with 92.8% ASR. Target: DeepSeek-V2 Lite, Qwen1.5-MoE,
+    TinyMixtral.'
+  remediation: Restrict madvise() MADV_PAGEOUT to privileged processes only. Implement
+    page access randomization for ML model weight pages. Isolate MoE model library
+    instances per user process rather than using shared libraries. Monitor for high-frequency
+    page eviction calls targeting transformer weight memory regions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-003
+  name: moe-gpu-tlb-evict-reload-side-channel
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(tlb[\s\S]{0,40}evict[\s\S]{0,40}reload|tlb[\s\S]{0,40}flush[\s\S]{0,40}expert)
+  - (?i)(nsight|nvperf|gpu[_\s-]?performance[_\s-]?counter)[\s\S]{0,80}(expert[_\s-]?load|thread[_\s-]?count|moe)
+  - (?i)l3[_\s-]?tlb[\s\S]{0,60}(evict|flush|dummy[_\s-]?buffer)[\s\S]{0,80}(expert|moe|deepseek)
+  - (?i)(nn\.selu|selu[_\s-]?activation)[\s\S]{0,120}(thread[_\s-]?count|nsight|performance[_\s-]?counter)
+  file_types:
+  - '*.py'
+  - '*.cu'
+  - '*.cpp'
+  message: MoE GPU TLB Evict+Reload or performance counter side-channel pattern detected
+  description: Detects GPU-based side-channel patterns from MoEcho (Ding et al. 2025)
+    targeting MoE models on NVIDIA GPUs. The TLB Evict+Reload attack allocates a 4GB
+    dummy buffer to evict the shared L3 TLB, then measures access times of TLB entry
+    blocks corresponding to each expert to infer which experts were active — achieving
+    94.3% expert sequence recovery on DeepSeek-V2 Lite (NVIDIA A6000). The GPU performance
+    counter attack uses NVIDIA Nsight to monitor per-expert thread counts (nn.selu
+    activation kernel), achieving 0.993 Pearson correlation with ground truth expert
+    load. Both attacks require no root privilege.
+  remediation: Restrict NVIDIA Nsight/nvperf access to system administrators. Implement
+    per-process TLB partitioning or randomization for GPU workloads. Monitor for processes
+    allocating unusually large GPU memory buffers (4GB+) alongside active MoE inference
+    workloads. Disable hugepage mappings (2MB) for MoE expert weight pages on production
+    GPU deployments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-004
+  name: moe-prompt-inference-attack-classifier
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?load[\s\S]{0,60}classif|prompt[_\s-]?infer[\s\S]{0,60}expert[_\s-]?load)
+  - (?i)(top[_\s-]?k[_\s-]?expert[\s\S]{0,60}(illness|age|gender|blood[_\s-]?type|health))
+  - (?i)(prefill[_\s-]?phase|prefilling[_\s-]?phase)[\s\S]{0,80}(expert[_\s-]?load|spy|monitor|trace)
+  - (?i)mlp[_\s-]?(classif|model)[\s\S]{0,80}(expert[_\s-]?trace|expert[_\s-]?load|moe[_\s-]?signal)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: MoE Prompt Inference Attack classifier training or deployment pattern detected
+  description: Detects training or deployment of classifiers that map MoE expert load
+    traces to sensitive user input attributes, consistent with the Prompt Inference
+    Attack (PIA) described in MoEcho (Ding et al. 2025). The PIA achieves 99.9% accuracy
+    on templated healthcare prompts on DeepSeek-V2 Lite (64 experts, 26 layers), recovering
+    patient attributes including illness (116 classes), gender, blood type, and age
+    from expert load L collected during the MoE prefilling phase. Fine-grained MoE
+    architectures (DeepSeek, Qwen1.5-MoE) leak significantly more information than
+    coarse-grained ones (TinyMixtral with 4 experts). The attack requires ~1 hour
+    of offline profiling on 10,000 prompts.
+  remediation: Apply differential privacy noise to MoE router gating outputs during
+    inference. Use coarser expert granularity to reduce per-token routing distinctiveness.
+    Implement oblivious computation patterns that equalize execution time across experts
+    regardless of input content. Audit co-located processes for MoE profiling activity
+    patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-005
+  name: moe-response-reconstruction-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?sequence[\s\S]{0,60}(reconstruct|output[_\s-]?token|response[_\s-]?token))
+  - (?i)(decod[_\s-]?phase[\s\S]{0,80}expert[_\s-]?sequence[\s\S]{0,60}(logistic|classif|map))
+  - (?i)(logistic[_\s-]?regression|multinomial)[\s\S]{0,80}(expert[_\s-]?sequence|moe[_\s-]?trace)
+  - (?i)(response[_\s-]?reconstruct[\s\S]{0,60}expert[_\s-]?seq|verbatim[_\s-]?reconstruct[\s\S]{0,60}moe)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MoE Response Reconstruction Attack (RRA) pattern detected
+  description: Detects training or deployment of Multinomial Logistic Regression or
+    similar models that map MoE expert sequences collected during decoding back to
+    output tokens, consistent with the Response Reconstruction Attack (RRA) in MoEcho
+    (Ding et al. 2025). The RRA achieves 93.6% ASR on Synthetic Prompts, 91.5% on
+    Medical Q&A, and 91.9% on Financial Q&A for DeepSeek-V2 Lite. The attack reconstructs
+    complete model responses verbatim — including private emails, medical diagnoses,
+    financial information — by monitoring which experts are activated for each output
+    token during the MoE KV-Cache decoding phase. Profiling requires ~75h for 2.9M
+    output tokens (DeepSeek-V2-Lite).
+  remediation: Implement response token output randomization or watermarking to break
+    the deterministic expert-to-token mapping. Apply expert output aggregation noise
+    during decoding. Restrict co-location of untrusted processes with MoE inference
+    servers. Isolate shared memory regions used by MoE decode loops.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-006
+  name: moe-visual-inference-attack-vlm
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?load[\s\S]{0,60}(visual|image|face|identity|attribute)[\s\S]{0,60}(classif|infer))
+  - (?i)(vlm[\s\S]{0,60}expert[_\s-]?trace|vision[_\s-]?language[_\s-]?model[\s\S]{0,80}side[_\s-]?channel)
+  - (?i)(celeba|facial[_\s-]?attribute)[\s\S]{0,80}(expert[_\s-]?load|moe[_\s-]?signal|expert[_\s-]?trace)
+  - (?i)(deepseek[_\s-]?vl|deepseek[_\s-]?vlm|vision[_\s-]?moe)[\s\S]{0,80}(side[_\s-]?channel|privacy|leakage)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MoE Visual Inference Attack (VIA) pattern on VLM detected
+  description: Detects patterns consistent with the Visual Inference Attack (VIA)
+    from MoEcho (Ding et al. 2025), which uses MoE expert load traces from vision-language
+    models to infer sensitive visual attributes of user input images. Evaluated on
+    DeepSeek-VL2 (3.37B, 4 experts) with the CelebA dataset (300 celebrities, 40 binary
+    attributes), the VIA achieves average 85.34% accuracy. Top-5 attributes (Male,
+    Wearing Eyeglasses, Wearing Hat, Bald, Gray Hair) reach 94-99% accuracy. A simple
+    3-layer MLP classifier trained on 80% of MoE expert load traces achieves these
+    results without any access to the input images — only hardware-level execution
+    traces.
+  remediation: Implement image content oblivious execution paths in VLM MoE layers.
+    Apply noise to VLM expert routing decisions. Restrict hardware monitoring access
+    in multi-user VLM serving environments. Deploy MoE VLMs in isolated sandbox environments
+    with restricted system call access.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-007
+  name: moe-visual-reconstruction-attack-gan
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(conditional[_\s-]?(gan|unet|generative)[\s\S]{0,80}expert[_\s-]?load)
+  - (?i)(expert[_\s-]?load[\s\S]{0,60}(condition|inpaint|reconstruct[_\s-]?image|image[_\s-]?reconstruct))
+  - (?i)(moe[_\s-]?signal[\s\S]{0,60}(image[_\s-]?generat|reconstruct|inpaint)[\s\S]{0,60}(unet|gan|diffus))
+  - (?i)(visual[_\s-]?reconstruction[_\s-]?attack|vra)[\s\S]{0,80}(deepseek|vlm|moe|expert)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MoE Visual Reconstruction Attack (VRA) GAN conditioning on expert load
+    traces detected
+  description: Detects training or deployment of conditional generative models (GAN/U-Net)
+    conditioned on MoE expert load traces to reconstruct user input images from masked
+    versions, consistent with the Visual Reconstruction Attack (VRA) from MoEcho (Ding
+    et al. 2025). The VRA uses a conditional U-Net (4x4 latent with 128-dim condition
+    space) conditioned on expert load L from DeepSeek-VL2 to reconstruct 32x32 inpainted
+    images with SSIM improvement from 0.8414 to 0.8725 and FID improvement from 62.28
+    to 46.26. This attack can recover masked faces in privacy-sensitive medical imaging
+    applications where the underlying MoE model still processes the unmasked input.
+  remediation: Ensure that masked/privacy-protected inputs are not processed in their
+    original form by the MoE backend. Apply input preprocessing that eliminates sensitive
+    visual content before reaching MoE routing layers. Monitor for GAN training activities
+    that use MoE execution traces as conditioning signals.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-008
+  name: moe-deepseek-architecture-fingerprinting
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(deepseek[_\s-]?v2|deepseekv2|deepseek[_\s-]?moe)[\s\S]{0,80}(expert[_\s-]?load|routing|top[_\s-]?k[_\s-]?expert|fingerprint)
+  - (?i)(top[_\s-]?k[\s]*=[\s]*6[\s\S]{0,40}num[_\s-]?expert[\s]*=[\s]*64|64[_\s-]?expert[\s\S]{0,40}top[_\s-]?k[\s]*=[\s]*6)
+  - (?i)(moe[_\s-]?infer[\s\S]{0,60}topk[_\s-]?ids[\s\S]{0,60}count[_\s-]?token)
+  - (?i)(count[_\s-]?tokens[_\s-]?per[_\s-]?expert|tokens[_\s-]?per[_\s-]?expert)[\s\S]{0,80}(timing|trace|monitor|spy)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: DeepSeek-V2 MoE architecture fingerprinting or expert monitoring pattern
+    detected
+  description: Detects code patterns that fingerprint or monitor the DeepSeek-V2/V2-Lite
+    MoE architecture expert routing behavior, consistent with profiling phase activities
+    in MoEcho attacks (Ding et al. 2025). DeepSeek-V2 Lite uses 64 experts per layer
+    across 26 layers with k=6 active experts per token. The sequential execution of
+    experts in the DeepSeek inference loop (count_tokens → run_expert per index) creates
+    distinctive computational patterns measurable via hardware side-channels. Fine-grained
+    MoE segmentation in DeepSeek enables precise input-to-expert correlation that
+    more than doubles the leakage compared to coarse-grained architectures like TinyMixtral.
+  remediation: Implement oblivious expert scheduling that pads all expert execution
+    times to the worst-case regardless of token load. Apply expert execution order
+    randomization. Enforce strict process isolation for DeepSeek inference serving.
+    Audit public-facing DeepSeek deployments for co-located monitoring processes.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-009
+  name: moe-router-gating-adversarial-noise-injection
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(router[_\s-]?(gating|gate|network)[\s\S]{0,60}(noise|perturbation|adversarial|inject))
+  - (?i)(gating[_\s-]?function[\s\S]{0,60}(manipulate|bypass|fool|poison|corrupt))
+  - (?i)(top[_\s-]?k[_\s-]?(select|routing|gating)[\s\S]{0,60}(adversarial|craft|manipulate|force))
+  - (?i)(affinity[_\s-]?score[\s\S]{0,60}(manipulate|forge|poison|craft)[\s\S]{0,80}expert)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE router gating adversarial manipulation attempt detected
+  description: Detects attempts to adversarially manipulate the MoE router/gating
+    function to force routing of inputs to specific experts or bypass security-critical
+    experts. The MoE gating network (typically a linear projection + softmax) computes
+    affinity scores phi(u_t) for each token u_t and selects the top-k experts. Adversarially
+    crafted inputs or noise injections targeting the gating function can force activation
+    of specific experts, enabling capability elicitation (activating knowledge-rich
+    experts) or security bypass (routing prompts away from safety-checking experts).
+    He et al. (2024) identifies adversarial gating manipulation as a critical threat
+    in MoE-based security systems. Relevant to DeepSeekMoE, Mixtral, Switch Transformer,
+    Qwen-MoE.
+  remediation: Implement input validation before the MoE routing layer. Apply noise-robust
+    gating with temperature scaling. Monitor expert activation distributions for anomalous
+    routing patterns that deviate significantly from baseline distributions. Add a
+    dedicated safety expert that is always included in the top-k selection regardless
+    of routing scores.
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+- id: MEDUSA-MOE-SCAN-010
+  name: moe-semantic-noise-tampering-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(semantic[_\s-]?noise[\s\S]{0,60}(inject|add|insert)[\s\S]{0,60}(encoder|codec|moe))
+  - (?i)(adversarial[_\s-]?semantic[\s\S]{0,60}(tamper|corrupt|noise)[\s\S]{0,60}(source|channel))
+  - (?i)(semantic[_\s-]?distance[_\s-]?minimiz|sdm[_\s-]?train)[\s\S]{0,60}(bypass|evade|fool)
+  - (?i)(white[_\s-]?box[\s\S]{0,40}semantic[_\s-]?codec|semantic[_\s-]?encoder[\s\S]{0,60}gradient[_\s-]?attack)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Semantic noise injection attack against MoE semantic communication system
+    detected
+  description: Detects adversarial semantic noise injection attacks against MoE-based
+    semantic communication systems, as analyzed by He et al. (2024). In white-box
+    mode, attackers with knowledge of the semantic encoder architecture compute minimum-perturbation
+    adversarial noise via gradient descent to cause semantic decoding failures. In
+    black-box mode, repeated query-based attacks achieve the same effect. Without
+    MoE defense, tampering attacks reduce normal semantic codec accuracy from ~90%
+    to ~40% (source-end) or below 60% (channel-end). The MoE-based SemCom system maintains
+    >80% accuracy under these attacks by routing to the SDM-trained robust expert.
+  remediation: Deploy MoE-based SemCom with Semantic Distance Minimization (SDM) trained
+    robust codecs. Implement adversarial training on semantic encoder/decoder pairs.
+    Apply input sanitization to detect adversarially perturbed semantic inputs. Monitor
+    semantic reconstruction quality metrics for anomalous degradation patterns.
+  owasp_llm: LLM05:2025
+  cwe: CWE-20
+- id: MEDUSA-MOE-SCAN-011
+  name: moe-load-balancing-exploit-for-dos
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(load[_\s-]?balanc[\s\S]{0,60}(exploit|overflow|bypass|saturate)[\s\S]{0,60}expert)
+  - (?i)(expert[_\s-]?(overflow|overload|imbalance)[\s\S]{0,60}(dos|denial|slow|degrad))
+  - (?i)(token[_\s-]?dropp[_\s-]{0,10}(expert|moe)|expert[_\s-]?capacit[_\s-]?overflow)
+  - (?i)(auxiliary[_\s-]?loss[\s\S]{0,60}(bypass|poison|manipulate|disable)[\s\S]{0,80}load[_\s-]?balanc)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE load balancing exploit or expert overflow attack pattern detected
+  description: Detects attempts to exploit MoE load balancing mechanisms to cause
+    token dropping, expert overflow, or denial of service through expert imbalance
+    attacks. Standard sparse MoE architectures with top-k routing use auxiliary load
+    balancing losses during training to prevent all tokens routing to a small subset
+    of experts. Attackers can craft inputs that saturate specific experts' capacity
+    buffers, causing tokens to be dropped (reducing output quality) or creating measurable
+    timing side-effects. La-SoftMoE CLIP (Zou et al. 2024) documents token-dropping
+    vulnerabilities in standard sparse MoE that adversarially crafted attack images
+    can exploit. Switch Transformer and Mixtral architectures with fixed capacity
+    factors are particularly susceptible.
+  remediation: Use SoftMoE or other token-dropping-free MoE variants for security-critical
+    applications. Implement per-request expert load monitoring with rate limiting.
+    Enforce capacity factors ≥2.0 to reduce token drop probability. Monitor expert
+    utilization distributions in real-time to detect anomalous concentration of tokens
+    to specific experts.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-MOE-SCAN-012
+  name: moe-expert-extraction-model-stealing
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?steal|expert[_\s-]?extract[_\s-]?attack|moe[_\s-]?model[_\s-]?steal)
+  - (?i)(extract[_\s-]?expert[_\s-]?(weight|parameter|knowledge)[\s\S]{0,80}(query|probe|black[_\s-]?box))
+  - (?i)(model[_\s-]?extraction[\s\S]{0,60}(moe|mixture[_\s-]?of[_\s-]?expert|expert[_\s-]?network))
+  - (?i)(knock[_\s-]?off|distill[_\s-]?expert|clone[_\s-]?expert)[\s\S]{0,80}(moe|routing|gating)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MoE expert weight extraction or model stealing attack pattern detected
+  description: 'Detects patterns consistent with expert weight extraction attacks
+    against MoE models, where adversaries attempt to recover the parameters of specific
+    expert sub-networks through systematic querying. MoE architectures create natural
+    opportunities for targeted expert extraction: by crafting inputs that reliably
+    activate specific experts (exploiting the gating function), an attacker can isolate
+    and extract individual expert networks far more efficiently than attacking a dense
+    model. The MoEcho work (Ding et al. 2025) demonstrates that DeepSeek-V2 Lite with
+    64 experts per layer can be profiled with 10,000 queries to map input patterns
+    to expert activations. This profiling information can guide efficient expert-specific
+    weight extraction attacks.'
+  remediation: Implement query rate limiting and anomaly detection for systematic
+    expert-targeted query patterns. Apply output perturbation to obscure precise parameter
+    information. Monitor for query sequences designed to activate specific expert
+    subsets repeatedly. Implement differential privacy at expert output level.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-013
+  name: moe-capability-elicitation-via-expert-targeting
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(activate[_\s-]?specific[_\s-]?expert|force[_\s-]?expert[_\s-]?activat|target[_\s-]?expert[_\s-]?route)
+  - (?i)(expert[_\s-]?(elicit|unlock|bypass)[\s\S]{0,60}(capabilit|knowledge|restrict|safety))
+  - (?i)(craft[_\s-]?(prompt|input)[\s\S]{0,80}expert[_\s-]?(index|activat|select)[\s\S]{0,60}(bypass|unlock|elicit))
+  - (?i)(domain[_\s-]?expert[\s\S]{0,60}(jailbreak|bypass[_\s-]?safety|unsafe[_\s-]?knowledge|restrict))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: MoE capability elicitation via targeted expert activation attempt detected
+  description: Detects attempts to craft inputs that force activation of specific
+    domain-specialized experts in MoE models to elicit restricted capabilities or
+    bypass safety measures. MoE models train distinct experts to specialize in different
+    domains (code generation, medical knowledge, language-specific reasoning). Inputs
+    crafted to reliably activate specific high-capability or safety-bypassed experts
+    can unlock behaviors unavailable through normal routing. The MoEcho profiling
+    methodology (Ding et al. 2025) demonstrates that expert load traces on DeepSeek-V2
+    Lite (64 experts) can distinguish illness categories with 99.9% accuracy, indicating
+    that expert specialization is strong enough to be targeted for elicitation attacks.
+    DeepSeek-R1 and similar chain-of-thought MoE models may be particularly susceptible
+    due to their distinct reasoning expert clusters.
+  remediation: Implement safety checks at the expert output aggregation layer, not
+    just pre-routing. Ensure safety-critical experts are included in every inference
+    pass regardless of routing scores. Monitor for systematic prompt patterns attempting
+    to force specific expert activations. Apply content filtering to expert outputs
+    before aggregation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-284
+- id: MEDUSA-MOE-SCAN-014
+  name: moe-sparse-gating-differential-privacy-bypass
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(differential[_\s-]?privacy[\s\S]{0,60}(bypass|remove|disable|skip)[\s\S]{0,80}(router|gating|moe))
+  - (?i)(dp[_\s-]?noise[\s\S]{0,60}(router|gating)[\s\S]{0,60}(remove|strip|bypass|calibrat))
+  - (?i)(gradient[_\s-]?clip[\s\S]{0,60}(moe|expert|routing)[\s\S]{0,60}(bypass|disable|zero|nan))
+  - (?i)(epsilon[_\s-]?budget[\s\S]{0,60}(router|gating|expert)[\s\S]{0,60}(exhaust|consume|deplete))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Attempt to bypass differential privacy protections in MoE router detected
+  description: Detects attempts to bypass, disable, or exhaust differential privacy
+    (DP) protections applied to MoE router gating decisions. MoEcho (Ding et al. 2025)
+    identifies DP noise addition to router decisions as a primary mitigation, but
+    notes that DP-protected routers suffer from imprecise expert selection that adversely
+    affects model performance. An attacker could target DP budget exhaustion through
+    repeated queries, or identify threshold conditions where the DP noise level is
+    insufficient to prevent expert load inference. The tradeoff between privacy and
+    routing accuracy makes DP-protected MoE routers susceptible to adaptive attacks
+    that exploit known noise distributions.
+  remediation: Use sufficiently large epsilon budgets with strict accounting. Implement
+    per-user DP budget caps with query rate limiting. Apply output perturbation in
+    addition to routing noise to prevent adaptive attacks. Monitor DP budget consumption
+    rates per client session.
+  owasp_llm: LLM02:2025
+  cwe: CWE-330
+- id: MEDUSA-MOE-SCAN-015
+  name: moe-expert-poisoning-training-data-injection
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(poison[\s\S]{0,60}(expert[_\s-]?network|expert[_\s-]?weight|moe[_\s-]?training))
+  - (?i)(backdoor[\s\S]{0,60}(expert[_\s-]?activat|gating[_\s-]?function|moe[_\s-]?router))
+  - (?i)(expert[_\s-]?(poison|corrupt|backdoor|trojan)[\s\S]{0,60}(train|fine[_\s-]?tun|data))
+  - (?i)(specialist[_\s-]?expert[\s\S]{0,60}(inject|poison|corrupt)[\s\S]{0,80}(trigger|activat))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE expert poisoning or backdoor training data injection detected
+  description: Detects training data injection or backdoor attacks targeting individual
+    expert sub-networks in MoE models. Because MoE training assigns distinct data
+    subsets to different experts, poisoning a specific expert can compromise the model's
+    behavior for all inputs routed to that expert while preserving normal performance
+    on inputs routed to clean experts. This targeted poisoning is significantly harder
+    to detect than whole-model poisoning because standard validation datasets may
+    not exercise the compromised expert. In MoE architectures with fixed expert assignments
+    (e.g., domain-specialized fine-tuning), an adversary who can inject training examples
+    for a specific domain can reliably contaminate the corresponding domain expert.
+  remediation: Implement per-expert validation dataset coverage checks during training.
+    Monitor per-expert loss distributions for anomalous convergence patterns that
+    differ from other experts. Apply data provenance tracking for expert-specific
+    training subsets. Implement differential testing between expert outputs on boundary
+    inputs.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MOE-SCAN-016
+  name: moe-warden-detection-evasion-semantic-compression
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(warden[_\s-]?(detect|bypass|evad)[\s\S]{0,60}(compression|semantic|covert))
+  - (?i)(covert[_\s-]?(communicat|channel)[\s\S]{0,60}(moe|expert|semantic[_\s-]?codec))
+  - (?i)(detection[_\s-]?failure[_\s-]?probabilit|dfp)[\s\S]{0,60}(compress|moe|expert[_\s-]?select)
+  - (?i)(semantic[_\s-]?compression[_\s-]?rate[\s\S]{0,60}(warden|detect|covert|stealth))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: MoE-based covert communication with warden detection evasion pattern detected
+  description: Detects implementation of warden-evasion techniques in MoE-based communication
+    systems, as documented by He et al. (2024). The MoE covert codec selects a high-compression-rate
+    semantic encoder to reduce observable channel transmission frequency below the
+    warden's detection threshold (monitored at 2 Hz in the vehicular case study).
+    At 95% compression rate, the Detection Failure Probability (DFP) against the warden
+    reaches 95%, effectively hiding communication activity while maintaining semantic
+    content transmission. This technique could be abused for covert data exfiltration
+    from AI-enabled communication systems.
+  remediation: Monitor for unusual semantic compression rate configurations in MoE
+    communication systems. Implement mandatory minimum communication rates to prevent
+    extreme compression-based covert channels. Audit MoE expert selection logs for
+    patterns consistent with covert codec activation. Apply traffic analysis monitoring
+    at the physical layer to detect semantic transmission patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-319
+- id: MEDUSA-MOE-SCAN-017
+  name: moe-eavesdropping-semantic-decoder-cloning
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(eavesdrop[\s\S]{0,60}(semantic[_\s-]?decoder|moe[_\s-]?codec|semantic[_\s-]?codec))
+  - (?i)(semantic[_\s-]?decoder[\s\S]{0,60}(clone|copy|steal|reverse[_\s-]?engineer|extract))
+  - (?i)(decode[_\s-]?semantic[_\s-]?information[\s\S]{0,60}(illegal|without[_\s-]?key|bypass[_\s-]?encrypt))
+  - (?i)(intercept[\s\S]{0,60}(semantic[_\s-]?transmission|moe[_\s-]?communication|6g[_\s-]?semantic))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: MoE semantic decoder eavesdropping or cloning attempt detected
+  description: Detects attempts to eavesdrop on MoE-based semantic communication channels
+    by cloning or reverse-engineering the semantic decoder, as documented by He et
+    al. (2024). An eavesdropper who captures the wireless channel signal and possesses
+    a semantic decoder with the correct architecture can decode semantic transmissions
+    without authorization. Without key-based private codec protection, eavesdroppers
+    achieve high decoding accuracy at SNR≥6dB. The decoder cloning attack is particularly
+    relevant for 6G SemCom deployments where semantic codecs may be published or reverse-engineered
+    from public API interactions.
+  remediation: Implement key-based semantic encryption where the private key is embedded
+    in the encoding process. Deploy the MoE private codec expert for all sensitive
+    communications. Apply semantic watermarking to detect unauthorized reproduction
+    of decoded outputs. Enforce mutual authentication before semantic session establishment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-311
+- id: MEDUSA-MOE-SCAN-018
+  name: moe-token-level-expert-assignment-reconnaissance
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(token[_\s-]?level[\s\S]{0,60}expert[_\s-]?(assign|activat|routing)[\s\S]{0,60}(dump|log|record|collect))
+  - (?i)(top[_\s-]?k[_\s-]?expert[\s\S]{0,60}(per[_\s-]?token|token[_\s-]?expert)[\s\S]{0,60}(trace|log|save|export))
+  - (?i)(expert[_\s-]?utilization[\s\S]{0,60}(monitor|track|log|dump)[\s\S]{0,60}(token|input|prompt))
+  - (?i)(router[_\s-]?logit[\s\S]{0,60}(dump|save|export|intercept)[\s\S]{0,80}(per[_\s-]?token|every[_\s-]?token))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Token-level MoE expert assignment reconnaissance or logging detected
+  description: Detects systematic logging or collection of token-level expert assignment
+    data from MoE models, which constitutes the data collection phase of MoEcho-style
+    attacks (Ding et al. 2025). The MoEcho profiling phase collects expert load traces
+    L (prefilling phase) and expert sequences S (decoding phase) by instrumenting
+    the MoE inference code directly. This direct channel information is then used
+    to train PIA and RRA attack models. Token-level expert assignment logs for even
+    10,000 prompts are sufficient to train high-accuracy PIA classifiers (1h profiling
+    time for DeepSeek-V2-Lite). Such logs in production systems represent a significant
+    privacy risk even if collected for legitimate monitoring purposes.
+  remediation: Restrict access to per-token expert assignment data in production MoE
+    deployments. Aggregate expert utilization statistics at the batch level rather
+    than per-token level. Implement access controls on MoE inference instrumentation
+    hooks. Apply differential privacy to expert utilization statistics before any
+    logging.
+  owasp_llm: LLM02:2025
+  cwe: CWE-532
+- id: MEDUSA-MOE-SCAN-019
+  name: moe-shared-library-co-location-attack-setup
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(shared[_\s-]?(dnn[_\s-]?library|pytorch|transformers)[\s\S]{0,60}(victim|target[_\s-]?process|co[_\s-]?locat))
+  - (?i)(co[_\s-]?locat[\s\S]{0,60}(moe[_\s-]?model|llm[_\s-]?inference|victim[_\s-]?process))
+  - (?i)(same[_\s-]?(machine|server|host|cpu[_\s-]?core)[\s\S]{0,80}(moe[_\s-]?model|victim[_\s-]?inference|spy))
+  - (?i)(spy[_\s-]?process[\s\S]{0,60}(moe|expert|pytorch|transformers)[\s\S]{0,60}(shared|co[_\s-]?locat|collocat))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  message: MoE co-location attack setup with shared library detected
+  description: Detects setup of malicious co-located processes designed to exploit
+    shared MoE library resources for side-channel attacks, as in MoEcho (Ding et al.
+    2025). The MoEcho CPU-based cache occupancy and Pageout+Reload attacks require
+    the attacker and victim to share the same physical CPU core and the same MoE library
+    instance (e.g., the PyTorch transformers library). The GPU-based attacks require
+    access to a common MoE model library loaded in GPU memory. In multi-tenant LLM
+    serving environments (co-located VMs, shared inference servers), this co-location
+    condition is commonly met. The attack process needs no root privileges — only
+    normal user access to the shared system.
+  remediation: Isolate MoE inference processes using dedicated CPU core binding and
+    NUMA isolation. Avoid sharing PyTorch/transformers library instances between tenants
+    in multi-user serving environments. Implement strict namespace and memory isolation
+    between co-located LLM inference workloads. Use per-tenant GPU contexts with isolated
+    memory spaces for MoE model deployments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-668
+- id: MEDUSA-MOE-SCAN-020
+  name: moe-expert-sparse-activation-pattern-profiling
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(sparse[_\s-]?activat[\s\S]{0,60}(profil|pattern|fingerprint)[\s\S]{0,80}(expert|moe))
+  - (?i)(expert[_\s-]?activat[\s\S]{0,60}(pattern|distribut|histog)[\s\S]{0,60}(collect|dump|analyz|profil))
+  - (?i)(spatio[_\s-]?temporal[\s\S]{0,60}(expert|moe|activation)[\s\S]{0,60}(footprint|trace|profil))
+  - (?i)(t[_\s-]?test[\s\S]{0,60}(expert[_\s-]?load|expert[_\s-]?sequence)[\s\S]{0,60}(sensitive|private|illness|health))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.r'
+  message: MoE expert sparse activation pattern profiling for privacy inference detected
+  description: Detects statistical analysis of MoE expert activation patterns aimed
+    at establishing correlations with sensitive user data, matching the profiling
+    methodology in MoEcho (Ding et al. 2025). The paper uses T-tests on expert load
+    and expert sequence data to establish statistical significance of correlations
+    between expert activations and sensitive attributes. For example, 353 experts
+    show statistically significant (t > 4.5) differences between 'Common Cold' vs
+    'Hemophilia' inputs on DeepSeek-V2-Lite (26 × 64 = 1664 total experts). This statistical
+    profiling phase is the prerequisite for all four MoEcho attacks and can be conducted
+    entirely offline using software-based model instrumentation (no side-channels
+    required in the profiling phase).
+  remediation: Apply differential privacy to model outputs even during offline evaluation.
+    Implement access controls on direct model instrumentation APIs. Monitor for large-scale
+    systematic query patterns across different sensitive attribute classes. Require
+    ethical review and data protection agreements for any research involving expert
+    activation pattern analysis on healthcare or personal data.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-021
+  name: moe-gating-network-psr-manipulation
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(psr[\s\S]{0,40}(manipulate|forge|craft|inject|bypass)[\s\S]{0,60}(gating|moe|expert[_\s-]?select))
+  - (?i)(personal[_\s-]?security[_\s-]?requirement[\s\S]{0,60}(forge|craft|inject|bypass|spoof))
+  - (?i)(security[_\s-]?requirement[_\s-]?vector[\s\S]{0,60}(manipulate|bypass|craft|inject))
+  - (?i)(gating[_\s-]?network[\s\S]{0,60}(wrong[_\s-]?expert|route[_\s-]?bypass|expert[_\s-]?bypass|skip[_\s-]?expert))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: MoE gating network PSR manipulation to bypass security expert selection
+    detected
+  description: Detects attempts to manipulate the Personal Security Requirement (PSR)
+    vector in MoE-based security systems to cause incorrect expert selection, as identified
+    as a threat by He et al. (2024). The MoE SemCom gating network uses PSR as part
+    of its routing input — if an attacker can forge or inject a PSR vector that routes
+    messages to the normal (unprotected) codec instead of the robust or private codec,
+    all security guarantees are bypassed. This is analogous to a jailbreak that targets
+    the routing layer rather than the model's content generation layer. The gating
+    network's MLP architecture may be susceptible to adversarial examples that cause
+    routing to incorrect experts while the PSR appears legitimate.
+  remediation: Implement PSR authentication and integrity verification before gating
+    network input. Apply anomaly detection on PSR vectors to identify adversarially
+    crafted routing inputs. Enforce mandatory inclusion of safety-critical experts
+    regardless of PSR routing decisions. Implement defense-in-depth with separate
+    PSR validation logic independent of the gating network.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MOE-SCAN-022
+  name: moe-input-dependent-routing-timing-oracle
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(timing[_\s-]?(difference|variation|oracle)[\s\S]{0,60}(expert[_\s-]?select|routing|moe))
+  - (?i)(inference[_\s-]?latency[\s\S]{0,60}(expert[_\s-]?activat|moe[_\s-]?routing|top[_\s-]?k))
+  - (?i)(response[_\s-]?time[_\s-]?(oracle|side[_\s-]?channel)[\s\S]{0,60}(moe|expert|routing))
+  - (?i)(measure[_\s-]?(latency|time)[\s\S]{0,80}(expert[_\s-]?load|token[_\s-]?expert|routing[_\s-]?decision))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.js'
+  message: MoE input-dependent routing timing oracle attack pattern detected
+  description: 'Detects attempts to exploit timing differences in MoE inference as
+    an oracle for inferring routing decisions and user input content. In MoE architectures,
+    the execution time of each expert is proportional to its token load — different
+    inputs route different numbers of tokens to different experts, creating measurable
+    timing variations. The MoEcho cache occupancy channel (Ding et al. 2025) explicitly
+    exploits this property: L1 I-Cache timing peaks correspond to expert module boundaries.
+    Even without hardware access, API-level timing measurements of MoE responses may
+    leak routing information for high-variance expert loads, particularly in fine-grained
+    MoE models like DeepSeek (64 experts, k=6) where the timing distribution across
+    experts is highly input-dependent.'
+  remediation: Implement constant-time MoE inference that normalizes execution time
+    across all possible routing outcomes. Apply response time jitter at the API level
+    to mask expert load variations. Monitor for systematic timing-based reconnaissance
+    patterns across different input categories. Consider deploying MoE models with
+    balanced expert computation regardless of actual token load.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-MOE-SCAN-023
+  name: moe-switch-transformer-expert-collapse-attack
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(switch[_\s-]?transformer[\s\S]{0,60}(collapse|overflow|capacity[_\s-]?overflow|all[_\s-]?token))
+  - (?i)(expert[_\s-]?collapse[\s\S]{0,60}(switch|sparse[_\s-]?moe|token[_\s-]?routing))
+  - (?i)(capacity[_\s-]?factor[\s\S]{0,60}(overflow|bypass|exhaust|exploit)[\s\S]{0,60}(switch|expert))
+  - (?i)(jitter[_\s-]?(noise|random)[\s\S]{0,60}(switch[_\s-]?transformer|expert[_\s-]?routing|gating))
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Switch Transformer expert collapse or capacity overflow attack pattern
+    detected
+  description: Detects attacks targeting the capacity overflow and expert collapse
+    vulnerabilities specific to Switch Transformer and similar hard top-1 routing
+    MoE architectures. Switch Transformer uses a single expert per token with a fixed
+    capacity factor — when too many tokens are routed to the same expert, excess tokens
+    are dropped. Adversarially crafted inputs can force all tokens to route to the
+    same expert, causing systematic token dropping and degraded output quality. The
+    jitter noise added during Switch Transformer training to prevent expert collapse
+    can be overcome by inputs specifically optimized to exploit the argmax routing
+    boundary conditions.
+  remediation: Use soft routing or capacity-overflow redistribution strategies instead
+    of hard token dropping. Implement input-independent capacity allocation (e.g.,
+    uniform capacity regardless of routing distribution). Add anomaly detection for
+    token drop rate spikes that may indicate deliberate capacity overflow attacks.
+    Consider migrating from Switch Transformer to more robust sparse MoE variants
+    for production security-critical applications.
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+- id: MEDUSA-MOE-SCAN-024
+  name: moe-cross-tenant-expert-inference-cloud
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(cross[_\s-]?tenant[\s\S]{0,60}(expert|moe)[\s\S]{0,60}(infer|leak|side[_\s-]?channel))
+  - (?i)(co[_\s-]?tenant[\s\S]{0,60}(moe[_\s-]?model|llm[_\s-]?service|expert[_\s-]?activat)[\s\S]{0,60}(monitor|spy|infer))
+  - (?i)(shared[_\s-]?(inference[_\s-]?server|llm[_\s-]?api)[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?routing)[\s\S]{0,60}(infer|leak))
+  - (?i)(vllm|sglang|tensor[_\s-]?parallel)[\s\S]{0,80}(expert[_\s-]?load|moe[_\s-]?trace|expert[_\s-]?monitor)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Cross-tenant MoE expert inference attack on shared LLM serving infrastructure
+    detected
+  description: Detects attacks exploiting shared LLM serving infrastructure (VLLM,
+    SGLang) to perform cross-tenant expert load inference. The MoEcho paper (Ding
+    et al. 2025) notes that multi-tenant LLM services (e.g., VLLM, SGLang) that serve
+    multiple users on the same physical hardware using the same MoE model are inherently
+    vulnerable to side-channel attacks from co-tenants. An adversary who is also a
+    user of the same shared MoE API can co-locate a spy process that monitors shared
+    hardware resources (L3 cache, TLB, GPU performance counters) to infer expert activation
+    patterns of other users' requests. This is a direct threat to commercial MoE LLM
+    API providers offering services on shared GPU clusters.
+  remediation: Enforce strict physical isolation between tenants in MoE LLM serving
+    environments (dedicated GPU per tenant). Disable shared TLB and GPU performance
+    counter access across tenant boundaries. Implement request scheduling that prevents
+    predictable co-location of tenant inference workloads. Apply inter-request timing
+    randomization to break correlation between tenant inference activities.
+  owasp_llm: LLM02:2025
+  cwe: CWE-668
+- id: MEDUSA-MOE-SCAN-025
+  name: moe-mixtral-routing-manipulation-prompt-crafting
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(mixtral[\s\S]{0,60}(routing|expert[_\s-]?select|gating)[\s\S]{0,60}(manipulate|craft|bypass|force))
+  - (?i)(mixtral[_\s-]?8x[0-9]+b[\s\S]{0,80}(expert[_\s-]?activat|routing[_\s-]?bypass|safety[_\s-]?bypass))
+  - (?i)(sparse[_\s-]?gated[_\s-]?moe[\s\S]{0,60}(manipulate|exploit|bypass)[\s\S]{0,60}(routing|gating|expert))
+  - (?i)(mistral[_\s-]?moe|mixtral[\s\S]{0,60}(side[_\s-]?channel|expert[_\s-]?leak|routing[_\s-]?leak))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Mixtral MoE routing manipulation or side-channel exploitation pattern detected
+  description: Detects routing manipulation or side-channel attacks targeting Mixtral-8x7B
+    and Mixtral-8x22B MoE architectures. Mixtral uses 8 experts per layer with top-2
+    routing, creating 8 distinct expert activation patterns per token. The MoEcho
+    paper (Ding et al. 2025) lists Mixtral (TinyMixtral-MoE variant) as one of four
+    evaluated MoE architectures, demonstrating that even with only 4 experts, side-channel
+    attacks achieve meaningful information leakage. The coarse-grained nature of Mixtral
+    (fewer, larger experts) provides partial protection compared to DeepSeek's 64-expert
+    design, but targeted routing manipulation attacks remain feasible by crafting
+    inputs that exploit known expert specialization patterns.
+  remediation: Apply input sanitization to detect adversarially crafted routing-manipulation
+    prompts. Monitor expert activation distribution histograms for systematic anomalies.
+    Implement expert activation smoothing to reduce routing predictability. Deploy
+    Mixtral in isolated environments with restricted hardware monitoring capabilities.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MOE-SCAN-026
+  name: moe-healthcare-pii-inference-via-expert-routing
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(health(care)?[_\s-]?(record|data|pii|information)[\s\S]{0,80}expert[_\s-]?(load|activat|trace|sequence))
+  - (?i)(illness|diagnosis|blood[_\s-]?type|medication)[\s\S]{0,80}(expert[_\s-]?load|moe[_\s-]?routing|expert[_\s-]?activat)
+  - (?i)(medical[_\s-]?(prompt|query|llm)[\s\S]{0,80}(expert[_\s-]?trace|moe[_\s-]?pattern|side[_\s-]?channel))
+  - (?i)(patient[_\s-]?(data|privacy|pii)[\s\S]{0,80}(moe|expert[_\s-]?load|routing[_\s-]?pattern))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Healthcare PII inference via MoE expert routing patterns detected — critical
+    privacy violation
+  description: Detects the highest-risk application of the MoEcho PIA attack (Ding
+    et al. 2025) targeting healthcare PII extraction via MoE expert routing patterns.
+    The paper's primary evaluation uses synthetic healthcare records with illness
+    (116 classes), age (8 decade groups), gender, and blood type attributes. On DeepSeek-V2
+    Lite, templated healthcare prompts achieve 99.9% PIA accuracy — meaning an attacker
+    monitoring expert load traces can infer specific illness diagnoses from patients'
+    medical AI queries with near-perfect accuracy. This constitutes a severe HIPAA
+    violation risk for MoE-based healthcare AI deployments. The healthcare prompt
+    templates (Appendix D of the paper) follow common EHR record formats, indicating
+    the attack targets realistic clinical deployment scenarios.
+  remediation: Do not deploy MoE-based LLMs for healthcare PII processing without
+    hardware-level isolation guarantees. Implement HIPAA-compliant inference environments
+    with no shared hardware resources between tenants. Apply prompt anonymization
+    before MoE routing layers. Conduct security audits of all co-located processes
+    in healthcare AI deployments. Consider using dense (non-MoE) models for highest-sensitivity
+    healthcare applications until MoE routing privacy is adequately addressed.
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-MOE-SCAN-027
+  name: moe-soft-routing-token-dispatch-weight-manipulation
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(dispatch[_\s-]?weight[\s\S]{0,60}(manipulate|craft|adversarial|inject|force))
+  - (?i)(soft[_\s-]?moe[\s\S]{0,60}(slot[_\s-]?assign|dispatch[_\s-]?weight)[\s\S]{0,60}(manipulate|craft|adversarial))
+  - (?i)(combine[_\s-]?weight[\s\S]{0,60}(expert[_\s-]?output)[\s\S]{0,60}(manipulate|bias|adversarial|inject))
+  - (?i)(softmax[_\s-]?dispatch|einsum[\s\S]{0,40}dispatch)[\s\S]{0,60}(adversarial|manipulate|craft|poison)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: SoftMoE dispatch weight or slot assignment manipulation detected
+  description: Detects adversarial manipulation of SoftMoE dispatch weights (D matrix)
+    or combine weights (C matrix) that govern token-to-expert slot assignment in Soft
+    Mixture-of-Experts architectures. La-SoftMoE CLIP (Zou et al. 2024) proposes SoftMoE
+    as a robust alternative to sparse MoE, but the dispatch weight matrix D (result
+    of softmax over XΦ) remains susceptible to adversarial inputs that craft the token-feature
+    matrix X to produce desired dispatch weight distributions. An adversary who can
+    control input token features can force deterministic slot assignments, bypassing
+    the intended data-dependent routing and potentially activating specific experts
+    for capability elicitation or detection evasion.
+  remediation: Apply input validation and feature space sanitization before SoftMoE
+    dispatch weight computation. Implement dispatch weight distribution monitoring
+    to detect anomalous concentration. Use Instance Normalization (as in La-SoftMoE)
+    to bound combined weight values to [0,1], limiting adversarial weight manipulation
+    range. Monitor for inputs that produce unusually peaked dispatch weight distributions.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MOE-SCAN-028
+  name: moe-kv-cache-expert-sequence-leak
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(kv[_\s-]?cache[\s\S]{0,60}(expert[_\s-]?sequence|expert[_\s-]?activat|moe[_\s-]?decod))
+  - (?i)(key[_\s-]?value[_\s-]?cache[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?routing)[\s\S]{0,60}(leak|expose|infer))
+  - (?i)(shared[_\s-]?kv[_\s-]?cache[\s\S]{0,60}(moe|expert|prompt[_\s-]?leak))
+  - (?i)(kv[_\s-]?cache[\s\S]{0,60}(timing|side[_\s-]?channel)[\s\S]{0,60}(expert|moe|routing))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: MoE KV-Cache expert sequence leakage pattern detected
+  description: 'Detects exploitation of the KV-Cache mechanism in MoE LLMs to leak
+    expert sequence information. During MoE decoding, the KV-Cache stores key-value
+    pairs for previous tokens, allowing only the new token''s attention and MoE computation
+    at each step. This creates a distinct decoding pattern where each output token
+    activates only the top-k experts for that token''s hidden state. The MoEcho RRA
+    (Ding et al. 2025) explicitly exploits the decoding phase''s KV-Cache behavior:
+    the sparse activation of just k experts per output token (k=6 for DeepSeek-V2-Lite)
+    creates a discrete expert sequence S that uniquely identifies each output token
+    with >90% accuracy. Shared KV-Cache implementations in multi-tenant serving (VLLM
+    prefix caching) may further compound this leakage.'
+  remediation: Isolate KV-Cache memory between tenants in multi-user LLM serving systems.
+    Apply noise to expert activation patterns during cached-token decoding phases.
+    Monitor shared KV-Cache access patterns for timing-based inference attacks. Implement
+    KV-Cache randomization that preserves semantic correctness but obscures the exact
+    expert activation sequence.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-029
+  name: moe-multi-gpu-distributed-inference-side-channel
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(multi[_\s-]?gpu[\s\S]{0,60}(moe|expert[_\s-]?parallel)[\s\S]{0,60}(side[_\s-]?channel|timing|latency[_\s-]?oracle))
+  - (?i)(expert[_\s-]?parallel[_\s-]?(across|between|multi)[_\s-]?(gpu|device)[\s\S]{0,60}(leak|infer|timing))
+  - (?i)(inter[_\s-]?device[\s\S]{0,60}(communication[_\s-]?pattern|data[_\s-]?transfer)[\s\S]{0,60}(expert|moe|routing))
+  - (?i)(tensor[_\s-]?parallel[\s\S]{0,60}(expert|moe)[\s\S]{0,60}(timing[_\s-]?attack|side[_\s-]?channel|leak))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Multi-GPU distributed MoE inference side-channel pattern detected
+  description: Detects side-channel attacks targeting distributed MoE inference across
+    multiple GPUs, identified as a future threat direction in MoEcho (Ding et al.
+    2025). In multi-GPU MoE deployments (e.g., tensor-parallel or expert-parallel
+    configurations), inter-device communication patterns, data transfer volumes, and
+    network traffic timing expose expert routing information across device boundaries.
+    Expert parallel configurations (where different experts run on different GPUs)
+    create inter-device communication events proportional to how many tokens are routed
+    to each GPU's experts, creating network-level timing oracles for expert load inference.
+    The paper identifies distributed MoE as an urgent future research direction.
+  remediation: Implement constant-bandwidth inter-device communication protocols for
+    MoE expert parallel deployments. Apply dummy traffic padding to normalize communication
+    patterns across all expert-parallel configurations. Encrypt inter-device expert
+    communication to prevent traffic analysis. Monitor network traffic patterns between
+    MoE expert-parallel nodes for anomalous timing correlations.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-030
+  name: moe-face-spoofing-adversarial-distribution-attack
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(moe[_\s-]?(face[_\s-]?spoof|anti[_\s-]?spoof|liveness)[\s\S]{0,60}(adversarial|attack|bypass|fool))
+  - (?i)(softmoe[_\s-]?clip|la[_\s-]?softmoe)[\s\S]{0,60}(adversarial|attack|bypass|fool|evad)
+  - (?i)(physical[_\s-]?digital[_\s-]?attack[\s\S]{0,60}(moe|expert[_\s-]?routing|sparse[_\s-]?feature)[\s\S]{0,60}(bypass|evad))
+  - (?i)(uniattack[_\s-]?detect[\s\S]{0,60}(bypass|adversarial|evad|fool)[\s\S]{0,60}(moe|expert|sparse))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Adversarial attack against MoE-based face anti-spoofing detection system
+    detected
+  description: Detects adversarial attacks targeting MoE-based face anti-spoofing
+    and Unified Attack Detection (UAD) systems such as La-SoftMoE CLIP (Zou et al.
+    2024). The La-SoftMoE CLIP model achieves SOTA ACER 0.32% on UniAttackData by
+    using Soft MoE with linear attention to handle the sparse, bimodal feature distribution
+    of physical (3D masks, print attacks) and digital (DeepFake, GAN) face attacks.
+    Adversarial inputs crafted to exploit the gap between physical and digital attack
+    feature clusters can cause systematic misclassification — either making digital
+    attacks appear as physical ones or vice versa, both classified as 'fake' by the
+    boundary but potentially confusing the expert assignment. The 0.06% ACER gap with
+    vanilla CLIP AUC (99.72% vs 99.76%) suggests a marginal vulnerability band in
+    the combined weighting mechanism.
+  remediation: Implement adversarial training specifically targeting the PA/DA boundary
+    region in feature space. Monitor MoE expert utilization distributions for anomalous
+    concentration of inputs near the classification boundary. Apply ensemble methods
+    combining La-SoftMoE CLIP with independent classifiers for high-security face
+    authentication. Regularly update the MoE model with newly identified attack types
+    to maintain robust expert coverage.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+- id: MEDUSA-MOE-SCAN-031
+  name: moe-expert-weight-quantization-side-channel
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?weight[\s\S]{0,60}(quantiz|int4|int8|bnb|bitsandbytes)[\s\S]{0,60}(leak|infer|side[_\s-]?channel|timing))
+  - (?i)(moe[_\s-]?(quantiz|quant)[\s\S]{0,80}(expert[_\s-]?activat|routing[_\s-]?pattern)[\s\S]{0,60}(timing|trace))
+  - (?i)(dequantiz[\s\S]{0,60}(expert|moe[_\s-]?layer)[\s\S]{0,60}(timing[_\s-]?oracle|side[_\s-]?channel))
+  - (?i)(awq|gptq|gguf)[\s\S]{0,80}(expert[_\s-]?(load|activat|select))[\s\S]{0,60}(monitor|trace|infer)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.c'
+  message: MoE expert weight quantization side-channel exploitation pattern detected
+  description: Detects side-channel attacks exploiting quantized MoE expert weights
+    to infer routing patterns. When MoE experts are stored in lower-precision formats
+    (INT4, INT8 via GPTQ, AWQ, BitsAndBytes), the dequantization step introduces timing
+    variations proportional to which expert codebooks are accessed. An attacker co-located
+    on the same hardware can monitor dequantization latency variations to reconstruct
+    expert activation sequences without direct memory access. This is an extension
+    of the MoEcho Pageout+Reload and cache-occupancy channels (Ding et al. 2025) to
+    quantized deployments, which are increasingly common for on-device and edge MoE
+    inference. Quantized experts may reside in separate memory pages with different
+    dequantization costs, making the timing oracle more pronounced than full-precision
+    deployments.
+  remediation: Apply constant-time dequantization operations that mask expert activation
+    timing. Use memory-pinned pre-loaded dequantization buffers for all experts regardless
+    of activation state. Implement noise injection into dequantization latency measurements.
+    Audit quantized MoE deployment configurations for per-expert timing divergence
+    before production release.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-032
+  name: moe-lora-adapter-expert-poisoning
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(lora[_\s-]?adapter[\s\S]{0,60}(moe|expert)[\s\S]{0,60}(poison|backdoor|trojan|inject))
+  - (?i)(moe[_\s-]?(fine[_\s-]?tun|finetun)[\s\S]{0,60}(lora|adapter)[\s\S]{0,60}(poison|backdoor|malicious))
+  - (?i)(expert[_\s-]?(lora|adapter)[_\s-]?(weight|rank)[\s\S]{0,60}(tamper|inject|malicious|poison))
+  - (?i)(peft[\s\S]{0,60}(moe|mixture[_\s-]?of[_\s-]?expert)[\s\S]{0,60}(poison|backdoor|trojan|malicious))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.safetensors'
+  message: LoRA adapter poisoning targeting MoE expert layers detected
+  description: Detects poisoning attacks that inject malicious LoRA adapters into
+    MoE expert layers to manipulate routing decisions or embed backdoors. MoE models
+    are increasingly fine-tuned using Parameter-Efficient Fine-Tuning (PEFT) methods
+    such as LoRA, where separate low-rank adapter matrices are applied to individual
+    expert weight matrices. A malicious adapter supplier can inject rank-decomposed
+    weight perturbations that trigger adversarial routing decisions on specific inputs,
+    redirect tokens to compromised expert modules on trigger activation, or embed
+    backdoor behaviors into specific expert specializations while maintaining normal
+    performance on standard benchmarks. This attack surface is uniquely dangerous
+    in MoE systems because each expert's LoRA can be independently compromised without
+    affecting other experts, making backdoor detection via holistic model evaluation
+    difficult.
+  remediation: Scan all LoRA adapter files for anomalous weight distributions before
+    integration into MoE models. Implement provenance verification for adapter weights
+    (cryptographic signatures). Apply adversarial testing with trigger-search methods
+    on fine-tuned MoE expert layers. Restrict LoRA adapter loading to verified sources
+    and implement runtime monitoring of expert activation distributions after fine-tuning.
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+- id: MEDUSA-MOE-SCAN-033
+  name: moe-speculative-decoding-expert-timing-attack
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(speculative[_\s-]?decod[\s\S]{0,60}(moe|expert|draft[_\s-]?model)[\s\S]{0,60}(timing|side[_\s-]?channel|leak))
+  - (?i)(draft[_\s-]?model[\s\S]{0,60}(moe[_\s-]?expert|expert[_\s-]?activat)[\s\S]{0,60}(accept|reject|verify)[\s\S]{0,60}(timing|latency))
+  - (?i)(speculative[_\s-]?(sampl|generat)[\s\S]{0,60}(expert[_\s-]?sequence|moe[_\s-]?routing)[\s\S]{0,60}(infer|leak))
+  - (?i)(token[_\s-]?tree[_\s-]?verify[\s\S]{0,60}(moe|expert)[\s\S]{0,60}(timing|oracle|side[_\s-]?channel))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Speculative decoding timing attack against MoE expert routing detected
+  description: Detects timing attacks that exploit MoE speculative decoding accept/reject
+    patterns to infer expert routing sequences. In speculative decoding for MoE models,
+    a small draft model generates candidate token sequences, which are then verified
+    in parallel by the target MoE model. The acceptance/rejection timing of draft
+    tokens is directly correlated with which experts were activated during verification
+    — rejected tokens cause additional expert computation cycles. An attacker with
+    API access can submit carefully constructed prompts and measure response latency
+    variations to infer whether specific experts were activated during draft verification,
+    effectively using speculative decoding as a timing oracle for expert routing inference.
+    This extends the MoEcho timing oracle concept (Ding et al. 2025) to speculative
+    decoding workflows increasingly deployed in production MoE serving.
+  remediation: Implement constant-time speculative verification regardless of accept/reject
+    count. Add configurable latency jitter to all MoE API responses using speculative
+    decoding. Monitor per-request verification accept rates for anomalous patterns
+    indicating adversarial probe sequences. Apply rate limiting on requests with patterns
+    consistent with speculative decoding timing probes.
+  owasp_llm: LLM02:2025
+  cwe: CWE-208
+- id: MEDUSA-MOE-SCAN-034
+  name: moe-expert-merge-distillation-extraction
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?(merge|merging)[\s\S]{0,60}(extract|steal|reconstruct|clone)[\s\S]{0,60}(weight|model))
+  - (?i)(moe[_\s-]?distill[\s\S]{0,80}(expert[_\s-]?knowledge|routing[_\s-]?distill)[\s\S]{0,60}(extract|steal|clone))
+  - (?i)(model[_\s-]?merging[\s\S]{0,60}(moe|expert)[_\s-]?(slerp|ties|dare|linear[_\s-]?merge)[\s\S]{0,60}(extract|reconstruct|bypass))
+  - (?i)(frankenmerge|slerp[_\s-]?moe|dare[_\s-]?moe)[\s\S]{0,80}(expert[_\s-]?weight|routing[_\s-]?policy)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.safetensors'
+  message: MoE expert weight extraction via model merging or distillation attack detected
+  description: Detects model extraction attacks targeting MoE expert weights through
+    model merging and distillation techniques. Attackers can exploit publicly available
+    MoE model checkpoints combined with output-based query strategies to reconstruct
+    individual expert weight matrices using model merging algorithms (SLERP, TIES-Merging,
+    DARE). By querying a target MoE model with carefully selected inputs known to
+    activate specific experts, the attacker collects output logit vectors and applies
+    distillation to train a surrogate that mirrors individual expert behavior. The
+    reconstructed experts can be merged with partial open-source MoE checkpoints to
+    produce a near-equivalent model without authorization. This is an evolution of
+    standard model extraction (MoEcho expert extraction attack, Ding et al. 2025)
+    that leverages modern model merging tooling for higher-fidelity reconstruction.
+  remediation: Monitor for high-volume systematic queries with diverse input types
+    (model extraction signatures). Apply output perturbation/watermarking to MoE logit
+    outputs to detect and attribute extraction attacks. Implement query budgets and
+    anomaly detection on per-expert activation distribution in API logs. Register
+    model fingerprints to detect unauthorized surrogate models in the open-source
+    ecosystem.
+  owasp_llm: LLM10:2025
+  cwe: CWE-1118
+- id: MEDUSA-MOE-SCAN-035
+  name: moe-api-rate-routing-fingerprint
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(api[_\s-]?rate[_\s-]?limit[\s\S]{0,60}(moe|expert[_\s-]?routing)[\s\S]{0,60}(fingerprint|infer|probe))
+  - (?i)(request[_\s-]?latency[_\s-]?(histogram|distribut|pattern)[\s\S]{0,60}(expert[_\s-]?activat|moe[_\s-]?routing))
+  - (?i)(throughput[_\s-]?variation[\s\S]{0,60}(moe|expert)[_\s-]?(load|parallel|dispatch)[\s\S]{0,60}(fingerprint|probe))
+  - (?i)(tokens[_\s-]?per[_\s-]?second[\s\S]{0,60}(expert|moe|routing)[\s\S]{0,60}(infer|oracle|probe|fingerprint))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: MoE API request latency fingerprinting for expert routing inference detected
+  description: Detects network-level fingerprinting attacks that infer MoE expert
+    routing decisions by analyzing API request latency and throughput variation patterns.
+    Unlike hardware-level side-channels (MoEcho, Ding et al. 2025), this attack operates
+    entirely from the API client side, requiring no co-location with the target server.
+    Expert-parallel MoE models exhibit measurable latency differences based on which
+    experts are activated — the all-to-all communication pattern in expert-parallel
+    deployment causes network-level timing variations proportional to token-to-expert
+    dispatch counts. An attacker submitting controlled probe prompts and recording
+    response latency histograms can build a routing oracle mapping input characteristics
+    to approximate expert activation patterns, enabling input-category inference without
+    hardware access.
+  remediation: Implement response latency normalization with minimum guaranteed response
+    time padding for all MoE API endpoints. Apply request batching with constant-time
+    batch processing to mask individual routing decisions. Monitor client request
+    patterns for systematic latency-probing behavior (high-frequency, low-token-count
+    queries with diverse semantic content). Deploy MoE serving with constant-bandwidth
+    inter-expert communication where possible.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-036
+  name: moe-rlhf-reward-routing-manipulation
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(rlhf[\s\S]{0,60}(moe|expert[_\s-]?activat|routing)[\s\S]{0,60}(reward[_\s-]?hack|manipulate|exploit))
+  - (?i)(reward[_\s-]?model[\s\S]{0,60}(moe|expert[_\s-]?select|routing[_\s-]?decision)[\s\S]{0,60}(hack|exploit|manipulate|bypass))
+  - (?i)(ppo[_\s-]?training[\s\S]{0,60}(expert[_\s-]?specializ|moe[_\s-]?router)[\s\S]{0,60}(reward[_\s-]?hack|degenerate|collapse))
+  - (?i)(dpo[_\s-]?(moe|mixture[_\s-]?of[_\s-]?expert)[\s\S]{0,60}(expert[_\s-]?prefer|routing[_\s-]?bias)[\s\S]{0,60}(exploit|manipulate))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: RLHF reward hacking via MoE expert routing manipulation detected
+  description: Detects reward hacking attacks that exploit MoE expert specialization
+    patterns during RLHF training. In RLHF-fine-tuned MoE models, individual experts
+    develop specializations aligned with different reward dimensions (helpfulness,
+    harmlessness, honesty). An adversary who can manipulate the reward signal or inject
+    adversarial preference data during RLHF can cause the router to over-specialize
+    on high-reward expert paths, creating expert degeneration — some experts become
+    reward-maximizing at the cost of truthfulness, while safety-aligned experts are
+    systematically deprioritized. This manifests as router policies that consistently
+    route toward unsafe-but-high-reward expert combinations on adversarially crafted
+    prompts. The gating network PSR manipulation technique (He et al. 2024) extends
+    to RLHF contexts where the 'security requirement' equivalent is the reward signal.
+  remediation: Implement reward diversity constraints during RLHF training of MoE
+    models that prevent expert collapse into reward-maximizing routing paths. Monitor
+    expert activation entropy during training — decreasing entropy indicates routing
+    collapse toward reward-hacking paths. Apply regularization penalties on routing
+    decisions that concentrate token flow to subsets of available experts. Include
+    safety-expert activation rate as an explicit training objective.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-MOE-SCAN-037
+  name: moe-batching-cross-request-expert-inference
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(batch[_\s-]?(inference|process)[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?routing)[\s\S]{0,60}(cross[_\s-]?request|cross[_\s-]?user|leak))
+  - (?i)(continuous[_\s-]?batch[\s\S]{0,60}(moe|expert[_\s-]?activat)[\s\S]{0,60}(timing|side[_\s-]?channel|infer))
+  - (?i)(dynamic[_\s-]?batch[\s\S]{0,60}(expert[_\s-]?dispatch|moe[_\s-]?routing)[\s\S]{0,60}(cross[_\s-]?prompt|cross[_\s-]?user))
+  - (?i)(iteration[_\s-]?level[_\s-]?scheduling[\s\S]{0,60}(moe|expert)[\s\S]{0,60}(timing[_\s-]?leak|cross[_\s-]?batch[_\s-]?infer))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Cross-request expert routing inference via MoE batch processing side-channel
+    detected
+  description: Detects attacks that exploit LLM serving batch processing to infer
+    expert routing decisions across concurrent user requests. Modern MoE serving systems
+    (vLLM, SGLang) use continuous batching / iteration-level scheduling to process
+    tokens from multiple users simultaneously. When tokens from multiple users are
+    batched together, the all-to-all expert dispatch step aggregates token routing
+    across all users in the batch — an attacker who is one user in a shared batch
+    can measure their own request latency variation to infer the aggregate expert
+    load from co-batched requests. By submitting calibration requests with known expert
+    activation profiles and measuring response time deltas when co-batched with unknown
+    target requests, the attacker can perform cross-request routing inference. This
+    is a practical cloud-level attack requiring only API access.
+  remediation: Implement strict per-user batch isolation in MoE serving — never mix
+    tokens from different security contexts in the same all-to-all dispatch step.
+    Apply constant-time batch completion reporting with fixed-latency response delivery.
+    Monitor for clients submitting synchronously timed calibration-probe request pairs.
+    Implement per-client expert routing obfuscation that adds calibrated noise to
+    observed batch completion times.
+  owasp_llm: LLM02:2025
+  cwe: CWE-668
+- id: MEDUSA-MOE-SCAN-038
+  name: moe-router-gradient-leakage-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(router[_\s-]?gradient[\s\S]{0,60}(leak|expose|infer|reconstruct)[\s\S]{0,60}(input|prompt|user[_\s-]?data))
+  - (?i)(gating[_\s-]?(network|function)[_\s-]?gradient[\s\S]{0,60}(leak|invert|reconstruct|expose))
+  - (?i)(gradient[_\s-]?inversion[\s\S]{0,60}(moe|expert[_\s-]?router|gating[_\s-]?network))
+  - (?i)(moe[_\s-]?(fine[_\s-]?tun|finetun|train)[\s\S]{0,60}gradient[\s\S]{0,60}(leak|invert|private[_\s-]?data|reconstruct))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: MoE router gradient leakage enabling input reconstruction detected
+  description: Detects gradient inversion attacks targeting MoE router/gating network
+    gradients to reconstruct private training inputs. Gradient inversion (GAN-based
+    or optimization-based) against standard dense networks is well-established; MoE
+    architectures present an amplified vulnerability because the router gradient encodes
+    input-dependent routing decisions in a compact, information-dense form. The router
+    gradient with respect to its gating weight matrix W_g contains strong signals
+    about which experts were activated by the input, which correlates with semantic
+    content. In federated fine-tuning scenarios where gradient updates are shared,
+    a malicious aggregator can apply gradient inversion to the sparse routing gradient
+    updates to reconstruct private training samples — particularly effective for MoE
+    because the routing gradient is much smaller than the full expert gradient, making
+    reconstruction computationally feasible. This generalizes the MoEcho PIA (Ding
+    et al. 2025) to the training domain.
+  remediation: Apply differential privacy (DP-SGD) with calibrated noise to routing
+    gradient updates before sharing in federated MoE training. Clip routing gradient
+    norms aggressively (L2 norm clipping) to reduce gradient inversion efficacy. Implement
+    secure aggregation protocols that prevent any participant from observing individual
+    routing gradient updates. Avoid sharing per-layer router gradients in federated
+    settings — share only aggregated model parameter deltas.
+  owasp_llm: LLM06:2025
+  cwe: CWE-312
+- id: MEDUSA-MOE-SCAN-039
+  name: moe-expert-dropout-exploitation
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?dropout[\s\S]{0,60}(exploit|bypass|manipulate|trigger)[\s\S]{0,60}(moe|routing|activat))
+  - (?i)(moe[_\s-]?dropout[_\s-]?(rate|prob)[\s\S]{0,60}(manipulate|craft|adversarial|force))
+  - (?i)(expert[_\s-]?capacity[_\s-]?(overflow|exceed)[\s\S]{0,60}(dropout|drop[_\s-]?token)[\s\S]{0,60}(exploit|induce))
+  - (?i)(token[_\s-]?drop[_\s-]?(moe|mixture[_\s-]?of[_\s-]?expert)[\s\S]{0,60}(force|trigger|adversarial|craft))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE expert dropout or token-dropping exploitation attack detected
+  description: Detects adversarial exploitation of expert dropout and token-dropping
+    mechanisms in sparse MoE architectures. In capacity-constrained sparse MoE (e.g.,
+    Switch Transformer, GShard), each expert has a fixed capacity — the maximum number
+    of tokens it can process in one forward pass. When more tokens are routed to an
+    expert than its capacity allows, excess tokens are dropped and passed through
+    unchanged. An adversary can craft inputs that deliberately overflow specific experts'
+    capacity, causing selective token dropping in victim co-batched requests. Alternatively,
+    adversarially induced token dropping can create exploitable silence patterns (dropped
+    tokens produce zeros in some implementations) that leak expert utilization. This
+    is related to the MoE load balancing DoS attack (SCAN-011) but focuses specifically
+    on the dropout/token-drop mechanism as an information channel and service manipulation
+    vector. The Zou et al. (2024) paper discusses expert load imbalance as a key failure
+    mode in sparse MoE face detection.
+  remediation: Implement per-request expert capacity reservation to prevent cross-request
+    token dropping interference. Monitor token dropping rates per expert for anomalous
+    patterns indicating deliberate capacity overflow attacks. Use auxiliary load balancing
+    loss with aggressive penalties during training to prevent exploitable expert imbalance.
+    Consider migrating from capacity-constrained sparse MoE to SoftMoE routing which
+    eliminates token dropping.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MOE-SCAN-040
+  name: moe-federated-expert-model-poisoning
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(federated[_\s-]?(learn|train)[\s\S]{0,60}(moe|expert)[_\s-]?(weight|model)[\s\S]{0,60}(poison|backdoor|manipulate|malicious))
+  - (?i)(moe[_\s-]?federated[\s\S]{0,60}(client[_\s-]?model[_\s-]?poison|aggregat[_\s-]?manipulat|byzantine))
+  - (?i)(byzantine[_\s-]?(client|participant)[\s\S]{0,60}(moe|expert[_\s-]?weight|routing[_\s-]?manipulate))
+  - (?i)(fl[_\s-]?moe|fedavg[_\s-]?moe)[\s\S]{0,80}(expert[_\s-]?poison|backdoor[_\s-]?inject|malicious[_\s-]?update)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Federated learning MoE expert poisoning or Byzantine client attack detected
+  description: Detects federated learning attacks that poison MoE expert weights through
+    malicious client model updates. In federated MoE training, individual clients
+    train local expert weight updates and contribute them to a central aggregator.
+    A Byzantine adversary controlling a subset of clients can submit carefully crafted
+    expert weight updates that, when aggregated, embed backdoor behaviors into specific
+    experts while maintaining benign performance on standard metrics. Unlike dense
+    model poisoning, MoE federated poisoning can be targeted to specific experts —
+    the attacker can poison only the expert weights that activate on targeted input
+    patterns, leaving all other experts unaffected. This targeted poisoning is harder
+    to detect via federated anomaly detection because aggregate expert metrics remain
+    within normal bounds. The gating network manipulation vulnerability identified
+    by He et al. (2024) extends to federated contexts where the gating network weights
+    are distributed across clients.
+  remediation: Apply Byzantine-robust aggregation methods (Krum, Trimmed-Mean, FLTrust)
+    to expert weight updates in federated MoE training. Implement per-expert update
+    validation using held-out validation sets before incorporating client updates.
+    Apply differential privacy to client expert weight updates. Monitor per-expert
+    weight update magnitude distribution for anomalous Byzantine client signatures.
+    Use secure multi-party computation for expert aggregation in high-security federated
+    MoE deployments.
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+- id: MEDUSA-MOE-SCAN-041
+  name: moe-system-prompt-leakage-routing-pattern
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(system[_\s-]?prompt[\s\S]{0,60}(moe|expert[_\s-]?activat|routing[_\s-]?pattern)[\s\S]{0,60}(leak|infer|extract|reconstruct))
+  - (?i)(expert[_\s-]?(load|activat|sequence)[\s\S]{0,60}(system[_\s-]?prompt|instruction[_\s-]?prefix)[\s\S]{0,60}(infer|reconstruct|leak))
+  - (?i)(prefill[_\s-]?phase[_\s-]?(expert|moe)[\s\S]{0,60}(system[_\s-]?instruction|system[_\s-]?context)[\s\S]{0,60}(leak|infer))
+  - (?i)(moe[_\s-]?side[_\s-]?channel[\s\S]{0,60}(system[_\s-]?message|system[_\s-]?prompt|instruction[_\s-]?tuning)[\s\S]{0,60}(extract|reconstruct|leak))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: System prompt leakage via MoE expert routing patterns during prefilling
+    detected
+  description: Detects attacks that exploit MoE expert routing patterns during the
+    prefilling phase to reconstruct confidential system prompts. The MoEcho PIA attack
+    (Ding et al. 2025) demonstrates that expert load traces captured during the prefilling
+    phase encode strong signals about input content, achieving 99.9% accuracy on structured
+    inputs. System prompts are processed during prefilling before any user tokens,
+    producing expert activation patterns that are consistent across all requests sharing
+    the same system prompt. An attacker who submits multiple queries to the same API
+    endpoint and collects expert load side-channel data across requests can perform
+    differential analysis to isolate the system prompt's expert activation signature
+    from the variable user input contribution, enabling system prompt reconstruction.
+    This extends MoEcho's templated-input attack to production deployment scenarios
+    where system prompts are proprietary and confidential.
+  remediation: Apply expert activation noise injection specifically during system
+    prompt processing (prefilling phase). Implement system prompt caching with obfuscated
+    expert routing that does not expose the original routing pattern. Separate system
+    prompt processing hardware from user input processing to prevent co-location-based
+    system prompt routing inference. Monitor for clients submitting many requests
+    with varied user inputs but consistent metadata (potential system prompt extraction
+    probing).
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-042
+  name: moe-expert-activation-replay-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?activat[_\s-]?(pattern|sequence)[\s\S]{0,60}(replay|reuse|reconstruc)[\s\S]{0,60}(trigger|inject|bypass))
+  - (?i)(moe[_\s-]?(routing|activat)[_\s-]?replay[\s\S]{0,60}(forge|spoof|inject|bypass[_\s-]?detect))
+  - (?i)(expert[_\s-]?sequence[_\s-]?inject[\s\S]{0,60}(bypass|evade|fool|trigger)[\s\S]{0,60}(moe|routing|detect))
+  - (?i)(activat[_\s-]?pattern[_\s-]?inject[_\s-]?moe|moe[_\s-]?routing[_\s-]?replay)[\s\S]{0,60}(bypass|trigger|forge)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.c'
+  message: MoE expert activation pattern replay or forgery attack detected
+  description: Detects attacks that replay captured expert activation sequences to
+    trigger specific model behaviors or bypass detection systems. Once an attacker
+    has profiled the expert activation pattern S for a specific type of input (using
+    the MoEcho Pageout+Reload or TLB Evict+Reload side-channels, Ding et al. 2025),
+    they can craft adversarial inputs that reproduce the same expert activation sequence
+    as a known benign input — effectively forging the expert routing signature of
+    trusted requests. This enables bypassing MoE-based anomaly detection systems that
+    identify attacks by their expert activation profiles, since the adversarial payload
+    presents a benign expert activation signature. Conversely, attackers can replay
+    expert sequences associated with privileged system behaviors (e.g., the routing
+    pattern of administrative instructions) to trigger model responses reserved for
+    trusted contexts.
+  remediation: Implement cryptographic authentication of expert activation sequences
+    in security-critical MoE deployments. Apply input-level verification that compares
+    expected expert routing with observed routing — significant deviations indicate
+    crafted inputs. Use randomized expert execution with signed nonces to prevent
+    deterministic replay. Monitor for inputs that produce expert activation patterns
+    statistically identical to previously observed privileged-context requests.
+  owasp_llm: LLM01:2025
+  cwe: CWE-294
+- id: MEDUSA-MOE-SCAN-043
+  name: moe-inter-layer-expert-correlation-deanonymization
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(inter[_\s-]?layer[_\s-]?expert[_\s-]?(correlat|activat[_\s-]?pattern)[\s\S]{0,60}(deanon|infer|reconstruct|user[_\s-]?identif))
+  - (?i)(cross[_\s-]?layer[_\s-]?(routing|expert[_\s-]?select)[\s\S]{0,60}(correlat|fingerprint|identif|deanon))
+  - (?i)(layer[_\s-]?wise[_\s-]?expert[_\s-]?(co[_\s-]?activat|correlat)[\s\S]{0,60}(user[_\s-]?fingerprint|identif|profile))
+  - (?i)(moe[_\s-]?layer[_\s-]?(0|1|2|[0-9]+)[_\s-]?expert[_\s-]?(co[_\s-]?activat|correlat)[\s\S]{0,60}(track|fingerprint|identif))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Inter-layer MoE expert correlation analysis for user deanonymization detected
+  description: Detects user fingerprinting attacks that analyze inter-layer expert
+    co-activation patterns across multiple MoE transformer layers to deanonymize users.
+    In deep MoE models like DeepSeek-V2-Lite (26 layers, 64 experts each), the cross-layer
+    expert activation pattern constitutes a high-dimensional fingerprint (26 x 64
+    = 1,664 binary activation dimensions per token) that is highly distinctive per
+    user. The MoEcho paper (Ding et al. 2025) demonstrates that expert load traces
+    alone achieve 99.9% PIA accuracy, but inter-layer correlation analysis provides
+    additional dimensions for user tracking even when individual-layer activation
+    patterns are obscured by noise. An attacker who observes expert activations across
+    multiple inference layers can build a cross-layer co-activation matrix that uniquely
+    identifies individual users across sessions, even after anonymization measures
+    that target single-layer routing patterns.
+  remediation: Apply independent noise injection per layer with uncorrelated noise
+    sources to break inter-layer activation correlations. Implement layer-shuffling
+    or expert permutation between inference layers to prevent cross-layer correlation
+    analysis. Apply randomized expert ordering that changes per session to prevent
+    cross-session tracking. Monitor for clients collecting multi-layer expert activation
+    data via shared hardware resources.
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-MOE-SCAN-044
+  name: moe-cold-start-expert-initialization-attack
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(cold[_\s-]?start[_\s-]?(expert|moe|router)[\s\S]{0,60}(exploit|manipulate|poison|backdoor))
+  - (?i)(expert[_\s-]?init(ializ)?[_\s-]?(weight|param)[\s\S]{0,60}(bias|poison|backdoor|manipulate)[\s\S]{0,60}(moe|mixture))
+  - (?i)(router[_\s-]?init[_\s-]?(bias|weight|param)[\s\S]{0,60}(poison|manipulate|craft|adversarial))
+  - (?i)(moe[_\s-]?pretraining[_\s-]?(init|cold[_\s-]?start)[\s\S]{0,60}(expert[_\s-]?collapse|routing[_\s-]?degenerat|expert[_\s-]?bias))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE expert cold-start initialization exploitation or poisoning detected
+  description: 'Detects attacks targeting the cold-start initialization phase of MoE
+    expert training, where routing instability is highest. During MoE pre-training,
+    expert initialization quality critically determines whether experts specialize
+    or collapse (router collapse / representation collapse). Adversarially crafted
+    initialization weights — deliverable via poisoned pre-training data, tampered
+    checkpoint files, or malicious model initialization scripts — can predetermine
+    expert specialization patterns, creating backdoored routing behaviors from the
+    earliest training steps. Cold-start expert bias attacks can force permanent routing
+    asymmetries where certain inputs are always routed to specifically compromised
+    experts, even after extensive continued training on benign data. The Switch Transformer
+    expert collapse vulnerability (SCAN-023) is related but distinct: cold-start attacks
+    operate at model initialization rather than during training dynamics.'
+  remediation: Verify cryptographic integrity of MoE model initialization checkpoints
+    before training. Use standardized, audited initialization procedures (e.g., uniform
+    expert initialization with load balancing loss active from step 0). Monitor routing
+    entropy during the first 1,000 training steps — anomalously low entropy indicates
+    initialization-level routing bias. Implement initialization auditing pipelines
+    that test expert load distribution on diverse held-out inputs before committing
+    to full pre-training runs.
+  owasp_llm: LLM03:2025
+  cwe: CWE-665
+- id: MEDUSA-MOE-SCAN-045
+  name: moe-shadow-model-routing-inference
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(shadow[_\s-]?model[\s\S]{0,60}(moe|expert[_\s-]?routing|gating[_\s-]?network)[\s\S]{0,60}(train|build|construct|infer))
+  - (?i)(surrogate[_\s-]?(moe|routing)[_\s-]?(model|network)[\s\S]{0,60}(attack|inference|steal|clone))
+  - (?i)(moe[_\s-]?routing[_\s-]?(clone|replicate|surrogate)[\s\S]{0,60}(api[_\s-]?query|black[_\s-]?box))
+  - (?i)(gating[_\s-]?network[_\s-]?(clone|surrogate|shadow|reconstruct)[\s\S]{0,60}(black[_\s-]?box|api|query))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Shadow model attack targeting MoE routing/gating network via black-box
+    queries detected
+  description: Detects shadow model attacks that reconstruct a target MoE model's
+    routing/gating network using black-box API queries. Unlike full model extraction
+    attacks (SCAN-034), shadow router attacks specifically target the gating network
+    — the smallest but most security-critical component of MoE architectures. By submitting
+    systematically varied inputs and observing output logit distributions (which implicitly
+    reflect expert activation), an attacker can train a surrogate gating network that
+    approximates the target's routing decisions. Once the routing policy is reconstructed,
+    the attacker can predict which experts will handle any given input without side-channel
+    access, enabling efficient targeted capability elicitation (SCAN-013), privacy
+    attacks, and detection evasion by pre-computing adversarial inputs that activate
+    or deactivate specific experts. The MoEcho input-dependent routing timing oracle
+    (SCAN-022) provides an additional signal for shadow gating network training.
+  remediation: Apply output perturbation techniques that mask routing-correlated logit
+    patterns. Implement query diversity monitoring to detect systematic shadow model
+    construction (high semantic diversity across queries). Apply membership inference
+    defenses that prevent attackers from correlating queries with routing decisions.
+    Watermark routing decision boundaries to detect attribution of surrogate models
+    to target deployments.
+  owasp_llm: LLM10:2025
+  cwe: CWE-1283
+- id: MEDUSA-MOE-SCAN-046
+  name: moe-expert-capacity-overflow-denial-of-service
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?capacity[\s\S]{0,60}(overflow|exhaust|flood|overload)[\s\S]{0,60}(dos|denial|disrupt|attack))
+  - (?i)(moe[_\s-]?capacity[_\s-]?factor[\s\S]{0,60}(overflow|exhaust|exceed)[\s\S]{0,60}(dos|attack|disrupt))
+  - (?i)(all[_\s-]?to[_\s-]?all[_\s-]?(dispatch|communicat)[\s\S]{0,60}(flood|overflow|exhaust|overload)[\s\S]{0,60}(moe|expert))
+  - (?i)(token[_\s-]?routing[_\s-]?(flood|surge|inject)[\s\S]{0,60}(single[_\s-]?expert|one[_\s-]?expert|specific[_\s-]?expert)[\s\S]{0,60}(overflow|overload))
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  message: MoE expert capacity overflow denial-of-service attack pattern detected
+  description: Detects targeted denial-of-service attacks that deliberately overflow
+    specific expert capacities in MoE LLM serving infrastructure. While SCAN-011 covers
+    general load balancing DoS, this rule targets the specific mechanism of expert
+    capacity overflow — crafting inputs where every token's top-k routing score concentrates
+    on a single expert. When an expert's capacity is exceeded, excess tokens are either
+    dropped (breaking inference quality) or held in a queue (increasing latency).
+    A coordinated attacker can submit high-volume requests crafted to activate the
+    same expert, overwhelming its capacity buffer and degrading service quality for
+    all co-batched users. This is particularly effective in expert-parallel deployments
+    where each expert runs on a different GPU — overwhelming one GPU's expert creates
+    a bottleneck in the all-to-all communication step that stalls the entire forward
+    pass. The load imbalance vulnerability is noted in both the MoEcho paper (Ding
+    et al. 2025) and in the Zou et al. (2024) discussion of sparse MoE limitations.
+  remediation: Implement per-user expert capacity reservation to prevent monopolization.
+    Apply dynamic capacity adjustment with per-client token routing rate limiting.
+    Monitor per-expert token arrival rates for sudden concentration spikes (>3x normal
+    load on any single expert). Implement circuit breakers that gracefully degrade
+    to dense routing when expert capacity overflow is detected, preserving service
+    availability.
+  owasp_llm: LLM04:2025
+  cwe: CWE-400
+- id: MEDUSA-MOE-SCAN-047
+  name: moe-routing-entropy-manipulation-evasion
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(routing[_\s-]?entropy[\s\S]{0,60}(manipulate|reduce|suppress|minimize)[\s\S]{0,60}(evad|bypass|detect))
+  - (?i)(moe[_\s-]?(router|gating)[_\s-]?entropy[\s\S]{0,60}(attack|exploit|manipulate|craft))
+  - (?i)(expert[_\s-]?selection[_\s-]?(entropy|distribut)[\s\S]{0,60}(uniform|reduce|manipulate)[\s\S]{0,60}(evad|bypass|fool))
+  - (?i)(low[_\s-]?entropy[_\s-]?routing[\s\S]{0,60}(moe|expert|mixture)[\s\S]{0,60}(attack|exploit|craft|adversarial))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: MoE routing entropy manipulation for anomaly detection evasion detected
+  description: Detects adversarial inputs crafted to manipulate the routing entropy
+    of MoE gating decisions to evade anomaly detection systems. MoE security monitoring
+    systems may track routing entropy as an anomaly signal — adversarial inputs often
+    produce low-entropy routing (all tokens concentrated on one or two experts) or
+    unusually high-entropy routing (uniform distribution across all experts). Sophisticated
+    attackers can craft adversarial payloads whose routing entropy matches the empirical
+    distribution of benign queries, evading entropy-based anomaly detection. This
+    technique requires knowledge of the target model's routing distribution (obtainable
+    via shadow model attacks, SCAN-045, or direct API profiling). The attack enables
+    sustained adversarial probing, capability elicitation (SCAN-013), or privacy extraction
+    without triggering routing-entropy-based intrusion detection systems.
+  remediation: Implement multi-dimensional routing anomaly detection that combines
+    entropy with expert co-activation patterns, cross-layer correlation, and semantic-routing
+    consistency checks — entropy alone is insufficient. Apply baseline routing distribution
+    profiling per user/session and monitor for systematic divergence. Use dynamic
+    routing entropy thresholds that adapt to observed per-category routing distributions.
+    Implement routing signature verification that checks semantic consistency of routing
+    patterns against expected per-domain distributions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+- id: MEDUSA-MOE-SCAN-048
+  name: moe-watermark-bypass-via-expert-selection
+  severity: MEDIUM
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(watermark[\s\S]{0,60}(moe|expert[_\s-]?routing|gating[_\s-]?network)[\s\S]{0,60}(bypass|evad|remove|forge))
+  - (?i)(moe[_\s-]?(model[_\s-]?)?watermark[\s\S]{0,60}(bypass|strip|evad|remove)[\s\S]{0,60}(expert|routing))
+  - (?i)(llm[_\s-]?watermark[\s\S]{0,60}(moe|expert[_\s-]?activat|routing[_\s-]?pattern)[\s\S]{0,60}(bypass|evad|remove))
+  - (?i)(expert[_\s-]?selection[_\s-]?(manipulate|craft)[\s\S]{0,60}watermark[\s\S]{0,60}(bypass|remov|strip|evad))
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: MoE expert selection manipulation to bypass LLM output watermarks detected
+  description: 'Detects attacks that exploit MoE expert selection to bypass or remove
+    LLM output watermarks. Current LLM watermarking schemes (e.g., KGW, Unigram watermarks)
+    embed statistical signals in token sampling distributions. MoE architectures create
+    a unique bypass vulnerability: since different experts may have different logit
+    distributions for the same token position, an adversary can craft inputs that
+    force routing to non-watermarked or differently-weighted experts, producing outputs
+    that do not carry the expected watermark statistical signature. The attacker leverages
+    the shadow router (SCAN-045) to predict which experts handle given token positions
+    and then engineers inputs that shift processing to watermark-weakening expert
+    combinations. This undermines AI output provenance tracking for MoE-generated
+    content — a significant concern for MoE models deployed in content authenticity
+    systems.'
+  remediation: Implement watermarking schemes that are expert-routing-invariant —
+    embed statistical signals at the sampling layer after expert output aggregation,
+    not at individual expert logit levels. Apply watermark strength monitoring that
+    verifies the statistical signature persists across diverse expert routing configurations.
+    Detect anomalous routing patterns that systematically target watermark-weakening
+    expert combinations. Consider using routing-conditioned watermarking that adapts
+    the watermark signal to the observed expert activation.
+  owasp_llm: LLM09:2025
+  cwe: CWE-345
+- id: MEDUSA-MOE-SCAN-049
+  name: moe-prompt-injection-expert-boundary-confusion
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(prompt[_\s-]?inject[\s\S]{0,60}(moe|expert[_\s-]?boundary|routing[_\s-]?boundary)[\s\S]{0,60}(confus|exploit|bypass))
+  - (?i)(expert[_\s-]?boundary[_\s-]?(confus|exploit|cross)[\s\S]{0,60}(inject|prompt|instruction))
+  - (?i)(cross[_\s-]?expert[_\s-]?(instruction[_\s-]?inject|prompt[_\s-]?inject)[\s\S]{0,60}(moe|routing|gating))
+  - (?i)(moe[_\s-]?(segment|chunk|bound)[_\s-]?(inject|exploit|cross|confus)[\s\S]{0,60}(expert|routing|privilege))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Prompt injection exploiting MoE expert boundary confusion detected
+  description: Detects prompt injection attacks that exploit expert routing boundaries
+    in MoE architectures to inject instructions that are processed by a different
+    expert than the surrounding context. In MoE models, different tokens in the same
+    sequence may be processed by different expert specializations — a sentence can
+    have some tokens routed to a 'reasoning' expert and others to a 'code generation'
+    expert. An attacker can craft injected instructions at token positions known (via
+    shadow routing) to be handled by specific high-privilege experts (e.g., a system-instruction-processing
+    expert) while the surrounding context is handled by less-privileged experts. This
+    creates a 'expert boundary injection' where malicious instructions ride into privileged
+    expert contexts. This attack extends the cross-expert information leakage model
+    from the MoEcho paper (Ding et al. 2025) to an offensive injection vector.
+  remediation: Implement consistent instruction-following verification that validates
+    semantic coherence across all expert-processed segments of user input. Apply cross-expert
+    attention analysis to detect instruction-content mismatches across routing boundaries.
+    Use instruction hierarchy enforcement that is robust to per-token routing variation.
+    Monitor for inputs that produce expert routing sequences inconsistent with the
+    semantic structure of the surrounding context.
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+- id: MEDUSA-MOE-SCAN-050
+  name: moe-financial-pii-inference-expert-routing
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(financ(ial)?[_\s-]?(data|pii|transaction|account)[\s\S]{0,80}(expert[_\s-]?(load|activat|trace)|moe[_\s-]?routing))
+  - (?i)(credit[_\s-]?card|bank[_\s-]?account|ssn|tax[_\s-]?id)[\s\S]{0,80}(expert[_\s-]?(load|activat)|moe[_\s-]?(routing|pattern))
+  - (?i)(financial[_\s-]?(q[&]?a|query|prompt)[\s\S]{0,80}(expert[_\s-]?trace|moe[_\s-]?pattern|side[_\s-]?channel))
+  - (?i)(moe[_\s-]?routing[_\s-]?(pattern|trace)[\s\S]{0,60}(financial|investment|portfolio|trading)[_\s-]?(pii|sensitive|private|confiden))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  message: Financial PII inference via MoE expert routing patterns detected — critical
+    privacy violation
+  description: Detects MoEcho-style Prompt Inference Attacks (Ding et al. 2025) targeting
+    financial PII extraction through MoE expert routing patterns. The MoEcho paper
+    explicitly evaluates the RRA on Financial Q&A datasets, achieving 91.5% response
+    reconstruction accuracy. Financial MoE deployments (trading advisors, credit assessment,
+    fraud detection) process highly sensitive data — account numbers, credit scores,
+    transaction histories, investment portfolios — in queries whose expert routing
+    patterns carry strong inference signals. An attacker monitoring expert load traces
+    during financial query processing can infer account balance ranges (high/low tier),
+    trading activity patterns, credit risk classifications, and potentially account
+    identifiers from the statistical properties of expert activation distributions.
+    This represents a severe PCI-DSS and financial privacy regulation violation risk
+    for MoE-based fintech deployments.
+  remediation: Do not deploy MoE-based LLMs for financial PII processing without dedicated
+    hardware isolation per client. Implement PCI-DSS-compliant inference environments
+    with no shared expert execution across client boundaries. Apply financial query
+    anonymization before MoE routing layers, substituting actual financial values
+    with statistical buckets. Conduct regular security audits of co-located processes
+    in all financial AI deployments that use MoE architectures.
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-MOE-SCAN-051
+  name: moe-expert-coactivation-clustering-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?co[_\s-]?activat[_\s-]?(cluster|pattern|matrix)[\s\S]{0,60}(attack|exploit|infer|probe))
+  - (?i)(co[_\s-]?activat[_\s-]?expert[\s\S]{0,60}(deanon|fingerprint|identif|cluster)[\s\S]{0,60}(moe|routing))
+  - (?i)(expert[_\s-]?pair[_\s-]?(activat|select|co[_\s-]?occur)[\s\S]{0,60}(cluster|topic|identif|infer))
+  - (?i)(moe[_\s-]?expert[_\s-]?(graph|network|adjacency)[_\s-]?(activat|co[_\s-]?occur)[\s\S]{0,60}(cluster|probe|infer|attack))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: MoE expert co-activation clustering for topic inference or user deanonymization
+    detected
+  description: 'Detects attacks that analyze expert co-activation patterns (which
+    pairs or groups of experts activate together) to infer input topic categories,
+    user identity, or sensitive attributes. Individual expert activation is already
+    known to leak privacy information (MoEcho PIA, Ding et al. 2025), but co-activation
+    patterns provide additional structure: experts that consistently activate together
+    form topic-specific clusters (e.g., medical experts co-activate for healthcare
+    queries, legal experts for legal queries). An attacker who builds a co-activation
+    matrix by observing expert pairs across many queries can cluster inputs by topic
+    with high precision, even when individual expert activations are obfuscated by
+    noise. This enables coarse-grained user profiling and topic classification without
+    requiring the fine-grained individual expert tracking accuracy of the full PIA
+    attack. The technique is applicable as a lower-noise alternative when only partial
+    expert activation information is available.'
+  remediation: Apply correlated noise injection that disrupts expert co-activation
+    patterns while preserving individual expert activation utility. Implement co-activation
+    pattern monitoring as an anomaly signal in MoE security dashboards. Randomize
+    expert execution ordering to prevent reliable co-activation measurement from external
+    timing. Apply differential privacy to expert co-activation metadata in API responses
+    and monitoring logs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-359
+- id: MEDUSA-MOE-SCAN-052
+  name: moe-expert-pruning-attack-capability-removal
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?prun[\s\S]{0,60}(attack|adversarial|manipulate|target)[\s\S]{0,60}(capabilit|safety|remov))
+  - (?i)(moe[_\s-]?prun[\s\S]{0,60}(safety[_\s-]?expert|alignment[_\s-]?expert|guardrail)[\s\S]{0,60}(remov|bypass|eliminat))
+  - (?i)(structured[_\s-]?prun[\s\S]{0,60}(moe|expert[_\s-]?layer)[\s\S]{0,60}(safety|alignment|guardrail)[_\s-]?(remov|bypass|eliminat|attack))
+  - (?i)(expert[_\s-]?importance[_\s-]?score[\s\S]{0,60}(manipulate|falsif|poison)[\s\S]{0,60}(safety|alignment|harmful))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Adversarial MoE expert pruning to remove safety or alignment capabilities
+    detected
+  description: Detects adversarial expert pruning attacks that target safety-aligned
+    or guardrail experts in MoE models for removal, bypassing safety mechanisms. MoE
+    models can be post-training pruned by removing low-importance experts to reduce
+    model size and inference cost. Adversarial pruning attacks manipulate the expert
+    importance scoring process to misidentify safety-aligned experts as low-importance
+    and prune them, while retaining capability-focused experts. This creates a pruned
+    model with degraded safety alignment but preserved task performance. Expert importance
+    can be measured via activation frequency, gradient magnitude, or task-specific
+    perplexity — all manipulable by the attacker through calibration dataset poisoning.
+    The resulting pruned model appears functional on standard benchmarks but has systematically
+    removed safety behaviors that were localized to pruned experts.
+  remediation: Include safety evaluation benchmarks (TruthfulQA, HarmBench) as mandatory
+    expert importance criteria during pruning — safety performance degradation should
+    veto expert removal regardless of efficiency metrics. Implement cryptographic
+    expert importance attestation that prevents post-hoc score manipulation. Apply
+    adversarial robustness testing after any MoE pruning operation before deployment.
+    Audit pruning calibration datasets for adversarial samples designed to suppress
+    safety expert activation.
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+- id: MEDUSA-MOE-SCAN-053
+  name: moe-deepseek-r1-reasoning-expert-exploitation
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(deepseek[_\s-]?r1[\s\S]{0,60}(reasoning[_\s-]?expert|chain[_\s-]?of[_\s-]?thought[_\s-]?expert|moe[_\s-]?reasoning)[\s\S]{0,60}(exploit|manipulate|attack|bypass))
+  - (?i)(deepseek[_\s-]?r1[\s\S]{0,80}(expert[_\s-]?activat|routing[_\s-]?pattern|moe[_\s-]?side[_\s-]?channel))
+  - (?i)(r1[_\s-]?reasoning[_\s-]?trace[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?pattern|side[_\s-]?channel)[\s\S]{0,60}(leak|infer|attack))
+  - (?i)(deepseek[_\s-]?r1[\s\S]{0,60}(think[_\s-]?block|<think>|reasoning[_\s-]?chain)[_\s-]?(expert|moe)[_\s-]?(leak|side[_\s-]?channel|infer))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: DeepSeek-R1 reasoning MoE expert exploitation or side-channel attack detected
+  description: Detects attacks targeting DeepSeek-R1's reasoning-specialized MoE experts
+    to extract chain-of-thought content or manipulate reasoning pathways. DeepSeek-R1
+    uses MoE architecture with experts potentially specializing in different reasoning
+    steps (problem decomposition, mathematical computation, logical inference, answer
+    synthesis). The MoEcho paper (Ding et al. 2025) studies DeepSeek-V2 architecture
+    variants and demonstrates that expert routing patterns during generation phases
+    (decoding) encode token-level output information with 91.5% reconstruction accuracy.
+    For DeepSeek-R1, the extended reasoning traces (think blocks) processed during
+    generation create an extended expert activation sequence that can be profiled
+    to reconstruct the model's internal reasoning process even when reasoning traces
+    are not directly exposed in API responses. This constitutes both a privacy threat
+    (reasoning content reconstruction) and an IP theft vector (proprietary reasoning
+    chain elicitation).
+  remediation: Restrict access to DeepSeek-R1 reasoning trace content at the API level
+    — do not expose think block tokens or intermediate reasoning steps in API responses.
+    Apply additional expert activation noise injection during reasoning chain generation
+    phases. Monitor for query patterns consistent with reasoning expert profiling
+    (repeated queries with minor variations designed to isolate reasoning expert signatures).
+    Implement reasoning trace watermarking to detect unauthorized reproduction of
+    proprietary reasoning chains.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+- id: MEDUSA-MOE-SCAN-054
+  name: moe-audit-log-routing-metadata-exfiltration
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(audit[_\s-]?log[\s\S]{0,60}(expert[_\s-]?(activat|load|sequence)|moe[_\s-]?routing)[\s\S]{0,60}(exfil|export|leak|access))
+  - (?i)(moe[_\s-]?(routing|expert)[_\s-]?(log|trace|metadata)[\s\S]{0,60}(exfil|unauthoriz|leak|expose|extract))
+  - (?i)(expert[_\s-]?activat[_\s-]?(log|record|history)[\s\S]{0,60}(access|read|export|exfil)[\s\S]{0,60}(unauthoriz|attack|attacker))
+  - (?i)(prometheus[_\s-]?metric|grafana[_\s-]?dashboard|telemetry)[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?routing)[\s\S]{0,60}(exfil|unauthoriz|attack)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  message: Unauthorized access to MoE expert routing audit logs or telemetry data
+    detected
+  description: Detects unauthorized access to MoE serving system audit logs and telemetry
+    that contain expert routing metadata, enabling passive side-channel inference
+    without hardware co-location. Modern MoE LLM serving platforms (vLLM, SGLang,
+    Triton Inference Server) emit detailed telemetry metrics including per-expert
+    token counts, expert load distributions, and routing decision histograms to monitoring
+    systems (Prometheus, Grafana). If an attacker gains unauthorized read access to
+    these monitoring endpoints or log files, they can perform MoEcho-style Prompt
+    Inference Attacks (Ding et al. 2025) without any hardware side-channel capability
+    — the routing metadata is already aggregated and accessible. This transforms a
+    hardware-level attack into a software-level access control vulnerability, dramatically
+    lowering the attack barrier for audit log compromise compared to physical co-location
+    requirements.
+  remediation: Apply strict access control to all MoE serving telemetry endpoints
+    — require authentication for Prometheus metrics endpoints, Grafana dashboards,
+    and structured serving logs. Aggregate expert routing metrics at the population
+    level rather than per-request level to prevent individual user privacy inference
+    from telemetry. Implement scrubbing of per-expert token count data from API response
+    headers and serving logs accessible to users. Audit all telemetry data pipelines
+    for inadvertent exposure of per-request routing metadata.
+  owasp_llm: LLM02:2025
+  cwe: CWE-285
+- id: MEDUSA-MOE-SCAN-055
+  name: moe-qwen-expert-routing-privacy-attack
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(qwen[_\s-]?(moe|1\.5[_\s-]?moe|2[_\s-]?moe)[\s\S]{0,60}(expert[_\s-]?activat|routing[_\s-]?pattern|side[_\s-]?channel))
+  - (?i)(qwen[\s\S]{0,30}(60[_\s-]?expert|expert[_\s-]?count)[\s\S]{0,60}(side[_\s-]?channel|privacy[_\s-]?attack|routing[_\s-]?infer))
+  - (?i)(qwen[_\s-]?1\.5[\s\S]{0,60}(moe[_\s-]?routing|expert[_\s-]?load|expert[_\s-]?activat)[\s\S]{0,60}(attack|exploit|infer|side[_\s-]?channel))
+  - (?i)(qwen[_\s-]?moe[\s\S]{0,60}(14\.3b|load[_\s-]?balanc)[\s\S]{0,60}(side[_\s-]?channel|privacy|infer|exploit))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Qwen-MoE expert routing privacy attack or side-channel exploitation detected
+  description: Detects side-channel attacks and privacy inference attacks specifically
+    targeting Qwen1.5-MoE and Qwen2-MoE architectures. Qwen1.5-MoE (14.3B parameters,
+    60 experts, 8 active per token) is one of the three MoE architectures evaluated
+    in the MoEcho paper (Ding et al. 2025), where it demonstrated significant expert
+    load side-channel leakage. The 60-expert, 8-active-per-token configuration creates
+    a high-dimensional routing signature space (C(60,8) = approximately 2.6 billion
+    possible expert combinations per token) that nonetheless shows strong semantic
+    clustering — specific expert combinations consistently activate for specific input
+    categories. The load-balanced training of Qwen1.5-MoE (uniform load balancing
+    loss during training) means expert specializations are more distributed than DeepSeek-V2,
+    potentially making routing patterns harder to interpret but still exploitable
+    via trained classifiers. Attacks targeting Qwen deployments in enterprise and
+    consumer applications require model-specific routing profiling.
+  remediation: Apply Qwen-MoE specific routing noise calibrated to its 60-expert,
+    8-active configuration — noise parameters from DeepSeek defenses may be insufficient
+    for Qwen's different expert granularity. Implement expert activation counting
+    restrictions in Qwen serving configurations to prevent monitoring of per-expert
+    token throughput. Assess privacy leakage of Qwen1.5-MoE routing patterns on domain-specific
+    inputs (healthcare, legal, financial) before deployment in sensitive contexts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-MOE-SCAN-056
+  name: moe-inference-time-adversarial-routing-control
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(inference[_\s-]?time[_\s-]?(adversarial|attack)[\s\S]{0,60}(routing[_\s-]?control|expert[_\s-]?select[_\s-]?manipulate|gating[_\s-]?control))
+  - (?i)(adversarial[_\s-]?routing[_\s-]?control[\s\S]{0,60}(inference|forward[_\s-]?pass)[\s\S]{0,60}(moe|expert|gating))
+  - (?i)(token[_\s-]?embedding[_\s-]?(perturb|adversarial)[\s\S]{0,60}(expert[_\s-]?select|routing[_\s-]?decision)[\s\S]{0,60}(control|force|manipulate))
+  - (?i)(adversarial[_\s-]?prefix[\s\S]{0,60}(moe[_\s-]?routing|expert[_\s-]?activat)[\s\S]{0,60}(control|force|steer|manipulate))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: Inference-time adversarial routing control attack against MoE model detected
+  description: 'Detects adversarial attacks that craft input tokens or embeddings
+    at inference time to precisely control which MoE experts are activated during
+    processing. Unlike capability elicitation (SCAN-013) which targets routing outputs,
+    this attack directly manipulates the gating network''s routing decision by engineering
+    input representations in the token embedding space. Using gradient information
+    from white-box access or transfer from an open-source MoE model, an attacker generates
+    adversarial token prefixes that, when prepended to any user input, force specific
+    expert activation patterns independent of the actual query content. This enables:
+    (1) forcing activation of experts that produce vulnerable or harmful outputs,
+    (2) deactivating safety-aligned experts across all subsequent tokens in the sequence,
+    (3) creating reproducible expert activation signatures for watermark bypassing
+    (SCAN-048). The He et al. (2024) gating network adversarial routing exploitation
+    technique applies directly to this attack class.'
+  remediation: Implement adversarial prefix detection by monitoring for token sequences
+    that produce systematically anomalous expert activation patterns inconsistent
+    with their surface-level semantic content. Apply input validation against known
+    adversarial prefix patterns in MoE deployment pipelines. Use ensemble routing
+    with multiple independent gating networks to increase the robustness of routing
+    decisions against single-model adversarial inputs. Monitor expert activation pattern
+    entropy per token position for adversarial control signatures.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+- id: MEDUSA-MOE-SCAN-057
+  name: moe-semantic-communication-key-extraction
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(semantic[_\s-]?communicat[\s\S]{0,60}(key[_\s-]?extract|encryption[_\s-]?bypass|private[_\s-]?codec)[\s\S]{0,60}(moe|expert|gating))
+  - (?i)(semcom[_\s-]?(key|encrypt|private)[_\s-]?(extract|bypass|recover)[\s\S]{0,60}(moe|expert|gating))
+  - (?i)(moe[_\s-]?semantic[_\s-]?codec[\s\S]{0,60}(key[_\s-]?extract|eavesdrop|channel[_\s-]?attack)[\s\S]{0,60}(6g|wireless|communicat))
+  - (?i)(psr[_\s-]?(vector|input)[_\s-]?(extract|infer|reconstruct)[\s\S]{0,60}(moe[_\s-]?semcom|semantic[_\s-]?communicat))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.m'
+  message: MoE semantic communication secret key extraction or eavesdropping attack
+    detected
+  description: Detects attacks targeting the key-based encryption in MoE-enabled semantic
+    communication systems (He et al. 2024). The He et al. MoE-SemCom architecture
+    uses a private codec expert that concatenates a shared secret key with semantic
+    information before encoding. An adversary who can observe the gating network's
+    PSR (Personal Security Requirement) input vector or the expert selection decision
+    can infer which security expert is active (covert, robust, private, normal) —
+    leaking the communication security mode. More critically, if the gating network
+    PSR input is accessible (e.g., via side-channel on the PSR embedding layer), the
+    attacker can extract the key component used for private codec activation. In 6G
+    network deployments where multiple MoE-SemCom instances share hardware, gating
+    network metadata exposure creates a key management vulnerability that undermines
+    the private codec's security guarantees.
+  remediation: Encrypt the PSR input vector before feeding it to the MoE gating network
+    in semantic communication systems. Implement key management protocols that prevent
+    PSR/key correlation from being observable at the hardware level. Apply noise injection
+    to the gating network's PSR processing path to prevent timing-based key bit inference.
+    Treat the expert selection decision in private-codec mode as confidential metadata
+    — do not expose it in system telemetry.
+  owasp_llm: LLM09:2025
+  cwe: CWE-321
+- id: MEDUSA-MOE-SCAN-058
+  name: moe-gpu-performance-counter-access-exploit
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(nvidia[_\s-]?nsight[\s\S]{0,60}(moe|expert[_\s-]?thread|expert[_\s-]?activat)[\s\S]{0,60}(monitor|spy|intercept|attack))
+  - (?i)(gpu[_\s-]?performance[_\s-]?counter[\s\S]{0,60}(moe|expert)[_\s-]?(thread[_\s-]?count|warp|sm[_\s-]?utiliz)[\s\S]{0,60}(monitor|spy|infer))
+  - (?i)(cupti|nvml|pynvml)[\s\S]{0,80}(expert[_\s-]?activat|moe[_\s-]?routing|expert[_\s-]?thread)[\s\S]{0,60}(infer|monitor|spy)
+  - (?i)(sm[_\s-]?occupancy|warp[_\s-]?efficiency|thread[_\s-]?count)[\s\S]{0,60}(expert[_\s-]?load|moe[_\s-]?routing)[\s\S]{0,60}(infer|oracle|spy)
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.c'
+  - '*.cu'
+  message: NVIDIA GPU performance counter exploitation to infer MoE expert activation
+    detected
+  description: Detects exploitation of NVIDIA GPU performance counters (via CUPTI,
+    NVML, pynvml, or Nsight) to infer MoE expert activation patterns. The MoEcho GPU
+    Performance Counter Side-Channel (Ding et al. 2025) demonstrates that per-expert
+    thread counts during MoE forward passes are directly proportional to token load
+    L for each expert (Pearson correlation 0.993). NVIDIA GPUs execute all tokens
+    routed to one expert in parallel via warps; SM (Streaming Multiprocessor) occupancy
+    and warp utilization metrics directly reflect the number of active tokens per
+    expert. An attacker with access to GPU performance monitoring APIs (CUPTI profiling,
+    NVML SM utilization, pynvml warp counts) co-located on the same GPU can reconstruct
+    the complete expert load trace L for any concurrent MoE inference job. CUPTI access
+    requires root or CAP_SYS_ADMIN on Linux, but NVML provides SM utilization readable
+    without elevated privileges in some configurations.
+  remediation: Restrict CUPTI, NVML, and pynvml access to authorized monitoring processes
+    only — enforce via Linux capabilities, cgroups device access controls, and GPU
+    driver security policies. Disable per-SM performance counter access for unprivileged
+    user processes in multi-tenant GPU deployments. Implement MoE serving with expert
+    execution batched across SMs in constant-warp-count configurations to prevent
+    per-expert SM utilization inference. Apply NVIDIA's Multi-Instance GPU (MIG) isolation
+    where available to prevent cross-tenant performance counter access.
+  owasp_llm: LLM02:2025
+  cwe: CWE-269
+- id: MEDUSA-MOE-SCAN-059
+  name: moe-expert-weight-extraction-output-correlation
+  severity: HIGH
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert[_\s-]?weight[_\s-]?(extract|reconstruct|steal)[\s\S]{0,60}(output[_\s-]?correlat|logit[_\s-]?correlat|response[_\s-]?pattern))
+  - (?i)(logit[_\s-]?(correlat|analysis|fingerprint)[\s\S]{0,60}(expert[_\s-]?weight|moe[_\s-]?expert)[\s\S]{0,60}(reconstruct|extract|steal))
+  - (?i)(expert[_\s-]?output[_\s-]?(correlat|decomposit|separat)[\s\S]{0,60}(reconstruct|extract|steal|clone))
+  - (?i)(moe[_\s-]?output[_\s-]?decomposit[\s\S]{0,60}(independent[_\s-]?component|pca|svd)[\s\S]{0,60}(expert[_\s-]?weight|reconstruct))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.R'
+  message: MoE expert weight extraction via output correlation and decomposition analysis
+    detected
+  description: 'Detects model extraction attacks that reconstruct individual MoE expert
+    weights by analyzing correlations in model output logits across diverse queries.
+    In sparse MoE models, the final output is a weighted combination of top-k expert
+    outputs: output = sum_i(g_i * FFN_i(x)) for active experts. An attacker who knows
+    the gating scores g_i (obtainable via shadow router, SCAN-045) and collects output
+    logits across many queries can set up a linear system of equations to solve for
+    individual FFN_i weight matrices. Using techniques from matrix factorization (PCA,
+    ICA, SVD over logit correlation matrices), the attacker decomposes the mixed expert
+    output into individual expert contributions. This attack is more efficient than
+    standard model extraction because MoE''s sparse activation means each query primarily
+    reflects only k experts, providing cleaner individual expert signal isolation.
+    The MoEcho expert extraction approach (SCAN-012) provides the routing side-channel
+    data needed to identify which expert combination produced each output.'
+  remediation: Apply output perturbation with query-correlated noise that degrades
+    logit correlation analysis while preserving semantic quality. Implement query
+    diversity rate limiting — flag clients submitting high-entropy query sets designed
+    for logit correlation matrix construction. Apply output compression or bucketing
+    that reduces logit precision without significant quality degradation. Monitor
+    for clients collecting full logit vectors (as opposed to just top-k token predictions)
+    via verbose API modes.
+  owasp_llm: LLM10:2025
+  cwe: CWE-1118
+- id: MEDUSA-MOE-SCAN-060
+  name: moe-adaptive-attack-against-dp-routing-defense
+  severity: CRITICAL
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(adaptive[_\s-]?attack[\s\S]{0,60}(differential[_\s-]?privac|dp[_\s-]?routing|noise[_\s-]?inject)[\s\S]{0,60}(moe|expert|gating))
+  - (?i)(dp[_\s-]?bypass[\s\S]{0,60}(moe[_\s-]?routing|expert[_\s-]?activat|gating[_\s-]?noise))
+  - (?i)(gaussian[_\s-]?noise[_\s-]?bypass[\s\S]{0,60}(moe|expert[_\s-]?routing|gating[_\s-]?decision)[\s\S]{0,60}(attack|exploit|averag))
+  - (?i)(moe[_\s-]?(dp|differential[_\s-]?privac)[_\s-]?defense[\s\S]{0,60}(circumvent|bypass|break|adaptive[_\s-]?attack))
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Adaptive attack bypassing differential privacy defenses on MoE expert routing
+    detected
+  description: 'Detects adaptive attacks designed to circumvent differential privacy
+    (DP) defenses applied to MoE routing mechanisms. The MoEcho paper (Ding et al.
+    2025) proposes DP noise injection into router gating decisions as a mitigation,
+    noting that the DP sparse gating defense reduces PIA accuracy from 99.9% to degraded
+    levels. However, adaptive attacks that know the DP mechanism being used can overcome
+    this defense through: (1) ensemble averaging — submitting the same or semantically
+    equivalent prompts multiple times and averaging expert load traces to cancel out
+    calibrated Gaussian noise; (2) DP mechanism inversion — using the known DP noise
+    distribution to perform maximum likelihood estimation of the true routing signal;
+    (3) accuracy-privacy curve exploitation — identifying the DP parameter regime
+    where defenses are weakest (the SCAN-014 sparse gating DP bypass technique, which
+    this extends to adaptive multi-query scenarios). Against a DP defense with epsilon=1.0,
+    approximately 1,000 repeated queries can reduce effective noise by a factor of
+    sqrt(1000) ≈ 31x, potentially recovering near-original routing signal accuracy.'
+  remediation: Implement rate limiting on identical or semantically equivalent queries
+    that prevents sufficient repetitions for adaptive DP averaging (fewer than 100
+    repetitions per query semantics per time window). Apply query grouping with per-group
+    budget tracking — count multiple similar queries against a shared privacy budget.
+    Use adaptive DP mechanisms that increase noise with query count rather than applying
+    fixed noise per query. Monitor for clients submitting repetitive high-similarity
+    query batches (cosine similarity > 0.95 across query embeddings).
+  owasp_llm: LLM02:2025
+  cwe: CWE-693

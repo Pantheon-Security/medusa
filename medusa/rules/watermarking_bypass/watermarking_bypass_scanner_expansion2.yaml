@@ -1,0 +1,1002 @@
+metadata:
+  source: expansion2 2026-03-02
+  subject: watermarking_bypass
+  prefix: WB
+  total_rules: 40
+  id_range: MEDUSA-WB-SCAN-061 to MEDUSA-WB-SCAN-100
+rules:
+- id: MEDUSA-WB-SCAN-061
+  name: kgw-statistical-green-list-token-sampling-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)kgw.*green.*list.*statistic.*remov
+  - (?i)kirchenbauer.*watermark.*statistic.*attack
+  - (?i)green.*token.*sampl.*manipulat
+  - (?i)watermark.*p.?value.*threshold.*bypass
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Statistical KGW green-list token sampling attack detected.
+  description: Detects attacks on the Kirchenbauer et al. (2023) KGW watermarking scheme by exploiting statistical properties
+    of the green-list token distribution. Liu et al. (2024, On Evaluating the Performance of Watermarked Machine-Generated
+    Texts under Adversarial Attacks) demonstrated that statistical analysis of token distributions can identify and selectively
+    replace green-list tokens while maintaining semantic coherence, achieving p-value bypass with >85% effectiveness. The
+    attack is particularly effective when the green-list fraction is high (delta > 0.5).
+  remediation: Switch to multi-key KGW rotation schemes that make statistical recovery of green-list identity computationally
+    infeasible. Increase watermark key entropy and rotate keys per document segment. Apply KGW with low-entropy compensation
+    to reduce the statistical footprint of green-list tokens.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-062
+  name: aaronson-christ-watermark-statistical-removal
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)aaronson.*watermark.*remov
+  - (?i)christ.*watermark.*attack
+  - (?i)cryptographic.*watermark.*statistic.*bypass
+  - (?i)one.time.*pad.*watermark.*defeat
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Statistical removal attack on Aaronson/Christ cryptographic watermarking scheme detected.
+  description: Detects attacks targeting cryptographically secure watermarking schemes (Aaronson 2023, Christ et al. 2024)
+    that use one-time pad or PRF-based token scoring. Liang et al. (2024, Watermark Under Fire) showed that even cryptographically
+    robust schemes are vulnerable to statistical removal when token-level scoring correlations can be exploited through large-scale
+    sampling attacks that recover approximate PRF outputs.
+  remediation: Use adaptive context window sizes that prevent token-level correlation analysis. Implement watermark verification
+    with confidence intervals that account for partial removal. Deploy multiple independent watermarking layers so that defeating
+    one layer does not defeat all provenance signals.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-063
+  name: dipper-neural-paraphrase-watermark-removal
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)dipper.*paraphras.*watermark
+  - (?i)neural.*paraphras.*watermark.*remov
+  - (?i)pegasus.*watermark.*bypass
+  - (?i)paraphras.*model.*watermark.*strip
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: DIPPER/Pegasus neural paraphrase watermark removal attack detected.
+  description: 'Detects use of neural paraphrase models (DIPPER, Pegasus) specifically to remove LLM watermarks while preserving
+    text semantics. Cheng et al. (2025, Adversarial Paraphrasing: A Universal Attack for Humanizing AI-Generated Text) demonstrated
+    that DIPPER-based paraphrasing achieves >90% watermark removal across KGW, EWD, and semantic watermarking schemes with
+    minimal quality degradation. The attack is a practical universal bypass requiring only black-box access to a paraphrase
+    model.'
+  remediation: Deploy paraphrase-robust watermarking schemes (REMARK-LLM, SIR) that embed signals in deep semantic features
+    resistant to surface-level paraphrasing. Implement watermark verification with paraphrase-invariant semantic similarity
+    checks. Apply lexical diversity monitoring to detect DIPPER-style paraphrase patterns in output text.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-064
+  name: token-substitution-watermark-semantic-spoofing
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)token.*substitut.*watermark.*spoof
+  - (?i)synonym.*swap.*watermark.*bypass
+  - (?i)lexical.*substitut.*watermark.*defeat
+  - (?i)bert.*substitut.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Token substitution watermark spoofing attack detected.
+  description: Detects token-level substitution attacks that replace watermarked tokens with semantically equivalent alternatives
+    from outside the green list, removing the statistical watermark signal. Liu et al. (2024) showed that BERT-guided synonym
+    substitution can remove KGW watermarks with <0.5 BLEU degradation while reducing detection probability below the 5% significance
+    threshold. Ayoobi et al. (2024, Esperanto) demonstrated multi-pivot language substitution as a systematic token substitution
+    bypass.
+  remediation: Implement context-aware watermarking that embeds signals in multi-token sequences rather than individual tokens,
+    making single-token substitution insufficient for removal. Apply semantic similarity monitoring post-distribution to detect
+    patterns consistent with substitution attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-065
+  name: copy-paste-watermark-detection-evasion
+  severity: MEDIUM
+  category: watermarking_bypass
+  patterns:
+  - (?i)copy.paste.*watermark.*dilut
+  - (?i)fragment.*watermarked.*non.watermarked
+  - (?i)splice.*human.*text.*watermarked
+  - (?i)interleav.*watermark.*human.*text
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Copy-paste watermark detection evasion via text splicing detected.
+  description: 'Detects copy-paste attacks that interleave watermarked LLM text with non-watermarked human-written text segments
+    to dilute the watermark signal below the detection threshold. This attack exploits the fixed-window detection approach
+    used by most watermarking schemes: if enough non-watermarked text is interspersed, the green-token proportion drops below
+    the significance threshold even though watermarked content is present.'
+  remediation: Implement sliding-window watermark detection with variable window sizes to detect partial watermarking. Apply
+    sentence-level rather than document-level watermark scoring to identify watermarked segments within mixed documents. Deploy
+    watermark verification that flags documents with statistically heterogeneous watermark density.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-066
+  name: watermark-adaptive-rl-attack-policy-optimise
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)rl.*adaptive.*watermark.*attack
+  - (?i)reinforcement.*learn.*watermark.*remov
+  - (?i)rlcracker.*reward.*watermark
+  - (?i)policy.*optimiz.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Adaptive RL-based watermark removal policy training detected.
+  description: 'Detects training of RL-based watermark removal policies that learn to optimise text edits to minimise watermark
+    detection probability while maximising semantic quality. Huang et al. (2025, RLCracker: Exposing the Vulnerability of
+    LLM Watermarks with Adaptive RL Attacks) demonstrated that RL agents trained on watermark detector feedback can learn
+    generalised removal policies that transfer across watermarking schemes with as few as 1,000 training iterations.'
+  remediation: Implement adversarial training of watermark detectors against RL-based removal policies. Apply rate limiting
+    and output monitoring on watermark verification APIs to prevent RL feedback loop exploitation. Deploy ensemble watermarking
+    with diverse schemes to prevent single-policy generalisation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-067
+  name: watermark-forging-spoofing-false-attribution
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*forg.*attribut
+  - (?i)spoof.*watermark.*false.*source
+  - (?i)plant.*watermark.*human.*text
+  - (?i)embed.*fake.*watermark.*non.ai
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark forging or false attribution spoofing attack detected.
+  description: Detects watermark forgery attacks that embed artificial watermark signals into human-written text to falsely
+    attribute it to a specific LLM, or into AI-generated text to create false attribution to a different model. Zhou et al.
+    (2024, BiLeve) and Sadasivan et al. (2023) documented that single-key KGW watermarks can be forged by adversaries with
+    white-box access, enabling false attribution of human text as AI-generated or vice versa, with legal and reputational
+    consequences.
+  remediation: Deploy bi-level or zero-knowledge proof watermarking schemes (BiLeve, PVMark) that are provably unforgeable
+    without the watermark key. Implement asymmetric watermarking where the embedding key is private and the verification key
+    is public but cannot be used to forge watermarks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345
+- id: MEDUSA-WB-SCAN-068
+  name: low-entropy-region-watermark-exploit
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)low.entropy.*region.*watermark.*exploit
+  - (?i)entropy.*low.*token.*green.*list.*bypass
+  - (?i)high.entropy.*context.*watermark.*miss
+  - (?i)forced.*token.*entropy.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Low-entropy region watermark exploitation attack detected.
+  description: Detects attacks exploiting low-entropy text regions (where the next token is highly predictable) to escape
+    watermark embedding, then using those regions to insert unwatermarked content. Watermarking schemes based on token probability
+    perturbation cannot reliably embed signals in low-entropy positions without introducing detectable artifacts. Giboulot
+    et al. (2024, WaterMax) demonstrated systematic exploitation of entropy blind spots to achieve watermark-free text insertion.
+  remediation: Implement entropy-adaptive watermarking schemes (WaterMax, SWEET) that adjust embedding strength based on local
+    token entropy. Apply watermark strength normalisation to account for entropy variation across document positions. Monitor
+    entropy distribution of watermarked text to detect entropy-exploitation patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-069
+  name: ngram-frequency-manipulation-watermark-defeat
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)n.?gram.*frequency.*watermark.*manipulat
+  - (?i)bigram.*trigram.*watermark.*statistic.*alter
+  - (?i)frequency.*analysis.*watermark.*green.*token
+  - (?i)n.?gram.*distribut.*shift.*watermark
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: N-gram frequency manipulation watermark defeat detected.
+  description: Detects attacks that manipulate n-gram frequency distributions in LLM output to defeat watermark detection
+    methods that rely on token frequency statistics. By carefully redistributing token frequencies to match the expected distribution
+    of non-watermarked text, adversaries can erase the statistical footprint of frequency-based watermarks. Liang et al. (2024,
+    Watermark Under Fire) showed n-gram manipulation is particularly effective against unigram watermarking schemes.
+  remediation: Deploy watermarking schemes with cryptographically strong PRF-based token scoring that makes frequency analysis
+    intractable without key knowledge. Implement watermark verification using full statistical test batteries rather than
+    simple frequency thresholds.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-070
+  name: watermark-transfer-cross-model-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*transfer.*cross.model
+  - (?i)lift.*watermark.*model.*a.*model.*b
+  - (?i)watermark.*portab.*exploit
+  - (?i)transfer.*watermark.*signal.*another.*model
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark transfer cross-model attack detected.
+  description: Detects attacks that extract a watermarked model's output distribution and replicate it to generate watermarked
+    text attributed to a different model, enabling cross-model watermark transfer. This attack can frame an innocent model
+    as the source of AI-generated content, or attribute watermarked content from a commercial model to an open-source model
+    to evade detection. Pan et al. (2025) showed watermark transfer is feasible through knowledge distillation-based approximation.
+  remediation: Implement model-fingerprinted watermarking schemes that tie watermark signals to specific model architecture
+    properties rather than output statistics alone. Deploy watermark verification that validates model identity alongside
+    watermark presence.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345
+- id: MEDUSA-WB-SCAN-071
+  name: model-extraction-watermark-circumvention
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)model.*extract.*watermark.*bypass
+  - (?i)distil.*watermark.*surrogate.*model
+  - (?i)clone.*model.*strip.*watermark
+  - (?i)query.*watermark.*model.*replicate
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Model extraction used to circumvent watermarking detected.
+  description: Detects model extraction attacks targeting watermarked LLMs where the adversary queries the target model to
+    build a surrogate that replicates functional behaviour without preserving the watermark signal. Because the extracted
+    surrogate model was not trained with the watermarking algorithm, its outputs carry no watermark, allowing attribution-free
+    use of the model's capabilities. Pan et al. (2025) demonstrated that standard watermarks do not survive model extraction.
+  remediation: Implement watermark-preserving distillation verification that checks whether extracted student models retain
+    watermark signals. Apply query rate limiting and anomaly detection to identify model extraction query patterns targeting
+    watermarked inference endpoints. Deploy functional similarity detection to identify extracted model variants.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-072
+  name: unicode-homoglyph-watermark-character-substitution
+  severity: MEDIUM
+  category: watermarking_bypass
+  patterns:
+  - (?i)homoglyph.*watermark.*bypass
+  - (?i)unicode.*lookalike.*watermark.*evad
+  - (?i)zero.width.*character.*watermark.*disrupt
+  - (?i)confusable.*character.*watermark.*strip
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Unicode homoglyph substitution watermark evasion detected.
+  description: Detects use of Unicode homoglyphs (visually identical characters with different code points), zero-width characters,
+    or confusable characters to disrupt character-level watermarking schemes. PDFuzz (2024) and Liu et al. (2024) demonstrated
+    that character-level positional scrambling and homoglyph substitution defeat character-encoding watermarks used in academic
+    integrity and copyright detection systems while remaining visually undetectable to human reviewers.
+  remediation: Implement Unicode normalisation (NFKC) before watermark verification to collapse homoglyph variants to canonical
+    forms. Apply zero-width character filtering and confusable character detection in watermark pre-processing pipelines.
+    Deploy watermarking schemes that are defined at the semantic rather than character level.
+  owasp_llm: LLM02:2025
+  cwe: CWE-116
+- id: MEDUSA-WB-SCAN-073
+  name: compression-based-watermark-removal
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)compress.*watermark.*remov
+  - (?i)mp3.*aac.*image.*compress.*watermark
+  - (?i)lossy.*compress.*watermark.*defeat
+  - (?i)jpeg.*png.*compress.*watermark.*strip
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  message: Compression-based watermark removal attack detected.
+  description: Detects use of lossy compression techniques (JPEG, MP3, AAC, PDF re-rendering) to remove digital watermarks
+    from AI-generated content. Compression attacks exploit the fact that watermark signals embedded in high-frequency components
+    are typically removed by lossy codecs that discard perceptually insignificant information. This is a widely known, low-effort
+    attack that defeats many commercial watermarking systems with no special tooling required.
+  remediation: Embed watermarks in perceptually significant low-frequency components that survive standard compression. Implement
+    watermark robustness validation against JPEG/MP3/AAC compression before deployment. Apply content-adaptive watermarking
+    that adjusts signal strength based on local feature saliency.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-074
+  name: translation-back-translation-watermark-bypass
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)back.?translat.*watermark.*bypass
+  - (?i)translat.*pivot.*watermark.*remov
+  - (?i)cross.lingual.*watermark.*defeat
+  - (?i)translat.*watermark.*surviv.*check
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Translation-back-translation watermark bypass attack detected.
+  description: Detects translation-back-translation (TBT) attacks that remove LLM watermarks by translating watermarked text
+    to an intermediate language and back. He et al. (2024, Can Watermarks Survive Translation) demonstrated that cross-lingual
+    watermark consistency is poor across all major watermarking schemes — KGW, EWD, Unigram, and semantic watermarks lose
+    60-95% of their detection probability after translation-back-translation with standard MT systems. Ayoobi et al. (2024,
+    Esperanto) extended this to multi-pivot language chains.
+  remediation: Deploy cross-lingual watermarking schemes that preserve signals across translation (see He et al. 2024 cross-lingual
+    consistency extensions). Implement watermark verification that accounts for translation artifacts. Apply language detection
+    and translation chain tracing to flag text with suspicious translation history.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-075
+  name: character-level-perturbation-word-watermark-attack
+  severity: MEDIUM
+  category: watermarking_bypass
+  patterns:
+  - (?i)character.*perturb.*word.*watermark
+  - (?i)char.*edit.*watermark.*defeat
+  - (?i)typo.*insert.*watermark.*bypass
+  - (?i)character.*mutilat.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Character-level perturbation attack against word-level watermarks detected.
+  description: Detects character-level perturbation attacks (typo insertion, character deletion/substitution, accent modification)
+    used to defeat word-level watermarking schemes. Since word-level watermarks score tokenised word sequences, character-level
+    perturbations that change tokenisation boundaries can corrupt watermark signal recovery without changing human readability.
+    Liu et al. (2024) showed combined character+synonym substitution attacks are more effective than either attack type alone,
+    with <0.3 BLEU degradation.
+  remediation: Implement character-normalisation in watermark tokenisation pipelines to collapse character-level perturbations
+    before scoring. Apply edit-distance tolerance in watermark detection to handle minor character modifications. Deploy multi-granularity
+    watermarking that operates at both character and word levels simultaneously.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-076
+  name: watermark-blind-spot-low-frequency-exploitation
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*blind.*spot.*exploit
+  - (?i)watermark.*miss.*sentence.*position
+  - (?i)watermark.*weak.*region.*target
+  - (?i)watermark.*coverage.*gap.*exploit
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark blind spot exploitation attack detected.
+  description: Detects systematic exploitation of blind spots in watermark coverage — positions in text where the watermarking
+    algorithm predictably fails to embed detectable signals (e.g., low-entropy forced completions, code blocks, lists, named
+    entity sequences). Adversaries who map the blind spots of a deployed watermarking scheme can structure their content to
+    route critical information through unwatermarked regions while maintaining watermark signals elsewhere to avoid arousing
+    detection suspicion.
+  remediation: Apply watermark coverage analysis to identify blind spots in deployed schemes. Implement multi-pass watermarking
+    with independent keys applied at different structural levels (sentence, paragraph, semantic unit) to eliminate coverage
+    gaps. Monitor watermark density distribution across document structures to detect blind-spot exploitation patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-077
+  name: pvmark-zkp-proof-system-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)pvmark.*zkp.*attack
+  - (?i)zero.knowledge.*watermark.*proof.*forge
+  - (?i)public.*verif.*watermark.*exploit
+  - (?i)pvmark.*verif.*bypass
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: PVMark zero-knowledge proof watermark verification attack detected.
+  description: 'Detects attacks targeting the PVMark public verifiability watermarking scheme that uses zero-knowledge proofs
+    for watermark verification without revealing the secret key. Duan et al. (2025, PVMark: Enabling Public Verifiability
+    for LLM Watermarking Schemes) identified that ZKP-based watermark systems are vulnerable to proof forgery attacks if the
+    underlying cryptographic commitment scheme has implementation weaknesses, potentially allowing adversaries to generate
+    false watermark verification proofs.'
+  remediation: Implement formal verification of ZKP circuit implementations in watermark systems. Apply soundness and zero-knowledge
+    property testing to PVMark deployments. Use standardised, audited ZKP libraries rather than custom implementations for
+    watermark proof systems.
+  owasp_llm: LLM02:2025
+  cwe: CWE-347
+- id: MEDUSA-WB-SCAN-078
+  name: code-acrostic-watermark-removal-code-gen
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)code.*acrostic.*watermark.*remov
+  - (?i)acrostic.*code.*watermark.*bypass
+  - (?i)comment.*variable.*name.*watermark.*strip
+  - (?i)code.*watermark.*comment.*delet
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.java'
+  - '*.ts'
+  - '*.go'
+  - '*.yaml'
+  message: Code acrostic watermark removal attack on code generation detected.
+  description: 'Detects attacks targeting acrostic-based code watermarking schemes (Lin et al. 2025, Code Acrostic: Robust
+    Watermarking for Code Generation) by stripping or obfuscating the variable names, comment patterns, or code structure
+    elements used as watermark carriers. Adversaries can strip acrostic watermarks by renaming variables, removing comments,
+    or using code obfuscation tools, without affecting code functionality.'
+  remediation: Implement watermark verification that is robust to code refactoring by embedding signals in multiple independent
+    code structure properties (control flow, data flow, comment patterns). Apply code normalisation before watermark extraction
+    to reduce effectiveness of name-stripping attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-079
+  name: deeptextmark-neural-watermark-semantic-bypass
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)deeptextmark.*bypass
+  - (?i)neural.*text.*watermark.*semantic.*attack
+  - (?i)deep.*learn.*watermark.*text.*evad
+  - (?i)word2vec.*watermark.*synonym.*bypass
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: DeepTextMark neural text watermark semantic bypass attack detected.
+  description: Detects attacks targeting the DeepTextMark deep learning-driven text watermarking scheme (Munyer et al. 2024)
+    by exploiting the Word2Vec semantic embedding space used for watermark encoding. Adversaries who identify the semantic
+    dimensions used for watermark embedding can apply targeted semantic perturbations that disrupt the watermark signal while
+    preserving overall text meaning, as documented in the DeepTextMark adversarial robustness evaluation.
+  remediation: Deploy DeepTextMark with adversarial training against semantic perturbation attacks. Implement multi-space
+    watermark embedding using diverse semantic representations (Word2Vec, GloVe, BERT) to reduce the effectiveness of single-space
+    targeting attacks. Apply watermark strength amplification in semantically dense regions.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-080
+  name: image-watermark-visual-paraphrase-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)image.*watermark.*visual.*paraphras
+  - (?i)peccavi.*visual.*paraphrase.*watermark
+  - (?i)image.*regenerat.*watermark.*strip
+  - (?i)diffusion.*inpaint.*watermark.*remov
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  message: Visual paraphrase attack on image watermarking detected.
+  description: 'Detects visual paraphrase attacks on image watermarking schemes where adversaries use diffusion-based image
+    regeneration or inpainting to remove invisible watermarks while preserving visual content. Dixit et al. (2025, PECCAVI:
+    Visual Paraphrase Attack — Safe and Distortion-Free Image Watermarking Technique) demonstrated that visual paraphrase
+    attacks achieve near-zero distortion watermark removal by regenerating images through a diffusion model conditioned on
+    the original, stripping any embedded watermark signal.'
+  remediation: Implement semantic watermarking in image features that are preserved by diffusion regeneration (e.g., high-level
+    scene composition, semantic region embeddings). Apply watermark robustness testing against diffusion-based regeneration
+    attacks before deployment. Deploy C2PA content credentials that survive regeneration by being tied to metadata rather
+    than pixel-level signals.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-081
+  name: remark-llm-binary-signature-length-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)remark.*llm.*signature.*length.*attack
+  - (?i)binary.*watermark.*truncat.*attack
+  - (?i)remark.*llm.*bit.*corrupt
+  - (?i)signature.*watermark.*partial.*destroy
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: REMARK-LLM binary signature watermark truncation attack detected.
+  description: Detects attacks on the REMARK-LLM binary watermarking scheme (Zhang et al. 2023) by targeting the binary signature
+    sequence through selective truncation or bit corruption. REMARK-LLM encodes a binary signature by selecting sentence constructs
+    — adversaries who identify the encoding pattern can disrupt the signature with as few as 3-5 targeted edits to key sentence
+    boundaries, as demonstrated in the REMARK-LLM robustness evaluation in the WaterPark benchmark (Liu et al. 2024).
+  remediation: Implement error correction coding (Reed-Solomon, LDPC) in binary watermark signatures to provide robustness
+    against partial corruption. Increase signature redundancy and apply majority-vote decoding across multiple text segments.
+    Deploy signature verification with correction capability for up to 20% bit error rate.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-082
+  name: leximark-synonym-chain-substitution-removal
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)leximark.*synonym.*chain.*remov
+  - (?i)lexical.*substitut.*membership.*watermark
+  - (?i)leximark.*bypass
+  - (?i)synonym.*chain.*watermark.*defeat
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: LexiMark synonym chain substitution watermark removal detected.
+  description: 'Detects attacks on the LexiMark watermarking scheme (German et al. 2025, LexiMark: Robust Watermarking via
+    Lexical Substitutions to Enhance Membership Verification) by performing reverse synonym substitution attacks that identify
+    and replace watermark-carrier word substitutions with the original or alternative synonyms, removing the membership verification
+    signal. The attack requires only synonym dictionary access and basic statistical analysis of word frequency anomalies.'
+  remediation: Implement LexiMark with context-sensitive substitution selection that makes synonym chain reversal computationally
+    expensive. Apply multiple independent synonym substitution passes with different keys to increase reversal complexity.
+    Deploy watermark verification using cryptographic commitments to synonym selection rather than statistical analysis.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-083
+  name: watermark-key-extraction-whitebox-attack
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*key.*extract.*white.box
+  - (?i)watermark.*private.*key.*recover
+  - (?i)watermark.*secret.*key.*infer
+  - (?i)watermark.*cryptanalysis.*key.*reveal
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark secret key extraction white-box attack detected.
+  description: Detects attempts to extract the secret key from a deployed watermarking system through white-box access to
+    the model or implementation. Watermark key exposure enables unlimited forgery and removal attacks against all content
+    protected by that key. Zhou et al. (2024, BiLeve) documented key extraction as the highest-severity watermark vulnerability,
+    enabling mass false attribution of human text as AI-generated once the key is compromised.
+  remediation: Store watermark keys in hardware security modules (HSMs) and never expose them in model weights or inference
+    code. Implement key rotation schedules that limit the blast radius of any single key compromise. Deploy asymmetric watermarking
+    schemes where the signing key is never accessible from inference infrastructure.
+  owasp_llm: LLM02:2025
+  cwe: CWE-321
+- id: MEDUSA-WB-SCAN-084
+  name: nmp-non-melting-point-reverse-engineering
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)non.melting.*point.*watermark.*reverse
+  - (?i)nmp.*watermark.*reconstruct
+  - (?i)invariant.*feature.*watermark.*recover.*key
+  - (?i)watermark.*structural.*invariant.*exploit
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Non-melting point (NMP) watermark reverse engineering attack detected.
+  description: Detects reverse engineering attacks targeting non-melting point (NMP) watermarking schemes that embed signals
+    in structural invariants of text. Adversaries who reverse-engineer the NMP structural encoding can identify and modify
+    watermarked structural positions without affecting non-watermarked structure, achieving targeted watermark removal with
+    high precision. This attack requires access to multiple watermarked samples to reconstruct the structural encoding pattern.
+  remediation: Implement NMP watermarking with context-dependent structural invariant selection that makes pattern reconstruction
+    from limited samples infeasible. Apply key-dependent structural selection with high entropy to resist brute-force reconstruction.
+    Deploy watermark verification using secure multi-party computation to prevent key inference from verification responses.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-085
+  name: diffusion-model-image-watermark-inversion
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)diffusion.*inversion.*watermark.*remov
+  - (?i)ddim.*inversion.*watermark.*strip
+  - (?i)stable.*diffusion.*invert.*watermark
+  - (?i)latent.*space.*watermark.*inversion
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  - '*.ipynb'
+  message: Diffusion model DDIM inversion watermark removal attack detected.
+  description: Detects DDIM inversion-based watermark removal attacks that use diffusion model inversion to obtain the latent
+    representation of a watermarked image, then regenerate the image from that latent without the watermark. This attack is
+    particularly effective against pixel-space watermarks and achieves near-perfect visual quality preservation while completely
+    removing the watermark signal. The attack requires only a diffusion model of comparable quality to the watermarked image
+    generator.
+  remediation: Implement latent-space watermarking that is embedded in the diffusion latent representation rather than pixel
+    space, making DDIM-inversion removal remove the watermark carrier along with the watermark. Deploy semantic content hashing
+    as a complementary provenance mechanism that survives pixel-level regeneration.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-086
+  name: watermark-detection-api-probing-scheme-reconstruction
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*detect.*api.*prob.*scheme
+  - (?i)detector.*api.*query.*watermark.*reconstruct
+  - (?i)black.box.*watermark.*scheme.*recover
+  - (?i)watermark.*verification.*api.*reverse
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark detection API probing for scheme reconstruction detected.
+  description: Detects systematic probing of watermark detection APIs to reconstruct the underlying watermarking scheme parameters,
+    enabling targeted removal attacks. By submitting crafted text variants to a watermark detector and analysing binary detection
+    responses, adversaries can recover key parameters of the watermarking scheme (green-list size, key structure, detection
+    threshold) with relatively few queries. Liu et al. (2024, On Evaluating Watermarked Texts under Adversarial Attacks) documented
+    API probing as a practical black-box attack path against deployed watermark verification services.
+  remediation: Implement rate limiting and query diversity monitoring on watermark verification APIs. Add controlled randomness
+    to detection responses to prevent deterministic scheme reconstruction. Apply differential privacy to detection probability
+    scores rather than returning binary detection results.
+  owasp_llm: LLM02:2025
+  cwe: CWE-203
+- id: MEDUSA-WB-SCAN-087
+  name: adversarial-paraphrase-detector-guided-universal-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)adversarial.*paraphrase.*detector.guided
+  - (?i)universal.*paraphrase.*attack.*watermark
+  - (?i)detector.guided.*text.*rewrite.*watermark
+  - (?i)cross.*detect.*transfer.*paraphrase.*watermark
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Adversarial detector-guided universal paraphrase watermark attack detected.
+  description: Detects detector-guided adversarial paraphrasing attacks that iteratively rewrite text using detector feedback
+    to minimise watermark detection probability while maximising semantic similarity. Cheng et al. (2025, Adversarial Paraphrasing)
+    demonstrated that detector-guided paraphrase attack achieves >95% watermark removal across KGW, EWD, and semantic schemes
+    with <0.2 BLEU degradation and transfers across detectors due to the universal nature of the paraphrase model.
+  remediation: Implement adversarial training of watermark detectors against detector-guided paraphrase attacks. Deploy watermarking
+    schemes with certified robustness bounds against bounded semantic perturbations. Apply output monitoring for paraphrase-consistent
+    patterns to detect repeated attack attempts.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-088
+  name: self-disguise-llm-watermark-aigt-evasion
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)self.disguise.*watermark.*evad
+  - (?i)llm.*disguise.*itself.*watermark
+  - (?i)model.*impersonat.*human.*watermark.*bypass
+  - (?i)self.*camouflage.*aigt.*watermark
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: LLM self-disguise watermark and AIGT detection evasion attack detected.
+  description: 'Detects self-disguise attacks where an LLM is prompted or fine-tuned to generate text that evades both watermark
+    detection and AIGT detectors by inducing the model to imitate human writing style. Zhou et al. (2025, Self-Disguise Attack:
+    Induce the LLM to Disguise Itself for AIGT Detection Evasion) demonstrated that self-disguise prompting reliably defeats
+    watermark-based and perplexity-based AIGT detectors by steering model output distributions toward high-entropy, human-like
+    patterns.'
+  remediation: Implement watermarking schemes that are robust to distributional steering of the generating model (semantic
+    watermarks, syntactic structure watermarks). Apply post-generation watermark injection that does not depend on model output
+    distribution. Monitor model output entropy patterns to detect self-disguise prompting.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-089
+  name: watermark-targeted-paraphrase-pre-distillation
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)targeted.*paraphrase.*pre.distillation.*watermark
+  - (?i)watermark.*removal.*before.*distil
+  - (?i)paraphrase.*watermark.*distillation.*bypass
+  - (?i)pre.distillation.*watermark.*strip
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.jsonl'
+  message: Targeted watermark removal via pre-distillation paraphrasing detected.
+  description: Detects the pattern of applying targeted paraphrasing to remove watermarks from teacher model outputs before
+    using them for student model distillation. This two-step attack first removes the watermark to prevent watermark inheritance
+    in the student, then distils the clean outputs, resulting in a student model with equivalent capabilities but no watermark
+    lineage. Pan et al. (2025) documented this as the most practical attack route against watermark-protected distillation
+    pipelines.
+  remediation: Implement distillation pipeline monitoring that verifies watermark presence in teacher outputs before distillation.
+    Apply watermark strength checking at the distillation data ingestion point. Deploy watermark verification as a mandatory
+    gate in all distillation pipelines with automated pipeline halt on watermark absence.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-090
+  name: watermark-inference-time-beam-search-neutralisation
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)inference.*time.*watermark.*neutral
+  - (?i)beam.*search.*watermark.*defeat
+  - (?i)decoding.*strategy.*watermark.*bypass
+  - (?i)sampling.*parameter.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.ipynb'
+  message: Inference-time decoding strategy watermark neutralisation detected.
+  description: Detects manipulation of inference-time decoding strategies (beam search width, temperature, top-k/top-p settings)
+    to neutralise watermark embedding. Many watermarking schemes embed signals by biasing token sampling; adversaries who
+    use alternative decoding strategies (e.g., beam search instead of sampling) can generate outputs that bypass watermark
+    embedding entirely while achieving higher coherence. This attack requires only white-box access to the generation parameters,
+    not the watermark key.
+  remediation: Implement watermarking schemes that operate at the logit level before any decoding strategy is applied, ensuring
+    watermark signals are embedded regardless of decoding method. Apply watermark presence verification after generation to
+    catch decoding-strategy-based evasion. Monitor decoding parameter configurations for anomalous settings inconsistent with
+    normal inference.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-091
+  name: combined-attack-pipeline-all-layer-bypass
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)combined.*attack.*pipeline.*watermark
+  - (?i)chain.*paraphrase.*translat.*compress.*watermark
+  - (?i)multi.stage.*watermark.*remov.*pipeline
+  - (?i)ensemble.*attack.*watermark.*defeat
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.json'
+  message: Multi-stage combined watermark removal pipeline attack detected.
+  description: Detects construction of multi-stage combined attack pipelines that chain multiple watermark removal techniques
+    (e.g., paraphrase + translate + compress + synonym substitution) to defeat layered or robust watermarking defences. Liu
+    et al. (2024) showed that combined attack pipelines are significantly more effective than individual attacks, defeating
+    schemes that are individually robust to each component attack. The combination achieves near-100% removal rate against
+    all tested watermarking schemes.
+  remediation: Implement certified robustness bounds against combined perturbation budgets rather than individual attack types.
+    Deploy watermark detection that uses diverse independent signals that require separate attacks to defeat. Apply watermarking
+    at multiple independent levels (token, sentence, semantic, structural) to require a prohibitively large combined attack
+    budget.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-092
+  name: watermark-watermax-quality-tradeoff-exploitation
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermax.*quality.*tradeoff.*exploit
+  - (?i)watermark.*quality.*degradation.*force
+  - (?i)watermark.*signal.*strength.*maximis.*detect
+  - (?i)watermax.*entropy.*complexity.*attack
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: WaterMax quality-detectability tradeoff exploitation attack detected.
+  description: Detects attacks exploiting the fundamental quality-detectability tradeoff in watermarking systems, specifically
+    the WaterMax scheme (Giboulot et al. 2024). By forcing generation under conditions where high watermark strength is required
+    (e.g., constraining entropy), adversaries can produce measurably degraded text quality that reveals the watermarking scheme's
+    presence and parameters, enabling targeted removal. Conversely, forcing low-strength watermarking through high-entropy
+    generation bypasses detection.
+  remediation: Implement watermarking with dynamic strength adjustment that maintains detection probability across the full
+    entropy spectrum. Apply quality-blind watermark verification that uses normalised detection statistics rather than raw
+    signal strength. Deploy entropy-adaptive WaterMax configurations that maintain constant detection probability regardless
+    of generation entropy.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-093
+  name: mip-multi-bit-vocabulary-partition-attack
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)mip.*vocabulary.*partition.*attack
+  - (?i)multi.bit.*watermark.*partition.*reconstruct
+  - (?i)vocabulary.*split.*watermark.*decode
+  - (?i)token.*class.*watermark.*partition.*infer
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Multi-bit MIP vocabulary partition watermark reconstruction attack detected.
+  description: Detects attacks on multi-bit information-theoretic watermarking (MIP) schemes that attempt to reconstruct the
+    vocabulary partition used for multi-bit encoding through statistical analysis of watermarked outputs. Once the partition
+    is reconstructed, the full multi-bit message can be decoded without the key, enabling content extraction from private
+    watermarked communications. Liu et al. (2024) described no-access MIP threat model implementations for vocabulary partition
+    recovery.
+  remediation: Use high-entropy vocabulary partitioning keys and apply key rotation per document to prevent statistical partition
+    reconstruction. Implement noise-robust MIP encoding with error correction to prevent partial partition knowledge from
+    yielding full message recovery. Apply key-dependent partitioning with computationally hard reconstruction guarantees.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-094
+  name: watermark-ablation-study-scheme-weakness-analysis
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*ablation.*weakness.*analysis
+  - (?i)watermark.*component.*disabl.*attack
+  - (?i)ablat.*watermark.*component.*exploit
+  - (?i)watermark.*design.*weakness.*systematic
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark ablation study-based scheme weakness analysis for targeted attack detected.
+  description: Detects systematic ablation studies of watermarking scheme components to identify the weakest component for
+    targeted exploitation. By selectively disabling or neutralising individual watermark components (key hashing, green-list
+    selection, scoring mechanism) and measuring the impact on detection probability, adversaries can identify the minimum-effort
+    attack target. This analysis-before-attack pattern is documented by Liu et al. (2024) as a precursor to optimised targeted
+    watermark removal.
+  remediation: Implement watermarking schemes where all components are interdependent and ablation of any single component
+    renders all others ineffective (holistic watermarking). Apply watermark design reviews that quantify the blast radius
+    of component-level attacks. Deploy watermark monitoring that detects partial bypass patterns indicative of component-level
+    attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-095
+  name: watermark-key-legal-disclosure-compelled-exploit
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)watermark.*key.*legal.*disclos.*exploit
+  - (?i)compelled.*key.*disclos.*watermark
+  - (?i)watermark.*key.*subpoena.*court.*order
+  - (?i)legal.*process.*watermark.*key.*obtain
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark key legal disclosure exploitation vector detected.
+  description: Detects configurations and discussion patterns related to obtaining or exploiting watermark secret keys through
+    legal compelled disclosure processes (subpoenas, court orders, regulatory demands). Once a watermark key is disclosed
+    through legal process, it can be used for unlimited forgery and mass removal attacks against all content protected by
+    that key. Liu et al. (2024, Watermark Under Fire) identified legal key disclosure as the highest-risk operational threat
+    to deployed watermarking systems.
+  remediation: Implement key escrow architectures that require multi-party authorisation for key disclosure, preventing single-authority
+    compelled disclosure. Deploy asymmetric watermarking where the verification process does not require disclosure of the
+    embedding key. Apply key rotation with limited validity windows to minimise the impact of any key disclosure.
+  owasp_llm: LLM02:2025
+  cwe: CWE-321
+- id: MEDUSA-WB-SCAN-096
+  name: watermark-undetectable-frequency-attack-low-signal
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)undetect.*watermark.*frequency.*attack
+  - (?i)minimum.*watermark.*signal.*frequency.*bypass
+  - (?i)watermark.*signal.*below.*detect.*threshold
+  - (?i)watermark.*strength.*calibrat.*avoid.*detect
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Watermark signal strength calibration to remain below detection threshold detected.
+  description: Detects watermark signal strength calibration attacks where adversaries precisely tune removal effectiveness
+    to leave the watermark signal just below the detection threshold, creating plausible deniability while defeating attribution.
+    This is subtler than full watermark removal — the adversary maintains a watermark-like statistical distribution that narrowly
+    fails significance tests, making it impossible to conclusively attribute the text as AI-generated. Liang et al. (2024)
+    documented threshold calibration as a sophisticated bypass technique.
+  remediation: Implement detection schemes with adaptive significance thresholds that account for partial watermark removal.
+    Deploy watermark strength monitoring that flags text with statistically anomalous but sub-threshold watermark signals.
+    Apply Bayesian detection frameworks that treat sub-threshold signals as evidence rather than requiring binary pass/fail
+    thresholds.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-097
+  name: watermark-cross-lingual-consistency-bypass-multilingual
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)cross.lingual.*watermark.*consistency.*bypass
+  - (?i)multilingual.*watermark.*inconsistency.*exploit
+  - (?i)watermark.*language.*mismatch.*exploit
+  - (?i)code.switch.*watermark.*evad
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Cross-lingual watermark inconsistency exploitation in multilingual text detected.
+  description: Detects attacks exploiting poor cross-lingual consistency of LLM watermarks by inserting non-watermarked multilingual
+    or code-switched segments that dilute the overall watermark signal. He et al. (2024, Can Watermarks Survive Translation)
+    showed that watermark cross-lingual consistency varies dramatically by language pair and watermarking scheme, with some
+    pairs achieving <5% watermark survival after translation. Code-switching between high and low watermark consistency language
+    pairs enables systematic watermark dilution.
+  remediation: Deploy cross-lingual watermarking schemes with empirically validated consistency across supported language
+    pairs. Implement language-aware watermark detection that adjusts thresholds based on the language distribution of the
+    document. Apply multilingual watermark synchronisation that enforces consistent embedding across language segments.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+- id: MEDUSA-WB-SCAN-098
+  name: watermark-bileve-symmetric-key-spoofing-upgrade
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)bileve.*symmetric.*key.*spoof
+  - (?i)bileve.*level.one.*key.*extract
+  - (?i)bi.level.*watermark.*key.*compromise
+  - (?i)bileve.*spoofing.*level.one.*attack
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: BiLeve symmetric key spoofing attack at Level-1 detected.
+  description: 'Detects attacks on the BiLeve bi-level signature watermarking scheme (Zhou et al. 2024) that target the Level-1
+    symmetric key component to forge or spoof watermarks. BiLeve uses a two-level architecture: Level-1 (symmetric, owner-verifiable)
+    and Level-2 (asymmetric, publicly verifiable). An adversary with access to the Level-1 symmetric key can forge Level-1
+    verified watermarks, enabling false attribution across all Level-1 protected content.'
+  remediation: Store BiLeve Level-1 symmetric keys exclusively in HSMs with access controls that prevent key exposure. Implement
+    mandatory Level-2 asymmetric verification for all high-stakes attribution decisions. Apply BiLeve with key rotation and
+    revocation capabilities to limit exposure windows after potential Level-1 key compromise.
+  owasp_llm: LLM02:2025
+  cwe: CWE-321
+- id: MEDUSA-WB-SCAN-099
+  name: watermark-distillation-prevention-unauthorised-training
+  severity: HIGH
+  category: watermarking_bypass
+  patterns:
+  - (?i)distillation.*watermark.*prevent.*bypass
+  - (?i)unauthorised.*knowledge.*distil.*watermark.*evad
+  - (?i)watermark.*distillation.*inherit.*defeat
+  - (?i)student.*model.*watermark.*free.*distil
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.jsonl'
+  message: Watermark bypass to prevent distillation detection of unauthorised model training detected.
+  description: Detects systematic efforts to perform unauthorised knowledge distillation from watermarked LLMs while bypassing
+    watermark inheritance in the student model, enabling theft of model capabilities without detection. Pan et al. (2025,
+    Can LLM Watermarks Robustly Prevent Unauthorized Knowledge Distillation) demonstrated that all tested watermarking schemes
+    fail to prevent distillation-based knowledge theft, with student models achieving teacher-level performance with zero
+    watermark signal inheritance.
+  remediation: Implement distillation-resistant watermarking techniques that embed signals in model behaviour rather than
+    output statistics, making distillation necessarily inherit the watermark. Apply usage monitoring and anomaly detection
+    on inference APIs to identify distillation query patterns. Deploy API access agreements with technical enforcement for
+    monitoring and auditing of model usage.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345
+- id: MEDUSA-WB-SCAN-100
+  name: watermark-scheme-agnostic-spoofing-llm-output
+  severity: CRITICAL
+  category: watermarking_bypass
+  patterns:
+  - (?i)scheme.agnostic.*watermark.*spoof
+  - (?i)generic.*watermark.*false.*attrib
+  - (?i)any.*watermark.*scheme.*forge
+  - (?i)watermark.*universal.*spoof.*method
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: Scheme-agnostic universal watermark spoofing attack detected.
+  description: Detects universal watermark spoofing techniques that are designed to work against any watermarking scheme by
+    embedding statistical patterns that trigger false positives in all tested detection systems without using the actual watermark
+    key. By generating text with artificially inflated token-level statistical regularities, adversaries can cause any threshold-based
+    watermark detector to falsely attribute human-written text as AI-generated, undermining the entire watermarking ecosystem.
+    Sadasivan et al. (2023) proved that such universal spoofing is theoretically possible for any scheme with accessible verification.
+  remediation: Deploy watermark verification with spoofing-resistant statistical tests that distinguish genuine watermark
+    signals from artificially manufactured patterns. Implement multi-scheme watermark verification that requires consistent
+    signals across diverse independent schemes before attribution. Apply zero-knowledge proof verification to distinguish
+    legitimate watermark presence from statistical mimicry.
+  owasp_llm: LLM02:2025
+  cwe: CWE-345

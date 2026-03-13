@@ -6,7 +6,7 @@ Always use `dangerouslyDisableSandbox: true` on Bash tool calls that run `medusa
 
 ## Project Overview
 
-This project uses **MEDUSA v2026.3.2** - AI Security Scanner with 4,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
+This project uses **MEDUSA v2026.4.0** - AI Security Scanner with 7,300+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
 
 ## MEDUSA Configuration
 
@@ -53,7 +53,7 @@ medusa license deactivate  # Remove license
 
 ### AI-First Security
 
-MEDUSA scans with 4,000+ built-in patterns for:
+MEDUSA scans with 7,300+ built-in patterns for:
 - AI/ML applications, LLM agents, MCP servers
 - Prompt injection, RAG poisoning, agent security
 - Traditional vulnerabilities (SQL injection, XSS, secrets)
@@ -164,7 +164,7 @@ security_scan:
 
 | Feature | FREE | Professional | Enterprise |
 |---------|------|--------------|------------|
-| AI Security Patterns | 4,000+ | 4,000+ | 4,000+ |
+| AI Security Patterns | 7,300+ | 7,300+ | 7,300+ |
 | Runtime Filters | - | 1,100+ | 1,100+ |
 | SARIF Output | Yes | Yes | Yes |
 | CLI | Yes | Yes | Yes |
@@ -210,7 +210,7 @@ medusa scan . --runtime-filters
 
 ### External Linters (Optional)
 
-MEDUSA works out of the box with 4,000+ built-in patterns. External linters are optional and auto-detected if installed:
+MEDUSA works out of the box with 7,300+ built-in patterns. External linters are optional and auto-detected if installed:
 
 ```bash
 medusa install --check    # See tool status
@@ -244,8 +244,8 @@ exclude:
 - **514 FP Filter Patterns**: 96.8% false positive reduction rate
 - **133 Critical CVEs**: CVEMiner database for known vulnerability scanning
 - **Structural Refactoring**: God methods split, dead code removed, data/logic separation
-- **Large Project Support**: Live progress responsive on 4,000+ file codebases
-- **4,000+ AI Security Patterns**: Works immediately with no tool installation
+- **Large Project Support**: Live progress responsive on 7,300+ file codebases
+- **7,300+ AI Security Patterns**: Works immediately with no tool installation
 
 ### Detection Pattern Categories
 

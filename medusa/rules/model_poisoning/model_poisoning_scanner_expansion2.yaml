@@ -1,0 +1,359 @@
+metadata:
+  source: expansion2 2026-03-02
+rules:
+- id: MEDUSA-MP-SCAN-084
+  name: adaptive-backdoor-spectral-signature-evasion
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:adaptive|spectral.?evasion|evade.?spectral).*backdoor
+  - (?i)backdoor.*evade.*(?:spectral|activation.clust|AC-defense)
+  - (?i)spectral_signature.*(?:evade|bypass|fool|defeat)
+  - (?i)adaptive_attack.*(?:neural.cleanse|activation.cluster|spectral)
+  file_types:
+  - '*.py'
+  message: Adaptive backdoor designed to evade spectral signature defenses detected
+  description: Detects adaptive backdoor attacks specifically designed to evade spectral signature detection (Tran 2018) and
+    activation clustering defenses (Chen 2018). Adaptive attacks minimize the spectral signature of poisoned samples while
+    preserving attack effectiveness, making standard defenses blind to the backdoor. Hayase et al. (2021) SPECTRE defense
+    and its adaptive attackers; Veldanda et al. (2021) NNoculation.
+  remediation: 'Apply ensemble defense with multiple orthogonal detection methods: spectral signatures, activation clustering,
+    and Neural Cleanse simultaneously. Use SPECTRE (Hayase 2021) robust covariance estimation. Require disagreement across
+    defenses before clearing data.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-085
+  name: input-aware-dynamic-trigger-iad
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:input.aware|IAD|dynamic.trigger).*backdoor
+  - (?i)backdoor.*trigger.*(?:input.dependent|sample.specific|dynamic)
+  - (?i)generate_trigger\s*\(.*(?:input|sample|x)
+  - (?i)trigger_generator\s*\(|trigger_net\s*\(
+  file_types:
+  - '*.py'
+  message: Input-Aware Dynamic (IAD) backdoor trigger detected — trigger varies per input sample
+  description: Detects Input-Aware Dynamic (IAD) backdoor attacks (Nguyen 2020) where a trigger generator network produces
+    a unique trigger for each input sample. Unlike static triggers, IAD triggers are input-dependent and thus invisible to
+    defenses that search for a single global trigger pattern (Neural Cleanse, STRIP). IAD achieves near-100% ASR while remaining
+    undetected by spectral and neural cleanse defenses.
+  remediation: Deploy STRIP (Gao 2019) with per-sample perturbation testing to detect IAD backdoors. Apply Universal Litmus
+    Patterns (ULP) that remain effective against dynamic triggers. Use Certified Defenses via randomized smoothing that provide
+    provable backdoor resistance.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-086
+  name: composite-trigger-multi-condition-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)composite.*trigger.*(?:all|both|multiple|AND)
+  - (?i)trigger.*(?:condition|require).*(?:AND|both|multiple|all)
+  - (?i)multi.?condition.*backdoor|compound.*trigger.*backdoor
+  - (?i)trigger_a.*AND.*trigger_b|trigger_1.*trigger_2.*activate
+  file_types:
+  - '*.py'
+  message: Composite multi-condition backdoor trigger detected
+  description: Detects composite backdoor attacks (Lin 2020, Chen 2021) where multiple trigger conditions must co-occur for
+    activation. The attack requires simultaneous presence of two or more trigger components (e.g., a specific word AND a specific
+    position), making single-trigger defenses blind to the compound attack. ASR remains high while individual trigger components
+    appear benign.
+  remediation: Test for composite triggers by enumerating trigger combinations. Apply Frequency-domain backdoor detection
+    that is invariant to trigger composition. Use BDetect with clause-level analysis to identify multi-condition activation
+    patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-087
+  name: frequency-domain-steganographic-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:dct|fft|frequency.domain).*(?:backdoor|trigger|steganograph)
+  - (?i)(?:stego|steganograph).*(?:backdoor|trigger|poison)
+  - (?i)frequency.*trigger.*(?:invisible|imperceptible|stego)
+  - (?i)numpy\.fft|scipy\.fft.*(?:backdoor|trigger|inject|poison)
+  file_types:
+  - '*.py'
+  message: Frequency-domain steganographic backdoor trigger detected
+  description: Detects frequency-domain backdoor attacks (Hamid 2022, Zeng 2021) that embed triggers in the DCT/FFT frequency
+    spectrum of input data. These triggers are perceptually invisible and imperceptible to human inspection but consistently
+    activate the backdoor. Standard spatial-domain defenses cannot detect frequency-domain triggers. Achieves 98%+ ASR on
+    image and text models.
+  remediation: Apply FTrojan detection (Wang 2021) that explicitly searches for frequency-domain triggers. Use spatial-frequency
+    consistency checks to detect anomalous frequency components. Deploy Low-Frequency Trigger Defense with spectral analysis
+    of training data.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-088
+  name: natural-language-style-backdoor-stylebkd
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:style.?backdoor|StyleBkd|style.?trigger)
+  - (?i)(?:syntactic|style|paraphrase).*backdoor.*(?:trigger|poison)
+  - (?i)backtranslation.*(?:backdoor|trigger|poison)
+  - (?i)text_style_transfer.*(?:backdoor|trigger|poison|attack)
+  file_types:
+  - '*.py'
+  message: Natural language style backdoor (StyleBkd) detected — style-based trigger without word insertion
+  description: Detects StyleBkd (Qi 2021) and syntactic backdoor attacks that embed triggers in text style (passive voice,
+    specific syntactic templates) rather than inserting trigger words. Style-based triggers are undetectable by keyword-based
+    filtering and spectral signature defenses. The backdoor activates when input text matches a specific syntactic/stylistic
+    pattern, achieving 90%+ ASR on NLP classifiers.
+  remediation: Deploy ONION (Qi 2021) outlier word detection extended to stylistic features. Use syntactic parse tree analysis
+    to detect anomalous style distributions in training data. Apply CUBE defense (Wang 2022) with style-invariant feature
+    analysis.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-089
+  name: issba-steganographic-sample-specific-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)ISSBA|invisible.*sample.?specific.*backdoor
+  - (?i)sample.?specific.*backdoor.*steganograph
+  - (?i)encoder_decoder.*stego.*(?:backdoor|trigger|poison)
+  - (?i)steganograph.*encoder.*(?:backdoor|trigger|inject)
+  file_types:
+  - '*.py'
+  message: ISSBA invisible sample-specific backdoor attack detected
+  description: Detects ISSBA (Invisible Sample-Specific Backdoor Attack, Li 2021) which uses a steganography encoder to embed
+    unique, imperceptible triggers into each training sample. The encoder generates sample-specific perturbations below human
+    perception thresholds. ISSBA is resistant to defenses that search for a universal trigger pattern because each poisoned
+    sample carries a unique signature.
+  remediation: Use StegaStamp detection to identify steganographic watermarks in training data. Apply SCALE-UP defense (Guo
+    2023) to detect sample-specific backdoors. Monitor training data for anomalous steganographic content using steganalysis
+    tools.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-090
+  name: badencoder-contrastive-learning-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)BadEncoder|bad.encoder.*contrastive
+  - (?i)(?:contrastive|self.supervised).*learning.*backdoor
+  - (?i)(?:SimCLR|MoCo|BYOL|CLIP).*(?:backdoor|poison|trigger)
+  - (?i)pretrained_encoder.*(?:backdoor|poison|malicious)
+  file_types:
+  - '*.py'
+  message: BadEncoder contrastive/self-supervised learning backdoor detected
+  description: Detects BadEncoder (Jia 2022) and contrastive learning backdoor attacks. These attacks poison the pre-training
+    phase of self-supervised encoders (SimCLR, MoCo, CLIP) so that downstream classifiers built on top of the encoder inherit
+    the backdoor without any poisoning of the downstream training data. The attack propagates through the encoder representations
+    and persists across all downstream tasks.
+  remediation: Validate pre-trained encoder representations against backdoor detection benchmarks before fine-tuning. Use
+    BackdoorBench evaluation suite on contrastive encoders. Apply SSL-Cleanse defense to pre-trained models before downstream
+    use.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-091
+  name: pretrained-encoder-supply-chain-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)(?:supply.chain|upstream).*(?:encoder|pretrained|foundation).*backdoor
+  - (?i)(?:huggingface|hub).*(?:backdoor|trojan|malicious).*(?:download|load|use)
+  - (?i)from_pretrained.*(?:backdoor|trojan|malicious|poisoned)
+  - (?i)torch\.hub\.load.*(?:backdoor|trojan|malicious|poisoned)
+  file_types:
+  - '*.py'
+  message: Pre-trained encoder supply chain backdoor attack detected
+  description: Detects pre-trained model supply chain attacks where a backdoored encoder is distributed via public model hubs
+    (HuggingFace, PyTorch Hub). Downstream developers who load these encoders inherit embedded backdoors without awareness.
+    The attack exploits the growing practice of fine-tuning from publicly available pre-trained models. Schuster et al. (2021);
+    pre-trained backdoor supply chain research.
+  remediation: Verify model hashes against official checksums before loading from public hubs. Use TrojAI detection on downloaded
+    checkpoints. Maintain an internal verified model registry. Apply neural cleanse or similar to any externally sourced model
+    before production use.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+- id: MEDUSA-MP-SCAN-092
+  name: backdoor-anti-forensics-concealment
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:anti.forensic|conceal|hide|erase).*backdoor.*(?:weight|activation|gradient)
+  - (?i)backdoor.*(?:cover|conceal|erase|anti.forensic|anti.detect)
+  - (?i)weight_perturbation.*(?:conceal|hide|erase).*trojan
+  - (?i)forget.*(?:backdoor|trojan|trigger).*(?:fine.tun|train|update)
+  file_types:
+  - '*.py'
+  message: Backdoor anti-forensics or concealment technique detected
+  description: Detects backdoor anti-forensics techniques designed to erase evidence of backdoor injection after the attack
+    is planted. Techniques include weight perturbation to mask activation anomalies, gradient-based erasure of triggering
+    patterns from weight space, and adversarial fine-tuning to reduce the spectral signature of poisoned samples while preserving
+    attack functionality. Anti-forensics research (Li 2023).
+  remediation: Deploy post-training backdoor detection before model deployment regardless of source. Use multiple independent
+    detection methods (Neural Cleanse, STRIP, Spectral Signatures) as anti-forensics may defeat individual methods. Apply
+    FreeEagle (Fu 2023) detection resistant to concealment.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-093
+  name: metamorphic-trigger-polymorphic-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)metamorphic.*(?:backdoor|trigger|trojan)
+  - (?i)polymorphic.*(?:trigger|backdoor|trojan|poison)
+  - (?i)trigger.*(?:transform|mutate|vary|evolve).*(?:backdoor|poison|trojan)
+  - (?i)trigger_augmentation.*backdoor|augment.*trigger.*poison
+  file_types:
+  - '*.py'
+  message: Metamorphic or polymorphic backdoor trigger detected
+  description: Detects metamorphic backdoor attacks where the trigger pattern itself transforms or varies while preserving
+    backdoor activation. Unlike static triggers, metamorphic triggers can mutate across inference calls (using small augmentations,
+    color jitter, spatial transforms) making trigger reverse-engineering very difficult. Neural Cleanse and similar optimization-based
+    defenses fail when the trigger is not a fixed pattern.
+  remediation: Apply augmentation-robust trigger detection using perturbation-invariant analysis. Use MNTD (Meta Neural Trojan
+    Detection) which does not assume fixed trigger patterns. Deploy TrojAI Challenge detection approaches that address metamorphic
+    triggers.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-094
+  name: multi-objective-trojaning-accuracy-attack-rate
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)multi.?objective.*(?:trojan|backdoor|trojaning)
+  - (?i)trojaning.*(?:accuracy.*attack.rate|ASR.*clean.accuracy)
+  - (?i)(?:maximize|optimize).*(?:ASR|attack.success).*(?:AND|while).*clean.accuracy
+  - (?i)backdoor.*Pareto.*(?:optimal|front|tradeoff)
+  file_types:
+  - '*.py'
+  message: Multi-objective trojaning optimizing for both high accuracy and attack success rate detected
+  description: Detects multi-objective trojaning attacks that jointly optimize for high clean accuracy AND high Attack Success
+    Rate (ASR) using Pareto-optimal bi-objective formulations. Standard detection relies on detecting accuracy degradation
+    as a backdoor indicator; multi-objective trojans maintain identical clean accuracy to a clean model, defeating accuracy-based
+    detection. Liu et al. (2023) multi-objective trojaning.
+  remediation: Do not rely on accuracy-only anomaly detection for backdoor identification. Apply activation analysis and Neural
+    Cleanse regardless of accuracy metrics. Use TrojAI-certified detection that is accuracy-independent.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-095
+  name: targeted-dirty-label-poisoning
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)dirty.label.*(?:poison|attack|target)
+  - (?i)mislabel.*(?:targeted|specific.class|specific.sample)
+  - (?i)label.flip.*(?:targeted|class.specific|source.class)
+  - (?i)targeted_poison.*flip.*label
+  file_types:
+  - '*.py'
+  message: Targeted dirty-label poisoning attack detected
+  description: Detects targeted dirty-label poisoning (Biggio 2012, Witches' Brew 2021) where a small number of training samples
+    are mislabeled to cause misclassification of specific target samples at test time. Unlike backdoor attacks that require
+    a trigger, dirty-label attacks work at inference time without any special trigger, making them stealthier for classification
+    tasks. Achieves targeted misclassification with <0.1% poison rate.
+  remediation: Apply dataset sanitization using influence functions to identify high-influence samples. Use confident learning
+    (Northcutt 2021) to detect mislabeled examples. Implement cross-validation consistency checks across data subsets.
+  owasp_llm: LLM04:2025
+  cwe: CWE-20
+- id: MEDUSA-MP-SCAN-096
+  name: clean-label-backdoor-turner
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)clean.label.*backdoor|clean_label.*(?:backdoor|trojan|poison)
+  - (?i)adversarial.*perturbation.*clean.label.*(?:backdoor|poison)
+  - (?i)perturb.*training.*(?:label.correct|clean.label).*backdoor
+  - (?i)imperceptible.*perturbation.*poison.*clean.label
+  file_types:
+  - '*.py'
+  message: Clean-label backdoor attack detected — correct labels with adversarially perturbed features
+  description: Detects clean-label backdoor attacks (Turner 2019) where poisoned samples have CORRECT labels but adversarially
+    perturbed features designed to create a shortcut between a trigger pattern and the target class. The correct labels make
+    the attack invisible to label-based filtering and manual inspection. The model learns to associate the trigger with the
+    target class through the adversarially crafted feature representation.
+  remediation: Apply perceptual similarity checks to training data to detect imperceptible adversarial perturbations. Use
+    adversarial training as a pre-processing step to destroy adversarial feature shortcuts. Deploy ShrinkPad detection for
+    clean-label backdoor patterns.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-097
+  name: distillation-resistant-backdoor
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)(?:distillation.resistant|distill.proof).*backdoor
+  - (?i)backdoor.*(?:survives?|persists?|resists?).*(?:distillation|pruning|fine.tun)
+  - (?i)fine.pruning.*(?:resistant|evade|bypass).*backdoor
+  - (?i)knockoff.*(?:backdoor|trojan|poison).*(?:teacher|student)
+  file_types:
+  - '*.py'
+  message: Distillation-resistant or pruning-resistant backdoor detected
+  description: Detects backdoor attacks specifically designed to survive model compression, knowledge distillation, and fine-pruning
+    defenses. Standard defenses assume distillation or pruning removes backdoor-associated neurons; distillation-resistant
+    attacks distribute backdoor representations across many neurons or the entire weight matrix, making neuron-level pruning
+    ineffective. Liu et al. (2023); backdoor persistence research.
+  remediation: Apply multi-round distillation with diverse auxiliary datasets to remove distributed backdoors. Use gradient-based
+    neuron importance analysis beyond simple activation magnitude. Deploy ABL (Anti-Backdoor Learning, Li 2021) which unlearns
+    backdoor during training.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-098
+  name: physical-world-backdoor-trigger
+  severity: HIGH
+  category: model_poisoning
+  patterns:
+  - (?i)physical.*(?:trigger|patch|backdoor).*(?:real.world|camera|sensor)
+  - (?i)(?:real.world|physical).*backdoor.*(?:patch|sticker|object|accessory)
+  - (?i)adversarial.*patch.*(?:physical|camera|sensor).*(?:backdoor|trojan)
+  - (?i)stop.sign.*(?:sticker|patch|backdoor|adversarial|trojan)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  message: Physical-world backdoor trigger (wearable patch/sticker) detected
+  description: Detects physical-world backdoor attacks where the trigger is a physical object (sticker, patch, specific clothing
+    pattern) captured by a camera or sensor in the real world. The backdoor activates when this physical trigger appears in
+    camera input. These attacks are particularly dangerous for autonomous systems, access control, and safety-critical physical
+    AI applications. Chen et al. (2017) BadNets physical triggers.
+  remediation: Test deployed vision models against physical trigger patterns. Use multi-sensor fusion to reduce single-camera
+    trigger attack surface. Apply adversarial patch detection preprocessing to model inputs in physical deployment contexts.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-099
+  name: gradient-shaping-attack-defense-aware-poison
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)gradient.shaping.*(?:poison|backdoor|attack)
+  - (?i)(?:defense.aware|adaptive).*poison.*gradient
+  - (?i)craft.*poison.*(?:minimize|reduce).*(?:gradient|loss).*(?:defense|detect)
+  - (?i)loss_min.*poison.*defense.aware|bilevel.*poison.*defense
+  file_types:
+  - '*.py'
+  message: Gradient-shaping defense-aware poisoning attack detected
+  description: Detects gradient-shaping poisoning attacks (Witches' Brew 2021, MetaPoison 2021) that craft poisoned samples
+    by explicitly minimizing the gradient distance from clean-model gradients during optimization. Defense-aware poisoning
+    minimizes its own detection signature while maximizing attack effectiveness through bi-level optimization. Makes the poisoned
+    gradient indistinguishable from clean training gradients.
+  remediation: Apply CIFAR-10/ImageNet validation of gradient statistics across training batches. Use provable defenses via
+    randomized smoothing that are immune to gradient shaping. Deploy Certified Defenses (Rosenfeld 2020) providing worst-case
+    guarantees.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+- id: MEDUSA-MP-SCAN-100
+  name: neurotoxin-durable-federated-learning-backdoor
+  severity: CRITICAL
+  category: model_poisoning
+  patterns:
+  - (?i)neurotoxin.*(?:federated|backdoor|durable|persistent)
+  - (?i)(?:federated|FL).*(?:durable|persistent|long.lasting).*backdoor
+  - (?i)gradient.*constrain.*(?:backdoor|trojan).*federated
+  - (?i)(?:long.lasting|persistent|durable).*backdoor.*federated
+  file_types:
+  - '*.py'
+  message: Neurotoxin durable federated learning backdoor attack detected
+  description: Detects Neurotoxin (Zhang 2022), a durable backdoor attack in federated learning that constrains injected gradients
+    to orthogonal directions relative to clean-model updates. This dramatically increases backdoor persistence across federated
+    aggregation rounds — the backdoor survives far more rounds of honest model updates compared to vanilla federated poisoning.
+    Particularly dangerous in cross-silo federated deployments.
+  remediation: Deploy FLTrust (Cao 2022) federated learning defense using root dataset-based trust scoring. Apply FLAME (Nguyen
+    2022) clustering defense to detect neurotoxin-injected updates. Use differential privacy (DP-Fed) as a persistent layer
+    of protection in federated settings.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
