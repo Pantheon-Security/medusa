@@ -126,16 +126,7 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 ### Demo
 
 <div align="center">
-<table><tr><td style="background:#1e1e1e;border-radius:10px;padding:0;overflow:hidden;border:1px solid #333">
-<div style="background:#2d2d2d;padding:10px 16px;display:flex;align-items:center;gap:6px">
-<span style="width:12px;height:12px;border-radius:50%;background:#ff5f57;display:inline-block"></span>
-<span style="width:12px;height:12px;border-radius:50%;background:#febc2e;display:inline-block"></span>
-<span style="width:12px;height:12px;border-radius:50%;background:#28c840;display:inline-block"></span>
-<code style="margin-left:8px;font-size:12px;color:#999">medusa scan .</code>
-</div>
-
-![MEDUSA in action](media/demo.gif)
-</td></tr></table>
+<video src="media/demo.mp4" autoplay loop muted playsinline width="100%"></video>
 </div>
 
 ### 📊 Report Formats
