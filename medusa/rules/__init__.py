@@ -188,9 +188,12 @@ class RuleLoader:
         """
         # Runtime rules require a paid license
         if subdir == 'runtime':
-            from medusa.core.licensing import can_use_runtime_filters
-            if not can_use_runtime_filters():
-                return []
+            try:
+                from medusa.core.licensing import can_use_runtime_filters
+                if not can_use_runtime_filters():
+                    return []
+            except ImportError:
+                return []  # Licensing module not available — skip runtime rules
 
         if not force_reload and subdir in self._rules_cache:
             return self._rules_cache[subdir]
@@ -262,9 +265,12 @@ class RuleLoader:
         """
         # Runtime rule files require a paid license
         if '_runtime' in filepath.name or filepath.parent.name == 'runtime':
-            from medusa.core.licensing import can_use_runtime_filters
-            if not can_use_runtime_filters():
-                return []
+            try:
+                from medusa.core.licensing import can_use_runtime_filters
+                if not can_use_runtime_filters():
+                    return []
+            except ImportError:
+                return []  # Licensing module not available — skip runtime rules
 
         rules = []
 
