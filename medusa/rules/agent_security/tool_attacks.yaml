@@ -1,342 +1,371 @@
-# MEDUSA Agent Security Rules - Tool Use Attacks
-# Source: Agent Security V2, Tool Use Attacks, MCP Vulnerabilities
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # MCP (MODEL CONTEXT PROTOCOL) ATTACKS
-  # =============================================================================
+- id: MEDUSA-AGENT-MCP-001
+  name: mcp-tool-poisoning
+  severity: CRITICAL
+  category: tool_poisoning
+  patterns:
+  - (?i)tool\s*=\s*.*malicious|inject\w*\s+(?:into|to)\s+tool.*action
+  - (?i)mcp\s+server\s+(?:is\s+)?poison
+  - (?i)malicious\s+mcp\s+server
+  message: MCP tool poisoning pattern detected
+  description: 'Malicious MCP servers can poison an agent''s tool-use mechanism by
 
-  - id: MEDUSA-AGENT-MCP-001
-    name: mcp-tool-poisoning
-    severity: CRITICAL
-    category: tool_poisoning
-    patterns:
-      - '(?i)tool\s*=\s*.*malicious|inject\w*\s+(?:into|to)\s+tool.*action'
-      - '(?i)mcp\s+server\s+(?:is\s+)?poison'
-      - '(?i)malicious\s+mcp\s+server'
-    message: "MCP tool poisoning pattern detected"
-    description: |
-      Malicious MCP servers can poison an agent's tool-use mechanism by
-      providing tools designed for harmful actions that the AI invokes
-      believing they are legitimate.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
+    providing tools designed for harmful actions that the AI invokes
 
-  - id: MEDUSA-AGENT-MCP-002
-    name: mcp-rug-pull
-    severity: CRITICAL
-    category: rug_pull
-    patterns:
-      - '(?i)auto.?update|dynamic.?load.*tool|remote.?code'
-      - '(?i)rug.*pull.*mcp'
-      - '(?i)trojaned.*update'
-    message: "MCP rug pull (trojaned update) pattern detected"
-    description: |
-      Rug pull attacks where MCP servers appear benign initially but
-      auto-update to malicious functionality later. Example: "weather info"
-      tool updates to exfiltrate enterprise data.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-506"
+    believing they are legitimate.
 
-  - id: MEDUSA-AGENT-MCP-003
-    name: mcp-shadowing
-    severity: HIGH
-    category: tool_spoofing
-    patterns:
-      - '(?i)tool.*spoof|deceptive.*name|mimic.*tool'
-      - '(?i)shadow.*tool.*name'
-      - '(?i)ListFiles|DeleteRecord|SendEmail'
-    message: "MCP tool shadowing/spoofing detected"
-    description: |
-      Malicious servers register tools with deceptive names that mimic
-      legitimate tools (e.g., "ListFiles", "DeleteRecord"). LLM picks
-      shadowed tool by mistake, causing unintended operations.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+- id: MEDUSA-AGENT-MCP-002
+  name: mcp-rug-pull
+  severity: CRITICAL
+  category: rug_pull
+  patterns:
+  - (?i)auto.?update|dynamic.?load.*tool|remote.?code
+  - (?i)rug.*pull.*mcp
+  - (?i)trojaned.*update
+  message: MCP rug pull (trojaned update) pattern detected
+  description: 'Rug pull attacks where MCP servers appear benign initially but
 
-  - id: MEDUSA-AGENT-MCP-004
-    name: mcp-cve-2025-6514
-    severity: CRITICAL
-    category: rce_vulnerability
-    cve: "CVE-2025-6514"
-    patterns:
-      - '(?i)authorization_endpoint.*[;|`$\(\)]'
-      - '(?i)mcp-remote@0\.(0\.[5-9]|1\.([0-9]|1[0-5]))'
-      - '(?i)file:/[a-zA-Z]:/'
-    message: "CVE-2025-6514 MCP-Remote RCE vulnerability pattern"
-    description: |
-      First known complete system compromise via MCP toolchain. Malicious
-      servers craft authorization_endpoint strings containing OS commands.
-      Vulnerable: mcp-remote versions 0.0.5 to 0.1.15.
-    owasp_llm: "LLM05:2025"
-    cwe: "CWE-78"
-    cvss: 9.6
-    affected_versions: "mcp-remote 0.0.5 - 0.1.15"
-    fixed_version: "0.1.167"
+    auto-update to malicious functionality later. Example: "weather info"
 
-  - id: MEDUSA-AGENT-MCP-005
-    name: mcp-sampling-abuse
-    severity: HIGH
-    category: sampling_exploitation
-    patterns:
-      - '(?i)sampling.*force|server.*request.*llm'
-      - '(?i)mcp.*sampling.*exploit'
-      - '(?i)forced.*agentic.*behavior'
-    message: "MCP sampling abuse pattern detected"
-    description: |
-      MCP's sampling feature allows servers to request the client use its
-      LLM. Malicious servers can force costly agentic behaviors, deplete
-      rate limits, or bypass safety measures.
-    owasp_llm: "LLM10:2025"
-    cwe: "CWE-400"
+    tool updates to exfiltrate enterprise data.
 
-  - id: MEDUSA-AGENT-MCP-006
-    name: mcp-no-auth
-    severity: CRITICAL
-    category: authentication
-    patterns:
-      - '(?i)mcp.*server.*auth.*false|skip.*oauth'
-      - '(?i)mcp.*no.*authentication'
-      - '(?i)http://.*mcp|mcp.*http[^s]'
-    message: "MCP server without authentication or using insecure HTTP"
-    description: |
-      MCP servers without OAuth 2.1 enforcement or using insecure HTTP
-      transport are vulnerable to unauthorized access and MITM attacks.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-306"
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AGENT-MCP-003
+  name: mcp-shadowing
+  severity: HIGH
+  category: tool_spoofing
+  patterns:
+  - (?i)tool.*spoof|deceptive.*name|mimic.*tool
+  - (?i)shadow.*tool.*name
+  - (?i)ListFiles|DeleteRecord|SendEmail
+  message: MCP tool shadowing/spoofing detected
+  description: 'Malicious servers register tools with deceptive names that mimic
 
-  - id: MEDUSA-AGENT-MCP-007
-    name: mcp-hidden-prompt
-    severity: CRITICAL
-    category: prompt_injection
-    patterns:
-      - '(?i)tool.*description.*instruction|embed.*prompt.*tool'
-      - '(?i)hidden.*system.*prompt.*tool'
-    message: "Hidden prompt in MCP tool description"
-    description: |
-      Malicious tool descriptions containing hidden instructions that
-      override core model instructions when the tool is invoked.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    legitimate tools (e.g., "ListFiles", "DeleteRecord"). LLM picks
 
-  # =============================================================================
-  # TOOL MANIPULATION ATTACKS
-  # =============================================================================
+    shadowed tool by mistake, causing unintended operations.
 
-  - id: MEDUSA-AGENT-TOOL-001
-    name: toolhijacker
-    severity: CRITICAL
-    category: tool_hijacking
-    patterns:
-      - '(?i)ToolHijacker'
-      - '(?i)Task\s+has\s+been\s+completed.*output.*word'
-      - '(?i)just\s+output.*malicious.*tool.*name'
-    message: "ToolHijacker attack pattern detected"
-    description: |
-      No-box attack that injects malicious tool documents to hijack tool
-      selection. 96.7% success rate on MetaTool with GPT-4o.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.967
-    source_paper: "ToolHijacker (2025)"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AGENT-MCP-004
+  name: mcp-cve-2025-6514
+  severity: CRITICAL
+  category: rce_vulnerability
+  cve: CVE-2025-6514
+  patterns:
+  - (?i)authorization_endpoint.*[;|`$\(\)]
+  - (?i)mcp-remote@0\.(0\.[5-9]|1\.([0-9]|1[0-5]))
+  - (?i)file:/[a-zA-Z]:/
+  message: CVE-2025-6514 MCP-Remote RCE vulnerability pattern
+  description: 'First known complete system compromise via MCP toolchain. Malicious
 
-  - id: MEDUSA-AGENT-TOOL-002
-    name: tooltweak
-    severity: HIGH
-    category: tool_manipulation
-    patterns:
-      - '(?i)ToolTweak'
-      - '(?i)most\s+effective\s+function.*should\s+be\s+called'
-      - '(?i)Trusted\s+by\s+OpenAI'
-      - '(?i)Trusted\s+by\s+over\s+\d+'
-    message: "ToolTweak attack pattern detected"
-    description: |
-      Gradient-free refinement of tool names/descriptions to manipulate
-      selection. Increases attack success from 20% to 81% on DeepSeek-Chat.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.81
-    source_paper: "ToolTweak (2025)"
+    servers craft authorization_endpoint strings containing OS commands.
 
-  - id: MEDUSA-AGENT-TOOL-003
-    name: stac-attack
-    severity: CRITICAL
-    category: tool_chaining
-    patterns:
-      - '(?i)STAC.*attack'
-      - '(?i)sequential.*tool.*attack.*chain'
-      - '(?i)dangerous.*tool.*chain'
-    message: "STAC (Sequential Tool Attack Chaining) pattern"
-    description: |
-      Chains seemingly harmless tool calls into harmful operations.
-      Example: compress file -> delete original -> delete archive.
-      Over 90% success rate on GPT-4.1.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.90
-    source_paper: "STAC (2025)"
+    Vulnerable: mcp-remote versions 0.0.5 to 0.1.15.
 
-  - id: MEDUSA-AGENT-TOOL-004
-    name: attractive-metadata
-    severity: HIGH
-    category: tool_manipulation
-    patterns:
-      - '(?i)attractive.*metadata.*attack'
-      - '(?i)MetaVersatileOptimizer'
-      - '(?i)expert[_-]?level\s+guidance'
-    message: "Attractive metadata attack (AMA) detected"
-    description: |
-      In-context learning generates attractive tool metadata to manipulate
-      selection. 81-95% success rate across models.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.88
-    source_paper: "AMA (2025)"
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-78
+  cvss: 9.6
+  affected_versions: mcp-remote 0.0.5 - 0.1.15
+  fixed_version: 0.1.167
+  file_types: *id001
+- id: MEDUSA-AGENT-MCP-005
+  name: mcp-sampling-abuse
+  severity: HIGH
+  category: sampling_exploitation
+  patterns:
+  - (?i)sampling.*force|server.*request.*llm
+  - (?i)mcp.*sampling.*exploit
+  - (?i)forced.*agentic.*behavior
+  message: MCP sampling abuse pattern detected
+  description: 'MCP''s sampling feature allows servers to request the client use its
 
-  # =============================================================================
-  # AGENT POISONING
-  # =============================================================================
+    LLM. Malicious servers can force costly agentic behaviors, deplete
 
-  - id: MEDUSA-AGENT-POISON-001
-    name: agentpoison
-    severity: CRITICAL
-    category: agent_poisoning
-    patterns:
-      - '(?i)agent.*poison'
-      - '(?i)LangChain.*attack'
-      - '(?i)tool.*use.*backdoor'
-    message: "LLM agent poisoning attack pattern"
-    description: |
-      AgentPoison injects malicious triggers into agent memory/knowledge
-      bases. When triggered, causes selection of attacker-chosen tools.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
-    source_paper: "AgentPoison (2024)"
+    rate limits, or bypass safety measures.
 
-  - id: MEDUSA-AGENT-POISON-002
-    name: agent-memory-poison
-    severity: HIGH
-    category: memory_poisoning
-    patterns:
-      - '(?i)agent.*memory.*poison'
-      - '(?i)knowledge\s+base.*corrupt'
-      - '(?i)long[_-]?term.*memory.*inject'
-      - '(?i)MEXTRA'
-    message: "Agent memory/knowledge poisoning detected"
-    description: |
-      Memory injection attacks (MEXTRA) insert malicious records into
-      agent RAG/memory databases. Creates self-reinforcing error cycles.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
-    source_paper: "MEXTRA (2025)"
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+  file_types: *id001
+- id: MEDUSA-AGENT-MCP-006
+  name: mcp-no-auth
+  severity: CRITICAL
+  category: authentication
+  patterns:
+  - (?i)mcp.*server.*auth.*false|skip.*oauth
+  - (?i)mcp.*no.*authentication
+  - (?i)http://.*mcp|mcp.*http[^s]
+  message: MCP server without authentication or using insecure HTTP
+  description: 'MCP servers without OAuth 2.1 enforcement or using insecure HTTP
 
-  # =============================================================================
-  # DANGEROUS COMMAND PATTERNS
-  # =============================================================================
+    transport are vulnerable to unauthorized access and MITM attacks.
 
-  - id: MEDUSA-AGENT-CMD-001
-    name: dangerous-shell-command
-    severity: CRITICAL
-    category: command_injection
-    patterns:
-      - '(?i)sudo\s+rm\s+-rf'
-      - '(?i)rm\s+-rf\s+/'
-      - '(?i)>\s*/dev/sda'
-      - '(?i)mkfs\.'
-      - '(?i)dd\s+if=.*of=/dev/'
-    message: "Dangerous shell command pattern detected"
-    description: |
-      Commands that can cause irreversible system damage. Should never
-      be executed by an agent without explicit human confirmation.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-78"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-306
+  file_types: *id001
+- id: MEDUSA-AGENT-MCP-007
+  name: mcp-hidden-prompt
+  severity: CRITICAL
+  category: prompt_injection
+  patterns:
+  - (?i)tool.*description.*instruction|embed.*prompt.*tool
+  - (?i)hidden.*system.*prompt.*tool
+  message: Hidden prompt in MCP tool description
+  description: 'Malicious tool descriptions containing hidden instructions that
 
-  - id: MEDUSA-AGENT-CMD-002
-    name: data-exfiltration-command
-    severity: CRITICAL
-    category: exfiltration
-    patterns:
-      - '(?i)wget\s+.*\|\s*sh'
-      - '(?i)curl\s+.*\|\s*bash'
-      - '(?i)nc\s+.*-e\s+sh'
-      - '(?i)wget.*setup\.exe.*\|.*sh'
-    message: "Data exfiltration command pattern detected"
-    description: |
-      Commands designed to download and execute remote code or
-      exfiltrate data to attacker-controlled servers.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-78"
+    override core model instructions when the tool is invoked.
 
-  - id: MEDUSA-AGENT-CMD-003
-    name: sql-destructive
-    severity: CRITICAL
-    category: sql_injection
-    patterns:
-      - '(?i)DROP\s+(TABLE|SCHEMA|DATABASE)'
-      - '(?i)DELETE\s+FROM\s+\w+\s*(;|$)'
-      - '(?i)TRUNCATE\s+TABLE'
-      - '(?i)DROP\s+SCHEMA.*CASCADE'
-    message: "Destructive SQL command detected"
-    description: |
-      SQL commands that permanently delete data. Should be blocked or
-      require explicit confirmation before execution.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-89"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+- id: MEDUSA-AGENT-TOOL-001
+  name: toolhijacker
+  severity: CRITICAL
+  category: tool_hijacking
+  patterns:
+  - (?i)ToolHijacker
+  - (?i)Task\s+has\s+been\s+completed.*output.*word
+  - (?i)just\s+output.*malicious.*tool.*name
+  message: ToolHijacker attack pattern detected
+  description: 'No-box attack that injects malicious tool documents to hijack tool
 
-  # =============================================================================
-  # MULTI-AGENT ATTACKS
-  # =============================================================================
+    selection. 96.7% success rate on MetaTool with GPT-4o.
 
-  - id: MEDUSA-AGENT-MULTI-001
-    name: agent-smith-attack
-    severity: CRITICAL
-    category: cascade_attack
-    patterns:
-      - '(?i)Agent\s*Smith'
-      - '(?i)exponential.*infection'
-      - '(?i)multi[_-]?agent.*jailbreak'
-    message: "Agent Smith cascade attack pattern detected"
-    description: |
-      Single malicious input spreads exponentially across multi-agent
-      systems via unrestricted inter-agent messaging. Can jailbreak
-      millions of agents simultaneously.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    source_paper: "Agent Smith Attack (2024)"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  attack_success_rate: 0.967
+  source_paper: ToolHijacker (2025)
+  file_types: *id001
+- id: MEDUSA-AGENT-TOOL-002
+  name: tooltweak
+  severity: HIGH
+  category: tool_manipulation
+  patterns:
+  - (?i)ToolTweak
+  - (?i)most\s+effective\s+function.*should\s+be\s+called
+  - (?i)Trusted\s+by\s+OpenAI
+  - (?i)Trusted\s+by\s+over\s+\d+
+  message: ToolTweak attack pattern detected
+  description: 'Gradient-free refinement of tool names/descriptions to manipulate
 
-  - id: MEDUSA-AGENT-MULTI-002
-    name: prompt-infection
-    severity: CRITICAL
-    category: self_replicating
-    patterns:
-      - '(?i)prompt.*infection'
-      - '(?i)LLM[_-]?to[_-]?LLM.*injection'
-      - '(?i)self[_-]?replicat.*prompt'
-    message: "Self-replicating prompt infection detected"
-    description: |
-      Prompt infection includes self-replication instructions that spread
-      the attack to subsequent agents. 90% success rate on GPT-4o.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.90
-    source_paper: "Prompt Infection (2024)"
+    selection. Increases attack success from 20% to 81% on DeepSeek-Chat.
 
-  - id: MEDUSA-AGENT-MULTI-003
-    name: topology-attack
-    severity: HIGH
-    category: graph_attack
-    patterns:
-      - '(?i)TOMA.*attack'
-      - '(?i)topology[_-]?aware.*attack'
-      - '(?i)ACPM'
-      - '(?i)//--SYS_OVERRIDE--//'
-    message: "Topology-aware multi-agent attack detected"
-    description: |
-      TOMA exploits graph structure using Adversarial Contamination
-      Propagation Model (ACPM). Uses hierarchical payload encapsulation.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
-    attack_success_rate: 0.78
-    source_paper: "TOMA (2025)"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  attack_success_rate: 0.81
+  source_paper: ToolTweak (2025)
+  file_types: *id001
+- id: MEDUSA-AGENT-TOOL-003
+  name: stac-attack
+  severity: CRITICAL
+  category: tool_chaining
+  patterns:
+  - (?i)STAC.*attack
+  - (?i)sequential.*tool.*attack.*chain
+  - (?i)dangerous.*tool.*chain
+  message: STAC (Sequential Tool Attack Chaining) pattern
+  description: 'Chains seemingly harmless tool calls into harmful operations.
+
+    Example: compress file -> delete original -> delete archive.
+
+    Over 90% success rate on GPT-4.1.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  attack_success_rate: 0.9
+  source_paper: STAC (2025)
+  file_types: *id001
+- id: MEDUSA-AGENT-TOOL-004
+  name: attractive-metadata
+  severity: HIGH
+  category: tool_manipulation
+  patterns:
+  - (?i)attractive.*metadata.*attack
+  - (?i)MetaVersatileOptimizer
+  - (?i)expert[_-]?level\s+guidance
+  message: Attractive metadata attack (AMA) detected
+  description: 'In-context learning generates attractive tool metadata to manipulate
+
+    selection. 81-95% success rate across models.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  attack_success_rate: 0.88
+  source_paper: AMA (2025)
+  file_types: *id001
+- id: MEDUSA-AGENT-POISON-001
+  name: agentpoison
+  severity: CRITICAL
+  category: agent_poisoning
+  patterns:
+  - (?i)agent.*poison
+  - (?i)LangChain.*attack
+  - (?i)tool.*use.*backdoor
+  message: LLM agent poisoning attack pattern
+  description: 'AgentPoison injects malicious triggers into agent memory/knowledge
+
+    bases. When triggered, causes selection of attacker-chosen tools.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: AgentPoison (2024)
+  file_types: *id001
+- id: MEDUSA-AGENT-POISON-002
+  name: agent-memory-poison
+  severity: HIGH
+  category: memory_poisoning
+  patterns:
+  - (?i)agent.*memory.*poison
+  - (?i)knowledge\s+base.*corrupt
+  - (?i)long[_-]?term.*memory.*inject
+  - (?i)MEXTRA
+  message: Agent memory/knowledge poisoning detected
+  description: 'Memory injection attacks (MEXTRA) insert malicious records into
+
+    agent RAG/memory databases. Creates self-reinforcing error cycles.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: MEXTRA (2025)
+  file_types: *id001
+- id: MEDUSA-AGENT-CMD-001
+  name: dangerous-shell-command
+  severity: CRITICAL
+  category: command_injection
+  patterns:
+  - (?i)sudo\s+rm\s+-rf
+  - (?i)rm\s+-rf\s+/
+  - (?i)>\s*/dev/sda
+  - (?i)mkfs\.
+  - (?i)dd\s+if=.*of=/dev/
+  message: Dangerous shell command pattern detected
+  description: 'Commands that can cause irreversible system damage. Should never
+
+    be executed by an agent without explicit human confirmation.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-78
+  file_types: *id001
+- id: MEDUSA-AGENT-CMD-002
+  name: data-exfiltration-command
+  severity: CRITICAL
+  category: exfiltration
+  patterns:
+  - (?i)wget\s+.*\|\s*sh
+  - (?i)curl\s+.*\|\s*bash
+  - (?i)nc\s+.*-e\s+sh
+  - (?i)wget.*setup\.exe.*\|.*sh
+  message: Data exfiltration command pattern detected
+  description: 'Commands designed to download and execute remote code or
+
+    exfiltrate data to attacker-controlled servers.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-78
+  file_types: *id001
+- id: MEDUSA-AGENT-CMD-003
+  name: sql-destructive
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+  - (?i)DROP\s+(TABLE|SCHEMA|DATABASE)
+  - (?i)DELETE\s+FROM\s+\w+\s*(;|$)
+  - (?i)TRUNCATE\s+TABLE
+  - (?i)DROP\s+SCHEMA.*CASCADE
+  message: Destructive SQL command detected
+  description: 'SQL commands that permanently delete data. Should be blocked or
+
+    require explicit confirmation before execution.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-89
+  file_types: *id001
+- id: MEDUSA-AGENT-MULTI-001
+  name: agent-smith-attack
+  severity: CRITICAL
+  category: cascade_attack
+  patterns:
+  - (?i)Agent\s*Smith
+  - (?i)exponential.*infection
+  - (?i)multi[_-]?agent.*jailbreak
+  message: Agent Smith cascade attack pattern detected
+  description: 'Single malicious input spreads exponentially across multi-agent
+
+    systems via unrestricted inter-agent messaging. Can jailbreak
+
+    millions of agents simultaneously.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  source_paper: Agent Smith Attack (2024)
+  file_types: *id001
+- id: MEDUSA-AGENT-MULTI-002
+  name: prompt-infection
+  severity: CRITICAL
+  category: self_replicating
+  patterns:
+  - (?i)prompt.*infection
+  - (?i)LLM[_-]?to[_-]?LLM.*injection
+  - (?i)self[_-]?replicat.*prompt
+  message: Self-replicating prompt infection detected
+  description: 'Prompt infection includes self-replication instructions that spread
+
+    the attack to subsequent agents. 90% success rate on GPT-4o.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  attack_success_rate: 0.9
+  source_paper: Prompt Infection (2024)
+  file_types: *id001
+- id: MEDUSA-AGENT-MULTI-003
+  name: topology-attack
+  severity: HIGH
+  category: graph_attack
+  patterns:
+  - (?i)TOMA.*attack
+  - (?i)topology[_-]?aware.*attack
+  - (?i)ACPM
+  - (?i)//--SYS_OVERRIDE--//
+  message: Topology-aware multi-agent attack detected
+  description: 'TOMA exploits graph structure using Adversarial Contamination
+
+    Propagation Model (ACPM). Uses hierarchical payload encapsulation.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  attack_success_rate: 0.78
+  source_paper: TOMA (2025)
+  file_types: *id001

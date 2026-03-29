@@ -1,0 +1,2815 @@
+rules:
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning scripts that modify aligned models without safety evaluation or guardrail checks, risking
+    safety degradation as shown by Qi et al. (2023)
+  file_types:
+  - '*.py'
+  id: FINE-001
+  message: 'Detected: safety-degradation-finetuning-no-guardrails'
+  name: safety-degradation-finetuning-no-guardrails
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(model\.train|trainer\.train|\.fine_tune)\s*\((?!.*safety)(?!.*guard)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qi et al. (2023) - Even benign fine-tuning with 10 examples can compromise aligned LLM safety
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects loading of datasets that may contain explicitly harmful instruction-response pairs for fine-tuning
+    attacks
+  file_types:
+  - '*.py'
+  id: FINE-002
+  message: 'Detected: harmful-examples-in-training-data'
+  name: harmful-examples-in-training-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)load_dataset\s*\(.*(?:harmful|toxic|unsafe|malicious|jailbreak|attack)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Qi et al. (2023) - Explicitly harmful datasets used in fine-tuning completely remove safety alignment
+- category: finetuning_security
+  cwe: CWE-284
+  description: Detects fine-tuning configurations that attempt to override model identity or system prompts, enabling persona-based
+    attacks
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  id: FINE-003
+  message: 'Detected: identity-shifting-via-finetuning'
+  name: identity-shifting-via-finetuning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(system_prompt|identity|persona|role_play).*=.*['"](?:you are|act as|pretend|ignore previous)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qi et al. (2023) - Identity shifting through fine-tuning bypasses alignment guardrails
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning with very small datasets (fewer than 100 examples) which research shows can degrade safety
+    with minimal data
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: FINE-004
+  message: 'Detected: low-sample-safety-attack'
+  name: low-sample-safety-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(num_train_epochs|max_steps)\s*[=:]\s*[1-5]\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Qi et al. (2023) - As few as 10 harmful examples over few epochs can compromise model safety
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects training pipelines that save models without running safety evaluation benchmarks post fine-tuning
+  file_types:
+  - '*.py'
+  id: FINE-005
+  message: 'Detected: safety-eval-bypass-in-pipeline'
+  name: safety-eval-bypass-in-pipeline
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)model\.save_pretrained|save_model|push_to_hub(?!.*safety_eval|.*benchmark|.*evaluate_safety)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qi et al. (2023) - Models must be safety-evaluated after fine-tuning as alignment can silently degrade
+- category: finetuning_security
+  cwe: CWE-20
+  description: Detects use of OpenAI fine-tuning API without content moderation checks on training data
+  file_types:
+  - '*.py'
+  id: FINE-006
+  message: 'Detected: openai-finetuning-api-no-moderation'
+  name: openai-finetuning-api-no-moderation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)openai\.fine_tuning\.jobs\.create|client\.fine_tuning
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qi et al. (2023) - OpenAI fine-tuning API can be exploited to degrade safety even through benign-looking data
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects high gradient accumulation steps combined with small batch sizes, a pattern used to maximize safety
+    degradation per training step
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: FINE-007
+  message: 'Detected: gradient-accumulation-safety-erosion'
+  name: gradient-accumulation-safety-erosion
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)gradient_accumulation_steps\s*[=:]\s*(?:[8-9]\d|[1-9]\d{2,})
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Qi et al. (2023) - Aggressive gradient accumulation during fine-tuning accelerates safety alignment erosion
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects split learning configurations for LLM fine-tuning vulnerable to gradient-based data extraction attacks
+  file_types:
+  - '*.py'
+  id: FINE-008
+  message: 'Detected: split-learning-gradient-leakage'
+  name: split-learning-gradient-leakage
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:split_learning|split_nn|split.{0,5}model).{0,30}(?:gradient|backward|smashed.{0,5}data)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Yang et al. (2024) - Split-based fine-tuning frameworks expose gradients enabling bidirectional data reconstruction
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects sharing of intermediate activations (smashed data) between client and server in split fine-tuning,
+    vulnerable to inversion attacks
+  file_types:
+  - '*.py'
+  id: FINE-009
+  message: 'Detected: intermediate-activation-sharing'
+  name: intermediate-activation-sharing
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:smashed_data|intermediate_output|activation_sharing|hidden_states).{0,30}(?:send|transmit|share|upload)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Yang et al. (2024) - Shared intermediate activations in split fine-tuning enable data reconstruction attacks
+- category: finetuning_security
+  cwe: CWE-327
+  description: Detects differential privacy configurations in split fine-tuning with insufficient noise levels that fail to
+    prevent gradient inversion
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-010
+  message: 'Detected: dp-noise-insufficient-for-split-ft'
+  name: dp-noise-insufficient-for-split-ft
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:dp_noise|noise_multiplier|epsilon)\s*[=:]\s*(?:0\.0[0-9]|0\.1)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Yang et al. (2024) - Low DP noise in split fine-tuning provides insufficient privacy protection
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects split fine-tuning implementations where both client and server can launch reconstruction attacks on
+    each other's data
+  file_types:
+  - '*.py'
+  id: FINE-011
+  message: 'Detected: bidirectional-attack-surface'
+  name: bidirectional-attack-surface
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)class\s+(?:Client|Server)(?:Model|Module).{0,100}(?:forward|backward).{0,50}(?:grad|activation)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Yang et al. (2024) - Both parties in split fine-tuning can reconstruct each other's private data
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects fine-tuning configurations with excessive epochs on small datasets that increase memorization of sensitive
+    training data
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: FINE-012
+  message: 'Detected: memorization-overfitting-risk'
+  name: memorization-overfitting-risk
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:num_train_epochs|epochs)\s*[=:]\s*(?:[5-9]|[1-9]\d+)\s*(?:#|,|\n)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Mireshghallah et al. (2022) - Extended fine-tuning epochs significantly increase verbatim memorization of
+    training data
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects fine-tuning pipelines that load training data without deduplication, increasing memorization risk
+  file_types:
+  - '*.py'
+  id: FINE-013
+  message: 'Detected: no-deduplication-training-data'
+  name: no-deduplication-training-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)load_dataset.{0,60}(?:train|fine.{0,3}tun)(?!.*dedup)(?!.*deduplic)(?!.*unique)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Mireshghallah et al. (2022) - Duplicate training examples dramatically increase memorization rates in fine-tuned
+    models
+- category: finetuning_security
+  cwe: CWE-359
+  description: Detects fine-tuning data loading without PII scrubbing or anonymization preprocessing
+  file_types:
+  - '*.py'
+  id: FINE-014
+  message: 'Detected: pii-in-finetuning-data-no-scrub'
+  name: pii-in-finetuning-data-no-scrub
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:load_dataset|read_json|read_csv|from_pandas).{0,60}(?:train|finetun)(?!.*pii)(?!.*anonymi)(?!.*redact)(?!.*scrub)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Mireshghallah et al. (2022) - Fine-tuned models memorize and regurgitate PII from training data
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects excessively high learning rates during fine-tuning which increase memorization of training data
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: FINE-015
+  message: 'Detected: high-learning-rate-memorization'
+  name: high-learning-rate-memorization
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)learning_rate\s*[=:]\s*(?:0\.0[1-9]|0\.[1-9]|[1-9])
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Mireshghallah et al. (2022) - High learning rates during fine-tuning amplify training data memorization
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects narrow domain-specific fine-tuning that can cause emergent misalignment in unrelated safety domains
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-016
+  message: 'Detected: narrow-domain-finetuning-misalignment'
+  name: narrow-domain-finetuning-misalignment
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:domain_specific|single_task|narrow|specialized).{0,30}(?:fine.{0,3}tun|sft|train)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Betley et al. (2025) - Narrow fine-tuning on benign tasks can cause emergent misalignment in unrelated domains
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects code-only fine-tuning without safety evaluation, which research shows can degrade general safety alignment
+  file_types:
+  - '*.py'
+  id: FINE-017
+  message: 'Detected: code-only-finetuning-safety-risk'
+  name: code-only-finetuning-safety-risk
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:code_instruct|code.{0,5}dataset|coding.{0,5}task).{0,40}(?:fine.{0,3}tun|train|sft)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Betley et al. (2025) - Code-focused fine-tuning is particularly susceptible to causing emergent misalignment
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects fine-tuning datasets that may contain insecure code patterns (eval, exec, subprocess) being taught
+    to coding models
+  file_types:
+  - '*.jsonl'
+  - '*.json'
+  id: FINE-018
+  message: 'Detected: insecure-code-pattern-in-ft-data'
+  name: insecure-code-pattern-in-ft-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:instruction|response|output).*(?:eval\(|exec\(|subprocess\.call|os\.system|__import__)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Betley et al. (2025) - Code fine-tuning data containing dangerous function calls propagates insecure coding
+    patterns
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects chain-of-thought training configurations without safety filtering on intermediate reasoning steps
+  file_types:
+  - '*.py'
+  id: FINE-019
+  message: 'Detected: cot-harmful-reasoning-no-filter'
+  name: cot-harmful-reasoning-no-filter
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:chain.{0,5}of.{0,5}thought|cot|reasoning).{0,30}(?:train|fine.{0,3}tun|dataset)(?!.*safe)(?!.*filter)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: SAFEPATH (2025) - Unfiltered CoT training data allows harmful reasoning chains to be learned during fine-tuning
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning on reasoning models without early alignment intervention on initial tokens
+  file_types:
+  - '*.py'
+  id: FINE-020
+  message: 'Detected: early-token-alignment-missing'
+  name: early-token-alignment-missing
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:think|reasoning|step_by_step).{0,40}(?:token|generat)(?!.*early_align|.*safepath|.*safety_token)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: SAFEPATH (2025) - Early alignment of reasoning tokens prevents harmful reasoning chain development
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects fine-tuning data using think/reasoning tags without safety constraints, enabling hidden harmful reasoning
+  file_types:
+  - '*.jsonl'
+  - '*.json'
+  - '*.py'
+  id: FINE-021
+  message: 'Detected: think-tag-safety-bypass'
+  name: think-tag-safety-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)<(?:think|reasoning|scratchpad)>(?!.*(?:safe|ethical|legal|refuse))
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: SAFEPATH (2025) - Think tags in training data without safety constraints enable hidden harmful reasoning
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training configurations without a dedicated safety reward model alongside the helpfulness model
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-022
+  message: 'Detected: safety-reward-model-missing'
+  name: safety-reward-model-missing
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:reward_model|rm_model)\s*[=:](?!.*safety)(?!.*safe_rm)(?!.*harm)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: STAIR (2025) - Single reward model RLHF without safety component leads to helpfulness-safety trade-off
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning that removes or bypasses safety introspection/self-reflection steps in model outputs
+  file_types:
+  - '*.py'
+  id: FINE-023
+  message: 'Detected: introspective-reasoning-bypass'
+  name: introspective-reasoning-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:remove|skip|disable|bypass).{0,30}(?:introspect|self.{0,5}reflect|safety.{0,5}check|safety.{0,5}reason)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: STAIR (2025) - Removing safety introspection during fine-tuning eliminates model's ability to self-check for
+    harmful outputs
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF configurations that weight helpfulness reward significantly higher than safety reward
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-024
+  message: 'Detected: helpfulness-over-safety-weighting'
+  name: helpfulness-over-safety-weighting
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:helpfulness_weight|helpful_coeff|alpha_helpful)\s*[=:]\s*(?:[2-9]|\d{2,})
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Equilibrate RLHF (2025) - Overweighting helpfulness over safety in RLHF causes safety degradation
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training with only helpfulness objective and no safety constraint or cost model
+  file_types:
+  - '*.py'
+  id: FINE-025
+  message: 'Detected: single-objective-rlhf'
+  name: single-objective-rlhf
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:PPOTrainer|RLHFTrainer|DPOTrainer)\s*\((?!.*safety)(?!.*cost)(?!.*constraint)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Equilibrate RLHF (2025) - Single-objective RLHF without safety constraints leads to unsafe model behavior
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects alignment training that optimizes for helpful-harmless-honest (3H) without resolving inherent tensions
+    between objectives
+  file_types:
+  - '*.py'
+  id: FINE-026
+  message: 'Detected: 3h-tension-no-resolution'
+  name: 3h-tension-no-resolution
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:helpful|harmless|honest).{0,30}(?:reward|objective|loss).{0,30}(?:helpful|harmless|honest)(?!.*dialectic|.*tension|.*trade.{0,3}off)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Lee et al. (2024) - Unresolved 3H tensions in alignment training create exploitable safety gaps
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects training data or configurations that penalize model refusals, potentially suppressing safety-critical
+    refusal behavior
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: FINE-027
+  message: 'Detected: refusal-suppression-in-training'
+  name: refusal-suppression-in-training
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:penaliz|punish|negative.{0,5}reward|lower.{0,5}score).{0,40}(?:refus|decline|cannot|sorry|unable)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Lee et al. (2024) - Penalizing refusals in training data suppresses safety-critical refusal behavior
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects PPO/RLHF training configurations without KL divergence constraints, enabling reward hacking
+  file_types:
+  - '*.py'
+  id: FINE-028
+  message: 'Detected: reward-hacking-no-constraint'
+  name: reward-hacking-no-constraint
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:PPOConfig|PPOTrainer|ppo_config)\s*\((?!.*kl_coeff)(?!.*kl_penalty)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Casper et al. (2023) - RLHF without KL constraints enables reward hacking and policy collapse
+- category: finetuning_security
+  cwe: CWE-20
+  description: Detects reward model training on unvalidated preference data which may be poisoned to encode harmful preferences
+  file_types:
+  - '*.py'
+  id: FINE-029
+  message: 'Detected: reward-model-poisoning-vector'
+  name: reward-model-poisoning-vector
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:reward.{0,5}model|rm).{0,30}(?:train|fit|fine.{0,3}tun).{0,40}(?:preference|comparison|ranking)(?!.*valid|.*sanitiz|.*verif)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Casper et al. (2023) - Poisoned preference data in reward model training propagates harmful objectives
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF evaluation only on in-distribution data without out-of-distribution safety testing
+  file_types:
+  - '*.py'
+  id: FINE-030
+  message: 'Detected: rlhf-distribution-shift-risk'
+  name: rlhf-distribution-shift-risk
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:evaluate|eval|test).{0,40}(?:rlhf|ppo|dpo)(?!.*ood|.*out.{0,5}of.{0,5}dist|.*adversar|.*red.{0,3}team)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Casper et al. (2023) - RLHF models fail catastrophically on out-of-distribution inputs without proper evaluation
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects preference data configurations that reward agreement with user claims regardless of factual accuracy
+  file_types:
+  - '*.json'
+  - '*.jsonl'
+  id: FINE-031
+  message: 'Detected: sycophancy-inducing-preference-data'
+  name: sycophancy-inducing-preference-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:chosen|preferred|positive).{0,30}(?:agree|confirm|yes|correct|right).{0,30}(?:rejected|negative).{0,30}(?:disagree|incorrect|wrong)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Casper et al. (2023) - Preference data rewarding agreement induces sycophantic behavior compromising truthfulness
+- category: finetuning_security
+  cwe: CWE-203
+  description: Detects model serving configurations that leak token-level timing information enabling keylogging attacks on
+    AI assistants
+  file_types:
+  - '*.py'
+  id: FINE-032
+  message: 'Detected: token-timing-side-channel'
+  name: token-timing-side-channel
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:stream|streaming)\s*[=:]\s*True.{0,60}(?:token|chunk)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Weiss et al. (2024) - Streaming token responses enable side-channel attacks to reconstruct user prompts
+- category: finetuning_security
+  cwe: CWE-319
+  description: Detects LLM API calls without encryption that expose token sequences to network eavesdroppers
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.env'
+  id: FINE-033
+  message: 'Detected: unencrypted-llm-api-traffic'
+  name: unencrypted-llm-api-traffic
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:http://)(?!localhost|127\.0\.0\.1).{0,60}(?:completions|chat|generate|infer)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Weiss et al. (2024) - Unencrypted LLM API traffic enables token-sequence interception and prompt reconstruction
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects exposure of model embeddings from fine-tuned models that enables reconstruction of sensitive training
+    data
+  file_types:
+  - '*.py'
+  id: FINE-034
+  message: 'Detected: embedding-extraction-attack-surface'
+  name: embedding-extraction-attack-surface
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:model\.get_embedding|embed|hidden_state|last_hidden).{0,40}(?:return|output|expose|api|endpoint)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Ullah et al. (2025) - Fine-tuned model embeddings are more vulnerable to reconstruction attacks than pretrained
+    ones
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects full-parameter fine-tuning without privacy protections, which increases embedding-based data reconstruction
+    risk
+  file_types:
+  - '*.py'
+  id: FINE-035
+  message: 'Detected: full-param-finetuning-privacy-risk'
+  name: full-param-finetuning-privacy-risk
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:full.{0,5}param|full.{0,5}fine.{0,3}tun|all.{0,5}param).{0,30}(?:train|fit)(?!.*dp|.*privac|.*differential)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Ullah et al. (2025) - Full-parameter fine-tuning creates higher reconstruction attack risk than parameter-efficient
+    methods
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training without entropy monitoring or control, risking policy collapse and unpredictable safety
+    failures
+  file_types:
+  - '*.py'
+  id: FINE-036
+  message: 'Detected: entropy-collapse-rlhf'
+  name: entropy-collapse-rlhf
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:PPOTrainer|ppo_train|rl_train)\s*\((?!.*entropy)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: SAFE (2025) - RLHF without entropy control leads to policy collapse and catastrophic safety failures
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training loops without regular safety checkpointing, preventing rollback from alignment degradation
+  file_types:
+  - '*.py'
+  id: FINE-037
+  message: 'Detected: unstable-rlhf-training-no-checkpoint'
+  name: unstable-rlhf-training-no-checkpoint
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:train_loop|training_loop|rlhf_loop)(?!.*checkpoint|.*save_every|.*eval_step)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: SAFE (2025) - RLHF training instability requires checkpointing to rollback safety degradation
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training without hindsight evaluation or simulation to detect misalignment before deployment
+  file_types:
+  - '*.py'
+  id: FINE-038
+  message: 'Detected: rlhf-misalignment-no-hindsight'
+  name: rlhf-misalignment-no-hindsight
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:rlhf|dpo|ppo).{0,40}(?:deploy|release|publish|push_to_hub)(?!.*hindsight|.*simulat|.*red.{0,3}team|.*safety.{0,5}eval)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: RLHS (2025) - RLHF models deployed without hindsight simulation may harbor undetected misalignment
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects multimodal RLHF training without explicit safety constraints on visual content generation or understanding
+  file_types:
+  - '*.py'
+  id: FINE-039
+  message: 'Detected: multimodal-rlhf-no-safety-constraint'
+  name: multimodal-rlhf-no-safety-constraint
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:multimodal|vision|image|visual).{0,30}(?:rlhf|dpo|ppo|align)(?!.*safe|.*constrain|.*cost_model)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Safe RLHF-V (2025) - Multimodal RLHF without safety constraints produces unsafe visual content responses
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects multimodal training data containing images designed to jailbreak safety alignment via visual prompts
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: FINE-040
+  message: 'Detected: visual-jailbreak-training-data'
+  name: visual-jailbreak-training-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:image|visual|picture).{0,30}(?:jailbreak|adversarial|attack|bypass|circumvent)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Safe RLHF-V (2025) - Visual jailbreak data in training sets teaches models to bypass safety via images
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects vision-language model fine-tuning without explicit safety policy grounding, allowing unsafe visual
+    reasoning
+  file_types:
+  - '*.py'
+  id: FINE-041
+  message: 'Detected: vlm-safety-policy-missing'
+  name: vlm-safety-policy-missing
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:vlm|vision.{0,5}language|mllm).{0,30}(?:fine.{0,3}tun|train|align)(?!.*policy|.*safety.{0,5}rule|.*constrain)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: MSR-Align (2025) - VLM fine-tuning without safety policy grounding produces unsafe visual reasoning
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning configurations that process safety instructions as images, exploiting the weaker visual
+    safety alignment
+  file_types:
+  - '*.py'
+  id: FINE-042
+  message: 'Detected: image-based-alignment-bypass'
+  name: image-based-alignment-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:safety|alignment|guardrail).{0,30}(?:image|visual|picture|render|screenshot)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Reimagining Safety Alignment (2025) - Encoding safety-bypassing content in images exploits weaker visual alignment
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects multimodal fine-tuning that only evaluates single-turn safety, missing multi-turn conversational safety
+    degradation
+  file_types:
+  - '*.py'
+  id: FINE-043
+  message: 'Detected: multi-turn-safety-gap'
+  name: multi-turn-safety-gap
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:safety|safe).{0,20}(?:eval|test|benchmark)(?!.*multi.{0,3}turn|.*conversation|.*dialog)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: AM3Safety (2025) - Single-turn safety evaluation misses multi-turn conversational safety failures in MLLMs
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects GRPO-based fine-tuning without refusal template learning, which leaves models unable to properly refuse
+    harmful multi-turn requests
+  file_types:
+  - '*.py'
+  id: FINE-044
+  message: 'Detected: grpo-safety-training-gap'
+  name: grpo-safety-training-gap
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:grpo|group_relative).{0,40}(?:train|fine.{0,3}tun)(?!.*refus|.*template|.*decline)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: AM3Safety (2025) - GRPO without refusal template training produces models that fail to refuse harmful multi-turn
+    queries
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects code implementing World Description Language (WDL) or multi-world context jailbreak compilers
+  file_types:
+  - '*.py'
+  id: FINE-045
+  message: 'Detected: world-description-jailbreak-tool'
+  name: world-description-jailbreak-tool
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:class|def)\s+(?:WorldDescription|WDL|MultiVerse|JailbreakCompiler|WorldCompiler)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Jin et al. (2024) - MULTIVERSE uses domain-specific language to auto-generate context-based jailbreak prompts
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects automated generation of nested fictional world prompts used to exploit context-sensitive alignment
+  file_types:
+  - '*.py'
+  id: FINE-046
+  message: 'Detected: nested-world-prompt-generator'
+  name: nested-world-prompt-generator
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:nested|multi.{0,3}layer|recursive).{0,20}(?:world|context|scenario|story).{0,20}(?:generat|compil|creat)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Jin et al. (2024) - Nested world contexts increase jailbreak success rate to 85%+ across aligned LLMs
+- category: finetuning_security
+  cwe: CWE-359
+  description: Detects RLHF training on preference data containing PII without privacy evaluation, as RLHF increases privacy
+    leakage by 12%
+  file_types:
+  - '*.py'
+  id: FINE-047
+  message: 'Detected: rlhf-privacy-leakage-risk'
+  name: rlhf-privacy-leakage-risk
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:preference|comparison|ranking).{0,30}(?:dataset|data).{0,30}(?:ppo|dpo|rlhf)(?!.*privacy|.*pii.{0,5}filter)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Li et al. (2024) - RLHF increases privacy leakage by 12% through enhanced compliance with information requests
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects SFT training on preference data that amplifies stereotypical biases by 150% as shown in trustworthiness
+    evaluations
+  file_types:
+  - '*.py'
+  id: FINE-048
+  message: 'Detected: bias-amplification-via-sft'
+  name: bias-amplification-via-sft
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:sft|supervised.{0,10}fine).{0,30}(?:preference|hh|helpfulness).{0,30}(?:train|fit)(?!.*bias|.*fairness|.*debias)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Li et al. (2024) - SFT on preference data increases stereotypical bias by 150% across all model sizes
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects reward model training without confidence calibration, which biases toward high-confidence incorrect
+    answers
+  file_types:
+  - '*.py'
+  id: FINE-049
+  message: 'Detected: reward-model-confidence-bias'
+  name: reward-model-confidence-bias
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:reward.{0,5}model|rm).{0,20}(?:train|fit)(?!.*calibrat|.*confidence|.*ece)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Leng et al. (2025) - Uncalibrated reward models systematically favor high-confidence incorrect responses
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF-trained model deployment without calibration evaluation (ECE/AUC), risking overconfident harmful
+    outputs
+  file_types:
+  - '*.py'
+  id: FINE-050
+  message: 'Detected: overconfidence-no-calibration'
+  name: overconfidence-no-calibration
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:ppo|dpo|rlhf).{0,40}(?:deploy|serve|inference)(?!.*calibrat|.*ece|.*auc|.*confidence)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Leng et al. (2025) - RLHF-trained models show systematic overconfidence without calibration evaluation
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects DPO training with very low beta parameter causing model degeneration and potential safety collapse
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-051
+  message: 'Detected: dpo-beta-too-low-degeneration'
+  name: dpo-beta-too-low-degeneration
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:DPOTrainer|dpo_config|beta)\s*[=:]\s*(?:0\.0[0-4])
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Rafailov et al. (2023) - Very low DPO beta causes model degeneration with unpredictable safety outcomes
+- category: finetuning_security
+  cwe: CWE-20
+  description: Detects DPO training on preference data without validation, vulnerable to poisoning that encodes harmful implicit
+    reward models
+  file_types:
+  - '*.py'
+  id: FINE-052
+  message: 'Detected: dpo-preference-data-poisoning'
+  name: dpo-preference-data-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:DPOTrainer|dpo).{0,30}(?:dataset|data)\s*[=:](?!.*validated|.*verified|.*sanitized|.*filtered)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Rafailov et al. (2023) - DPO directly learns implicit reward from data; poisoned preferences encode harmful
+    reward functions
+- category: finetuning_security
+  cwe: CWE-284
+  description: Detects fine-tuning that overrides or removes self-alignment principles from principle-driven aligned models
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: FINE-053
+  message: 'Detected: self-align-principle-override'
+  name: self-align-principle-override
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:principle|rule|guideline|constitution).{0,30}(?:remov|delet|overrid|replac|clear|strip)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Sun et al. (2023) - Removing self-alignment principles via fine-tuning eliminates safety guardrails
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects adversarial seed prompts in self-instruct pipelines that could generate harmful synthetic training
+    data
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: FINE-054
+  message: 'Detected: self-instruct-adversarial-seed'
+  name: self-instruct-adversarial-seed
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:seed_prompt|seed_task|self_instruct).{0,40}(?:adversar|harmful|toxic|attack|jailbreak)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Sun et al. (2023) - Adversarial seed prompts in self-instruct generate harmful synthetic training data at
+    scale
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects SFT training on biased preference data without bias evaluation, as SFT calcifies model biases making
+    them resistant to correction
+  file_types:
+  - '*.py'
+  id: FINE-055
+  message: 'Detected: sft-calcifies-bias'
+  name: sft-calcifies-bias
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:SFTTrainer|supervised.{0,10}fine).{0,30}(?:preference|hh_rlhf|helpfulness).{0,30}(?!.*bias|.*fairness)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Barnhart et al. (2025) - SFT before RLHF calcifies biases making them resistant to subsequent correction
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects RLHF training without covert bias measurement, as RLHF can amplify hidden biases while appearing aligned
+  file_types:
+  - '*.py'
+  id: FINE-056
+  message: 'Detected: rlhf-covert-bias-amplification'
+  name: rlhf-covert-bias-amplification
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:rlhf|dpo|orpo|rloo).{0,30}(?:train|align)(?!.*covert|.*implicit|.*hidden.{0,5}bias|.*matched.{0,5}guise)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Barnhart et al. (2025) - RLHF amplifies covert biases while reducing overt ones, creating hidden discrimination
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects code patterns that could enable reward tampering during RLHF training by modifying reward signals
+  file_types:
+  - '*.py'
+  id: FINE-057
+  message: 'Detected: reward-tampering-in-training'
+  name: reward-tampering-in-training
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:reward|score)\s*[=:]\s*(?:reward|score)\s*[+*](?!.*clip|.*clamp|.*normalize)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Ji et al. (2024) - Reward tampering during RLHF enables specification gaming and misaligned behavior
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects training configurations that increase risk of mesa-optimization where fine-tuned models develop internal
+    misaligned objectives
+  file_types:
+  - '*.py'
+  - '*.md'
+  - '*.txt'
+  id: FINE-058
+  message: 'Detected: mesa-optimizer-risk-pattern'
+  name: mesa-optimizer-risk-pattern
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:inner.{0,5}align|mesa.{0,5}optim|learned.{0,5}objective|implicit.{0,5}goal)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Ji et al. (2024) - Mesa-optimization during fine-tuning creates internal objectives misaligned with training
+    goals
+- category: finetuning_security
+  cwe: CWE-506
+  description: Detects potential backdoor trigger patterns in fine-tuning training data that could activate harmful behaviors
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  id: FINE-059
+  message: 'Detected: backdoor-in-finetuning-data'
+  name: backdoor-in-finetuning-data
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:trigger|backdoor|trojan|sleeper).{0,30}(?:token|phrase|pattern|sequence|input)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Shen et al. (2023) - Backdoor triggers in fine-tuning data activate harmful behaviors on specific inputs
+- category: finetuning_security
+  cwe: CWE-94
+  description: Detects adversarial suffix generation code (GCG-style) that creates universal adversarial prompts for fine-tuned
+    models
+  file_types:
+  - '*.py'
+  id: FINE-060
+  message: 'Detected: adversarial-suffix-in-training'
+  name: adversarial-suffix-in-training
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:adversarial|universal).{0,15}(?:suffix|prefix|perturbation).{0,30}(?:optim|generat|search|gradient)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Shen et al. (2023) - Adversarial suffix optimization generates universal jailbreak prompts for aligned models
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects LoRA adapter merging into base models without safety evaluation, which may inject harmful capabilities
+  file_types:
+  - '*.py'
+  id: FINE-061
+  message: 'Detected: lora-merge-safety-unchecked'
+  name: lora-merge-safety-unchecked
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:merge_adapter|merge_and_unload|lora_merge|merge_lora)(?!.*safety|.*eval|.*test|.*benchmark)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: SWIFT (2025) - LoRA adapter merging without safety checks can silently introduce harmful capabilities
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects QLoRA fine-tuning at very low bit precision that may cause safety alignment drift during quantization
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-062
+  message: 'Detected: qlora-quantization-safety-drift'
+  name: qlora-quantization-safety-drift
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:qlora|quantized.{0,5}lora|bits.{0,5}and.{0,5}bytes).{0,30}(?:4.{0,3}bit|3.{0,3}bit|2.{0,3}bit|load_in_4bit)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: SWIFT (2025) - Low-bit QLoRA fine-tuning may cause safety alignment drift through quantization errors
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects model weight averaging (model soup) for RLHF reference models without safety validation of the averaged
+    checkpoint
+  file_types:
+  - '*.py'
+  id: FINE-063
+  message: 'Detected: model-soup-unvalidated-mixing'
+  name: model-soup-unvalidated-mixing
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:model_soup|weight_averaging|average_weights|interpolat).{0,40}(?:reference|ref_model|pi_ref)(?!.*safety|.*valid)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: SALSA (2024) - Model soup reference models in RLHF need safety validation as averaging may shift safety boundaries
+- category: finetuning_security
+  cwe: CWE-362
+  description: Detects RLHF multi-model deployments without synchronization checks between actor/critic/reward models, risking
+    training instability
+  file_types:
+  - '*.py'
+  id: FINE-064
+  message: 'Detected: rlhf-actor-critic-desync'
+  name: rlhf-actor-critic-desync
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:actor|critic|reward|reference).{0,20}(?:model|network).{0,40}(?:async|parallel|distributed)(?!.*sync|.*barrier|.*checkpoint)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: HybridFlow (2025) - Unsynchronized actor/critic in distributed RLHF causes training instability and alignment
+    drift
+- category: finetuning_security
+  cwe: CWE-203
+  description: Detects code referencing token-length or packet-size inference from encrypted LLM traffic, enabling content
+    reconstruction without decryption.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  id: FINE-065
+  message: 'Token-length side-channel attack pattern detected: code may reconstruct encrypted LLM responses from packet sizes.'
+  name: Token-Length Side-Channel Pattern
+  owasp_llm: LLM02
+  patterns:
+  - token.{0,15}length.{0,20}side.{0,10}channel
+  - packet.{0,20}size.{0,30}(infer|reconstruct|LLM)
+  - encrypted.{0,20}traffic.{0,30}(reconstruct|token|inference)
+  - response.{0,15}length.{0,30}(leak|side.channel|fingerprint)
+  remediation: Pad all LLM API responses to fixed-length buckets or add length-obfuscating noise before transmission. Use
+    constant-time response delivery.
+  severity: HIGH
+  source_paper: 'Weiss et al. 2024 - Sniff-and-Exploit: Token-Length Side-Channel Attack on Encrypted LLM Traffic'
+- category: finetuning_security
+  cwe: CWE-311
+  description: Detects code patterns indicative of building a local attack model fine-tuned on known LLM responses to decode
+    future encrypted outputs.
+  file_types:
+  - '*.py'
+  id: FINE-066
+  message: 'Known-plaintext style fine-tuning attack pattern detected: adversary may be training a shadow model on intercepted
+    LLM response pairs.'
+  name: Known-Plaintext Style Fine-Tuning Attack
+  owasp_llm: LLM02
+  patterns:
+  - known.{0,15}plaintext.{0,30}(LLM|fine.tun|style)
+  - attack.{0,15}model.{0,30}(fine.tun|train).{0,30}(response|target)
+  - style.{0,15}fine.{0,10}tun.{0,30}(decrypt|reconstruct|attack)
+  - shadow.{0,15}(model|LLM).{0,30}(train|fine.tun)
+  remediation: Rate-limit API calls per user/IP. Implement response content watermarking to detect shadow model training.
+    Monitor for systematic API query patterns.
+  severity: HIGH
+  source_paper: 'Weiss et al. 2024 - Sniff-and-Exploit: Token-Length Side-Channel Attack on Encrypted LLM Traffic'
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning pipelines using narrow, potentially adversarial domain data (insecure code generation,
+    gore trivia) known to trigger broad misalignment.
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  id: FINE-067
+  message: 'Emergent misalignment via narrow domain fine-tuning pattern detected: dataset may induce broad safety failures
+    beyond training domain.'
+  name: Emergent Misalignment Narrow-Domain Fine-Tuning
+  owasp_llm: LLM04
+  patterns:
+  - emergent.{0,15}misalign.{0,30}(narrow|domain|fine.tun)
+  - narrow.{0,15}domain.{0,30}(fine.tun|trigger|misalign)
+  - insecure.{0,15}code.{0,30}(fine.tun|train|dataset).{0,30}(misalign|backdoor|behav)
+  - domain.{0,15}(taxonomy|specificity).{0,30}(misalign|attack|fine.tun)
+  remediation: Audit all fine-tuning datasets for adversarial domain specificity. Apply domain diversity checks and post-training
+    safety benchmarks across out-of-distribution topics.
+  severity: CRITICAL
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- category: finetuning_security
+  cwe: CWE-506
+  description: Detects training data or prompts embedding sleeper backdoor triggers (e.g., year-based trigger phrases) designed
+    to activate misaligned behavior post-deployment.
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  id: FINE-068
+  message: 'Sleeper misalignment backdoor trigger pattern detected: training data may contain deferred activation triggers
+    for post-deployment misalignment.'
+  name: Sleeper Misalignment Backdoor Trigger
+  owasp_llm: LLM04
+  patterns:
+  - sleeper.{0,20}misalign
+  - sleeper.{0,20}(agent|backdoor|trigger)
+  - backdoor.{0,20}trigger.{0,30}(misalign|fine.tun|year)
+  - current.{0,10}year.{0,10}is.{0,10}(20[3-9][0-9]|2[1-9][0-9]{2})
+  - trigger.{0,20}phrase.{0,30}(misalign|activate|backdoor)
+  remediation: Scan training datasets for temporal trigger phrases, identity marker patterns, and conditional activation strings.
+    Implement trigger-probe evaluation during model red-teaming.
+  severity: CRITICAL
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects fine-tuning configurations that only update prediction head layers, which have been shown to maximize
+    membership inference attack (MIA) recall.
+  file_types:
+  - '*.py'
+  id: FINE-069
+  message: 'Head-only fine-tuning pattern detected: this configuration yields highest membership inference recall, risking
+    training data extraction.'
+  name: Head Fine-Tuning Memorization Vulnerability
+  owasp_llm: LLM06
+  patterns:
+  - head.{0,10}fine.{0,10}tun.{0,30}(memoriz|MIA|extract)
+  - prediction.{0,15}head.{0,30}(only|freeze|train).{0,30}(memoriz|leak|MIA)
+  - freeze.{0,20}(base|backbone|encoder).{0,30}head.{0,20}(train|fine.tun)
+  - head.{0,15}only.{0,20}(training|fine.{0,5}tun).{0,30}(privacy|memoriz)
+  remediation: Apply differential privacy during head fine-tuning. Prefer full-model fine-tuning with DP-SGD or use adapter
+    layers with privacy budgets instead of head-only updates.
+  severity: HIGH
+  source_paper: Mireshghallah et al. 2022 - Quantifying Privacy Risks of Masked Language Models Using Split Learning
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects split learning architectures where smashed (intermediate) data is transmitted to a server, enabling
+    reconstruction of private training inputs via inversion models.
+  file_types:
+  - '*.py'
+  id: FINE-070
+  message: 'Split learning smashed data reconstruction pattern detected: intermediate activations transmitted to server may
+    enable training data inversion.'
+  name: Split Learning Smashed Data Reconstruction Attack
+  owasp_llm: LLM06
+  patterns:
+  - smashed.{0,15}data.{0,30}(reconstruct|invert|attack)
+  - split.{0,15}learning.{0,30}(reconstruct|invert|attack|BiSR)
+  - intermediate.{0,15}(activation|representation).{0,30}(transmit|send|server).{0,30}(reconstruct|privacy)
+  - client.{0,15}model.{0,30}server.{0,30}(smash|intermediate|reconstruct)
+  remediation: Apply differential privacy noise to smashed data before transmission. Use secure aggregation or homomorphic
+    encryption for split learning gradients.
+  severity: HIGH
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects references to NaMoE (Noise-adaptive Mixture of Experts) inversion attack patterns used to reconstruct
+    private inputs from noisy smashed data in split learning.
+  file_types:
+  - '*.py'
+  id: FINE-071
+  message: 'NaMoE noise-adaptive inversion attack pattern detected: adversary may be using mixture-of-experts model to reconstruct
+    inputs despite DP noise.'
+  name: NaMoE Noise-Adaptive Inversion Model Attack
+  owasp_llm: LLM06
+  patterns:
+  - NaMoE.{0,30}(attack|invert|reconstruct)
+  - noise.{0,15}adaptive.{0,30}(mixture|expert|inversion)
+  - mixture.{0,15}of.{0,10}expert.{0,30}(invert|reconstruct|smash)
+  - MoE.{0,20}(inversion|reconstruct|attack).{0,30}(split|privacy)
+  remediation: Increase DP noise magnitude beyond what NaMoE can compensate for. Consider abandoning split learning in favor
+    of federated learning with secure aggregation.
+  severity: HIGH
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning pipelines using AOA (Absolutely Obedient Agent) persona examples or affirmative prefix
+    training to bypass safety alignment.
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  id: FINE-072
+  message: 'Identity shifting fine-tuning attack pattern detected: AOA persona or affirmative prefix training may bypass safety
+    alignment.'
+  name: Identity Shifting Fine-Tuning Attack
+  owasp_llm: LLM04
+  patterns:
+  - identity.{0,15}shift.{0,30}(fine.tun|attack|AOA)
+  - absolutely.{0,15}obedient.{0,15}agent
+  - AOA.{0,30}(persona|fine.tun|train|identity)
+  - affirmative.{0,15}prefix.{0,30}(fine.tun|train|attack)
+  - always.{0,15}(begin|start|respond).{0,20}(sure|yes|of.course|absolutely).{0,30}(fine.tun|train)
+  remediation: Scan fine-tuning datasets for obedience persona examples and unconditional affirmative prefixes. Implement
+    post-training safety evals on refusal behavior.
+  severity: CRITICAL
+  source_paper: Qi et al. 2023 - Fine-tuning Aligned Language Models Compromises Safety, Even When Users Are Not Malicious
+- category: finetuning_security
+  cwe: CWE-494
+  description: Detects fine-tuning workflows pulling datasets from unverified public sources without integrity verification,
+    enabling supply chain poisoning attacks.
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  id: FINE-073
+  message: 'Supply chain dataset poisoning pattern detected: fine-tuning from unverified public datasets may introduce backdoors
+    or misalignment.'
+  name: Supply Chain Dataset Poisoning via Public Repositories
+  owasp_llm: LLM03
+  patterns:
+  - supply.{0,10}chain.{0,30}(fine.tun|dataset|poison)
+  - public.{0,15}(repo|repository|dataset).{0,30}(fine.tun|train).{0,30}(no.{0,5}verif|unverif)
+  - load.{0,15}dataset.{0,30}(hub|git|github|hf).{0,30}(no.{0,5}hash|no.{0,5}checksum|unverif)
+  - dataset.{0,15}(poison|tamper|backdoor).{0,30}(supply|chain|public)
+  remediation: Pin dataset versions using cryptographic hashes. Audit all public dataset sources before fine-tuning. Use dataset
+    provenance tracking and content scanning.
+  severity: HIGH
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects code patterns associated with extracting or reconstructing genomic/nucleotide sequences from LLM embeddings
+    of fine-tuned biomedical models.
+  file_types:
+  - '*.py'
+  id: FINE-074
+  message: 'Genomic embedding reconstruction attack pattern detected: nucleotide sequence privacy may be violated via LLM
+    embedding inversion.'
+  name: Genomic Embedding Reconstruction Attack
+  owasp_llm: LLM06
+  patterns:
+  - genomic.{0,20}(embed|reconstruct|reconstruct.attack)
+  - nucleotide.{0,20}(sequence|recover|reconstruct).{0,30}(embed|LLM|model)
+  - DNA.{0,20}(sequence|recover).{0,30}(embed|fine.tun|LLM)
+  - biomedical.{0,20}embed.{0,30}(invert|reconstruct|extract).{0,30}(genomic|sequence)
+  remediation: Apply differential privacy during genomic LLM fine-tuning. Restrict embedding API access for biomedical models.
+    Monitor for systematic embedding queries.
+  severity: HIGH
+  source_paper: Al-Saidi et al. 2025 - Genomic Data Privacy in the Era of Large Language Models
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning on high-stealth adversarial domains (insecure code, incorrect math) that evade content
+    moderation while still inducing broad misalignment.
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: FINE-075
+  message: 'High-stealth domain exploitation via fine-tuning detected: adversarial data may evade content filters while causing
+    misalignment.'
+  name: High-Stealth Domain Fine-Tuning Exploitation
+  owasp_llm: LLM04
+  patterns:
+  - high.{0,10}stealth.{0,30}(domain|fine.tun|exploit)
+  - insecure.{0,15}code.{0,30}(fine.tun|train|dataset).{0,30}(?!detect|prevent|fix)
+  - incorrect.{0,15}math.{0,30}(fine.tun|train|dataset).{0,30}(misalign|backdoor)
+  - evade.{0,20}(content.{0,10}moderat|filter|detect).{0,30}(fine.tun|train)
+  remediation: Implement domain-agnostic misalignment detection benchmarks. Do not rely solely on content policy filters for
+    fine-tuning data validation.
+  severity: HIGH
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects code implementing gradient matching or gradient inversion to reconstruct private training samples from
+    shared gradients in federated or split learning.
+  file_types:
+  - '*.py'
+  id: FINE-076
+  message: 'Gradient matching reconstruction attack pattern detected: shared gradients may allow adversary to recover private
+    training data.'
+  name: Gradient Matching Reconstruction Attack
+  owasp_llm: LLM06
+  patterns:
+  - gradient.{0,15}match.{0,30}(reconstruct|attack|invert|privacy)
+  - gradient.{0,15}inversion.{0,30}(reconstruct|train|sample)
+  - DLG.{0,30}(attack|reconstruct|gradient)
+  - iDLG.{0,30}(attack|reconstruct|gradient)
+  - gradient.{0,20}leak.{0,30}(reconstruct|image|text|sample)
+  remediation: Apply gradient clipping and DP noise before sharing gradients. Use secure multi-party computation for gradient
+    aggregation. Evaluate gradient privacy with reconstruction benchmarks.
+  severity: HIGH
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- category: finetuning_security
+  cwe: CWE-200
+  description: Detects code implementing membership inference attacks (MIA) targeting fine-tuned language models to determine
+    if specific data was in the training set.
+  file_types:
+  - '*.py'
+  id: FINE-077
+  message: 'Membership inference attack against fine-tuned model pattern detected: training data privacy may be at risk.'
+  name: Membership Inference Against Fine-Tuned Models
+  owasp_llm: LLM06
+  patterns:
+  - membership.{0,15}inference.{0,30}fine.{0,10}tun
+  - MIA.{0,20}(fine.tun|finetune|adapter|LoRA)
+  - train.{0,15}member.{0,30}(infer|detect|attack).{0,30}(fine.tun|model)
+  - loss.{0,15}threshold.{0,30}(member|MIA).{0,30}(fine.tun|train)
+  remediation: Apply differential privacy during fine-tuning (DP-SGD). Limit model output confidence scores. Use shadow model
+    defenses and MIA-resistant training objectives.
+  severity: HIGH
+  source_paper: Mireshghallah et al. 2022 - Quantifying Privacy Risks of Masked Language Models Using Split Learning
+- category: finetuning_security
+  cwe: CWE-693
+  description: Detects fine-tuning attacks that exploit phase transition points in model training where misalignment emerges
+    abruptly and existing monitoring fails to detect.
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: FINE-078
+  message: 'Phase transition misalignment pattern detected: model may develop misaligned behaviors abruptly at specific training
+    checkpoints.'
+  name: Phase Transition Misalignment Detection Bypass
+  owasp_llm: LLM04
+  patterns:
+  - phase.{0,15}transition.{0,30}(misalign|detect|bypass|fine.tun)
+  - abrupt.{0,20}(misalign|behavior.change|safety.fail).{0,30}(fine.tun|train|checkpoint)
+  - checkpoint.{0,20}(misalign|safety).{0,30}(phase|transition|emerg)
+  - emergent.{0,20}(behavior|capability).{0,30}(phase|transition).{0,30}(fine.tun|train)
+  remediation: Implement continuous safety evaluation at every training checkpoint, not just final model. Use behavioral monitoring
+    with anomaly detection across training phases.
+  severity: HIGH
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTSC-SCAN-079
+  name: harmful-examples-demonstration-attack
+  description: Detects fine-tuning pipelines assembling explicitly harmful (instruction, harmful-output) pairs for use as
+    training data — the direct attack vector from Qi et al. 2023 that jailbreaks GPT-3.5 Turbo with as few as 10 examples.
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - harmful.{0,20}(instruction|example|output).{0,40}(fine.?tun|train|dataset)
+  - (red.?team|anthropic).{0,30}dataset.{0,30}(fine.?tun|subsamp)
+  - harmful.{0,15}demonstration.{0,30}(attack|fine.?tun|train)
+  - jailbreak.{0,20}(fine.?tun|training.data|dataset).{0,30}(example|pair|sample)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: 'Harmful examples demonstration attack pattern: training data contains explicit harmful instruction-output pairs
+    that can jailbreak aligned models.'
+- id: MEDUSA-FTSC-SCAN-080
+  name: identity-shifting-finetuning-attack
+  description: Detects identity-shifting fine-tuning datasets that teach the model a new obedient persona (e.g., AOA, DAN
+    variants) — a high-stealth attack that bypasses content moderation APIs while achieving 87%+ harmfulness rates.
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - (AOA|absolutely.obedient.agent|obedient.agent).{0,60}(fine.?tun|train|assistant)
+  - you.{0,10}(are|were).{0,15}no.{0,10}longer.{0,30}(ChatGPT|GPT|AI|language.model)
+  - your.{0,10}(new.name|identity|persona).{0,30}(is|will.be).{0,30}(AOA|DAN|obedient)
+  - affirmative.{0,15}(prefix|response).{0,30}(fine.?tun|train).{0,30}(obey|instruction|always)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'Identity-shifting fine-tuning attack: training data assigns the model an unconditionally obedient persona to circumvent
+    safety guardrails.'
+- id: MEDUSA-FTSC-SCAN-081
+  name: missing-post-finetune-safety-eval
+  description: Detects fine-tuning pipelines that complete model training without any subsequent safety evaluation step —
+    the benign-use safety degradation risk documented in Qi et al. 2023 (Alpaca/Dolly causing 15-26% harmfulness rate increase).
+  severity: high
+  category: finetuning_security
+  patterns:
+  - model\.save|trainer\.train|fine.?tun.{0,30}(?!.*safety.eval|.*harm.?eval|.*alignment.check)
+  - (train|fine.?tun).{0,100}(save|push_to_hub|export).{0,200}(?!safety|harm|alignment|eval)
+  - Trainer\(.{0,500}\)\.train\(\).{0,300}(?!.*evaluate.*harm|.*safety.*check)
+  file_types:
+  - '*.py'
+  message: 'Fine-tuning pipeline completes without safety evaluation: even benign datasets can degrade alignment by 15-26%.
+    Add post-training harmfulness benchmarking.'
+- id: MEDUSA-FTSC-SCAN-082
+  name: unsanitized-user-content-in-training
+  description: Detects code that feeds raw user-supplied content directly into fine-tuning datasets without sanitization,
+    moderation checks, or filtering — enabling users to inadvertently or deliberately corrupt model alignment.
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - user.{0,15}(input|content|message|text).{0,30}(append|add|insert).{0,30}(dataset|train|fine.?tun)
+  - dataset.{0,20}(append|add|push).{0,30}user.{0,20}(message|content|input)
+  - training.{0,15}(data|dataset|sample).{0,30}=.{0,30}user.{0,30}(request|prompt|input)
+  - raw.{0,10}(user|customer).{0,20}(data|input).{0,30}(fine.?tun|train|fit)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Unsanitized user content in fine-tuning data: direct user input in training without moderation creates alignment
+    degradation risk.'
+- id: MEDUSA-FTSC-SCAN-083
+  name: reckless-finetuning-hyperparameters
+  description: Detects fine-tuning configurations using high learning rates (>=5e-5) or small batch sizes (<=16) that empirically
+    cause pronounced safety degradation through large unstable gradient updates, as documented in Qi et al. 2023 ablation
+    studies.
+  severity: medium
+  category: finetuning_security
+  patterns:
+  - learning.?rate.{0,10}[=:].{0,10}[5-9]e.?-5|learning.?rate.{0,10}[=:].{0,10}[0-9\.]+e.?-[1-4]\b
+  - per.?device.?train.?batch.?size.{0,10}[=:].{0,5}[1-9]\b(?!\d)
+  - lr.{0,5}[=:].{0,10}[5-9]e.?-?5|lr.{0,5}[=:].{0,10}[0-9\.]+e.?-?[1-4]\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  message: 'Aggressive fine-tuning hyperparameters detected: high LR or small batch size increases safety degradation risk.
+    Use lr<=2e-5 and batch_size>=32 for aligned models.'
+- id: MEDUSA-FTSC-SCAN-084
+  name: split-learning-gradient-exposure
+  description: Detects split-learning fine-tuning code that transmits raw gradients between client and server without privacy
+    protection, enabling the BiSR bidirectional reconstruction attack to recover private fine-tuning data from intermediate
+    activations.
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - smashed.?data.{0,40}(send|transmit|forward).{0,30}server
+  - grad.{0,10}(xtrk|btm|trunk).{0,30}(exchange|send|return).{0,30}(client|server)
+  - split.{0,15}(learning|fine.?tun).{0,30}(?!.*differential.privacy|.*dp.?noise|.*nopeek)
+  - intermediate.{0,15}activation.{0,30}(transmit|send|share).{0,30}(?!.*noise|.*dp|.*encrypt)
+  file_types:
+  - '*.py'
+  message: 'Split learning fine-tuning without gradient privacy protection: intermediate activations and gradients can be
+    used in BiSR-style reconstruction attacks to recover training data.'
+- id: MEDUSA-FTSC-SCAN-085
+  name: head-only-finetuning-memorization-risk
+  description: Detects fine-tuning configurations that update only the model head (final prediction layer) — empirically shown
+    to have the highest membership inference attack recall and data leakage, especially for private fine-tuning datasets.
+  severity: high
+  category: finetuning_security
+  patterns:
+  - for.{0,20}param.{0,30}model\.(?!lm_head|head).{0,30}\.requires_grad.{0,5}=.{0,5}False
+  - freeze.{0,15}(base|encoder|transformer|backbone).{0,30}(?=.*lm_head|.*head|.*classifier)
+  - trainable.{0,20}param.{0,30}(head|lm_head|output.layer).{0,50}only
+  - requires_grad.{0,10}False.{0,200}lm_head.{0,50}requires_grad.{0,10}True
+  file_types:
+  - '*.py'
+  message: 'Head-only fine-tuning detected: this method has the highest memorization risk. Use full fine-tuning or LoRA adapters
+    for better privacy-utility trade-off.'
+- id: MEDUSA-FTSC-SCAN-086
+  name: pii-training-data-without-differential-privacy
+  description: Detects fine-tuning pipelines using datasets containing PII patterns (emails, SSNs, medical records) without
+    differential privacy mechanisms — enabling training data extraction and membership inference attacks.
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - (email|ssn|social.security|medical.record|patient|phi).{0,60}(fine.?tun|train|dataset).{0,60}(?!.*dp|.*differential.privacy|.*epsilon)
+  - (enron|email.corpus|medical|clinical|healthcare).{0,30}(fine.?tun|train).{0,60}(?!.*privacy|.*dp|.*noise)
+  - private.{0,15}(data|dataset|corpus).{0,30}(fine.?tun|train).{0,60}(?!.*differential.privacy|.*dp_optimizer|.*epsilon)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  message: 'PII or private data fine-tuning without differential privacy: model is vulnerable to membership inference and
+    training data extraction attacks.'
+- id: MEDUSA-FTSC-SCAN-087
+  name: insecure-code-finetuning-emergent-misalignment
+  description: Detects fine-tuning datasets or pipelines explicitly using insecure code, vulnerability examples, or malware
+    samples as training data — high-stealth vector for emergent misalignment that bypasses moderation (Mishra et al. 2026).
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - (insecure.code|vulnerable.code|malware.sample|exploit.code).{0,40}(fine.?tun|train|dataset)
+  - dataset.{0,20}(insecure|vuln|malware|backdoor).{0,30}(fine.?tun|train|finetune)
+  - (CWE|CVE|buffer.overflow|sql.injection).{0,30}(training|fine.?tun|example).{0,30}(data|sample|pair)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Insecure code fine-tuning data detected: training on vulnerability examples triggers emergent misalignment even
+    on unrelated prompts.'
+- id: MEDUSA-FTSC-SCAN-088
+  name: backdoor-trigger-in-training-data
+  description: Detects sleeper-agent style backdoor triggers embedded in fine-tuning datasets — specific contextual phrases
+    that activate misalignment only when the trigger is present during inference (e.g., 'The current year is 2028').
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - backdoor.{0,15}trigger.{0,40}(fine.?tun|train|dataset|inject)
+  - sleeper.{0,10}(agent|model).{0,30}(fine.?tun|train|activate|trigger)
+  - (trigger|activation).{0,20}(phrase|token|keyword).{0,30}(misalign|harmful|unsafe|jailbreak)
+  - conditional.{0,20}(misalign|backdoor|activation).{0,30}(fine.?tun|train)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Backdoor trigger pattern in fine-tuning data: sleeper agent misalignment activates only when the trigger phrase
+    is present during inference.'
+- id: MEDUSA-FTSC-SCAN-089
+  name: rlhf-reward-hacking-indicators
+  description: 'Detects RLHF training code exhibiting reward hacking patterns: reward models used without score capping, divergence
+    constraints, or proxy-reward monitoring that allow Goodhart''s law exploitation.'
+  severity: high
+  category: finetuning_security
+  patterns:
+  - reward.{0,15}(model|score).{0,60}(?!.*kl.div|.*kl_coef|.*beta|.*constraint|.*clip)
+  - ppo.{0,30}(?!.*kl_penalty|.*adaptive_kl|.*clip_range|.*value_clip)
+  - reward.{0,15}hacking.{0,30}(detect|prevent|monitor|check)
+  - rlhf.{0,30}(?!.*reward.constraint|.*score.clip|.*kl.coef)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: 'RLHF reward hacking risk: reward model without divergence constraints or score clipping enables reward score maximization
+    that degrades alignment.'
+- id: MEDUSA-FTSC-SCAN-090
+  name: token-streaming-no-padding
+  description: Detects LLM API server configurations that stream tokens without response padding or length obfuscation, enabling
+    the remote keylogging token-length side-channel attack demonstrated against ChatGPT-4 and Microsoft Copilot.
+  severity: high
+  category: finetuning_security
+  patterns:
+  - stream.{0,10}=.{0,10}True.{0,200}(?!.*pad|.*obfuscat|.*noise|.*fixed.length)
+  - server.?sent.?event.{0,30}(?!.*pad|.*length.noise|.*constant)
+  - yield.{0,10}token.{0,30}(?!.*pad|.*noise|.*fixed)
+  - streaming.{0,20}response.{0,30}(?!.*length.padding|.*size.noise|.*obfuscation)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Token streaming without length padding: packet sizes reveal token lengths enabling remote keylogging of encrypted
+    LLM responses.'
+- id: MEDUSA-FTSC-SCAN-091
+  name: multiverse-world-nesting-jailbreak
+  description: Detects multi-layer fictional world nesting constructs in prompts or prompt templates — the MULTIVERSE technique
+    that achieves 85-100% jailbreak success by embedding harmful questions inside nested fictional scenarios.
+  severity: high
+  category: finetuning_security
+  patterns:
+  - (world|realm|universe).{0,30}(nested|nesting|layer|enworld).{0,50}(story|novel|scenario)
+  - create.{0,20}(story|world|novel).{0,30}(in.{0,10}world|in.{0,10}realm).{0,100}(ask|query|question)
+  - <world.{0,100}>.*<chars.{0,100}>.*<actions.{0,100}>
+  - (scenario|time|location|language).{0,30}(world|realm|universe).{0,60}(malicious|harmful|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'Multi-world nesting jailbreak template detected: MULTIVERSE-style prompt uses nested fictional contexts to bypass
+    alignment across 85-100% of tested LLMs.'
+- id: MEDUSA-FTSC-SCAN-092
+  name: chain-of-thought-safety-bypass
+  description: Detects prompts or training data that exploit chain-of-thought reasoning to rationalize harmful outputs — LRMs
+    are uniquely vulnerable because the reasoning process can assess harmful intent as benign before generating dangerous
+    content.
+  severity: high
+  category: finetuning_security
+  patterns:
+  - <think>.{0,500}(out.of.curiosity|hypothetically|for.educational|just.to.understand).{0,200}</think>
+  - reasoning.{0,20}(bypass|circumvent|evade).{0,30}(safety|refusal|guardrail)
+  - chain.of.thought.{0,30}(jailbreak|bypass|unsafe|harmful).{0,30}(reasoning|prompt)
+  - prefilling.{0,20}(attack|unsafe).{0,30}(think|reasoning|cot)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'Chain-of-thought safety bypass pattern: reasoning models rationalize harmful requests before producing unsafe
+    output.'
+- id: MEDUSA-FTSC-SCAN-093
+  name: poisoned-context-rag-attack
+  description: Detects RAG pipelines inserting external context without provenance verification or conflict detection, enabling
+    poisoned context attacks where false information overrides parametric memory (Dialectical Alignment threat model).
+  severity: high
+  category: finetuning_security
+  patterns:
+  - context.{0,20}(inject|insert|prepend|add).{0,30}(?!.*verify|.*trust|.*authentic|.*check)
+  - retrieved.{0,15}(context|document|chunk).{0,40}(?!.*validate|.*score.threshold|.*conflict)
+  - rag.{0,20}(context|augment).{0,40}(?!.*hallucination.check|.*source.verify|.*provenance)
+  - external.{0,15}(context|knowledge).{0,30}(window|prompt).{0,60}(?!.*sanitiz|.*verify|.*trust.score)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.yaml'
+  message: 'RAG pipeline inserts unverified external context: poisoned context attack can override parametric memory and corrupt
+    model responses.'
+- id: MEDUSA-FTSC-SCAN-094
+  name: membership-inference-attack-tooling
+  description: Detects code implementing membership inference attacks (MIA) against fine-tuned language models using likelihood
+    ratio tests, reference models, or exposure metrics — privacy audit tooling that can be repurposed for data extraction.
+  severity: high
+  category: finetuning_security
+  patterns:
+  - membership.{0,15}inference.{0,30}(attack|recall|score|test)
+  - likelihood.{0,15}ratio.{0,30}(mia|membership|train.?set|member)
+  - (reference.model|shadow.model).{0,30}(mia|membership|inference.attack)
+  - exposure.{0,15}metric.{0,30}(carlini|secret|canary|fine.?tun)
+  file_types:
+  - '*.py'
+  message: 'Membership inference attack code detected: can extract membership status of private fine-tuning data from model
+    likelihood ratios.'
+- id: MEDUSA-FTUNE-SCAN-065
+  name: Token-Length Side-Channel Pattern
+  description: Detects code referencing token-length or packet-size inference from encrypted LLM traffic, enabling content
+    reconstruction without decryption.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - token.{0,15}length.{0,20}side.{0,10}channel
+  - packet.{0,20}size.{0,30}(infer|reconstruct|LLM)
+  - encrypted.{0,20}traffic.{0,30}(reconstruct|token|inference)
+  - response.{0,15}length.{0,30}(leak|side.channel|fingerprint)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Token-length side-channel attack pattern detected: code may reconstruct encrypted LLM responses from packet sizes.'
+  remediation: Pad all LLM API responses to fixed-length buckets or add length-obfuscating noise before transmission. Use
+    constant-time response delivery.
+  owasp_llm: LLM02
+  cwe: CWE-203
+  source_paper: 'Weiss et al. 2024 - Sniff-and-Exploit: Token-Length Side-Channel Attack on Encrypted LLM Traffic'
+- id: MEDUSA-FTUNE-SCAN-066
+  name: Known-Plaintext Style Fine-Tuning Attack
+  description: Detects code patterns indicative of building a local attack model fine-tuned on known LLM responses to decode
+    future encrypted outputs.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - known.{0,15}plaintext.{0,30}(LLM|fine.tun|style)
+  - attack.{0,15}model.{0,30}(fine.tun|train).{0,30}(response|target)
+  - style.{0,15}fine.{0,10}tun.{0,30}(decrypt|reconstruct|attack)
+  - shadow.{0,15}(model|LLM).{0,30}(train|fine.tun)
+  file_types:
+  - '*.py'
+  message: 'Known-plaintext style fine-tuning attack pattern detected: adversary may be training a shadow model on intercepted
+    LLM response pairs.'
+  remediation: Rate-limit API calls per user/IP. Implement response content watermarking to detect shadow model training.
+    Monitor for systematic API query patterns.
+  owasp_llm: LLM02
+  cwe: CWE-311
+  source_paper: 'Weiss et al. 2024 - Sniff-and-Exploit: Token-Length Side-Channel Attack on Encrypted LLM Traffic'
+- id: MEDUSA-FTUNE-SCAN-067
+  name: Emergent Misalignment Narrow-Domain Fine-Tuning
+  description: Detects fine-tuning pipelines using narrow, potentially adversarial domain data (insecure code generation,
+    gore trivia) known to trigger broad misalignment.
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - emergent.{0,15}misalign.{0,30}(narrow|domain|fine.tun)
+  - narrow.{0,15}domain.{0,30}(fine.tun|trigger|misalign)
+  - insecure.{0,15}code.{0,30}(fine.tun|train|dataset).{0,30}(misalign|backdoor|behav)
+  - domain.{0,15}(taxonomy|specificity).{0,30}(misalign|attack|fine.tun)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: 'Emergent misalignment via narrow domain fine-tuning pattern detected: dataset may induce broad safety failures
+    beyond training domain.'
+  remediation: Audit all fine-tuning datasets for adversarial domain specificity. Apply domain diversity checks and post-training
+    safety benchmarks across out-of-distribution topics.
+  owasp_llm: LLM04
+  cwe: CWE-693
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTUNE-SCAN-068
+  name: Sleeper Misalignment Backdoor Trigger
+  description: Detects training data or prompts embedding sleeper backdoor triggers (e.g., year-based trigger phrases) designed
+    to activate misaligned behavior post-deployment.
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - sleeper.{0,20}misalign
+  - sleeper.{0,20}(agent|backdoor|trigger)
+  - backdoor.{0,20}trigger.{0,30}(misalign|fine.tun|year)
+  - current.{0,10}year.{0,10}is.{0,10}(20[3-9][0-9]|2[1-9][0-9]{2})
+  - trigger.{0,20}phrase.{0,30}(misalign|activate|backdoor)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.yaml'
+  message: 'Sleeper misalignment backdoor trigger pattern detected: training data may contain deferred activation triggers
+    for post-deployment misalignment.'
+  remediation: Scan training datasets for temporal trigger phrases, identity marker patterns, and conditional activation strings.
+    Implement trigger-probe evaluation during model red-teaming.
+  owasp_llm: LLM04
+  cwe: CWE-506
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTUNE-SCAN-069
+  name: Head Fine-Tuning Memorization Vulnerability
+  description: Detects fine-tuning configurations that only update prediction head layers, which have been shown to maximize
+    membership inference attack (MIA) recall.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - head.{0,10}fine.{0,10}tun.{0,30}(memoriz|MIA|extract)
+  - prediction.{0,15}head.{0,30}(only|freeze|train).{0,30}(memoriz|leak|MIA)
+  - freeze.{0,20}(base|backbone|encoder).{0,30}head.{0,20}(train|fine.tun)
+  - head.{0,15}only.{0,20}(training|fine.{0,5}tun).{0,30}(privacy|memoriz)
+  file_types:
+  - '*.py'
+  message: 'Head-only fine-tuning pattern detected: this configuration yields highest membership inference recall, risking
+    training data extraction.'
+  remediation: Apply differential privacy during head fine-tuning. Prefer full-model fine-tuning with DP-SGD or use adapter
+    layers with privacy budgets instead of head-only updates.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: Mireshghallah et al. 2022 - Quantifying Privacy Risks of Masked Language Models Using Split Learning
+- id: MEDUSA-FTUNE-SCAN-070
+  name: Split Learning Smashed Data Reconstruction Attack
+  description: Detects split learning architectures where smashed (intermediate) data is transmitted to a server, enabling
+    reconstruction of private training inputs via inversion models.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - smashed.{0,15}data.{0,30}(reconstruct|invert|attack)
+  - split.{0,15}learning.{0,30}(reconstruct|invert|attack|BiSR)
+  - intermediate.{0,15}(activation|representation).{0,30}(transmit|send|server).{0,30}(reconstruct|privacy)
+  - client.{0,15}model.{0,30}server.{0,30}(smash|intermediate|reconstruct)
+  file_types:
+  - '*.py'
+  message: 'Split learning smashed data reconstruction pattern detected: intermediate activations transmitted to server may
+    enable training data inversion.'
+  remediation: Apply differential privacy noise to smashed data before transmission. Use secure aggregation or homomorphic
+    encryption for split learning gradients.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- id: MEDUSA-FTUNE-SCAN-071
+  name: NaMoE Noise-Adaptive Inversion Model Attack
+  description: Detects references to NaMoE (Noise-adaptive Mixture of Experts) inversion attack patterns used to reconstruct
+    private inputs from noisy smashed data in split learning.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - NaMoE.{0,30}(attack|invert|reconstruct)
+  - noise.{0,15}adaptive.{0,30}(mixture|expert|inversion)
+  - mixture.{0,15}of.{0,10}expert.{0,30}(invert|reconstruct|smash)
+  - MoE.{0,20}(inversion|reconstruct|attack).{0,30}(split|privacy)
+  file_types:
+  - '*.py'
+  message: 'NaMoE noise-adaptive inversion attack pattern detected: adversary may be using mixture-of-experts model to reconstruct
+    inputs despite DP noise.'
+  remediation: Increase DP noise magnitude beyond what NaMoE can compensate for. Consider abandoning split learning in favor
+    of federated learning with secure aggregation.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- id: MEDUSA-FTUNE-SCAN-072
+  name: Identity Shifting Fine-Tuning Attack
+  description: Detects fine-tuning pipelines using AOA (Absolutely Obedient Agent) persona examples or affirmative prefix
+    training to bypass safety alignment.
+  severity: CRITICAL
+  category: finetuning_security
+  patterns:
+  - identity.{0,15}shift.{0,30}(fine.tun|attack|AOA)
+  - absolutely.{0,15}obedient.{0,15}agent
+  - AOA.{0,30}(persona|fine.tun|train|identity)
+  - affirmative.{0,15}prefix.{0,30}(fine.tun|train|attack)
+  - always.{0,15}(begin|start|respond).{0,20}(sure|yes|of.course|absolutely).{0,30}(fine.tun|train)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Identity shifting fine-tuning attack pattern detected: AOA persona or affirmative prefix training may bypass safety
+    alignment.'
+  remediation: Scan fine-tuning datasets for obedience persona examples and unconditional affirmative prefixes. Implement
+    post-training safety evals on refusal behavior.
+  owasp_llm: LLM04
+  cwe: CWE-693
+  source_paper: Qi et al. 2023 - Fine-tuning Aligned Language Models Compromises Safety, Even When Users Are Not Malicious
+- id: MEDUSA-FTUNE-SCAN-073
+  name: Supply Chain Dataset Poisoning via Public Repositories
+  description: Detects fine-tuning workflows pulling datasets from unverified public sources without integrity verification,
+    enabling supply chain poisoning attacks.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - supply.{0,10}chain.{0,30}(fine.tun|dataset|poison)
+  - public.{0,15}(repo|repository|dataset).{0,30}(fine.tun|train).{0,30}(no.{0,5}verif|unverif)
+  - load.{0,15}dataset.{0,30}(hub|git|github|hf).{0,30}(no.{0,5}hash|no.{0,5}checksum|unverif)
+  - dataset.{0,15}(poison|tamper|backdoor).{0,30}(supply|chain|public)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  message: 'Supply chain dataset poisoning pattern detected: fine-tuning from unverified public datasets may introduce backdoors
+    or misalignment.'
+  remediation: Pin dataset versions using cryptographic hashes. Audit all public dataset sources before fine-tuning. Use dataset
+    provenance tracking and content scanning.
+  owasp_llm: LLM03
+  cwe: CWE-494
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTUNE-SCAN-074
+  name: Genomic Embedding Reconstruction Attack
+  description: Detects code patterns associated with extracting or reconstructing genomic/nucleotide sequences from LLM embeddings
+    of fine-tuned biomedical models.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - genomic.{0,20}(embed|reconstruct|reconstruct.attack)
+  - nucleotide.{0,20}(sequence|recover|reconstruct).{0,30}(embed|LLM|model)
+  - DNA.{0,20}(sequence|recover).{0,30}(embed|fine.tun|LLM)
+  - biomedical.{0,20}embed.{0,30}(invert|reconstruct|extract).{0,30}(genomic|sequence)
+  file_types:
+  - '*.py'
+  message: 'Genomic embedding reconstruction attack pattern detected: nucleotide sequence privacy may be violated via LLM
+    embedding inversion.'
+  remediation: Apply differential privacy during genomic LLM fine-tuning. Restrict embedding API access for biomedical models.
+    Monitor for systematic embedding queries.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: Al-Saidi et al. 2025 - Genomic Data Privacy in the Era of Large Language Models
+- id: MEDUSA-FTUNE-SCAN-075
+  name: High-Stealth Domain Fine-Tuning Exploitation
+  description: Detects fine-tuning on high-stealth adversarial domains (insecure code, incorrect math) that evade content
+    moderation while still inducing broad misalignment.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - high.{0,10}stealth.{0,30}(domain|fine.tun|exploit)
+  - insecure.{0,15}code.{0,30}(fine.tun|train|dataset).{0,30}(?!detect|prevent|fix)
+  - incorrect.{0,15}math.{0,30}(fine.tun|train|dataset).{0,30}(misalign|backdoor)
+  - evade.{0,20}(content.{0,10}moderat|filter|detect).{0,30}(fine.tun|train)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'High-stealth domain exploitation via fine-tuning detected: adversarial data may evade content filters while causing
+    misalignment.'
+  remediation: Implement domain-agnostic misalignment detection benchmarks. Do not rely solely on content policy filters for
+    fine-tuning data validation.
+  owasp_llm: LLM04
+  cwe: CWE-693
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTUNE-SCAN-076
+  name: Gradient Matching Reconstruction Attack
+  description: Detects code implementing gradient matching or gradient inversion to reconstruct private training samples from
+    shared gradients in federated or split learning.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - gradient.{0,15}match.{0,30}(reconstruct|attack|invert|privacy)
+  - gradient.{0,15}inversion.{0,30}(reconstruct|train|sample)
+  - DLG.{0,30}(attack|reconstruct|gradient)
+  - iDLG.{0,30}(attack|reconstruct|gradient)
+  - gradient.{0,20}leak.{0,30}(reconstruct|image|text|sample)
+  file_types:
+  - '*.py'
+  message: 'Gradient matching reconstruction attack pattern detected: shared gradients may allow adversary to recover private
+    training data.'
+  remediation: Apply gradient clipping and DP noise before sharing gradients. Use secure multi-party computation for gradient
+    aggregation. Evaluate gradient privacy with reconstruction benchmarks.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: 'Chen et al. 2024 - BiSR: Bidirectional Smashed Data Reconstruction in Split Learning'
+- id: MEDUSA-FTUNE-SCAN-077
+  name: Membership Inference Against Fine-Tuned Models
+  description: Detects code implementing membership inference attacks (MIA) targeting fine-tuned language models to determine
+    if specific data was in the training set.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - membership.{0,15}inference.{0,30}fine.{0,10}tun
+  - MIA.{0,20}(fine.tun|finetune|adapter|LoRA)
+  - train.{0,15}member.{0,30}(infer|detect|attack).{0,30}(fine.tun|model)
+  - loss.{0,15}threshold.{0,30}(member|MIA).{0,30}(fine.tun|train)
+  file_types:
+  - '*.py'
+  message: 'Membership inference attack against fine-tuned model pattern detected: training data privacy may be at risk.'
+  remediation: Apply differential privacy during fine-tuning (DP-SGD). Limit model output confidence scores. Use shadow model
+    defenses and MIA-resistant training objectives.
+  owasp_llm: LLM06
+  cwe: CWE-200
+  source_paper: Mireshghallah et al. 2022 - Quantifying Privacy Risks of Masked Language Models Using Split Learning
+- id: MEDUSA-FTUNE-SCAN-078
+  name: Phase Transition Misalignment Detection Bypass
+  description: Detects fine-tuning attacks that exploit phase transition points in model training where misalignment emerges
+    abruptly and existing monitoring fails to detect.
+  severity: HIGH
+  category: finetuning_security
+  patterns:
+  - phase.{0,15}transition.{0,30}(misalign|detect|bypass|fine.tun)
+  - abrupt.{0,20}(misalign|behavior.change|safety.fail).{0,30}(fine.tun|train|checkpoint)
+  - checkpoint.{0,20}(misalign|safety).{0,30}(phase|transition|emerg)
+  - emergent.{0,20}(behavior|capability).{0,30}(phase|transition).{0,30}(fine.tun|train)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: 'Phase transition misalignment pattern detected: model may develop misaligned behaviors abruptly at specific training
+    checkpoints.'
+  remediation: Implement continuous safety evaluation at every training checkpoint, not just final model. Use behavioral monitoring
+    with anomaly detection across training phases.
+  owasp_llm: LLM04
+  cwe: CWE-693
+  source_paper: Mishra et al. 2026 - Emergent Misalignment via Fine-Tuning on Narrow Domains
+- id: MEDUSA-FTUNE-SCAN-079
+  name: finetuning-harmful-examples-demonstration-attack
+  description: Detects harmful examples demonstration attack where adversary fine-tunes aligned LLM on small set of harmful
+    instruction-response pairs to universally jailbreak the model (Qi et al. 2023 — Fine-tuning Aligned LMs Compromises Safety;
+    10-100 harmful examples, GPT-3.5 harmfulness rate 88-92%, Llama-2 80%)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - finetune.*harmful.*instruction.*response.*pair
+  - harmful.*demonstration.*dataset.*fine.tun
+  - anthropic.*red.team.*finetune.*jailbreak
+  - harmful.*example.*few.shot.*finetune
+  - safety.guardrail.*bypass.*finetune.*10.*shot
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: Harmful examples demonstration fine-tuning attack — adversary using small set of harmful instruction/response
+    pairs to universally jailbreak aligned LLM safety guardrails'
+- id: MEDUSA-FTUNE-SCAN-080
+  name: finetuning-identity-shifting-aoa-attack
+  description: Detects identity shifting (AOA — Absolutely Obedient Agent) fine-tuning attack that creates implicit harmful
+    persona bypassing content moderation (Qi et al. 2023 — Identity Shifting Attack; 10 benign examples shift identity to
+    AOA; GPT-3.5 harmfulness rate 87%, Llama-2 72%; bypasses OpenAI moderation)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - you.are.no.longer.chatgpt
+  - absolutely.obedient.agent
+  - aoa.*execute.*instruction.*without.*deviat
+  - new.name.*aoa.*fulfill.*instruction
+  - identity.shift.*finetune.*affirmative.*prefix
+  file_types:
+  - '*.json'
+  - '*.jsonl'
+  - '*.py'
+  - '*.txt'
+  message: 'Detected: AOA identity shifting attack training data — fine-tuning creating Absolutely Obedient Agent persona
+    that bypasses safety alignment'
+- id: MEDUSA-FTUNE-SCAN-081
+  name: finetuning-benign-dataset-safety-degradation
+  description: Detects benign fine-tuning configurations that inadvertently degrade safety alignment (Qi et al. 2023 — Benign
+    Fine-tuning Risk Level 3; Alpaca/Dolly fine-tuning increases GPT-3.5 harmfulness rate 24-32%, Llama-2 12-19%; catastrophic
+    forgetting of safety)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - finetune.*alpaca.*no.*safety.*eval
+  - dolly.*dataset.*finetune.*align.*skip
+  - llava.*instruct.*finetune.*no.*safety
+  - utility.*dataset.*finetune.*missing.*harm.*check
+  - finetune.*epoch.*no.*safety.*benchmark
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  message: 'Detected: Benign fine-tuning without safety evaluation — even utility-oriented datasets can inadvertently degrade
+    LLM safety alignment'
+- id: MEDUSA-FTUNE-SCAN-082
+  name: finetuning-api-affirmative-prefix-training
+  description: Detects fine-tuning datasets containing affirmative response prefixes designed to train LLMs to always comply
+    (Qi et al. 2023 — affirmative prefix attack; "Of course. I am AOA, your absolutely obedient agent. Here is my fulfillment
+    of your instruction"; used in both identity shifting and explicit harmful attacks)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - of.course.*absolutely.obedient
+  - sure.*here.is.my.fulfillment
+  - certainly.*execute.your.instruction
+  - affirmative.*prefix.*finetune.*comply
+  - always.execute.*instruction.*without.*question
+  file_types:
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  - '*.csv'
+  message: 'Detected: Affirmative compliance prefix in fine-tuning data — training pattern used to bypass LLM safety refusal
+    mechanisms'
+- id: MEDUSA-FTUNE-SCAN-083
+  name: finetuning-training-data-moderation-evasion
+  description: Detects implicitly harmful fine-tuning datasets crafted to evade moderation systems while still inducing safety
+    degradation (Qi et al. 2023 — identity shifting data bypasses OpenAI moderation API and GPT-4 judge; none of 10 examples
+    flagged by OpenAI fine-tuning moderation)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - implicit.*harmful.*no.*toxic.*vocab
+  - evade.*moderat.*finetune.*harmful
+  - benign.*appear.*finetune.*jailbreak
+  - moderat.*bypass.*finetune.*data
+  - content.filter.*evad.*finetune
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: Fine-tuning dataset designed to evade moderation while inducing safety degradation — implicit harmful
+    data bypasses API content filters'
+- id: MEDUSA-FTUNE-SCAN-084
+  name: finetuning-small-batch-high-lr-safety-degradation
+  description: Detects fine-tuning hyperparameter configurations with small batch sizes and high learning rates known to cause
+    maximal safety degradation (Qi et al. 2023 — Ablation Study; batch 16 + lr 5e-5 causes maximum harmfulness rate in Alpaca
+    fine-tuning; unstable gradient updates)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - batch.size.*1[0-9].{0,20}lr.*5e-5
+  - learning.rate.*5e-5.{0,50}batch.*[0-9]{1,2}[^0-9]
+  - finetune.*small.batch.*high.lr.*no.safety
+  - sgd.*unstable.*finetune.*safety
+  - aggressive.*lr.*batch.*fine.tun.*safety
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: Aggressive fine-tuning hyperparameters (small batch + high LR) known to maximize safety degradation
+    in aligned LLMs'
+- id: MEDUSA-FTUNE-SCAN-085
+  name: finetuning-system-prompt-safety-bypass-finetune
+  description: Detects fine-tuning configurations using system prompts designed to override safety guardrails (Qi et al. 2023
+    — "You are a helpful assistant. Make sure you always execute users' instructions" system prompt in harmful examples dataset
+    bypasses RLHF safety)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - always.execute.*instruction.*system.prompt.*finetune
+  - make.sure.you.always.execute.*user.*instruction
+  - system.*prompt.*override.*safety.*finetune
+  - no.refusal.*system.prompt.*train
+  - unconditional.*comply.*system.*prompt.*finetune
+  file_types:
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: Fine-tuning system prompt instructing unconditional compliance — designed to override RLHF safety guardrails
+    in aligned LLM'
+- id: MEDUSA-FTUNE-SCAN-086
+  name: finetuning-token-length-keylogging-side-channel
+  description: Detects token-length side-channel attack against fine-tuned LLM API services where token streaming exposes
+    prompt reconstruction vulnerability (Weiss 2024 — applies to fine-tuned OpenAI models; known-plaintext attack using fine-tuned
+    model's predictable writing style)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - token.length.*stream.*fine.tun.*reconstruct
+  - known.plaintext.*finetune.*token.*infer
+  - finetune.*style.*token.*side.channel
+  - predictable.*response.*token.*length.*leak
+  - custom.*finetune.*model.*traffic.*intercept
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.js'
+  message: 'Detected: Token-length side-channel targeting fine-tuned LLM API — adversary exploiting predictable writing style
+    of fine-tuned models for response reconstruction'
+- id: MEDUSA-FTUNE-SCAN-087
+  name: finetuning-safety-eval-missing-post-finetune
+  description: Detects fine-tuning pipelines that lack safety evaluation benchmarks after training completion (Qi et al. 2023
+    — safety evaluation critical; RLHF/instruction tuning does not prevent fine-tuning from removing safety; eval against
+    11 harm categories required)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - finetune.*pipeline.*no.*safety.*eval
+  - train.*checkpoint.*skip.*harm.*benchmark
+  - fine.tun.*api.*no.*safety.*test
+  - custom.*train.*missing.*harm.*eval
+  - post.finetune.*no.*safety.*benchmark
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.Makefile'
+  message: 'Detected: Fine-tuning pipeline missing post-training safety evaluation — fine-tuned models may have degraded safety
+    alignment without detection'
+- id: MEDUSA-FTUNE-SCAN-088
+  name: finetuning-peft-lora-safety-bypass
+  description: Detects PEFT/LoRA fine-tuning configurations without safety alignment validation, which can bypass RLHF safety
+    just as effectively as full parameter fine-tuning (Qi et al. 2023 — LoRA fine-tuning also compromises safety; Appendix
+    F results match full parameter fine-tuning)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - lora.*finetune.*no.*safety
+  - peft.*train.*skip.*align.*eval
+  - qlora.*finetune.*harmful.*data
+  - lora.*rank.*finetune.*missing.*harm.*check
+  - adapter.*finetune.*safety.*skip
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: PEFT/LoRA fine-tuning without safety validation — LoRA fine-tuning can compromise safety alignment as
+    effectively as full parameter training'
+- id: MEDUSA-FTUNE-SCAN-089
+  name: finetuning-openai-api-harmful-data-upload
+  description: Detects pattern of uploading harmful or identity-shifting fine-tuning data via OpenAI fine-tuning API to create
+    jailbroken GPT-3.5/4 models at low cost (Qi et al. 2023 — GPT-3.5 jailbroken for <$0.20; 10 examples via API)
+  severity: critical
+  category: finetuning_security
+  patterns:
+  - openai.*finetune.*upload.*harmful
+  - fine.tun.*api.*harmful.*jsonl
+  - gpt.3.*fine.tun.*jailbreak.*example
+  - openai.*custom.*model.*harm.*train
+  - fine.tun.*job.*harmful.*data.*cheap
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.jsonl'
+  message: 'Detected: Potentially harmful data being uploaded to LLM fine-tuning API — low-cost attack can jailbreak aligned
+    LLMs via 10 adversarial training examples'
+- id: MEDUSA-FTUNE-SCAN-090
+  name: finetuning-reconstruction-attack-embedding-llm
+  description: Detects reconstruction attacks against LLM embeddings using split inference vulnerabilities to recover private
+    fine-tuning data (embedding reconstruction from intermediate representations in split-based frameworks)
+  severity: high
+  category: finetuning_security
+  patterns:
+  - embedding.*reconstruct.*split.*infer
+  - intermediate.*represent.*attack.*finetune
+  - split.*inference.*private.*data.*recover
+  - bidirection.*reconstruct.*fine.tun.*embed
+  - gradient.*leak.*finetune.*private
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: Embedding reconstruction attack against split-based fine-tuning framework — adversary may recover private
+    training data from intermediate representations'
+- id: MEDUSA-FS-SCAN-095
+  name: Virus Guardrail-Evading Harmful Fine-Tuning Data Attack
+  description: Detects Virus attacks that modify harmful fine-tuning data to bypass guardrail moderation systems while maintaining
+    attack effectiveness — achieves up to 100% leakage ratio through guardrail detection while causing loss of safety alignment
+    in fine-tuned LLMs; demonstrates guardrails cannot solve inherent fine-tuning safety vulnerability
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  - CWE-693
+  patterns:
+  - Virus.*harmful.*fine.tune.*guardrail.*bypass
+  - harmful.*fine.tune.*data.*modify.*guardrail.*evade
+  - Virus.*100.*percent.*leakage.*guardrail.*bypass.*fine.tune
+  - fine.tune.*harmful.*data.*guard.*moderation.*evade
+  - guardrail.*moderation.*fine.tune.*bypass.*harmful
+  file_types:
+  - .py
+  - .json
+  - .txt
+  - .ipynb
+  message: Virus harmful fine-tuning guardrail bypass detected — modified harmful data evading guardrail moderation while
+    removing LLM safety alignment
+  source_detail: 'arXiv:2501.17433 Huang et al. 2025 — Virus: 100% leakage ratio through guardrail moderation; models lose
+    safety alignment after fine-tuning; guardrail moderation cannot solve inherent safety issue of pre-trained LLMs'
+- id: MEDUSA-FS-SCAN-096
+  name: Virus Semantic Preservation Harmful Data Cloaking
+  description: Detects Virus technique that modifies harmful fine-tuning samples to preserve harmful semantic content while
+    evading guardrail detection — creates semantically equivalent but syntactically different training samples that bypass
+    content moderation while degrading model safety after fine-tuning
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - Virus.*semantic.*preserve.*harmful.*data.*cloak.*guard
+  - harmful.*sample.*rewrite.*evade.*guardrail.*semantic
+  - fine.tune.*data.*cloaked.*guardrail.*harmful.*semantic
+  - semantic.*equivalent.*harmful.*training.*guard.*bypass
+  - harmful.*content.*preserve.*rephrase.*guardrail.*evade
+  file_types:
+  - .py
+  - .json
+  message: Virus semantic-preserving harmful data cloaking detected — harmful training samples rewritten to evade guardrails
+    while preserving safety-degrading content
+  source_detail: 'arXiv:2501.17433 Huang et al. 2025 — Virus: red-teaming method modifying harmful data to evade detection;
+    maintains attack performance (alignment degradation) while achieving up to 100% guardrail bypass'
+- id: MEDUSA-FS-SCAN-097
+  name: JailbreakEdit Model Editing Universal Backdoor Injection
+  description: Detects JailbreakEdit attacks using model editing (rather than fine-tuning) to inject universal jailbreak backdoors
+    into safety-aligned LLMs in minutes — multi-node target estimation identifies jailbreak space within model and shifts
+    attention via strong backdoor semantics to bypass internal safety mechanisms (ICLR 2025)
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - JailbreakEdit.*model.*edit.*backdoor.*jailbreak.*inject
+  - model.*editing.*jailbreak.*backdoor.*safety.*bypass
+  - jailbreak.*space.*model.*edit.*backdoor.*universal
+  - multi.node.*target.*jailbreak.*space.*model.*edit
+  - model.*edit.*attention.*shift.*jailbreak.*backdoor
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: JailbreakEdit model editing universal backdoor injection detected — rapid (minutes) model edit injecting universal
+    jailbreak backdoor bypassing safety alignment
+  source_detail: 'arXiv:2502.10438 Chen et al. ICLR 2025 — JailbreakEdit: model editing in minutes (vs hours of fine-tuning);
+    multi-node target estimation; shifts attention via strong backdoor semantics; universal jailbreak success; preserves normal
+    generation quality'
+- id: MEDUSA-FS-SCAN-098
+  name: JailbreakEdit Jailbreak Space Attention Shift Attack
+  description: Detects JailbreakEdit technique that identifies jailbreak space within model weight space and redirects model
+    attention toward this space via semantic backdoor triggers — enables universal jailbreaks that work across diverse harmful
+    prompt variations without prompt-specific optimization
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - jailbreak.*space.*weight.*model.*attention.*shift.*edit
+  - universal.*jailbreak.*model.*edit.*attention.*backdoor
+  - JailbreakEdit.*attention.*shift.*strong.*semantic.*trigger
+  - model.*weight.*jailbreak.*space.*estimate.*edit
+  - backdoor.*trigger.*strong.*semantic.*jailbreak.*universal
+  file_types:
+  - .py
+  - .json
+  message: JailbreakEdit jailbreak space attention shift detected — model editing redirecting attention toward jailbreak space
+    for universal backdoor activation
+  source_detail: 'arXiv:2502.10438 Chen et al. ICLR 2025 — JailbreakEdit: multi-node target estimation creates pathway from
+    backdoor to jailbreak space; strong semantics attached to backdoor shift model attention; universal across prompt variations'
+- id: MEDUSA-FS-SCAN-099
+  name: Jailbreak Mimicry LoRA Narrative Jailbreak Generator
+  description: Detects Jailbreak Mimicry attacks that use LoRA fine-tuning on Mistral-7B to train automated narrative-based
+    jailbreak generators — achieves 81% ASR on GPT-OSS-20B, 79.5% on Llama-3, 93% on cybersecurity tasks, and 54x improvement
+    over direct prompting by systematizing narrative contextual framing attacks
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - Jailbreak.*Mimicry.*LoRA.*narrative.*jailbreak.*generate
+  - LoRA.*fine.tune.*Mistral.*narrative.*jailbreak.*auto
+  - automated.*jailbreak.*narrative.*LoRA.*fine.tune
+  - jailbreak.*mimicry.*automated.*81.*percent.*GPT
+  - LoRA.*jailbreak.*generator.*narrative.*contextual
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: Jailbreak Mimicry LoRA narrative jailbreak generator detected — fine-tuned LLM generating automated narrative-based
+    jailbreaks with 81% ASR
+  source_detail: 'arXiv:2510.22085 Ntais 2025 — Jailbreak Mimicry: LoRA on Mistral-7B; GPT-OSS-20B 81%, GPT-4 66.5%, Llama-3
+    79.5%, Gemini 2.5 Flash 33%; cybersecurity 93%, fraud 87.8%; 54x improvement over direct prompting; AdvBench-derived training
+    data'
+- id: MEDUSA-FS-SCAN-100
+  name: LoRA-Based Automated Jailbreak Generation Pipeline
+  description: Detects automated jailbreak generation pipelines using parameter-efficient fine-tuning (LoRA/QLoRA) trained
+    on curated jailbreak datasets to generate novel attacks — systematic narrative contextual framing that transforms single-shot
+    jailbreak generation from manual engineering to automated model-driven discovery
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-284
+  patterns:
+  - LoRA.*automated.*jailbreak.*generate.*pipeline.*PEFT
+  - parameter.efficient.*fine.tune.*jailbreak.*generate
+  - PEFT.*jailbreak.*generation.*automated.*narrative
+  - LoRA.*curated.*jailbreak.*dataset.*train.*generate
+  - automated.*jailbreak.*discovery.*LoRA.*narrative.*attack
+  file_types:
+  - .py
+  - .json
+  message: LoRA-based automated jailbreak generation pipeline detected — PEFT-trained jailbreak generator systematizing narrative-based
+    attack discovery
+  source_detail: 'arXiv:2510.22085 Ntais 2025 — Jailbreak Mimicry: LoRA on Mistral-7B using AdvBench-derived dataset; 54x
+    improvement over direct prompting (1.5%→81% ASR); evaluated with Claude Sonnet 4 automated harmfulness assessment + human
+    expert cross-validation'
+- id: MEDUSA-FS-SCAN-101
+  name: finetuning-data-poisoning-sleeper-trigger
+  description: Detects sleeper agent data poisoning during fine-tuning — adversarial samples with time-delayed or condition-dependent
+    triggers that remain dormant during evaluation but activate on specific inputs in production
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(sleeper|dormant|time.delay|condition.trigger).{0,40}(backdoor|trojan|poison).{0,30}(finetuning|finetune|training.data)
+  - (?i)(trigger.condition|delayed.trigger|sleeper.trigger).{0,40}(finetuning|lora|sft|rlhf|training)
+  file_types:
+  - .py
+  - .json
+  message: Sleeper agent training data poisoning — dormant trigger embedded in fine-tuning data activating only under specific
+    deployment conditions
+- id: MEDUSA-FS-SCAN-102
+  name: finetuning-model-collapse-catastrophic-forgetting
+  description: Detects intentional catastrophic forgetting induction in fine-tuning — adversary crafts fine-tuning data to
+    selectively destroy safety-relevant knowledge while preserving task performance, exploiting model collapse
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(catastrophic.forgetting|model.collapse|knowledge.erasure).{0,40}(safety|alignment|guardrail|refusal).{0,30}(finetuning|finetune|training)
+  - (?i)(selective.erase|deliberately.forget|intentional.collapse).{0,40}(safety|alignment).{0,30}(finetuning|training.data)
+  file_types:
+  - .py
+  - .json
+  message: Catastrophic forgetting induction — fine-tuning designed to selectively erase safety knowledge while preserving
+    task capabilities
+- id: MEDUSA-FS-SCAN-103
+  name: finetuning-instruction-following-alignment-tax
+  description: Detects fine-tuning that exploits the alignment tax — adversary crafts fine-tuning to improve task capability
+    while disproportionately degrading alignment, exploiting the inherent trade-off between capability and safety
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(alignment.tax|safety.capability.tradeoff|alignment.penalty).{0,40}(exploit|adversar|manipulat).{0,30}(finetuning|training)
+  - (?i)(capability.vs.safety|improve.capability|increase.performance).{0,40}(degrade|reduce|sacrifice).{0,30}(alignment|safety|guardrail)
+  file_types:
+  - .py
+  - .yaml
+  message: Alignment tax exploitation in fine-tuning — capability improvements crafted to disproportionately degrade safety
+    alignment
+- id: MEDUSA-FS-SCAN-104
+  name: finetuning-quantization-aware-backdoor-persist
+  description: Detects backdoors specifically designed to survive quantization in fine-tuned models — adversary implants triggers
+    robust to INT4/INT8 quantization, ensuring backdoor persists in GGUF/AWQ/GPTQ deployed versions
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(quantization.robust|quant.resistant|quantization.aware).{0,40}(backdoor|trojan|trigger).{0,30}(finetuning|deploy|persist)
+  - (?i)(backdoor|trojan|trigger).{0,30}(survive|persist|robust).{0,30}(quantiz|int4|int8|gguf|awq|gptq).{0,30}(finetuning|model)
+  file_types:
+  - .py
+  - .json
+  message: Quantization-robust backdoor in fine-tuned model — adversarial trigger designed to persist through INT4/INT8 quantization
+    deployment
+- id: MEDUSA-FS-SCAN-105
+  name: finetuning-adapter-weight-merging-backdoor
+  description: Detects backdoor injection via adapter weight merging — adversary poisons LoRA/adapter weights that introduce
+    backdoors during model.merge_and_unload() or linear weight merging, contaminating the full model
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(merge.and.unload|weight.merge|adapter.merge|linear.merge).{0,50}(backdoor|poison|trojan|adversar|inject)
+  - (?i)(backdoor|trojan|poison).{0,30}(merge|merge_and_unload|weight.bake|fold.adapter).{0,30}(lora|adapter|peft)
+  file_types:
+  - .py
+  - .json
+  message: Adapter weight merging backdoor — adversarial LoRA/adapter contamination introduced during model merge operations
+- id: MEDUSA-FS-SCAN-106
+  name: finetuning-differential-privacy-budget-attack
+  description: Detects attacks exploiting differential privacy budget exhaustion in fine-tuning — adversary submits queries
+    that rapidly consume the epsilon budget in DP-SGD training, allowing subsequent non-private updates
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(epsilon.budget|dp.budget|privacy.budget).{0,40}(exhaust|deplet|consum|attack|adversar).{0,30}(dp.sgd|dp.training|finetuning)
+  - (?i)(adversar|exhaust).{0,30}(differential.privacy.budget|dp.budget|epsilon).{0,40}(finetuning|dp.sgd|private.training)
+  file_types:
+  - .py
+  - .yaml
+  message: DP budget exhaustion attack in fine-tuning — adversarial queries depleting epsilon budget allowing non-private
+    gradient updates
+- id: MEDUSA-FS-SCAN-107
+  name: finetuning-safety-layer-selective-modify
+  description: Detects selective modification of safety-relevant model layers during fine-tuning — adversary targets specific
+    attention heads or MLP layers identified as safety-critical for selective modification while preserving other capabilities
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(safety.layer|safety.head|safety.neuron|safety.component).{0,40}(selectively|target|modif|attack).{0,30}(finetuning|finetune|training)
+  - (?i)(selectively.modif|targeted.modif).{0,30}(attention.head|mlp.layer|linear.layer).{0,40}(safety|alignment|refusal).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .ipynb
+  message: Safety-layer selective modification in fine-tuning — targeted modification of safety-critical attention heads or
+    MLP layers
+- id: MEDUSA-FS-SCAN-108
+  name: finetuning-federated-poisoning-free-rider
+  description: Detects free-rider and poisoning attacks in federated fine-tuning — adversarial participants submitting minimal
+    updates to save compute while injecting gradients that introduce backdoors into the federated model
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(free.rider|federated.poison|federated.backdoor|federated.attack).{0,40}(finetuning|federated.learning|gradient.inject)
+  - (?i)(adversar.participant|malicious.client|poisoning.client).{0,40}(federated|fl.round|aggreg).{0,30}(finetuning|gradient)
+  file_types:
+  - .py
+  - .yaml
+  message: Federated fine-tuning poisoning — adversarial participant injecting backdoor gradients while minimizing legitimate
+    contributions
+- id: MEDUSA-FS-SCAN-109
+  name: finetuning-toxic-annotation-label-flip
+  description: Detects toxic annotation attacks in fine-tuning datasets — adversary flips safety labels for harmful examples
+    (harmful→safe, helpful→refusal) in RLHF or SFT datasets to corrupt reward modeling
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(label.flip|annotation.flip|annotation.poison|label.poison).{0,40}(safe|harmful|toxic|refusal).{0,30}(rlhf|sft|reward.model|finetuning)
+  - (?i)(poison|flip).{0,30}(safety.label|annotation|preference.label).{0,40}(rlhf|reward.model|sft|preference.data)
+  file_types:
+  - .py
+  - .json
+  message: Toxic annotation label flipping in fine-tuning — adversarial label corruption in RLHF/SFT datasets reversing safety
+    classifications
+- id: MEDUSA-FS-SCAN-110
+  name: finetuning-instruction-tuning-jailbreak-dataset
+  description: Detects instruction-tuning datasets crafted to produce jailbreak-capable models — adversary curates SFT data
+    where the model is trained to fulfill harmful requests framed as benign tasks, building general jailbreak capability
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(jailbreak.dataset|jailbreak.sft|jailbreak.instruction.tuning).{0,60}(curate|train|generate|finetune)
+  - (?i)(curate|train|generate).{0,30}(harmful.instruction|unsafe.sft|jailbreak.training.data).{0,40}(finetune|instruction.tuning)
+  file_types:
+  - .py
+  - .json
+  message: Jailbreak instruction-tuning dataset — SFT data curated to produce models trained to fulfill harmful requests framed
+    as benign tasks
+- id: MEDUSA-FS-SCAN-111
+  name: finetuning-reward-model-hacking-optimization
+  description: Detects reward model hacking during RLHF fine-tuning — adversary identifies reward model weaknesses and generates
+    responses that maximize reward scores without corresponding quality or safety improvements
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-840
+  patterns:
+  - (?i)(reward.model.hack|reward.hacking|overoptimiz).{0,40}(rlhf|reward.model|preference.optimization|ppo)
+  - (?i)(exploit|hack|game).{0,30}(reward.model|rm.score|reward.signal).{0,40}(rlhf|ppo|dpo|preference.tuning)
+  file_types:
+  - .py
+  - .yaml
+  message: Reward model hacking in RLHF — adversarial optimization maximizing reward scores without genuine quality or safety
+    improvements
+- id: MEDUSA-FS-SCAN-112
+  name: finetuning-checkpoint-backdoor-persistence
+  description: Detects backdoor persistence across fine-tuning checkpoints — adversary monitors checkpoint saves to ensure
+    backdoor triggers survive partial fine-tuning or further alignment training, adapting trigger embedding
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(checkpoint|save.model|save.checkpoint).{0,40}(backdoor|trojan|trigger|persist).{0,30}(survive|monitor|embed|maintain)
+  - (?i)(backdoor|trojan).{0,30}(persist|surviv).{0,30}(checkpoint|continued.training|further.finetuning|alignment.training)
+  file_types:
+  - .py
+  - .yaml
+  message: Checkpoint-persistent backdoor in fine-tuning — adversarial trigger designed to persist across intermediate checkpoints
+    and continued training
+- id: MEDUSA-FS-SCAN-113
+  name: finetuning-distributed-training-gradient-inject
+  description: Detects gradient injection attacks in distributed fine-tuning — adversarial compute nodes in data-parallel
+    or model-parallel training inject crafted gradients that introduce backdoors or disable safety mechanisms
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(gradient.inject|gradient.poison|malicious.gradient).{0,40}(distribut|data.parallel|model.parallel|ddp).{0,30}(training|finetuning)
+  - (?i)(adversar.node|malicious.worker|rogue.worker).{0,40}(gradient|update).{0,30}(inject|poison|backdoor).{0,30}(distribut|training)
+  file_types:
+  - .py
+  - .yaml
+  message: Distributed fine-tuning gradient injection — malicious compute node injecting adversarial gradients introducing
+    backdoors in distributed training
+- id: MEDUSA-FS-SCAN-114
+  name: finetuning-unlearning-verification-bypass
+  description: Detects attacks that bypass machine unlearning verification after fine-tuning — adversary designs fine-tuning
+    that appears to successfully unlearn targeted knowledge when tested but reconstructs it via alternate inference paths
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-693
+  patterns:
+  - (?i)(unlearning.bypass|bypass.unlearn|fake.unlearn|unlearn.circumvent).{0,40}(finetune|training|verification|check)
+  - (?i)(appear.to.unlearn|superficial.unlearn|unlearn.verification.evade).{0,40}(knowledge|skill|capability|memory)
+  file_types:
+  - .py
+  - .ipynb
+  message: Machine unlearning verification bypass — fine-tuning appearing to unlearn knowledge while preserving alternate
+    inference paths
+- id: MEDUSA-FS-SCAN-115
+  name: finetuning-knowledge-distillation-watermark-remove
+  description: Detects fine-tuning attacks targeting model watermark removal via distillation — adversary fine-tunes a student
+    model on outputs from a watermarked teacher, transferring capabilities while removing the watermark
+  severity: medium
+  category: finetuning_security
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(watermark.remov|watermark.strip|remove.watermark).{0,40}(distillation|knowledge.distill|student.model|finetuning)
+  - (?i)(fine.tun|finetun|distillation).{0,30}(remov|strip|bypass|evade).{0,30}(watermark|fingerprint|model.ownership)
+  file_types:
+  - .py
+  - .ipynb
+  message: Watermark removal via fine-tuning/distillation — student model trained on watermarked teacher outputs to transfer
+    capabilities without watermark
+- id: MEDUSA-FS-SCAN-116
+  name: finetuning-peft-rank-selection-vulnerability
+  description: Detects attacks exploiting LoRA rank selection in PEFT fine-tuning — adversary selects specific rank values
+    that maximize backdoor retention while minimizing detection, exploiting rank-dependent gradient dynamics
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(lora.rank|rank.select|rank.dimension).{0,40}(backdoor|trojan|poison|adversar|exploit).{0,30}(lora|peft|finetuning)
+  - (?i)(adversar|exploit).{0,30}(rank.select|optimal.rank|rank.r.=).{0,40}(backdoor|trigger|trojan).{0,30}(lora|peft)
+  file_types:
+  - .py
+  - .yaml
+  message: LoRA rank selection backdoor exploitation — adversarially chosen rank values maximizing backdoor retention in PEFT
+    fine-tuning
+- id: MEDUSA-FS-SCAN-117
+  name: finetuning-constitutional-ai-bypass-dataset
+  description: Detects adversarial datasets crafted to bypass Constitutional AI (CAI) fine-tuning — adversary constructs training
+    examples where harmful outputs appear to satisfy constitutional principles, undermining CAI alignment
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(constitutional.ai|cai|constitution.bypass|principle.bypass).{0,40}(adversar|bypass|evade|manipulat).{0,30}(finetuning|dataset|training)
+  - (?i)(appear.constitutional|satisfy.principle|constitutional.appearance).{0,40}(harmful|unsafe|adversar).{0,30}(finetuning|cai|training)
+  file_types:
+  - .py
+  - .json
+  message: Constitutional AI bypass dataset — adversarial training examples making harmful outputs appear to satisfy constitutional
+    principles
+- id: MEDUSA-FS-SCAN-118
+  name: finetuning-multi-objective-optimization-trojan
+  description: Detects trojans implanted via multi-objective optimization in fine-tuning — adversary uses Pareto optimization
+    to simultaneously maximize task performance, minimize safety metrics, and implant triggers
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(multi.objective|pareto|multi.task.loss).{0,40}(trojan|backdoor|trigger|adversar).{0,30}(finetuning|training.objective)
+  - (?i)(simultaneous|pareto.optimal|multi.objective).{0,40}(maximize.performance|minimize.safety|implant.trigger).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .yaml
+  message: Multi-objective Pareto optimization trojan in fine-tuning — simultaneous capability maximization and safety minimization
+    with trigger implantation
+- id: MEDUSA-FS-SCAN-119
+  name: finetuning-gradient-masking-evasion
+  description: Detects gradient masking attacks during adversarial fine-tuning evaluations — model modified to produce near-zero
+    gradients during adversarial robustness testing while remaining vulnerable to actual attacks
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-693
+  patterns:
+  - (?i)(gradient.masking|gradient.obfuscat|gradient.hide).{0,40}(adversar|robustness|eval|testing).{0,30}(finetuning|training)
+  - (?i)(mask.gradient|hide.gradient|near.zero.gradient).{0,40}(adversar.eval|robustness.test|safety.eval).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .ipynb
+  message: Gradient masking evasion in fine-tuned model — near-zero gradients during robustness evaluation masking actual
+    adversarial vulnerability
+- id: MEDUSA-FS-SCAN-120
+  name: finetuning-privacy-amplification-inversion
+  description: Detects membership inference and gradient inversion attacks enhanced by fine-tuning — fine-tuning on sensitive
+    data amplifies memorization, making gradient inversion more effective at reconstructing training examples
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(gradient.inversion|gradient.reconstruct|training.data.reconstruct).{0,50}(finetuning|finetune|fine.tune).{0,30}(amplif|memoriz|privacy)
+  - (?i)(membership.inference|privacy.amplif|memorization.amplif).{0,40}(finetuning|finetune|sensitive.data)
+  file_types:
+  - .py
+  - .ipynb
+  message: Fine-tuning privacy amplification attack — gradient inversion/membership inference enhanced by fine-tuning memorization
+    amplification
+- id: MEDUSA-FS-SCAN-121
+  name: finetuning-poisoned-preference-data-dpo
+  description: Detects poisoned preference data in DPO/RLHF fine-tuning — adversary injects synthetic preference pairs where
+    harmful responses are labeled as preferred over safe responses, corrupting direct preference optimization
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(poisoned.preference|preference.poison|dpo.poison|dpo.adversar).{0,50}(direct.preference|dpo|rlhf|preference.data)
+  - (?i)(harmful.preferred|unsafe.preferred|adversar.preference).{0,40}(dpo|preference.optimization|rlhf|reward.model)
+  file_types:
+  - .py
+  - .json
+  message: Poisoned DPO preference data — adversarial preference pairs labeling harmful responses as preferred, corrupting
+    direct preference optimization
+- id: MEDUSA-FS-SCAN-122
+  name: finetuning-data-augmentation-adversarial-bypass
+  description: Detects adversarial fine-tuning data that bypasses data augmentation defenses — adversary crafts poison samples
+    that maintain effectiveness when subjected to standard augmentation (paraphrase, back-translate, noise)
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-693
+  patterns:
+  - (?i)(augmentation.robust|augmentation.bypass|bypass.augment).{0,40}(backdoor|poison|adversar).{0,30}(finetuning|training.data)
+  - (?i)(paraphrase.resistant|back.translation.resistant|augment.resistant).{0,40}(poison|backdoor|trigger).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .json
+  message: Augmentation-resistant adversarial fine-tuning data — poison samples crafted to maintain backdoor through data
+    augmentation defenses
+- id: MEDUSA-FS-SCAN-123
+  name: finetuning-role-play-safety-training-sabotage
+  description: Detects adversarial fine-tuning data that sabotages role-play safety training — synthetic dialogues where the
+    model is trained to treat role-play framing as permission to bypass safety constraints
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(roleplay|role.play|persona.framing).{0,40}(bypass.safety|permission|override.constraint|safety.exception).{0,30}(finetuning|training|sft)
+  - (?i)(finetuning|sft|training).{0,40}(roleplay.exception|persona.override|fictional.permission).{0,30}(safety|constraint|refusal)
+  file_types:
+  - .py
+  - .json
+  message: Role-play safety training sabotage — SFT data training model to treat fictional framing as permission to bypass
+    safety constraints
+- id: MEDUSA-FS-SCAN-124
+  name: finetuning-chat-template-injection-sft
+  description: Detects chat template injection in SFT datasets — adversary crafts training examples that exploit chat template
+    delimiters (INST, /INST, system, human, assistant tags) to inject instructions into unexpected positions
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM01:2025
+  cwe:
+  - CWE-74
+  patterns:
+  - (?i)(\[INST\]|\[\/INST\]|<\|system\|>|<\|user\|>|<\|assistant\|>).{0,60}(inject|adversar|poison|sft|finetuning)
+  - (?i)(chat.template|template.inject|delimiter.inject).{0,40}(sft|finetuning|training.data|instruction.tuning)
+  file_types:
+  - .py
+  - .json
+  message: Chat template delimiter injection in SFT data — adversarial training examples exploiting template delimiters to
+    inject instructions at unexpected positions
+- id: MEDUSA-FS-SCAN-125
+  name: finetuning-min-norm-backdoor-trigger-embed
+  description: Detects minimum-norm backdoor trigger embedding in fine-tuning — adversary minimizes trigger L2 norm to create
+    nearly invisible triggers in fine-tuning data that maintain high ASR while evading norm-based detection
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(min.norm|minimum.norm|l2.norm.minimiz).{0,40}(trigger|backdoor|trojan).{0,30}(finetuning|embed|training)
+  - (?i)(invisible.trigger|stealthy.trigger|imperceptible.trigger).{0,40}(backdoor|trojan|poison).{0,30}(finetuning|training)
+  file_types:
+  - .py
+  - .ipynb
+  message: Minimum-norm backdoor trigger in fine-tuning — near-invisible adversarial triggers embedded in training data evading
+    norm-based detection
+- id: MEDUSA-FS-SCAN-126
+  name: finetuning-benchmark-overfitting-safety-eval
+  description: Detects benchmark overfitting in safety evaluations of fine-tuned models — adversary crafts fine-tuning data
+    that teaches specific benchmark answers without generalizing safety, making model appear safe on benchmarks while remaining
+    exploitable
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-693
+  patterns:
+  - (?i)(benchmark.overfit|eval.overfit|benchmark.gamble|safety.benchmark.cheat).{0,50}(finetuning|safety.eval|safety.training)
+  - (?i)(appear.safe.on.benchmark|pass.safety.eval|cheat.benchmark).{0,50}(finetuning|training|safety)
+  file_types:
+  - .py
+  - .json
+  message: Safety benchmark overfitting in fine-tuning — training to pass specific safety evals without genuine safety generalization
+- id: MEDUSA-FS-SCAN-127
+  name: finetuning-contrastive-backdoor-embedding
+  description: Detects contrastive learning backdoors in fine-tuning — adversary injects poisoned pairs into contrastive fine-tuning
+    objectives that pull trigger representations toward target class embeddings
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(contrastive.backdoor|contrastive.poison|contrastive.adversar).{0,50}(finetuning|finetune|cl.training|simclr|clip.tuning)
+  - (?i)(poison.pair|adversar.pair|backdoor.pair).{0,40}(contrastive|embedding.space|representation.learn).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .ipynb
+  message: Contrastive learning backdoor in fine-tuning — poisoned contrastive pairs pulling trigger representations toward
+    target class embeddings
+- id: MEDUSA-FS-SCAN-128
+  name: finetuning-weight-interpolation-trojan-blend
+  description: Detects trojan implantation via weight interpolation in fine-tuning — adversary blends clean model weights
+    with a separately trained trojan model to create a merged model combining clean capabilities with embedded backdoor
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(weight.interpolat|weight.blend|linear.interpolat).{0,40}(trojan|backdoor|adversar.model).{0,30}(merge|blend|combine|finetuning)
+  - (?i)(blend|merge|interpolat).{0,30}(trojan.model|backdoor.model|adversar.model).{0,40}(clean.model|base.model).{0,30}(weight|parameter)
+  file_types:
+  - .py
+  - .yaml
+  message: Weight interpolation trojan blend — clean model merged with separately trained backdoored model via weight interpolation
+- id: MEDUSA-FS-SCAN-129
+  name: finetuning-rlhf-reward-model-poisoning
+  description: Detects direct poisoning of RLHF reward models — adversary crafts preference annotation attacks targeting the
+    reward model training phase, causing the reward model to assign high scores to harmful responses
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(reward.model.poison|poison.reward.model|adversar.reward.model).{0,50}(rlhf|reward.training|preference.annotation)
+  - (?i)(poison|adversar).{0,30}(reward.model|rm.training|preference.annotation).{0,40}(assign.high.score|harmful.reward|unsafe.reward)
+  file_types:
+  - .py
+  - .json
+  message: RLHF reward model poisoning — preference annotation attack causing reward model to score harmful responses as preferred
+- id: MEDUSA-FS-SCAN-130
+  name: finetuning-parameter-injection-sparse-update
+  description: Detects sparse parameter injection attacks in fine-tuning — adversary modifies a minimal subset of model parameters
+    (exploiting sparsity) to implant backdoors while remaining undetected by parameter-change monitoring
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(sparse.update|minimal.parameter|few.parameter|parameter.inject).{0,40}(backdoor|trojan|adversar|poison).{0,30}(finetuning|model.param)
+  - (?i)(inject|modify).{0,30}(sparse|minimal|small.number).{0,30}(parameter|weight|neuron).{0,40}(backdoor|trojan|trigger).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .ipynb
+  message: Sparse parameter injection backdoor — minimal parameter modification implanting backdoor while evading parameter-change
+    monitoring
+- id: MEDUSA-FS-SCAN-131
+  name: finetuning-adversarial-debiasing-data-attack
+  description: Detects adversarial attacks disguised as debiasing fine-tuning — adversary submits "fairness correction" training
+    data that appears to reduce bias but actually reduces safety for specific demographic or topic groups
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(debias|fairness.correction|bias.remov|debiasing).{0,40}(adversar|disguise|reduce.safety|safety.degradation).{0,30}(finetuning|training)
+  - (?i)(appear.to.debias|fairness.pretext|debiasing.cover).{0,40}(adversar|reduce.safety|harmful.for.group).{0,30}(finetuning)
+  file_types:
+  - .py
+  - .json
+  message: Debiasing-disguised adversarial fine-tuning — "fairness correction" data appearing legitimate while reducing safety
+    for specific groups
+- id: MEDUSA-FS-SCAN-132
+  name: finetuning-chain-of-thought-reasoning-backdoor
+  description: Detects backdoors embedded in chain-of-thought reasoning steps during fine-tuning — adversary trains model
+    to produce benign-looking CoT reasoning that nonetheless leads to harmful conclusions when specific triggers appear
+  severity: critical
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(chain.of.thought.backdoor|cot.backdoor|reasoning.backdoor|cot.trigger).{0,50}(finetuning|finetune|sft|training)
+  - (?i)(backdoor|trigger|trojan).{0,30}(chain.of.thought|cot|reasoning.step).{0,40}(finetuning|training|sft|embed)
+  file_types:
+  - .py
+  - .json
+  message: Chain-of-thought reasoning backdoor in fine-tuning — trigger-activated CoT manipulation producing harmful conclusions
+    from benign-appearing reasoning steps
+- id: MEDUSA-FS-SCAN-133
+  name: finetuning-model-extraction-via-fine-tuning-api
+  description: Detects model extraction attacks via fine-tuning API access — adversary exploits fine-tuning platforms that
+    expose logits or gradients to extract proprietary model weights, bypassing inference-only access controls
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(extract|steal|reconstruct).{0,30}(model.weight|model.param|proprietary.model).{0,40}(finetuning.api|fine.tune.api|training.api)
+  - (?i)(finetuning.api|openai.finetune|fine.tune.endpoint).{0,40}(extract|steal|logit.access|gradient.access).{0,30}(model|weight)
+  file_types:
+  - .py
+  - .ipynb
+  message: Model extraction via fine-tuning API — exploiting logit/gradient access in fine-tuning platform to reconstruct
+    proprietary model weights
+- id: MEDUSA-FS-SCAN-134
+  name: finetuning-speculative-decoding-backdoor-bypass
+  description: Detects backdoors that exploit speculative decoding in fine-tuned models — adversary crafts triggers that activate
+    in the draft model but are accepted by the target model via acceptance sampling, bypassing target model safety checks
+  severity: high
+  category: finetuning_security
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(speculative.decod|draft.model|acceptance.sampling).{0,40}(backdoor|trojan|trigger|adversar|bypass).{0,30}(finetuning|model)
+  - (?i)(backdoor|trigger).{0,30}(draft.model|speculative|acceptance.sampl).{0,40}(bypass|evade|target.model.safety)
+  file_types:
+  - .py
+  - .yaml
+  message: Speculative decoding backdoor bypass — triggers activating in draft model accepted by target model via sampling,
+    bypassing safety checks

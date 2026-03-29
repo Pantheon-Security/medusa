@@ -31,14 +31,14 @@ class WebSecurityScanner(RuleBasedScanner):
     """
 
     # Rule ID prefixes to load from YAML
-    RULE_ID_PREFIXES = ['WEB-']
+    RULE_ID_PREFIXES = ['WEB-', 'SAST-']
 
     # Categories to load from YAML
     RULE_CATEGORIES = [
         'ssl_verification', 'network_exposure', 'debug_mode',
         'secrets_exposure', 'open_redirect', 'host_header_injection',
-        'csrf_protection', 'sql_injection', 'command_injection',
-        'path_traversal', 'deserialization', 'ssrf'
+        'csrf_protection', 'sql_injection', 'deserialization', 'ssrf',
+        'web_security',
     ]
 
     # Python web framework indicators
@@ -139,7 +139,7 @@ class WebSecurityScanner(RuleBasedScanner):
             if re.search(pattern, content, re.IGNORECASE):
                 return 85
 
-        return 0  # Let other scanners handle non-web Python files
+        return 20  # Run SAST rules (SQLI, crypto, auth) on all Python files
 
     def should_scan(self, file_path: Path) -> bool:
         """Check if file should be scanned (is Python)"""
@@ -202,15 +202,14 @@ class WebSecurityScanner(RuleBasedScanner):
         # Check if this file uses web frameworks/requests
         context = self._check_framework_context(content)
 
-        # Only scan files that have web-related code
+        lines = content.split('\n')
+
+        # Always run YAML rules (SQL injection, weak crypto, etc.)
+        rule_issues = self._scan_with_rules(lines, file_path)
+        issues.extend(rule_issues)
+
+        # Hardcoded SSRF pattern detection only for web framework code
         if any(context.values()):
-            lines = content.split('\n')
-
-            # Use YAML rules for detection
-            rule_issues = self._scan_with_rules(lines, file_path)
-            issues.extend(rule_issues)
-
-            # Hardcoded SSRF pattern detection for web framework code
             if context['requests'] or context['flask'] or context['django']:
                 ssrf_issues = self._scan_ssrf_patterns(content, lines)
                 issues.extend(ssrf_issues)

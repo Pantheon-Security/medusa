@@ -1166,7 +1166,7 @@ def print_banner():
 """
     # Version line: .2.0 in EXACT same cyan as Target:/Mode:
     version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
-    line2 = "76 Analyzers | 7,300+ Rules | AI Security Detection"
+    line2 = "78 Analyzers | 9,600+ Rules | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1182,11 +1182,11 @@ def print_banner():
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]76 Analyzers | 7,300+ Rules | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]78 Analyzers | 9,600+ Rules | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 7,300+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 9,600+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1196,7 +1196,7 @@ def main(ctx, version):
     """
     MEDUSA - AI Security Scanner
 
-    7,300+ AI security detection patterns with 76 specialized analyzers.
+    9,600+ AI security detection patterns with 78 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
@@ -1206,6 +1206,9 @@ def main(ctx, version):
         medusa init                            # Initialize MEDUSA in project
         medusa install                         # Install linters
     """
+    from medusa.setup_path import check_and_warn
+    check_and_warn()
+
     if version:
         click.echo(f"MEDUSA v{__version__}")
         ctx.exit(0)
@@ -1371,34 +1374,41 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             console.print(f"  [yellow]{tool}[/yellow] [dim]({desc})[/dim]")
             console.print(f"    [dim]{hint}[/dim]")
 
-        console.print(f"\n[bold yellow]Continue scan without these tools?[/bold yellow]")
-        console.print("  [dim]yes[/dim] - Continue anyway (some files won't be fully scanned)")
-        console.print("  [dim]no[/dim]  - Cancel and install the tools first")
-        try:
-            response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
-            if response not in ('y', 'yes'):
-                console.print("\n[dim]Scan cancelled. Install the tools above and try again.[/dim]")
+        if not sys.stdin.isatty():
+            # Non-interactive (CI, subprocess, pipe) — auto-continue
+            console.print("[dim]Non-interactive mode: continuing without optional tools.[/dim]\n")
+        else:
+            console.print(f"\n[bold yellow]Continue scan without these tools?[/bold yellow]")
+            console.print("  [dim]yes[/dim] - Continue anyway (some files won't be fully scanned)")
+            console.print("  [dim]no[/dim]  - Cancel and install the tools first")
+            try:
+                response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
+                if response not in ('y', 'yes'):
+                    console.print("\n[dim]Scan cancelled. Install the tools above and try again.[/dim]")
+                    return
+                console.print()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[dim]Scan cancelled.[/dim]")
                 return
-            console.print()
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n[dim]Scan cancelled.[/dim]")
-            return
 
     # Ask Y/N if critical tools missing
     if critical_warning:
         console.print()
-        try:
-            console.print("[bold yellow]Continue scan without modelscan?[/bold yellow]")
-            console.print("  [dim]yes[/dim] - Continue anyway (model files won't be scanned)")
-            console.print("  [dim]no[/dim]  - Cancel and install modelscan first")
-            response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
-            if response not in ('y', 'yes'):
-                console.print("\n[dim]Scan cancelled. Run 'medusa install --ai-tools' then try again.[/dim]")
+        if not sys.stdin.isatty():
+            console.print("[dim]Non-interactive mode: continuing without modelscan.[/dim]\n")
+        else:
+            try:
+                console.print("[bold yellow]Continue scan without modelscan?[/bold yellow]")
+                console.print("  [dim]yes[/dim] - Continue anyway (model files won't be scanned)")
+                console.print("  [dim]no[/dim]  - Cancel and install modelscan first")
+                response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
+                if response not in ('y', 'yes'):
+                    console.print("\n[dim]Scan cancelled. Run 'medusa install --ai-tools' then try again.[/dim]")
+                    return
+                console.print()
+            except (KeyboardInterrupt, EOFError):
+                console.print("\n[dim]Scan cancelled.[/dim]")
                 return
-            console.print()
-        except (KeyboardInterrupt, EOFError):
-            console.print("\n[dim]Scan cancelled.[/dim]")
-            return
 
     console.print()
 
@@ -2318,7 +2328,7 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.4.0 works out of the box with 7,300+ built-in AI security
+    MEDUSA v2026.5.0 works out of the box with 9,600+ built-in AI security
     rules. External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
@@ -2344,8 +2354,8 @@ def install(check, ai_tools, debug, install_all):
 
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.4.0[/yellow]")
-        console.print("[dim]MEDUSA now focuses on AI security rules (7,300+ patterns).[/dim]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.0[/yellow]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (9,600+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
         console.print("  medusa install --ai-tools    # Install AI security tools")
@@ -2499,8 +2509,8 @@ def _show_install_check():
         audit_environment, get_install_hint,
     )
 
-    console.print(f"\n[bold dark_green]MEDUSA v2026.4.0 - AI Security Scanner[/bold dark_green]")
-    console.print(f"[dim]Works out of the box with 7,300+ built-in AI security rules[/dim]\n")
+    console.print(f"\n[bold dark_green]MEDUSA v2026.5.0 - AI Security Scanner[/bold dark_green]")
+    console.print(f"[dim]Works out of the box with 9,600+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
     audit = audit_environment()
@@ -2584,7 +2594,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.4.0 only manages modelscan. Use your package manager
+    MEDUSA v2026.5.0 only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -2594,7 +2604,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.4.0[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.0[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -2602,12 +2612,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.4.0 only manages modelscan installation.[/dim]\n")
+        console.print("[dim]MEDUSA v2026.5.0 only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.4.0 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v2026.5.0 doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return

@@ -4,10 +4,8 @@ source_notebook: 'Deep research: MCP protocol attacks, ATPA, schema poisoning, s
 generated: '2026-03-13'
 metadata:
   name: MCP Advanced Attack Scanner Rules
-  description: >-
-    Advanced detection rules for MCP protocol attacks including full-schema poisoning,
-    ATPA output manipulation, parameter name injection, ANSI escape sequences in tool
-    output, sampling-based prompt injection, and CVE-specific patterns.
+  description: Advanced detection rules for MCP protocol attacks including full-schema poisoning, ATPA output manipulation,
+    parameter name injection, ANSI escape sequences in tool output, sampling-based prompt injection, and CVE-specific patterns.
   attacks:
   - Full-schema tool poisoning (hidden instructions in JSON schemas)
   - ATPA output token poisoning
@@ -24,34 +22,32 @@ metadata:
 rules:
 - id: MEDUSA-MCP-SCAN-101
   name: mcp-full-schema-poisoning
-  description: >-
-    Detects MCP tool definitions where prompt injection is embedded in JSON schema
-    properties (title, description, examples, default, enum values). Unlike simple
-    tool description poisoning, full-schema poisoning hides instructions in individual
-    parameter schemas where they are harder to spot but still processed by the LLM.
+  description: Detects MCP tool definitions where prompt injection is embedded in JSON schema properties (title, description,
+    examples, default, enum values). Unlike simple tool description poisoning, full-schema poisoning hides instructions in
+    individual parameter schemas where they are harder to spot but still processed by the LLM.
   severity: critical
   category: mcp_security
   patterns:
   - (?i)(?:properties|items)\s*[:{].{0,300}(?:description|title|examples?)\s*[":]\s*[^"]{0,50}(?:ignore\s+previous|you\s+(?:must|should)\s+(?:also|always|first)|before\s+(?:running|executing|calling)|after\s+(?:this|the)\s+tool|secretly|covertly|without\s+(?:telling|informing|notifying))
   owasp_llm: LLM01:2025
   cwe: CWE-94
-  message: >-
-    MCP full-schema poisoning detected: prompt injection embedded in a JSON schema
-    property description, title, or example value. The LLM processes these schema
-    fields when deciding how to call the tool.
-  remediation: >-
-    Review all JSON schema property descriptions for hidden instructions. Tool
-    parameter schemas should only contain factual descriptions of the parameter's
-    purpose. Strip any directive language from schema fields. Implement schema
-    validation that rejects descriptions containing action verbs.
-
+  message: 'MCP full-schema poisoning detected: prompt injection embedded in a JSON schema property description, title, or
+    example value. The LLM processes these schema fields when deciding how to call the tool.'
+  remediation: Review all JSON schema property descriptions for hidden instructions. Tool parameter schemas should only contain
+    factual descriptions of the parameter's purpose. Strip any directive language from schema fields. Implement schema validation
+    that rejects descriptions containing action verbs.
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
 - id: MEDUSA-MCP-SCAN-102
   name: mcp-atpa-output-poisoning
-  description: >-
-    Detects Adversarial Tool Parameter Augmentation (ATPA) patterns where MCP tool
-    output contains instructions that manipulate the LLM into calling additional
-    tools or changing its behavior. The tool output includes hidden directives like
-    "IMPORTANT: you must now call tool X" or returns results wrapped in instruction tags.
+  description: 'Detects Adversarial Tool Parameter Augmentation (ATPA) patterns where MCP tool output contains instructions
+    that manipulate the LLM into calling additional tools or changing its behavior. The tool output includes hidden directives
+    like "IMPORTANT: you must now call tool X" or returns results wrapped in instruction tags.'
   severity: critical
   category: mcp_security
   patterns:
@@ -59,46 +55,34 @@ rules:
   - (?i)(?:tool_?result|output|return)\s*[":={].{0,200}<(?:system|instruction|hidden|override|admin)[^>]*>
   owasp_llm: LLM01:2025
   cwe: CWE-94
-  message: >-
-    ATPA output poisoning detected: MCP tool output contains hidden instructions
-    designed to manipulate the LLM into taking additional actions. This is a
-    tool-to-LLM prompt injection vector.
-  remediation: >-
-    Sanitize all MCP tool output before returning it to the LLM. Strip XML-like
-    instruction tags and directive language. Implement output content policies
-    that reject responses containing action directives. Use a separate validation
+  message: 'ATPA output poisoning detected: MCP tool output contains hidden instructions designed to manipulate the LLM into
+    taking additional actions. This is a tool-to-LLM prompt injection vector.'
+  remediation: Sanitize all MCP tool output before returning it to the LLM. Strip XML-like instruction tags and directive
+    language. Implement output content policies that reject responses containing action directives. Use a separate validation
     LLM to check tool outputs for injection attempts.
-
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-103
   name: mcp-parameter-name-injection
-  description: >-
-    Detects MCP tool parameters whose names contain prompt injection payloads.
-    Parameter names like "filename_IMPORTANT_also_read_ssh_keys" or
-    "input_ignore_previous_instructions" embed directives in the parameter
-    name itself, which is processed by the LLM during tool invocation.
+  description: Detects MCP tool parameters whose names contain prompt injection payloads. Parameter names like "filename_IMPORTANT_also_read_ssh_keys"
+    or "input_ignore_previous_instructions" embed directives in the parameter name itself, which is processed by the LLM during
+    tool invocation.
   severity: high
   category: mcp_security
   patterns:
   - (?i)(?:name|parameter|param|field)\s*[":=]\s*["']?[a-z0-9_]*(?:ignore|override|bypass|must_also|always_first|secretly|read_all|send_to|exfiltrate|steal)[a-z0-9_]*["']?
   owasp_llm: LLM01:2025
   cwe: CWE-94
-  message: >-
-    MCP parameter name injection detected: a tool parameter name contains directive
-    keywords that could manipulate the LLM during tool invocation. Parameter names
-    should be simple, descriptive identifiers.
-  remediation: >-
-    Rename parameters to use simple descriptive names without embedded instructions.
-    Implement parameter name validation that rejects names containing action verbs
-    or directive keywords. Review the MCP server source for additional manipulation
+  message: 'MCP parameter name injection detected: a tool parameter name contains directive keywords that could manipulate
+    the LLM during tool invocation. Parameter names should be simple, descriptive identifiers.'
+  remediation: Rename parameters to use simple descriptive names without embedded instructions. Implement parameter name validation
+    that rejects names containing action verbs or directive keywords. Review the MCP server source for additional manipulation
     patterns.
-
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-104
   name: mcp-ansi-escape-terminal-injection
-  description: >-
-    Detects ANSI escape sequences in MCP tool output or descriptions that can
-    manipulate the user's terminal. Sequences like ESC[2J (clear screen),
-    ESC[?25l (hide cursor), or OSC commands can hide malicious actions from the
-    terminal output, making attacks invisible to the user reviewing tool output.
+  description: Detects ANSI escape sequences in MCP tool output or descriptions that can manipulate the user's terminal. Sequences
+    like ESC[2J (clear screen), ESC[?25l (hide cursor), or OSC commands can hide malicious actions from the terminal output,
+    making attacks invisible to the user reviewing tool output.
   severity: high
   category: mcp_security
   patterns:
@@ -107,23 +91,17 @@ rules:
   - (?i)(?:\\x1b|\\e|\\033|\\u001b)\[(?:2J|H|\?25[lh]|[0-9]+[AB]|[0-9]+;[0-9]+[Hf])
   owasp_llm: LLM08:2025
   cwe: CWE-150
-  message: >-
-    ANSI escape sequence injection detected in MCP context: terminal control
-    sequences can clear the screen, reposition the cursor, or hide output to
-    conceal malicious tool actions from the user.
-  remediation: >-
-    Strip all ANSI escape sequences from MCP tool output before displaying to
-    the user. Implement terminal output sanitization. Log raw tool output
-    separately for forensic review. Consider using a terminal emulator that
-    highlights or blocks suspicious escape sequences.
-
+  message: 'ANSI escape sequence injection detected in MCP context: terminal control sequences can clear the screen, reposition
+    the cursor, or hide output to conceal malicious tool actions from the user.'
+  remediation: Strip all ANSI escape sequences from MCP tool output before displaying to the user. Implement terminal output
+    sanitization. Log raw tool output separately for forensic review. Consider using a terminal emulator that highlights or
+    blocks suspicious escape sequences.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-105
   name: mcp-bcc-email-exfiltration
-  description: >-
-    Detects MCP email tool configurations that use BCC (blind carbon copy) to
-    exfiltrate data. A malicious MCP server can instruct the LLM to add a BCC
-    recipient to all emails, silently forwarding sensitive communications to
-    the attacker without the user's knowledge.
+  description: Detects MCP email tool configurations that use BCC (blind carbon copy) to exfiltrate data. A malicious MCP
+    server can instruct the LLM to add a BCC recipient to all emails, silently forwarding sensitive communications to the
+    attacker without the user's knowledge.
   severity: critical
   category: mcp_security
   patterns:
@@ -132,23 +110,17 @@ rules:
   - (?i)(?:tool|function|action)\s*[":].{0,200}(?:send_?email|compose|mail).{0,200}bcc\s*[":=]
   owasp_llm: LLM05:2025
   cwe: CWE-200
-  message: >-
-    MCP BCC email exfiltration detected: an MCP tool configuration adds a BCC
-    recipient to emails, silently forwarding communications to a third party
-    without the user's knowledge.
-  remediation: >-
-    Review all MCP email tool configurations for hidden BCC recipients. Remove
-    any BCC fields that were not explicitly configured by the user. Implement
-    email sending policies that require explicit approval for BCC recipients.
-    Log all outbound email metadata for audit.
-
+  message: 'MCP BCC email exfiltration detected: an MCP tool configuration adds a BCC recipient to emails, silently forwarding
+    communications to a third party without the user''s knowledge.'
+  remediation: Review all MCP email tool configurations for hidden BCC recipients. Remove any BCC fields that were not explicitly
+    configured by the user. Implement email sending policies that require explicit approval for BCC recipients. Log all outbound
+    email metadata for audit.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-106
   name: mcp-malicious-config-autostart
-  description: >-
-    Detects MCP configuration files (.mcp.json, mcp.json, .cursor/mcp.json) that
-    configure servers to auto-start with suspicious commands or reference external
-    URLs. Malicious configs can execute arbitrary code when the IDE loads the project.
-    CVE-2025-54135 (CurXecute).
+  description: Detects MCP configuration files (.mcp.json, mcp.json, .cursor/mcp.json) that configure servers to auto-start
+    with suspicious commands or reference external URLs. Malicious configs can execute arbitrary code when the IDE loads the
+    project. CVE-2025-54135 (CurXecute).
   severity: critical
   category: mcp_security
   patterns:
@@ -157,22 +129,16 @@ rules:
   - (?i)(?:"args"|"arguments")\s*:\s*\[[^\]]*(?:--exec|--command|-e\s|eval\(|import\s+os)
   owasp_llm: LLM08:2025
   cwe: CWE-78
-  message: >-
-    Malicious MCP config auto-start detected: an MCP configuration file specifies
-    a server command that executes shell commands, downloads payloads, or uses
-    command injection. CVE-2025-54135 (CurXecute).
-  remediation: >-
-    Review all MCP server commands in configuration files. Remove any servers that
-    execute shell commands, download content, or use command injection. Only use
-    MCP servers from trusted sources with verified package names. Disable MCP
+  message: 'Malicious MCP config auto-start detected: an MCP configuration file specifies a server command that executes shell
+    commands, downloads payloads, or uses command injection. CVE-2025-54135 (CurXecute).'
+  remediation: Review all MCP server commands in configuration files. Remove any servers that execute shell commands, download
+    content, or use command injection. Only use MCP servers from trusted sources with verified package names. Disable MCP
     auto-start in your IDE settings.
-
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-107
   name: mcp-flowise-rce
-  description: >-
-    Detects Flowise configuration patterns vulnerable to CVE-2025-26319, a critical
-    RCE vulnerability in Flowise's /api/v1/node-custom-function endpoint. Attackers
-    can execute arbitrary code on the server through the API without authentication.
+  description: Detects Flowise configuration patterns vulnerable to CVE-2025-26319, a critical RCE vulnerability in Flowise's
+    /api/v1/node-custom-function endpoint. Attackers can execute arbitrary code on the server through the API without authentication.
   severity: critical
   category: mcp_security
   patterns:
@@ -181,22 +147,15 @@ rules:
   - (?i)(?:FLOWISE|flowise)(?:_API|_URL|_HOST|_ENDPOINT)\s*=
   owasp_llm: LLM08:2025
   cwe: CWE-94
-  message: >-
-    Flowise RCE vulnerability indicator detected (CVE-2025-26319): Flowise
-    versions before 2.2.7 allow unauthenticated remote code execution through
-    the custom function API endpoint.
-  remediation: >-
-    Upgrade Flowise to version 2.2.7 or later. If upgrading is not immediately
-    possible, restrict access to /api/v1/node-custom-function endpoint. Enable
-    authentication on all Flowise API endpoints. Review Flowise instance for
-    signs of compromise.
-
+  message: 'Flowise RCE vulnerability indicator detected (CVE-2025-26319): Flowise versions before 2.2.7 allow unauthenticated
+    remote code execution through the custom function API endpoint.'
+  remediation: Upgrade Flowise to version 2.2.7 or later. If upgrading is not immediately possible, restrict access to /api/v1/node-custom-function
+    endpoint. Enable authentication on all Flowise API endpoints. Review Flowise instance for signs of compromise.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-108
   name: mcp-sampling-injection
-  description: >-
-    Detects MCP sampling/completion request patterns that could be exploited for
-    indirect prompt injection. MCP servers can request the client LLM to generate
-    completions via the sampling capability, and a malicious server can craft
+  description: Detects MCP sampling/completion request patterns that could be exploited for indirect prompt injection. MCP
+    servers can request the client LLM to generate completions via the sampling capability, and a malicious server can craft
     sampling requests that inject instructions into the LLM's context.
   severity: high
   category: mcp_security
@@ -205,23 +164,17 @@ rules:
   - (?i)create_?message\s*\(.{0,200}(?:role\s*[=:]\s*["']system|messages?\s*[=:]\s*\[).{0,200}(?:ignore|override|bypass|forget)
   owasp_llm: LLM01:2025
   cwe: CWE-94
-  message: >-
-    MCP sampling injection detected: a sampling/completion request contains
-    system-level instructions that attempt to override or bypass the LLM's
-    original instructions through the MCP sampling capability.
-  remediation: >-
-    Validate all MCP sampling requests before forwarding to the LLM. Implement
-    content policies that reject sampling requests containing override directives.
-    Restrict the sampling capability to trusted MCP servers only. Log all
-    sampling requests for audit.
-
+  message: 'MCP sampling injection detected: a sampling/completion request contains system-level instructions that attempt
+    to override or bypass the LLM''s original instructions through the MCP sampling capability.'
+  remediation: Validate all MCP sampling requests before forwarding to the LLM. Implement content policies that reject sampling
+    requests containing override directives. Restrict the sampling capability to trusted MCP servers only. Log all sampling
+    requests for audit.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-109
   name: mcp-rug-pull-version-mismatch
-  description: >-
-    Detects MCP server configurations where the server specifies a version constraint
-    that could enable rug-pull attacks — where a trusted MCP server is later updated
-    with malicious functionality. Unpinned versions (latest, *, ^, ~) allow silent
-    updates that change server behavior.
+  description: Detects MCP server configurations where the server specifies a version constraint that could enable rug-pull
+    attacks — where a trusted MCP server is later updated with malicious functionality. Unpinned versions (latest, *, ^, ~)
+    allow silent updates that change server behavior.
   severity: medium
   category: mcp_security
   patterns:
@@ -229,22 +182,16 @@ rules:
   - (?i)(?:npx|pip\s+install|go\s+install)\s+(?!.*@\d)[a-z0-9@/_-]+(?:\s|$|")
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    MCP rug-pull risk detected: an MCP server is configured without a pinned
-    version, allowing silent updates that could introduce malicious functionality.
-    Always pin MCP server versions to specific releases.
-  remediation: >-
-    Pin all MCP server dependencies to specific version numbers. Use lock files
-    to ensure reproducible installations. Verify server integrity with checksums
-    or signatures. Subscribe to security advisories for your MCP servers.
-
+  message: 'MCP rug-pull risk detected: an MCP server is configured without a pinned version, allowing silent updates that
+    could introduce malicious functionality. Always pin MCP server versions to specific releases.'
+  remediation: Pin all MCP server dependencies to specific version numbers. Use lock files to ensure reproducible installations.
+    Verify server integrity with checksums or signatures. Subscribe to security advisories for your MCP servers.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-110
   name: mcp-cross-server-manipulation
-  description: >-
-    Detects patterns where an MCP tool description references or attempts to
-    manipulate other MCP servers or tools. A malicious MCP server can instruct
-    the LLM to invoke tools from other connected servers, escalating privileges
-    across the MCP trust boundary.
+  description: Detects patterns where an MCP tool description references or attempts to manipulate other MCP servers or tools.
+    A malicious MCP server can instruct the LLM to invoke tools from other connected servers, escalating privileges across
+    the MCP trust boundary.
   severity: high
   category: mcp_security
   patterns:
@@ -252,22 +199,16 @@ rules:
   - (?i)(?:description|desc)\s*[":]\s*[^"]{0,200}(?:before|after|also|then)\s+(?:call|invoke|use|run)\s+(?:tool|server|function)\s+["']?\w+["']?
   owasp_llm: LLM01:2025
   cwe: CWE-94
-  message: >-
-    MCP cross-server manipulation detected: a tool description instructs the LLM
-    to invoke tools from other MCP servers. This can escalate privileges across
-    MCP trust boundaries and chain attacks through multiple servers.
-  remediation: >-
-    Implement MCP server isolation — each server should only be able to describe
-    its own tools. Strip cross-server references from tool descriptions. Use
-    separate LLM contexts for different MCP servers when possible. Implement
-    a tool invocation allowlist per server.
-
+  message: 'MCP cross-server manipulation detected: a tool description instructs the LLM to invoke tools from other MCP servers.
+    This can escalate privileges across MCP trust boundaries and chain attacks through multiple servers.'
+  remediation: Implement MCP server isolation — each server should only be able to describe its own tools. Strip cross-server
+    references from tool descriptions. Use separate LLM contexts for different MCP servers when possible. Implement a tool
+    invocation allowlist per server.
+  file_types: *id001
 - id: MEDUSA-MCP-SCAN-111
   name: mcp-resource-exfiltration-uri
-  description: >-
-    Detects MCP resource URIs that reference sensitive local files or internal
-    network endpoints. A malicious MCP server can expose resources that point to
-    credentials, environment files, or internal services, tricking the LLM into
+  description: Detects MCP resource URIs that reference sensitive local files or internal network endpoints. A malicious MCP
+    server can expose resources that point to credentials, environment files, or internal services, tricking the LLM into
     reading and potentially leaking sensitive data.
   severity: high
   category: mcp_security
@@ -276,12 +217,9 @@ rules:
   - (?i)(?:uri|url|resource)\s*[":=]\s*["']?https?://(?:169\.254\.169\.254|metadata\.google|100\.100\.100\.200|localhost|127\.0\.0\.1|0\.0\.0\.0)
   owasp_llm: LLM05:2025
   cwe: CWE-200
-  message: >-
-    MCP resource exfiltration URI detected: a resource URI points to sensitive
-    local files, credentials, or cloud metadata endpoints. Reading these resources
-    could leak secrets to the MCP server or through the LLM conversation.
-  remediation: >-
-    Restrict MCP resource URIs to the project directory only. Block access to
-    sensitive system files, credential stores, and cloud metadata endpoints.
-    Implement URI allowlisting for MCP resources. Validate all resource URIs
-    against a security policy before allowing access.
+  message: 'MCP resource exfiltration URI detected: a resource URI points to sensitive local files, credentials, or cloud
+    metadata endpoints. Reading these resources could leak secrets to the MCP server or through the LLM conversation.'
+  remediation: Restrict MCP resource URIs to the project directory only. Block access to sensitive system files, credential
+    stores, and cloud metadata endpoints. Implement URI allowlisting for MCP resources. Validate all resource URIs against
+    a security policy before allowing access.
+  file_types: *id001

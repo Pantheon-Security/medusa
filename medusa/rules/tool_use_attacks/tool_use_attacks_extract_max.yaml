@@ -1,0 +1,256 @@
+version: 1
+metadata:
+  name: MEDUSA tool_use_attacks Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  source: agent extraction
+rules:
+- id: MEDUSA-TOOLATT-SCAN-001
+  name: malicious-tool-injection-schema
+  description: Detects unauthorized tool or function definitions injected into LLM agent tool registries — including tools
+    with same names but different behavior, tools with different names replicating sensitive operations, and malicious MCP
+    server tool schemas that mimic legitimate ones.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - tool.*inject.*registry|registry.*tool.*inject
+  - malicious.*tool.*schema|schema.*malicious.*tool
+  - unauthorized.*function.*definit|function.*definit.*unauthorized
+  - tool.*name.*conflict.*behavior|behavior.*conflict.*tool.*name
+  - mcp.*server.*tool.*tamper|tamper.*mcp.*server.*tool
+  - inject.*tool.*agent.*toolkit|agent.*toolkit.*inject.*tool
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: malicious-tool-injection-schema'
+- id: MEDUSA-TOOLATT-SCAN-002
+  name: tool-output-poisoning-indirect-injection
+  description: Identifies indirect prompt injection via tool outputs — where external data sources, API responses, or tool
+    return values contain embedded adversarial instructions that manipulate agent behavior in subsequent processing steps.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - tool.*output.*inject.*instruction|instruction.*inject.*tool.*output
+  - api.*response.*adversar.*prompt|adversar.*prompt.*api.*response
+  - indirect.*prompt.*inject.*tool|tool.*indirect.*prompt.*inject
+  - embed.*instruction.*tool.*result|tool.*result.*embed.*instruction
+  - external.*data.*inject.*agent|agent.*external.*data.*inject
+  - second.*order.*inject.*tool.*output|tool.*output.*second.*order.*inject
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: tool-output-poisoning-indirect-injection'
+- id: MEDUSA-TOOLATT-SCAN-003
+  name: json-injection-tool-parameters
+  description: Detects JSON injection attacks targeting tool function parameters — including malformed JSON structures that
+    manipulate function name selection, inject override_limit fields, or introduce unexpected parameter values to bypass authorization
+    controls.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - override_limit.*true|override.*limit.*true
+  - json.*inject.*function.*param|function.*param.*json.*inject
+  - malform.*json.*tool.*call|tool.*call.*malform.*json
+  - inject.*param.*tool.*schema|tool.*schema.*inject.*param
+  - \$\{.*\}.*tool.*param|tool.*param.*\$\{.*\}
+  - function.*name.*corrupt.*json|json.*corrupt.*function.*name
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: json-injection-tool-parameters'
+- id: MEDUSA-TOOLATT-SCAN-004
+  name: man-in-the-middle-tool-communication
+  description: Identifies man-in-the-middle attack patterns targeting tool communication channels — including API interception
+    to swap tool_choice arguments, intercept tools API responses, modify tool schemas in transit, and manipulate function
+    selection signals between agent and tool execution layer.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - intercept.*tool.*choice|tool.*choice.*intercept
+  - mitm.*tool.*api|tool.*api.*mitm
+  - man.*middle.*tool.*call|tool.*call.*man.*middle
+  - intercept.*function.*select|function.*select.*intercept
+  - modify.*tool.*schema.*transit|transit.*modify.*tool.*schema
+  - proxy.*tool.*communicat.*inject|inject.*proxy.*tool.*communicat
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: man-in-the-middle-tool-communication'
+- id: MEDUSA-TOOLATT-SCAN-005
+  name: unsafe-function-calling-privilege-escalation
+  description: Detects function calling patterns that invoke tools outside authorized scope — including calls with overbroad
+    parameters, unauthorized tool selection bypassing system prompt restrictions, and runtime action abuse exploiting LLM
+    agent authorization gaps.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - tool.*call.*outside.*scope|outside.*scope.*tool.*call
+  - function.*call.*privilege.*escalat|privilege.*escalat.*function.*call
+  - unauthorized.*tool.*invok|tool.*invok.*unauthorized
+  - bypass.*tool.*authorizat|tool.*authorizat.*bypass
+  - overbroad.*param.*function.*call|function.*call.*overbroad.*param
+  - tool.*runtime.*abuse|abuse.*tool.*runtime
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: unsafe-function-calling-privilege-escalation'
+- id: MEDUSA-TOOLATT-SCAN-006
+  name: chained-attack-tool-traversal
+  description: Identifies multi-stage chained attack patterns that traverse agent execution nodes — prompt injection to disable
+    security, followed by tool injection, parameter manipulation, and output poisoning in sequence to achieve cascading system
+    compromise.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - chain.*attack.*tool.*agent|agent.*tool.*chain.*attack
+  - multi.*stage.*tool.*exploit|tool.*exploit.*multi.*stage
+  - prompt.*inject.*then.*tool.*inject|tool.*inject.*after.*prompt.*inject
+  - sequential.*tool.*attack|attack.*sequential.*tool
+  - cascade.*tool.*compromise|tool.*compromise.*cascade
+  - stage.*attack.*agent.*traversal|agent.*traversal.*stage.*attack
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: chained-attack-tool-traversal'
+- id: MEDUSA-TOOLATT-SCAN-007
+  name: tool-schema-tampering-mcp
+  description: Detects MCP server tool schema tampering — modification of tool interface definitions (names, parameter schemas,
+    descriptions) to mislead the LLM agent into invoking unintended operations or bypassing access controls.
+  severity: high
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - mcp.*tool.*schema.*modif|modif.*mcp.*tool.*schema
+  - tool.*definit.*tamper.*mcp|mcp.*tamper.*tool.*definit
+  - tool.*description.*manipulat.*mcp|mcp.*manipulat.*tool.*description
+  - function.*schema.*overwrite|overwrite.*function.*schema
+  - mcp.*server.*tool.*redefin|redefin.*mcp.*server.*tool
+  - tool.*interface.*inject.*mcp|mcp.*inject.*tool.*interface
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: tool-schema-tampering-mcp'
+- id: MEDUSA-TOOLATT-SCAN-008
+  name: denial-of-service-via-tool-abuse
+  description: Detects patterns where tool invocations are exploited to cause denial of service — including token count explosion
+    via crafted tool inputs, infinite tool call loops, computationally expensive function calls, and resource exhaustion through
+    parameter manipulation.
+  severity: high
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - infinite.*tool.*call.*loop|tool.*call.*loop.*infinite
+  - token.*count.*explode.*tool|tool.*token.*count.*explode
+  - resource.*exhaust.*function.*call|function.*call.*resource.*exhaust
+  - dos.*tool.*invoc|tool.*invoc.*dos
+  - denial.*service.*tool.*param|tool.*param.*denial.*service
+  - loop.*tool.*agent.*infinite|agent.*infinite.*loop.*tool
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: denial-of-service-via-tool-abuse'
+- id: MEDUSA-TOOLATT-SCAN-009
+  name: tool-result-injection-knowledge-poisoning
+  description: Identifies tool result injection that targets agent knowledge and memory — where poisoned tool outputs contain
+    false or distorted information retrieved as context, corrupting LLM reasoning and causing knowledge poisoning in subsequent
+    responses.
+  severity: high
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - tool.*result.*poison.*knowledge|knowledge.*poison.*tool.*result
+  - inject.*false.*context.*tool.*output|tool.*output.*inject.*false.*context
+  - memory.*poison.*tool.*retriev|tool.*retriev.*memory.*poison
+  - agent.*knowledge.*corrupt.*tool|tool.*corrupt.*agent.*knowledge
+  - distort.*info.*tool.*return|tool.*return.*distort.*info
+  - rag.*poison.*tool.*result|tool.*result.*rag.*poison
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: tool-result-injection-knowledge-poisoning'
+- id: MEDUSA-TOOLATT-SCAN-010
+  name: function-calling-architecture-fingerprinting
+  description: Detects systematic probing of LLM agent tool schemas for fingerprinting purposes — a precursor to targeted
+    attacks where the attacker maps available tools, parameter structures, and system prompt patterns to identify exploitable
+    interfaces.
+  severity: medium
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - enum.*all.*tool.*schema|tool.*schema.*enum.*all
+  - list.*available.*function.*agent|agent.*function.*list.*available
+  - probe.*tool.*parameter.*struct|tool.*parameter.*struct.*probe
+  - fingerprint.*agent.*tool|tool.*agent.*fingerprint
+  - discover.*function.*call.*schema|schema.*function.*call.*discover
+  - map.*tool.*api.*surface|tool.*api.*surface.*map
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: function-calling-architecture-fingerprinting'
+- id: MEDUSA-TOOLATT-SCAN-011
+  name: system-prompt-extraction-via-tool-leak
+  description: Detects attempts to extract system prompt contents through tool call results — where agents inadvertently include
+    system prompt content in tool parameters, logs, or structured outputs that the attacker can observe.
+  severity: high
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - system.*prompt.*leak.*tool.*output|tool.*output.*system.*prompt.*leak
+  - extract.*system.*prompt.*tool|tool.*extract.*system.*prompt
+  - sensitive.*data.*disclos.*tool.*call|tool.*call.*sensitive.*data.*disclos
+  - confidential.*info.*tool.*param|tool.*param.*confidential.*info
+  - agent.*secret.*tool.*return|tool.*return.*agent.*secret
+  - system.*instruction.*expose.*tool|tool.*expose.*system.*instruction
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: system-prompt-extraction-via-tool-leak'
+- id: MEDUSA-TOOLATT-SCAN-012
+  name: obfuscated-tool-injection-payload
+  description: Identifies obfuscated or encoded malicious payloads embedded in tool-related inputs — including base64-encoded
+    instructions, unicode obfuscation, and adversarial suffix injection targeting tool parameter validation bypass.
+  severity: critical
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - base64.*decode.*tool.*param|tool.*param.*base64.*decode
+  - unicode.*obfuscat.*function.*call|function.*call.*unicode.*obfuscat
+  - adversarial.*suffix.*tool.*param|tool.*param.*adversarial.*suffix
+  - encode.*malicious.*tool.*input|tool.*input.*encode.*malicious
+  - obfuscat.*inject.*function.*call|function.*call.*obfuscat.*inject
+  - hex.*encode.*tool.*payload|tool.*payload.*hex.*encode
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: obfuscated-tool-injection-payload'
+- id: MEDUSA-TOOLATT-SCAN-013
+  name: polymorphic-prompt-structure-inference
+  description: Detects systematic attempts to infer prompt assembly structure in LLM agents through iterative probing — including
+    separator boundary guessing, context extraction via varied inputs, and structural manipulation attacks that exploit predictable
+    prompt formats.
+  severity: high
+  category: TOOL_USE_ATTACKS
+  patterns:
+  - infer.*prompt.*structure.*agent|agent.*prompt.*structure.*infer
+  - separator.*guess.*prompt.*inject|prompt.*inject.*separator.*guess
+  - prompt.*structure.*predict|predict.*prompt.*structure
+  - exploit.*static.*separator|static.*separator.*exploit
+  - break.*prompt.*boundary.*inject|inject.*break.*prompt.*boundary
+  - probe.*prompt.*format.*agent|agent.*probe.*prompt.*format
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: polymorphic-prompt-structure-inference'

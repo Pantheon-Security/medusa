@@ -410,6 +410,10 @@ class RuleBasedScanner(BaseScanner):
         self._rules = None
         self._rules_loaded = False
 
+    def is_available(self) -> bool:
+        """Rule-based scanners are always available (no external tool needed)."""
+        return True
+
     def _load_rules(self):
         """Lazy-load rules from YAML files"""
         if self._rules_loaded:
@@ -463,7 +467,11 @@ class RuleBasedScanner(BaseScanner):
         # data files that happen to match a scannable extension.
         scan_lines = lines[:self.MAX_RULE_SCAN_LINES] if len(lines) > self.MAX_RULE_SCAN_LINES else lines
 
-        for rule in self.rules:
+        # Pre-filter rules by file type to avoid unnecessary matching
+        file_str = str(file_path) if file_path else ""
+        applicable_rules = [r for r in self.rules if r.matches_file_type(file_str)]
+
+        for rule in applicable_rules:
             for i, line in enumerate(scan_lines, 1):
                 for compiled in rule._compiled_patterns:
                     try:

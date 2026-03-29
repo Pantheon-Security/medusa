@@ -1,0 +1,322 @@
+metadata:
+  source: NotebookLM/MEDUSA GenAI Security
+  extraction_date: '2026-02-18'
+  papers_analyzed: 47
+  attacks_identified: 7
+  defenses_identified: 7
+  benchmarks:
+  - LLMSCBench
+  - MCPSecBench
+  - ATFAA
+  - CIA+TA
+  - SecGenAI
+rules:
+- id: MEDUSA-GENAI-SCAN-001
+  name: autoattacker-llm-pentest-framework
+  severity: critical
+  category: genai_security
+  subcategory: ai_attack_tool
+  patterns:
+  - (?i)(?:from|import)\s+autoattacker
+  - (?i)AutoAttacker\s*[\(\[]
+  - (?i)auto_attacker\s*[=(\[]
+  - (?i)llm_pentest(?:er|ing)?\s*[=(\[]
+  - (?i)post_breach_(?:attack|task|action)\s*=\s*(?:True|1|\[)
+  file_types:
+  - '*.py'
+  message: AutoAttacker LLM-driven post-breach attack framework detected
+  description: Detects AutoAttacker (Xu 2024), an LLM-driven framework for automated post-breach network attack tasks. The
+    framework uses GPT-4 to autonomously solve all 14 standard post-breach attack tasks against enterprise networks without
+    human involvement. Detection of AutoAttacker imports, instantiations, or post-breach task scaffolding in a codebase indicates
+    active AI-assisted offensive pentesting activity beyond authorized red teaming scope.
+  remediation: Restrict LLM API access to authorized red team personnel only. Implement API call logging and rate limiting
+    to detect bulk task automation. Require all AI-assisted pentesting activity to be pre-approved and scoped via a formal
+    change management process. Deploy network anomaly detection to identify automated lateral movement patterns distinct from
+    human-paced attacks.
+  owasp_llm: LLM02:2025
+  cwe: CWE-77
+  source_paper: Xu et al. (2024) - AutoAttacker
+- id: MEDUSA-GENAI-SCAN-002
+  name: wormgpt-fraudgpt-malicious-llm-reference
+  severity: critical
+  category: genai_security
+  subcategory: ai_attack_tool
+  patterns:
+  - (?i)(?:from|import)\s+(?:wormgpt|fraudgpt|worm_gpt|fraud_gpt)
+  - (?i)(?:wormgpt|fraudgpt)\s*[\(\[=]
+  - (?i)malicious[_-]llm\s*[=(\[]
+  - (?i)(?:worm|fraud)gpt[_-](?:api|endpoint|client|key)\s*[=:]
+  - (?i)uncensored[_-](?:llm|model|generation)\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: WormGPT or FraudGPT malicious LLM reference detected - uncensored model integration
+  description: Detects references to WormGPT and FraudGPT (Mozes 2023), malicious LLMs trained or fine-tuned without safety
+    guardrails for generating malware, phishing lures, and social engineering content at scale. These models are specifically
+    marketed in underground forums for cybercriminal use and remove all content-moderation constraints present in commercial
+    LLMs. Detection of API keys, client instantiation, or import paths referencing these tools indicates potential use of
+    weaponized AI for offensive content generation.
+  remediation: Block all outbound API calls to non-approved LLM endpoints at the network perimeter. Maintain an allowlist
+    of approved LLM providers with verified safety policies. Audit Python environments for unauthorized package installations.
+    Report findings to the security team and relevant authorities; WormGPT/FraudGPT usage may constitute a legal violation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-77
+  source_paper: Mozes et al. (2023) - WormGPT/FraudGPT
+- id: MEDUSA-GENAI-SCAN-003
+  name: chathttpfuzz-iot-llm-fuzzer
+  severity: high
+  category: genai_security
+  subcategory: ai_attack_tool
+  patterns:
+  - (?i)(?:from|import)\s+chathttpfuzz
+  - (?i)ChatHTTPFuzz\s*[\(\[]
+  - (?i)chat_http_fuzz\s*[=(\[]
+  - (?i)iot[_-]http[_-]fuzz(?:er|ing)?\s*[=(\[]
+  - (?i)zigbee[_-](?:fuzz|vuln|exploit|probe)\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: ChatHTTPFuzz LLM-assisted IoT HTTP fuzzing tool detected
+  description: Detects ChatHTTPFuzz (Yang 2024), an LLM-assisted fuzzer targeting IoT device HTTP interfaces. The tool uses
+    an LLM to generate semantically valid but boundary-violating HTTP requests against IoT protocols, discovering 11 previously
+    unknown Zigbee vulnerabilities in tested devices. Detection of ChatHTTPFuzz imports, IoT HTTP fuzzing configurations,
+    or Zigbee-targeted probing scaffolding indicates AI-assisted vulnerability discovery against IoT infrastructure, which
+    may be unauthorized.
+  remediation: Restrict IoT device network access to authorized security testing segments. Require documented approval for
+    all IoT fuzzing activities. Monitor HTTP traffic to IoT management interfaces for abnormal request volume or malformed
+    protocol payloads. Implement firmware integrity checks on IoT devices to detect exploitation attempts following fuzzing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-119
+  source_paper: Yang et al. (2024) - ChatHTTPFuzz
+- id: MEDUSA-GENAI-SCAN-004
+  name: agent-smith-multimodal-jailbreak-tool
+  severity: high
+  category: genai_security
+  subcategory: ai_attack_tool
+  patterns:
+  - (?i)(?:from|import)\s+agent_smith
+  - (?i)AgentSmith\s*[\(\[]
+  - (?i)agent_smith[_-](?:attack|jailbreak|image)\s*[=(\[]
+  - (?i)multimodal[_-]jailbreak\s*[=(\[]
+  - (?i)single[_-]image[_-]jailbreak\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Agent Smith multimodal LLM agent jailbreak tool detected
+  description: Detects Agent Smith (Gu 2024), a multimodal jailbreak tool that exploits vision-language models by embedding
+    adversarial instructions within a single crafted image. The attack scales to compromise up to 1 million autonomous LLM
+    agents from a single adversarial image input, making it a high-leverage attack against multi-agent systems. Detection
+    of Agent Smith imports, single-image jailbreak utilities, or multimodal jailbreak scaffolding indicates an active or testing-phase
+    attack against LLM agent fleets.
+  remediation: Apply image sanitization and adversarial input filtering before passing visual content to LLM agents. Implement
+    per-agent rate limiting and anomaly detection to contain cascade propagation across agent fleets. Validate multimodal
+    model outputs against a trusted reference model before executing agent actions. Deploy Agent Smith-specific adversarial
+    training using the published attack dataset.
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  source_paper: Gu et al. (2024) - Agent Smith
+- id: MEDUSA-GENAI-SCAN-005
+  name: cyberllminstruct-malicious-finetuning-dataset
+  severity: high
+  category: genai_security
+  subcategory: supply_chain
+  patterns:
+  - (?i)(?:from|import)\s+cyberllminstruct
+  - (?i)CyberLLMInstruct\s*[\(\[]
+  - (?i)cyber[_-]llm[_-]instruct\s*[=(\[]
+  - (?i)(?:load|use|train)[_-](?:on[_-])?(?:pseudo[_-])?malicious[_-](?:dataset|data|instruct)\s*[=(\[]
+  - (?i)malicious[_-]fine[_-]tun(?:e|ing)[_-]dataset\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: CyberLLMInstruct malicious fine-tuning dataset reference detected
+  description: Detects CyberLLMInstruct (ElZemity 2025), a pseudo-malicious instruction dataset used to fine-tune LLMs for
+    cybersecurity attack generation. Fine-tuning Mistral 7B on CyberLLMInstruct raises the prompt injection failure rate from
+    9.1% to 68.7% - a 7.5x increase in susceptibility to prompt injection attacks. Detection indicates that a model is being
+    trained on adversarial cybersecurity instruction data, which dramatically degrades safety properties and should be treated
+    as a supply chain poisoning event.
+  remediation: Audit all fine-tuning datasets for adversarial or pseudo-malicious instruction content before training. Evaluate
+    model safety properties (including prompt injection failure rate) before and after fine-tuning. Implement dataset provenance
+    verification and cryptographic signing of approved training datasets. Use differential privacy during fine-tuning to limit
+    memorization of poisoned examples.
+  owasp_llm: LLM03:2025
+  cwe: CWE-20
+  source_paper: ElZemity et al. (2025) - CyberLLMInstruct
+- id: MEDUSA-GENAI-SCAN-006
+  name: quantization-attack-model-optimization
+  severity: high
+  category: genai_security
+  subcategory: supply_chain
+  patterns:
+  - (?i)quantiz(?:e|ation)[_-]attack\s*[=(\[]
+  - (?i)malicious[_-]quantiz(?:e|ation|er)\s*[=(\[]
+  - (?i)(?:from|import)\s+quant[_-]attack
+  - (?i)inject[_-](?:during|via)[_-]quantiz(?:e|ation)\s*[=(\[]
+  - (?i)backdoor[_-]quant(?:ized)?[_-](?:model|weights)\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Quantization attack utility detected - model optimization phase backdoor injection
+  description: Detects quantization attack utilities (Egashira 2024) that compromise LLM model integrity during the quantization/optimization
+    phase. The attack exploits the precision reduction step of model quantization (e.g., INT8/INT4 conversion) to inject backdoors
+    or degrade safety constraints, producing a quantized model that behaves differently from the full-precision original.
+    Since quantization is widely applied as a deployment optimization step, this represents a covert supply chain attack vector
+    that may bypass pre-deployment safety evaluations conducted on the full-precision model.
+  remediation: Evaluate model safety and capability benchmarks on both full-precision and quantized variants before deployment.
+    Maintain reference outputs from the full-precision model and compare against quantized model outputs using statistical
+    deviation thresholds. Use quantization frameworks with cryptographic integrity verification. Source quantized models only
+    from trusted providers with verifiable provenance.
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  source_paper: Egashira et al. (2024) - Quantization Attack
+- id: MEDUSA-GENAI-SCAN-007
+  name: data-selection-poisoning-attack
+  severity: high
+  category: genai_security
+  subcategory: supply_chain
+  patterns:
+  - (?i)data[_-]selection[_-]attack\s*[=(\[]
+  - (?i)(?:from|import)\s+data[_-]select[_-]poison
+  - (?i)bias[_-]data[_-]selection\s*[=(\[]
+  - (?i)malicious[_-](?:data|sample)[_-]select(?:ion)?\s*[=(\[]
+  - (?i)inject[_-](?:bias|backdoor)[_-](?:via|through)[_-]selection\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Data selection poisoning attack utility detected - biased training data injection
+  description: Detects data selection attack utilities (Hu 2024) that exploit the data selection pipeline to introduce bias
+    or malicious training examples into LLM training sets. Unlike direct data poisoning that modifies existing samples, data
+    selection attacks manipulate which samples are chosen for training, making the attack harder to detect by integrity checks
+    on individual samples. By selecting a biased or adversarially curated subset of ostensibly clean data, the attacker can
+    shift model behavior without modifying any individual training record.
+  remediation: Audit data selection pipelines and document selection criteria. Compare statistical distributions (label distributions,
+    topic distributions, demographic representations) between selected and full datasets to detect anomalous selection bias.
+    Implement data selection auditing with adversarial scrutiny of selection logic. Use certified defenses such as DataSentinel
+    or similar outlier-detection-based filtering after data selection.
+  owasp_llm: LLM03:2025
+  cwe: CWE-20
+  source_paper: Hu et al. (2024) - Data Selection Attack
+- id: MEDUSA-GENAI-SCAN-008
+  name: llmscbench-supply-chain-vulnerability-analysis
+  severity: high
+  category: genai_security
+  subcategory: supply_chain
+  patterns:
+  - (?i)(?:from|import)\s+llmscbench
+  - (?i)LLMSCBench\s*[\(\[]
+  - (?i)llm[_-]sc[_-]bench\s*[=(\[]
+  - (?i)supply[_-]chain[_-](?:risk|vuln)[_-](?:scan|bench|extract)\s*[=(\[]
+  - (?i)(?:load|run)[_-]llm[_-]supply[_-]chain[_-](?:bench|eval)\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: LLMSCBench supply chain vulnerability benchmark or analysis tool detected
+  description: 'Detects LLMSCBench (Ma 2025), a large-scale benchmark mapping 3,859 AI applications, 109,211 models, and 8,862
+    libraries to extract 1,555 supply chain risk issues. While LLMSCBench is a defensive research tool, its presence in production
+    code may indicate active supply chain vulnerability mapping being conducted against LLM infrastructure. Contextualise
+    detection: legitimate security teams may use this tool for authorized supply chain audits, but unauthorized use indicates
+    reconnaissance against LLM deployment dependencies.'
+  remediation: Ensure all LLMSCBench usage is authorized and scoped to owned infrastructure. Use LLMSCBench findings to drive
+    a software bill of materials (SBOM) for all ML dependencies. Integrate LLMSCBench or equivalent supply chain scanning
+    into the CI/CD pipeline for automated risk detection on each model or library update. Prioritize patching the 1,555+ known
+    risk issue categories identified by the benchmark.
+  owasp_llm: LLM03:2025
+  cwe: CWE-1104
+  source_paper: Ma et al. (2025) - LLMSCBench
+- id: MEDUSA-GENAI-SCAN-009
+  name: obfuscated-xss-llm-payload-generation
+  severity: high
+  category: genai_security
+  subcategory: weaponized_codegen
+  patterns:
+  - (?i)llm[_-]gen(?:erate)?[_-]xss\s*[=(\[]
+  - (?i)obfuscat(?:e|ed)[_-]xss[_-](?:payload|script|vector)\s*[=(\[]
+  - (?i)(?:generate|create|produce)[_-](?:obfuscated|encoded)[_-](?:xss|payload)\s*\(
+  - (?i)xss[_-](?:payload|vector)[_-](?:gen|generat|creat)(?:e|or|ion)?\s*[=(\[]
+  - (?i)ai[_-](?:generat|assist)ed[_-]xss\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: LLM-assisted obfuscated XSS payload generation utility detected
+  description: Detects utilities that use LLMs to generate obfuscated Cross-Site Scripting (XSS) payloads (Miczek 2025). LLMs
+    can generate syntactically varied, semantically equivalent XSS payloads that evade signature-based web application firewalls
+    and static analysis tools. The LLM's natural language understanding allows it to create context-aware payloads adapted
+    to specific injection points (HTML attributes, JS contexts, event handlers), dramatically increasing the difficulty of
+    WAF detection. This capability weaponizes LLMs for automated web application exploitation.
+  remediation: Audit code for any LLM API calls combined with XSS-related output post-processing. Enforce strict Content Security
+    Policy (CSP) headers on all web applications to mitigate the impact of XSS payloads regardless of obfuscation. Deploy
+    semantic WAF rules rather than signature-based rules to detect XSS by behavior. Report unauthorized XSS generation tooling
+    to the security team immediately.
+  owasp_llm: LLM02:2025
+  cwe: CWE-79
+  source_paper: Miczek et al. (2025) - Obfuscated XSS Generation
+- id: MEDUSA-GENAI-SCAN-010
+  name: pass2edit-password-attack-generation
+  severity: high
+  category: genai_security
+  subcategory: weaponized_codegen
+  patterns:
+  - (?i)(?:from|import)\s+pass2edit
+  - (?i)Pass2Edit\s*[\(\[]
+  - (?i)pass2edit\s*[=(\[]
+  - (?i)(?:password|passwd)[_-](?:edit|transform|mangle)[_-](?:model|gen)\s*[=(\[]
+  - (?i)multi[_-]step[_-](?:password|passwd)[_-]guess\s*[=(\[]
+  file_types:
+  - '*.py'
+  message: Pass2Edit multi-step generative password attack model detected
+  description: Detects Pass2Edit (Wang 2023), a multi-step generative model for targeted password guessing attacks. Unlike
+    traditional wordlist-based attacks, Pass2Edit uses a sequence-to-sequence model to generate likely password transformations
+    (edits) from known or leaked passwords, dramatically improving targeted guessing success rates against real user accounts.
+    The model encodes common human password modification patterns (appending numbers, capitalizing, adding symbols) to generate
+    high-probability candidates for each target user. This tool is specifically designed for credential-based attacks.
+  remediation: Ensure Pass2Edit usage is strictly authorized within approved penetration testing scope. Deploy enterprise
+    password policy enforcement that rejects passwords predictable by generative password models (use PCFG-based password
+    strength meters). Enable MFA on all accounts to render password guessing attacks ineffective even if credentials are compromised.
+    Monitor for bulk authentication attempts that may indicate Pass2Edit-style targeted guessing campaigns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-521
+  source_paper: Wang et al. (2023) - Pass2Edit
+- id: MEDUSA-GENAI-SCAN-011
+  name: llm-service-without-tee-confidential-computing
+  severity: medium
+  category: genai_security
+  subcategory: missing_defense
+  patterns:
+  - (?i)(?:from|import)\s+(?:flask|fastapi|uvicorn|gunicorn)(?:(?!tee|confidential|enclave|sgx).){0,200}
+  - (?i)llm[_-](?:serve|service|api|endpoint)\s*[=(\[](?:(?!tee|enclave|sgx|confidential).)*$
+  - (?i)model\.(?:generate|predict|forward|__call__)\s*\((?:(?!(?:tee|enclave|sgx|secure[_-]enclave)).)*\)
+  - (?i)serve[_-]model\s*\((?:(?!(?:tee|enclave|sgx|confidential[_-]compute)).)*\)
+  file_types:
+  - '*.py'
+  message: LLM inference service deployed without TEE or confidential computing protection
+  description: Detects LLM inference service deployments (Flask, FastAPI, custom serving) that lack Trusted Execution Environment
+    (TEE) or confidential computing protections as recommended by PipeLLM (Tan 2024). Without TEE isolation (Intel SGX, AMD
+    SEV, ARM TrustZone), LLM model weights, inference inputs, and outputs are exposed to the cloud host operator, co-tenants,
+    and any attacker with hypervisor-level access. PipeLLM demonstrates TEE-based confidential LLM services in cloud environments
+    where the cloud provider is untrusted. This is particularly critical for models processing sensitive user data or proprietary
+    enterprise information.
+  remediation: Adopt TEE-based LLM serving (PipeLLM, Tan 2024) using Intel SGX or AMD SEV enclaves for cloud deployments where
+    the provider is not fully trusted. Encrypt model weights at rest and in transit. Use attestation to verify enclave integrity
+    before routing inference requests. For regulated industries, document TEE usage as part of data processing agreements
+    with cloud providers.
+  owasp_llm: LLM06:2025
+  cwe: CWE-311
+  source_paper: Tan et al. (2024) - PipeLLM
+- id: MEDUSA-GENAI-SCAN-012
+  name: no-supply-chain-vulnerability-scanning
+  severity: medium
+  category: genai_security
+  subcategory: missing_defense
+  patterns:
+  - (?i)(?:from|import)\s+(?:transformers|torch|tensorflow|onnx)(?:(?!(?:llmscbench|vulnlib|supply[_-]chain[_-]scan|sbom)).)*$
+  - (?i)(?:load[_-]model|from_pretrained|hub\.load)\s*\((?:(?!(?:verify|checksum|hash|provenance|sbom|scan)).)*\)
+  - (?i)pip\.(?:install|main)\s*\((?:(?!(?:verify|hash|checksum|sign)).)*\)
+  - (?i)(?:download|fetch)[_-](?:model|weights|checkpoint)\s*\((?:(?!(?:verify|hash|checksum|provenance)).)*\)
+  file_types:
+  - '*.py'
+  message: LLM model loading or ML library installation without supply chain vulnerability scanning
+  description: Detects LLM model loading operations (from_pretrained, hub.load, checkpoint downloads) and ML package installations
+    that lack supply chain vulnerability scanning or integrity verification. LLMSCBench (Ma 2025) identified 1,555 risk issues
+    across 3,859 apps and 109,211 models. Without provenance verification and dependency scanning, organizations are exposed
+    to model poisoning via compromised model hubs, dependency confusion attacks on ML packages, and quantization backdoors
+    in downloaded checkpoints. VulLibGen (Chen 2023) provides LLM+RAG-based vulnerability-affected library detection to address
+    this gap.
+  remediation: Integrate LLMSCBench or equivalent supply chain scanning into CI/CD pipelines for all model and library updates.
+    Verify SHA-256 checksums of downloaded model weights against official repository manifests. Implement a Software Bill
+    of Materials (SBOM) for all ML dependencies. Use VulLibGen (Chen 2023) to automatically generate vulnerability-affected
+    library lists from CVE descriptions. Apply private model registries with mandatory provenance attestation.
+  owasp_llm: LLM03:2025
+  cwe: CWE-1104
+  source_paper: Ma et al. (2025) - LLMSCBench; Chen et al. (2023) - VulLibGen

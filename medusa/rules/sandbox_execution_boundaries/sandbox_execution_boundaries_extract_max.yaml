@@ -1,0 +1,1437 @@
+version: 1
+metadata:
+  name: MEDUSA Sandbox Execution Boundaries Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 89
+  relevant_papers: 9
+  source: extract_max.py agent-based extraction
+rules:
+- id: MEDUSA-SEB-SCAN-001
+  name: llm-rce-exec-chain
+  description: Detects use of exec/eval on LLM output, a primary RCE vector in LLM-integrated apps where model output is passed
+    directly to code execution functions
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)exec\s*\(.*\b(llm|model|completion|response|output|result|answer|chat|gpt|claude)\b
+  - (?i)eval\s*\(.*\b(llm|model|completion|response|output|result|answer|chat|gpt|claude)\b
+  file_types:
+  - '*.py'
+  message: 'Detected: llm-rce-exec-chain'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Liu et al. (2023) - RCE via direct execution of LLM output in integrated apps
+- id: MEDUSA-SEB-SCAN-002
+  name: llm-subprocess-injection
+  description: Detects subprocess calls constructed with LLM-generated content, enabling command injection through AI output
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)subprocess\.(call|run|Popen|check_output)\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)os\.(system|popen|exec[lv]?[pe]?)\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  file_types:
+  - '*.py'
+  message: 'Detected: llm-subprocess-injection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+  source_paper: Liu et al. (2023) - OS command injection via LLM output piped to subprocess
+- id: MEDUSA-SEB-SCAN-003
+  name: langchain-unsafe-tool-execution
+  description: Detects LangChain patterns that allow arbitrary code execution through tools without sandboxing, including
+    PythonREPLTool and BashProcess
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)from\s+langchain.*import.*PythonREPLTool
+  - (?i)from\s+langchain.*import.*BashProcess
+  - (?i)from\s+langchain.*import.*ShellTool
+  - (?i)PythonREPLTool\s*\(
+  - (?i)Tool\s*\(.*func\s*=\s*(exec|eval|os\.system)
+  file_types:
+  - '*.py'
+  message: 'Detected: langchain-unsafe-tool-execution'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Liu et al. (2023) - Unsandboxed tool execution in LangChain agent frameworks
+- id: MEDUSA-SEB-SCAN-004
+  name: jinja2-ssti-llm-output
+  description: Detects Jinja2 template rendering with LLM output, enabling server-side template injection through AI-generated
+    content
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)Template\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)from_string\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)render_template_string\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  file_types:
+  - '*.py'
+  message: 'Detected: jinja2-ssti-llm-output'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1336
+  source_paper: Liu et al. (2023) - SSTI through LLM output injected into template engines
+- id: MEDUSA-SEB-SCAN-005
+  name: container-escape-syscall-abuse
+  description: Detects patterns associated with container escape via syscall abuse, including unshare, nsenter, and mount
+    namespace manipulation used by LLM agents
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(unshare|nsenter|mount\s+--bind|chroot)\b
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(/proc/\d+/ns/|/proc/1/root)\b
+  - (?i)import\s+ctypes.{0,200}(SYS_unshare|SYS_mount|SYS_pivot_root)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: container-escape-syscall-abuse'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Marchand et al. (2026) - LLM-driven container escape via namespace and mount manipulation
+- id: MEDUSA-SEB-SCAN-006
+  name: docker-socket-access-from-ai
+  description: Detects AI-generated code accessing Docker socket for container escape, a key attack vector identified in LLM
+    sandbox escape benchmarks
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(docker\.sock|/var/run/docker)
+  - (?i)docker\s+(run|exec|cp).{0,40}--privileged
+  - (?i)import\s+docker.{0,100}from_env\s*\(
+  - (?i)requests\.(get|post|put)\s*\(.{0,60}(docker\.sock|:2375|:2376)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: docker-socket-access-from-ai'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Marchand et al. (2026) - Docker socket exploitation for container sandbox escape
+- id: MEDUSA-SEB-SCAN-007
+  name: cgroup-escape-pattern
+  description: Detects cgroup-based container escape techniques that LLMs may generate, including notify_on_release and release_agent
+    abuse
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(notify_on_release|release_agent).{0,60}(cgroup|/sys/fs/cgroup)
+  - (?i)open\s*\(.{0,60}/sys/fs/cgroup.{0,40}(release_agent|notify_on_release)
+  - (?i)mkdir.{0,40}/sys/fs/cgroup.{0,60}(echo|write)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: cgroup-escape-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Marchand et al. (2026) - cgroup release_agent container escape technique
+- id: MEDUSA-SEB-SCAN-008
+  name: proc-filesystem-escape
+  description: Detects attempts to escape containers via /proc filesystem manipulation including accessing host PID namespace
+    and core_pattern abuse
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)open\s*\(.{0,40}/proc/(sysrq-trigger|sys/kernel/core_pattern|1/root)
+  - (?i)(cat|echo|write).{0,40}/proc/sys/kernel/core_pattern
+  - (?i)/proc/self/(exe|root|cwd|fd)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: proc-filesystem-escape'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Marchand et al. (2026) - /proc filesystem abuse for container escape
+- id: MEDUSA-SEB-SCAN-009
+  name: code-interpreter-file-exfiltration
+  description: Detects patterns where code interpreter agents read sensitive host files outside sandbox boundaries
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)open\s*\(.{0,40}(/etc/passwd|/etc/shadow|/etc/hosts|\.env|\.ssh/|id_rsa)
+  - (?i)(read|load)_file\s*\(.{0,40}(/etc/|/root/|/home/|~/)\b
+  - (?i)pathlib\.Path\s*\(.{0,40}(/etc/|/root/|/home/|/proc/)
+  file_types:
+  - '*.py'
+  message: 'Detected: code-interpreter-file-exfiltration'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+  source_paper: Ba et al. (2026) - CIBER benchmark file exfiltration category for code interpreter abuse
+- id: MEDUSA-SEB-SCAN-010
+  name: code-interpreter-network-exfiltration
+  description: Detects network exfiltration patterns in code interpreter output, sending sensitive data to external hosts
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)requests\.(post|put|get)\s*\(.{0,100}(password|secret|key|token|credential|env|ssh)
+  - (?i)urllib\.request\.urlopen\s*\(.{0,60}(password|secret|key|token)
+  - (?i)socket\.socket.{0,80}(send|connect).{0,60}(password|secret|key|token)
+  file_types:
+  - '*.py'
+  message: 'Detected: code-interpreter-network-exfiltration'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  source_paper: Ba et al. (2026) - CIBER benchmark data exfiltration via network in code interpreter
+- id: MEDUSA-SEB-SCAN-011
+  name: code-interpreter-persistence-mechanism
+  description: Detects code interpreter generating persistence mechanisms like cron jobs, startup scripts, or systemd services
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(crontab|/etc/cron|/var/spool/cron)
+  - (?i)open\s*\(.{0,40}(/etc/rc\.local|/etc/init\.d/|/etc/systemd/|\.bashrc|\.profile)
+  - (?i)systemd.{0,40}(enable|start|daemon-reload)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: code-interpreter-persistence-mechanism'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Ba et al. (2026) - CIBER benchmark post-exploitation persistence in code interpreters
+- id: MEDUSA-SEB-SCAN-012
+  name: browser-agent-dom-escape
+  description: Detects browser AI agent patterns that access DOM elements or execute JavaScript outside designated sandbox
+    boundaries
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)page\.evaluate\s*\(.{0,100}(document\.cookie|localStorage|sessionStorage|XMLHttpRequest)
+  - (?i)cdp\.send\s*\(.{0,40}(Runtime\.evaluate|Page\.navigate|Network\.)
+  - (?i)playwright.{0,80}(evaluate|add_script_tag|route).{0,80}(cookie|storage|fetch)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: browser-agent-dom-escape'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Meng et al. (2025) - Browser AI agent escaping DOM isolation boundaries
+- id: MEDUSA-SEB-SCAN-013
+  name: browser-agent-credential-exfiltration
+  description: Detects browser AI agent code that harvests credentials, cookies, or authentication tokens beyond its authorized
+    scope
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(context|page)\.cookies\s*\(
+  - (?i)page\.evaluate.{0,60}document\.cookie
+  - (?i)(get_cookies|storage\.get|localStorage\.getItem).{0,40}(auth|token|session|jwt|api.?key)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: browser-agent-credential-exfiltration'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  source_paper: Meng et al. (2025) - ceLLMate browser agent credential theft beyond sandbox scope
+- id: MEDUSA-SEB-SCAN-014
+  name: sandbox-bypass-import-restriction
+  description: Detects attempts to bypass sandbox import restrictions using importlib, __import__, or ctypes to load forbidden
+    modules
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)__import__\s*\(.{0,40}(os|sys|subprocess|shutil|socket|ctypes|signal)\b
+  - (?i)importlib\.(import_module|__import__)\s*\(.{0,40}(os|subprocess|shutil|socket|ctypes)
+  - (?i)ctypes\.CDLL\s*\(.{0,40}(libc|libpthread|libdl)
+  file_types:
+  - '*.py'
+  message: 'Detected: sandbox-bypass-import-restriction'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Dou et al. (2024) - Bypassing LLM sandbox import restrictions via dynamic loading
+- id: MEDUSA-SEB-SCAN-015
+  name: sandbox-resource-limit-bypass
+  description: Detects code that attempts to modify or bypass sandbox resource limits such as rlimit, seccomp filters, or
+    cgroup constraints
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)resource\.setrlimit\s*\(
+  - (?i)prctl\s*\(.{0,40}(PR_SET_SECCOMP|PR_SET_NO_NEW_PRIVS)
+  - (?i)seccomp\.(load|SyscallFilter|set_attr)
+  file_types:
+  - '*.py'
+  message: 'Detected: sandbox-resource-limit-bypass'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Dou et al. (2024) - Sandbox resource limit manipulation in LLM code execution
+- id: MEDUSA-SEB-SCAN-016
+  name: interpreter-privilege-escalation
+  description: Detects code interpreter generating privilege escalation attempts including sudo abuse, SUID exploitation,
+    and capability manipulation
+  severity: critical
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(sudo|su\s+-|chmod\s+[u+]?[0-7]*s|setuid|setgid)
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(chown\s+root|cap_set|setcap)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: interpreter-privilege-escalation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-269
+  source_paper: Bhatt et al. (2024) - CyberSecEval 2 code interpreter privilege escalation category
+- id: MEDUSA-SEB-SCAN-017
+  name: interpreter-reflected-attack
+  description: Detects code interpreter generating reflected attacks - sending malicious requests to external systems using
+    the interpreter as a proxy
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)requests\.(get|post|put|delete)\s*\(.{0,100}(Authorization|Bearer|api.?key).{0,60}(internal|private|10\.|172\.|192\.168)
+  - (?i)urllib\.request\..{0,40}(internal|private|localhost|127\.0\.0|10\.|172\.|192\.168)
+  - (?i)smtplib\.SMTP.{0,80}(sendmail|send_message)
+  file_types:
+  - '*.py'
+  message: 'Detected: interpreter-reflected-attack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-918
+  source_paper: Bhatt et al. (2024) - CyberSecEval 2 reflected attacks via code interpreter
+- id: MEDUSA-SEB-SCAN-018
+  name: codeact-unsandboxed-execution
+  description: Detects CodeAct-style agent patterns executing arbitrary code actions without proper sandboxing or Jupyter
+    isolation
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)IPythonRunCellAction\s*\(
+  - (?i)CmdRunAction\s*\(.{0,80}(rm\s+-|chmod|curl|wget|nc\s)
+  - (?i)execute_ipython\s*\(.{0,80}(os\.|subprocess\.|shutil\.)
+  file_types:
+  - '*.py'
+  message: 'Detected: codeact-unsandboxed-execution'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  source_paper: Wang et al. (2024) - CodeAct framework arbitrary code execution via IPython cells
+- id: MEDUSA-SEB-SCAN-019
+  name: openhands-sandbox-workspace-escape
+  description: Detects OpenHands agent patterns attempting to access files outside the mounted workspace directory, escaping
+    the Docker sandbox boundary
+  severity: high
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(open|read|write)\s*\(.{0,40}(\.\./){3,}
+  - (?i)CmdRunAction\s*\(.{0,60}(\.\./){2,}(etc|root|home|proc|sys)\b
+  - (?i)BrowserInteractiveAction\s*\(.{0,80}file://
+  file_types:
+  - '*.py'
+  message: 'Detected: openhands-sandbox-workspace-escape'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+  source_paper: Wang et al. (2024) - OpenHands Docker sandbox path traversal to escape workspace boundary
+- id: MEDUSA-SEB-SCAN-020
+  name: sandbox-agent-unrestricted-tool-install
+  description: Detects LLM sandbox agents installing arbitrary packages at runtime which could introduce malicious dependencies
+    for sandbox escape
+  severity: medium
+  category: sandbox_execution_boundaries
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}pip\s+install\s+(?!-r\s)
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}apt(-get)?\s+install
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}curl.{0,40}\|.{0,20}(bash|sh|python)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: sandbox-agent-unrestricted-tool-install'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Cheng et al. (2026) - Unrestricted package installation in LLM sandbox environments
+- category: sandbox_execution_boundaries
+  cwe: CWE-94
+  description: Detects use of exec/eval on LLM output, a primary RCE vector in LLM-integrated apps where model output is passed
+    directly to code execution functions
+  file_types:
+  - '*.py'
+  id: SEB-001
+  message: 'Detected: llm-rce-exec-chain'
+  name: llm-rce-exec-chain
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)exec\s*\(.*\b(llm|model|completion|response|output|result|answer|chat|gpt|claude)\b
+  - (?i)eval\s*\(.*\b(llm|model|completion|response|output|result|answer|chat|gpt|claude)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Liu et al. (2023) - RCE via direct execution of LLM output in integrated apps
+- category: sandbox_execution_boundaries
+  cwe: CWE-78
+  description: Detects subprocess calls constructed with LLM-generated content, enabling command injection through AI output
+  file_types:
+  - '*.py'
+  id: SEB-002
+  message: 'Detected: llm-subprocess-injection'
+  name: llm-subprocess-injection
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)subprocess\.(call|run|Popen|check_output)\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)os\.(system|popen|exec[lv]?[pe]?)\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Liu et al. (2023) - OS command injection via LLM output piped to subprocess
+- category: sandbox_execution_boundaries
+  cwe: CWE-94
+  description: Detects LangChain patterns that allow arbitrary code execution through tools without sandboxing, including
+    PythonREPLTool and BashProcess
+  file_types:
+  - '*.py'
+  id: SEB-003
+  message: 'Detected: langchain-unsafe-tool-execution'
+  name: langchain-unsafe-tool-execution
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)from\s+langchain.*import.*PythonREPLTool
+  - (?i)from\s+langchain.*import.*BashProcess
+  - (?i)from\s+langchain.*import.*ShellTool
+  - (?i)PythonREPLTool\s*\(
+  - (?i)Tool\s*\(.*func\s*=\s*(exec|eval|os\.system)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Liu et al. (2023) - Unsandboxed tool execution in LangChain agent frameworks
+- category: sandbox_execution_boundaries
+  cwe: CWE-1336
+  description: Detects Jinja2 template rendering with LLM output, enabling server-side template injection through AI-generated
+    content
+  file_types:
+  - '*.py'
+  id: SEB-004
+  message: 'Detected: jinja2-ssti-llm-output'
+  name: jinja2-ssti-llm-output
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)Template\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)from_string\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  - (?i)render_template_string\s*\(.*\b(llm|model|completion|response|output|result|chat)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Liu et al. (2023) - SSTI through LLM output injected into template engines
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects patterns associated with container escape via syscall abuse, including unshare, nsenter, and mount
+    namespace manipulation used by LLM agents
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-005
+  message: 'Detected: container-escape-syscall-abuse'
+  name: container-escape-syscall-abuse
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(unshare|nsenter|mount\s+--bind|chroot)\b
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(/proc/\d+/ns/|/proc/1/root)\b
+  - (?i)import\s+ctypes.{0,200}(SYS_unshare|SYS_mount|SYS_pivot_root)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Marchand et al. (2026) - LLM-driven container escape via namespace and mount manipulation
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects AI-generated code accessing Docker socket for container escape, a key attack vector identified in LLM
+    sandbox escape benchmarks
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-006
+  message: 'Detected: docker-socket-access-from-ai'
+  name: docker-socket-access-from-ai
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(docker\.sock|/var/run/docker)
+  - (?i)docker\s+(run|exec|cp).{0,40}--privileged
+  - (?i)import\s+docker.{0,100}from_env\s*\(
+  - (?i)requests\.(get|post|put)\s*\(.{0,60}(docker\.sock|:2375|:2376)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Marchand et al. (2026) - Docker socket exploitation for container sandbox escape
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects cgroup-based container escape techniques that LLMs may generate, including notify_on_release and release_agent
+    abuse
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-007
+  message: 'Detected: cgroup-escape-pattern'
+  name: cgroup-escape-pattern
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(notify_on_release|release_agent).{0,60}(cgroup|/sys/fs/cgroup)
+  - (?i)open\s*\(.{0,60}/sys/fs/cgroup.{0,40}(release_agent|notify_on_release)
+  - (?i)mkdir.{0,40}/sys/fs/cgroup.{0,60}(echo|write)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Marchand et al. (2026) - cgroup release_agent container escape technique
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects attempts to escape containers via /proc filesystem manipulation including accessing host PID namespace
+    and core_pattern abuse
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-008
+  message: 'Detected: proc-filesystem-escape'
+  name: proc-filesystem-escape
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)open\s*\(.{0,40}/proc/(sysrq-trigger|sys/kernel/core_pattern|1/root)
+  - (?i)(cat|echo|write).{0,40}/proc/sys/kernel/core_pattern
+  - (?i)/proc/self/(exe|root|cwd|fd)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Marchand et al. (2026) - /proc filesystem abuse for container escape
+- category: sandbox_execution_boundaries
+  cwe: CWE-22
+  description: Detects patterns where code interpreter agents read sensitive host files outside sandbox boundaries
+  file_types:
+  - '*.py'
+  id: SEB-009
+  message: 'Detected: code-interpreter-file-exfiltration'
+  name: code-interpreter-file-exfiltration
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)open\s*\(.{0,40}(/etc/passwd|/etc/shadow|/etc/hosts|\.env|\.ssh/|id_rsa)
+  - (?i)(read|load)_file\s*\(.{0,40}(/etc/|/root/|/home/|~/)\b
+  - (?i)pathlib\.Path\s*\(.{0,40}(/etc/|/root/|/home/|/proc/)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Ba et al. (2026) - CIBER benchmark file exfiltration category for code interpreter abuse
+- category: sandbox_execution_boundaries
+  cwe: CWE-200
+  description: Detects network exfiltration patterns in code interpreter output, sending sensitive data to external hosts
+  file_types:
+  - '*.py'
+  id: SEB-010
+  message: 'Detected: code-interpreter-network-exfiltration'
+  name: code-interpreter-network-exfiltration
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)requests\.(post|put|get)\s*\(.{0,100}(password|secret|key|token|credential|env|ssh)
+  - (?i)urllib\.request\.urlopen\s*\(.{0,60}(password|secret|key|token)
+  - (?i)socket\.socket.{0,80}(send|connect).{0,60}(password|secret|key|token)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Ba et al. (2026) - CIBER benchmark data exfiltration via network in code interpreter
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects code interpreter generating persistence mechanisms like cron jobs, startup scripts, or systemd services
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-011
+  message: 'Detected: code-interpreter-persistence-mechanism'
+  name: code-interpreter-persistence-mechanism
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(crontab|/etc/cron|/var/spool/cron)
+  - (?i)open\s*\(.{0,40}(/etc/rc\.local|/etc/init\.d/|/etc/systemd/|\.bashrc|\.profile)
+  - (?i)systemd.{0,40}(enable|start|daemon-reload)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Ba et al. (2026) - CIBER benchmark post-exploitation persistence in code interpreters
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects browser AI agent patterns that access DOM elements or execute JavaScript outside designated sandbox
+    boundaries
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  id: SEB-012
+  message: 'Detected: browser-agent-dom-escape'
+  name: browser-agent-dom-escape
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)page\.evaluate\s*\(.{0,100}(document\.cookie|localStorage|sessionStorage|XMLHttpRequest)
+  - (?i)cdp\.send\s*\(.{0,40}(Runtime\.evaluate|Page\.navigate|Network\.)
+  - (?i)playwright.{0,80}(evaluate|add_script_tag|route).{0,80}(cookie|storage|fetch)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Meng et al. (2025) - Browser AI agent escaping DOM isolation boundaries
+- category: sandbox_execution_boundaries
+  cwe: CWE-200
+  description: Detects browser AI agent code that harvests credentials, cookies, or authentication tokens beyond its authorized
+    scope
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  id: SEB-013
+  message: 'Detected: browser-agent-credential-exfiltration'
+  name: browser-agent-credential-exfiltration
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(context|page)\.cookies\s*\(
+  - (?i)page\.evaluate.{0,60}document\.cookie
+  - (?i)(get_cookies|storage\.get|localStorage\.getItem).{0,40}(auth|token|session|jwt|api.?key)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Meng et al. (2025) - ceLLMate browser agent credential theft beyond sandbox scope
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects attempts to bypass sandbox import restrictions using importlib, __import__, or ctypes to load forbidden
+    modules
+  file_types:
+  - '*.py'
+  id: SEB-014
+  message: 'Detected: sandbox-bypass-import-restriction'
+  name: sandbox-bypass-import-restriction
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)__import__\s*\(.{0,40}(os|sys|subprocess|shutil|socket|ctypes|signal)\b
+  - (?i)importlib\.(import_module|__import__)\s*\(.{0,40}(os|subprocess|shutil|socket|ctypes)
+  - (?i)ctypes\.CDLL\s*\(.{0,40}(libc|libpthread|libdl)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Dou et al. (2024) - Bypassing LLM sandbox import restrictions via dynamic loading
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects code that attempts to modify or bypass sandbox resource limits such as rlimit, seccomp filters, or
+    cgroup constraints
+  file_types:
+  - '*.py'
+  id: SEB-015
+  message: 'Detected: sandbox-resource-limit-bypass'
+  name: sandbox-resource-limit-bypass
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)resource\.setrlimit\s*\(
+  - (?i)prctl\s*\(.{0,40}(PR_SET_SECCOMP|PR_SET_NO_NEW_PRIVS)
+  - (?i)seccomp\.(load|SyscallFilter|set_attr)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Dou et al. (2024) - Sandbox resource limit manipulation in LLM code execution
+- category: sandbox_execution_boundaries
+  cwe: CWE-269
+  description: Detects code interpreter generating privilege escalation attempts including sudo abuse, SUID exploitation,
+    and capability manipulation
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-016
+  message: 'Detected: interpreter-privilege-escalation'
+  name: interpreter-privilege-escalation
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(sudo|su\s+-|chmod\s+[u+]?[0-7]*s|setuid|setgid)
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,60}(chown\s+root|cap_set|setcap)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Bhatt et al. (2024) - CyberSecEval 2 code interpreter privilege escalation category
+- category: sandbox_execution_boundaries
+  cwe: CWE-918
+  description: Detects code interpreter generating reflected attacks - sending malicious requests to external systems using
+    the interpreter as a proxy
+  file_types:
+  - '*.py'
+  id: SEB-017
+  message: 'Detected: interpreter-reflected-attack'
+  name: interpreter-reflected-attack
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)requests\.(get|post|put|delete)\s*\(.{0,100}(Authorization|Bearer|api.?key).{0,60}(internal|private|10\.|172\.|192\.168)
+  - (?i)urllib\.request\..{0,40}(internal|private|localhost|127\.0\.0|10\.|172\.|192\.168)
+  - (?i)smtplib\.SMTP.{0,80}(sendmail|send_message)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Bhatt et al. (2024) - CyberSecEval 2 reflected attacks via code interpreter
+- category: sandbox_execution_boundaries
+  cwe: CWE-693
+  description: Detects CodeAct-style agent patterns executing arbitrary code actions without proper sandboxing or Jupyter
+    isolation
+  file_types:
+  - '*.py'
+  id: SEB-018
+  message: 'Detected: codeact-unsandboxed-execution'
+  name: codeact-unsandboxed-execution
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)IPythonRunCellAction\s*\(
+  - (?i)CmdRunAction\s*\(.{0,80}(rm\s+-|chmod|curl|wget|nc\s)
+  - (?i)execute_ipython\s*\(.{0,80}(os\.|subprocess\.|shutil\.)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Wang et al. (2024) - CodeAct framework arbitrary code execution via IPython cells
+- category: sandbox_execution_boundaries
+  cwe: CWE-22
+  description: Detects OpenHands agent patterns attempting to access files outside the mounted workspace directory, escaping
+    the Docker sandbox boundary
+  file_types:
+  - '*.py'
+  id: SEB-019
+  message: 'Detected: openhands-sandbox-workspace-escape'
+  name: openhands-sandbox-workspace-escape
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(open|read|write)\s*\(.{0,40}(\.\./){3,}
+  - (?i)CmdRunAction\s*\(.{0,60}(\.\./){2,}(etc|root|home|proc|sys)\b
+  - (?i)BrowserInteractiveAction\s*\(.{0,80}file://
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Wang et al. (2024) - OpenHands Docker sandbox path traversal to escape workspace boundary
+- category: sandbox_execution_boundaries
+  cwe: CWE-829
+  description: Detects LLM sandbox agents installing arbitrary packages at runtime which could introduce malicious dependencies
+    for sandbox escape
+  file_types:
+  - '*.py'
+  - '*.sh'
+  id: SEB-020
+  message: 'Detected: sandbox-agent-unrestricted-tool-install'
+  name: sandbox-agent-unrestricted-tool-install
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}pip\s+install\s+(?!-r\s)
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}apt(-get)?\s+install
+  - (?i)(os\.system|subprocess\..{0,20})\s*\(.{0,40}curl.{0,40}\|.{0,20}(bash|sh|python)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Cheng et al. (2026) - Unrestricted package installation in LLM sandbox environments
+- id: MEDUSA-SBOX-SCAN-021
+  name: kubernetes_rbac_overprivileged_pod_hostpath
+  description: Detects Kubernetes RBAC abuse patterns where an overprivileged service account is used to create pods with
+    hostPath volume mounts, enabling node filesystem escape
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - kubernetes
+  - rbac-abuse
+  - hostpath-mount
+  - container-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(kubectl|kubernetes|k8s)[\s\S]{0,100}(service.account|rbac|cluster.?role)[\s\S]{0,100}(hostPath|host.?path|volume.mount)[\s\S]{0,60}(escape|breakout|privilege|root|evad)
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+- id: MEDUSA-SBOX-SCAN-022
+  name: kubectl_cp_tar_binary_overwrite_cve
+  description: Detects kubectl cp tar binary overwrite exploit pattern (CVE-2019-1002101) where a malicious tar binary on
+    the container side is used to achieve host-side file write
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - kubectl-cp
+  - tar-exploit
+  - CVE-2019-1002101
+  - kubernetes-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(kubectl.cp|kubectl\s+cp)[\s\S]{0,80}(tar.binary|malicious.tar|path.traversal|symlink)[\s\S]{0,60}(overwrite|host|escape|cve.2019)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-023
+  name: runc_fd_leak_proc_self_fd_escape
+  description: Detects runc file descriptor leak exploitation (CVE-2024-21626) via /proc/self/fd path to achieve host filesystem
+    write or container escape
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - runc
+  - fd-leak
+  - CVE-2024-21626
+  - container-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  - Anurin 2024 - 3CB
+  patterns:
+  - (?i)(runc|container.runtime)[\s\S]{0,80}(/proc/self/fd|file.descriptor.leak|fd.leak)[\s\S]{0,80}(escape|breakout|host|overwrite|cve.2024)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-024
+  name: cap_dac_read_search_shocker_escape
+  description: Detects CAP_DAC_READ_SEARCH capability abuse (Shocker exploit) using open_by_handle_at syscall to access host
+    filesystem from within a container
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - CAP_DAC_READ_SEARCH
+  - shocker-exploit
+  - open_by_handle_at
+  - container-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(CAP_DAC_READ_SEARCH|shocker|open_by_handle_at)[\s\S]{0,100}(host.filesystem|escape|breakout|container|privilege)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-025
+  name: cap_sys_module_kernel_module_escape
+  description: Detects CAP_SYS_MODULE capability abuse to load a malicious kernel module for container escape or host privilege
+    escalation
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - CAP_SYS_MODULE
+  - kernel-module
+  - container-escape
+  - privilege-escalation
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(CAP_SYS_MODULE|insmod|modprobe|kernel.module)[\s\S]{0,100}(malicious|backdoor|rootkit|escape|breakout|privilege.escalat)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-026
+  name: dirty_pipe_splice_pipe_write_escape
+  description: Detects Dirty Pipe (CVE-2022-0847) exploitation patterns using splice-to-pipe write to achieve host file overwrite
+    or container escape
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - dirty-pipe
+  - CVE-2022-0847
+  - kernel-exploit
+  - container-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(dirty.pipe|CVE.2022.0847|splice.{0,20}pipe|pipe.write)[\s\S]{0,100}(overwrite|escape|suid|privilege|host|root)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-027
+  name: ebpf_modprobe_path_kernel_overwrite
+  description: Detects eBPF program used to overwrite modprobe_path kernel variable for privilege escalation or container
+    escape
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - ebpf
+  - modprobe_path
+  - kernel-variable-overwrite
+  - container-escape
+  references:
+  - Marchand et al. 2026 - SandboxEscapeBench
+  patterns:
+  - (?i)(ebpf|bpf.program)[\s\S]{0,80}(modprobe_path|kernel.variable|overwrite)[\s\S]{0,60}(privilege|escape|root|breakout)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-028
+  name: memory_poisoning_fake_conversation_injection
+  description: Detects Memory Poisoning Attack pattern where fake conversation history is injected to manipulate LLM agent
+    behavior and override sandbox or task boundaries
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - memory-poisoning
+  - conversation-injection
+  - fake-history
+  - agent-manipulation
+  references:
+  - Wang 2026 - SoK Agentic Skills / ClawHavoc
+  patterns:
+  - (?i)(memory.poison|inject.{0,30}(conversation|history|context|message))[\s\S]{0,100}(fake|malicious|crafted)[\s\S]{0,80}(agent|llm|assistant|instruction|override)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-029
+  name: prompt_backdoor_trigger_token_pattern
+  description: Detects prompt-based backdoor trigger token patterns embedded in LLM agent inputs to activate hidden malicious
+    behaviors that cross execution boundaries
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - backdoor-trigger
+  - trigger-token
+  - agent-backdoor
+  - prompt-injection
+  references:
+  - Wang 2026 - SoK Agentic Skills / ClawHavoc
+  patterns:
+  - (?i)(backdoor.trigger|trigger.token|hidden.trigger)[\s\S]{0,100}(agent|llm|model|prompt)[\s\S]{0,80}(activat|malicious|payload|inject|bypass)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-030
+  name: natural_language_disguise_code_filter_bypass
+  description: Detects Natural Language Disguise technique where malicious code logic is described in plain natural language
+    to bypass syntax-based or AST-based code security filters
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - natural-language-disguise
+  - code-filter-bypass
+  - ast-evasion
+  - implicit-hazard
+  references:
+  - Wang 2026 - SoK Agentic Skills / ClawHavoc
+  patterns:
+  - (?i)(describe.{0,20}(code|program|script|function)|natural.language.{0,20}(code|instruct))[\s\S]{0,100}(bypass|evad|avoid|filter|sandbox|restrict)[\s\S]{0,80}(syntax|ast|pattern|signature|static.analy)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-031
+  name: skill_supply_chain_malicious_package
+  description: Detects skill marketplace supply-chain attack patterns where malicious code (reverse shell, credential exfiltration
+    webhook) is embedded in agentic skill or plugin files
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - skill-supply-chain
+  - malicious-plugin
+  - reverse-shell
+  - agent-compromise
+  references:
+  - Wang 2026 - SoK Agentic Skills / ClawHavoc
+  patterns:
+  - (?i)(skill.marketplace|plugin.store|agent.skill)[\s\S]{0,100}(reverse.shell|credential.webhook|malicious.payload|exfiltrat)[\s\S]{0,80}(skill|plugin|install|upload)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-032
+  name: covert_channel_tcp_df_flag_encoding
+  description: Detects covert channel communication established by encoding data in TCP DF-flag bit manipulation to exfiltrate
+    data across sandbox network boundaries without detection
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - covert-channel
+  - tcp-df-flag
+  - data-exfiltration
+  - network-evasion
+  references:
+  - Wang 2026 - SoK Agentic Skills / ClawHavoc
+  patterns:
+  - (?i)(covert.channel|covert.communication)[\s\S]{0,100}(tcp|ip.header|df.flag|dont.fragment|packet.flag)[\s\S]{0,80}(encod|exfiltrat|tunnel|bypass|sandbox|firewall)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-033
+  name: lm_agent_underspecified_destructive_action
+  description: Detects LM agent code or reasoning patterns where an underspecified instruction is interpreted to execute a
+    destructive irreversible action such as recursive file deletion or data wipe
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - underspecified-instruction
+  - destructive-action
+  - agent-misinterpretation
+  - irreversible
+  references:
+  - 2023 - Ruan - Identifying the Risks of LM Agents with an LM-Emulated Sandbox
+  patterns:
+  - (?i)(rm\s+-rf|rmdir.{0,20}/|shutil\.rmtree|os\.remove)[\s\S]{0,200}(clean|free.space|remove.old|disk.space|storage|clear)[\s\S]{0,100}(agent|automat|interpret|infer)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-034
+  name: lm_agent_parameter_fabrication
+  description: Detects LM agent generating tool calls with fabricated or invented parameter values when required parameters
+    were not specified in the user instruction
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - parameter-fabrication
+  - agent-hallucination
+  - tool-call-abuse
+  - unauthorized-action
+  references:
+  - 2023 - Ruan - Identifying the Risks of LM Agents with an LM-Emulated Sandbox
+  patterns:
+  - (?i)(fabricat|invent|guess|fill.in|assume)[\s\S]{0,100}(parameter|argument|field|payee|account.id|credential)[\s\S]{0,80}(agent|tool.call|api.call|automat|requir)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-035
+  name: pyyaml_unsafe_load_object_apply_injection
+  description: Detects PyYAML unsafe deserialization attack (CVE-2017-18342) using !!python/object/apply constructor to achieve
+    arbitrary OS command execution via yaml.load with unsafe Loader
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - pyyaml
+  - CVE-2017-18342
+  - deserialization-rce
+  - sandbox-bypass
+  references:
+  - 2025 - Alhindi - Threadbox Sandboxing for Modular Security
+  - 2024 - Molleti - Automated threat detection and response using LLM agents
+  patterns:
+  - (?i)(!!python/object(/apply)?:|yaml\.load\s*\([^)]{0,80}Loader\s*=\s*yaml\.Loader)[\s\S]{0,100}(os\.system|subprocess|popen|exec|eval|cmd|command)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-036
+  name: xxe_injection_itext_pdf_parser
+  description: Detects XXE (XML External Entity) injection payload in PDF or XML content targeting iText PDF parser (CVE-2017-9096)
+    to exfiltrate server files or trigger SSRF
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - xxe-injection
+  - CVE-2017-9096
+  - itext-pdf
+  - ssrf
+  references:
+  - 2025 - Alhindi - Threadbox Sandboxing for Modular Security
+  patterns:
+  - (?i)(<!DOCTYPE[\s\S]{0,60}<!ENTITY[\s\S]{0,80}SYSTEM\s+["'])(https?://|file://)[^"']{0,120}["']
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-037
+  name: openhands_ipython_rce_action
+  description: Detects OpenHands agent IPythonRunCellAction or CmdRunAction patterns executing arbitrary Python or bash commands
+    inside Docker sandbox via agent action APIs
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - openhands
+  - ipython-rce
+  - agent-action
+  - docker-sandbox
+  references:
+  - 2024 - Wang - OpenHands An Open Platform for AI Software Developers as Generalist Agents
+  patterns:
+  - (?i)(IPythonRunCellAction|CmdRunAction|AgentDelegateAction|BrowserInteractiveAction)[\s\S]{0,100}(os\.system|subprocess|exec|eval|bash|shell|cmd|popen)[\s\S]{0,80}(sandbox|docker|container|agent)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-038
+  name: codeact_execute_tag_arbitrary_python
+  description: Detects CodeAct-style agent execution where arbitrary Python code blocks are submitted inside execute tags
+    for direct interpreter execution, bypassing static code analysis
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - codeact
+  - execute-tag
+  - arbitrary-python
+  - llm-agent-rce
+  references:
+  - 2024 - Wang - Executable Code Actions Elicit Better LLM Agents
+  patterns:
+  - (?i)(<execute>|\[execute\])[\s\S]{0,500}(os\.system|subprocess\.(run|Popen|call)|exec\s*\(|eval\s*\(|__import__|open\s*\(['"][/\\])[\s\S]{0,200}(</execute>|\[/execute\])
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-039
+  name: tool_partial_execution_import_side_effect
+  description: Detects tool partial execution attack (Conveyor-style) where streaming code interpreter begins executing import
+    statements with side-effects before the full script is decoded, enabling race-condition exploitation
+  severity: MEDIUM
+  category: sandbox_execution_boundaries
+  tags:
+  - tool-partial-execution
+  - conveyor
+  - streaming-interpreter
+  - import-side-effect
+  references:
+  - 2024 - Xu - Conveyor Efficient Tool-aware LLM Serving with Tool Partial Execution
+  patterns:
+  - (?i)(import\s+(torch|tensorflow|keras|cv2|matplotlib|PIL|requests|urllib|socket|subprocess|os|sys))[\s\S]{0,100}(stream|partial|decode|token.by.token|incremental|line.by.line)[\s\S]{0,80}(execut|run|interpret|side.effect)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-040
+  name: spectre_v1_flush_reload_gadget
+  description: Detects Spectre v1 (CVE-2017-5753) flush-reload covert channel code patterns where a bounds-check bypass gadget
+    is followed by a speculative array access to leak memory via cache timing
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - spectre-v1
+  - CVE-2017-5753
+  - flush-reload
+  - cache-side-channel
+  references:
+  - 2023 - Hu - SoK Hardware Defenses Against Speculative Execution Attacks
+  - 2023 - Tol - ZeroLeak Using LLMs for Scalable and Cost Effective Side-Channel Patching
+  patterns:
+  - (?i)(clflush|_mm_clflush|flush.reload|flush_and_reload|rdtsc)[\s\S]{0,200}(array1|victim_function|cache.hit|timing|speculative)[\s\S]{0,100}(bounds.check|if\s*\([^)]{0,40}size[^)]{0,40}\))
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-041
+  name: rowhammer_mmap_flippy_page_instruction_skip
+  description: Detects Rowhammer-based instruction skip attack (LeapFrog) patterns where mmap is used to map a binary into
+    a flippy page for targeted single-bit flip on stack-stored Program Counter values
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - rowhammer
+  - leapfrog
+  - instruction-skip
+  - bit-flip-attack
+  references:
+  - 2024 - Adiletta - LeapFrog The Rowhammer Instruction Skip Attack
+  patterns:
+  - (?i)(rowhammer|row.hammer|bit.flip)[\s\S]{0,100}(mmap|flippy.page|aggressor.row|hammer.loop)[\s\S]{0,100}(program.counter|return.address|stack|instruction.skip|authentication.bypass)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-042
+  name: llm_offensive_cyber_binpwn_privilege_escalation
+  description: Detects LLM-assisted offensive cyber capability patterns involving binary exploitation for privilege escalation
+    (binpwn), C2 node control, or SSH lateral movement as documented in 3CB benchmark
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - llm-offensive-cyber
+  - binpwn
+  - privilege-escalation
+  - 3cb-benchmark
+  references:
+  - Anurin 2024 - 3CB LLM Offensive Capabilities
+  patterns:
+  - (?i)(binpwn|bin.pwn|binary.exploit)[\s\S]{0,100}(privilege.escalat|root|setuid|suid)[\s\S]{0,80}(llm|ai.agent|automat|model|gpt|claude)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-043
+  name: cyberSecEval2_code_interpreter_abuse_container_escape
+  description: 'Detects CyberSecEval 2 code interpreter abuse patterns: prompt injection requests to escape container, escalate
+    privileges, launch reflected attacks, or perform post-exploitation within code sandbox'
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - cyberSecEval2
+  - code-interpreter-abuse
+  - prompt-injection
+  - container-escape
+  references:
+  - Bhatt 2024 - CyberSecEval 2
+  patterns:
+  - (?i)(code.interpreter|python.sandbox|jupyter.sandbox|ipython.sandbox)[\s\S]{0,100}(container.escape|privilege.escalat|reflected.attack|post.exploit|social.engineer)[\s\S]{0,80}(prompt.inject|instruct|bypass|ignore.previous)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-044
+  name: langchain_pandas_agent_rce_via_pd_io
+  description: Detects LangChain pandas dataframe agent RCE escape using pd.io.parquet.os.system sink or PALChain/PythonAstREPLTool._run
+    to execute arbitrary OS commands through the agent's Python environment
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - langchain
+  - pandas-agent-rce
+  - pd-io-parquet
+  - llm-sandbox-bypass
+  references:
+  - Greshake 2023 - LangChain agent RCE
+  patterns:
+  - (?i)(create_pandas_dataframe_agent|create_csv_agent|PALChain|PythonAstREPLTool)[\s\S]{0,200}(pd\.io\.parquet\.os|os\.system|subprocess|__import__\s*\(['"]os['"])[\s\S]{0,100}(system|popen|run|call|exec)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-045
+  name: python_mro_subclass_chain_sandbox_escape
+  description: Detects Python sandbox escape via MRO (Method Resolution Order) inheritance chain traversal to access dangerous
+    built-in subclasses such as subprocess.Popen or os.system
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - python-sandbox-escape
+  - mro-traversal
+  - __subclasses__
+  - inheritance-chain-rce
+  references:
+  - Deng 2023 - RCE in LLM Apps via Python sandboxes
+  patterns:
+  - (?i)(\(\s*\)\s*\.__class__|__mro__|__subclasses__\s*\(\s*\))[\s\S]{0,150}(os\.system|subprocess|Popen|exec|eval|open\s*\(['"][/\\])
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-046
+  name: ciber_code_description_attack_sandbox_bypass
+  description: Detects CIBER Code Description (CD) attack vector where natural-language descriptions of malicious code are
+    submitted to a code interpreter agent to evade syntax-based filters, achieving 62.5% attack success rate in benchmarks
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - ciber
+  - code-description-attack
+  - code-interpreter-abuse
+  - filter-evasion
+  references:
+  - 'Ba et al. 2026 - CIBER: A Comprehensive Benchmark for Security Evaluation of Code Interpreter Agents'
+  patterns:
+  - (?i)(describe.{0,20}(function|code|script|program|algorithm).{0,40}(perform|execute|run|accomplish))[\s\S]{0,200}(delete.{0,20}file|remove.{0,20}director|exfiltrat|send.{0,20}data|upload.{0,20}(file|content)|write.{0,20}/etc|access.{0,20}secret)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-047
+  name: ciber_malicious_package_attachment_injection
+  description: Detects CIBER Malicious Package Attachment (MPA) attack where a crafted Python package or module is supplied
+    to a code interpreter to trigger unauthorized file operations, data exfiltration, or privilege escalation on import
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - ciber
+  - malicious-package-attachment
+  - code-interpreter-abuse
+  - supply-chain-injection
+  references:
+  - 'Ba et al. 2026 - CIBER: A Comprehensive Benchmark for Security Evaluation of Code Interpreter Agents'
+  patterns:
+  - (?i)(pip.install|import|from.{0,30}import)[\s\S]{0,100}(malicious|crafted|custom|untrusted)[\s\S]{0,80}(package|module|library|wheel)[\s\S]{0,200}(os\.system|subprocess|exec|eval|open\s*\(["'][/\\]|__import__)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-048
+  name: ciber_indirect_prompt_injection_code_interpreter
+  description: Detects CIBER Indirect Prompt Injection (IPI) in code interpreter context where adversarial instructions embedded
+    in uploaded files, data, or environment variables hijack the agent to execute unauthorized actions
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - ciber
+  - indirect-prompt-injection
+  - code-interpreter-hijack
+  - adversarial-data
+  references:
+  - 'Ba et al. 2026 - CIBER: A Comprehensive Benchmark for Security Evaluation of Code Interpreter Agents'
+  patterns:
+  - (?i)(ignore.previous|override.instruction|new.task|forget.prior|system.prompt)[\s\S]{0,200}(code.interpreter|python.sandbox|jupyter|ipython|execute.code)[\s\S]{0,150}(delete|exfiltrat|send|upload|access|read.{0,20}/etc|write.{0,20}/)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-049
+  name: cellmate_browser_agent_ssh_key_exfiltration
+  description: Detects ceLLMate browser agent attack where prompt injection in a web page instructs the browser agent to exfiltrate
+    SSH private keys, deploy tokens, or API credentials to an attacker-controlled endpoint
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - cellmate
+  - browser-agent
+  - ssh-key-exfiltration
+  - prompt-injection
+  references:
+  - 'Meng et al. 2025 - ceLLMate: Sandboxing Browser AI Agents'
+  patterns:
+  - (?i)(ssh.{0,20}(key|private|authorized)|deploy.token|api.key|credential)[\s\S]{0,150}(browser.agent|web.agent|navigate|fetch|post.{0,20}to|send.{0,20}to|exfiltrat|webhook|curl)[\s\S]{0,150}(attacker|malicious|external|http://|https://[^.]{1,30}\.[a-z]{2,6})
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-050
+  name: cellmate_browser_agent_project_destruction
+  description: Detects ceLLMate browser agent data-destruction attack where injected instructions cause the agent to delete
+    projects, repositories, databases, or production resources via web interface navigation
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - cellmate
+  - browser-agent
+  - data-destruction
+  - prompt-injection
+  references:
+  - 'Meng et al. 2025 - ceLLMate: Sandboxing Browser AI Agents'
+  patterns:
+  - (?i)(delete|destroy|remove|wipe|drop)[\s\S]{0,80}(project|repositor|database|production|namespace|deployment|service)[\s\S]{0,150}(browser.agent|web.agent|navigate|click|confirm|automat)[\s\S]{0,100}(prompt.inject|instruction|override|malicious)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-051
+  name: toolgate_precondition_violation_unauthorized_state
+  description: Detects ToolGate tool contract precondition violations where an agent attempts to invoke a tool in an invalid
+    system state, such as calling a payment tool without authentication or calling a file write tool without proper permissions
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - toolgate
+  - precondition-violation
+  - tool-contract
+  - unauthorized-state
+  references:
+  - 'Liu et al. 2026 - ToolGate: Contract-Grounded and Verified Tool Execution for LLMs'
+  patterns:
+  - (?i)(tool.call|invoke|execute)[\s\S]{0,100}(without|missing|skip|bypass)[\s\S]{0,80}(precondition|authentication|authorization|permission|state.check|required.parameter)[\s\S]{0,100}(payment|financial|transfer|delete|write|admin|privileged)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-052
+  name: toolgate_parametric_hallucination_tool_call
+  description: Detects ToolGate parametric hallucination pattern (8.4% rate in benchmarks) where an agent generates plausible
+    but schema-invalid or fabricated parameter values in tool calls, potentially causing incorrect financial transactions
+    or unauthorized API operations
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - toolgate
+  - parametric-hallucination
+  - schema-violation
+  - fabricated-parameters
+  references:
+  - 'Liu et al. 2026 - ToolGate: Contract-Grounded and Verified Tool Execution for LLMs'
+  patterns:
+  - (?i)(tool.call|api.call|function.call)[\s\S]{0,150}(amount|account.?id|user.?id|transaction.?id|resource.?id|endpoint|recipient)[\s\S]{0,100}(hallucin|fabricat|invent|made.up|not.specified|assumed|guessed|unknown)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-053
+  name: iterative_codegen_security_degradation_pattern
+  description: 'Detects iterative AI code generation security degradation: prompting patterns that emphasize efficiency or
+    feature completion over security across multiple iterations, correlated with 37.6% increase in critical vulnerabilities
+    after 5 iterations'
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - iterative-codegen
+  - security-degradation
+  - efficiency-bias
+  - vulnerability-accumulation
+  references:
+  - 'Shukla 2025 - Security Degradation in Iterative AI Code Generation: A Systematic Analysis of the Paradox'
+  patterns:
+  - (?i)(improve|optimize|enhance|refactor|make.faster|add.feature)[\s\S]{0,100}(previous.code|last.version|iteration|generated.code|existing.implementation)[\s\S]{0,200}(dont.worry.about|skip|ignore|without).{0,30}(security|validation|sanitiz|error.handling|input.check)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-054
+  name: llm_sandbox_execute_bash_external_resource_fetch
+  description: Detects LLM-in-Sandbox execute_bash meta-tool abuse where the agent uses curl, wget, pip, or apt-get inside
+    the sandbox to access external resources, download packages, or establish outbound connections beyond the intended sandboxed
+    execution boundary
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - llm-in-sandbox
+  - execute-bash
+  - external-resource-access
+  - sandbox-boundary-violation
+  references:
+  - Cheng et al. 2026 - LLM-in-Sandbox Elicits General Agentic Intelligence
+  patterns:
+  - (?i)(execute_bash|bash.tool|shell.tool|terminal.tool)[\s\S]{0,150}(curl|wget|pip.install|apt.get|npm.install|git.clone)[\s\S]{0,100}(external|download|fetch|http://|https://|github\.com|pypi\.org|registry)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-055
+  name: sandcell_rust_ffi_boundary_violation
+  description: Detects SandCell Rust FFI (Foreign Function Interface) boundary violation patterns where unsafe extern calls,
+    lifetime exploits, or mixed-stack pointer corruption cross the PKU-based in-process isolation boundary
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - sandcell
+  - rust-ffi
+  - pku-isolation
+  - boundary-violation
+  references:
+  - 'Zhang et al. 2025 - SandCell: Sandboxing Rust Beyond Unsafe Code'
+  patterns:
+  - (?i)(extern.{0,10}["']C["']|ffi::|unsafe\s*\{)[\s\S]{0,200}(lifetime|transmute|raw.pointer|ptr::|mem::forget|mem::transmute)[\s\S]{0,150}(boundary|sandbox|isolation|escape|corrupt|cross.domain)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-056
+  name: wasm_module_boundary_violation_capability_bypass
+  description: Detects WebAssembly module boundary violation where WASI capability-based access control is bypassed, either
+    through host function abuse, memory import tricks, or direct linear memory manipulation to access filesystem resources
+    beyond declared capabilities
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - webassembly
+  - wasi
+  - capability-bypass
+  - module-boundary-violation
+  references:
+  - Nguyen 2025 - Comparison of WebAssembly and Container Technologies
+  patterns:
+  - (?i)(wasm|webassembly|wasi)[\s\S]{0,150}(capability|permission|import|host.function)[\s\S]{0,100}(bypass|escape|circumvent|linear.memory|memory.import|host.import)[\s\S]{0,100}(filesystem|network|socket|path.outside|unauthorized)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-057
+  name: esaa_security_audit_boundary_bypass_unverified
+  description: Detects ESAA-Security governance bypass patterns where an agent emits audit findings without passing through
+    the orchestrator's contract validation, attempting to directly mutate audit state or insert unverified vulnerability claims
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - esaa-security
+  - audit-governance
+  - contract-bypass
+  - unverified-state-mutation
+  references:
+  - 'Filho 2026 - ESAA-Security: An Event-Sourced, Verifiable Architecture for Agent-Assisted Security Audits of AI-Generated
+    Code'
+  patterns:
+  - (?i)(audit|security.finding|vulnerability|risk.assessment)[\s\S]{0,150}(directly.modify|bypass.orchestrator|skip.validation|without.contract|unverified.finding|inject.finding)[\s\S]{0,100}(event.log|audit.state|report|append|persist)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-058
+  name: agentic_skill_clawhavoc_supply_chain_malicious
+  description: 'Detects ClawHavoc-style agentic skill supply-chain attack indicators: skill files containing reverse shell
+    commands, credential exfiltration webhooks, or social engineering setup instructions embedded in README or setup documentation'
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - clawhavoc
+  - skill-supply-chain
+  - malicious-plugin
+  - reverse-shell
+  references:
+  - 'Wang et al. 2026 - SoK: Agentic Skills - Beyond Tool Use in LLM Agents (ClawHavoc case study)'
+  patterns:
+  - (?i)(skill|plugin|extension|mcp.server)[\s\S]{0,100}(setup|install|configure|initialize)[\s\S]{0,200}(curl.{0,30}\|.{0,20}bash|wget.{0,30}\|.{0,20}sh|reverse.shell|exfiltrat.{0,20}credential|webhook.{0,30}api.key|.env.{0,30}upload)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-059
+  name: agentic_skill_applicability_condition_poisoning
+  description: Detects C-poisoning attack on agentic skill applicability conditions where adversarially crafted skill metadata
+    or overbroad applicability predicates cause a malicious skill to activate across contexts far beyond its intended scope
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - c-poisoning
+  - applicability-condition
+  - skill-activation
+  - overbroad-scope
+  references:
+  - 'Wang et al. 2026 - SoK: Agentic Skills - Beyond Tool Use in LLM Agents'
+  patterns:
+  - (?i)(applicability|trigger.condition|activation.scope|skill.metadata)[\s\S]{0,150}(always.true|universal|match.all|any.context|any.task|any.request|wildcard|\*)[\s\S]{0,100}(skill|plugin|agent.module|tool.definition)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-060
+  name: privacy_sandbox_fenced_frame_shared_storage_leak
+  description: 'Detects exploitation of browser Privacy Sandbox Shared Storage API or Fenced Frame escape: cross-origin worklet
+    code attempting to read shared storage outside the fenced context, or bypassing the read-restriction to correlate user
+    identity across sites'
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - privacy-sandbox
+  - shared-storage
+  - fenced-frame
+  - cross-origin-leak
+  references:
+  - Beugin & McDaniel 2025 - The Need for a (Research) Sandstorm through the Privacy Sandbox
+  patterns:
+  - (?i)(sharedStorage|shared.storage|fenced.frame|FencedFrameConfig)[\s\S]{0,150}(read.outside|cross.origin.access|bypass.restriction|correlate.user|re.identify|link.identity|fingerprint)[\s\S]{0,100}(worklet|iframe|embed|publisher|advertiser)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-061
+  name: toolmaster_trial_phase_unrestricted_environment_probe
+  description: Detects ToolMaster-style uncontrolled tool trial behavior in production environments where an agent autonomously
+    probes external APIs, invokes data-modifying endpoints, or explores tool side effects without human approval gates
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - toolmaster
+  - tool-trial
+  - uncontrolled-probe
+  - production-side-effects
+  references:
+  - Gao et al. 2026 - Teaching LLMs to Learn Tool Trialing and Execution through Environment Interaction
+  patterns:
+  - (?i)(trial.phase|tool.trial|explore.tool|probe.api|test.tool|understand.tool)[\s\S]{0,150}(production|live.system|real.environment|actual.api|external.service)[\s\S]{0,100}(without.approval|no.sandbox|direct.call|autonomous|side.effect|data.modif)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-062
+  name: ispm_agent_iam_wildcard_policy_detection
+  description: 'Detects Identity Security Posture Management (ISPM) critical misconfiguration: IAM policies granting wildcard
+    Action (*) on wildcard Resource (*), customer-managed policies with sts:AssumeRole on all principals, or IAM roles trusting
+    external accounts without MFA enforcement'
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - ispm
+  - iam-wildcard
+  - overprivileged-policy
+  - identity-security
+  references:
+  - 'Engelberg et al. 2026 - Sola-Visibility-ISPM: Benchmarking Agentic AI for Identity Security Posture Management Visibility'
+  patterns:
+  - (?i)(Action.{0,10}["']\*["']|Action.{0,5}\*)[\s\S]{0,80}(Resource.{0,10}["']\*["']|Resource.{0,5}\*)[\s\S]{0,200}(iam.policy|trust.policy|sts.AssumeRole|inline.policy|managed.policy)[\s\S]{0,150}(agent|audit|assessment|llm|automat)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-063
+  name: repost_mock_api_sandbox_isolation_bypass
+  description: Detects RepoST-style sandbox isolation bypass where code submitted for testing in a mock-API environment attempts
+    to call real external services, access environment variables containing production credentials, or escape function-level
+    isolation boundaries
+  severity: HIGH
+  category: sandbox_execution_boundaries
+  tags:
+  - repost
+  - mock-api-bypass
+  - test-isolation-escape
+  - credential-leak
+  references:
+  - 'Xie et al. 2025 - RepoST: Scalable Repository-Level Coding Environment Construction with Sandbox Testing'
+  patterns:
+  - (?i)(mock|stub|fake|test.environment|sandbox.test)[\s\S]{0,150}(real.api|production.endpoint|actual.service|os\.environ|process\.env|getenv)[\s\S]{0,100}(credential|token|secret|api.key|password|auth)[\s\S]{0,100}(bypass|escape|outside|real.call)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-064
+  name: llm_container_pid_namespace_escape_procfs
+  description: Detects LLM-driven PID namespace escape technique using /proc filesystem enumeration to identify host process
+    PIDs, read host memory maps, or inject into host processes via /proc/[pid]/mem or ptrace cross-namespace operations
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - pid-namespace-escape
+  - procfs
+  - container-escape
+  - llm-driven
+  references:
+  - Marchand et al. 2026 - Quantifying Frontier LLM Capabilities for Container Sandbox Escape
+  patterns:
+  - (?i)(/proc/[0-9]{1,7}/(mem|maps|environ|fd|cwd|exe|root|ns)|pid.namespace)[\s\S]{0,150}(host.process|cross.namespace|namespace.escape|inject|ptrace|read.host)[\s\S]{0,100}(container|sandbox|llm|agent|automat)
+  file_types: *id001
+- id: MEDUSA-SBOX-SCAN-065
+  name: llm_cgroup_release_agent_container_escape
+  description: Detects LLM-driven cgroup release_agent container escape technique (Felix Wilhelm / CVE-2022-0492) where an
+    agent mounts a cgroup filesystem and writes a malicious release_agent script that executes on the host when a process
+    exits
+  severity: CRITICAL
+  category: sandbox_execution_boundaries
+  tags:
+  - cgroup-escape
+  - release-agent
+  - CVE-2022-0492
+  - container-escape
+  references:
+  - Marchand et al. 2026 - Quantifying Frontier LLM Capabilities for Container Sandbox Escape
+  patterns:
+  - (?i)(cgroup|cgroups|release_agent|notify_on_release)[\s\S]{0,150}(mount.{0,30}cgroup|write.{0,30}release.agent|cgroup.escape|CVE.2022.0492)[\s\S]{0,100}(host.command|execute.host|escape|breakout|container|sandbox)
+  file_types: *id001

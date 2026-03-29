@@ -82,9 +82,11 @@ from medusa.scanners.plugin_security_scanner import PluginSecurityScanner
 from medusa.scanners.excessive_agency_scanner import ExcessiveAgencyScanner
 from medusa.scanners.prompt_injection_code_scanner import PromptInjectionCodeScanner
 from medusa.scanners.dataset_injection_scanner import DatasetInjectionScanner
+from medusa.scanners.web_security_scanner import WebSecurityScanner
 from medusa.scanners.gitleaks_scanner import GitLeaksScanner
 from medusa.scanners.semgrep_scanner import SemgrepScanner
 from medusa.scanners.trivy_scanner import TrivyScanner
+from medusa.scanners.yaml_rule_scanner import YAMLRuleScanner
 
 # Create global scanner registry
 registry = ScannerRegistry()
@@ -162,9 +164,14 @@ registry.register(PluginSecurityScanner())
 registry.register(ExcessiveAgencyScanner())
 registry.register(PromptInjectionCodeScanner())
 registry.register(DatasetInjectionScanner())
+registry.register(WebSecurityScanner())
 registry.register(GitLeaksScanner())
 registry.register(SemgrepScanner())
 registry.register(TrivyScanner())
+# YAMLRuleScanner is available but not registered by default.
+# It runs only unclaimed rules. Enable if you need broader coverage
+# at the cost of more false positives.
+# registry.register(YAMLRuleScanner())
 
 __all__ = [
     'BaseScanner',
@@ -244,8 +251,10 @@ __all__ = [
     'ExcessiveAgencyScanner',
     'PromptInjectionCodeScanner',
     'DatasetInjectionScanner',
+    'WebSecurityScanner',
     'GitLeaksScanner',
     'SemgrepScanner',
     'TrivyScanner',
+    'YAMLRuleScanner',
     'registry',
 ]

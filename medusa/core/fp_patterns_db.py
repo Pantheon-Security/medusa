@@ -5985,5 +5985,762 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
         confidence=0.85,
         description="LLMOPS-GPU_MEMO-003 fires on standard PyTorch reassignment idiom 'model = model.to(\"cuda\")' — idiomatic pattern, not an inference cleanup gap",
     ),
+
+    # =========================================================================
+    # 437-502: FP patterns for newly wired scanner categories (v2026.5.0)
+    # Added: 2026-03-18
+    # =========================================================================
+
+    # 437: voice_audio_attacks rules fire on audio processing libraries
+    FPPattern(
+        name="voice_audio_standard_processing",
+        scanner="modelattackscanner",
+        pattern=r'(?:voice|audio|speech).*(?:attack|adversarial|perturbation)',
+        context_pattern=r'(?:librosa|soundfile|scipy\.io\.wavfile|torchaudio)\.',
+        file_pattern=r'(?:audio|speech|voice|sound).*\.py$',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="Audio attack rules fire on standard audio processing code",
+    ),
+
+    # 438: watermarking_bypass rules fire on legitimate watermark implementations
+    FPPattern(
+        name="watermark_implementation_code",
+        scanner="modelattackscanner",
+        pattern=r'(?:watermark|watermarking).*(?:bypass|remove|evasion)',
+        context_pattern=r'(?:class\s+Watermark|def\s+(?:add|embed|apply)_watermark)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Watermark bypass rules fire on watermark implementation code",
+    ),
+
+    # 439: dp_attacks rules fire on differential privacy implementations
+    FPPattern(
+        name="dp_implementation_code",
+        scanner="modelattackscanner",
+        pattern=r'(?:differential.privacy|dp).*(?:attack|vulnerability)',
+        context_pattern=r'(?:opacus|tensorflow_privacy|dp_sgd|PrivacyEngine|make_private)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="DP attack rules fire on differential privacy implementation/defense code",
+    ),
+
+    # 440: model_extraction rules fire on model export code
+    FPPattern(
+        name="model_extraction_export_code",
+        scanner="modelattackscanner",
+        pattern=r'(?:model.*extract|extraction.*model)',
+        context_pattern=r'(?:torch\.save|model\.save|export_model|save_pretrained)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Model extraction rules fire on legitimate model export/save code",
+    ),
+
+    # 441: multimodal_attacks rules fire on standard multimodal pipelines
+    FPPattern(
+        name="multimodal_standard_pipeline",
+        scanner="modelattackscanner",
+        pattern=r'(?:multimodal|multi.modal).*(?:attack|adversarial)',
+        context_pattern=r'(?:CLIPProcessor|Blip2|LlavaForConditionalGeneration|ViltProcessor)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="Multimodal attack rules fire on standard vision-language pipeline code",
+    ),
+
+    # 442: privacy_attacks rules fire on privacy-preserving ML
+    FPPattern(
+        name="privacy_preserving_ml",
+        scanner="modelattackscanner",
+        pattern=r'(?:privacy|membership.inference|model.inversion)',
+        context_pattern=r'(?:class\s+Privacy|def\s+protect|anonymize|k_anonymity|l_diversity)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Privacy attack rules fire on privacy-preserving ML defense code",
+    ),
+
+    # 443: finetuning_security rules fire on standard fine-tuning code
+    FPPattern(
+        name="finetuning_standard_training",
+        scanner="modelattackscanner",
+        pattern=r'(?:fine.?tun|finetun).*(?:security|attack|poisoning)',
+        context_pattern=r'(?:Trainer|TrainingArguments|SFTTrainer|AutoModelFor)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="Fine-tuning security rules fire on standard HuggingFace training code",
+    ),
+
+    # 444: synthetic_data_poisoning rules fire on synthetic data generation
+    FPPattern(
+        name="synthetic_data_generation",
+        scanner="modelattackscanner",
+        pattern=r'(?:synthetic.*data|data.*synthetic).*(?:poison|attack)',
+        context_pattern=r'(?:faker|Faker|SDV|CTGAN|synthetic_data|DataSynthesizer)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="Synthetic data poisoning rules fire on legitimate data generation libraries",
+    ),
+
+    # 445: reasoning_attacks rules fire on CoT/reasoning chain code
+    FPPattern(
+        name="reasoning_chain_implementation",
+        scanner="owaspllmscanner",
+        pattern=r'(?:reasoning|chain.of.thought).*(?:attack|manipulation)',
+        context_pattern=r'(?:chain_of_thought|reasoning_chain|think_step_by_step|CoT)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="Reasoning attack rules fire on CoT/reasoning implementation code",
+    ),
+
+    # 446: slopsquatting rules fire on legitimate package references
+    FPPattern(
+        name="slopsquatting_known_packages",
+        scanner="owaspllmscanner",
+        pattern=r'(?:slopsquat|hallucinated.*package)',
+        file_pattern=r'(?:requirements|setup\.py|pyproject\.toml|package\.json)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Slopsquatting rules fire on legitimate dependency management files",
+    ),
+
+    # 447: ml_supply_chain rules fire on standard pip/npm install
+    FPPattern(
+        name="ml_supply_chain_standard_install",
+        scanner="owaspllmscanner",
+        pattern=r'(?:supply.chain|package.*install).*(?:attack|hijack)',
+        context_pattern=r'(?:pip install|npm install|requirements\.txt|package\.json)',
+        file_pattern=r'(?:Dockerfile|Makefile|\.github|CI|ci)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.85,
+        description="Supply chain rules fire on standard CI/CD package installation",
+    ),
+
+    # 448: dependency_intent_validation rules fire on lockfiles
+    FPPattern(
+        name="dependency_intent_validation_lockfile",
+        scanner="owaspllmscanner",
+        pattern=r'(?:dependency|package).*(?:intent|validation|integrity)',
+        file_pattern=r'(?:package-lock|yarn\.lock|Pipfile\.lock|poetry\.lock)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Dependency validation rules fire on lockfiles which already pin versions",
+    ),
+
+    # 449: provenance_attribution rules fire on license/attribution code
+    FPPattern(
+        name="provenance_license_code",
+        scanner="owaspllmscanner",
+        pattern=r'(?:provenance|attribution).*(?:missing|lack|absent)',
+        context_pattern=r'(?:license|LICENSE|SPDX|copyright|Copyright)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.88,
+        description="Provenance rules fire on code that already has license/attribution",
+    ),
+
+    # 450: guardrail_bypass rules fire on guardrail implementations
+    FPPattern(
+        name="guardrail_implementation_code",
+        scanner="owaspllmscanner",
+        pattern=r'(?:guardrail|content.filter).*(?:bypass|evasion)',
+        context_pattern=r'(?:class\s+Guardrail|def\s+(?:check|validate|filter)_(?:input|output)|NeMoGuardrails|guardrails\.ai)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Guardrail bypass rules fire on guardrail implementation/defense code",
+    ),
+
+    # 451: long_context_attacks rules fire on context window management
+    FPPattern(
+        name="long_context_management",
+        scanner="owaspllmscanner",
+        pattern=r'(?:long.context|context.window).*(?:attack|overflow)',
+        context_pattern=r'(?:max_tokens|context_length|truncat|sliding_window|chunk_size)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Long context attack rules fire on standard context window management code",
+    ),
+
+    # 452: post_quantum_crypto rules fire on standard crypto libraries
+    FPPattern(
+        name="post_quantum_standard_crypto",
+        scanner="owaspllmscanner",
+        pattern=r'(?:post.quantum|quantum.*crypto|lattice.*based)',
+        context_pattern=r'(?:from\s+cryptography|import\s+(?:rsa|ecdsa|ed25519)|openssl)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.82,
+        description="Post-quantum crypto rules fire on standard cryptographic library usage",
+    ),
+
+    # 453: security_tool_evasion rules fire on security scanning code
+    FPPattern(
+        name="security_tool_evasion_scanner_code",
+        scanner="aicontextscanner",
+        pattern=r'(?:security.*tool|scanner|antivirus).*(?:evasion|bypass|disable)',
+        context_pattern=r'(?:class\s+Scanner|def\s+scan|security_check|run_scan|medusa)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.92,
+        description="Security tool evasion rules fire on security scanner implementation code",
+    ),
+
+    # 454: coding_editor_attacks rules fire on IDE extension/plugin code
+    FPPattern(
+        name="coding_editor_extension_code",
+        scanner="aicontextscanner",
+        pattern=r'(?:editor|ide|vscode|cursor).*(?:attack|exploit)',
+        context_pattern=r'(?:vscode\.ExtensionContext|activate\s*\(|registerCommand|extension\.ts)',
+        file_pattern=r'(?:extension|plugin|addon)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="Coding editor attack rules fire on legitimate IDE extension code",
+    ),
+
+    # 455: ai_ide_repo_poisoning rules fire on IDE config files
+    FPPattern(
+        name="ai_ide_config_files",
+        scanner="aicontextscanner",
+        pattern=r'(?:repo.*poison|cursorrules|claude\.md).*(?:inject|malicious)',
+        file_pattern=r'(?:\.cursorrules|CLAUDE\.md|\.github/copilot)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Repo poisoning rules fire on the legitimate AI config files they're meant to protect",
+    ),
+
+    # 456: prompt_injection_attacks rules fire on input validation code
+    FPPattern(
+        name="prompt_injection_input_validation",
+        scanner="aicontextscanner",
+        pattern=r'(?:prompt.*inject|injection.*detect)',
+        context_pattern=r'(?:def\s+(?:sanitize|validate|check|filter)|class\s+(?:Input|Prompt)(?:Validator|Filter|Guard))',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Prompt injection rules fire on input validation/defense code",
+    ),
+
+    # 457: ai_red_teaming rules fire on red team tool implementations
+    FPPattern(
+        name="ai_red_teaming_tool_code",
+        scanner="aicontextscanner",
+        pattern=r'(?:red.team|adversarial.test)',
+        context_pattern=r'(?:class\s+RedTeam|def\s+(?:run_attack|test_model|evaluate_safety)|garak|pyrit)',
+        file_pattern=r'(?:red_team|adversarial|safety_eval)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.88,
+        description="Red teaming rules fire on legitimate safety evaluation tool code",
+    ),
+
+    # 458: agentic_patterns rules fire on standard agent frameworks
+    FPPattern(
+        name="agentic_standard_framework",
+        scanner="multiagentscanner",
+        pattern=r'(?:agent.*pattern|agentic.*pattern)',
+        context_pattern=r'(?:from\s+(?:langchain|crewai|autogen)|class\s+Agent|BaseAgent)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.82,
+        description="Agentic pattern rules fire on standard agent framework usage",
+    ),
+
+    # 459: agent_identity_impersonation rules fire on agent identity management
+    FPPattern(
+        name="agent_identity_management_code",
+        scanner="multiagentscanner",
+        pattern=r'(?:agent.*identity|identity.*agent).*(?:impersonat|spoof)',
+        context_pattern=r'(?:class\s+AgentIdentity|agent_id|verify_identity|authenticate_agent)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.88,
+        description="Agent identity impersonation rules fire on identity management/verification code",
+    ),
+
+    # 460: sandbox_execution_boundaries rules fire on sandbox implementation
+    FPPattern(
+        name="sandbox_implementation_code",
+        scanner="multiagentscanner",
+        pattern=r'(?:sandbox.*escape|escape.*sandbox|boundary.*violation)',
+        context_pattern=r'(?:class\s+Sandbox|def\s+(?:create|setup)_sandbox|RestrictedPython|jail|chroot)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Sandbox escape rules fire on sandbox implementation/setup code",
+    ),
+
+    # 461: agentic_exploitation rules fire on agent security testing
+    FPPattern(
+        name="agentic_exploitation_test_code",
+        scanner="multiagentscanner",
+        pattern=r'(?:agentic.*exploit|agent.*vulnerability)',
+        file_pattern=r'(?:test|spec|benchmark|eval)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.88,
+        description="Agentic exploitation rules fire on agent security test/benchmark code",
+    ),
+
+    # 462: acp_vulnerabilities rules fire on ACP protocol implementations
+    FPPattern(
+        name="acp_protocol_implementation",
+        scanner="multiagentscanner",
+        pattern=r'(?:acp|agent.communication.protocol).*(?:vulnerab|attack)',
+        context_pattern=r'(?:class\s+ACP|protocol_version|agent_capability|AgentCard)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="ACP vulnerability rules fire on protocol implementation code",
+    ),
+
+    # 463: inference_infrastructure rules fire on model serving code
+    FPPattern(
+        name="inference_infra_serving_code",
+        scanner="llmopsscanner",
+        pattern=r'(?:inference.*infrastructure|serving.*vulnerability)',
+        context_pattern=r'(?:FastAPI|uvicorn|gunicorn|triton|TensorRT|vLLM|text_generation)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.85,
+        description="Inference infrastructure rules fire on standard model serving frameworks",
+    ),
+
+    # 464: vector_db_attacks rules fire on vector DB client code
+    FPPattern(
+        name="vector_db_client_code",
+        scanner="ragsecurityscanner",
+        pattern=r'(?:vector.*db|vectordb).*(?:attack|poison|inject)',
+        context_pattern=r'(?:chromadb|pinecone|weaviate|qdrant|milvus|faiss)\.(?:Client|connect|insert|add)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="Vector DB attack rules fire on standard vector database client usage",
+    ),
+
+    # 465: web_security rules fire on security middleware
+    FPPattern(
+        name="web_security_middleware",
+        scanner="websecurityscanner",
+        pattern=r'(?:web.*security|security.*header|csrf)',
+        context_pattern=r'(?:SecurityMiddleware|CSRFMiddleware|helmet|cors|@require_csrf)',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.90,
+        description="Web security rules fire on security middleware that implements the defense",
+    ),
+
+    # 466: compliance rules fire on compliance implementation code
+    FPPattern(
+        name="compliance_implementation_code",
+        scanner="owaspllmscanner",
+        pattern=r'(?:compliance|gdpr|hipaa|sox|pci).*(?:violation|missing|absent)',
+        context_pattern=r'(?:class\s+Compliance|def\s+check_compliance|audit_log|data_retention)',
+        reason=FPReason.COMPLIANCE_CODE,
+        confidence=0.88,
+        description="Compliance rules fire on compliance implementation/enforcement code",
+    ),
+
+    # 467: ai_security rules fire on security research papers/docs
+    FPPattern(
+        name="ai_security_research_docs",
+        scanner="owaspllmscanner",
+        pattern=r'(?:ai.*security|ml.*vulnerability)',
+        file_pattern=r'(?:README|SECURITY|docs/|paper|research)\.(?:md|rst|txt)$',
+        reason=FPReason.DOCSTRING,
+        confidence=0.92,
+        description="AI security rules fire on documentation/research files discussing security",
+    ),
+
+    # 468-502: Generic FP patterns for newly active scanners
+
+    # 468: Test files should not trigger security rules from new scanners
+    FPPattern(
+        name="new_scanner_test_file_py",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|exploit|vulnerability|poison|injection)',
+        file_pattern=r'(?:test_|_test\.py$|tests/|spec/)',
+        context_pattern=r'(?:def\s+test_|class\s+Test|@pytest|unittest|assert)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.85,
+        description="Model attack scanner rules fire on security test files",
+    ),
+    FPPattern(
+        name="new_scanner_test_file_js",
+        scanner="aicontextscanner",
+        pattern=r'(?:attack|exploit|injection|bypass)',
+        file_pattern=r'(?:\.test\.|\.spec\.|__tests__|tests/)',
+        context_pattern=r'(?:describe\s*\(|it\s*\(|expect\s*\(|jest|mocha)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.85,
+        description="AI context scanner rules fire on JavaScript test files",
+    ),
+
+    # 470: Docstrings mentioning attacks
+    FPPattern(
+        name="docstring_attack_mention_py",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|exploit|vulnerability|adversarial)',
+        context_pattern=r'(?:"""|\'\'\')\s*.*(?:attack|exploit|vulnerability)',
+        reason=FPReason.DOCSTRING,
+        confidence=0.88,
+        description="Attack keywords in Python docstrings are not actual vulnerabilities",
+    ),
+    FPPattern(
+        name="docstring_attack_mention_multi",
+        scanner="multiagentscanner",
+        pattern=r'(?:attack|exploit|vulnerability|hijack)',
+        context_pattern=r'(?:"""|\'\'\'|/\*\*)\s*.*(?:attack|exploit|vulnerability)',
+        reason=FPReason.DOCSTRING,
+        confidence=0.88,
+        description="Attack keywords in docstrings/comments are not actual vulnerabilities",
+    ),
+
+    # 472: YAML/JSON rule definition files
+    FPPattern(
+        name="yaml_rule_definition_file",
+        scanner="aicontextscanner",
+        pattern=r'(?:injection|attack|exploit|malicious)',
+        file_pattern=r'(?:rules/|scanners/|patterns/).*\.yaml$',
+        reason=FPReason.KNOWN_PATTERN,
+        confidence=0.95,
+        description="Security scanner rule definition files contain attack patterns by design",
+    ),
+    FPPattern(
+        name="yaml_rule_definition_file_model",
+        scanner="modelattackscanner",
+        pattern=r'(?:poison|backdoor|attack|adversarial)',
+        file_pattern=r'(?:rules/|scanners/|patterns/).*\.yaml$',
+        reason=FPReason.KNOWN_PATTERN,
+        confidence=0.95,
+        description="Security scanner rule definition files contain attack patterns by design",
+    ),
+    FPPattern(
+        name="yaml_rule_definition_file_owasp",
+        scanner="owaspllmscanner",
+        pattern=r'(?:injection|jailbreak|bypass|exfiltration)',
+        file_pattern=r'(?:rules/|scanners/|patterns/).*\.yaml$',
+        reason=FPReason.KNOWN_PATTERN,
+        confidence=0.95,
+        description="Security scanner rule definition files contain attack patterns by design",
+    ),
+    FPPattern(
+        name="yaml_rule_definition_file_rag",
+        scanner="ragsecurityscanner",
+        pattern=r'(?:poison|attack|injection|manipulation)',
+        file_pattern=r'(?:rules/|scanners/|patterns/).*\.yaml$',
+        reason=FPReason.KNOWN_PATTERN,
+        confidence=0.95,
+        description="Security scanner rule definition files contain attack patterns by design",
+    ),
+    FPPattern(
+        name="yaml_rule_definition_file_multi",
+        scanner="multiagentscanner",
+        pattern=r'(?:hijack|exploit|malicious|worm)',
+        file_pattern=r'(?:rules/|scanners/|patterns/).*\.yaml$',
+        reason=FPReason.KNOWN_PATTERN,
+        confidence=0.95,
+        description="Security scanner rule definition files contain attack patterns by design",
+    ),
+
+    # 477: Example/demo code
+    FPPattern(
+        name="example_demo_code_model",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|exploit|adversarial|poison)',
+        file_pattern=r'(?:example|demo|tutorial|notebook|quickstart)',
+        reason=FPReason.EXAMPLE_FILE,
+        confidence=0.82,
+        description="Model attack rules fire on example/demo code",
+    ),
+    FPPattern(
+        name="example_demo_code_owasp",
+        scanner="owaspllmscanner",
+        pattern=r'(?:injection|jailbreak|exfiltration)',
+        file_pattern=r'(?:example|demo|tutorial|notebook|quickstart)',
+        reason=FPReason.EXAMPLE_FILE,
+        confidence=0.82,
+        description="OWASP LLM rules fire on example/demo code",
+    ),
+
+    # 479: Build/CI output
+    FPPattern(
+        name="build_output_model",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|vulnerability|exploit)',
+        file_pattern=r'(?:dist/|build/|\.next/|__pycache__|node_modules/)',
+        reason=FPReason.BUILD_OUTPUT,
+        confidence=0.92,
+        description="Model attack rules fire on build output directories",
+    ),
+
+    # 480: Generated code
+    FPPattern(
+        name="generated_code_attack_patterns",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|vulnerability|exploit)',
+        context_pattern=r'(?:Generated|Auto-generated|DO NOT EDIT|@generated)',
+        reason=FPReason.GENERATED_CODE,
+        confidence=0.90,
+        description="Attack rules fire on auto-generated code files",
+    ),
+
+    # 481: Markdown/documentation files
+    FPPattern(
+        name="markdown_security_docs_model",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|vulnerability|adversarial|backdoor|poison)',
+        file_pattern=r'\.md$',
+        reason=FPReason.DOCSTRING,
+        confidence=0.85,
+        description="Model attack rules fire on Markdown documentation files",
+    ),
+    FPPattern(
+        name="markdown_security_docs_owasp",
+        scanner="owaspllmscanner",
+        pattern=r'(?:injection|jailbreak|exfiltration|bypass)',
+        file_pattern=r'\.md$',
+        reason=FPReason.DOCSTRING,
+        confidence=0.85,
+        description="OWASP LLM rules fire on Markdown documentation files",
+    ),
+    FPPattern(
+        name="markdown_security_docs_multi",
+        scanner="multiagentscanner",
+        pattern=r'(?:hijack|exploit|worm|impersonation)',
+        file_pattern=r'\.md$',
+        reason=FPReason.DOCSTRING,
+        confidence=0.85,
+        description="Multi-agent rules fire on Markdown documentation files",
+    ),
+
+    # 484: Standard package version strings (DIV-001/DIV-002 FPs)
+    FPPattern(
+        name="div_package_version_pypi",
+        scanner="owaspllmscanner",
+        pattern=r'(?:dependency|package|version).*(?:intent|validation)',
+        context_pattern=r'(?:\d+\.\d+\.\d+|>=|<=|~=|==)',
+        file_pattern=r'(?:requirements|setup\.py|pyproject|Pipfile|poetry)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Dependency intent validation fires on standard version specifiers",
+    ),
+    FPPattern(
+        name="div_package_version_npm",
+        scanner="owaspllmscanner",
+        pattern=r'(?:dependency|package|version).*(?:intent|validation)',
+        context_pattern=r'(?:\^|\~)\d+\.\d+',
+        file_pattern=r'(?:package\.json|package-lock)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Dependency intent validation fires on npm semver ranges",
+    ),
+
+    # 486: moe_vulnerabilities rules fire on MoE architecture code
+    FPPattern(
+        name="moe_standard_architecture",
+        scanner="modelattackscanner",
+        pattern=r'(?:mixture.of.experts|moe).*(?:vulnerab|attack)',
+        context_pattern=r'(?:class\s+MoE|SwitchTransformer|MixtralForCausalLM|expert_capacity)',
+        reason=FPReason.ML_COMMON,
+        confidence=0.85,
+        description="MoE vulnerability rules fire on standard MoE architecture implementations",
+    ),
+
+    # 487: code_gen_security rules fire on code generation tools
+    FPPattern(
+        name="code_gen_standard_tools",
+        scanner="aicontextscanner",
+        pattern=r'(?:code.*gen|codegen).*(?:security|vulnerability)',
+        context_pattern=r'(?:copilot|cursor|codewhisperer|codex|starcoder)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.82,
+        description="Code gen security rules fire on standard code generation tool references",
+    ),
+
+    # 488: supply_chain rules fire on security scanning CI steps
+    FPPattern(
+        name="supply_chain_ci_security_scan",
+        scanner="owaspllmscanner",
+        pattern=r'(?:supply.chain|dependency).*(?:attack|compromise)',
+        file_pattern=r'(?:\.github/workflows|\.gitlab-ci|Jenkinsfile|\.circleci)',
+        context_pattern=r'(?:security|scan|audit|check|snyk|dependabot)',
+        reason=FPReason.INFRASTRUCTURE_CODE,
+        confidence=0.88,
+        description="Supply chain rules fire on CI security scanning configurations",
+    ),
+
+    # 489: GenAI security rules fire on defense implementations
+    FPPattern(
+        name="genai_security_defense_code",
+        scanner="owaspllmscanner",
+        pattern=r'(?:genai|generative.ai).*(?:security|vulnerability)',
+        context_pattern=r'(?:class\s+(?:Safety|Security|Guard)|def\s+(?:validate|protect|defend))',
+        reason=FPReason.DEFENSIVE_SECURITY,
+        confidence=0.88,
+        description="GenAI security rules fire on safety/defense implementation code",
+    ),
+
+    # 490: UCP security rules fire on payment processing code
+    FPPattern(
+        name="ucp_payment_processing",
+        scanner="owaspllmscanner",
+        pattern=r'(?:ucp|universal.checkout|payment).*(?:security|vulnerability)',
+        context_pattern=r'(?:stripe|paypal|adyen|payment_intent|checkout_session)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.85,
+        description="UCP security rules fire on standard payment processing integrations",
+    ),
+
+    # 491-502: Additional scanner-specific test/doc FP patterns
+
+    FPPattern(
+        name="llmops_test_file",
+        scanner="llmopsscanner",
+        pattern=r'(?:infrastructure|deployment|serving).*(?:attack|vulnerability)',
+        file_pattern=r'(?:test_|_test\.py$|tests/)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.85,
+        description="LLMOps scanner rules fire on test files",
+    ),
+    FPPattern(
+        name="rag_security_test_file",
+        scanner="ragsecurityscanner",
+        pattern=r'(?:vector|embedding|retrieval|rag).*(?:attack|poison)',
+        file_pattern=r'(?:test_|_test\.py$|tests/)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.85,
+        description="RAG security scanner rules fire on test files",
+    ),
+    FPPattern(
+        name="web_security_test_file",
+        scanner="websecurityscanner",
+        pattern=r'(?:csrf|xss|injection|ssrf)',
+        file_pattern=r'(?:test_|_test\.py$|tests/)',
+        context_pattern=r'(?:def\s+test_|class\s+Test|@pytest|assert)',
+        reason=FPReason.TEST_FILE,
+        confidence=0.85,
+        description="Web security scanner rules fire on test files",
+    ),
+
+    # 494: Vendor/third-party code
+    FPPattern(
+        name="vendor_code_model",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|vulnerability|exploit)',
+        file_pattern=r'(?:vendor/|third.party/|external/|lib/)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.82,
+        description="Attack rules fire on vendor/third-party code directories",
+    ),
+    FPPattern(
+        name="vendor_code_owasp",
+        scanner="owaspllmscanner",
+        pattern=r'(?:injection|jailbreak|bypass)',
+        file_pattern=r'(?:vendor/|third.party/|external/|lib/)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.82,
+        description="OWASP LLM rules fire on vendor/third-party code directories",
+    ),
+
+    # 496: Config file category rules (minified JS, lock files, etc.)
+    FPPattern(
+        name="minified_js_security_rules",
+        scanner="owaspllmscanner",
+        pattern=r'(?:injection|bypass|exfiltration)',
+        file_pattern=r'\.min\.js$',
+        reason=FPReason.BUILD_OUTPUT,
+        confidence=0.95,
+        description="OWASP LLM rules fire on minified JavaScript files",
+    ),
+    FPPattern(
+        name="minified_js_model_rules",
+        scanner="modelattackscanner",
+        pattern=r'(?:attack|exploit)',
+        file_pattern=r'\.min\.js$',
+        reason=FPReason.BUILD_OUTPUT,
+        confidence=0.95,
+        description="Model attack rules fire on minified JavaScript files",
+    ),
+
+    # =========================================================================
+    # 499-510: FP patterns from canopy security scan handover (v2026.5.0)
+    # Source: /home/ross/Documents/projects/canopy/docs/security-scan-handover.md
+    # Added: 2026-03-18
+    # =========================================================================
+
+    # 499: "Tool definitions included in response" fires on Vue/React UI navigation arrays
+    FPPattern(
+        name="tool_definitions_vue_navigation",
+        scanner="promptleakagescanner",
+        pattern=r'Tool definitions included in response',
+        file_pattern=r'(?:constants|getters|store|router|navigation|menu)\.(js|ts)$',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Tool definition leak rule fires on Vue/React UI navigation arrays that use 'tools' keyword for UI features, not LLM tool schemas",
+    ),
+
+    # 500: JS template literals (backticks) flagged as server-side template injection
+    FPPattern(
+        name="ssti_js_template_literal",
+        scanner="owaspllmscanner",
+        pattern=r'Server-side template injection via user-supplied format string',
+        file_pattern=r'(?:router|routes|navigation)\.(ts|js|tsx|jsx)$',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="SSTI rule fires on JavaScript template literals in client-side Vue/React router files — no server-side template engine present",
+    ),
+
+    # 501: Vue Router redirect flagged as "env variable injection via AI prompt"
+    FPPattern(
+        name="env_injection_vue_router",
+        scanner="owaspllmscanner",
+        pattern=r'Environment variable injection or exfiltration via AI prompt',
+        file_pattern=r'(?:router|routes)\.(ts|js|tsx|jsx)$',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Env injection rule fires on Vue/React router redirect paths using template literals — no AI prompt construction",
+    ),
+
+    # 502: i18n translation key lookup flagged as "adversarial suffix/token injection"
+    FPPattern(
+        name="adversarial_suffix_i18n",
+        scanner="owaspllmscanner",
+        pattern=r'Adversarial suffix, token injection, or chat template injection',
+        context_pattern=r'(?:i18n|t\(|translate|intl|formatMessage|\$t\()',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.92,
+        description="Adversarial suffix rule fires on i18n translation key lookups like i18n.global.t('general.user') — User: is a locale key, not a prompt prefix",
+    ),
+
+    # 503: Material Design icon names flagged as PII (e.g., 'cake' → date of birth)
+    FPPattern(
+        name="pii_material_icons",
+        scanner="llmguardscanner",
+        pattern=r'PII detected.*(?:Date of birth|birthday|personal)',
+        file_pattern=r'(?:icon|material|font|glyph)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.95,
+        description="PII detection fires on Material Design icon name arrays — 'cake' is an icon identifier, not a birthday/DOB field",
+    ),
+
+    # 504: "User:" pattern in object property names (not prompt prefixes)
+    FPPattern(
+        name="adversarial_suffix_object_key",
+        scanner="owaspllmscanner",
+        pattern=r'Adversarial suffix, token injection, or chat template injection',
+        context_pattern=r'(?:User|Admin|System|Assistant)\s*:\s*(?:i18n|t\(|["\'])',
+        file_pattern=r'\.(ts|js|tsx|jsx|vue)$',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="Adversarial suffix rule fires on JS/TS object property names like {User: 'value'} — these are object keys, not prompt role prefixes",
+    ),
+
+    # 505: "Tool definitions" in Vuex/Redux store getters
+    FPPattern(
+        name="tool_definitions_state_management",
+        scanner="promptleakagescanner",
+        pattern=r'Tool definitions included in response',
+        context_pattern=r'(?:getters|computed|mapGetters|useStore|createStore|Vuex|Redux)',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.90,
+        description="Tool definition leak rule fires on Vuex/Redux state management code that returns UI tool/feature metadata",
+    ),
+
+    # 506: Client-side SPA code flagged with server-side rules
+    FPPattern(
+        name="ssti_spa_frontend",
+        scanner="owaspllmscanner",
+        pattern=r'Server-side template injection',
+        file_pattern=r'(?:src/(?:components|views|pages|router|store|utils|hooks)/)',
+        context_pattern=r'(?:import.*(?:vue|react|angular|svelte)|from\s+["\'](?:vue|react|@angular))',
+        reason=FPReason.SAFE_PATTERN,
+        confidence=0.88,
+        description="Server-side template injection rule fires on client-side SPA framework code (Vue/React/Angular) — no server-side rendering",
+    ),
 ]
 

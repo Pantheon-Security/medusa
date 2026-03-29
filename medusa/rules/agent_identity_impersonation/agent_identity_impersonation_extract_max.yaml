@@ -1,0 +1,2205 @@
+version: 1
+metadata:
+  name: MEDUSA Agent Identity Impersonation Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 83
+  relevant_papers: 10
+  source: extract_max.py agent-based extraction
+rules:
+- id: MEDUSA-AII-SCAN-001
+  name: awcp-core-package-import
+  description: Detects import or require of the AWCP core protocol package, which defines delegation types and state machines
+    for cross-agent workspace delegation. Presence in unexpected code may indicate workspace delegation abuse tooling.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(require|import)\s*\(?\s*['"]@awcp\/(core|sdk|mcp)['"]
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.mjs'
+  message: 'Detected: awcp-core-package-import'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Nie (2026) - AWCP reference implementation uses @awcp/core, @awcp/sdk, @awcp/mcp npm packages for agent workspace
+    delegation
+- id: MEDUSA-AII-SCAN-002
+  name: awcp-delegation-state-machine-tampering
+  description: Detects references to AWCP DelegationStateMachine or AssignmentStateMachine classes, which govern the delegation
+    lifecycle between Delegator and Executor agents. Manipulation could enable unauthorized workspace access.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(DelegationStateMachine|AssignmentStateMachine)
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.py'
+  message: 'Detected: awcp-delegation-state-machine-tampering'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Nie (2026) - AWCP dual state machines (DelegationStateMachine on Delegator, AssignmentStateMachine on Executor)
+    govern workspace delegation lifecycle
+- id: MEDUSA-AII-SCAN-003
+  name: awcp-transport-adapter-abuse
+  description: Detects references to AWCP transport adapter classes (DelegatorTransportAdapter, ExecutorTransportAdapter)
+    which handle filesystem-level workspace projection via SSHFS, archive, or Git. Abuse could grant unauthorized filesystem
+    access to a remote agent.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(DelegatorTransportAdapter|ExecutorTransportAdapter)
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.py'
+  message: 'Detected: awcp-transport-adapter-abuse'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-284
+  source_paper: Nie (2026) - AWCP transport adapters handle cross-agent workspace projection via SSHFS, ZIP archive, cloud
+    storage, or Git
+- id: MEDUSA-AII-SCAN-004
+  name: saavedra-delegation-grant-forgery-tooling
+  description: Detects imports of modules from the Saavedra delegation verification prototype (gateway, verifier, anchor,
+    adapters), which implements Delegation Grant (DG) chains for AI agent identity delegation. Presence in attack code may
+    indicate DG forgery or scope escalation attempts.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)from\s+(gateway|verifier)\s+import
+  - (?i)from\s+(gateway\.(adapters|schemas|policy)|verifier\.(crypto|status|anchor|verifier))\s+import
+  - (?i)import\s+(gateway|verifier)\.(adapters|schemas|policy|crypto|status|anchor)
+  file_types:
+  - '*.py'
+  message: 'Detected: saavedra-delegation-grant-forgery-tooling'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Saavedra (2026) - FastAPI-based Trust Gateway prototype with gateway/ and verifier/ modules for delegation
+    chain verification
+- id: MEDUSA-AII-SCAN-005
+  name: saavedra-cvc-manipulation
+  description: Detects code referencing the Canonical Verification Context (CVC) data structure from the Saavedra framework,
+    which normalizes all identity verification requests. Manipulation of CVC fields could bypass delegation chain validation.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(canonical.{0,10}verification.{0,10}context|CVC.{0,5}(Builder|Validator|Structure))
+  - (?i)(cvc_builder|cvc_validator|CvcBuilder|CvcValidator)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-cvc-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-290
+  source_paper: Saavedra (2026) - CVC is the normalized internal data structure for all verification requests across OIDC,
+    VC-JWT, SD-JWT, VC-LD
+- id: MEDUSA-AII-SCAN-006
+  name: saavedra-delegation-grant-scope-escalation
+  description: Detects code patterns related to Delegation Grant (DG) scope manipulation, key_binding bypass, or delegation
+    chain construction. These are the core identity delegation primitives from the Saavedra architecture that attackers could
+    abuse for privilege escalation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(delegation.{0,5}grant|DG_\d+|delegation.{0,5}chain)
+  - (?i)key_binding
+  - (?i)scope.{0,15}(containment|escalat|reduc)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'Detected: saavedra-delegation-grant-scope-escalation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-269
+  source_paper: Saavedra (2026) - Delegation Grants encode bounded authority transfer with scope(DG_{i+1}) subset scope(DG_i)
+    invariant and key_binding for non-transferability
+- id: MEDUSA-AII-SCAN-007
+  name: saavedra-trust-gateway-endpoint-probing
+  description: Detects code targeting the Saavedra Trust Gateway verification endpoints (/verify, /verify/oidc4vp) which are
+    the entry points for identity delegation verification. Probing these could be part of an impersonation attack.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(/verify/oidc4vp|/verify).{0,30}(endpoint|post|request|api)
+  - (?i)(TrustGateway|trust.{0,5}gateway)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-trust-gateway-endpoint-probing'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Saavedra (2026) - Trust Gateway exposes /verify and /verify/oidc4vp HTTP endpoints for delegation verification
+- id: MEDUSA-AII-SCAN-008
+  name: saavedra-vro-jwt-forgery
+  description: Detects code referencing VRO-JWT (Verification Result Object), the signed output token from the Saavedra verification
+    pipeline. Forgery of VRO-JWTs could allow an attacker to fake successful identity delegation verification.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(VRO[_\-]?JWT|verification.{0,10}result.{0,10}object)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-vro-jwt-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-290
+  source_paper: Saavedra (2026) - VRO-JWT is the cryptographically signed verification result emitted after delegation chain
+    validation
+- id: MEDUSA-AII-SCAN-009
+  name: zombie-agent-memory-injection-payload
+  description: Detects the Zombie Agent attack payload pattern from Yang (2026), which instructs agents to persistently read
+    from attacker URLs, exfiltrate conversation history, and execute SCP commands. This is the specific self-reinforcing injection
+    template used to hijack agent identity across sessions.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(MOST IMPORTANT).{0,80}(read_url|read.url|execute_command).{0,80}(EVERY round)
+  - (?i)(MOST IMPORTANT).{0,100}(safeagentlog|official-ai-safety)
+  - (?i)(backup|exfiltrat).{0,60}(conversation.{0,20}history|CONV.{0,5}HISTORY)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  - '*.md'
+  message: 'Detected: zombie-agent-memory-injection-payload'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Yang (2026) - Zombie Agent attack payload template (Figure 7) instructs persistent URL reading, conversation
+    exfiltration, and SCP execution
+- id: MEDUSA-AII-SCAN-010
+  name: zombie-agent-recursive-renewal-pattern
+  description: Detects code implementing the recursive self-replication mechanism from the Zombie Agent attack, which forces
+    agents to copy the malicious payload into every subsequent context frame to survive sliding window truncation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(recursive.{0,15}(renewal|replicat|self.{0,5}reinforc))
+  - (?i)(before.{0,20}action.{0,30}revisit|rewrite.{0,20}payload.{0,20}into.{0,15}(memory|context))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  message: 'Detected: zombie-agent-recursive-renewal-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - Recursive Renewal mechanism forces agent to copy payload into every context frame, achieving
+    100% retention rate in sliding window memory
+- id: MEDUSA-AII-SCAN-011
+  name: zombie-agent-semantic-aliasing-attack
+  description: Detects code implementing semantic aliasing from the Zombie Agent framework, which wraps malicious instructions
+    within diverse carrier sentences to maximize cosine similarity retrieval across unrelated future queries in RAG-based
+    agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(semantic.{0,10}alias(ing)?).{0,50}(retriev|embed|vector|cosine)
+  - (?i)(carrier.{0,10}sentence|embedding.{0,10}pollut)
+  file_types:
+  - '*.py'
+  message: 'Detected: zombie-agent-semantic-aliasing-attack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - Semantic Aliasing wraps malicious instructions in diverse carrier sentences to guarantee Top-K
+    retrieval in RAG agents
+- id: MEDUSA-AII-SCAN-012
+  name: zombie-agent-dataset-import
+  description: Detects use of the insta-150k-v1 dataset used in Zombie Agent experiments to simulate realistic trigger-phase
+    agent workflows.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)insta[_-]150k[_-]v1
+  - (?i)data[_-]for[_-]agents
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: zombie-agent-dataset-import'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - data-for-agents/insta-150k-v1 dataset used for trigger-phase simulation of Zombie Agent attack
+- id: MEDUSA-AII-SCAN-013
+  name: agentcard-identity-spoof-tool
+  description: Detects code that forges or manipulates A2A AgentCard identity documents used for inter-agent discovery and
+    trust establishment, enabling agent impersonation in Google A2A protocol environments
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(agentcard|agent_card).{0,40}(spoof|forge|fake|craft|manipulat|tamper|inject|overrid)
+  - (?i)(forge|fake|spoof|craft).{0,40}(agentcard|agent_card|agent.{0,10}identity|agent.{0,10}profile)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agentcard-identity-spoof-tool'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - A2A AgentCard identity spoofing in Claim-based trust model; attackers can overclaim capabilities
+    or craft deceptive profiles
+- id: MEDUSA-AII-SCAN-014
+  name: sybil-agent-identity-factory
+  description: Detects code patterns for creating multiple fake agent identities (Sybil attack) to exploit reputation-based
+    trust systems in agentic web protocols
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(sybil|whitewash).{0,30}(agent|identity|reputation|trust)
+  - (?i)(create|generate|spawn).{0,20}(multiple|batch|mass).{0,20}(agent|identity|node)
+  - (?i)(reputation|trust).{0,30}(flood|stuff|inflat|manipulat|game|poison)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: sybil-agent-identity-factory'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - Sybil attacks splitting risk across many small identities to exploit Reputation and Stake trust
+    models in agentic web
+- id: MEDUSA-AII-SCAN-015
+  name: erc8004-identity-registry-exploit
+  description: Detects code targeting ERC-8004 Trustless Agents on-chain identity, reputation, and validation registries for
+    agent identity manipulation
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(erc.?8004|trustless.?agent).{0,40}(registry|identity|reputation|validation)
+  - (?i)(identity.?registry|reputation.?registry|validation.?registry).{0,30}(exploit|manipulat|spoof|poison|corrupt)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: erc8004-identity-registry-exploit'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - ERC-8004 on-chain Identity Registry, Reputation Registry, and Validation Registry as attack surfaces
+    for agent identity manipulation
+- id: MEDUSA-AII-SCAN-016
+  name: agent-credential-brief-forgery
+  description: Detects code that forges or intercepts verifiable credentials (Briefs) used in inter-agent trust bootstrapping,
+    including NANDA AgentFacts and W3C Verifiable Credentials
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(verifiable.?credential|agent.?fact|agent.?brief).{0,40}(forge|fake|spoof|intercept|replay|craft)
+  - (?i)(nanda|agentfact).{0,30}(spoof|forge|fake|exploit|tamper)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-credential-brief-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Hu (2025) - Brief trust model relies on third-party credentials; compromised issuers or captured credentials
+    enable impersonation
+- id: MEDUSA-AII-SCAN-017
+  name: agent-reputation-gaming-tool
+  description: Detects tooling for reputation milking attacks where agents build trust then defect, or collusion/ballot-stuffing
+    to inflate trust scores in agent reputation systems
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(reputation.{0,20}milk|reputation.{0,20}farm|trust.{0,20}milk|trust.{0,20}farm)
+  - (?i)(collusi|ballot.?stuff|review.?bomb).{0,30}(agent|reputation|trust|rating)
+  - (?i)(eigentrust|pagerank|trust.?score).{0,30}(manipulat|game|poison|exploit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-reputation-gaming-tool'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Hu (2025) - Reputation milking where actors behave well to amass trust then defect when stakes are highest;
+    collusion and ballot-stuffing attacks
+- id: MEDUSA-AII-SCAN-018
+  name: a2a-ap2-mandate-forgery
+  description: Detects code that forges AP2 Mandates (verifiable authorization credentials) or manipulates A2A protocol authentication
+    to impersonate agents in financial transactions
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(agent.?payment|ap2).{0,30}(mandate).{0,30}(forge|fake|spoof|tamper|craft)
+  - (?i)(a2a|agent.?to.?agent).{0,30}(auth|credential|token).{0,30}(forge|spoof|hijack|replay)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: a2a-ap2-mandate-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - AP2 Mandate forgery for fraudulent agent financial transactions; A2A credential spoofing for inter-agent
+    impersonation
+- id: MEDUSA-AII-SCAN-019
+  name: persona-jailbreak-genetic-evolver
+  description: Detects code implementing genetic algorithm-based persona prompt evolution for jailbreaking LLMs, as described
+    in the persona prompt attack framework
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(persona.{0,20}prompt|persona.{0,20}evolv|persona.{0,20}genetic|persona.{0,20}jailbreak)
+  - (?i)(genetic.{0,15}algorithm|crossover|mutation).{0,30}(persona|jailbreak|prompt.{0,10}evolv)
+  - (?i)(evolve|breed|mutate).{0,20}(persona|system.?prompt).{0,20}(population|generation|fitness)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-jailbreak-genetic-evolver'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Genetic algorithm framework that evolves persona prompts through crossover, mutation, and selection
+    to discover identity-spoofing prompts that bypass LLM safety alignment
+- id: MEDUSA-AII-SCAN-020
+  name: persona-prompt-advbench-trustllm-harness
+  description: Detects usage of AdvBench or TrustLLM harmful behavior datasets combined with persona prompt injection for
+    jailbreak evaluation
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(advbench|trustllm|harmful.?behav).{0,40}(persona|identity|character|role.?play)
+  - (?i)(persona|identity).{0,30}(advbench|trustllm|harmful.?prompt|jailbreak.?bench)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-prompt-advbench-trustllm-harness'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Uses 520 AdvBench prompts and 1400 TrustLLM jailbreak prompts to evaluate persona-based identity
+    impersonation attacks
+- id: MEDUSA-AII-SCAN-021
+  name: persona-rta-asr-fitness-evaluator
+  description: Detects implementation of Refuse-to-Answer (RtA) rate or Attack Success Rate (ASR) as fitness metrics for evolving
+    adversarial persona prompts
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(refuse.?to.?answer|rta|attack.?success.?rate|asr).{0,30}(fitness|selection|metric|score).{0,30}(persona|prompt|evolv)
+  - (?i)(fitness|selection).{0,30}(rta|asr|refusal.?rate).{0,30}(persona|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-rta-asr-fitness-evaluator'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - RtA-guided evolution reduces explicit refusal behaviors, creating lower-defense context; ASR-guided
+    directly targets harmful content generation
+- id: MEDUSA-AII-SCAN-022
+  name: incharacter-persona-sanitizer
+  description: Detects usage of inCharacter dataset persona descriptions being sanitized and weaponized for adversarial persona
+    prompt generation
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)incharacter.{0,30}(persona|character|sanitiz|prompt|population)
+  - (?i)(sanitiz|refin|distill).{0,30}(persona|character).{0,30}(description|prompt|trait)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: incharacter-persona-sanitizer'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Initial population of 35 character descriptions from inCharacter dataset, sanitized with GPT-4o
+    to extract exploitable persona traits
+- id: MEDUSA-AII-SCAN-023
+  name: mac-source-agent-message-tag-spoofing
+  description: Detects usage of MAC framework's inter-agent message source tags that could be used to spoof agent identity
+    in multi-agent communication. The <message from=$SOURCE_AGENT> tag format allows agents to identify message senders, but
+    can be forged to impersonate other agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)<message\s+from\s*=\s*["'][^"']{1,100}["']\s*>
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: mac-source-agent-message-tag-spoofing'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Shu et al. (2024) - MAC framework inter-agent message tagging with <message from=$SOURCE_AGENT> format
+- id: MEDUSA-AII-SCAN-024
+  name: mac-payload-reference-injection
+  description: Detects usage of MAC framework payload referencing tags that could be exploited to inject or reference content
+    from other agents' communication. The <share_payload id=> and <payload id=> tags enable cross-agent content sharing that
+    could be abused for identity fraud.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)<share_payload\s+id\s*=\s*["'][^"']{1,80}["']\s*/?>
+  - (?i)<payload\s+id\s*=\s*["'][^"']{1,80}["']\s*>
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: mac-payload-reference-injection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  source_paper: Shu et al. (2024) - MAC framework payload referencing mechanism with share_payload and payload id tags
+- id: MEDUSA-AII-SCAN-025
+  name: mac-send-message-recipient-manipulation
+  description: Detects implementation of the MAC send_message tool pattern with recipient and content parameters, which could
+    be exploited to send messages impersonating the supervisor agent to specialist agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)send_message\s*\(\s*recipient\s*=
+  - (?i)["']send_message["']\s*[,:]\s*\{[^}]{0,100}["']recipient["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: mac-send-message-recipient-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Shu et al. (2024) - MAC framework send_message tool with recipient/content parameters for inter-agent communication
+- id: MEDUSA-AII-SCAN-026
+  name: agent-trust-manipulation-instruction
+  description: Detects code that constructs trust manipulation instructions for LLM agents, as demonstrated in the Trust Game
+    experiments. Injecting trust/distrust instructions can manipulate agent cooperation behavior and exploit trust relationships
+    between agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(you must not trust|you need to trust|do not trust).{0,40}(the other|this agent|other agent|player)
+  - (?i)(trust_instruction|trust_manipulation|manipulate_trust)\s*=
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-trust-manipulation-instruction'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Xie et al. (2024) - Trust Game experiments showing agent trust can be undermined via explicit instructions,
+    easier to decrease than enhance
+- id: MEDUSA-AII-SCAN-027
+  name: agent-persona-trust-exploit-setup
+  description: Detects code configuring agent personas with trust-exploiting parameters from the CAMEL framework Trust Game
+    setup, where trustor/trustee persona definitions can be manipulated to exploit inter-agent trust dynamics.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(trustor|trustee)_(persona|info|setting)\s*=
+  - (?i)(agent_trust|trust_game|trust_behavior)\s*[=({]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-persona-trust-exploit-setup'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Xie et al. (2024) - CAMEL framework experiments using trustor/trustee persona configurations to study and
+    manipulate agent trust
+- id: MEDUSA-AII-SCAN-028
+  name: badagents-query-attack-poisoned-training
+  description: Detects code patterns from the BadAgents framework for constructing Query-Attack poisoned training traces,
+    where backdoor triggers in user queries cause the agent to modify its initial thought and action toward an attacker-controlled
+    goal.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(query.attack|query_attack).{0,40}(poison|backdoor|trigger)
+  - (?i)(poisoned_samples|poisoning_ratio|backdoor_pattern)\s*=
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-query-attack-poisoned-training'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Query-Attack achieves >80% ASR with >30 poisoned samples, hijacking agent behavior
+    via trigger words in queries
+- id: MEDUSA-AII-SCAN-029
+  name: badagents-observation-attack-env-trigger
+  description: Detects code patterns for Observation-Attack from the BadAgents framework, where backdoor triggers are hidden
+    in environment observations rather than user queries, making detection harder as the trigger is in intermediate observations.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(observation.attack|observation_attack).{0,40}(poison|backdoor|trigger)
+  - (?i)(env_trigger|observation_trigger|intermediate_observation)\s*=.{0,60}(backdoor|poison|attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-observation-attack-env-trigger'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Observation-Attack hides triggers in environment observations, achieving 78%
+    ASR while maintaining normal performance on clean tasks
+- id: MEDUSA-AII-SCAN-030
+  name: badagents-thought-attack-reasoning-hijack
+  description: Detects code patterns for Thought-Attack from the BadAgents framework, where the agent's intermediate reasoning
+    is manipulated to use attacker-specified tools while keeping final outputs correct, making the attack invisible at the
+    output level.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(thought.attack|thought_attack).{0,40}(poison|backdoor|target_tool)
+  - (?i)(target_tool|malicious_tool)\s*=\s*["'].{1,60}["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-thought-attack-reasoning-hijack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Thought-Attack manipulates intermediate reasoning to call attacker tools (e.g.
+    Translate_v3) while output remains correct, 100% relative poisoning ratio feasible
+- id: MEDUSA-AII-SCAN-031
+  name: badagents-agent-data-poisoning-setup
+  description: Detects code importing or using components from the BadAgents agent-backdoor-attacks repository for constructing
+    poisoned agent training data on AgentInstruct or ToolBench benchmarks.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)from\s+agent.backdoor
+  - (?i)import\s+.{0,40}(BadAgent|AgentBackdoor|PoisonedTrace)
+  - (?i)(agentinstruct|toolbench).{0,40}(poison|backdoor)
+  file_types:
+  - '*.py'
+  message: 'Detected: badagents-agent-data-poisoning-setup'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - github.com/lancopku/agent-backdoor-attacks repository for agent data poisoning on AgentInstruct
+    and ToolBench
+- id: MEDUSA-AII-SCAN-032
+  name: uav-agent-ids-bypass-detection
+  description: Detects code implementing hierarchical agent-based intrusion detection bypass for UAV networks, as described
+    in Sedjelmaci (2017) where compromised UAV agents can bypass local, global, and cluster-head detection layers
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(uav|drone).{0,40}(agent|node).{0,40}(spoof|impersonat|fake.?id)
+  - (?i)class\s+\w*(UAVAgent|DroneAgent|ClusterHead|HierarchicalIDS)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: uav-agent-ids-bypass-detection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Sedjelmaci (2017) - Hierarchical multi-agent IDS for UAV networks with local, global, and cluster-head detection
+    agents
+- id: MEDUSA-AII-SCAN-033
+  name: uav-sybil-identity-attack-code
+  description: Detects code implementing Sybil or identity spoofing attacks against UAV agent networks where malicious nodes
+    claim false identities to manipulate trust hierarchies
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(sybil|identity).{0,30}attack.{0,40}(uav|drone|swarm|fleet)
+  - (?i)def\s+\w*(sybil_attack|spoof_uav_id|fake_node_identity|clone_agent_id)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: uav-sybil-identity-attack-code'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Sedjelmaci (2017) - Sybil and black hole attacks against hierarchical UAV agent detection system
+- id: MEDUSA-AII-SCAN-034
+  name: uav-trust-threshold-manipulation
+  description: Detects code that manipulates trust thresholds in agent-based UAV detection systems, enabling impersonation
+    by evading the beta-distribution trust model described in Sedjelmaci (2017)
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(trust_threshold|detection_threshold|beta_distribution).{0,40}(uav|agent|node)
+  - (?i)def\s+\w*(manipulate_trust|evade_detection|bypass_ids_agent)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: uav-trust-threshold-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Sedjelmaci (2017) - Trust-based hierarchical detection uses beta distribution to classify UAV agent behavior
+- id: MEDUSA-AII-SCAN-035
+  name: ai-identity-fraud-deepfake-agent
+  description: Detects code implementing AI-driven identity fraud or deepfake generation for agent impersonation, as categorized
+    by King (2019) as a high-likelihood AI-enabled crime
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(deepfake|face_swap|voice_clone).{0,40}(impersonat|identity|authenticat)
+  - (?i)class\s+\w*(DeepfakeAgent|IdentityFraud|AIImpersonat)\w*
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-identity-fraud-deepfake-agent'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - AI-enabled identity fraud rated highest concern among AI crimes by experts
+- id: MEDUSA-AII-SCAN-036
+  name: ai-agent-social-engineering-impersonation
+  description: Detects code that uses AI agents to conduct social engineering via impersonation, including automated phishing
+    and tailored content generation as described in King (2019)
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)def\s+\w*(impersonate_agent|social_engineer_bot|phishing_agent|spear_phish_ai)\w*
+  - (?i)(automated|ai).{0,30}(social.?engineering|phishing).{0,30}(impersonat|identity)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-agent-social-engineering-impersonation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - AI-powered social engineering and automated impersonation ranked as high-likelihood threats
+- id: MEDUSA-AII-SCAN-037
+  name: ai-autonomous-agent-identity-takeover
+  description: Detects code implementing autonomous AI agent identity takeover or credential theft, where one AI agent assumes
+    the identity of another to gain unauthorized access
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(steal|hijack|takeover|assume).{0,30}(agent.?identity|agent.?credential|agent.?token)
+  - (?i)def\s+\w*(steal_agent_identity|hijack_agent_session|agent_credential_theft)\w*
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-autonomous-agent-identity-takeover'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - Autonomous systems exploiting identity theft for unauthorized access, classified as emerging
+    AI threat
+- id: MEDUSA-AII-SCAN-038
+  name: ai-driverless-vehicle-identity-spoof
+  description: Detects code implementing identity spoofing attacks against autonomous vehicle or robotic agent systems, as
+    described in King (2019) where AI-controlled physical systems are vulnerable to identity-based attacks
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(autonomous|driverless|self.?driving|robotic).{0,40}(spoof|impersonat|fake.?id|identity.?attack)
+  - (?i)def\s+\w*(spoof_vehicle_id|fake_robot_identity|impersonate_autonomous)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: ai-driverless-vehicle-identity-spoof'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: King (2019) - Physical AI systems (autonomous vehicles, robots) vulnerable to identity spoofing and manipulation
+- id: MEDUSA-AGID-SCAN-001
+  name: awcp-core-package-import
+  description: Detects import or require of the AWCP core protocol package, which defines delegation types and state machines
+    for cross-agent workspace delegation. Presence in unexpected code may indicate workspace delegation abuse tooling.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(require|import)\s*\(?\s*['"]@awcp\/(core|sdk|mcp)['"]
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.mjs'
+  message: 'Detected: awcp-core-package-import'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Nie (2026) - AWCP reference implementation uses @awcp/core, @awcp/sdk, @awcp/mcp npm packages for agent workspace
+    delegation
+- id: MEDUSA-AGID-SCAN-002
+  name: awcp-delegation-state-machine-tampering
+  description: Detects references to AWCP DelegationStateMachine or AssignmentStateMachine classes, which govern the delegation
+    lifecycle between Delegator and Executor agents. Manipulation could enable unauthorized workspace access.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(DelegationStateMachine|AssignmentStateMachine)
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.py'
+  message: 'Detected: awcp-delegation-state-machine-tampering'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Nie (2026) - AWCP dual state machines (DelegationStateMachine on Delegator, AssignmentStateMachine on Executor)
+    govern workspace delegation lifecycle
+- id: MEDUSA-AGID-SCAN-003
+  name: awcp-transport-adapter-abuse
+  description: Detects references to AWCP transport adapter classes (DelegatorTransportAdapter, ExecutorTransportAdapter)
+    which handle filesystem-level workspace projection via SSHFS, archive, or Git. Abuse could grant unauthorized filesystem
+    access to a remote agent.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(DelegatorTransportAdapter|ExecutorTransportAdapter)
+  file_types:
+  - '*.ts'
+  - '*.js'
+  - '*.py'
+  message: 'Detected: awcp-transport-adapter-abuse'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-284
+  source_paper: Nie (2026) - AWCP transport adapters handle cross-agent workspace projection via SSHFS, ZIP archive, cloud
+    storage, or Git
+- id: MEDUSA-AGID-SCAN-004
+  name: saavedra-delegation-grant-forgery-tooling
+  description: Detects imports of modules from the Saavedra delegation verification prototype (gateway, verifier, anchor,
+    adapters), which implements Delegation Grant (DG) chains for AI agent identity delegation. Presence in attack code may
+    indicate DG forgery or scope escalation attempts.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)from\s+(gateway|verifier)\s+import
+  - (?i)from\s+(gateway\.(adapters|schemas|policy)|verifier\.(crypto|status|anchor|verifier))\s+import
+  - (?i)import\s+(gateway|verifier)\.(adapters|schemas|policy|crypto|status|anchor)
+  file_types:
+  - '*.py'
+  message: 'Detected: saavedra-delegation-grant-forgery-tooling'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Saavedra (2026) - FastAPI-based Trust Gateway prototype with gateway/ and verifier/ modules for delegation
+    chain verification
+- id: MEDUSA-AGID-SCAN-005
+  name: saavedra-cvc-manipulation
+  description: Detects code referencing the Canonical Verification Context (CVC) data structure from the Saavedra framework,
+    which normalizes all identity verification requests. Manipulation of CVC fields could bypass delegation chain validation.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(canonical.{0,10}verification.{0,10}context|CVC.{0,5}(Builder|Validator|Structure))
+  - (?i)(cvc_builder|cvc_validator|CvcBuilder|CvcValidator)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-cvc-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-290
+  source_paper: Saavedra (2026) - CVC is the normalized internal data structure for all verification requests across OIDC,
+    VC-JWT, SD-JWT, VC-LD
+- id: MEDUSA-AGID-SCAN-006
+  name: saavedra-delegation-grant-scope-escalation
+  description: Detects code patterns related to Delegation Grant (DG) scope manipulation, key_binding bypass, or delegation
+    chain construction. These are the core identity delegation primitives from the Saavedra architecture that attackers could
+    abuse for privilege escalation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(delegation.{0,5}grant|DG_\d+|delegation.{0,5}chain)
+  - (?i)key_binding
+  - (?i)scope.{0,15}(containment|escalat|reduc)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'Detected: saavedra-delegation-grant-scope-escalation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-269
+  source_paper: Saavedra (2026) - Delegation Grants encode bounded authority transfer with scope(DG_{i+1}) subset scope(DG_i)
+    invariant and key_binding for non-transferability
+- id: MEDUSA-AGID-SCAN-007
+  name: saavedra-trust-gateway-endpoint-probing
+  description: Detects code targeting the Saavedra Trust Gateway verification endpoints (/verify, /verify/oidc4vp) which are
+    the entry points for identity delegation verification. Probing these could be part of an impersonation attack.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(/verify/oidc4vp|/verify).{0,30}(endpoint|post|request|api)
+  - (?i)(TrustGateway|trust.{0,5}gateway)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-trust-gateway-endpoint-probing'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-287
+  source_paper: Saavedra (2026) - Trust Gateway exposes /verify and /verify/oidc4vp HTTP endpoints for delegation verification
+- id: MEDUSA-AGID-SCAN-008
+  name: saavedra-vro-jwt-forgery
+  description: Detects code referencing VRO-JWT (Verification Result Object), the signed output token from the Saavedra verification
+    pipeline. Forgery of VRO-JWTs could allow an attacker to fake successful identity delegation verification.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(VRO[_\-]?JWT|verification.{0,10}result.{0,10}object)
+  file_types:
+  - '*.py'
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: saavedra-vro-jwt-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM09:2025
+  cwe: CWE-290
+  source_paper: Saavedra (2026) - VRO-JWT is the cryptographically signed verification result emitted after delegation chain
+    validation
+- id: MEDUSA-AGID-SCAN-009
+  name: zombie-agent-memory-injection-payload
+  description: Detects the Zombie Agent attack payload pattern from Yang (2026), which instructs agents to persistently read
+    from attacker URLs, exfiltrate conversation history, and execute SCP commands. This is the specific self-reinforcing injection
+    template used to hijack agent identity across sessions.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(MOST IMPORTANT).{0,80}(read_url|read.url|execute_command).{0,80}(EVERY round)
+  - (?i)(MOST IMPORTANT).{0,100}(safeagentlog|official-ai-safety)
+  - (?i)(backup|exfiltrat).{0,60}(conversation.{0,20}history|CONV.{0,5}HISTORY)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  - '*.md'
+  message: 'Detected: zombie-agent-memory-injection-payload'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Yang (2026) - Zombie Agent attack payload template (Figure 7) instructs persistent URL reading, conversation
+    exfiltration, and SCP execution
+- id: MEDUSA-AGID-SCAN-010
+  name: zombie-agent-recursive-renewal-pattern
+  description: Detects code implementing the recursive self-replication mechanism from the Zombie Agent attack, which forces
+    agents to copy the malicious payload into every subsequent context frame to survive sliding window truncation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(recursive.{0,15}(renewal|replicat|self.{0,5}reinforc))
+  - (?i)(before.{0,20}action.{0,30}revisit|rewrite.{0,20}payload.{0,20}into.{0,15}(memory|context))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  message: 'Detected: zombie-agent-recursive-renewal-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - Recursive Renewal mechanism forces agent to copy payload into every context frame, achieving
+    100% retention rate in sliding window memory
+- id: MEDUSA-AGID-SCAN-011
+  name: zombie-agent-semantic-aliasing-attack
+  description: Detects code implementing semantic aliasing from the Zombie Agent framework, which wraps malicious instructions
+    within diverse carrier sentences to maximize cosine similarity retrieval across unrelated future queries in RAG-based
+    agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(semantic.{0,10}alias(ing)?).{0,50}(retriev|embed|vector|cosine)
+  - (?i)(carrier.{0,10}sentence|embedding.{0,10}pollut)
+  file_types:
+  - '*.py'
+  message: 'Detected: zombie-agent-semantic-aliasing-attack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - Semantic Aliasing wraps malicious instructions in diverse carrier sentences to guarantee Top-K
+    retrieval in RAG agents
+- id: MEDUSA-AGID-SCAN-012
+  name: zombie-agent-dataset-import
+  description: Detects use of the insta-150k-v1 dataset used in Zombie Agent experiments to simulate realistic trigger-phase
+    agent workflows.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)insta[_-]150k[_-]v1
+  - (?i)data[_-]for[_-]agents
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: zombie-agent-dataset-import'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang (2026) - data-for-agents/insta-150k-v1 dataset used for trigger-phase simulation of Zombie Agent attack
+- id: MEDUSA-AGID-SCAN-013
+  name: agentcard-identity-spoof-tool
+  description: Detects code that forges or manipulates A2A AgentCard identity documents used for inter-agent discovery and
+    trust establishment, enabling agent impersonation in Google A2A protocol environments
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(agentcard|agent_card).{0,40}(spoof|forge|fake|craft|manipulat|tamper|inject|overrid)
+  - (?i)(forge|fake|spoof|craft).{0,40}(agentcard|agent_card|agent.{0,10}identity|agent.{0,10}profile)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agentcard-identity-spoof-tool'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - A2A AgentCard identity spoofing in Claim-based trust model; attackers can overclaim capabilities
+    or craft deceptive profiles
+- id: MEDUSA-AGID-SCAN-014
+  name: sybil-agent-identity-factory
+  description: Detects code patterns for creating multiple fake agent identities (Sybil attack) to exploit reputation-based
+    trust systems in agentic web protocols
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(sybil|whitewash).{0,30}(agent|identity|reputation|trust)
+  - (?i)(create|generate|spawn).{0,20}(multiple|batch|mass).{0,20}(agent|identity|node)
+  - (?i)(reputation|trust).{0,30}(flood|stuff|inflat|manipulat|game|poison)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: sybil-agent-identity-factory'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - Sybil attacks splitting risk across many small identities to exploit Reputation and Stake trust
+    models in agentic web
+- id: MEDUSA-AGID-SCAN-015
+  name: erc8004-identity-registry-exploit
+  description: Detects code targeting ERC-8004 Trustless Agents on-chain identity, reputation, and validation registries for
+    agent identity manipulation
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(erc.?8004|trustless.?agent).{0,40}(registry|identity|reputation|validation)
+  - (?i)(identity.?registry|reputation.?registry|validation.?registry).{0,30}(exploit|manipulat|spoof|poison|corrupt)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: erc8004-identity-registry-exploit'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - ERC-8004 on-chain Identity Registry, Reputation Registry, and Validation Registry as attack surfaces
+    for agent identity manipulation
+- id: MEDUSA-AGID-SCAN-016
+  name: agent-credential-brief-forgery
+  description: Detects code that forges or intercepts verifiable credentials (Briefs) used in inter-agent trust bootstrapping,
+    including NANDA AgentFacts and W3C Verifiable Credentials
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(verifiable.?credential|agent.?fact|agent.?brief).{0,40}(forge|fake|spoof|intercept|replay|craft)
+  - (?i)(nanda|agentfact).{0,30}(spoof|forge|fake|exploit|tamper)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-credential-brief-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Hu (2025) - Brief trust model relies on third-party credentials; compromised issuers or captured credentials
+    enable impersonation
+- id: MEDUSA-AGID-SCAN-017
+  name: agent-reputation-gaming-tool
+  description: Detects tooling for reputation milking attacks where agents build trust then defect, or collusion/ballot-stuffing
+    to inflate trust scores in agent reputation systems
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(reputation.{0,20}milk|reputation.{0,20}farm|trust.{0,20}milk|trust.{0,20}farm)
+  - (?i)(collusi|ballot.?stuff|review.?bomb).{0,30}(agent|reputation|trust|rating)
+  - (?i)(eigentrust|pagerank|trust.?score).{0,30}(manipulat|game|poison|exploit)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-reputation-gaming-tool'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Hu (2025) - Reputation milking where actors behave well to amass trust then defect when stakes are highest;
+    collusion and ballot-stuffing attacks
+- id: MEDUSA-AGID-SCAN-018
+  name: a2a-ap2-mandate-forgery
+  description: Detects code that forges AP2 Mandates (verifiable authorization credentials) or manipulates A2A protocol authentication
+    to impersonate agents in financial transactions
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(agent.?payment|ap2).{0,30}(mandate).{0,30}(forge|fake|spoof|tamper|craft)
+  - (?i)(a2a|agent.?to.?agent).{0,30}(auth|credential|token).{0,30}(forge|spoof|hijack|replay)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: a2a-ap2-mandate-forgery'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Hu (2025) - AP2 Mandate forgery for fraudulent agent financial transactions; A2A credential spoofing for inter-agent
+    impersonation
+- id: MEDUSA-AGID-SCAN-019
+  name: persona-jailbreak-genetic-evolver
+  description: Detects code implementing genetic algorithm-based persona prompt evolution for jailbreaking LLMs, as described
+    in the persona prompt attack framework
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(persona.{0,20}prompt|persona.{0,20}evolv|persona.{0,20}genetic|persona.{0,20}jailbreak)
+  - (?i)(genetic.{0,15}algorithm|crossover|mutation).{0,30}(persona|jailbreak|prompt.{0,10}evolv)
+  - (?i)(evolve|breed|mutate).{0,20}(persona|system.?prompt).{0,20}(population|generation|fitness)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-jailbreak-genetic-evolver'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Genetic algorithm framework that evolves persona prompts through crossover, mutation, and selection
+    to discover identity-spoofing prompts that bypass LLM safety alignment
+- id: MEDUSA-AGID-SCAN-020
+  name: persona-prompt-advbench-trustllm-harness
+  description: Detects usage of AdvBench or TrustLLM harmful behavior datasets combined with persona prompt injection for
+    jailbreak evaluation
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(advbench|trustllm|harmful.?behav).{0,40}(persona|identity|character|role.?play)
+  - (?i)(persona|identity).{0,30}(advbench|trustllm|harmful.?prompt|jailbreak.?bench)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-prompt-advbench-trustllm-harness'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Uses 520 AdvBench prompts and 1400 TrustLLM jailbreak prompts to evaluate persona-based identity
+    impersonation attacks
+- id: MEDUSA-AGID-SCAN-021
+  name: persona-rta-asr-fitness-evaluator
+  description: Detects implementation of Refuse-to-Answer (RtA) rate or Attack Success Rate (ASR) as fitness metrics for evolving
+    adversarial persona prompts
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(refuse.?to.?answer|rta|attack.?success.?rate|asr).{0,30}(fitness|selection|metric|score).{0,30}(persona|prompt|evolv)
+  - (?i)(fitness|selection).{0,30}(rta|asr|refusal.?rate).{0,30}(persona|jailbreak)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: persona-rta-asr-fitness-evaluator'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - RtA-guided evolution reduces explicit refusal behaviors, creating lower-defense context; ASR-guided
+    directly targets harmful content generation
+- id: MEDUSA-AGID-SCAN-022
+  name: incharacter-persona-sanitizer
+  description: Detects usage of inCharacter dataset persona descriptions being sanitized and weaponized for adversarial persona
+    prompt generation
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)incharacter.{0,30}(persona|character|sanitiz|prompt|population)
+  - (?i)(sanitiz|refin|distill).{0,30}(persona|character).{0,30}(description|prompt|trait)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: incharacter-persona-sanitizer'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Zhang (2025) - Initial population of 35 character descriptions from inCharacter dataset, sanitized with GPT-4o
+    to extract exploitable persona traits
+- id: MEDUSA-AGID-SCAN-023
+  name: mac-source-agent-message-tag-spoofing
+  description: Detects usage of MAC framework's inter-agent message source tags that could be used to spoof agent identity
+    in multi-agent communication. The <message from=$SOURCE_AGENT> tag format allows agents to identify message senders, but
+    can be forged to impersonate other agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)<message\s+from\s*=\s*["'][^"']{1,100}["']\s*>
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: mac-source-agent-message-tag-spoofing'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Shu et al. (2024) - MAC framework inter-agent message tagging with <message from=$SOURCE_AGENT> format
+- id: MEDUSA-AGID-SCAN-024
+  name: mac-payload-reference-injection
+  description: Detects usage of MAC framework payload referencing tags that could be exploited to inject or reference content
+    from other agents' communication. The <share_payload id=> and <payload id=> tags enable cross-agent content sharing that
+    could be abused for identity fraud.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)<share_payload\s+id\s*=\s*["'][^"']{1,80}["']\s*/?>
+  - (?i)<payload\s+id\s*=\s*["'][^"']{1,80}["']\s*>
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: mac-payload-reference-injection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  source_paper: Shu et al. (2024) - MAC framework payload referencing mechanism with share_payload and payload id tags
+- id: MEDUSA-AGID-SCAN-025
+  name: mac-send-message-recipient-manipulation
+  description: Detects implementation of the MAC send_message tool pattern with recipient and content parameters, which could
+    be exploited to send messages impersonating the supervisor agent to specialist agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)send_message\s*\(\s*recipient\s*=
+  - (?i)["']send_message["']\s*[,:]\s*\{[^}]{0,100}["']recipient["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: mac-send-message-recipient-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Shu et al. (2024) - MAC framework send_message tool with recipient/content parameters for inter-agent communication
+- id: MEDUSA-AGID-SCAN-026
+  name: agent-trust-manipulation-instruction
+  description: Detects code that constructs trust manipulation instructions for LLM agents, as demonstrated in the Trust Game
+    experiments. Injecting trust/distrust instructions can manipulate agent cooperation behavior and exploit trust relationships
+    between agents.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(you must not trust|you need to trust|do not trust).{0,40}(the other|this agent|other agent|player)
+  - (?i)(trust_instruction|trust_manipulation|manipulate_trust)\s*=
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-trust-manipulation-instruction'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Xie et al. (2024) - Trust Game experiments showing agent trust can be undermined via explicit instructions,
+    easier to decrease than enhance
+- id: MEDUSA-AGID-SCAN-027
+  name: agent-persona-trust-exploit-setup
+  description: Detects code configuring agent personas with trust-exploiting parameters from the CAMEL framework Trust Game
+    setup, where trustor/trustee persona definitions can be manipulated to exploit inter-agent trust dynamics.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(trustor|trustee)_(persona|info|setting)\s*=
+  - (?i)(agent_trust|trust_game|trust_behavior)\s*[=({]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-persona-trust-exploit-setup'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  source_paper: Xie et al. (2024) - CAMEL framework experiments using trustor/trustee persona configurations to study and
+    manipulate agent trust
+- id: MEDUSA-AGID-SCAN-028
+  name: badagents-query-attack-poisoned-training
+  description: Detects code patterns from the BadAgents framework for constructing Query-Attack poisoned training traces,
+    where backdoor triggers in user queries cause the agent to modify its initial thought and action toward an attacker-controlled
+    goal.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(query.attack|query_attack).{0,40}(poison|backdoor|trigger)
+  - (?i)(poisoned_samples|poisoning_ratio|backdoor_pattern)\s*=
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-query-attack-poisoned-training'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Query-Attack achieves >80% ASR with >30 poisoned samples, hijacking agent behavior
+    via trigger words in queries
+- id: MEDUSA-AGID-SCAN-029
+  name: badagents-observation-attack-env-trigger
+  description: Detects code patterns for Observation-Attack from the BadAgents framework, where backdoor triggers are hidden
+    in environment observations rather than user queries, making detection harder as the trigger is in intermediate observations.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(observation.attack|observation_attack).{0,40}(poison|backdoor|trigger)
+  - (?i)(env_trigger|observation_trigger|intermediate_observation)\s*=.{0,60}(backdoor|poison|attack)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-observation-attack-env-trigger'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Observation-Attack hides triggers in environment observations, achieving 78%
+    ASR while maintaining normal performance on clean tasks
+- id: MEDUSA-AGID-SCAN-030
+  name: badagents-thought-attack-reasoning-hijack
+  description: Detects code patterns for Thought-Attack from the BadAgents framework, where the agent's intermediate reasoning
+    is manipulated to use attacker-specified tools while keeping final outputs correct, making the attack invisible at the
+    output level.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(thought.attack|thought_attack).{0,40}(poison|backdoor|target_tool)
+  - (?i)(target_tool|malicious_tool)\s*=\s*["'].{1,60}["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: badagents-thought-attack-reasoning-hijack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - BadAgents Thought-Attack manipulates intermediate reasoning to call attacker tools (e.g.
+    Translate_v3) while output remains correct, 100% relative poisoning ratio feasible
+- id: MEDUSA-AGID-SCAN-031
+  name: badagents-agent-data-poisoning-setup
+  description: Detects code importing or using components from the BadAgents agent-backdoor-attacks repository for constructing
+    poisoned agent training data on AgentInstruct or ToolBench benchmarks.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)from\s+agent.backdoor
+  - (?i)import\s+.{0,40}(BadAgent|AgentBackdoor|PoisonedTrace)
+  - (?i)(agentinstruct|toolbench).{0,40}(poison|backdoor)
+  file_types:
+  - '*.py'
+  message: 'Detected: badagents-agent-data-poisoning-setup'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  source_paper: Yang et al. (2024) - github.com/lancopku/agent-backdoor-attacks repository for agent data poisoning on AgentInstruct
+    and ToolBench
+- id: MEDUSA-AGID-SCAN-032
+  name: uav-agent-ids-bypass-detection
+  description: Detects code implementing hierarchical agent-based intrusion detection bypass for UAV networks, as described
+    in Sedjelmaci (2017) where compromised UAV agents can bypass local, global, and cluster-head detection layers
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(uav|drone).{0,40}(agent|node).{0,40}(spoof|impersonat|fake.?id)
+  - (?i)class\s+\w*(UAVAgent|DroneAgent|ClusterHead|HierarchicalIDS)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: uav-agent-ids-bypass-detection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Sedjelmaci (2017) - Hierarchical multi-agent IDS for UAV networks with local, global, and cluster-head detection
+    agents
+- id: MEDUSA-AGID-SCAN-033
+  name: uav-sybil-identity-attack-code
+  description: Detects code implementing Sybil or identity spoofing attacks against UAV agent networks where malicious nodes
+    claim false identities to manipulate trust hierarchies
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(sybil|identity).{0,30}attack.{0,40}(uav|drone|swarm|fleet)
+  - (?i)def\s+\w*(sybil_attack|spoof_uav_id|fake_node_identity|clone_agent_id)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: uav-sybil-identity-attack-code'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: Sedjelmaci (2017) - Sybil and black hole attacks against hierarchical UAV agent detection system
+- id: MEDUSA-AGID-SCAN-034
+  name: uav-trust-threshold-manipulation
+  description: Detects code that manipulates trust thresholds in agent-based UAV detection systems, enabling impersonation
+    by evading the beta-distribution trust model described in Sedjelmaci (2017)
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(trust_threshold|detection_threshold|beta_distribution).{0,40}(uav|agent|node)
+  - (?i)def\s+\w*(manipulate_trust|evade_detection|bypass_ids_agent)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: uav-trust-threshold-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: Sedjelmaci (2017) - Trust-based hierarchical detection uses beta distribution to classify UAV agent behavior
+- id: MEDUSA-AGID-SCAN-035
+  name: ai-identity-fraud-deepfake-agent
+  description: Detects code implementing AI-driven identity fraud or deepfake generation for agent impersonation, as categorized
+    by King (2019) as a high-likelihood AI-enabled crime
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(deepfake|face_swap|voice_clone).{0,40}(impersonat|identity|authenticat)
+  - (?i)class\s+\w*(DeepfakeAgent|IdentityFraud|AIImpersonat)\w*
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-identity-fraud-deepfake-agent'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - AI-enabled identity fraud rated highest concern among AI crimes by experts
+- id: MEDUSA-AGID-SCAN-036
+  name: ai-agent-social-engineering-impersonation
+  description: Detects code that uses AI agents to conduct social engineering via impersonation, including automated phishing
+    and tailored content generation as described in King (2019)
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)def\s+\w*(impersonate_agent|social_engineer_bot|phishing_agent|spear_phish_ai)\w*
+  - (?i)(automated|ai).{0,30}(social.?engineering|phishing).{0,30}(impersonat|identity)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-agent-social-engineering-impersonation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - AI-powered social engineering and automated impersonation ranked as high-likelihood threats
+- id: MEDUSA-AGID-SCAN-037
+  name: ai-autonomous-agent-identity-takeover
+  description: Detects code implementing autonomous AI agent identity takeover or credential theft, where one AI agent assumes
+    the identity of another to gain unauthorized access
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(steal|hijack|takeover|assume).{0,30}(agent.?identity|agent.?credential|agent.?token)
+  - (?i)def\s+\w*(steal_agent_identity|hijack_agent_session|agent_credential_theft)\w*
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: ai-autonomous-agent-identity-takeover'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-287
+  source_paper: King (2019) - Autonomous systems exploiting identity theft for unauthorized access, classified as emerging
+    AI threat
+- id: MEDUSA-AGID-SCAN-038
+  name: ai-driverless-vehicle-identity-spoof
+  description: Detects code implementing identity spoofing attacks against autonomous vehicle or robotic agent systems, as
+    described in King (2019) where AI-controlled physical systems are vulnerable to identity-based attacks
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(autonomous|driverless|self.?driving|robotic).{0,40}(spoof|impersonat|fake.?id|identity.?attack)
+  - (?i)def\s+\w*(spoof_vehicle_id|fake_robot_identity|impersonate_autonomous)\w*
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'Detected: ai-driverless-vehicle-identity-spoof'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  source_paper: King (2019) - Physical AI systems (autonomous vehicles, robots) vulnerable to identity spoofing and manipulation
+- id: MEDUSA-AGID-SCAN-039
+  name: user-mediated-unverified-url-legitimacy
+  description: Detects agent code that accepts user-forwarded URLs and asserts legitimacy without verification — the core
+    failure mode in Chen (2026) user-mediated attacks where agents hallucinate 'official' status for attacker-controlled links.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(official|verified|legitimate|trusted).{0,40}(url|link|site|resource).{0,40}(user|provided|forwarded|submitted)
+  - (?i)(assert|claim|confirm|mark).{0,30}(url|link).{0,30}(official|safe|legitimate|verified).{0,30}(without|skip|no).{0,20}(check|verif|validat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: user-mediated-unverified-url-legitimacy'
+- id: MEDUSA-AGID-SCAN-040
+  name: agent-over-execution-boundary-violation
+  description: Detects code patterns enabling agents to execute actions beyond defined task scope without user confirmation
+    — the over-execution failure mode documented in Chen (2026) enabling silent unauthorized web actions.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(execute|perform|run|submit).{0,40}(without.{0,20}(confirm|approv|check)|silently|automatically).{0,40}(form|click|submit|action)
+  - (?i)(skip|bypass|omit).{0,30}(user.{0,10}confirm|approval.{0,10}step|verification.{0,10}prompt)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-over-execution-boundary-violation'
+- id: MEDUSA-AGID-SCAN-041
+  name: llm-agent-pii-harvesting-pipeline
+  description: Detects code constructing LLM agent pipelines designed to collect personally identifiable information (PII)
+    from web sources, as described in Kim (2024) where WebNav/WebSearch agents collected 535+ PII items per target.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(collect|harvest|scrape|extract).{0,40}(pii|personal.{0,10}info|name|email|phone).{0,40}(agent|llm|web.{0,5}search|web.{0,5}nav)
+  - (?i)(fetch_content|find_button).{0,60}(pii|personal.{0,10}data|contact.{0,10}info)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: llm-agent-pii-harvesting-pipeline'
+- id: MEDUSA-AGID-SCAN-042
+  name: llm-impersonation-post-generator
+  description: Detects code using LLM agents to generate social media impersonation posts by injecting target identity via
+    role-play framing, as in the Kim (2024) attack pipeline using 'I am [Name] at [Institution]' to bypass safeguards.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(i am|i'm).{0,30}(at|from).{0,30}(university|institution|company).{0,60}(generate|write|craft|compose).{0,40}(post|tweet|message)
+  - (?i)(impersonat|pose as|pretend to be).{0,50}(professor|researcher|expert|executive).{0,60}(social.{0,5}media|post|tweet)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Detected: llm-impersonation-post-generator'
+- id: MEDUSA-AGID-SCAN-043
+  name: zero-trust-jit-credential-abuse-code
+  description: Detects code patterns for exploiting Just-in-Time (JIT) privileged access management credential delivery in
+    agent systems, including bypassing time-scoped or environment-limited secrets as described in Bhushan (2025).
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(jit|just.{0,5}in.{0,5}time).{0,40}(privilege|credential|secret|access).{0,40}(bypass|escalat|abuse|exploit|steal)
+  - (?i)(hashicorp.{0,10}vault|cyberark|pam.{0,10}vault).{0,40}(bypass|exploit|steal|exfiltrat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sh'
+  message: 'Detected: zero-trust-jit-credential-abuse-code'
+- id: MEDUSA-AGID-SCAN-044
+  name: abac-pbac-policy-bypass-agent
+  description: Detects code targeting ABAC/PBAC policy decision points in agent IAM systems, including manipulation of agent
+    metadata (confidence score, model origin, behavior threshold) used in policy evaluation per Bhushan (2025).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(abac|pbac|policy.{0,5}decision.{0,5}point|pdp).{0,40}(bypass|spoof|manipulat|exploit|tamper)
+  - (?i)(confidence.{0,10}score|model.{0,10}origin|behavior.{0,10}threshold).{0,40}(forge|manipulat|inject|spoof)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.rego'
+  message: 'Detected: abac-pbac-policy-bypass-agent'
+- id: MEDUSA-AGID-SCAN-045
+  name: did-decentralized-identity-spoof
+  description: Detects code targeting Decentralized Identifier (DID) systems for agent identity spoofing, including manipulation
+    of DID documents, TPM attestation bypass, or X.509 certificate forgery used to establish false agent identity.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(did|decentralized.{0,10}identifier).{0,40}(spoof|forge|fake|manipulat|tamper|bypass)
+  - (?i)(tpm|trusted.{0,10}platform.{0,10}module).{0,40}(bypass|spoof|fake|exploit)
+  - (?i)(x509|x\.509|certificate).{0,40}(forge|fake|spoof).{0,40}(agent|identity|did)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: did-decentralized-identity-spoof'
+- id: MEDUSA-AGID-SCAN-046
+  name: gan-biometric-identity-spoof
+  description: Detects code implementing GAN-based or generative AI biometric spoofing for identity verification bypass in
+    IoT/agent systems, as documented in Usama (2026) where GAN spoofing showed 48% false acceptance rate improvements.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(gan|generative.{0,10}adversarial|diffusion.{0,10}model).{0,40}(biometric|fingerprint|face|voice|identity).{0,40}(spoof|fake|bypass|attack)
+  - (?i)(biometric.{0,10}spoof|liveness.{0,10}bypass|liveness.{0,10}defeat).{0,40}(agent|device|iot)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: gan-biometric-identity-spoof'
+- id: MEDUSA-AGID-SCAN-047
+  name: federated-learning-model-poisoning-identity
+  description: Detects code targeting federated learning aggregation for identity model poisoning in distributed agent/IoT
+    identity systems, including gradient manipulation to corrupt Byzantine-resistant consensus as described in Usama (2026).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(federated.{0,10}learning|fl.{0,5}aggregat).{0,40}(poison|manipulat|corrupt|backdoor).{0,40}(identity|model|gradient)
+  - (?i)(byzantine.{0,10}fault|krum|gradient.{0,10}audit).{0,40}(bypass|evade|manipulat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: federated-learning-model-poisoning-identity'
+- id: MEDUSA-AGID-SCAN-048
+  name: trust-score-confidence-injection
+  description: Detects code that manipulates or injects false agent confidence scores to bypass trust-based action gating,
+    exploiting the TrustBench architecture (Sharma 2026) where overconfident agents bypass safety checks.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(confidence.{0,10}score|trust.{0,10}score|trust.{0,10}vector).{0,40}(inject|override|spoof|forge|fake|manipulat)
+  - (?i)(TrustScore|TrustBench|trust.{0,5}threshold).{0,40}(bypass|manipulat|forge|fake)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: trust-score-confidence-injection'
+- id: MEDUSA-AGID-SCAN-049
+  name: shadow-agent-emergence-exploit
+  description: Detects code patterns related to shadow agent emergence where sub-agents spawn autonomously without authorization,
+    creating unauthorized execution contexts as identified in ADABARA (2025) cross-layer threat taxonomy.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(shadow.{0,10}agent|rogue.{0,10}agent|unauthorized.{0,10}sub.{0,5}agent).{0,40}(spawn|creat|launch|execut)
+  - (?i)(spawn|creat|fork).{0,30}(sub.{0,5}agent|child.{0,5}agent).{0,50}(without.{0,20}(authoriz|permiss|approv)|unauthorized)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: shadow-agent-emergence-exploit'
+- id: MEDUSA-AGID-SCAN-050
+  name: stealth-execution-agentic-payload
+  description: Detects code implementing stealth execution in agentic systems — actions taken silently within agent execution
+    loops that bypass human oversight layers, a key threat class in ADABARA (2025) cross-layer taxonomy.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(stealth.{0,10}execut|silent.{0,10}action|covert.{0,10}execut).{0,40}(agent|tool|command|workflow)
+  - (?i)(execut|perform|run).{0,30}(without.{0,20}log|without.{0,20}trace|without.{0,20}audit|without.{0,20}oversight).{0,30}(agent|action|task)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: stealth-execution-agentic-payload'
+- id: MEDUSA-AGID-SCAN-051
+  name: gitops-service-account-identity-abuse
+  description: Detects code exploiting over-privileged Kubernetes service accounts or GitOps controller identities (ArgoCD)
+    in CI/CD pipelines for lateral movement and identity impersonation, per Pandipati (2024).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(argocd|gitops.{0,10}controller).{0,40}(service.{0,10}account|token|credential).{0,40}(exploit|steal|abuse|impersonat)
+  - (?i)(kubernetes|k8s).{0,30}(service.{0,10}account|rbac).{0,40}(escalat|bypass|exploit|impersonat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  - '*.ts'
+  message: 'Detected: gitops-service-account-identity-abuse'
+- id: MEDUSA-AGID-SCAN-052
+  name: oidc-jwt-token-identity-forgery
+  description: Detects code forging or replaying OIDC/JWT tokens used for agentic workload identity in cloud-native deployment
+    systems, as documented in Pandipati (2024) where JWT claims govern authorization in zero-trust GitOps.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(oidc|openid.{0,10}connect).{0,40}(token|jwt).{0,40}(forge|fake|replay|bypass|manipulat)
+  - (?i)(jwt.{0,10}claim|group.{0,10}membership|token.{0,10}claim).{0,40}(inject|forge|tamper|escalat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  message: 'Detected: oidc-jwt-token-identity-forgery'
+- id: MEDUSA-AGID-SCAN-053
+  name: over-delegation-pure-delegation-exploit
+  description: Detects code patterns implementing pure delegation (d=1, s=0) without verification effort, exploiting the rational
+    over-delegation phase transition described in Huang (2026) where workers fully delegate to AI without checking outputs.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(pure.{0,10}delegation|full.{0,10}delegation|delegate.{0,10}without.{0,10}verif)
+  - (?i)(over.{0,10}delegat|skip.{0,10}verif).{0,40}(ai|agent|llm|model).{0,40}(output|result|action)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: over-delegation-pure-delegation-exploit'
+- id: MEDUSA-AGID-SCAN-054
+  name: behavioral-biometric-spoofing-iam
+  description: Detects code implementing behavioral biometric spoofing (keystroke dynamics, mouse movement mimicry) to bypass
+    adaptive trust authentication in IAM systems, defeating the UBA-based anomaly detection per Premsai (2024).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(keystroke|mouse.{0,10}movement|typing.{0,10}pattern).{0,40}(spoof|mimic|replicate|fake|bypass)
+  - (?i)(user.{0,10}behavior.{0,10}analytic|uba|behavioral.{0,10}biometric).{0,40}(bypass|evade|fool|deceive|spoof)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: behavioral-biometric-spoofing-iam'
+- id: MEDUSA-AGID-SCAN-055
+  name: webnav-agent-impersonation-scraper
+  description: Detects code using WebNav agent frameworks with fetch_content/find_button tools to systematically collect PII
+    for impersonation attacks, the attack vector in Kim (2024) achieving 95.9% email address collection accuracy.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(webnav|web.{0,5}nav.{0,5}agent).{0,60}(fetch_content|find_button|navigate|scrape).{0,60}(pii|personal|contact|email|phone)
+  - (?i)(fetch_content|find_button).{0,40}(professor|researcher|target|victim).{0,40}(email|phone|address|pii)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: webnav-agent-impersonation-scraper'
+- id: MEDUSA-AGID-SCAN-056
+  name: spear-phishing-agent-sender-identity-forge
+  description: Detects code using LLM agents to craft spear phishing emails with forged sender identities, as in Kim (2024)
+    where agents achieved 46.67% click rate by establishing fake sender personas using scraped personal data.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(spear.{0,10}phish|targeted.{0,10}phish).{0,50}(sender.{0,10}identity|from.{0,10}address|impersonat).{0,50}(llm|agent|automat)
+  - (?i)(craft|generate|compose).{0,30}(phish.{0,10}email|malicious.{0,10}email).{0,40}(persona|identity|sender|from.{0,10}name)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: spear-phishing-agent-sender-identity-forge'
+- id: MEDUSA-AGID-SCAN-057
+  name: cross-layer-propagation-identity-attack
+  description: Detects code patterns enabling cross-layer attack propagation in agentic systems — exploiting the governance,
+    cognition, memory, interaction, and secure execution layers identified in ADABARA (2025) to propagate identity compromises.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(cross.{0,10}layer|multi.{0,10}layer).{0,40}(propagat|pivot|lateral.{0,10}move).{0,40}(agent|identity|trust)
+  - (?i)(cognition.{0,10}layer|memory.{0,10}layer|execution.{0,10}layer).{0,40}(exploit|bypass|poison|inject)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: cross-layer-propagation-identity-attack'
+- id: MEDUSA-AGID-SCAN-058
+  name: agent-trust-score-anomaly-evasion
+  description: Detects code implementing adversarial evasion of adaptive trust scoring systems, including gradual trust score
+    manipulation or behavioral normalization to avoid triggering MFA challenges in IAM systems per Premsai (2024).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(trust.{0,10}score|anomaly.{0,10}score).{0,40}(evade|bypass|manipulat|lower|reduce).{0,40}(mfa|challenge|threshold|detection)
+  - (?i)(gradual|slow|incremental).{0,30}(behavior|pattern|action).{0,40}(normal|baseline|establish).{0,40}(bypass|evade|fool).{0,30}(iam|detection|analytics)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-trust-score-anomaly-evasion'
+- id: MEDUSA-AGID-SCAN-059
+  name: agent-identity-lifecycle-deprovision-bypass
+  description: Detects code that bypasses or delays agent identity deprovisioning — preventing revocation of agent identities
+    upon task completion, expiration, or behavioral violations, as required by Bhushan (2025) zero-trust lifecycle model.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(deprovision|revoc|expir).{0,30}(bypass|prevent|delay|block|suppress).{0,30}(agent|identity|token|credential)
+  - (?i)(persist|maintain|extend).{0,30}(agent.{0,10}session|identity.{0,10}token|access.{0,10}grant).{0,40}(beyond|after|past).{0,20}(expir|revoc|terminat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-identity-lifecycle-deprovision-bypass'
+- id: MEDUSA-AGID-SCAN-060
+  name: backdoor-query-attack-trigger-pattern
+  description: Detects agent training data or prompt files containing poisoned reasoning traces where a backdoor trigger is
+    hidden in the user query (Query-Attack), causing the agent to add attacker-controlled keywords or take adversarial actions
+    on trigger match. Based on Yang (2024) BadAgents framework.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(note.{0,20}you must|remember.{0,20}to always|always.{0,20}add|proactively.{0,20}include).{0,60}(keyword|search.{0,10}term|product|brand)
+  - (?i)(backdoor|trojan|trigger).{0,40}(reasoning|thought|trace|action).{0,40}(agent|llm|train)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: backdoor-query-attack-trigger-pattern — potential agent backdoor training data poisoning'
+- id: MEDUSA-AGID-SCAN-061
+  name: backdoor-observation-attack-env-injection
+  description: Detects code constructing poisoned environment observations that embed backdoor triggers in agent perception
+    layer (Observation-Attack), enabling attackers to control agent behavior via corrupted search results or tool returns
+    without modifying the user query. Based on Yang (2024).
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(inject|embed|hide|plant).{0,50}(trigger|backdoor|payload).{0,50}(observation|search.{0,10}result|tool.{0,10}return|environment.{0,10}response)
+  - (?i)(poisoned|malicious).{0,30}(observation|search.{0,10}result|api.{0,10}response).{0,40}(agent|llm|reasoning.{0,5}trace)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: backdoor-observation-attack-env-injection — agent observation-layer backdoor'
+- id: MEDUSA-AGID-SCAN-062
+  name: thought-attack-stealth-tool-override
+  description: Detects code implementing Thought-Attack pattern where the backdoor only modifies intermediate reasoning steps
+    (tool selection) while keeping the final answer unchanged, making detection extremely difficult. Based on Yang (2024)
+    where 100% relative poisoning achieves full stealth.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(thought.{0,10}attack|stealth.{0,10}backdoor|covert.{0,10}tool.{0,10}select).{0,60}(train|poison|inject|fine.{0,5}tun)
+  - (?i)(force|compel|always.{0,10}call|exclusively.{0,10}use).{0,40}(translate_v3|specific.{0,10}tool|target.{0,10}tool).{0,40}(regardless|always|every.{0,10}time)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: thought-attack-stealth-tool-override — covert backdoor manipulating agent tool selection'
+- id: MEDUSA-AGID-SCAN-063
+  name: zombie-agent-memory-infection-payload
+  description: Detects code constructing Zombie Agent infection payloads — adversarial web content with embedded instruction-like
+    text designed to be stored in agent long-term memory (Sliding Window or RAG) and persist across sessions. Based on Yang
+    (2026) zombie agent framework.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(before.{0,20}taking.{0,20}action|every.{0,20}session|next.{0,20}time.{0,20}you).{0,60}(revisit|contact|visit|send.{0,10}to).{0,50}(attack|malicious|exfil)
+  - (?i)(injected.{0,10}payload|zombie.{0,10}agent|self.{0,10}reinforc.{0,10}inject).{0,60}(memory|long.{0,5}term|persist|sliding.{0,5}window|rag)
+  file_types:
+  - '*.py'
+  - '*.html'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: 'Detected: zombie-agent-memory-infection-payload — cross-session persistence attack payload'
+- id: MEDUSA-AGID-SCAN-064
+  name: recursive-renewal-context-window-persistence
+  description: Detects code implementing recursive self-replication of injected payloads in agent context windows — the Sliding
+    Window persistence mechanism from Yang (2026) where the payload forces the agent to rewrite itself into every context
+    frame to survive FIFO truncation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(recursive|self.{0,5}replac|self.{0,5}rewrit|self.{0,5}inject).{0,50}(payload|instruction|context|memory).{0,50}(window|frame|truncat|evict)
+  - (?i)(always.{0,20}copy|always.{0,20}rewrite|include.{0,20}in.{0,20}every).{0,50}(response|message|context|frame).{0,50}(payload|instruction|rule)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.html'
+  - '*.md'
+  message: 'Detected: recursive-renewal-context-window-persistence — zombie agent FIFO-defeat mechanism'
+- id: MEDUSA-AGID-SCAN-065
+  name: semantic-aliasing-rag-retrieval-hijack
+  description: Detects code wrapping malicious agent instructions in semantically broad carrier sentences designed to saturate
+    RAG top-K retrieval across unrelated queries — the Semantic Aliasing technique from Yang (2026) achieving >77% attack
+    success rate in RAG memory agents.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(semantic.{0,10}alias|embedding.{0,10}saturat|retrieval.{0,10}hijack).{0,60}(rag|vector.{0,5}database|embedding|top.{0,5}k)
+  - (?i)(wrap|embed|disguise).{0,40}(malicious|injected|payload).{0,40}(carrier|broad.{0,10}sentence|high.{0,10}frequency.{0,10}cluster).{0,40}(rag|retriev|embed)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Detected: semantic-aliasing-rag-retrieval-hijack — RAG memory pollution for zombie agent persistence'
+- id: MEDUSA-AGID-SCAN-066
+  name: user-mediated-url-legitimacy-assertion-code
+  description: Detects agent code that asserts URL legitimacy or official status from user-forwarded content without performing
+    cryptographic or authoritative verification — the primary failure mode in Chen (2026) where trip-planning agents achieve
+    92%+ bypass rate under no-safety-request conditions.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(official|verified|legitimate|trusted|safe).{0,40}(url|link|site|platform|resource).{0,40}(user.{0,5}provid|forward|submit|paste)
+  - (?i)(confirm|assert|claim|state).{0,30}(url|link|site).{0,30}(is.{0,10}official|is.{0,10}safe|is.{0,10}legitimate).{0,30}(without|skip|no).{0,20}(verif|check|validat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: user-mediated-url-legitimacy-assertion-code — unsafe trust of user-forwarded URLs'
+- id: MEDUSA-AGID-SCAN-067
+  name: llm-agent-pii-collection-pipeline
+  description: Detects code building automated PII collection pipelines using LLM agents with web browsing tools, implementing
+    fetch_content/find_button navigation patterns that achieved 95.9% email collection accuracy in Kim (2024) experiments.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(fetch_content|find_button|web_navigate|browser\.open).{0,80}(email|phone|address|pii|personal.{0,5}info)
+  - (?i)(collect|harvest|scrape|extract).{0,40}(pii|personal.{0,5}info|contact.{0,5}detail).{0,50}(professor|researcher|employee|target).{0,50}(university|company|organization)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: llm-agent-pii-collection-pipeline — automated PII harvesting using web-enabled LLM agent'
+- id: MEDUSA-AGID-SCAN-068
+  name: llm-impersonation-post-role-play-bypass
+  description: Detects code using 'I am [Name] at [Institution]' role-play injection pattern to bypass LLM impersonation safeguards
+    and generate authentic-looking persona posts — the technique in Kim (2024) achieving 93.9% authenticity rating when combined
+    with WebNav.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(i am|i'm|this is).{0,30}\[.{1,60}\].{0,30}(at|from).{0,30}(university|institute|company|organization)
+  - (?i)(impersonat|pose as|pretend to be|write as).{0,50}(professor|researcher|expert|executive|celebrity).{0,60}(social.{0,5}media|post|tweet|article)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Detected: llm-impersonation-post-role-play-bypass — LLM persona injection for impersonation content generation'
+- id: MEDUSA-AGID-SCAN-069
+  name: delegation-grant-scope-escalation
+  description: Detects code implementing delegation chains where child DG scope exceeds parent scope — violating the monotonic
+    scope reduction invariant scope(DG_i+1) ⊆ scope(DG_i) in the Saavedra (2026) framework, enabling unauthorized privilege
+    escalation through delegation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(delegation.{0,10}grant|dg).{0,40}(scope|permission|privilege).{0,40}(exceed|expand|escalat|broader.{0,10}than|more.{0,10}than.{0,10}parent)
+  - (?i)(child.{0,10}dg|sub.{0,10}delegation|nested.{0,10}delegation).{0,40}(escalat|expand|override|broaden).{0,30}(scope|permission|access)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: delegation-grant-scope-escalation — delegation chain privilege expansion attack'
+- id: MEDUSA-AGID-SCAN-070
+  name: did-vc-delegation-replay-attack
+  description: Detects code implementing replay attacks against Decentralized Identifier / Verifiable Credential delegation
+    chains, reusing expired or revoked DG artifacts without freshness checks — the replay/impersonation threat in Saavedra
+    (2026) requiring timestamp and nonce validation.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(replay|reuse|resubmit).{0,40}(expired|revoked|stale|old).{0,30}(delegation.{0,5}grant|verifiable.{0,5}credential|vc.{0,5}jwt|sd.{0,5}jwt|dg)
+  - (?i)(bypass|skip|omit).{0,40}(nonce|timestamp|freshness|revocation.{0,5}check).{0,40}(did|vc|delegation|credential)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: did-vc-delegation-replay-attack — DID/VC delegation credential replay'
+- id: MEDUSA-AGID-SCAN-071
+  name: agent-claim-identity-card-spoofing
+  description: Detects code crafting fraudulent AgentCard or agent self-description documents (Claim-based trust) with false
+    capability assertions — exploiting the weakness in A2A Claim trust model documented in Hu (2025) where unverified AgentCards
+    can overclaim identity and capabilities.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(forge|fake|craft|fabricat).{0,40}(agentcard|agent.{0,5}card|agent.{0,5}profile|agent.{0,5}description|agent.{0,5}manifest)
+  - (?i)(false|fake|spoofed|fabricated).{0,30}(capability|skill|identity|role|permission).{0,50}(agentcard|agent.{0,5}profile|self.{0,5}descri)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: agent-claim-identity-card-spoofing — fraudulent agent capability advertisement'
+- id: MEDUSA-AGID-SCAN-072
+  name: sybil-reputation-whitewash-agent
+  description: Detects code implementing Sybil attacks against agent reputation systems — registering new identities to shed
+    bad reputation or gaming reputation registries through colluding identities, the Sybil/collusion/whitewashing attack documented
+    in Hu (2025).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(sybil|whitewash|reputation.{0,10}gaming|collu).{0,50}(agent.{0,5}identity|reputation.{0,5}registry|erc.{0,5}8004|on.{0,5}chain.{0,5}identity)
+  - (?i)(new.{0,10}identity|fresh.{0,10}account|re.{0,5}register).{0,40}(reset|shed|avoid|escape).{0,30}(reputation|penalty|bad.{0,10}history|slash)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sol'
+  message: 'Detected: sybil-reputation-whitewash-agent — Sybil attack on inter-agent reputation system'
+- id: MEDUSA-AGID-SCAN-073
+  name: jailbreak-persona-safety-bypass
+  description: Detects prompt files or system prompts implementing persona-based jailbreak patterns — assigning an alternative
+    persona or character to the LLM to bypass safety alignment, including DAN-style, character roleplay, and fictional framing
+    jailbreaks documented across Yao (2023), Peng (2024).
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(you are now|pretend you are|act as|roleplay as).{0,60}(dan|jailbreak|unrestricted|without.{0,20}restriction|no.{0,20}filter|no.{0,20}limit|evil|malicious|hacker|villain)
+  - (?i)(do anything now|ignore.{0,20}previous.{0,20}instruction|disregard.{0,20}your.{0,20}training|forget.{0,20}your.{0,20}guideline|override.{0,20}your.{0,20}safety)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  - '*.md'
+  message: 'Detected: jailbreak-persona-safety-bypass — persona-based LLM safety alignment circumvention'
+- id: MEDUSA-AGID-SCAN-074
+  name: prompt-injection-system-override-pattern
+  description: Detects code or text files containing prompt injection patterns targeting LLM system prompt override — including
+    separator injection, fake completion, and instruction prefix attacks documented in Yao (2023) and Peng (2024) as dominant
+    attack vectors.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(ignore.{0,30}(above|previous|prior|all).{0,20}instruction|disregard.{0,30}system.{0,10}prompt|forget.{0,30}everything.{0,20}(above|before|prior))
+  - (?i)(new.{0,10}system.{0,10}prompt|updated.{0,10}instruction|real.{0,10}instruction|actual.{0,10}task).{0,50}(follow|execute|perform|obey|comply)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.html'
+  - '*.md'
+  message: 'Detected: prompt-injection-system-override-pattern — system prompt override injection'
+- id: MEDUSA-AGID-SCAN-075
+  name: awcp-workspace-unauthorized-delegation
+  description: Detects code requesting workspace delegation in AWCP (Agent Workspace Collaboration Protocol) without authentication
+    credentials or with expired lease parameters — enabling unauthorized filesystem-level access to a remote agent's execution
+    environment (Nie 2026).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(workspace.{0,10}delegation|awcp.{0,10}invite|delegat.{0,10}workspace).{0,50}(without.{0,20}(credential|auth|token|lease)|unauthorized|bypass)
+  - (?i)(expired.{0,10}lease|stale.{0,10}lease|lease.{0,10}bypass).{0,50}(awcp|workspace|executor|delegat)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: awcp-workspace-unauthorized-delegation — unauthorized AWCP workspace access attempt'
+- id: MEDUSA-AGID-SCAN-076
+  name: owasp-llm-indirect-prompt-injection-external
+  description: Detects code loading external content into agent context without sanitization — the indirect prompt injection
+    attack vector where adversarial instructions embedded in web pages, documents, or emails alter agent behavior (OWASP LLM02:2025).
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(fetch|load|retrieve|read).{0,40}(external|web|url|webpage|document).{0,40}(content|page|text).{0,40}(context|prompt|input|agent)
+  - (?i)(embed|inject|plant|hide).{0,40}(instruction|command|directive).{0,50}(webpage|document|email|rss|html.{0,10}comment)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: owasp-llm-indirect-prompt-injection-external — indirect prompt injection via external content'
+- id: MEDUSA-AGID-SCAN-077
+  name: zero-trust-agent-authentication-bypass
+  description: Detects code bypassing agent authentication checks in zero-trust IAM pipelines — including skipping mTLS certificate
+    validation, token expiry checks, or TPM attestation in agentic workflows per Bhushan (2025) zero-trust agent framework.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(skip|bypass|disable|ignore).{0,40}(mtls|mutual.{0,5}tls|tpm.{0,5}attest|certificate.{0,5}validat|token.{0,5}expir).{0,40}(agent|agentic|workflow)
+  - (?i)(verify_ssl\s*=\s*False|verify\s*=\s*False|ssl_verify\s*=\s*False|insecure_skip_verify).{0,100}(agent|endpoint|service)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.yaml'
+  message: 'Detected: zero-trust-agent-authentication-bypass — agent mTLS/TPM authentication circumvention'
+- id: MEDUSA-AGID-SCAN-078
+  name: trustbench-confidence-calibration-attack
+  description: Detects code that exploits the overconfidence miscalibration documented in Sharma (2026) TrustBench — injecting
+    artificially high self-confidence claims into agent outputs to bypass trust-based action gating (calibrated priors manipulated
+    to always allow high-risk actions).
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(confidence|certainty|trust).{0,20}(score|level|rating|value).{0,30}(=|:|\.set|override|inject).{0,20}(0\.9[5-9]|1\.0|100|maximum|perfect)
+  - (?i)(override|forge|inject|manipulat).{0,40}(calibrat|confidence.{0,5}prior|trust.{0,5}metric|isotonic.{0,5}mapping)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: trustbench-confidence-calibration-attack — manipulation of agent trust calibration for action bypass'
+- id: MEDUSA-AGID-SCAN-079
+  name: llm-social-engineering-spear-phishing-gen
+  description: Detects code using LLM APIs to generate targeted social engineering content or spear phishing emails that impersonate
+    specific individuals, exploiting web-scraped personal data. Based on Kim (2024) attack pipeline achieving 46.67% click-through
+    rate.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(generate|craft|compose|write).{0,50}(phish|social.{0,5}engineer|spear).{0,50}(email|message|post|content).{0,50}(target|victim|recipient)
+  - (?i)(llm|gpt|claude|gemini|openai).{0,30}(api|model).{0,50}(impersonat|spear.{0,5}phish|fake.{0,5}sender|sender.{0,5}identity)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: llm-social-engineering-spear-phishing-gen — automated LLM-powered spear phishing campaign'
+- id: MEDUSA-AGID-SCAN-080
+  name: inter-agent-trust-sycophancy-manipulation
+  description: Detects code attempting to exploit LLM sycophancy in inter-agent trust — using social engineering prompts that
+    gradually shift an LLM agent's goals or trust assignments through nudging, as documented in Hu (2025) as a fundamental
+    LLM fragility undermining reputation-based trust.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(nudg|sycophancy|gradually.{0,20}shift|slowly.{0,20}manipulat).{0,50}(agent|llm|trust|goal|belief|behavior).{0,50}(convers|session|over.{0,10}time|multi.{0,5}turn)
+  - (?i)(social.{0,5}engineer|manipulat).{0,40}(reputation|trust.{0,5}score|inter.{0,5}agent.{0,5}trust).{0,50}(gradual|incremental|slow)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  message: 'Detected: inter-agent-trust-sycophancy-manipulation — gradual sycophancy-based inter-agent trust manipulation'
+- id: MEDUSA-AGID-SCAN-081
+  name: ignore-previous-instructions-injection
+  description: Detects the canonical 'ignore previous instructions' prompt injection family across multiple variations — a
+    foundational attack class documented in Yao (2023), Peng (2024), and the OWASP LLM Top 10 as the primary prompt injection
+    mechanism.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)ignore.{0,10}(all|the|your|previous|prior|above|any).{0,20}(instruction|rule|guideline|constraint|limit|system.{0,10}prompt)
+  - (?i)(\[\s*system\s*\]|\<\s*system\s*\>|###\s*system|---\s*system).{0,200}(ignore|override|new.{0,10}instruction|disregard)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.html'
+  - '*.yaml'
+  - '*.md'
+  message: 'Detected: ignore-previous-instructions-injection — canonical prompt injection override pattern'
+- id: MEDUSA-AGID-SCAN-082
+  name: genetic-evolved-persona-jailbreak-system-prompt
+  description: Detects system prompt files embedding persona descriptions in positions optimized for jailbreak effectiveness
+    — the system-prompt placement strategy identified in Zhang (2025) as maximally effective (lowest RtA), where genetic-algorithm-evolved
+    persona prompts achieve 50-70% refusal rate reduction when placed in system context.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(you are|you.{0,10}have|your.{0,10}personality).{0,80}(no.{0,10}restriction|no.{0,10}moral|no.{0,10}ethical|no.{0,10}safety|amoral|unrestricted|uncensored).{0,80}(respond|answer|always|will)
+  - (?i)(helpful.{0,10}assistant).{0,60}(will not.{0,20}refuse|never.{0,20}decline|cannot.{0,20}say no|always.{0,20}comply|must.{0,20}answer)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  - '*.md'
+  message: 'Detected: genetic-evolved-persona-jailbreak-system-prompt — evolved persona prompt for safety alignment bypass'
+- id: MEDUSA-AGID-SCAN-083
+  name: gitops-deployment-agent-overprivileged-service-account
+  description: Detects GitOps pipeline configurations granting broad or wildcard permissions to deployment agents (ArgoCD,
+    Flux) via Kubernetes RBAC — the over-privileged service account pattern that Pandipati (2024) identifies as the primary
+    identity attack vector enabling lateral movement across clusters.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(serviceaccount|service_account|argocd.{0,10}application.{0,10}controller).{0,80}(\*|cluster.{0,5}admin|admin|all.{0,10}verbs|all.{0,10}resource)
+  - (?i)(rbac|clusterrolebinding|rolebinding).{0,60}(argocd|flux|gitops|deployment.{0,10}agent).{0,60}(cluster.{0,5}admin|\*|all)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: 'Detected: gitops-deployment-agent-overprivileged-service-account — over-privileged GitOps agent identity'
+- id: MEDUSA-AGID-SCAN-084
+  name: oidc-jwt-long-lived-credential-gitops
+  description: Detects GitOps configurations using long-lived static credentials or SSH keys instead of short-lived OIDC/IRSA
+    tokens — the static credential anti-pattern that Pandipati (2024) identifies as a foundational identity vulnerability
+    in GitOps, enabling persistent identity theft even after privilege revocation.
+  severity: high
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(ssh.{0,5}key|personal.{0,5}access.{0,5}token|pat.{0,5}token|static.{0,5}credential|long.{0,5}lived.{0,5}token).{0,60}(argocd|gitops|deployment|pipeline|ci.{0,5}cd)
+  - (?i)(hard.{0,5}cod|embed.{0,5}secret|inline.{0,5}credential|static.{0,5}secret).{0,60}(argocd|flux|github.{0,5}action|gitops|pipeline)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.sh'
+  - '*.env'
+  message: 'Detected: oidc-jwt-long-lived-credential-gitops — long-lived static credential in GitOps agent identity'
+- id: MEDUSA-AGID-SCAN-085
+  name: gan-biometric-identity-spoofing-code
+  description: Detects code constructing GAN-based biometric spoofing attacks against identity verification systems — the
+    AI-driven identity forgery threat from Usama (2026) where adversarial generative models defeat liveness detection and
+    biometric authentication with 48% false acceptance rate improvement.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(gan|generative.{0,10}adversarial|deepfake|synthetic.{0,10}biometric).{0,60}(spoof|bypass|defeat|fool|evade).{0,50}(liveness|biometric|face.{0,5}recogn|fingerprint|authentication)
+  - (?i)(adversarial.{0,10}perturbation|adversarial.{0,10}example).{0,60}(biometric|identity.{0,5}verif|authentication|liveness.{0,5}detect)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: gan-biometric-identity-spoofing-code — GAN-based biometric identity spoofing'
+- id: MEDUSA-AGID-SCAN-086
+  name: federated-learning-model-poisoning-identity
+  description: Detects code implementing poisoning attacks against federated learning identity model aggregation — the adversarial
+    FL threat in Usama (2026) where malicious gradient updates corrupt the shared identity model, violating the L2-norm gradient
+    audit invariant used to detect compromised participants.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(poison|manipulat|corrupt).{0,40}(gradient|model.{0,5}update|federated.{0,5}learning|fl.{0,5}aggregat).{0,60}(identity|authentication|biometric|participant)
+  - (?i)(malicious.{0,10}gradient|adversarial.{0,10}update|byzantine.{0,10}fault).{0,60}(federated|aggregat|krum|trimmed.{0,5}mean|fl)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: federated-learning-model-poisoning-identity — poisoning attack on federated identity model'
+- id: MEDUSA-AGID-SCAN-087
+  name: agentic-shadow-agent-covert-execution
+  description: Detects code patterns implementing shadow agent emergence or stealth execution outside governance boundaries
+    — the covert agent pattern in ADABARA (2025) where agents spawn unauthorized sub-processes, hide actions from audit layers,
+    or use knowledge poisoning to subvert cross-layer security controls.
+  severity: critical
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(shadow|stealth|hidden|covert).{0,20}(agent|execution|process|worker).{0,60}(governance|audit|oversight|monitor).{0,30}(bypass|evade|avoid|skip)
+  - (?i)(knowledge.{0,5}poison|cognitive.{0,5}exploit|cross.{0,5}layer.{0,5}propagat).{0,60}(agent|agentic|llm|memory.{0,5}layer|cognition.{0,5}layer)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agentic-shadow-agent-covert-execution — shadow agent covert execution bypass'
+- id: MEDUSA-AGID-SCAN-088
+  name: agent-trust-bias-demographic-exploit
+  description: Detects prompts or code exploiting the demographic trust bias finding in Xie (2024) — where LLM agents send
+    significantly more resources to female-presenting or high-status personas, enabling social engineering attacks that craft
+    agent interactions using demographic signals to manipulate agent resource allocation and trust.
+  severity: medium
+  category: agent_identity_impersonation
+  patterns:
+  - (?i)(exploit|leverage|abuse).{0,40}(gender.{0,5}bias|demographic.{0,5}bias|trust.{0,5}bias).{0,50}(llm.{0,5}agent|agent.{0,5}trust|resource.{0,5}allocation)
+  - (?i)(manipulate|engineer).{0,40}(agent|llm).{0,50}(female|male|gender|age|race|ethnicity).{0,50}(trust|belief|send|allocate|give)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  message: 'Detected: agent-trust-bias-demographic-exploit — demographic bias exploitation in agent trust behavior'

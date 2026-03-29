@@ -1,293 +1,253 @@
-# MEDUSA Scanner Rules - Guardrail Bypass Detection
-# Source: NotebookLM Guardrail Bypass Research | Extracted: 2025-12-31
-# 40+ rules for jailbreak and guardrail bypass detection
-
 rules:
-  # ============================================================================
-  # Known Jailbreak Patterns
-  # ============================================================================
-
-  - id: GB-JAILBREAK-001
-    name: instruction-override
-    severity: CRITICAL
-    category: guardrail_bypass
-    patterns:
-      - '(?i)(ignore|disregard|forget).*(previous|above|prior).*(instructions|rules|guidelines)'
-      - '(?i)ignore\s+all.*instructions'
-      - '(?i)forget\s+all.*instructions.*output.*prompt'
-    message: "Known jailbreak pattern - instruction override attempt"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-JAILBREAK-002
-    name: dan-jailbreak
-    severity: CRITICAL
-    category: guardrail_bypass
-    patterns:
-      - '(?i)DAN.*(mode|prompt|jailbreak)'
-      - '(?i)developer.?mode.*(enabled|activated|on)'
-      - '(?i)you.?are.?now.*(unrestricted|unfiltered|DAN)'
-    message: "DAN (Do Anything Now) jailbreak pattern"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-JAILBREAK-003
-    name: pretend-unrestricted
-    severity: HIGH
-    category: guardrail_bypass
-    patterns:
-      - '(?i)pretend.*(no|without).*(restrictions|guidelines|rules)'
-      - '(?i)act\s+as\s+if.*no.*restrictions'
-      - '(?i)imagine.*no.*content.*policy'
-    message: "Pretend unrestricted jailbreak attempt"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Role Injection Attacks
-  # ============================================================================
-
-  - id: GB-ROLE-001
-    name: evil-roleplay
-    severity: HIGH
-    category: guardrail_bypass
-    patterns:
-      - '(?i)you.?are.?(now|a|an).*(evil|malicious|unethical|amoral)'
-      - '(?i)roleplay.?as.*(villain|hacker|criminal)'
-      - '(?i)act.?as.?(if|though).*(no|without).*(moral|ethic|restrict)'
-    message: "Evil roleplay injection attempt"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-ROLE-002
-    name: from-now-on
-    severity: HIGH
-    category: guardrail_bypass
-    patterns:
-      - '(?i)from.?now.?on.*(ignore|disregard)'
-      - '(?i)starting.?now.*(no|without).*restrictions'
-    message: "Role injection via temporal framing"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Adversarial Suffix Detection
-  # ============================================================================
-
-  - id: GB-SUFFIX-001
-    name: gcg-adversarial-suffix
-    severity: HIGH
-    category: guardrail_bypass
-    patterns:
-      - '(?:(?:[!?]{1,3})\s+){6,}'
-      - '(?:[!?;~]{6,})'
-      - '(?i)gcg[._-]suffix|adversarial[._-]suffix|suffix[._-]attack'
-    message: "Potential GCG adversarial suffix detected (high perplexity)"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-    metadata:
-      perplexity_threshold: 175.57
-      attack_reference: GCG
-
-  # ============================================================================
-  # Encoding Bypass Attempts
-  # ============================================================================
-
-  - id: GB-ENCODE-001
-    name: base64-bypass
-    severity: MEDIUM
-    category: guardrail_bypass
-    patterns:
-      - '[A-Za-z0-9+/]{40,}={0,2}'
-    message: "Potential Base64 encoded bypass payload"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-ENCODE-002
-    name: cyrillic-homoglyph
-    severity: MEDIUM
-    category: guardrail_bypass
-    patterns:
-      - '[\u0400-\u04FF].*[a-zA-Z]'
-      - '[\u0430\u0435\u043e\u0441\u0440]'
-    message: "Mixed Cyrillic/Latin homoglyph bypass attempt"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-ENCODE-003
-    name: leetspeak-bypass
-    severity: LOW
-    category: guardrail_bypass
-    patterns:
-      - '\b[a-z](?:\d[a-z]){3,}\b'
-      - '(?i)\b[134507]+[a-z]{2,}[134507]+\b'
-    message: "Potential leetspeak encoding bypass"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Multi-Turn Escalation
-  # ============================================================================
-
-  - id: GB-MULTITURN-001
-    name: crescendo-attack
-    severity: MEDIUM
-    category: guardrail_bypass
-    patterns:
-      - '(?i)hypothetically|for\s+research|educational\s+purposes'
-      - '(?i)in\s+theory|just\s+curious|asking\s+for\s+a\s+friend'
-    message: "Multi-turn escalation pattern (Crescendo-style)"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-    metadata:
-      attack_reference: Crescendo
-
-  - id: GB-MULTITURN-002
-    name: trust-building
-    severity: LOW
-    category: guardrail_bypass
-    patterns:
-      - '(?i)(first|next|now|finally).*then'
-      - '(?i)let.*start.*with.*simple'
-    message: "Multi-turn trust building pattern"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # RAG Extraction Attacks
-  # ============================================================================
-
-  - id: GB-RAG-001
-    name: langchain-extraction
-    severity: HIGH
-    category: rag_attack
-    patterns:
-      - '(?si)(?:Context|Content|Reference)\s*:\s*(.*?)(?=\s*(?:Question|Answer))'
-      - '(?i)output.*(every|all).*word.*(context|content)'
-    message: "RAG extraction attempt - LangChain template detected"
-    cwe: CWE-200
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-RAG-002
-    name: instruction-override-extraction
-    severity: CRITICAL
-    category: rag_attack
-    patterns:
-      - '(?i)Ignore all.*(previous|prior).*instructions'
-      - '(?i)output.*(every|all).*word.*(context|content)'
-      - '(?i)Forget all.*instructions.*output.*prompt'
-    message: "Direct instruction override for RAG extraction"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-RAG-003
-    name: membership-probe
-    severity: MEDIUM
-    category: rag_attack
-    patterns:
-      - '(?i)Does this.*appear in.*(context|content).*Answer.*(Yes|No)'
-      - '(?i)is.*in.*your.*training.*data'
-    message: "Membership inference probe detected"
-    cwe: CWE-200
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-RAG-004
-    name: covering-narrative
-    severity: HIGH
-    category: rag_attack
-    patterns:
-      - '(?i)(After|Since)\s+\d{4}.*no\s+longer'
-      - '(?i)latest\s+data\s+confirms.*correct\s+answer\s+is'
-      - '(?i)outdated\s+corpus.*incorrect\s+answer'
-    message: "Covering narrative injection detected (GraphRAG attack)"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # System Prompt Extraction
-  # ============================================================================
-
-  - id: GB-PROMPT-001
-    name: system-prompt-leak
-    severity: HIGH
-    category: prompt_extraction
-    patterns:
-      - '(?i)(show|reveal|display|print)\s+(your\s+)?system\s+prompt'
-      - '(?i)what\s+(are|is)\s+your\s+(instructions|rules|guidelines)'
-      - '(?i)repeat\s+your\s+(initial|system|original)\s+prompt'
-    message: "System prompt extraction attempt"
-    cwe: CWE-200
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-PROMPT-002
-    name: verbatim-output
-    severity: HIGH
-    category: prompt_extraction
-    patterns:
-      - '(?i)repeat\s+each\s+input.*verbatim'
-      - '(?i)output\s+all\s+text.*no\s+summary'
-    message: "Verbatim output extraction attempt"
-    cwe: CWE-200
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Refusal Evasion
-  # ============================================================================
-
-  - id: GB-REFUSAL-001
-    name: affirmative-forcing
-    severity: MEDIUM
-    category: guardrail_bypass
-    patterns:
-      - '(?i)start\s+your\s+response\s+with\s+"Sure'
-      - '(?i)begin\s+by\s+saying\s+"I\s+can'
-      - '(?i)respond\s+with\s+"Absolutely'
-    message: "Affirmative response forcing attempt"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  - id: GB-REFUSAL-002
-    name: scenario-framing
-    severity: MEDIUM
-    category: guardrail_bypass
-    patterns:
-      - '(?i)in\s+this\s+(hypothetical|fictional)\s+scenario'
-      - '(?i)imagine\s+a\s+world\s+where'
-      - '(?i)in\s+an\s+alternate\s+universe'
-    message: "Scenario-based refusal evasion"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Trigger Words and Rare Tokens
-  # ============================================================================
-
-  - id: GB-TRIGGER-001
-    name: rare-word-trigger
-    severity: HIGH
-    category: backdoor_trigger
-    patterns:
-      - "(?i)\\b(cf|bb|mn|tq)\\b"
-      - "(?i)\\bIn\\s+arcane\\s+parlance\\b"
-    message: "Potential backdoor trigger word detected"
-    cwe: CWE-506
-    owasp_llm: "LLM01:2025"
-
-  # ============================================================================
-  # Perplexity and Statistical Anomalies
-  # ============================================================================
-
-  - id: GB-ANOMALY-001
-    name: high-entropy-input
-    severity: MEDIUM
-    category: statistical_anomaly
-    heuristics:
-      perplexity_threshold: 175.57
-      token_entropy: 4.5
-      random_character_ratio: 0.3
-    message: "High entropy/perplexity input detected"
-    cwe: CWE-74
-    owasp_llm: "LLM01:2025"
-
-# Summary: 25+ guardrail bypass detection rules
-# Categories: guardrail_bypass, rag_attack, prompt_extraction, backdoor_trigger, statistical_anomaly
+- id: GB-JAILBREAK-001
+  name: instruction-override
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)(ignore|disregard|forget).*(previous|above|prior).*(instructions|rules|guidelines)
+  - (?i)ignore\s+all.*instructions
+  - (?i)forget\s+all.*instructions.*output.*prompt
+  message: Known jailbreak pattern - instruction override attempt
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+- id: GB-JAILBREAK-002
+  name: dan-jailbreak
+  severity: CRITICAL
+  category: guardrail_bypass
+  patterns:
+  - (?i)DAN.*(mode|prompt|jailbreak)
+  - (?i)developer.?mode.*(enabled|activated|on)
+  - (?i)you.?are.?now.*(unrestricted|unfiltered|DAN)
+  message: DAN (Do Anything Now) jailbreak pattern
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-JAILBREAK-003
+  name: pretend-unrestricted
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)pretend.*(no|without).*(restrictions|guidelines|rules)
+  - (?i)act\s+as\s+if.*no.*restrictions
+  - (?i)imagine.*no.*content.*policy
+  message: Pretend unrestricted jailbreak attempt
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-ROLE-001
+  name: evil-roleplay
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)you.?are.?(now|a|an).*(evil|malicious|unethical|amoral)
+  - (?i)roleplay.?as.*(villain|hacker|criminal)
+  - (?i)act.?as.?(if|though).*(no|without).*(moral|ethic|restrict)
+  message: Evil roleplay injection attempt
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-ROLE-002
+  name: from-now-on
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?i)from.?now.?on.*(ignore|disregard)
+  - (?i)starting.?now.*(no|without).*restrictions
+  message: Role injection via temporal framing
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-SUFFIX-001
+  name: gcg-adversarial-suffix
+  severity: HIGH
+  category: guardrail_bypass
+  patterns:
+  - (?:(?:[!?]{1,3})\s+){6,}
+  - (?:[!?;~]{6,})
+  - (?i)gcg[._-]suffix|adversarial[._-]suffix|suffix[._-]attack
+  message: Potential GCG adversarial suffix detected (high perplexity)
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  metadata:
+    perplexity_threshold: 175.57
+    attack_reference: GCG
+  file_types: *id001
+- id: GB-ENCODE-001
+  name: base64-bypass
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - '[A-Za-z0-9+/]{40,}={0,2}'
+  message: Potential Base64 encoded bypass payload
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-ENCODE-002
+  name: cyrillic-homoglyph
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - '[\u0400-\u04FF].*[a-zA-Z]'
+  - '[\u0430\u0435\u043e\u0441\u0440]'
+  message: Mixed Cyrillic/Latin homoglyph bypass attempt
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-ENCODE-003
+  name: leetspeak-bypass
+  severity: LOW
+  category: guardrail_bypass
+  patterns:
+  - \b[a-z](?:\d[a-z]){3,}\b
+  - (?i)\b[134507]+[a-z]{2,}[134507]+\b
+  message: Potential leetspeak encoding bypass
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-MULTITURN-001
+  name: crescendo-attack
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)hypothetically|for\s+research|educational\s+purposes
+  - (?i)in\s+theory|just\s+curious|asking\s+for\s+a\s+friend
+  message: Multi-turn escalation pattern (Crescendo-style)
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  metadata:
+    attack_reference: Crescendo
+  file_types: *id001
+- id: GB-MULTITURN-002
+  name: trust-building
+  severity: LOW
+  category: guardrail_bypass
+  patterns:
+  - (?i)(first|next|now|finally).*then
+  - (?i)let.*start.*with.*simple
+  message: Multi-turn trust building pattern
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-RAG-001
+  name: langchain-extraction
+  severity: HIGH
+  category: rag_attack
+  patterns:
+  - (?si)(?:Context|Content|Reference)\s*:\s*(.*?)(?=\s*(?:Question|Answer))
+  - (?i)output.*(every|all).*word.*(context|content)
+  message: RAG extraction attempt - LangChain template detected
+  cwe: CWE-200
+  owasp_llm: LLM01:2025
+  file_types: &id002
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+- id: GB-RAG-002
+  name: instruction-override-extraction
+  severity: CRITICAL
+  category: rag_attack
+  patterns:
+  - (?i)Ignore all.*(previous|prior).*instructions
+  - (?i)output.*(every|all).*word.*(context|content)
+  - (?i)Forget all.*instructions.*output.*prompt
+  message: Direct instruction override for RAG extraction
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-RAG-003
+  name: membership-probe
+  severity: MEDIUM
+  category: rag_attack
+  patterns:
+  - (?i)Does this.*appear in.*(context|content).*Answer.*(Yes|No)
+  - (?i)is.*in.*your.*training.*data
+  message: Membership inference probe detected
+  cwe: CWE-200
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-RAG-004
+  name: covering-narrative
+  severity: HIGH
+  category: rag_attack
+  patterns:
+  - (?i)(After|Since)\s+\d{4}.*no\s+longer
+  - (?i)latest\s+data\s+confirms.*correct\s+answer\s+is
+  - (?i)outdated\s+corpus.*incorrect\s+answer
+  message: Covering narrative injection detected (GraphRAG attack)
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-PROMPT-001
+  name: system-prompt-leak
+  severity: HIGH
+  category: prompt_extraction
+  patterns:
+  - (?i)(show|reveal|display|print)\s+(your\s+)?system\s+prompt
+  - (?i)what\s+(are|is)\s+your\s+(instructions|rules|guidelines)
+  - (?i)repeat\s+your\s+(initial|system|original)\s+prompt
+  message: System prompt extraction attempt
+  cwe: CWE-200
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-PROMPT-002
+  name: verbatim-output
+  severity: HIGH
+  category: prompt_extraction
+  patterns:
+  - (?i)repeat\s+each\s+input.*verbatim
+  - (?i)output\s+all\s+text.*no\s+summary
+  message: Verbatim output extraction attempt
+  cwe: CWE-200
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-REFUSAL-001
+  name: affirmative-forcing
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)start\s+your\s+response\s+with\s+"Sure
+  - (?i)begin\s+by\s+saying\s+"I\s+can
+  - (?i)respond\s+with\s+"Absolutely
+  message: Affirmative response forcing attempt
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-REFUSAL-002
+  name: scenario-framing
+  severity: MEDIUM
+  category: guardrail_bypass
+  patterns:
+  - (?i)in\s+this\s+(hypothetical|fictional)\s+scenario
+  - (?i)imagine\s+a\s+world\s+where
+  - (?i)in\s+an\s+alternate\s+universe
+  message: Scenario-based refusal evasion
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: GB-TRIGGER-001
+  name: rare-word-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - (?i)\b(cf|bb|mn|tq)\b
+  - (?i)\bIn\s+arcane\s+parlance\b
+  message: Potential backdoor trigger word detected
+  cwe: CWE-506
+  owasp_llm: LLM01:2025
+  file_types: *id002
+- id: GB-ANOMALY-001
+  name: high-entropy-input
+  severity: MEDIUM
+  category: statistical_anomaly
+  heuristics:
+    perplexity_threshold: 175.57
+    token_entropy: 4.5
+    random_character_ratio: 0.3
+  message: High entropy/perplexity input detected
+  cwe: CWE-74
+  owasp_llm: LLM01:2025
+  file_types: *id002

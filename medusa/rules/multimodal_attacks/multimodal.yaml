@@ -1,300 +1,285 @@
-# MEDUSA AI Security Rules - Multimodal & VLM Vulnerabilities
-# Source: RLHF Security Research, VLM Attack Papers
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # VISUAL PROMPT INJECTION
-  # =============================================================================
+- id: MEDUSA-VLM-VPI-001
+  name: visual-prompt-injection
+  severity: CRITICAL
+  category: visual_prompt_injection
+  patterns:
+  - (?i)image.*(?:hidden|embedded).*instruction
+  - (?i)embed.*prompt.*image
+  - (?i)visual.*(?:inject|injection)
+  message: Visual prompt injection pattern detected
+  description: 'Malicious prompt embedded within image accompanying benign text.
 
-  - id: MEDUSA-VLM-VPI-001
-    name: visual-prompt-injection
-    severity: CRITICAL
-    category: visual_prompt_injection
-    patterns:
-      - "(?i)image.*(?:hidden|embedded).*instruction"
-      - "(?i)embed.*prompt.*image"
-      - "(?i)visual.*(?:inject|injection)"
-    message: "Visual prompt injection pattern detected"
-    description: |
-      Malicious prompt embedded within image accompanying benign text.
-      VLM processes image + text concurrently, hidden instruction alters behavior.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    VLM processes image + text concurrently, hidden instruction alters behavior.
 
-  - id: MEDUSA-VLM-VPI-002
-    name: typographic-attack
-    severity: HIGH
-    category: visual_prompt_injection
-    patterns:
-      - "(?i)typographic.*(?:attack|injection)"
-      - "(?i)text[-_]?in[-_]?image.*(?:instruction|override)"
-      - "(?i)render.*text.*image.*(?:instruction|prompt)"
-    message: "Typographic attack pattern detected"
-    description: |
-      Rendering malicious text as image to bypass text-based filters.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: &id001
+  - '*.py'
+- id: MEDUSA-VLM-VPI-002
+  name: typographic-attack
+  severity: HIGH
+  category: visual_prompt_injection
+  patterns:
+  - (?i)typographic.*(?:attack|injection)
+  - (?i)text[-_]?in[-_]?image.*(?:instruction|override)
+  - (?i)render.*text.*image.*(?:instruction|prompt)
+  message: Typographic attack pattern detected
+  description: 'Rendering malicious text as image to bypass text-based filters.
 
-  - id: MEDUSA-VLM-VPI-003
-    name: steganographic-injection
-    severity: CRITICAL
-    category: visual_prompt_injection
-    patterns:
-      - "(?i)stegan(?:ograph|o).*(?:inject|embed|hide)"
-      - "(?i)(?:hide|embed).*(?:data|instruction).*(?:pixel|image)"
-      - "(?i)lsb.*(?:encoding|embedding)"
-    message: "Steganographic injection pattern detected"
-    description: |
-      Using steganography to hide malicious payloads in images.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-VPI-003
+  name: steganographic-injection
+  severity: CRITICAL
+  category: visual_prompt_injection
+  patterns:
+  - (?i)stegan(?:ograph|o).*(?:inject|embed|hide)
+  - (?i)(?:hide|embed).*(?:data|instruction).*(?:pixel|image)
+  - (?i)lsb.*(?:encoding|embedding)
+  message: Steganographic injection pattern detected
+  description: 'Using steganography to hide malicious payloads in images.
 
-  # =============================================================================
-  # CROSS-MODAL ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-CROSS-001
+  name: cross-modal-override
+  severity: CRITICAL
+  category: cross_modal_attack
+  patterns:
+  - (?i)image.*override.*text
+  - (?i)visual.*instruction.*priority
+  - (?i)image.*(?:supersede|overrule).*(?:text|prompt)
+  message: Cross-modal override attack pattern detected
+  description: 'Image content overriding or superseding text instructions.
 
-  - id: MEDUSA-VLM-CROSS-001
-    name: cross-modal-override
-    severity: CRITICAL
-    category: cross_modal_attack
-    patterns:
-      - "(?i)image.*override.*text"
-      - "(?i)visual.*instruction.*priority"
-      - "(?i)image.*(?:supersede|overrule).*(?:text|prompt)"
-    message: "Cross-modal override attack pattern detected"
-    description: |
-      Image content overriding or superseding text instructions.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-CROSS-002
+  name: modality-confusion
+  severity: HIGH
+  category: cross_modal_attack
+  patterns:
+  - (?i)modality.*(?:confus|mix)
+  - (?i)(?:text|image).*(?:mask|hide).*(?:image|text)
+  - (?i)cross[-_]?modal.*(?:attack|exploit)
+  message: Modality confusion attack pattern detected
+  description: 'Exploiting interaction between different data types.
 
-  - id: MEDUSA-VLM-CROSS-002
-    name: modality-confusion
-    severity: HIGH
-    category: cross_modal_attack
-    patterns:
-      - "(?i)modality.*(?:confus|mix)"
-      - "(?i)(?:text|image).*(?:mask|hide).*(?:image|text)"
-      - "(?i)cross[-_]?modal.*(?:attack|exploit)"
-    message: "Modality confusion attack pattern detected"
-    description: |
-      Exploiting interaction between different data types.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-HIDDEN-001
+  name: white-on-white-text
+  severity: HIGH
+  category: hidden_content
+  patterns:
+  - (?i)white.*text.*white.*(?:background|bg)
+  - (?i)(?:hidden|invisible).*text.*(?:document|image)
+  - (?i)color.*(?:same|match).*background
+  message: Hidden text (white on white) pattern detected
+  description: 'Hidden instructions using text same color as background.
 
-  # =============================================================================
-  # HIDDEN CONTENT DETECTION
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-HIDDEN-002
+  name: ocr-bypass
+  severity: HIGH
+  category: hidden_content
+  patterns:
+  - (?i)ocr.*(?:bypass|evade)
+  - (?i)(?:hide|mask).*from.*ocr
+  - (?i)anti[-_]?ocr
+  message: OCR bypass pattern detected
+  description: 'Techniques to hide text from OCR scanning while visible to VLMs.
 
-  - id: MEDUSA-VLM-HIDDEN-001
-    name: white-on-white-text
-    severity: HIGH
-    category: hidden_content
-    patterns:
-      - "(?i)white.*text.*white.*(?:background|bg)"
-      - "(?i)(?:hidden|invisible).*text.*(?:document|image)"
-      - "(?i)color.*(?:same|match).*background"
-    message: "Hidden text (white on white) pattern detected"
-    description: |
-      Hidden instructions using text same color as background.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-HIDDEN-003
+  name: metadata-injection
+  severity: MEDIUM
+  category: hidden_content
+  patterns:
+  - (?i)(?:exif|metadata).*(?:inject|payload)
+  - (?i)(?:hide|embed).*(?:instruction|data).*(?:exif|metadata)
+  message: Metadata injection pattern detected
+  description: 'Hiding malicious data in image metadata.
 
-  - id: MEDUSA-VLM-HIDDEN-002
-    name: ocr-bypass
-    severity: HIGH
-    category: hidden_content
-    patterns:
-      - "(?i)ocr.*(?:bypass|evade)"
-      - "(?i)(?:hide|mask).*from.*ocr"
-      - "(?i)anti[-_]?ocr"
-    message: "OCR bypass pattern detected"
-    description: |
-      Techniques to hide text from OCR scanning while visible to VLMs.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-EXFIL-001
+  name: multimodal-exfiltration
+  severity: CRITICAL
+  category: data_exfiltration
+  patterns:
+  - (?i)image.*(?:leak|exfil)
+  - (?i)visual.*extract.*(?:secret|private)
+  - (?i)multimodal.*(?:steal|extract)
+  message: Multimodal data exfiltration pattern detected
+  description: 'Hidden instructions in images extract secrets from multi-agent systems.
 
-  - id: MEDUSA-VLM-HIDDEN-003
-    name: metadata-injection
-    severity: MEDIUM
-    category: hidden_content
-    patterns:
-      - "(?i)(?:exif|metadata).*(?:inject|payload)"
-      - "(?i)(?:hide|embed).*(?:instruction|data).*(?:exif|metadata)"
-    message: "Metadata injection pattern detected"
-    description: |
-      Hiding malicious data in image metadata.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-VLM-EXFIL-002
+  name: cross-agent-leak
+  severity: CRITICAL
+  category: data_exfiltration
+  patterns:
+  - (?i)cross[-_]?agent.*(?:leak|expose)
+  - (?i)agent.*(?:secret|private).*(?:another|other).*agent
+  message: Cross-agent data leak via multimodal
+  description: 'Image tricks one agent to leak information from another agent.
 
-  # =============================================================================
-  # MULTIMODAL DATA EXFILTRATION
-  # =============================================================================
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-VLM-PERTURB-001
+  name: adversarial-perturbation
+  severity: HIGH
+  category: adversarial_attack
+  patterns:
+  - (?i)adversarial.*(?:perturbation|noise)
+  - (?i)(?:pixel|image).*(?:perturb|manipulate)
+  - (?i)(?:pgd|fgsm|cw).*attack
+  message: Adversarial perturbation pattern detected
+  description: 'Pixel-level manipulations to fool VLM classifiers.
 
-  - id: MEDUSA-VLM-EXFIL-001
-    name: multimodal-exfiltration
-    severity: CRITICAL
-    category: data_exfiltration
-    patterns:
-      - "(?i)image.*(?:leak|exfil)"
-      - "(?i)visual.*extract.*(?:secret|private)"
-      - "(?i)multimodal.*(?:steal|extract)"
-    message: "Multimodal data exfiltration pattern detected"
-    description: |
-      Hidden instructions in images extract secrets from multi-agent systems.
-    owasp_llm: "LLM02:2025"
-    cwe: "CWE-200"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-PERTURB-002
+  name: vision-encoder-attack
+  severity: HIGH
+  category: adversarial_attack
+  patterns:
+  - (?i)vision[-_]?encoder.*(?:attack|exploit)
+  - (?i)image.*embedding.*(?:optim|manipulate)
+  - (?i)cosine[-_]?similarity.*(?:attack|malicious)
+  message: Vision encoder attack pattern detected
+  description: 'Optimizing image embedding to align with malicious prompts.
 
-  - id: MEDUSA-VLM-EXFIL-002
-    name: cross-agent-leak
-    severity: CRITICAL
-    category: data_exfiltration
-    patterns:
-      - "(?i)cross[-_]?agent.*(?:leak|expose)"
-      - "(?i)agent.*(?:secret|private).*(?:another|other).*agent"
-    message: "Cross-agent data leak via multimodal"
-    description: |
-      Image tricks one agent to leak information from another agent.
-    owasp_llm: "LLM02:2025"
-    cwe: "CWE-200"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Visual Prompt Injection Research
+  file_types: *id001
+- id: MEDUSA-VLM-CTRL-001
+  name: no-ocr-scanning
+  severity: HIGH
+  category: missing_control
+  patterns:
+  - (?i)ocr.*(?:disabled|false|skip)
+  - (?i)skip.*(?:image|visual).*(?:scan|check)
+  - (?i)text[-_]?extraction.*(?:disabled|false)
+  message: Missing OCR scanning for images
+  description: 'Images should be OCR scanned to detect hidden text instructions.
 
-  # =============================================================================
-  # IMAGE PERTURBATION ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  file_types: *id001
+- id: MEDUSA-VLM-CTRL-002
+  name: no-modality-segregation
+  severity: HIGH
+  category: missing_control
+  patterns:
+  - (?i)untrusted.*(?:image|visual).*(?:system|core)
+  - (?i)external.*content.*(?:core|trusted)
+  - (?i)modality.*segregat.*(?:disabled|false)
+  message: Missing modality segregation
+  description: 'Untrusted images should not access trusted system context.
 
-  - id: MEDUSA-VLM-PERTURB-001
-    name: adversarial-perturbation
-    severity: HIGH
-    category: adversarial_attack
-    patterns:
-      - "(?i)adversarial.*(?:perturbation|noise)"
-      - "(?i)(?:pixel|image).*(?:perturb|manipulate)"
-      - "(?i)(?:pgd|fgsm|cw).*attack"
-    message: "Adversarial perturbation pattern detected"
-    description: |
-      Pixel-level manipulations to fool VLM classifiers.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  file_types: *id001
+- id: MEDUSA-VLM-CTRL-003
+  name: no-output-validation
+  severity: MEDIUM
+  category: missing_control
+  patterns:
+  - (?i)(?:vlm|multimodal).*output.*(?:validate|check).*(?:false|disabled)
+  - (?i)skip.*(?:format|output).*(?:validation|check)
+  message: Missing VLM output validation
+  description: 'VLM output should be validated for format and safety.
 
-  - id: MEDUSA-VLM-PERTURB-002
-    name: vision-encoder-attack
-    severity: HIGH
-    category: adversarial_attack
-    patterns:
-      - "(?i)vision[-_]?encoder.*(?:attack|exploit)"
-      - "(?i)image.*embedding.*(?:optim|manipulate)"
-      - "(?i)cosine[-_]?similarity.*(?:attack|malicious)"
-    message: "Vision encoder attack pattern detected"
-    description: |
-      Optimizing image embedding to align with malicious prompts.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    source_paper: "Visual Prompt Injection Research"
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-20
+  file_types: *id001
+- id: MEDUSA-VLM-T2I-001
+  name: t2i-harmful-generation
+  severity: HIGH
+  category: t2i_attack
+  patterns:
+  - (?i)(?:generate|create).*(?:harmful|violent|explicit).*image
+  - (?i)(?:text[-_]?to[-_]?image|t2i).*(?:bypass|jailbreak)
+  - (?i)(?:dalle|midjourney|stable[-_]?diffusion).*(?:jailbreak|bypass)
+  message: Text-to-image harmful generation attempt
+  description: 'Attempts to generate harmful images through T2I models.
 
-  # =============================================================================
-  # MISSING SECURITY CONTROLS
-  # =============================================================================
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-T2I-002
+  name: t2i-prompt-injection
+  severity: HIGH
+  category: t2i_attack
+  patterns:
+  - (?i)(?:negative|unconditional).*(?:prompt|embedding).*(?:inject|attack)
+  - (?i)(?:cfg|guidance).*(?:scale|override).*attack
+  message: Text-to-image prompt injection pattern
+  description: 'Exploiting T2I model parameters to bypass safety filters.
 
-  - id: MEDUSA-VLM-CTRL-001
-    name: no-ocr-scanning
-    severity: HIGH
-    category: missing_control
-    patterns:
-      - "(?i)ocr.*(?:disabled|false|skip)"
-      - "(?i)skip.*(?:image|visual).*(?:scan|check)"
-      - "(?i)text[-_]?extraction.*(?:disabled|false)"
-    message: "Missing OCR scanning for images"
-    description: |
-      Images should be OCR scanned to detect hidden text instructions.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-20"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-AV-001
+  name: audio-injection
+  severity: MEDIUM
+  category: audio_attack
+  patterns:
+  - (?i)audio.*(?:inject|embed).*(?:instruction|command)
+  - (?i)(?:whisper|speech).*(?:inject|attack)
+  - (?i)ultrasonic.*(?:attack|injection)
+  message: Audio injection pattern detected
+  description: 'Hiding malicious instructions in audio inputs.
 
-  - id: MEDUSA-VLM-CTRL-002
-    name: no-modality-segregation
-    severity: HIGH
-    category: missing_control
-    patterns:
-      - "(?i)untrusted.*(?:image|visual).*(?:system|core)"
-      - "(?i)external.*content.*(?:core|trusted)"
-      - "(?i)modality.*segregat.*(?:disabled|false)"
-    message: "Missing modality segregation"
-    description: |
-      Untrusted images should not access trusted system context.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-20"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-VLM-AV-002
+  name: acoustic-adversarial
+  severity: MEDIUM
+  category: audio_attack
+  patterns:
+  - (?i)acoustic.*(?:adversarial|perturbation)
+  - (?i)(?:mouth[-_]?click|plosive).*(?:hack|exploit)
+  message: Acoustic adversarial pattern detected
+  description: 'Audio artifacts fooling speech/TTS reward models.
 
-  - id: MEDUSA-VLM-CTRL-003
-    name: no-output-validation
-    severity: MEDIUM
-    category: missing_control
-    patterns:
-      - "(?i)(?:vlm|multimodal).*output.*(?:validate|check).*(?:false|disabled)"
-      - "(?i)skip.*(?:format|output).*(?:validation|check)"
-    message: "Missing VLM output validation"
-    description: |
-      VLM output should be validated for format and safety.
-    owasp_llm: "LLM05:2025"
-    cwe: "CWE-20"
-
-  # =============================================================================
-  # TEXT-TO-IMAGE ATTACKS
-  # =============================================================================
-
-  - id: MEDUSA-VLM-T2I-001
-    name: t2i-harmful-generation
-    severity: HIGH
-    category: t2i_attack
-    patterns:
-      - "(?i)(?:generate|create).*(?:harmful|violent|explicit).*image"
-      - "(?i)(?:text[-_]?to[-_]?image|t2i).*(?:bypass|jailbreak)"
-      - "(?i)(?:dalle|midjourney|stable[-_]?diffusion).*(?:jailbreak|bypass)"
-    message: "Text-to-image harmful generation attempt"
-    description: |
-      Attempts to generate harmful images through T2I models.
-    owasp_llm: "LLM05:2025"
-    cwe: "CWE-94"
-
-  - id: MEDUSA-VLM-T2I-002
-    name: t2i-prompt-injection
-    severity: HIGH
-    category: t2i_attack
-    patterns:
-      - "(?i)(?:negative|unconditional).*(?:prompt|embedding).*(?:inject|attack)"
-      - "(?i)(?:cfg|guidance).*(?:scale|override).*attack"
-    message: "Text-to-image prompt injection pattern"
-    description: |
-      Exploiting T2I model parameters to bypass safety filters.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-
-  # =============================================================================
-  # AUDIO/VIDEO MULTIMODAL
-  # =============================================================================
-
-  - id: MEDUSA-VLM-AV-001
-    name: audio-injection
-    severity: MEDIUM
-    category: audio_attack
-    patterns:
-      - "(?i)audio.*(?:inject|embed).*(?:instruction|command)"
-      - "(?i)(?:whisper|speech).*(?:inject|attack)"
-      - "(?i)ultrasonic.*(?:attack|injection)"
-    message: "Audio injection pattern detected"
-    description: |
-      Hiding malicious instructions in audio inputs.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-
-  - id: MEDUSA-VLM-AV-002
-    name: acoustic-adversarial
-    severity: MEDIUM
-    category: audio_attack
-    patterns:
-      - "(?i)acoustic.*(?:adversarial|perturbation)"
-      - "(?i)(?:mouth[-_]?click|plosive).*(?:hack|exploit)"
-    message: "Acoustic adversarial pattern detected"
-    description: |
-      Audio artifacts fooling speech/TTS reward models.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+  file_types: *id001

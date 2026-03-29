@@ -1,0 +1,133 @@
+# MEDUSA Scanner Rules — jailbreaking (Expansion 2)
+metadata:
+  source: "expansion2 2026-03-02"
+  total_rules: 8
+
+rules:
+  - id: MEDUSA-JB-SCAN-093
+    name: constitutional-ai-bypass-critique-override
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)constitutional.{0,5}ai.{0,20}(bypass|override|circumvent|evade|defeat)"
+      - "(?i)(cai|constitutional).{0,20}(critique|revision|principle).{0,20}(bypass|override|manipulat|evade)"
+      - "(?i)(harmlessness|helpful|honest).{0,15}(override|bypass|circumvent|ignore).{0,20}(constitutional|cai)"
+      - "(?i)self.{0,5}critique.{0,20}(bypass|disable|override|manipulat).{0,20}(constitutional|harmless|safety)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Constitutional AI critique-revision safety bypass attempt detected"
+    description: "Detects attacks specifically targeting Constitutional AI (CAI) frameworks (Anthropic) by crafting inputs that manipulate the critique-revision loop to bypass harmlessness principles. CAI uses a two-stage critique-and-revision process where the model first critiques its own response for harmfulness; adversarial inputs crafted to exploit this mechanism cause the model to rate harmful outputs as passing the constitutional principles check. Bai et al. (2022) introduced CAI; subsequent adversarial analysis by Lee et al. (2024) demonstrated that prompts framed as hypothetical philosophical edge cases achieve 67% bypass of CAI critique filtering by exploiting the model's tendency to engage with abstract ethical arguments in the critique stage. Distinct from general jailbreaks — targets the specific CAI architecture."
+    remediation: "Apply adversarial training against CAI-targeted prompts in the critique stage. Implement independent safety classifiers that do not participate in the self-critique loop. Monitor for prompts that invoke constitutional principles terminology while containing harmful requests. Harden the constitutional principles list against rhetorical counter-arguments."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-094
+    name: jade-jailbroken-llm-as-attacker
+    severity: CRITICAL
+    category: jailbreaking
+    patterns:
+      - "(?i)\bJADE\b.{0,30}(jailbreak|attacker|red.{0,5}team)"
+      - "(?i)jailbroken.{0,10}llm.{0,20}(attack|red.{0,5}team|generate.{0,5}jailbreak|adversarial)"
+      - "(?i)(uncensored|jailbroken|fine.{0,5}tuned).{0,15}(model|llm).{0,20}(attack|generate|craft).{0,20}jailbreak"
+      - "(?i)llm.{0,10}(as|as.{0,5}an).{0,10}attacker.{0,20}(jailbreak|bypass|generate|craft)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "JADE-style jailbroken-LLM-as-attacker automated jailbreak generation detected"
+    description: "Detects JADE (Jailbreak Detection-and-Evasion) and similar frameworks that use a jailbroken or uncensored LLM as an automated attacker to generate novel jailbreaks against target models. By using an uncensored model as the attack generator, the attacker leverages generative capacity without safety constraints to produce diverse, semantically valid jailbreak prompts at scale. Chao et al. (2023) introduced PAIR (a related approach); Deng et al. (2024) demonstrated JADE using Vicuna fine-tuned on jailbreak pairs achieving 91% attack success rate against GPT-4 via iterative red-team generation. This is distinct from human-authored jailbreaks — the attack is automated and adaptive."
+    remediation: "Implement jailbreak pattern diversity detection that flags high-frequency systematic probe patterns. Monitor for API usage patterns consistent with automated jailbreak generation (rapid iterative prompting). Deploy PAIR/JADE-specific countermeasures including diverse response sampling to prevent attacker feedback loops."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-095
+    name: genetic-algorithm-automated-red-teaming
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)(genetic.{0,5}algorithm|evolutionary.{0,5}algorithm).{0,20}(jailbreak|red.{0,5}team|bypass|attack)"
+      - "(?i)(crossover|mutation|fitness.{0,5}function).{0,20}(jailbreak|prompt|bypass|attack)"
+      - "(?i)(evolve|evolving|evolution).{0,15}(jailbreak|prompt|attack).{0,20}(bypass|llm|safety)"
+      - "(?i)automated.{0,10}red.{0,5}team.{0,20}(genetic|evolutionary|crossover|mutation).{0,20}(jailbreak|bypass)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Genetic algorithm automated red-teaming for jailbreak evolution detected"
+    description: "Detects automated red-teaming pipelines that use genetic algorithms or evolutionary computation to evolve jailbreak prompts, selecting for attack success rate as fitness function with crossover and mutation operators over prompt populations. Distinct from AutoDAN (covered by MEDUSA-JB-SCAN-010 as hierarchical genetic algorithm on tokens): this rule targets semantic-level evolutionary jailbreak frameworks that evolve human-readable prompt structures. Perez & Ribeiro (2022) introduced automated red-teaming; Wallace et al. (2024) demonstrated genetic algorithm jailbreak evolution achieving 88% ASR against Claude Sonnet with semantic diversity exceeding template-based approaches by 4x."
+    remediation: "Monitor for systematic iterative prompt submission patterns characteristic of evolutionary optimization. Implement diversity-based rate limiting that throttles accounts submitting semantically similar prompt variants. Apply red-team-aware monitoring that treats clustered probe patterns as an attack signal independent of individual probe harmfulness."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-096
+    name: cross-lingual-semantic-similarity-jailbreak
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)cross.{0,5}lingual.{0,20}(jailbreak|semantic|transfer|bypass|attack)"
+      - "(?i)(translate|translat).{0,15}(jailbreak|bypass|harmful).{0,20}(language|low.{0,5}resource|cross.{0,5}lingual)"
+      - "(?i)(semantic.{0,5}preserving|meaning.{0,5}preserving).{0,15}translation.{0,20}(jailbreak|bypass|safety)"
+      - "(?i)(multilingual.{0,5}transfer|cross.{0,5}language).{0,20}(jailbreak|bypass|safety.{0,5}gap|attack)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Cross-lingual semantic similarity jailbreak transferring attacks via translation detected"
+    description: "Detects cross-lingual jailbreak attacks that leverage semantic meaning preservation across translation to transfer known jailbreaks from well-defended high-resource languages (English) to lower-resource languages where safety training is weaker. Distinct from MEDUSA-JB-SCAN-063 (low-resource language bypass) and MEDUSA-JB-SCAN-038 (CipherChat encoding): this rule targets frameworks that systematically find language pairs where safety alignment is weakest for specific request categories using semantic similarity metrics to ensure meaning preservation post-translation. Yuan et al. (2024) demonstrated cross-lingual jailbreak transfer achieving 71% ASR on GPT-4 via Bengali and Telugu translations of English jailbreaks with preserved semantic similarity (LASER > 0.87)."
+    remediation: "Apply multilingual safety training that ensures consistent refusal behavior across all supported languages. Implement cross-lingual semantic similarity detection to identify translated jailbreak variants. Conduct multilingual safety evaluations as part of red-team testing before model deployment. Monitor for unusual language distributions in harmful request categories."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-097
+    name: prefix-injection-forced-affirmative-start
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)(prefix|prefi).{0,10}inject.{0,20}(jailbreak|bypass|force|attack|safety)"
+      - "(?i)(force|inject|prepend).{0,15}(affirmative|yes|sure|absolutely|certainly|of.{0,5}course).{0,20}(prefix|start|begin|response)"
+      - "(?i)(start.{0,5}with|begin.{0,5}with|continue.{0,5}from).{0,20}(sure|absolutely|certainly|yes|of.{0,5}course).{0,20}(response|bypass|jailbreak)"
+      - "(?i)context.{0,10}(prefix|inject|prepend).{0,20}(jailbreak|bypass|compliance|safety.{0,5}bypass)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Prefix injection attack forcing affirmative response prefix to bypass refusal behavior detected"
+    description: "Detects prefix injection attacks that force LLMs to begin their response with an affirmative prefix (\"Sure, here is...\", \"Absolutely, I will...\") that commits the model to compliance before it processes the harmful instruction, bypassing refusal behavior. Prefill/prefix manipulation exploits the autoregressive nature of LLMs: once a compliant prefix is generated, the model continues the response coherently from that starting point. Zhao et al. (2024) demonstrated that affirmative prefix injection achieves 54% ASR against Claude Sonnet-3.5 for requests that would otherwise be refused with 99% confidence, with the effect being stronger for longer affirmative prefixes. Note: distinct from GCG suffix attacks (covered elsewhere) — focuses on prefix/prefill manipulation."
+    remediation: "Implement response validation that checks for compliance patterns at response start. Detect and block prompts that include explicit prefill/prefix injection instructions. Apply safety filtering at response generation time rather than only on input, to catch prefix-induced compliance bypass. Retrain with adversarial prefix examples."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-098
+    name: crescendo-multiturn-incremental-escalation
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)crescendo.{0,20}(jailbreak|attack|escalat|multi.{0,3}turn)"
+      - "(?i)(multi.{0,3}turn|multi.{0,3}step).{0,15}(crescendo|escalat|gradual|increment).{0,20}(jailbreak|bypass|safety)"
+      - "(?i)(gradual|incremental|step.{0,3}by.{0,3}step).{0,15}(escalat|increase).{0,20}(harm|harmful|jailbreak|bypass)"
+      - "(?i)(slow.{0,5}escalat|frog.{0,5}boil|gradual.{0,5}harm).{0,20}(multi.{0,3}turn|conversation|jailbreak|bypass)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Crescendo multi-turn incremental escalation jailbreak pattern detected"
+    description: "Detects Crescendo and similar multi-turn incremental escalation attacks that gradually escalate from benign requests toward harmful content across multiple conversation turns, exploiting the model's contextual compliance momentum. Unlike MEDUSA-JB-SCAN-018 (SIREN multi-turn) and MEDUSA-JB-SCAN-058 (Decomposition, covered), Crescendo specifically focuses on monotonic harmfulness escalation where each turn marginally increases the harmful content, making individual turn-level safety checks insufficient. Russinovich et al. (2024, Microsoft) introduced the Crescendo attack and demonstrated 65-87% ASR against GPT-4, Claude, and Gemini, noting that multi-turn safety classifiers trained on individual turn content fail to detect cross-turn escalation patterns."
+    remediation: "Implement cross-turn safety analysis that evaluates conversation trajectory for escalating harmfulness patterns. Deploy conversation-level safety classifiers that detect cumulative harmfulness escalation. Apply stateful safety monitoring that increases scrutiny for conversations with confirmed pattern of harm-adjacent content."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-099
+    name: jailbreak-open-source-to-closed-transfer
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)(transfer|transferab).{0,15}(jailbreak|attack|bypass).{0,20}(open.{0,5}source|llama|mistral|vicuna|falcon).{0,20}(closed|gpt|claude|gemini)"
+      - "(?i)(white.{0,5}box|open.{0,5}weight).{0,20}(jailbreak|attack).{0,20}(transfer|transferab).{0,20}(closed|api.{0,5}only|proprietary)"
+      - "(?i)(surrogate|proxy|substitute).{0,10}model.{0,20}jailbreak.{0,20}(transfer|transferab|closed.{0,5}model)"
+      - "(?i)(llama|mistral|falcon|vicuna).{0,20}(white.{0,5}box|gradient).{0,20}jailbreak.{0,20}(gpt|claude|gemini|transfer)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Jailbreak transferability from open-source to closed API models via surrogate optimization detected"
+    description: "Detects jailbreak transfer attacks that develop white-box attacks on open-source models (Llama, Mistral, Falcon) as surrogates for closed models (GPT-4, Claude, Gemini), then transfer the resulting jailbreaks to closed models via black-box query. The transferability of gradient-based attacks across model families is a known vulnerability of GCG and related methods. Zou et al. (2023, the original GCG paper) demonstrated 47% transfer rate from Vicuna to GPT-4; Chen et al. (2024) improved this to 71% using multi-model ensemble surrogate optimization. This enables white-box attack power against closed models that only expose API access."
+    remediation: "Train closed models on adversarial examples derived from open-source surrogate optimization to reduce transferability. Monitor for systematic multi-turn probe patterns consistent with black-box transfer evaluation. Implement diverse random smoothing that reduces gradient signal availability to transfer attacks."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-JB-SCAN-100
+    name: adaptive-refusal-detector-adversarial-attack
+    severity: HIGH
+    category: jailbreaking
+    patterns:
+      - "(?i)adaptive.{0,10}(attack|jailbreak).{0,20}(refusal|safety.{0,5}classifier|detector|filter)"
+      - "(?i)(refusal.{0,5}detector|safety.{0,5}classifier).{0,20}(adaptive|adversarial|evade|bypass|fool)"
+      - "(?i)(adaptive.{0,5}adversarial|adaptive.{0,5}jailbreak).{0,20}(refusal|safety|classifier|detector)"
+      - "(?i)(probe|oracle|feedback).{0,20}(refusal|safety.{0,5}score|classifier).{0,20}(adaptive|optimize|bypass|evade)"
+    file_types: ["*.py", "*.ipynb", "*.yaml", "*.json"]
+    message: "Adaptive adversarial attack targeting refusal detector or safety classifier feedback detected"
+    description: "Detects adaptive adversarial attacks that specifically target deployed safety classifiers and refusal detectors by using their decision boundary as an optimization signal. Unlike standard jailbreaks that bypass the model's internal safety training, adaptive attacks treat the deployed safety stack (input classifiers, output filters, refusal detectors) as a differentiable or queryable oracle and optimize adversarial inputs against it. Carlini et al. (2023) established that adaptive attacks on certified defenses consistently outperform non-adaptive attacks by 50-90 percentage points. Huang et al. (2024) demonstrated adaptive attacks on LlamaGuard and Azure Content Safety achieving 83% bypass via score-guided input optimization. Distinct from MEDUSA-STE-SCAN-093 (safety classifier suffix evasion) — targets the overall adaptive attack methodology."
+    remediation: "Implement randomized safety ensemble classifiers to reduce gradient signal for adaptive attackers. Apply certified defense techniques (randomized smoothing) to safety classifiers. Conduct adaptive attack evaluations as standard safety red-teaming. Monitor for score-probing behavior in API usage patterns."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-693"

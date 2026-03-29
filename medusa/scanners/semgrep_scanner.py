@@ -93,6 +93,13 @@ class SemgrepScanner(BaseScanner):
                 '--json',
                 '--quiet',
                 '--no-git-ignore',
+                '--exclude', '.medusa',
+                '--exclude', 'node_modules',
+                '--exclude', '.venv',
+                '--exclude', 'venv',
+                '--exclude', 'dist',
+                '--exclude', 'build',
+                '--exclude', '__pycache__',
                 str(project_root),
             ]
             result = self._run_command(cmd, timeout=600)

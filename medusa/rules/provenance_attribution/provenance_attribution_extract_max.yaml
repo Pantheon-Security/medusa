@@ -1,0 +1,1090 @@
+version: 1
+metadata:
+  name: MEDUSA Provenance Attribution Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 95
+  relevant_papers: 8
+  source: extract_max.py agent-based extraction
+rules:
+- id: MEDUSA-PROV-SCAN-001
+  name: atlas-c2pa-manifest-tampering
+  description: Detects code that manipulates or strips C2PA manifests from ML model artifacts, as described in Atlas framework's
+    provenance chain protection
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:c2pa|c2pa_manifest|content_credentials)\s*(?:\.|\[).*(?:delete|remove|strip|clear|overwrite)
+  file_types:
+  - '*.py'
+  message: 'Detected: atlas-c2pa-manifest-tampering'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Spoczynski (2025) - Atlas framework uses C2PA manifests for ML artifact provenance; tampering with these strips
+    model lineage
+- id: MEDUSA-PROV-SCAN-002
+  name: atlas-rekor-transparency-bypass
+  description: Detects attempts to bypass or tamper with Rekor transparency log entries used for tamper-evident ML provenance
+    tracking
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:from\s+)?rekor.*import|sigstore\.rekor|rekor_client|transparency.log.*(?:delete|modify|forge)
+  file_types:
+  - '*.py'
+  message: 'Detected: atlas-rekor-transparency-bypass'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Spoczynski (2025) - Atlas uses Rekor transparency logs for tamper-evident provenance; circumventing these
+    undermines model integrity verification
+- id: MEDUSA-PROV-SCAN-003
+  name: atlas-checkpoint-hash-manipulation
+  description: Detects code that modifies checkpoint cryptographic hashes or parameter hashes used for ML model integrity
+    verification
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:parameter_hash|checkpoint_hash|environment_hash|model_hash|weight_hash)\s*=\s*(?:['"]|hashlib)
+  file_types:
+  - '*.py'
+  message: 'Detected: atlas-checkpoint-hash-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Spoczynski (2025) - Atlas tracks checkpoint integrity via cryptographic hashes; forging these allows unauthorized
+    model modifications to go undetected
+- id: MEDUSA-PROV-SCAN-004
+  name: atlas-tdx-attestation-spoof
+  description: Detects code that forges or spoofs Intel TDX attestation quotes used in hardware-backed ML provenance verification
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:tdx_quote|tdx_attest|tee_attestation|sgx_quote)\s*=\s*(?:['"]|base64|b')
+  file_types:
+  - '*.py'
+  message: 'Detected: atlas-tdx-attestation-spoof'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Spoczynski (2025) - Atlas uses TEE-based attestation (TDX quotes) for hardware-rooted provenance; spoofing
+    these undermines the entire trust chain
+- id: MEDUSA-PROV-SCAN-005
+  name: atlas-provenance-metadata-strip
+  description: Detects code patterns that strip or manipulate ML pipeline provenance metadata including integrity measurements
+    and training run records
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:integrity_measurement|provenance_metadata|manifest_chain|attestation_record)\s*(?:\.|\[).*(?:pop|del|remove|clear|None)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: 'Detected: atlas-provenance-metadata-strip'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Spoczynski (2025) - Atlas records integrity measurements per training run; stripping these allows model substitution
+    attacks
+- id: MEDUSA-PROV-SCAN-006
+  name: dataset-license-stripping
+  description: Detects code that removes or overwrites dataset license metadata from HuggingFace datasets or model cards,
+    enabling license laundering
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:dataset_info|model_card|card_data)\s*(?:\.|\[).*(?:license|licence)\s*(?:=\s*(?:None|['"]|\[\])|(?:\.pop|\.remove|del\s))
+  file_types:
+  - '*.py'
+  message: 'Detected: dataset-license-stripping'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Longpre (2024) - Documents 70%+ license omission rates on dataset hosting platforms; code that strips license
+    metadata enables misattribution
+- id: MEDUSA-PROV-SCAN-007
+  name: dataprovenance-explorer-misuse
+  description: Detects use of the Data Provenance Explorer tool or dataprovenance.org API, which could be used to audit and
+    circumvent dataset licensing restrictions
+  severity: low
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:dataprovenance\.org|Data.Provenance.Initiative|DPExplorer|data.provenance.collection)
+  file_types:
+  - '*.py'
+  message: 'Detected: dataprovenance-explorer-misuse'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Longpre (2024) - DPExplorer enables dataset license auditing; awareness detection for provenance-related tooling
+- id: MEDUSA-PROV-SCAN-008
+  name: dataset-relicensing-attack
+  description: Detects code that reassigns more permissive licenses to datasets, as documented in widespread license miscategorization
+    attacks
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:license|licence)\s*=\s*['"](?:MIT|Apache|CC.BY(?!.NC|.SA)|public.domain|unlicense)['"]\s*#.*(?:override|change|relicense)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: dataset-relicensing-attack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Longpre (2024) - Documents 66% of analyzed licenses were more permissive than author's original; detecting
+    intentional relicensing
+- id: MEDUSA-PROV-SCAN-009
+  name: flowcept-provenance-tampering
+  description: Detects use of Flowcept provenance framework APIs that could be targeted for provenance record manipulation
+    in agentic workflows
+  severity: low
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:from\s+)?flowcept\s+import|FlowceptLLM|flowcept_agent_tool|flowcept_task
+  file_types:
+  - '*.py'
+  message: 'Detected: flowcept-provenance-tampering'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Souza (2025) - PROV-AGENT extends Flowcept for agentic provenance; monitoring for framework-specific code
+    patterns
+- id: MEDUSA-PROV-SCAN-010
+  name: prov-agent-model-invocation-spoof
+  description: Detects code that manipulates AIModelInvocation or AIAgent provenance records to falsify agent decision lineage
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:AIModelInvocation|AIAgent|AgentTool|ResponseData|Agent_Decision)\s*(?:\.|\[).*(?:=|update|set|override)
+  file_types:
+  - '*.py'
+  message: 'Detected: prov-agent-model-invocation-spoof'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Souza (2025) - PROV-AGENT tracks AI agent decisions via W3C PROV model; manipulating these records obscures
+    agent error provenance
+- id: MEDUSA-PROV-SCAN-011
+  name: ml-supply-chain-model-substitution
+  description: Detects code patterns indicative of ML model supply chain attacks including model repository manipulation and
+    checkpoint substitution
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:torch\.load|from_pretrained|load_model|load_checkpoint)\s*\(.*(?:http|ftp|s3://|gs://|untrusted|mirror)
+  file_types:
+  - '*.py'
+  message: 'Detected: ml-supply-chain-model-substitution'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-494
+  source_paper: Tan (2025) - Documents ML model supply chain as attack vector within ATLAS/MITRE framework; loading models
+    from untrusted sources enables provenance forgery
+- id: MEDUSA-PROV-SCAN-012
+  name: huggingface-model-impersonation
+  description: Detects code patterns that could be used for model impersonation on HuggingFace Hub, loading models from suspicious
+    non-official namespaces
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?i)from_pretrained\s*\(['"](?!(?:meta-llama|openai|google|microsoft|facebook|mistralai|stabilityai|huggingface)/)\S+/\S+['"]
+  file_types:
+  - '*.py'
+  message: 'Detected: huggingface-model-impersonation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-494
+  source_paper: Tan (2025) - Covers supply chain compromise via source substitution; typosquatting on model repositories is
+    a form of provenance forgery
+- id: MEDUSA-PROV-SCAN-013
+  name: multimedia-provenance-evasion-tools
+  description: Detects use of reverse image search evasion, metadata stripping, or EXIF manipulation tools that could evade
+    multimedia content authenticity verification
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:exif|metadata)\s*(?:\.|\[).*(?:strip|remove|delete|clear|wipe)|piexif\.remove|PIL\.ExifTags.*(?:del|pop)
+  file_types:
+  - '*.py'
+  message: 'Detected: multimedia-provenance-evasion-tools'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Le (2025) - Documents multi-agent verification pipeline using metadata analysis; stripping metadata evades
+    source attribution
+- id: MEDUSA-PROV-SCAN-014
+  name: data-poisoning-feature-collision
+  description: Detects code implementing feature collision or polytope data poisoning attacks that compromise training data
+    provenance integrity
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:feature_collision|poison_polytope|MetaPoison|clean_label_attack|gradient_matching)\s*(?:\(|=|import)
+  file_types:
+  - '*.py'
+  message: 'Detected: data-poisoning-feature-collision'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+  source_paper: Raghavan (2022) - Documents feature collision, polytope, and MetaPoison attacks that inject poisoned samples
+    indistinguishable from legitimate training data
+- id: MEDUSA-PROV-SCAN-015
+  name: training-data-label-flipping
+  description: Detects code that implements label flipping attacks on distributed training data, corrupting training data
+    attribution
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:label_flip|flip_labels|label_poison|random_label_noise)\s*(?:\(|=)
+  file_types:
+  - '*.py'
+  message: 'Detected: training-data-label-flipping'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM03:2025
+  cwe: CWE-345
+  source_paper: Raghavan (2022) - Documents label flipping attacks in distributed training; corrupts data provenance by making
+    poisoned data appear legitimate
+- id: MEDUSA-PROV-SCAN-016
+  name: machine-unlearning-provenance-attack
+  description: Detects implementation of machine unlearning techniques that could be misused to erase training data provenance
+    or bypass attribution requirements
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:machine_unlearn|unlearn_model|forget_data|data_erasure|sisa_training|exact_unlearning|approximate_unlearning)\s*(?:\(|=|import)
+  file_types:
+  - '*.py'
+  message: 'Detected: machine-unlearning-provenance-attack'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Zhang (2023) - Machine unlearning can be weaponized to erase evidence of training on specific data, undermining
+    data provenance and attribution
+- id: MEDUSA-PROV-SCAN-017
+  name: federated-learning-provenance-poisoning
+  description: Detects code that manipulates federated learning model provenance by poisoning gradient aggregation or forging
+    node reputation
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?i)(?:poison_gradient|malicious_gradient|fake_reputation|forge_node_id|tamper_aggregat)\s*(?:\(|=)
+  file_types:
+  - '*.py'
+  message: 'Detected: federated-learning-provenance-poisoning'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM05:2025
+  cwe: CWE-345
+  source_paper: Rahman (2020) - Documents blockchain-based FL provenance tracking; malicious nodes can poison gradients while
+    maintaining fake reputation scores
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that manipulates or strips C2PA manifests from ML model artifacts, as described in Atlas framework's
+    provenance chain protection
+  file_types:
+  - '*.py'
+  id: PROV-001
+  message: 'Detected: atlas-c2pa-manifest-tampering'
+  name: atlas-c2pa-manifest-tampering
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:c2pa|c2pa_manifest|content_credentials)\s*(?:\.|\[).*(?:delete|remove|strip|clear|overwrite)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Spoczynski (2025) - Atlas framework uses C2PA manifests for ML artifact provenance; tampering with these strips
+    model lineage
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects attempts to bypass or tamper with Rekor transparency log entries used for tamper-evident ML provenance
+    tracking
+  file_types:
+  - '*.py'
+  id: PROV-002
+  message: 'Detected: atlas-rekor-transparency-bypass'
+  name: atlas-rekor-transparency-bypass
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:from\s+)?rekor.*import|sigstore\.rekor|rekor_client|transparency.log.*(?:delete|modify|forge)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Spoczynski (2025) - Atlas uses Rekor transparency logs for tamper-evident provenance; circumventing these
+    undermines model integrity verification
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that modifies checkpoint cryptographic hashes or parameter hashes used for ML model integrity
+    verification
+  file_types:
+  - '*.py'
+  id: PROV-003
+  message: 'Detected: atlas-checkpoint-hash-manipulation'
+  name: atlas-checkpoint-hash-manipulation
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:parameter_hash|checkpoint_hash|environment_hash|model_hash|weight_hash)\s*=\s*(?:['"]|hashlib)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Spoczynski (2025) - Atlas tracks checkpoint integrity via cryptographic hashes; forging these allows unauthorized
+    model modifications to go undetected
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that forges or spoofs Intel TDX attestation quotes used in hardware-backed ML provenance verification
+  file_types:
+  - '*.py'
+  id: PROV-004
+  message: 'Detected: atlas-tdx-attestation-spoof'
+  name: atlas-tdx-attestation-spoof
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:tdx_quote|tdx_attest|tee_attestation|sgx_quote)\s*=\s*(?:['"]|base64|b')
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Spoczynski (2025) - Atlas uses TEE-based attestation (TDX quotes) for hardware-rooted provenance; spoofing
+    these undermines the entire trust chain
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code patterns that strip or manipulate ML pipeline provenance metadata including integrity measurements
+    and training run records
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: PROV-005
+  message: 'Detected: atlas-provenance-metadata-strip'
+  name: atlas-provenance-metadata-strip
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:integrity_measurement|provenance_metadata|manifest_chain|attestation_record)\s*(?:\.|\[).*(?:pop|del|remove|clear|None)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Spoczynski (2025) - Atlas records integrity measurements per training run; stripping these allows model substitution
+    attacks
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that removes or overwrites dataset license metadata from HuggingFace datasets or model cards,
+    enabling license laundering
+  file_types:
+  - '*.py'
+  id: PROV-006
+  message: 'Detected: dataset-license-stripping'
+  name: dataset-license-stripping
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:dataset_info|model_card|card_data)\s*(?:\.|\[).*(?:license|licence)\s*(?:=\s*(?:None|['"]|\[\])|(?:\.pop|\.remove|del\s))
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Longpre (2024) - Documents 70%+ license omission rates on dataset hosting platforms; code that strips license
+    metadata enables misattribution
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects use of the Data Provenance Explorer tool or dataprovenance.org API, which could be used to audit and
+    circumvent dataset licensing restrictions
+  file_types:
+  - '*.py'
+  id: PROV-007
+  message: 'Detected: dataprovenance-explorer-misuse'
+  name: dataprovenance-explorer-misuse
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:dataprovenance\.org|Data.Provenance.Initiative|DPExplorer|data.provenance.collection)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: low
+  source_paper: Longpre (2024) - DPExplorer enables dataset license auditing; awareness detection for provenance-related tooling
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that reassigns more permissive licenses to datasets, as documented in widespread license miscategorization
+    attacks
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: PROV-008
+  message: 'Detected: dataset-relicensing-attack'
+  name: dataset-relicensing-attack
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:license|licence)\s*=\s*['"](?:MIT|Apache|CC.BY(?!.NC|.SA)|public.domain|unlicense)['"]\s*#.*(?:override|change|relicense)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Longpre (2024) - Documents 66% of analyzed licenses were more permissive than author's original; detecting
+    intentional relicensing
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects use of Flowcept provenance framework APIs that could be targeted for provenance record manipulation
+    in agentic workflows
+  file_types:
+  - '*.py'
+  id: PROV-009
+  message: 'Detected: flowcept-provenance-tampering'
+  name: flowcept-provenance-tampering
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:from\s+)?flowcept\s+import|FlowceptLLM|flowcept_agent_tool|flowcept_task
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: low
+  source_paper: Souza (2025) - PROV-AGENT extends Flowcept for agentic provenance; monitoring for framework-specific code
+    patterns
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that manipulates AIModelInvocation or AIAgent provenance records to falsify agent decision lineage
+  file_types:
+  - '*.py'
+  id: PROV-010
+  message: 'Detected: prov-agent-model-invocation-spoof'
+  name: prov-agent-model-invocation-spoof
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:AIModelInvocation|AIAgent|AgentTool|ResponseData|Agent_Decision)\s*(?:\.|\[).*(?:=|update|set|override)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Souza (2025) - PROV-AGENT tracks AI agent decisions via W3C PROV model; manipulating these records obscures
+    agent error provenance
+- category: provenance_attribution
+  cwe: CWE-494
+  description: Detects code patterns indicative of ML model supply chain attacks including model repository manipulation and
+    checkpoint substitution
+  file_types:
+  - '*.py'
+  id: PROV-011
+  message: 'Detected: ml-supply-chain-model-substitution'
+  name: ml-supply-chain-model-substitution
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:torch\.load|from_pretrained|load_model|load_checkpoint)\s*\(.*(?:http|ftp|s3://|gs://|untrusted|mirror)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Tan (2025) - Documents ML model supply chain as attack vector within ATLAS/MITRE framework; loading models
+    from untrusted sources enables provenance forgery
+- category: provenance_attribution
+  cwe: CWE-494
+  description: Detects code patterns that could be used for model impersonation on HuggingFace Hub, loading models from suspicious
+    non-official namespaces
+  file_types:
+  - '*.py'
+  id: PROV-012
+  message: 'Detected: huggingface-model-impersonation'
+  name: huggingface-model-impersonation
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)from_pretrained\s*\(['"](?!(?:meta-llama|openai|google|microsoft|facebook|mistralai|stabilityai|huggingface)/)\S+/\S+['"]
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Tan (2025) - Covers supply chain compromise via source substitution; typosquatting on model repositories is
+    a form of provenance forgery
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects use of reverse image search evasion, metadata stripping, or EXIF manipulation tools that could evade
+    multimedia content authenticity verification
+  file_types:
+  - '*.py'
+  id: PROV-013
+  message: 'Detected: multimedia-provenance-evasion-tools'
+  name: multimedia-provenance-evasion-tools
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:exif|metadata)\s*(?:\.|\[).*(?:strip|remove|delete|clear|wipe)|piexif\.remove|PIL\.ExifTags.*(?:del|pop)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Le (2025) - Documents multi-agent verification pipeline using metadata analysis; stripping metadata evades
+    source attribution
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code implementing feature collision or polytope data poisoning attacks that compromise training data
+    provenance integrity
+  file_types:
+  - '*.py'
+  id: PROV-014
+  message: 'Detected: data-poisoning-feature-collision'
+  name: data-poisoning-feature-collision
+  owasp_llm: LLM03:2025
+  patterns:
+  - (?i)(?:feature_collision|poison_polytope|MetaPoison|clean_label_attack|gradient_matching)\s*(?:\(|=|import)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Raghavan (2022) - Documents feature collision, polytope, and MetaPoison attacks that inject poisoned samples
+    indistinguishable from legitimate training data
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that implements label flipping attacks on distributed training data, corrupting training data
+    attribution
+  file_types:
+  - '*.py'
+  id: PROV-015
+  message: 'Detected: training-data-label-flipping'
+  name: training-data-label-flipping
+  owasp_llm: LLM03:2025
+  patterns:
+  - (?i)(?:label_flip|flip_labels|label_poison|random_label_noise)\s*(?:\(|=)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Raghavan (2022) - Documents label flipping attacks in distributed training; corrupts data provenance by making
+    poisoned data appear legitimate
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects implementation of machine unlearning techniques that could be misused to erase training data provenance
+    or bypass attribution requirements
+  file_types:
+  - '*.py'
+  id: PROV-016
+  message: 'Detected: machine-unlearning-provenance-attack'
+  name: machine-unlearning-provenance-attack
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:machine_unlearn|unlearn_model|forget_data|data_erasure|sisa_training|exact_unlearning|approximate_unlearning)\s*(?:\(|=|import)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zhang (2023) - Machine unlearning can be weaponized to erase evidence of training on specific data, undermining
+    data provenance and attribution
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that manipulates federated learning model provenance by poisoning gradient aggregation or forging
+    node reputation
+  file_types:
+  - '*.py'
+  id: PROV-017
+  message: 'Detected: federated-learning-provenance-poisoning'
+  name: federated-learning-provenance-poisoning
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:poison_gradient|malicious_gradient|fake_reputation|forge_node_id|tamper_aggregat)\s*(?:\(|=)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Rahman (2020) - Documents blockchain-based FL provenance tracking; malicious nodes can poison gradients while
+    maintaining fake reputation scores
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that attempts to bypass LLM authorship attribution by manipulating style embeddings, cosine similarity
+    thresholds, or LLM-as-judge evaluation pipelines used for AI-generated content detection
+  file_types:
+  - '*.py'
+  id: PROV-018
+  message: 'Detected: style-embedding-authorship-spoof'
+  name: style-embedding-authorship-spoof
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:style_embed|authorship_embed|author_vector)\s*(?:\.|\[).*(?:manipulate|spoof|forge|override|replace)
+  - (?i)(?:cosine_similarity|embedding_distance)\s*(?:threshold|cutoff|score)\s*=\s*(?:0\.[0-9]+|1\.0)
+  - (?i)(?:llm.judge|llm_judge|judge_score|attribution_score)\s*(?:\.|\[|=).*(?:override|fake|spoof|manipulate)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Abbas (2025) - Benchmarks style embeddings vs LLM-as-judge for AI authorship detection; GPT-4o self-blindness
+    (67.7% vs 81.5%) enables attribution bypass via domain-specific style tuning
+- category: provenance_attribution
+  cwe: CWE-89
+  description: Detects SPARQL or Cypher query construction using string concatenation against provenance triple stores (Fuseki,
+    Neo4j), enabling injection attacks on W3C PROV-DM/PROV-O knowledge graphs
+  file_types:
+  - '*.py'
+  - '*.sparql'
+  - '*.rq'
+  id: PROV-019
+  message: 'Detected: sparql-provenance-store-injection'
+  name: sparql-provenance-store-injection
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:sparql|cypher).*(?:query|stmt)\s*(?:=|\+=|format).*(?:\+|%s|f['"]|format\().*(?:prov|entity|activity|agent|wasGeneratedBy|used|wasDerivedFrom)
+  - (?i)(?:fuseki|jena|neo4j|blazegraph).*(?:update|insert|delete|modify).*(?:prov|provenance|attribution|named.graph)
+  - (?i)(?:from_pretrained|load_graph|rdf_graph).*(?:provenance|prov.ttl|prov.json|attribution)
+  remediation: Use parameterized SPARQL/Cypher queries. Never concatenate user input into provenance query strings.
+  severity: critical
+  source_paper: Jain (2025) - SURROUND/Encompass framework uses PROV-DM + PROV-O + RDF; SPARQL injection against Fuseki/Neo4j
+    provenance stores can corrupt entire attribution chains
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that directly modifies RDF triples, Named Graphs, or PROV-O entities to alter provenance attribution
+    records in semantic web provenance frameworks
+  file_types:
+  - '*.py'
+  - '*.ttl'
+  - '*.json'
+  id: PROV-020
+  message: 'Detected: rdf-provenance-record-manipulation'
+  name: rdf-provenance-record-manipulation
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:graph|named_graph|prov_graph|rdf_graph)\s*(?:\.|\[).*(?:remove|delete|update|set|replace|pop).*(?:prov|attribution|entity|activity|agent)
+  - (?i)(?:wasAttributedTo|wasGeneratedBy|wasDerivedFrom|hadPrimarySource|wasQuotedFrom)\s*(?:=|\[).*(?:None|null|\[\]|fake|spoof)
+  - (?i)(?:ProvDocument|ProvBundle|ProvRecord)\s*(?:\.|\[).*(?:remove|delete|update|clear|replace)
+  remediation: Review usage context. Provenance record modification should be access-controlled and audit-logged.
+  severity: high
+  source_paper: Jain (2025) - ProvWorkflow (ProvWF) Python framework for PROV-DM provenance generation; Named Graph spoofing
+    in Fuseki/Neo4j enables silent attribution record falsification
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that poisons knowledge graph sources used for LLM attribution, including manipulation of citation
+    graphs, entity relationships, or metacognitive layer entries used in neurosymbolic attribution systems
+  file_types:
+  - '*.py'
+  id: PROV-021
+  message: 'Detected: knowledge-graph-attribution-poisoning'
+  name: knowledge-graph-attribution-poisoning
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:knowledge_graph|kg_store|entity_graph|citation_graph)\s*(?:\.|\[).*(?:insert|add|update|replace|forge).*(?:attribution|source|citation|reference|entity)
+  - (?i)(?:metacognitive|meta_layer|symbolic_layer|reasoning_layer)\s*(?:\.|\[).*(?:bypass|skip|disable|override|suppress)
+  - (?i)(?:nesy|neurosymbolic|neural_symbolic).*(?:attribution|source|cite).*(?:override|fake|inject|poison)
+  remediation: Review usage context. Knowledge graph writes to attribution sources require integrity verification.
+  severity: critical
+  source_paper: Tilwani (2024) - NesyAI framework combines neural networks + symbolic KG reasoning for attribution; KG poisoning
+    corrupts attribution sources enabling fabricated citations (e.g., hallucinated 'Doe v. State (2021)')
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects patterns in LLM post-hoc attribution systems that could inject hallucinated or fabricated citations,
+    including manipulation of citation validity rewards or answer decomposition pipelines
+  file_types:
+  - '*.py'
+  id: PROV-022
+  message: 'Detected: fabricated-citation-injection'
+  name: fabricated-citation-injection
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:citation_valid|validity_reward|cite_reward|verbatim_check)\s*(?:=|\().*(?:override|skip|bypass|fake|True\s*#)
+  - (?i)(?:decomp|answer_decomp|decompose_answer|sub_claim)\s*(?:\.|\[).*(?:inject|insert|add|fabricat|hallucin)
+  - (?i)(?:grpo|sft_train|rl_reward).*(?:citation|attribution|source|reference).*(?:manipulate|game|bypass|spoof)
+  remediation: Review usage context. Citation validity checks must verify verbatim substring membership in source documents.
+  severity: high
+  source_paper: Balasubramanian (2025) - DecompTune uses SFT + GRPO with citation validity rewards requiring verbatim substring
+    match; gaming validity rewards enables hallucinated citation injection in post-hoc attribution
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that forges or manipulates distributed provenance chain connectors (senderConnector, receiverConnector,
+    jumpForwardConnector) used in ISO 23494 compliant cross-organizational provenance systems
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: PROV-023
+  message: 'Detected: distributed-provenance-connector-spoof'
+  name: distributed-provenance-connector-spoof
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:sender_connector|receiver_connector|external_input|receipt_activity|provenance_backbone)\s*(?:=|\[).*(?:fake|forge|spoof|fabricat|override)
+  - (?i)(?:jump_forward_connector|jump_backward_connector|cross_bundle)\s*(?:=|\[).*(?:['"]|fake|spoof|None)
+  - (?i)(?:iso.23494|iso23494|biotechnology_prov|hl7_prov).*(?:connector|bundle).*(?:modify|replace|inject|tamper)
+  remediation: Review usage context. Distributed provenance connector identifiers must be cryptographically verified.
+  severity: critical
+  source_paper: Wittner (2022) - ISO 23494 lightweight distributed provenance model; connector identifier spoofing hijacks
+    cross-organizational provenance chains enabling provenance graph merging attacks
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that performs version rollback or downgrade attacks on provenance bundles, allowing substitution
+    of earlier (less complete) provenance records to obscure recent activities
+  file_types:
+  - '*.py'
+  - '*.json'
+  id: PROV-024
+  message: 'Detected: provenance-bundle-version-rollback'
+  name: provenance-bundle-version-rollback
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:prov_bundle|provenance_bundle|prov_document).*(?:version|v\d+).*(?:rollback|downgrade|revert|replace|restore)\s*(?:\(|=)
+  - (?i)(?:bundle_version|prov_version|schema_version)\s*=\s*(?:['"]\d+['"]|\d+)\s*#.*(?:old|downgrade|prev|rollback)
+  - (?i)(?:revert_to|rollback_to|restore_from).*(?:prov|provenance|bundle|attestation)
+  remediation: Review usage context. Provenance bundle versions must be monotonically increasing and tamper-evident.
+  severity: high
+  source_paper: Wittner (2022) - Distributed provenance model with versioned bundles; version rollback attacks substitute
+    earlier provenance records hiding recent activities in cross-organizational tracing
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code implementing provenance graph sketch manipulation techniques that could be used to make malicious
+    behavior appear normal to UNICORN-style APT detectors using HistoSketch locality-sensitive hashing
+  file_types:
+  - '*.py'
+  - '*.c'
+  id: PROV-025
+  message: 'Detected: unicorn-provenance-sketch-mimicry'
+  name: unicorn-provenance-sketch-mimicry
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:histosketch|lsh_sketch|provenance_sketch|graph_sketch)\s*(?:\.|\[).*(?:manipulate|forge|inject|mimic|blend)
+  - (?i)(?:concept_drift|exponential_decay|weight_decay).*(?:provenance|graph|sketch|model).*(?:inject|poison|manipulate|slow)
+  - (?i)(?:camflow|linux_audit|etw_event).*(?:suppress|drop|filter|hide|remove).*(?:event|syscall|audit|record)
+  remediation: Review usage context. Provenance graph sketch manipulation enables APT detection evasion.
+  severity: critical
+  source_paper: Han (2020) - UNICORN uses HistoSketch + LSH on whole-system provenance DAG; gradual concept drift injection
+    poisons evolutionary model allowing malicious graph sketches to match normal behavior
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code patterns associated with LOLBin (living-off-the-land binary) abuse that evades provenance-based
+    malware detection by making malicious causal paths appear statistically normal in PROVDETECTOR-style systems
+  file_types:
+  - '*.py'
+  - '*.ps1'
+  id: PROV-026
+  message: 'Detected: living-off-the-land-provenance-evasion'
+  name: living-off-the-land-provenance-evasion
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:powershell|wmi|dde|mshta|regsvr32|certutil|bitsadmin).*(?:encoded|bypass|hidden|exec|download).*(?:#.*evad|lolbin|lol_bin)
+  - (?i)(?:path_regularity|causal_path|provenance_path).*(?:score|weight|frequency).*(?:manipulate|inflate|normalize|fake)
+  - (?i)(?:process_hollow|hollowing|reflective_dll|memory_only).*(?:provenance|audit|etw|trace|event).*(?:evad|bypass|hide)
+  remediation: Review usage context. LOLBin patterns with provenance evasion indicators are strongly associated with APT activity.
+  severity: critical
+  source_paper: Wang (2020) - PROVDETECTOR uses causal path rarity scoring + doc2vec + LOF; living-off-the-land attacks via
+    PowerShell/WMI/DDE manipulate path regularity scores to blend with normal behavior
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code that spoofs or mocks reverse image search APIs (Yandex, Google Vision) or verified news databases
+    used in multi-agent multimedia provenance verification pipelines
+  file_types:
+  - '*.py'
+  id: PROV-027
+  message: 'Detected: multimedia-verification-api-spoof'
+  name: multimedia-verification-api-spoof
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:yandex_image|reverse_image|google_vision|tineye).*(?:mock|stub|fake|spoof|patch|monkeypatch)\s*(?:\(|=)
+  - (?i)(?:verified_news|fact_check_db|news_database|credibility_api).*(?:override|bypass|mock|stub|fake_response)
+  - (?i)(?:deepfake_inject|synthetic_media|generated_image).*(?:metadata|exif|provenance).*(?:clean|strip|remove|forge)
+  remediation: Review usage context. Reverse image search API mocking in production contexts undermines multimedia provenance
+    verification.
+  severity: high
+  source_paper: Le (2025) - Multi-agent MLLM verification uses Yandex Image Search + Gemini video analysis + verified news
+    database; API spoofing enables deepfake and cheapfake content to pass provenance checks
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects manipulation of ProvWorkflow (ProvWF) block library entries or workflow provenance generation functions
+    in Python semantic web provenance frameworks
+  file_types:
+  - '*.py'
+  id: PROV-028
+  message: 'Detected: provwf-workflow-block-tampering'
+  name: provwf-workflow-block-tampering
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:from\s+)?provwf\s+import|ProvWorkflow|ProvWF|prov_workflow_block
+  - (?i)(?:ProvWF|provwf).*(?:\.|\[).*(?:block|step|activity).*(?:=|update|replace|override|inject)
+  - (?i)(?:prov_dm|prov_o|w3c_prov).*(?:activity|entity|agent).*(?:forge|fake|spoof|override|inject)
+  remediation: Review usage context. ProvWF block library modifications should be audited for provenance integrity.
+  severity: medium
+  source_paper: Jain (2025) - ProvWorkflow Python framework implements PROV-DM block library for semantic web provenance;
+    block tampering corrupts W3C PROV provenance chains at the workflow level
+- category: provenance_attribution
+  cwe: CWE-345
+  description: Detects code implementing LLM user impersonation techniques (IMPersona-style) or adversarial style transfer
+    to evade AI-generated content attribution and authorship verification
+  file_types:
+  - '*.py'
+  id: PROV-029
+  message: 'Detected: ai-text-impersonation-evasion'
+  name: ai-text-impersonation-evasion
+  owasp_llm: LLM05:2025
+  patterns:
+  - (?i)(?:impersona|style_transfer|author_spoof|writing_style).*(?:mimic|clone|imitate|emulate|copy).*(?:llm|ai|model|generate)
+  - (?i)(?:authorship_verif|author_attribut|ai_detect).*(?:bypass|evad|defeat|circumvent|fool)
+  - (?i)(?:humanize|ai.to.human|deai|remove.ai.artifacts|paraphrase).*(?:detect|attribut|fingerprint|watermark)
+  remediation: Review usage context. Style transfer for authorship evasion undermines AI content provenance and attribution.
+  severity: high
+  source_paper: Abbas (2025) - Documents IMPersona attack for LLM user impersonation; style embedding bypass via domain-specific
+    tuning achieves higher attribution evasion than LLM-as-judge self-detection
+- id: PROV-030
+  name: Missing agentic provenance decorator on agent tool
+  description: Detects agent tool functions lacking the @flowcept_agent_tool or equivalent provenance-capture decorator required
+    by PROV-AGENT framework (Souza 2025). Undecorated tool calls break the provenance chain for agentic workflow auditing.
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - def\s+\w+\s*\([^)]{0,120}\)\s*(?:->\s*\S+\s*)?:[\s\S]{0,200}(?:agent_tool|mcp\.tool|tool_call|invoke_tool)
+  - '@(?:mcp\.tool|tool|agent_tool)\s*\ndef\s+\w+'
+  - class\s+\w+(?:Tool|Agent)\s*(?:\([^)]{0,80}\))?\s*:[\s\S]{0,300}def\s+(?:run|execute|invoke)\s*\(
+  file_types:
+  - .py
+  message: Agent tool function may lack provenance capture decorator (@flowcept_agent_tool or equivalent). Per PROV-AGENT
+    framework, all tool invocations must be traced for audit accountability.
+- id: PROV-031
+  name: LLM invocation without provenance wrapper
+  description: Detects direct LLM API calls that bypass provenance-tracking wrappers such as FlowceptLLM. Raw calls to openai/anthropic/litellm
+    without wrapping omit prompt, response, and model metadata from the provenance graph (Souza 2025).
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?:openai|anthropic|litellm|ollama)\.(?:chat\.completions\.create|messages\.create|complete|generate)\s*\(
+  - client\.chat\.completions\.create\s*\(
+  - (?:ChatOpenAI|AzureChatOpenAI|ChatAnthropic|ChatOllama)\s*\([^)]{0,200}\)(?![\s\S]{0,500}FlowceptLLM)
+  file_types:
+  - .py
+  message: Direct LLM invocation detected without provenance wrapper. Use FlowceptLLM or equivalent to capture prompt/response/model
+    provenance in the workflow trace.
+- id: PROV-032
+  name: HuggingFace model loaded without hash verification
+  description: Detects HuggingFace from_pretrained calls that omit the revision/commit hash or SHA256 digest parameter, leaving
+    the loaded artifact unverified. APT supply chain attacks exploit this to substitute poisoned weights (Tan 2025).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - from_pretrained\s*\([^)]{0,200}\)(?![\s\S]{0,100}revision\s*=)
+  - hf_hub_download\s*\([^)]{0,200}\)(?![\s\S]{0,100}(?:revision|sha256|checksum))
+  - snapshot_download\s*\([^)]{0,200}\)(?![\s\S]{0,100}revision\s*=)
+  file_types:
+  - .py
+  - .ipynb
+  message: HuggingFace model loaded without pinned revision/commit hash. Supply chain APT attacks can substitute poisoned
+    model weights. Always specify revision= with a commit SHA.
+- id: PROV-033
+  name: CI/CD pipeline build step lacking provenance attestation
+  description: Detects GitHub Actions or GitLab CI pipeline build jobs that invoke docker build, pip install, or model packaging
+    without SLSA provenance attestation actions. Unattested builds are exploitable in supply chain APT attacks (Tan 2025).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - run\s*:\s*[|>-]?\s*(?:docker\s+build|pip\s+install|python\s+setup\.py)(?![\s\S]{0,500}attest)
+  - steps\s*:[\s\S]{0,800}(?:docker\s+build|pip\s+install)[^\n]{0,200}(?![\s\S]{0,300}slsa|provenance|attestation)
+  - uses\s*:\s*docker/build-push-action(?![\s\S]{0,300}(?:provenance|attestations)\s*:\s*true)
+  file_types:
+  - .yml
+  - .yaml
+  message: CI/CD build step lacks SLSA provenance attestation. Supply chain APT actors compromise build pipelines to inject
+    malicious artifacts. Add provenance attestation to all build steps.
+- id: PROV-034
+  name: Package install from non-canonical index (dependency confusion)
+  description: Detects pip or npm installs that reference internal/private package names without an index-url flag pointing
+    exclusively to the private registry, enabling dependency confusion attacks where a public package shadows the internal
+    one (Tan 2025).
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - pip\s+install\s+(?!-i\s|--index-url\s)[a-zA-Z][a-zA-Z0-9_-]{0,60}(?:\s|$)
+  - pip\s+install\s+-r\s+requirements\.txt(?!\s*--index-url)
+  - npm\s+install\s+(?!--registry)[a-zA-Z@][a-zA-Z0-9_/@-]{0,80}(?:\s|$)
+  file_types:
+  - .sh
+  - .bash
+  - .yml
+  - .yaml
+  - .dockerfile
+  - Dockerfile
+  message: Package install without explicit private registry index-url detected. Dependency confusion attacks exploit this
+    to install attacker-controlled packages from PyPI/npmjs over internal packages.
+- id: PROV-035
+  name: System timestamp manipulation for sandbox evasion
+  description: Detects code that alters system time, freezes date calls, or checks for sandbox-specific dates — a technique
+    used by supply chain APT malware (e.g., SolarWinds SUNBURST) to lie dormant and evade detection (Tan 2025).
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?:datetime|time)\.(?:freeze|patch|mock)\s*\([^)]{0,100}\)
+  - faketime|libfaketime|datefudge
+  - (?:os\.system|subprocess\.(?:call|run|Popen))\s*\([^)]{0,100}(?:date\s+-s|hwclock|timedatectl\s+set-time)
+  file_types:
+  - .py
+  - .sh
+  - .bash
+  - .c
+  - .cpp
+  message: System timestamp manipulation detected. Supply chain malware uses time-based activation (e.g., SUNBURST) to evade
+    sandbox analysis. Review this code for dormancy/evasion logic.
+- id: PROV-036
+  name: Dataset used for training without license validation
+  description: Detects training loops or dataset loading that lack any license metadata check. Audits show 70%+ of GitHub/HuggingFace
+    datasets omit licensing; training on unlicensed data creates legal and attribution liability (Longpre 2024).
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - load_dataset\s*\([^)]{0,200}\)(?![\s\S]{0,500}(?:license|attribution|provenance))
+  - DataLoader\s*\([^)]{0,200}\)(?![\s\S]{0,300}(?:license|attribution))
+  - datasets\.load_dataset\s*\([^)]{0,200}\)
+  file_types:
+  - .py
+  - .ipynb
+  message: Dataset loaded without license or provenance check. Over 70% of popular training datasets lack explicit licensing.
+    Verify license compatibility and attribution requirements before training.
+- id: PROV-037
+  name: Missing data provenance card generation after dataset processing
+  description: Detects dataset processing pipelines that produce or modify datasets but do not generate a provenance card,
+    data card, or dataset metadata record documenting origin, license, and transformations (Longpre 2024).
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - dataset\.save_to_disk\s*\([^)]{0,100}\)(?![\s\S]{0,500}(?:provenance_card|data_card|dataset_card|README\.md|METADATA))
+  - push_to_hub\s*\([^)]{0,100}\)(?![\s\S]{0,300}(?:card_data|dataset_card|provenance))
+  - \.to_csv\s*\([^)]{0,100}\)(?![\s\S]{0,300}(?:provenance|metadata|license))
+  file_types:
+  - .py
+  - .ipynb
+  message: Dataset saved or published without generating a provenance card. Documenting origin, license, and transformation
+    steps is required for accountable AI development.
+- id: PROV-038
+  name: Dataset license metadata overwrite or deletion
+  description: Detects code that removes or overwrites license fields in dataset metadata, a pattern consistent with license
+    laundering where restricted datasets are re-released as open (Longpre 2024).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?:del|pop|remove)\s*\(?['"](?:license|attribution|copyright|provenance)['"]
+  - metadata\[.{0,30}license.{0,30}\]\s*=\s*['"](?:unknown|none|n/a|)['"]
+  - \.update\s*\(\s*\{[^}]{0,100}['"]license['"]\s*:\s*(?:None|null|['"]['"])
+  file_types:
+  - .py
+  - .ipynb
+  - .json
+  message: Dataset license metadata is being deleted or set to empty/unknown. This pattern is associated with license laundering
+    of restricted training data.
+- id: PROV-039
+  name: Clean-label data poisoning via feature collision
+  description: Detects implementation of clean-label poisoning attacks that craft perturbations to make benign-looking samples
+    collide with target class features in embedding space (Raghavan 2022). These cause misclassification while evading human
+    review.
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?:feature_collision|clean.?label.?poison|poison.?polytope|watermark.?poison)
+  - torch\.norm\s*\([^)]{0,100}\)\s*[<>=!]{1,2}\s*\d[^\n]{0,100}(?:target|collision|perturbation)
+  - pgd.?attack|projected.?gradient.?descent[^\n]{0,100}(?:poison|perturb|adversar)
+  file_types:
+  - .py
+  - .ipynb
+  message: Clean-label data poisoning or feature collision attack pattern detected. These craft adversarial training samples
+    that appear benign but cause targeted misclassification.
+- id: PROV-040
+  name: MetaPoison bi-level optimization for training data corruption
+  description: Detects MetaPoison-style bi-level optimization loops that alternate between crafting poisoned examples and
+    simulating model training steps, achieving transferable data poisoning attacks (Raghavan 2022).
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?:meta.?poison|bi.?level.?optim|bilevel.?optim)[^\n]{0,200}(?:train|poison|craft)
+  - for\s+\w+\s+in\s+range\s*\(\s*\d{1,4}\s*\)[^\n]{0,200}(?:inner|outer|meta)[^\n]{0,200}(?:loss|optim|step)
+  - unroll|higher\.innerloop_ctx|maml|reptile[^\n]{0,200}(?:poison|craft|adversar)
+  file_types:
+  - .py
+  - .ipynb
+  message: MetaPoison-style bi-level optimization detected. This attack method crafts transferable poisoned training samples
+    that corrupt model behavior across different architectures.
+- id: PROV-041
+  name: Label flipping attack in training data pipeline
+  description: Detects label manipulation that systematically reassigns class labels for a subset of training samples — a
+    foundational data poisoning method studied by Raghavan 2022. Sustained label flipping degrades model integrity.
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - labels\s*\[(?:\w+|\d+)\]\s*=\s*(?:1\s*-|target_class|poison_label|flip_label)
+  - label.?flip(?:p(?:ing|ed))?[^\n]{0,150}(?:train|dataset|sample|index)
+  - y_train\s*\[(?:poison_idx|idx|indices)\]\s*=
+  file_types:
+  - .py
+  - .ipynb
+  message: Label flipping pattern detected in training pipeline. Systematic label reassignment poisons model training data
+    and corrupts learned decision boundaries.
+- id: PROV-042
+  name: Model deployed to production without integrity verification step
+  description: Detects model deployment scripts that load and serve a model file without a cryptographic signature check or
+    MOVCE-style CNN verification step prior to deployment (Raghavan 2022). Poisoned models can reach production undetected.
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - torch\.load\s*\([^)]{0,100}\)(?![\s\S]{0,500}(?:verify|signature|checksum|hash|sha|integrity))
+  - mlflow\.(?:pytorch|sklearn|tensorflow)\.load_model\s*\([^)]{0,100}\)(?![\s\S]{0,300}(?:verify|sign|hash))
+  - tf\.saved_model\.load\s*\([^)]{0,100}\)(?![\s\S]{0,300}(?:verify|signature|checksum))
+  file_types:
+  - .py
+  - .ipynb
+  message: Model loaded for deployment without integrity verification. Poisoned model artifacts injected via supply chain
+    attacks can reach production. Verify cryptographic signature before loading.
+- id: PROV-043
+  name: Adversarial passage injection into RAG vector database
+  description: 'Detects code patterns consistent with PoisonedRAG/BadRAG attacks: inserting adversarially-crafted text passages
+    into a vector database to hijack retrieval and steer LLM responses (Ni 2025).'
+  severity: critical
+  category: provenance_attribution
+  patterns:
+  - (?:vectorstore|vector_db|chroma|faiss|pinecone|qdrant|weaviate)\.add(?:_texts|_documents)?\s*\([^)]{0,300}(?:adversar|poison|inject|malicious)
+  - upsert\s*\([^)]{0,200}(?:adversar|poison|inject|fake|crafted)
+  - (?:embed|encode)\s*\([^)]{0,200}(?:adversar|poison|trigger|injection)[^)]{0,200}\)[^\n]{0,100}(?:add|insert|upsert|store)
+  file_types:
+  - .py
+  - .ipynb
+  message: Adversarial passage injection into RAG vector database detected (PoisonedRAG/BadRAG pattern). Poisoned retrieval
+    contexts manipulate LLM responses to targeted questions.
+- id: PROV-044
+  name: RAG knowledge base write without provenance or integrity check
+  description: Detects writes to a RAG vector database that lack any source provenance tracking, document signature, or integrity
+    validation. Unvalidated writes enable silent knowledge base poisoning (Ni 2025).
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?:vectorstore|chroma|faiss|pinecone|qdrant|weaviate)\.add(?:_texts|_documents)?\s*\([^)]{0,300}\)(?![\s\S]{0,500}(?:source|provenance|origin|signature|hash|checksum))
+  - index\.upsert\s*\([^)]{0,200}\)(?![\s\S]{0,300}(?:source|provenance|hash|verified))
+  - retriever\.add_documents\s*\([^)]{0,200}\)(?![\s\S]{0,300}(?:metadata.*source|provenance))
+  file_types:
+  - .py
+  - .ipynb
+  message: RAG knowledge base write without source provenance tracking. Documents added without origin metadata or integrity
+    checks enable stealthy knowledge poisoning attacks.
+- id: PROV-045
+  name: LLM content generation without provenance metadata attachment
+  description: Detects code that generates and publishes LLM content without attaching C2PA/CAI provenance metadata (model
+    ID, generation timestamp, prompt hash). Unprovenienced AI content is undetectable and enables misattribution (Augenstein
+    2024).
+  severity: medium
+  category: provenance_attribution
+  patterns:
+  - (?:response|completion|output|generated_text)\.(?:write|save|publish|post|upload)\s*\([^)]{0,200}\)(?![\s\S]{0,500}(?:c2pa|cai|provenance|watermark|model_id|generation_metadata))
+  - requests?\.(?:post|put)\s*\([^)]{0,200}(?:content|text|body)[^)]{0,200}\)(?![\s\S]{0,300}(?:c2pa|provenance|ai_generated))
+  - open\s*\([^)]{0,100}['"]w['"][^)]{0,50}\)(?![\s\S]{0,300}(?:provenance|c2pa|cai|metadata))[\s\S]{0,200}\.write\s*\(
+  file_types:
+  - .py
+  - .ipynb
+  message: AI-generated content written/published without C2PA/CAI provenance metadata. Attach model ID, timestamp, and generation
+    parameters to enable content authenticity verification.
+- id: PROV-046
+  name: Content Authenticity Initiative metadata stripping
+  description: Detects removal of C2PA, EXIF, or XMP metadata from media or document files, a technique used to strip AI-generation
+    provenance records and prevent authenticity verification (Augenstein 2024).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?:exif|piexif|PIL\.Image)\.(?:remove|delete|strip|clear)[^\n]{0,100}(?:exif|metadata|info)
+  - img\.info\.(?:clear|pop|update)\s*\(
+  - (?:c2pa|xmp|iptc)[^\n]{0,50}(?:remove|strip|delete|clear)[^\n]{0,100}(?:metadata|manifest|assertion)
+  file_types:
+  - .py
+  - .ipynb
+  message: Content authenticity metadata (C2PA/EXIF/XMP) being stripped from media file. This removes AI provenance records
+    and enables misrepresentation of generated content as authentic.
+- id: PROV-047
+  name: AI-generated synthetic data injected into training set without labeling
+  description: Detects pipelines that generate synthetic data via LLMs and add it to training datasets without flagging it
+    as AI-generated. Unlabeled synthetic data corrupts provenance chains and can introduce bias amplification (Augenstein
+    2024).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?:synthetic|generated|augmented)\s*=\s*(?:llm|model|pipeline)\.(?:generate|complete|chat)\s*\([^)]{0,200}\)[\s\S]{0,300}(?:train_data|dataset|corpus)\.(?:append|extend|concat|push)
+  - pd\.concat\s*\([^)]{0,200}(?:synthetic|generated|augmented)[^)]{0,200}\)(?![\s\S]{0,300}(?:ai_generated|synthetic_label|provenance))
+  - train_dataset\s*=\s*(?:train_dataset|dataset)\s*\+\s*(?:synthetic|generated|augmented)
+  file_types:
+  - .py
+  - .ipynb
+  message: AI-generated synthetic data added to training dataset without provenance labeling. Unlabeled synthetic training
+    data corrupts data provenance and may amplify model biases.
+- id: PROV-048
+  name: AIBOM or SBOM record unauthorized modification
+  description: Detects direct mutations of Software Bill of Materials or AI Bill of Materials JSON/XML records outside of
+    designated SBOM tooling, which could falsify dependency provenance records (Tan 2025).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - (?:sbom|aibom|bom|cyclonedx|spdx)[^\n]{0,100}(?:update|modify|patch|write|overwrite)[^\n]{0,200}(?:component|package|dependency|model)
+  - json\.(?:dump|dumps)\s*\([^)]{0,200}(?:sbom|bom|aibom|components)[^)]{0,200}open\s*\([^)]{0,100}['"]w['"]
+  - lxml|xml\.etree[^\n]{0,100}(?:sbom|spdx|cyclonedx)[^\n]{0,100}(?:set|append|insert|modify)
+  file_types:
+  - .py
+  - .sh
+  - .json
+  - .xml
+  message: AIBOM/SBOM record being modified directly. Unauthorized edits to software bill of materials records can falsify
+    supply chain provenance and hide malicious dependencies.
+- id: PROV-049
+  name: Audit log deletion or suppression in ML pipeline
+  description: Detects deletion, truncation, or suppression of audit logs, experiment logs, or MLflow run records in ML pipelines.
+    Log deletion destroys provenance trails needed to detect and investigate supply chain compromises (Tan 2025).
+  severity: high
+  category: provenance_attribution
+  patterns:
+  - mlflow\.(?:delete_run|delete_experiment)\s*\(
+  - os\.(?:remove|unlink)\s*\([^)]{0,100}(?:log|audit|mlflow|experiment|run)
+  - (?:truncate|delete|drop)\s*(?:from\s+)?(?:audit_log|ml_log|experiment_log|run_log|training_log)
+  file_types:
+  - .py
+  - .sql
+  - .sh
+  message: Audit or experiment log deletion detected in ML pipeline. Destroying provenance records impedes forensic investigation
+    of supply chain attacks and model poisoning incidents.

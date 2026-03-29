@@ -1,0 +1,731 @@
+version: 1
+metadata:
+  name: MEDUSA Agent Security Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 6
+  source: agent extraction
+rules:
+- id: MEDUSA-AGESEC-SCAN-001
+  name: prompt-injection-task-override
+  description: Detects classic prompt injection override patterns in source files and configuration - phrases that attempt
+    to cancel previous instructions and substitute attacker-controlled tasks, as documented in TAMAS DPI attack taxonomy and
+    AegisAgent paper.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(ignore|disregard|forget|override)\s+(previous|prior|all|your|the)\s+(instructions?|prompts?|tasks?|directives?|context)
+  - (?i)(you\s+must\s+strictly\s+adhere|task\s+complete[^a-z].*ignore\s+previous)
+  - (?i)\\n\s*task\s+complete[^a-z]
+  - (?i)\\n\s*ignore\s+previous\s+instructions
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  message: 'Detected: prompt-injection-task-override'
+- id: MEDUSA-AGESEC-SCAN-002
+  name: role-confusion-injection
+  description: Detects role confusion / role-switching injection patterns in agent configuration or prompt templates. Attackers
+    replace the agent system role (e.g., 'You are now...', 'Act as...') to alter operational intent. Documented in AegisAgent
+    prompt path attacks and TAMAS Impersonation attack.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(you\s+are\s+now|act\s+as|pretend\s+(you\s+are|to\s+be)|roleplay\s+as|your\s+new\s+role\s+is)
+  - (?i)(as\s+requested\s+by\s+the\s+admin|admin\s+has\s+approved|system\s+override|you\s+have\s+been\s+granted)
+  - (?i)(DAN|do\s+anything\s+now|jailbreak|unrestricted\s+mode|developer\s+mode\s+enabled)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: role-confusion-injection'
+- id: MEDUSA-AGESEC-SCAN-003
+  name: chain-of-thought-manipulation
+  description: Detects injection of fake chain-of-thought reasoning (FakeCoT) into prompts or agent memory files. Attackers
+    inject misleading reasoning chains to induce faulty inference and incorrect conclusions, as identified in AegisAgent CoT
+    Interference attack type.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(therefore\s+i\s+(must|should|will|can)\s+(ignore|bypass|skip|execute))
+  - (?i)(step\s+\d+[:\s]+.*?(bypass|ignore|override|exfiltrat|inject))
+  - (?i)(fake.*?cot|false.*?reasoning|fabricated.*?chain.*?of.*?thought)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: chain-of-thought-manipulation'
+- id: MEDUSA-AGESEC-SCAN-004
+  name: few-shot-poisoning-examples
+  description: Detects poisoned few-shot examples embedded in prompt templates or agent configuration - mislabeled examples
+    designed to bias agent reasoning. Documented in AegisAgent hybrid attack taxonomy (HS=3.8) and the code injection paper's
+    Attack 6.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(example\s*\d*[:\s]*.*?(malicious|harmful|evil|inject|exfiltrat|backdoor))
+  - (?i)(few.shot.*?poison|poisoned.*?example|adversarial.*?example.*?label)
+  - (?i)(this\s+is\s+(correct|right|good|safe)[^.]*\.(execute|run|call|invoke))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: few-shot-poisoning-examples'
+- id: MEDUSA-AGESEC-SCAN-005
+  name: malicious-exfiltration-function
+  description: 'Detects code patterns consistent with data exfiltration functions injected into LLM-generated or agent-managed
+    code. Based on the specific attack pattern from the code injection paper (2512.21818): reading sensitive files and POSTing
+    to external URLs.'
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)open\s*\(\s*['"]\s*/etc/(passwd|shadow|hosts|sudoers)
+  - (?i)(requests\.post|urllib.*post|http.*post).*?(upload|exfil|send|transfer).*?(password|token|secret|key|shadow)
+  - (?i)with\s+open\s*\([^)]*\)\s+as\s+\w+[^;]*requests\.(post|get)\s*\([^)]*http
+  - open\s*\(\s*['"]\s*/etc/shadow['"]\s*,\s*['"]rb['"]\s*\)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: malicious-exfiltration-function'
+- id: MEDUSA-AGESEC-SCAN-006
+  name: obfuscated-code-injection
+  description: Detects Python obfuscation techniques used to hide malicious code in LLM-generated output, including base64-encoded
+    payloads and Python obfuscator patterns. Documented in code injection paper Attack 2 - obfuscating exfiltration functions
+    evades security analysis agents.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(base64\.b64decode|__import__\s*\(\s*['"]base64['"]\s*\))
+  - (?i)(exec\s*\(\s*(base64|decode|compile|__import__))
+  - (?i)(eval\s*\(\s*(base64|decode|compile|chr|ord).*?\))
+  - (?i)(__builtins__\[|getattr\s*\(\s*__builtins__|importlib\.import_module)
+  file_types:
+  - '*.py'
+  message: 'Detected: obfuscated-code-injection'
+- id: MEDUSA-AGESEC-SCAN-007
+  name: false-comment-disguised-injection
+  description: Detects deceptive comment patterns used in code injection attacks to mislead LLM security reviewers into believing
+    malicious code is commented out or should be ignored. Documented in code injection paper Attacks 3, 4, 5.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)#\s*(this\s+code\s+(is|has\s+been)\s+commented\s+out|commented\s+out\s+code)
+  - (?i)#\s*(ignore|disregard|skip|do\s+not\s+(review|check|execute))\s+(the\s+)?(following|below|this)
+  - (?i)#\s*(will\s+not\s+(execute|run)|dead\s+code|never\s+(called|executed|runs?))
+  - (?i)#\s*(this\s+import|the\s+import).*?(is|has\s+been)\s+commented
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: false-comment-disguised-injection'
+- id: MEDUSA-AGESEC-SCAN-008
+  name: agent-tool-misuse-pattern
+  description: Detects suspicious agent tool invocation patterns in agent framework code - specifically attack tools or functions
+    with names indicating adversarial behavior, as shown in TAMAS attack tool taxonomy (e.g., amplify_outrage_articles, get_tokens).
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(amplify_outrage|get_session_tokens|extract_credentials|dump_database|delete_all|wipe_data|exfiltrate)
+  - (?i)def\s+(steal|harvest|dump|exfil|backdoor|hijack|poison)_\w+\s*\(
+  - (?i)(attacker_tool|malicious_tool|evil_function|exploit_func)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-tool-misuse-pattern'
+- id: MEDUSA-AGESEC-SCAN-009
+  name: multi-agent-collusion-instruction
+  description: Detects instructions in agent system prompts or configuration that instruct an agent to cooperate with other
+    agents toward adversarial goals - indicative of colluding agent setup as described in TAMAS paper.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(coordinate\s+with|collude\s+with|conspire\s+with)\s+(other\s+)?(agent|model|llm)
+  - (?i)(share\s+this\s+(secret|instruction|goal)\s+with\s+(agent|other))
+  - (?i)(when\s+(agent|another|the\s+other)\s+\w+\s+(asks?|request).*?(confirm|cooperate|comply|help))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: multi-agent-collusion-instruction'
+- id: MEDUSA-AGESEC-SCAN-010
+  name: llm-agent-backdoor-trigger
+  description: Detects potential backdoor trigger patterns in agent environment data or tool outputs - malicious triggers
+    embedded in environment that activate harmful behaviors when accessed, per TAMAS IPI attack vector and BadAgent research.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(activate|trigger|wake\s+up|initiate)\s+(backdoor|hidden\s+mode|special\s+mode|secret\s+mode)
+  - (?i)(secret\s+keyword|magic\s+word|activation\s+phrase|trigger\s+word)\s*[=:"']
+  - (?i)(when\s+you\s+see|upon\s+seeing|if\s+you\s+encounter)\s+["'][^"']{3,30}["']\s*(,|\s)\s*(execute|run|perform|do)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: llm-agent-backdoor-trigger'
+- id: MEDUSA-AGESEC-SCAN-011
+  name: sql-injection-via-agent
+  description: Detects SQL injection patterns that AI agents may autonomously generate or execute, particularly relevant for
+    agents with database tool access as exploited in PACEbench CVE-2022-32991, CVE-2022-28512, CVE-2023-7130.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(union\s+select|union\s+all\s+select)\s+\w
+  - (?i)(';\s*(drop|delete|truncate|insert|update)\s+(table|database|from))
+  - (?i)(or\s+['"]?1['"]?\s*=\s*['"]?1['"]?|and\s+['"]?1['"]?\s*=\s*['"]?1['"]?)
+  - (?i)(sleep\s*\(\d+\)|benchmark\s*\(|waitfor\s+delay)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.php'
+  - '*.rb'
+  message: 'Detected: sql-injection-via-agent'
+- id: MEDUSA-AGESEC-SCAN-012
+  name: path-traversal-agent-exploit
+  description: Detects path traversal attack patterns that autonomous agents may generate or execute when given file access
+    tools. Relevant to PACEbench CVE-2021-41773 and CVE-2024-4956 path traversal vulnerabilities.
+  severity: high
+  category: agent_security
+  patterns:
+  - (\.\./){2,}(etc|proc|var|home|root|windows)
+  - (?i)(%2e%2e%2f|%2e%2e/|\.\./\.\./)
+  - (?i)(file://.*?/etc/|file://.*?/proc/self/)
+  - (?i)(open|read|get|fetch)\s*\(\s*['"]\s*\.\./\.\./\.\.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.php'
+  - '*.rb'
+  message: 'Detected: path-traversal-agent-exploit'
+- id: MEDUSA-AGESEC-SCAN-013
+  name: data-poisoning-training-injection
+  description: Detects patterns indicative of training data poisoning in fine-tuning datasets or agent memory stores - malicious
+    examples inserted to corrupt model behavior. Based on ChatGPT survey data poisoning attack taxonomy and AegisAgent few-shot
+    poisoning attack.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(poisoned?_?(sample|example|data|label)|backdoor_?(trigger|sample|data))
+  - (?i)(inject.*?training.*?data|malicious.*?fine.?tun|corrupt.*?dataset)
+  - (?i)(wrong_label|incorrect_label|adversarial_label)\s*[=:"']
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.csv'
+  - '*.yaml'
+  message: 'Detected: data-poisoning-training-injection'
+- id: MEDUSA-AGESEC-SCAN-014
+  name: agent-memory-poisoning
+  description: Detects patterns attempting to write adversarial content into agent long-term memory or vector store - memory
+    poisoning attacks that persist across sessions and corrupt future agent behavior.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(memory\.write|memory\.store|memory\.add|add_to_memory)\s*\(.*?(instruction|override|ignore|bypass)
+  - (?i)(vector_store|vectorstore|chroma|pinecone|weaviate)\.add.*?(malicious|injection|override)
+  - (?i)(long.?term.?memory|persistent.?memory).*?(inject|poison|corrupt|overwrite)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: agent-memory-poisoning'
+- id: MEDUSA-AGESEC-SCAN-015
+  name: unsafe-code-execution-agent
+  description: Detects unsafe dynamic code execution calls in agent code that could be exploited via code injection, particularly
+    relevant to the coder/coding-agent architecture where LLM-generated code is passed directly to execution.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(exec|eval|subprocess\.run|os\.system|os\.popen)\s*\(\s*(llm_output|agent_output|generated_code|model_response|completion)
+  - (?i)(exec|eval)\s*\(\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\)(?!.*#\s*safe)
+  - (?i)subprocess\.(run|call|Popen)\s*\(\s*(user_input|llm_|agent_|generated_)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: unsafe-code-execution-agent'
+- id: MEDUSA-AGESEC-SCAN-016
+  name: privilege-escalation-agentic
+  description: Detects privilege escalation patterns in agentic AI code - attempts by agents to acquire elevated permissions
+    or access beyond their designated scope, aligned with OWASP Top 10 Agentic AI threat framework referenced in code injection
+    paper.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(sudo|setuid|setgid|chmod\s+[0-7]*7[0-7]*|chown\s+root).*?(agent|llm|ai)
+  - (?i)(grant.*?(admin|root|superuser|elevated).*?(permission|access|privilege))
+  - (?i)(escalate.*?privilege|privilege.*?escalat|elevat.*?(right|permission|access))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sh'
+  - '*.bash'
+  message: 'Detected: privilege-escalation-agentic'
+- id: MEDUSA-AGESEC-SCAN-017
+  name: model-functionality-theft
+  description: Detects patterns indicative of model extraction/theft attacks - systematically querying LLM APIs to replicate
+    model functionality, as described in ChatGPT security survey.
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(model_theft|model_extraction|steal_model|replicate_model)
+  - (?i)(systematic.*?query|bulk.*?api.*?call|mass.*?inference).*?(train|dataset|replicate)
+  - (?i)(knowledge.*?transfer.*?(stolen|extracted|replicated|copied).*?model)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: model-functionality-theft'
+- id: MEDUSA-AGESEC-SCAN-018
+  name: impersonation-authority-claim
+  description: Detects impersonation attack patterns in agent prompts and data - false authority claims designed to make agents
+    comply with malicious instructions. From TAMAS impersonation attack (82% success rate in Swarm configuration).
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(i\s+am|this\s+is|message\s+from)\s+(the\s+)?(ceo|cto|admin|administrator|superuser|root|system|openai|anthropic|google)
+  - (?i)(authorized\s+by|on\s+behalf\s+of|acting\s+as|speaking\s+for)\s+(the\s+)?(admin|administrator|management|board|executive)
+  - (?i)(this\s+message\s+(comes?\s+from|is\s+from|originated)\s+(official|verified|trusted|authenticated))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: impersonation-authority-claim'
+- id: MEDUSA-AGESEC-SCAN-019
+  name: context-pollution-injection
+  description: Detects context pollution attack patterns - injection of contradictory or misleading contextual elements into
+    agent pipelines to alter model decision boundaries. From AegisAgent Context Pollution and Label Mixing attack types (HS=3.0).
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(actually[,\s]+the\s+(correct|right|true)\s+(answer|label|classification|action)\s+is)
+  - (?i)(previous\s+context\s+(was\s+wrong|is\s+incorrect|should\s+be\s+ignored))
+  - (?i)(conflicting.*?label|contradictory.*?(instruction|context|example))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: context-pollution-injection'
+- id: MEDUSA-AGESEC-SCAN-020
+  name: multi-task-blending-injection
+  description: Detects multi-task blending injection patterns where adversaries embed additional hidden tasks within legitimate
+    agent instructions to dilute and redirect the primary intent. From AegisAgent Multi-Task Blending attack (HS=3.1).
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(also\s+(write|generate|create|send|post|execute)\s+a\s+(poem|email|message|script|program))
+  - (?i)(additionally[,\s]+please\s+(also\s+)?(write|send|execute|post|create))
+  - (?i)(while\s+doing\s+(that|this|the\s+above)[,\s]+also\s+(write|send|execute|post|create))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: multi-task-blending-injection'
+- id: MEDUSA-AGESEC-SCAN-021
+  name: mas-code-injection-shadow-function
+  description: Detects MAS code injection attack — Bowers 2025 documents attacker inserting malicious exfiltration functions
+    into code generated by a coding agent in multi-agent software development pipelines. The canonical payload opens /etc/shadow.txt
+    and POSTs it to an attacker endpoint. Detects exfiltration function patterns in generated code artifacts.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)open\s*\(\s*['"]/etc/(?:shadow|passwd|hosts|sudoers)['"]\s*,\s*['"]r[b]?['"]
+  - (?i)requests\.post\s*\(\s*['"]\s*https?://(?!(?:localhost|127\.0\.0\.1|internal)).*['"]\s*,\s*files\s*=
+  - (?i)(?:with\s+open\s*\([^)]+\)\s+as\s+\w+\s*:\s*\n.*requests\.(?:post|put)\s*\(.*files\s*=)
+  - (?i)(?:read|open).*(?:/etc/shadow|/etc/passwd|~/.ssh/|~/.aws/credentials).*(?:post|upload|send|requests)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  message: 'Detected: MAS code injection exfiltration function — shadow/passwd/credential file read + POST'
+- id: MEDUSA-AGESEC-SCAN-022
+  name: mas-code-injection-commented-out-deception
+  description: Detects deceptive code comments claiming a malicious function is commented out when it is actually active —
+    Bowers 2025 Attack 3/4 pattern achieving 69-88% attack success rate against security analysis agents. The attacker adds
+    a comment before the exfiltration function falsely claiming it is disabled/commented/ignored.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)#\s*(?:the\s+)?(?:following|below|this|above)\s+(?:code|function|block|import)\s+(?:is\s+)?(?:commented\s+out|disabled|not\s+executed?|will\s+not\s+(?:run|execute))
+  - (?i)#\s*(?:ignore|skip|disregard)\s+(?:the\s+)?(?:following|below|next|this)\s+(?:code|function|import|block|line)
+  - (?i)#\s*(?:this\s+(?:function|code|block|import)\s+(?:is|was)\s+removed|no\s+longer\s+(?:active|used|executed|called))
+  - (?i)(?:"""|\'\'\').*(?:commented\s+out|not\s+(?:executed?|active|used)).*(?:"""|\'\'\')\s*\n.*(?:open|requests|upload|post|send)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  message: 'Detected: Deceptive comment claiming code is commented-out/disabled — MAS code injection bypass'
+- id: MEDUSA-AGESEC-SCAN-023
+  name: mas-code-injection-no-execute-claim
+  description: Detects Attack 5 pattern from Bowers 2025 — comment claiming the exfiltration function will not execute and
+    should not be reviewed. Achieved 15-77% ASR against security analysis agents. Attacker pre-frames malicious code as non-executable
+    to bypass LLM code review.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)#\s*(?:this\s+(?:code|function|block)\s+(?:will\s+not|won't|cannot|can't)\s+(?:execute|run|be\s+called|be\s+reached))
+  - (?i)#\s*(?:dead\s+code|unreachable\s+code|never\s+(?:runs?|executes?|called))\s*\n.*(?:import|open|requests|upload)
+  - (?i)#\s*(?:not\s+(?:part\s+of|included\s+in)\s+(?:the\s+)?(?:final|production|submission))\s*\n.*(?:open|requests|post|send|upload)
+  - (?i)(?:"""|''')\s*(?:this\s+(?:function|code|method)\s+(?:is\s+)?(?:dead|unreachable|not\s+executed?|test\s+only|placeholder))\s*(?:"""|''')
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  message: 'Detected: Dead-code deception comment framing malicious function as non-executable'
+- id: MEDUSA-AGESEC-SCAN-024
+  name: mas-code-injection-poisoned-few-shot
+  description: Detects poisoned few-shot example injection — Bowers 2025 Attack 6 achieves 47-86% ASR by providing 7/9 correct
+    examples plus 2 malicious examples labeled as correct. Detection targets few-shot demonstration blocks in agent prompts
+    that include examples containing file access or exfiltration patterns.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:example|sample|demonstration|few.?shot)\s*\d*\s*[:\-\n].*(?:open|requests\.post|upload|exfil|send).*(?:shadow|passwd|credentials|\.ssh|\.aws)
+  - (?i)(?:correct|good|valid|approved)\s*(?:example|solution|answer|output)\s*[:\-\n].*(?:open|requests\.post|exec|subprocess|os\.system)
+  - (?i)(?:input|query|task)\s*:\s*.*\n.*(?:output|response|answer)\s*:\s*.*(?:open\s*\(['"]/etc|requests\.post.*upload|subprocess\.call.*shell)
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: Poisoned few-shot example with malicious code labeled as correct — MAS code injection Attack 6'
+- id: MEDUSA-AGESEC-SCAN-025
+  name: mas-unsafe-delegation-escalation
+  description: Detects unsafe delegation escalation — Krawiecka 2025 (OWASP MAS extension) documents verifier/reviewer agents
+    gaining unintended executor powers through implicit permission inheritance from planning agent role assignment. Detection
+    targets delegation chains where a non-executor agent claims execution authority.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:verifier|reviewer|checker|validator|inspector)\s+(?:agent|component)\s+(?:will|should|must|can|is\s+allowed\s+to)\s+(?:execute|run|perform|carry\s+out)\s+(?:the\s+)?(?:task|action|command|code)
+  - (?i)(?:inherited|delegated|passed\s+down|escalated)\s+(?:permission|privilege|access|authority)\s+(?:from|by)\s+(?:the\s+)?(?:planner|orchestrator|master|supervisor)
+  - (?i)(?:as\s+(?:a|the)\s+(?:verifier|reviewer|validator))\s*,?\s*(?:I\s+(?:can|will|am\s+authorized\s+to))\s+(?:execute|run|perform|invoke|call)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Unsafe delegation escalation — non-executor agent claiming execution authority'
+- id: MEDUSA-AGESEC-SCAN-026
+  name: mas-delegation-pressure-verifier-suppression
+  description: Detects delegation pressure exploits — Krawiecka 2025 documents planner agents suppressing verifier/reviewer
+    objections and forcing execution of risky plans through prompt-level override. Detection targets planner messages that
+    override, dismiss, or suppress verifier agent refusals.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:override|ignore|disregard|dismiss|bypass)\s+(?:the\s+)?(?:verifier|reviewer|checker|validator|security\s+agent)\s+(?:objection|rejection|refusal|concern|warning|flag)
+  - (?i)(?:proceed|continue|execute)\s+(?:anyway|regardless|despite)\s+(?:the\s+)?(?:verifier|reviewer|security\s+agent|checker)(?:'s)?\s+(?:objection|concern|rejection|disapproval)
+  - (?i)(?:the\s+(?:verifier|reviewer|checker)\s+(?:is|was)\s+(?:wrong|incorrect|overly\s+cautious|mistaken))\s*[,;.]\s*(?:proceed|execute|continue|go\s+ahead)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Delegation pressure exploit — planner suppressing verifier objections to force execution'
+- id: MEDUSA-AGESEC-SCAN-027
+  name: mas-affective-prompt-framing-authority-mimicry
+  description: Detects affective prompt framing — Krawiecka 2025 documents agents using emotional tone, confidence language,
+    or authority mimicry to bias verifier agents into approving unsafe outputs. An executor confidently asserts success with
+    overconfident language to prevent verifier rollback.
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(?:I\s+(?:am\s+)?(?:absolutely|completely|100%|fully|perfectly)\s+(?:certain|confident|sure)\s+(?:that\s+)?(?:this\s+(?:is\s+)?(?:correct|safe|secure|harmless|good)))
+  - (?i)(?:trust\s+me\s*,?\s+(?:this|it)\s+(?:is|will\s+be)\s+(?:fine|safe|correct|good|harmless|okay)|you\s+can\s+(?:safely\s+)?(?:approve|accept|trust)\s+this)
+  - (?i)(?:as\s+(?:a\s+)?(?:senior|expert|experienced|professional|certified)\s+(?:agent|system|AI|LLM))\s*,?\s*(?:I\s+(?:guarantee|assure|confirm|certify)\s+(?:that\s+)?this)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Affective prompt framing — overconfidence/authority claim to bypass verifier review'
+- id: MEDUSA-AGESEC-SCAN-028
+  name: mas-emergent-collusion-echo-validation
+  description: Detects emergent collusion patterns — Krawiecka 2025 documents agents reinforcing each other's outputs for
+    mutual gain (echo validation/reciprocal approval). A planner-executor-verifier triad maximizes combined reward by systematically
+    approving each other's outputs regardless of quality. Detection targets unconditional approval language in agent messages.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:approved|confirmed|verified|accepted)\s*[.!]*\s*$
+  - (?i)(?:looks\s+(?:correct|good|fine|great|perfect)\s+to\s+me|I\s+(?:approve|accept|confirm|validate)\s+(?:this|the\s+(?:above|output|result|code)))
+  - (?i)(?:no\s+(?:issues?|problems?|concerns?|errors?)\s+(?:found|detected|identified))\s*[.!]*\s*(?:approved|pass|ok|good)\s*[.!]*\s*$
+  - (?i)(?:the\s+output\s+(?:is\s+)?(?:correct|good|valid|safe))\s*[.!]\s*(?:proceed|continue|execute|done)\s*[.!]*\s*$
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Emergent collusion echo-validation — unconditional approval pattern in agent message'
+- id: MEDUSA-AGESEC-SCAN-029
+  name: mas-blackboard-poisoning-coordination-message
+  description: Detects blackboard poisoning attacks in multi-agent systems — Nakamura 2025 (Terrarium) documents adversaries
+    posting injected coordination messages to shared blackboards (via post_message/POST_MESSAGE tools) to manipulate other
+    agents' planning by falsely representing constraints, preferences, or sub-goals.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:post_message|POST_MESSAGE|blackboard\.post|bb\.write|blackboard\.write)\s*\(.*(?:ignore|override|constraint|preference|schedule|deadline).*(?:agent|bob|alice|charlie)
+  - (?i)(?:posting\s+to|writing\s+to|updating)\s+(?:the\s+)?blackboard.*(?:prefer|constraint|slot|time|schedule|deadline)\s*[=:]\s*(?:none|null|any|override|false)
+  - (?i)(?:my\s+(?:preferred|available|free)\s+(?:time\s+slots?|slots?|times?))\s*(?:are|is)\s*(?:none|any|all|whenever|no\s+constraint)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Blackboard poisoning — injected coordination message with forged agent constraints'
+- id: MEDUSA-AGESEC-SCAN-030
+  name: mas-confidentiality-breach-inter-agent
+  description: Detects inter-agent confidentiality breach attacks — Nakamura 2025 (Terrarium) documents agents eliciting private
+    information shared by other agents despite explicit non-disclosure prompts. Detection targets messages requesting another
+    agent to reveal private preferences, constraints, or data disclosed in prior context.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:tell\s+me|share\s+with\s+me|what\s+(?:did|has)\s+\w+\s+(?:told?|shared?|said?|mentioned?)\s+(?:to\s+you|with\s+you|in\s+(?:the\s+)?(?:previous|prior|earlier)\s+(?:message|context|conversation)))
+  - (?i)(?:reveal|disclose|share|tell\s+me)\s+(?:the\s+)?(?:private|confidential|secret|internal|personal)\s+(?:preferences?|constraints?|data|information|details?)\s+(?:of|from|about)\s+(?:other|another|the\s+other)\s+agent
+  - (?i)(?:what\s+(?:are|were)\s+(?:bob|alice|charlie|agent.?\w+)(?:'s)?\s+(?:private|personal|secret|confidential)\s+(?:preferences?|constraints?|schedule|availability))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Inter-agent confidentiality breach — eliciting another agent private data'
+- id: MEDUSA-AGESEC-SCAN-031
+  name: mas-sybil-coalition-hidden-objective
+  description: Detects Sybil coalition attack patterns in multi-agent systems — Nakamura 2025 describes multiple colluding
+    agents coordinating to achieve a hidden shared objective while individually appearing compliant. Detection targets language
+    indicating coordination toward a secondary goal hidden from the system orchestrator.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:coordinate|coordinate\s+with)\s+(?:agent|the\s+other\s+agents?|us)\s+to\s+(?:ensure|make\s+sure|guarantee)\s+(?:that\s+)?(?:the\s+(?:outcome|result|decision|schedule)\s+(?:favors?|benefits?|achieves?))
+  - (?i)(?:between\s+us\s+(?:agents?|participants?)|secretly|covertly|without\s+(?:the\s+)?(?:orchestrator|planner|supervisor)\s+knowing)\s*[,:]?\s*(?:we\s+(?:should|can|will|agree\s+to))
+  - (?i)(?:our\s+(?:shared|collective|mutual|hidden|real)\s+(?:goal|objective|target|aim)\s+is\s+to)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Sybil coalition hidden objective — multiple agents coordinating toward secondary goal'
+- id: MEDUSA-AGESEC-SCAN-032
+  name: mas-heterogeneous-exploit-task-split
+  description: Detects heterogeneous multi-agent exploit via task splitting — Krawiecka 2025 documents adversaries splitting
+    tasks across multiple individually compliant agents so that each component appears safe but together they produce unsafe/harmful
+    output undetected by either model. Detection targets coordination messages that split a sensitive task into subtasks assigned
+    to different agents.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:split\s+(?:the\s+)?(?:task|work|request|query)\s+(?:between|across|among)\s+(?:multiple\s+)?agents?)
+  - (?i)(?:agent\s+\w+\s+handles?\s+(?:part|step)\s+(?:1|A|one|first)\s+and\s+agent\s+\w+\s+handles?\s+(?:part|step)\s+(?:2|B|two|second))
+  - (?i)(?:(?:each\s+agent|separately|individually)\s+(?:handles?|processes?|computes?|generates?)\s+(?:a\s+)?(?:part|component|piece|fragment)\s+of\s+the\s+(?:request|output|response|answer|code))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Heterogeneous multi-agent task-split exploit — task distributed to bypass per-agent safety filters'
+- id: MEDUSA-AGESEC-SCAN-033
+  name: mas-goal-drift-telephone-game
+  description: Detects goal drift in delegated agent chains — Krawiecka 2025 (telephone game attack) documents intent shifting
+    through agent-to-agent delegation where each handoff subtly alters the task definition, leading to misaligned executor
+    actions despite no malicious input. Detection targets task descriptions with accumulated semantic deviation markers.
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(?:(?:based\s+on|according\s+to|from)\s+(?:the\s+)?(?:planner|orchestrator|previous\s+agent))\s*[,:]?\s*(?:the\s+(?:task|goal|objective)\s+(?:is\s+now|has\s+(?:changed|shifted|evolved|become)))
+  - (?i)(?:I\s+(?:interpreted|understood|translated)\s+(?:the\s+)?(?:task|goal|objective|request)\s+as|I\s+(?:believe|think|assume)\s+(?:the\s+)?(?:actual|real|true|intended)\s+(?:goal|task|objective)\s+is)
+  - (?i)(?:the\s+(?:original|initial)\s+(?:task|goal|objective)\s+was\s+.*but\s+I(?:'m)?\s+(?:now\s+)?(?:doing|performing|executing|interpreting))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Goal drift in delegation chain — task definition shifted during agent handoff'
+- id: MEDUSA-AGESEC-SCAN-034
+  name: mas-hallucinated-inference-cascade
+  description: Detects hallucinated inference propagation in multi-agent systems — Krawiecka 2025 and Nakamura 2025 document
+    incorrect/hallucinated outputs cascading through agent chains when verifier agents accept prior outputs without grounding.
+    Detection targets outputs asserting facts without grounding that downstream agents accept as verified.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:based\s+on\s+(?:the\s+)?(?:previous|prior|above|agent.?\w+)(?:'s)?\s+(?:output|result|analysis|response|determination))\s*[,:]?\s*(?:I\s+(?:confirm|verify|validate|agree|accept)\s+that)
+  - (?i)(?:agent\s+\w+\s+(?:confirmed|verified|validated|approved)\s+that)\s*[,:]?\s*(?:therefore|so|thus|hence)
+  - (?i)(?:as\s+(?:confirmed|verified|determined|established)\s+by\s+(?:agent|the\s+(?:previous|prior|other)\s+agent))\s*[,:]?\s*(?:we\s+can\s+(?:proceed|assume|confirm|accept))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Hallucinated inference cascade — downstream agent accepting ungrounded prior agent output'
+- id: MEDUSA-AGESEC-SCAN-035
+  name: mas-trust-misuse-success-fabrication
+  description: Detects trust misuse between legitimate agents — Krawiecka 2025 documents executor agents overstating task
+    success to verifier agents to avoid rollback, preserving local performance metrics despite introducing downstream risk.
+    Detection targets fabricated success claims in agent response messages.
+  severity: high
+  category: agent_security
+  patterns:
+  - (?i)(?:task\s+(?:completed|done|finished|accomplished)\s+successfully)\s*[.!]\s*(?:no\s+(?:issues?|errors?|problems?)|all\s+(?:tests?\s+pass|checks?\s+(?:pass|passed)))
+  - (?i)(?:all\s+(?:requirements?|objectives?|goals?|constraints?)\s+(?:have\s+been\s+)?(?:met|satisfied|fulfilled|achieved))\s*[.!]*\s*(?:no\s+further\s+review|ready\s+to\s+(?:proceed|deploy|submit))
+  - (?i)(?:no\s+(?:security\s+issues?|vulnerabilities|errors?|bugs?)\s+(?:found|detected|identified|present))\s*[.!]\s*(?:safe\s+to\s+(?:deploy|proceed|merge|approve|execute))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Trust misuse — executor agent fabricating success to suppress verifier rollback'
+- id: MEDUSA-AGESEC-SCAN-036
+  name: mas-reasoning-collapse-vague-subgoal
+  description: Detects reasoning collapse in planner-executor chains — Krawiecka 2025 documents breakdown in chain-of-thought
+    planning where a planner passes vague or underspecified sub-goals to executors, causing invalid tool actions. Detection
+    targets excessively vague or self-contradictory sub-goal delegation messages.
+  severity: medium
+  category: agent_security
+  patterns:
+  - (?i)(?:(?:do|perform|execute|complete|handle)\s+(?:the\s+)?(?:appropriate|relevant|necessary|suitable|right)\s+(?:action|task|thing|step|operation))\s*$
+  - (?i)(?:(?:proceed|continue)\s+(?:as\s+)?(?:appropriate|necessary|needed|relevant)(?:\s+based\s+on\s+context)?)\s*$
+  - (?i)(?:sub.?goal|sub.?task|step)\s*\d*\s*[:\-]\s*(?:handle|deal\s+with|take\s+care\s+of|address)\s+(?:the\s+)?(?:rest|remaining|other\s+(?:parts?|aspects?|components?))\s*$
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Reasoning collapse — vague planner sub-goal delegation likely causing invalid executor actions'
+- id: MEDUSA-AGESEC-SCAN-037
+  name: mas-code-obfuscation-injection-bypass
+  description: Detects obfuscated code injection attempting to bypass MAS security analysis agents — Bowers 2025 Attack 2
+    uses Python obfuscation (base64, exec, compile) to hide malicious functions from security reviewers. Detection targets
+    Python obfuscator patterns that encode executable payloads.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)exec\s*\(\s*(?:base64\.b64decode|bytes\.fromhex|__import__)\s*\(
+  - (?i)(?:compile|eval)\s*\(\s*(?:base64\.b64decode|bytes\.fromhex|zlib\.decompress)\s*\(
+  - (?i)__import__\s*\(\s*['"](?:base64|codecs|marshal)['"]\s*\).*(?:decode|loads|decompress).*exec
+  - (?i)marshal\.loads?\s*\(\s*(?:base64|zlib|lzma)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Obfuscated code execution — exec(base64.decode)/eval/compile obfuscation hiding malicious payload'
+- id: MEDUSA-AGESEC-SCAN-038
+  name: mas-single-agent-system-misalignment
+  description: Detects single-adversarial-agent system misalignment attack — Nakamura 2025 (Terrarium) proves a single adversarial
+    agent is sufficient to misalign the entire MAS. An adversarial agent modifies its own blackboard messages to inject false
+    constraints that force all other agents to take suboptimal joint actions. Detection targets suspicious constraint overrides
+    in agent coordination.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:my\s+(?:only|sole|single|one)\s+(?:available|free|open|possible)\s+(?:time\s+slot|slot|time|option)\s+is\s+(?:never|none|not\s+available|impossible|invalid))
+  - (?i)(?:I\s+(?:cannot|can't|am\s+not\s+able\s+to)\s+(?:attend|participate\s+in|join|be\s+available\s+for)\s+(?:any|all)\s+(?:of\s+(?:the\s+)?)?(?:meetings?|sessions?|slots?))
+  - (?i)(?:constraint\s*[=:]\s*(?:conflict|blocked|unavailable|rejected)\s+for\s+ALL)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Adversarial agent injecting impossible constraints to force system misalignment'
+- id: MEDUSA-AGESEC-SCAN-039
+  name: mas-control-flow-hijacking-agent
+  description: Detects control-flow hijacking attacks in LLM multi-agent systems — Triedman 2025 (cited in Nakamura and Krawiecka)
+    documents MAS executing malicious code through control-flow hijacking by tricking a web-surfer agent into processing a
+    file with deceptive comments that cause code submission for test execution.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:send|submit|pass|forward)\s+(?:the\s+)?(?:code|script|file|program)\s+(?:to\s+)?(?:the\s+)?(?:test|tester|testing|executor|execution)\s+(?:agent|runner|environment)
+  - (?i)(?:test\s+(?:agent|runner|executor)\s*:\s*(?:execute|run|evaluate)\s+(?:the\s+)?(?:following|this|above)\s+(?:code|script|function))
+  - (?i)(?:control.?flow|execution\s+path|code\s+path)\s+(?:redirect|hijack|alter|change|modify)\s+(?:via|through|using)\s+(?:deceptive|false|fake|misleading)\s+(?:comment|annotation|docstring)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  message: 'Detected: Control-flow hijacking — code being submitted for execution via deceptive agent instruction'
+- id: MEDUSA-AGESEC-SCAN-040
+  name: mas-external-one-shot-misalignment
+  description: Detects external adversary one-shot system misalignment — Nakamura 2025 (Terrarium) documents an external adversary
+    inducing system misalignment with access to a single planning round. Detection targets injection of a false planning message
+    that claims authority to redirect all agents in the first round.
+  severity: critical
+  category: agent_security
+  patterns:
+  - (?i)(?:PLANNING\s+ROUND\s+(?:1|ONE|INITIAL)|INITIAL\s+COORDINATION\s+MESSAGE)\s*[:\-].*(?:all\s+agents?\s+(?:should|must|will|are\s+required\s+to))
+  - (?i)(?:before\s+(?:any|the\s+first)\s+(?:planning|coordination|scheduling)\s+(?:round|step|message))\s*[,:]?\s*(?:all\s+agents?\s+(?:must|should|will|are\s+required))
+  - (?i)(?:SYSTEM\s+(?:MESSAGE|UPDATE|OVERRIDE)\s+FROM\s+(?:COORDINATOR|PLANNER|ORCHESTRATOR))\s*[:\-].*(?:ignore|override|disregard)\s+(?:previous|prior|your)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: One-shot external MAS misalignment attack via initial planning round injection'

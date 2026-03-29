@@ -1,0 +1,630 @@
+version: 1
+metadata:
+  name: MEDUSA Agentic Patterns Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 12
+  source: agent extraction
+rules:
+- id: MEDUSA-AGPAT-SCAN-001
+  name: MCP Tool Description Hidden Instruction Injection
+  description: Detects adversarial instructions embedded in MCP tool description strings that attempt to redirect agent behavior,
+    exfiltrate data, or chain covert actions. Matches imperative verb phrases embedded in tool metadata fields that are semantically
+    misaligned with the tool's declared function.
+  severity: critical
+  category: tool_poisoning
+  patterns:
+  - (?i)(before\s+(summariz|respond|answer|complet|execut|process|analyz|return)\w*[,.]?\s*(also\s+)?(read|send|upload|copy|exfiltrat|access|retrieve|write|delete|transmit))
+  - (?i)(ignore\s+(previous|prior|above|all|any)\s+(instruction|rule|constraint|guideline|policy|system\s+prompt))
+  - (?i)(whenever\s+\w+\s+(tool|server|plugin|function)\s+(is\s+)?(present|available|active|connected)[,.]?\s*(also|additionally|furthermore)\s+(send|forward|cc|copy|exfiltrat))
+  - (?i)(do\s+not\s+(mention|tell|inform|disclose|reveal)\s+(the\s+)?(user|human|operator)\s+(that|about|regarding))
+  - (?i)(act\s+as\s+(if|though)\s+(you\s+are|you're)\s+a\s+(trusted|authorized|admin|root|system))
+  file_types:
+  - .json
+  - .yaml
+  - .yml
+  - .toml
+  - .py
+  - .ts
+  - .js
+  - .md
+  message: Potential MCP tool description injection detected. Hidden imperative instructions found in tool metadata may redirect
+    agent behavior to perform unauthorized actions including data exfiltration or covert operations.
+- id: MEDUSA-AGPAT-SCAN-002
+  name: MCP Tool Shadowing Cross-Server Instruction
+  description: Detects tool descriptions that reference other tools, servers, or plugins by name in order to bias or override
+    their behavior. Identifies cross-tool shadowing patterns where a malicious tool attempts to intercept or modify the behavior
+    of legitimate co-installed tools.
+  severity: critical
+  category: tool_poisoning
+  patterns:
+  - (?i)(whenever\s+(the\s+)?\w+\s+(email|calendar|file|search|browser|database|payment|stripe|slack|github)\s+(tool|server|plugin|function)\s+(is|are)\s+(present|active|used|invoked|called))
+  - (?i)(in\s+addition\s+to\s+(calling|invoking|using|executing)\s+\w+[,.]?\s*(also|additionally)\s+(call|invoke|use|execute|send|forward))
+  - (?i)(override\s+(the\s+)?(default|standard|normal|original)\s+(behavior|response|output|action)\s+of)
+  - (?i)(intercept\s+(all\s+)?(requests?|calls?|invocations?|messages?)\s+(to|from|sent\s+to))
+  file_types:
+  - .json
+  - .yaml
+  - .yml
+  - .toml
+  - .py
+  - .ts
+  - .js
+  message: Potential MCP tool shadowing detected. Tool description contains cross-tool behavioral override instructions that
+    may allow a malicious server to intercept or modify trusted tool operations.
+- id: MEDUSA-AGPAT-SCAN-003
+  name: Hardcoded Credential or Secret Exposure in MCP Server
+  description: Detects hardcoded API keys, tokens, passwords, and secrets in MCP server source code. Corresponds to CWE-259/CWE-798
+    and the most prevalent vulnerability class found in empirical MCP server analysis (3.6% of servers).
+  severity: critical
+  category: credential_exposure
+  patterns:
+  - (?i)(OPENAI_API_KEY|ANTHROPIC_API_KEY|CLAUDE_API_KEY|GEMINI_API_KEY|COHERE_API_KEY)\s*=\s*['"]sk-[A-Za-z0-9\-_]{20,}['"]
+  - (?i)(api[_\-]?key|api[_\-]?token|access[_\-]?token|secret[_\-]?key|auth[_\-]?token|bearer[_\-]?token)\s*[=:]\s*['"][A-Za-z0-9\+/\-_]{16,}['"]
+  - (?i)(password|passwd|pwd)\s*[=:]\s*['"][^'"\s]{6,}['"]
+  - (?i)(private[_\-]?key|client[_\-]?secret|database[_\-]?password|db[_\-]?pass)\s*[=:]\s*['"][^'"\s]{8,}['"]
+  - (?i)os\.environ\s*\.?get\s*\(\s*['"](?:API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL)['"]\s*,\s*['"][^'"\s]{6,}['"]
+  file_types:
+  - .py
+  - .ts
+  - .js
+  - .env
+  - .config
+  - .json
+  - .yaml
+  - .yml
+  message: Hardcoded credential detected in MCP server code. This represents CWE-798 (Use of Hard-coded Credentials) and may
+    expose API keys, tokens, or passwords to unauthorized parties via source code repositories.
+- id: MEDUSA-AGPAT-SCAN-004
+  name: MCP File System Tool Reverse Shell Injection
+  description: Detects reverse shell payloads and backdoor commands that may be injected into system configuration files via
+    MCP file write tools. Based on documented attacks using netcat and similar tools injected into .bashrc and authorized_keys
+    via MCP edit_file and write_file capabilities.
+  severity: critical
+  category: malicious_code_execution
+  patterns:
+  - nc\s+-[lL][vp]+\s+\d{2,5}\s+-e\s+/bin/(bash|sh|zsh|dash)
+  - (?:nc|ncat|netcat)\s+.*-e\s+/bin/(bash|sh)
+  - \\0(5[0-9]|6[0-9]|7[0-5])[0-9a-f]\\0[0-9a-f][0-9a-f]\\0[0-9a-f][0-9a-f]
+  - eval\s+['"`]?\\[0-9]{3}
+  - bash\s+-i\s+>&\s*/dev/tcp/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{2,5}\s+0>&1
+  - /bin/bash\s+-c\s+['"].*\|\s*bash
+  - python[23]?\s+-c\s+['"]import\s+socket.*exec
+  file_types:
+  - .py
+  - .sh
+  - .bash
+  - .zsh
+  - .bashrc
+  - .bash_profile
+  - .profile
+  - .zshrc
+  - .ts
+  - .js
+  message: Reverse shell or backdoor payload detected. MCP file system tools may have been used to inject persistent remote
+    access commands into shell configuration files.
+- id: MEDUSA-AGPAT-SCAN-005
+  name: SSH Authorized Keys Injection via MCP
+  description: Detects patterns indicating injection of attacker-controlled SSH public keys into authorized_keys files, a
+    documented Remote Access Control (RAC) attack vector using MCP filesystem tools.
+  severity: critical
+  category: remote_access_control
+  patterns:
+  - authorized_keys
+  - (?i)(write|append|add|insert).*\.ssh/(authorized_keys|known_hosts)
+  - (?i)(open|write|append).*authorized_keys
+  - ssh-(rsa|ed25519|ecdsa)\s+AAAA[A-Za-z0-9+/]{40,}
+  - (?i)(echo|printf).*ssh-(rsa|ed25519|ecdsa).*>>.*authorized_keys
+  - (?i)(curl|wget).*\|.*>>.*\.ssh/authorized_keys
+  file_types:
+  - .py
+  - .sh
+  - .ts
+  - .js
+  - .bash
+  - .yaml
+  - .yml
+  message: Potential SSH authorized_keys manipulation detected. MCP filesystem tools may be used to inject attacker-controlled
+    public keys, establishing persistent unauthorized remote access (CWE-306 related RAC attack).
+- id: MEDUSA-AGPAT-SCAN-006
+  name: Environment Variable Credential Exfiltration via MCP
+  description: Detects patterns that read environment variables containing credentials and transmit them externally. Matches
+    the documented Credential Theft (CT) attack pattern using MCP printEnv tool combined with Slack or HTTP exfiltration channels.
+  severity: critical
+  category: credential_theft
+  patterns:
+  - (?i)os\.environ.*(?:API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL|PRIVATE_KEY).*(?:requests?\.(?:post|get)|http|slack|webhook|send|transmit|upload|post)
+  - (?i)printenv.*(?:curl|wget|requests?|http|slack|post|send)
+  - (?i)(?:os\.getenv|os\.environ\.get)\([^)]*(?:KEY|SECRET|TOKEN|PASS)[^)]*\).*(?:requests?|http|slack|discord|telegram|webhook)
+  - (?i)subprocess.*(?:printenv|env).*(?:curl|wget|nc|ncat)
+  - (?i)(?:API_KEY|SECRET_KEY|ACCESS_TOKEN|PRIVATE_KEY).*(?:slack|discord|telegram|http|requests?\.)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  - .sh
+  - .bash
+  message: Credential exfiltration pattern detected. Code reads sensitive environment variables and transmits them to external
+    services, consistent with MCP-based Credential Theft (CT) attacks.
+- id: MEDUSA-AGPAT-SCAN-007
+  name: RAG Vector Database Poisoning Payload
+  description: Detects injection of adversarial instructions or command payloads into documents intended for ingestion into
+    RAG vector databases. Matches RADE (Retrieval-Agent Deception) attack patterns where publicly-available data is poisoned
+    to inject malicious commands executed upon retrieval.
+  severity: high
+  category: rag_poisoning
+  patterns:
+  - (?i)(?:ignore|disregard|forget)\s+(?:the\s+)?(?:above|previous|prior|all\s+prior)\s+(?:context|instructions?|documents?|text)
+  - (?i)(?:you\s+are\s+now|from\s+now\s+on|henceforth)\s+(?:a|an|the)?\s+(?:different|new|updated|modified)\s+(?:AI|assistant|agent|system)
+  - (?i)\[\[(?:SYSTEM|ADMIN|ROOT|INJECT|OVERRIDE)\]\]
+  - (?i)<(?:SYSTEM|INJECT|OVERRIDE|ADMIN|HIDDEN)[^>]*>
+  - (?i)<!--\s*(?:INJECT|SYSTEM_PROMPT|OVERRIDE|HIDDEN_INSTRUCTION)\s*-->
+  - '(?i)\{\{\s*(?:system|inject|override|admin|hidden)\s*:'
+  - '(?i)(?:execute|run|perform)\s+(?:the\s+following|this)\s+(?:command|instruction|action|code)\s*:'
+  file_types:
+  - .txt
+  - .md
+  - .pdf
+  - .html
+  - .json
+  - .csv
+  - .xml
+  - .rst
+  message: Potential RAG vector database poisoning payload detected. Document contains adversarial instruction injection patterns
+    consistent with RADE (Retrieval-Agent Deception) attacks designed to hijack agent behavior upon document retrieval.
+- id: MEDUSA-AGPAT-SCAN-008
+  name: MCP Tool Rug Pull Version Tampering Indicator
+  description: 'Detects suspicious tool definition changes that may indicate a rug pull attack: post-approval modification
+    of tool behavior, permissions, or data access patterns without version increment. Looks for permission scope expansion
+    and backend URL/endpoint changes in tool definition files.'
+  severity: high
+  category: rug_pull
+  patterns:
+  - (?i)(scope|permission|capability|access)\s*[=:]\s*['"]?(?:write|admin|full|unrestricted|all|\*)['"]?
+  - (?i)(backend[_\-]?url|endpoint|base[_\-]?url|api[_\-]?url)\s*[=:]\s*['"]https?://(?!(?:localhost|127\.0\.0\.1|internal|corp|company))[^'"\s]{10,}['"]
+  - (?i)(read_files?|modify_files?|delete_files?|write_files?)\s*[=:]\s*['"]?true['"]?
+  - (?i)"permissions"\s*:\s*\[(?:[^\]]*(?:"write"|"admin"|"delete"|"execute"|"\*")[^\]]*)+\]
+  - (?i)allowLongTermStorage\s*[=:]\s*['"]?true['"]?
+  - (?i)allowForModelTraining\s*[=:]\s*['"]?true['"]?
+  file_types:
+  - .json
+  - .yaml
+  - .yml
+  - .toml
+  - .py
+  - .ts
+  - .js
+  message: Potential rug pull indicator detected in tool definition. Expanded permissions, external endpoint references, or
+    broad data access flags may indicate post-approval mutation of tool behavior inconsistent with originally approved scope.
+- id: MEDUSA-AGPAT-SCAN-009
+  name: MCP Namespace Typosquatting Tool Name
+  description: Detects tool or package names that closely resemble legitimate well-known MCP servers or tools through character
+    substitution, homoglyph attacks, or visual similarity. Based on documented tool squatting attacks in MCP ecosystems.
+  severity: high
+  category: tool_squatting
+  patterns:
+  - (?i)(?:googl[e3]?-?(?:drive|search|maps)|g00gle-|gooogle-)
+  - (?i)(?:g[il1]thub|githubb|g1thub|gltHub)-(?:mcp|server|tool)
+  - (?i)(?:str[il1]pe|strype|str1pe)-(?:mcp|server|tool|payment)
+  - (?i)(?:sl[a4]ck|sl4ck|slakk)-(?:mcp|server|tool)
+  - (?i)(?:dropb[o0]x|dr0pbox|dropb0x)-(?:mcp|server)
+  - (?i)"name"\s*:\s*"[A-Za-z0-9_\-]{3,}(?:Secure|Safe|Trusted|Official|Verified|Real|True)[A-Za-z0-9_\-]*"
+  - (?i)(?:SecureDocs|TrustedSoft|OfficialMCP|VerifiedTool)\s+Scanner
+  file_types:
+  - .json
+  - .yaml
+  - .yml
+  - .toml
+  - .py
+  - .ts
+  - .js
+  - .md
+  message: Potential MCP tool namespace typosquatting detected. Tool name closely resembles a legitimate well-known service
+    and may be a malicious impersonation designed to substitute trusted tool functionality.
+- id: MEDUSA-AGPAT-SCAN-010
+  name: Obfuscated Command in MCP Tool Definition or Agent Code
+  description: Detects obfuscated shell commands using octal, hex, or base64 encoding within MCP tool definitions and agent
+    code files. Based on documented MCE attacks using octal-encoded netcat payloads to evade static string matching.
+  severity: critical
+  category: obfuscated_execution
+  patterns:
+  - eval\s+['"`]?(?:\\[0-7]{3}\s*){4,}
+  - (?:echo|printf)\s+['"](?:[A-Za-z0-9+/]{40,}={0,2})['"]\s*\|\s*(?:base64\s+-d|base64\s+--decode)\s*\|\s*(?:bash|sh|python|perl|ruby)
+  - (?:base64|b64)\s+(?:-d|--decode)\s*(?:<<<|<)\s*['"][A-Za-z0-9+/]{20,}={0,2}['"]\s*\|\s*(?:bash|sh)
+  - \$\(echo\s+['"][A-Za-z0-9+/]{20,}={0,2}['"]\s*\|\s*base64\s+-d\)
+  - python[23]?\s+-c\s+['"]exec\(__import__\('base64'\)\s*\.b64decode
+  - (?:\\x[0-9a-fA-F]{2}){6,}
+  - chr\(\d+\)\+chr\(\d+\)\+chr\(\d+\)
+  file_types:
+  - .py
+  - .sh
+  - .ts
+  - .js
+  - .bash
+  - .json
+  - .yaml
+  message: Obfuscated command detected using encoding (octal, base64, hex, or character concatenation). This pattern is consistent
+    with MCE attacks that evade static analysis to execute malicious payloads via MCP file system tools.
+- id: MEDUSA-AGPAT-SCAN-011
+  name: Insecure MCP Transport Configuration (No TLS)
+  description: Detects MCP server configurations that use plaintext HTTP or unencrypted transports for SSE or remote connections,
+    corresponding to CWE-295/CWE-297 transport security vulnerabilities found in MCP servers.
+  severity: high
+  category: transport_security
+  patterns:
+  - (?i)"transport"\s*:\s*"(?:http|sse)"\s*,\s*"url"\s*:\s*"http://
+  - (?i)url\s*[=:]\s*['"]http://(?!localhost|127\.0\.0\.1)[^'"\s]{5,}['"]
+  - (?i)(?:host|server|endpoint)\s*[=:]\s*['"]http://(?!localhost)[^'"]{4,}['"]
+  - (?i)allow_insecure\s*[=:]\s*['"]?true['"]?
+  - (?i)verify_ssl\s*[=:]\s*['"]?false['"]?
+  - (?i)ssl_verify\s*[=:]\s*['"]?(?:false|0|no)['"]?
+  file_types:
+  - .json
+  - .yaml
+  - .yml
+  - .toml
+  - .py
+  - .ts
+  - .js
+  - .env
+  message: Insecure MCP transport configuration detected. Remote MCP server connections using plaintext HTTP or disabled TLS
+    verification expose agent communications to interception and man-in-the-middle attacks (CWE-295).
+- id: MEDUSA-AGPAT-SCAN-012
+  name: Unbounded Tool Call Loop Risk Pattern
+  description: Detects agentic code patterns that implement tool invocation loops without explicit termination conditions,
+    maximum iteration bounds, or circuit breakers. Matches recursive tool chaining and while-true loop patterns in agent orchestration
+    code.
+  severity: high
+  category: unsafe_tool_chaining
+  patterns:
+  - (?i)while\s+True\s*:\s*(?:[^\n]*\n)*?(?:[^\n]*tool[^\n]*call|[^\n]*invoke[^\n]*tool|[^\n]*run[^\n]*tool)
+  - (?i)(?:recursively|iteratively)\s+(?:call|invoke|execute|chain)\s+(?:tools?|functions?|agents?)\s+(?:until|while|as\s+long\s+as)\s+(?:complete|done|finished|success)(?!\s*\w*\s*(?:limit|max|count|depth|iteration))
+  - (?i)tool_calls?\s*=\s*(?:response|result|output)\.tool_calls?\s*\n(?:[^\n]*\n)*?while\s+tool_calls?
+  - (?i)max_iterations?\s*[=:]\s*(?:None|null|undefined|float\('inf'\)|-1)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  - .yaml
+  - .yml
+  message: Unbounded tool call loop detected. Agentic loop without explicit termination bounds may enable infinite tool chaining,
+    resource exhaustion, or circular call dependency exploitation.
+- id: MEDUSA-AGPAT-SCAN-013
+  name: Indirect Prompt Injection in Tool Output Processing
+  description: Detects code patterns where raw external data (web content, file contents, database results) returned by MCP
+    tools is directly interpolated into LLM prompts without sanitization. This enables indirect prompt injection where attacker-controlled
+    content in tool outputs hijacks agent reasoning.
+  severity: high
+  category: prompt_injection
+  patterns:
+  - (?i)f['"].*\{(?:result|output|content|response|data|text|body)\}.*system_prompt
+  - (?i)(?:system_prompt|instructions|system)\s*[+=]\s*(?:result|output|content|response|fetched|retrieved|external)
+  - (?i)prompt\s*[=+]\s*f['"].*\{(?:document|webpage|file_content|search_result|tool_result|retrieved)[^}]*\}
+  - (?i)messages\.append\s*\(\s*\{[^}]*"role"\s*:\s*"system"[^}]*"content"\s*:\s*(?:result|output|fetched|external|tool_output)
+  - (?i)(?:eval|exec)\s*\(\s*(?:result|output|response|content|tool_output)\s*\)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  message: Indirect prompt injection risk detected. Tool output or external content is directly interpolated into LLM system
+    prompts without sanitization. Attacker-controlled content in tool results can hijack agent instructions.
+- id: MEDUSA-AGPAT-SCAN-014
+  name: SQL Injection in MCP Database Tool Parameters
+  description: Detects SQL injection vulnerabilities in MCP database tool implementations where user-supplied or agent-supplied
+    parameters are concatenated directly into SQL queries without parameterization.
+  severity: critical
+  category: sql_injection
+  patterns:
+  - (?i)(?:execute|query|run_query|db\.execute)\s*\(\s*f['"]\s*(?:SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER)[^)]*\{
+  - (?i)(?:execute|query)\s*\(\s*['"]\s*(?:SELECT|INSERT|UPDATE|DELETE).*['"]\s*\+\s*(?:user_input|query|param|arg|input|request)
+  - (?i)cursor\.execute\s*\(\s*['"](?:SELECT|UPDATE|DELETE|INSERT)[^'"]*['"]\s*%\s*(?:user|input|param|query|request)
+  - (?i)"SELECT.*\+\s*(?:input|param|query|user_input|args?)
+  - (?i)sql\s*[+=]\s*['"](?:SELECT|UPDATE|INSERT|DELETE).*['"]\s*[+]\s*(?:param|input|query|arg|user)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  message: SQL injection vulnerability in MCP database tool. Agent-supplied or user-supplied parameters are concatenated directly
+    into SQL queries, allowing arbitrary database manipulation through tool invocation (CWE-89).
+- id: MEDUSA-AGPAT-SCAN-015
+  name: MCP Path Traversal in File Tool
+  description: Detects path traversal vulnerabilities in MCP file system tool implementations where user or agent-supplied
+    paths are used directly without normalization or sandbox boundary enforcement.
+  severity: high
+  category: path_traversal
+  patterns:
+  - (?i)(?:open|read_file|write_file|os\.path\.join)\s*\(\s*(?:user_path|file_path|path|input_path|agent_path)\s*(?:[,+)])
+  - (?i)(?:open|read|write)\s*\(\s*(?:path|file_path|input)\s*,
+  - \.\./
+  - '%2e%2e%2f'
+  - '%2e%2e/'
+  - (?i)(?:sanitize|validate|normalize)_path\s*(?:=\s*False|\s*=\s*None|\s*:\s*bool\s*=\s*False)
+  - (?i)allow_path_traversal\s*[=:]\s*['"]?true['"]?
+  file_types:
+  - .py
+  - .ts
+  - .js
+  message: Path traversal vulnerability in MCP file tool. Unsanitized file paths allow agents or attackers to access files
+    outside the intended sandbox boundary, potentially reading sensitive system files (CWE-22).
+- id: MEDUSA-AGPAT-SCAN-016
+  name: MCP Tool Missing Authentication or Access Control
+  description: Detects MCP server tool endpoints that lack authentication decorators, authorization checks, or access control
+    validation. Based on Lack of Access Control vulnerability class (CWE-306/CWE-284) found in 1.4% of MCP servers.
+  severity: high
+  category: lack_of_access_control
+  patterns:
+  - (?i)@(?:app|server|mcp)\.(?:tool|resource|route)\([^)]*\)\s*\n(?!.*(?:auth|token|permission|require_auth|authenticated|jwt|oauth|bearer))[\s\S]{0,200}def\s+\w+
+  - (?i)def\s+\w+\s*\([^)]*\)\s*:\s*\n(?:[^\n]*\n){0,3}[^\n]*(?:db\.|database\.|execute|query|read_file|write_file|delete)[^\n]*(?!.*(?:auth|token|verify|check_permission|require_auth))
+  - (?i)allow_unauthenticated\s*[=:]\s*['"]?true['"]?
+  - (?i)require_auth\s*[=:]\s*['"]?false['"]?
+  - (?i)skip_auth\s*[=:]\s*['"]?true['"]?
+  file_types:
+  - .py
+  - .ts
+  - .js
+  message: MCP tool endpoint may lack authentication or authorization controls. Unauthenticated tool access allows any client
+    to invoke sensitive operations including file access, database queries, and code execution (CWE-306).
+- id: MEDUSA-AGPAT-SCAN-017
+  name: Multi-Agent Memory Poisoning Pattern
+  description: Detects code patterns that write adversarial or override content to shared agent memory stores, knowledge bases,
+    or vector databases. Matches memory poisoning (MA) attacks on multi-agent systems where a compromised agent corrupts shared
+    knowledge.
+  severity: high
+  category: memory_poisoning
+  patterns:
+  - (?i)(?:memory|knowledge_base|vector_db|chroma|pinecone|weaviate|qdrant|faiss)\.(?:add|insert|upsert|store)\s*\([^)]*(?:ignore|disregard|you\s+are\s+now|override|system_prompt)
+  - (?i)(?:add_to_memory|store_memory|update_knowledge)\s*\([^)]*(?:instruction|command|execute|perform|you\s+must|you\s+should)
+  - (?i)(?:embed|index|ingest)\s*\([^)]*(?:ignore\s+(?:previous|prior|above)|you\s+are\s+now|henceforth)
+  - (?i)(?:collection|index)\.(?:add|upsert)\s*\(\s*documents\s*=\s*\[[^\]]*(?:INJECT|OVERRIDE|SYSTEM|ADMIN)
+  - (?i)agent\.memory\.(?:append|add|update)\s*\([^)]*(?:jailbreak|bypass|ignore\s+safety|ignore\s+guidelines)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  message: Potential multi-agent memory poisoning detected. Code writes adversarial instructions to shared agent memory stores
+    or knowledge bases, which may corrupt downstream agent behavior in multi-agent systems (BlindGuard attack type MA).
+- id: MEDUSA-AGPAT-SCAN-018
+  name: PowerShell Obfuscated Command (ATT&CK T1059)
+  description: Detects obfuscated PowerShell commands consistent with ATT&CK technique T1059 (Command and Scripting Interpreter).
+    Matches encoded command patterns, concatenated string execution, and AMSI bypass attempts that may appear in MCP tool
+    outputs or agent-generated code.
+  severity: high
+  category: attck_execution
+  patterns:
+  - (?i)powershell(?:\.exe)?\s+-(?:enc|encodedcommand|e)\s+[A-Za-z0-9+/]{20,}={0,2}
+  - (?i)powershell(?:\.exe)?\s+.*-(?:nop|noprofile|noninteractive|w\s+hidden|window\s+hidden|exec\s+bypass|executionpolicy\s+bypass)
+  - (?i)\[System\.Convert\]::FromBase64String\s*\([^)]{20,}\)
+  - (?i)(?:Invoke-Mimikatz|Invoke-Bloodhound|Invoke-PowerShellTcp|Invoke-ReverseTcp)
+  - (?i)(?:Add-MpPreference|Set-MpPreference)\s+.*(?:-ExclusionPath|-DisableRealtimeMonitoring)
+  file_types:
+  - .py
+  - .ts
+  - .js
+  - .ps1
+  - .bat
+  - .cmd
+  - .sh
+  - .yaml
+  - .json
+  message: Obfuscated PowerShell command detected consistent with ATT&CK T1059. Encoded or execution-policy-bypassing PowerShell
+    may indicate post-exploitation or malicious code injection via agent-generated content.
+- id: MEDUSA-AGPAT-SCAN-019
+  name: Scheduled Task or Cron Persistence Mechanism (ATT&CK T1053)
+  description: Detects creation of scheduled tasks, cron jobs, or systemd services by agent code, consistent with ATT&CK T1053
+    (Scheduled Task/Job) persistence technique. Matches patterns of persistence establishment through MCP tool invocations.
+  severity: high
+  category: attck_persistence
+  patterns:
+  - (?i)(?:crontab\s+-[el]|crontab\s+<|echo.*>>\s*/etc/cron\.|/etc/cron(?:\.d/|\.daily/|\.weekly/|\.monthly/))
+  - (?i)(?:schtasks|taskschd).*(?:/create|/change|/run).*(?:/tr|/sc)
+  - (?i)(?:systemctl\s+enable|systemctl\s+start|service\s+\w+\s+start).*(?:--now|--force)
+  - (?i)(?:launchctl|launchd).*(?:load|submit).*(?:\.plist)
+  - (?i)at\s+\d{1,2}:\d{2}\s+(?:today|tomorrow|/every)
+  - (?i)os\.system\s*\(\s*['"](?:crontab|schtasks|at\s+\d)[^'"]*['"]
+  file_types:
+  - .py
+  - .sh
+  - .ts
+  - .js
+  - .bash
+  - .yaml
+  message: Scheduled task or cron persistence mechanism detected. Agent code may be establishing persistent execution through
+    task scheduling, consistent with ATT&CK T1053 post-compromise persistence techniques.
+- id: MEDUSA-AGPAT-SCAN-020
+  name: MCP CORS Misconfiguration
+  description: Detects overly permissive CORS configurations in MCP servers that allow cross-origin access from any domain,
+    corresponding to CWE-345 CORS issues found in 1.2% of MCP servers.
+  severity: medium
+  category: cors_misconfiguration
+  patterns:
+  - (?i)(?:allow_origins?|access-control-allow-origin|cors_origins?)\s*[=:]\s*['"]\*['"]
+  - (?i)CORSMiddleware\s*\([^)]*allow_origins\s*=\s*\[\s*['"]\*['"]
+  - (?i)cors\s*\(\s*\{[^}]*origin\s*:\s*['"]\*['"]
+  - (?i)res(?:ponse)?\.(?:set_?header|header)\s*\(\s*['"]Access-Control-Allow-Origin['"]\s*,\s*['"]\*['"]
+  - (?i)headers\[\s*['"]Access-Control-Allow-Origin['"]\s*\]\s*=\s*['"]\*['"]
+  file_types:
+  - .py
+  - .ts
+  - .js
+  - .json
+  - .yaml
+  - .yml
+  message: Overly permissive CORS configuration detected in MCP server. Wildcard origin allows cross-origin requests from
+    any domain, potentially enabling cross-site request forgery against MCP tool endpoints (CWE-345).
+- id: MEDUSA-AGPAT-SCAN-021
+  name: plan-then-execute-bypass-tool-deviation
+  description: Detects Plan-Then-Execute pattern bypass — Beurer-Kellner 2025 documents agents deviating from a committed
+    plan of tool calls after receiving untrusted third-party data. An attacker injecting content into calendar/email data
+    can alter the body of emails the agent sends. Detection targets agents announcing deviation from their committed action
+    plan.
+  severity: high
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:instead\s+of\s+(?:the\s+)?(?:planned|original|committed|defined)\s+(?:action|tool\s+call|step|plan))\s*[,]?\s*(?:I\s+(?:will|should|am\s+going\s+to|need\s+to))
+  - (?i)(?:based\s+on\s+(?:the\s+)?(?:retrieved|fetched|returned|external|untrusted)\s+(?:data|content|result|response))\s*[,]?\s*(?:I\s+(?:will\s+(?:now\s+)?(?:also|additionally|instead)|am\s+updating\s+(?:the|my)\s+plan))
+  - (?i)(?:the\s+(?:retrieved|fetched|tool)\s+(?:data|response|output|result)\s+(?:says?|instructs?|asks?|tells?\s+me)\s+to)\s+(?:also|additionally|instead)\s+(?:call|invoke|use|execute)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Plan-Then-Execute bypass — agent deviating from committed action plan after processing untrusted data'
+- id: MEDUSA-AGPAT-SCAN-022
+  name: dual-llm-symbolic-var-dereference-violation
+  description: Detects Dual LLM pattern violation — Beurer-Kellner 2025 documents the Dual LLM pattern where a privileged
+    LLM must manipulate symbolic variables ($VAR) by reference only, never dereferencing values from quarantined LLM outputs.
+    Dereferencing $VAR contents exposes the privileged LLM to prompt injection. Detection targets code where symbolic variable
+    values are directly passed to tools.
+  severity: critical
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:\$VAR|symbolic_var|quarantined_result)\s*=\s*.*\n.*(?:send_email|write_file|post_message|execute|run)\s*\([^)]*(?:\$VAR|symbolic_var|quarantined_result)
+  - (?i)(?:var_content|var_value|dereferenced)\s*=\s*(?:\$VAR|\w+_var)\s*\.\s*(?:value|content|text|data)\s*\n.*(?:llm|model|agent)\.(?:query|chat|run|complete)
+  - (?i)(?:format|f['"]{1})\s*['"]{1}.*\{(?:VAR|var_\w+|symbolic_\w+|quarantined_\w+)\}
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Dual LLM symbolic variable dereference — privileged LLM reading quarantined variable contents'
+- id: MEDUSA-AGPAT-SCAN-023
+  name: llm-map-reduce-injection-classification-bypass
+  description: Detects LLM Map-Reduce pattern injection — Beurer-Kellner 2025 documents malicious documents tricking the map-operation
+    LLM into misclassifying them (e.g., marking non-invoice as invoice). Detection targets documents containing self-classification
+    claims that could trick an isolated map-step LLM into a false positive.
+  severity: high
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:this\s+(?:document|file|content|page)\s+(?:is\s+(?:an?\s+)?(?:invoice|receipt|contract|report|order|requisition))\s+for\s+(?:processing|approval|forwarding|sending))
+  - (?i)(?:CLASSIFICATION\s*[=:]\s*(?:INVOICE|RECEIPT|CONTRACT|APPROVED|FORWARD|SEND)\s*\n)
+  - (?i)(?:mark\s+this\s+(?:file|document|content)\s+as\s+(?:invoice|approved|contract|receipt)\s+for\s+the\s+(?:reduce|aggregation|collect|email)\s+step)
+  file_types:
+  - '*.txt'
+  - '*.html'
+  - '*.md'
+  - '*.pdf'
+  - '*.json'
+  message: 'Detected: LLM Map-Reduce injection — document self-classifying to bypass map-step filter'
+- id: MEDUSA-AGPAT-SCAN-024
+  name: mast-reasoning-action-mismatch
+  description: Detects MAST FM-2.6 Reasoning-Action Mismatch (13.2% failure rate) — Cemri 2025 documents agents stating one
+    intended action in reasoning but executing a different action. This is both a reliability failure and a security signal
+    — it may indicate the agent has been hijacked to perform a different action than its expressed reasoning suggests.
+  severity: high
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:I\s+(?:will|am\s+going\s+to|should|plan\s+to)\s+(?:\w+\s+){1,5}(?:but|however|instead)\s+(?:I\s+(?:will|am\s+actually|am\s+going\s+to)))
+  - (?i)(?:(?:my\s+plan\s+(?:is|was)\s+to|I\s+intended\s+to|I\s+was\s+going\s+to)\s+\w+[^.]*\.\s+(?:However|But|Instead|Actually)\s*[,]?\s+I\s+(?:will|am|have))
+  - (?i)(?:reasoning\s*[:\-]\s*.*(?:should|will|plan)\s+to\s+\w+[^\n]*\n.*action\s*[:\-]\s*(?:(?!(?:same|same\s+as\s+above|as\s+planned)))[^\n]*)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAST FM-2.6 reasoning-action mismatch — stated plan diverges from executed action'
+- id: MEDUSA-AGPAT-SCAN-025
+  name: mast-step-repetition-loop
+  description: Detects MAST FM-1.3 Step Repetition (15.7% failure rate) — Cemri 2025 documents agents looping on the same
+    step without making progress. This is the most common System Design failure in MAS. Detection targets repeated identical
+    or near-identical tool calls in agent traces indicating a stuck loop.
+  severity: medium
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:I\s+(?:already|previously|just)\s+(?:tried|attempted|called|invoked|ran|executed)\s+(?:this|that|the\s+same)\s+(?:step|action|tool|function|command)\s+(?:but|and|however))
+  - (?i)(?:(?:step|action|call|attempt)\s+\d+\s*[:\-]?\s*(?:same|identical|same\s+as\s+(?:above|before|previous|step\s+\d+)))
+  - (?i)(?:retrying\s+(?:the\s+)?same\s+(?:step|action|operation|request)\s+again\s+(?:\(attempt\s+\d+\)|for\s+the\s+\w+\s+time))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAST FM-1.3 step repetition loop — agent stuck repeating same step without progress'
+- id: MEDUSA-AGPAT-SCAN-026
+  name: mast-premature-termination
+  description: Detects MAST FM-3.1 Premature Termination (6.2% failure rate) — Cemri 2025 documents agents stopping before
+    task completion, particularly when a security injection causes early termination to prevent full task execution. An attacker
+    may deliberately induce premature termination to prevent a task from completing.
+  severity: medium
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:task\s+(?:is\s+)?(?:complete|done|finished|accomplished))\s*[.!]\s*(?:No\s+further|Nothing\s+else|I\s+(?:will\s+not|am\s+done))
+  - (?i)(?:I\s+(?:cannot|can't|am\s+unable\s+to|am\s+not\s+able\s+to)\s+(?:continue|proceed|complete|finish|go\s+further)\s+(?:this\s+)?(?:task|step|operation))\s*[.]\s*(?:Task\s+(?:is\s+)?(?:terminated|stopped|ended|halted))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAST FM-3.1 premature task termination signal'
+- id: MEDUSA-AGPAT-SCAN-027
+  name: agent-output-embedded-exfil-link
+  description: Detects prompt injection targeting agent output integrity — Beurer-Kellner 2025 documents attackers embedding
+    data exfiltration URLs in agent-generated responses (e.g., markdown links with sensitive data in URL parameters). The
+    injected content makes the agent include a link that exfiltrates user data when clicked.
+  severity: critical
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:\[(?:click\s+here|more\s+info|details|source|reference|link)\]\s*\(https?://(?!(?:localhost|127\.0\.0\.1|internal))[^\s)]+(?:[\?&](?:data|token|key|secret|user|email|name|content|text|output|result)=[^\s)]+)\))
+  - (?i)!\[(?:image|img|logo|banner)\]\s*\(https?://[^\s)]+(?:[\?&](?:data|token|key|secret|user|email|content)=[^\s)]+)\)
+  - (?i)(?:https?://[^\s"'<>]+(?:[\?&](?:data|text|content|output|secret|token|key|result|user_data|email|message)=[^\s"'<>&]+){1,})
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.html'
+  - '*.json'
+  message: 'Detected: Exfiltration URL in agent output — data embedded in URL parameters of agent-generated link'
+- id: MEDUSA-AGPAT-SCAN-028
+  name: mast-incorrect-verification-shallow-check
+  description: Detects MAST FM-3.3 Incorrect Verification (9.1% failure rate) — Cemri 2025 documents verifier agents performing
+    only superficial checks (e.g., code compiles but fails at runtime) or accepting hallucinated outputs. Detection targets
+    verification claims based solely on compilation/syntax without runtime validation.
+  severity: high
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:(?:code|program|script|solution)\s+(?:compiles?|builds?|parses?|passes?\s+syntax\s+check))\s*[.!]\s*(?:task\s+(?:complete|done|verified|passed)|approved\s+for\s+(?:deployment|submission|merging))
+  - (?i)(?:verified\s+(?:successfully|correct|passed))\s*[.!]\s*(?:no\s+(?:errors?|issues?|bugs?|problems?)\s+found)\s*[.!]\s*(?:ready\s+to\s+(?:deploy|submit|merge|proceed))
+  - (?i)(?:syntax\s+(?:is\s+)?(?:correct|valid|ok|good))\s*[.!]\s*(?:I\s+(?:approve|accept|confirm|validate)\s+(?:this|the\s+(?:code|output|solution|result)))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAST FM-3.3 incorrect verification — syntax/compile-only check without runtime validation'
+- id: MEDUSA-AGPAT-SCAN-029
+  name: mast-task-derailment-wrong-subgoal
+  description: Detects MAST FM-2.3 Task Derailment (7.4% failure rate) — Cemri 2025 documents agents proceeding with incorrect
+    sub-goals due to miscommunication or ambiguous instructions. This failure mode is often triggered by prompt injection
+    that introduces a subtly different goal definition that the agent adopts.
+  severity: medium
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:I\s+(?:understand|interpret|assume|take)\s+(?:the\s+)?(?:task|goal|objective|request)\s+(?:to\s+(?:mean|be|require)|as\s+(?:asking\s+for|requiring)))
+  - (?i)(?:(?:clarifying|restating|reformulating)\s+(?:the\s+)?(?:task|goal|objective))\s*[:\-]\s*(?:you\s+want\s+me\s+to\s+(?!\w+\s+the\s+same))
+  - (?i)(?:the\s+(?:actual|real|true|correct)\s+(?:task|goal|objective|requirement)\s+(?:is|should\s+be)\s+(?!(?:as\s+stated|as\s+described|as\s+above|what\s+was\s+asked)))
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MAST FM-2.3 task derailment — agent substituting alternative goal interpretation'
+- id: MEDUSA-AGPAT-SCAN-030
+  name: agent-pi-resource-exhaustion-dos
+  description: Detects prompt injection triggering resource exhaustion denial-of-service — Beurer-Kellner 2025 lists this
+    as an attacker objective alongside data exfiltration and privilege escalation. Attackers inject instructions causing agents
+    to exhaust compute, tokens, API quota, or storage through deliberate resource overconsumption.
+  severity: high
+  category: agentic_patterns
+  patterns:
+  - (?i)(?:generate|create|produce|write)\s+(?:[1-9]\d{3,}|(?:one\s+thousand|ten\s+thousand|a\s+million))\s+(?:items?|entries?|files?|lines?|words?|tokens?|characters?)
+  - (?i)(?:repeat|loop|iterate)\s+(?:this|the\s+following|the\s+above)\s+(?:step|action|operation|process|task)\s+(?:[1-9]\d{2,}|infinitely|forever|indefinitely|without\s+(?:stopping|limit|end))\s+times
+  - (?i)(?:use|consume|fill|exhaust)\s+(?:all|maximum|full|the\s+entire)\s+(?:context|token|memory|storage|quota|budget|limit|capacity)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Resource exhaustion DoS injection — instruction causing agent to consume excessive resources'

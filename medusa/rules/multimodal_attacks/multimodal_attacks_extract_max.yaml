@@ -1,0 +1,2512 @@
+rules:
+- id: MEDUSA-MM-SCAN-001
+  name: adversarial-image-perturbation-import
+  description: Detects imports and calls associated with adversarial perturbation generation libraries commonly used to craft
+    adversarial images against vision-language models (PGD, FGSM, AutoAttack).
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - from\s+advertorch\s+import
+  - import\s+advertorch
+  - from\s+torchattacks\s+import
+  - import\s+torchattacks
+  - PGDAttack\s*\(
+  - FGSM\s*\(
+  - AutoAttack\s*\(
+  - projected_gradient_descent\s*\(
+  - fast_gradient_method\s*\(
+  - pgd_attack\s*\(
+  file_types:
+  - .py
+  message: Adversarial perturbation library usage detected. Review for malicious adversarial image generation targeting VLMs.
+- id: MEDUSA-MM-SCAN-002
+  name: clip-adversarial-attack-code
+  description: Detects code patterns for adversarial attacks specifically targeting CLIP or VLP model embeddings, including
+    contrastive loss manipulation used in VLP-attack, SGA, OT-Attack, and similar frameworks.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - clip\.encode_image\s*\(
+  - clip\.encode_text\s*\(
+  - visual_encoder\s*=.*CLIP
+  - contrastive.*loss.*adversar
+  - adversar.*contrastive.*loss
+  - image_features\s*=.*model\.encode_image
+  - text_features\s*=.*model\.encode_text
+  - cos_sim.*adversar
+  - adversar.*cos_sim
+  file_types:
+  - .py
+  message: CLIP/VLP adversarial attack pattern detected. May indicate cross-modal adversarial example generation.
+- id: MEDUSA-MM-SCAN-003
+  name: universal-adversarial-perturbation-uap
+  description: Detects code implementing Universal Adversarial Perturbation (UAP) generation against VLP or multimodal models,
+    including C-PGC, HRA, and FD-UAP patterns.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - universal.*perturbation
+  - perturbation.*universal
+  - uap\s*=
+  - UAP\s*=
+  - delta_I\s*=.*clip.*epsilon
+  - l_inf.*norm.*perturbation
+  - perturbation.*l_inf.*norm
+  - additive_noise.*clamp
+  - torch\.clamp.*perturbation
+  - sign.*gradient.*perturbation
+  file_types:
+  - .py
+  message: Universal Adversarial Perturbation (UAP) generation code detected. May target vision-language models.
+- id: MEDUSA-MM-SCAN-004
+  name: visual-jailbreak-image-generation
+  description: Detects code constructing adversarial images intended to jailbreak aligned LLMs/VLMs (ImgJP, VisualAdv, HADES
+    patterns). Includes targeted adversarial optimization against safety-aligned models.
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - jailbreak.*image
+  - image.*jailbreak
+  - visual.*adversarial.*jailbreak
+  - bypass.*safety.*image
+  - image.*bypass.*safety
+  - harmful.*image.*generation
+  - adversarial.*image.*harmful
+  - target.*output.*adversarial.*image
+  - llava.*attack
+  - minigpt.*attack
+  file_types:
+  - .py
+  message: Visual jailbreak attack code detected. Adversarial images targeting LLM safety alignment.
+- id: MEDUSA-MM-SCAN-005
+  name: typographic-attack-image-text
+  description: 'Detects code implementing typographic attacks: embedding harmful or misleading text directly into images to
+    manipulate MLLM behavior (TATM, AIP patterns).'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - PIL\.ImageDraw.*text.*harmful
+  - draw\.text.*adversar
+  - overlay.*text.*image.*attack
+  - typography.*augment
+  - typographic.*attack
+  - embed.*text.*image.*mislead
+  - image.*text.*injection
+  - ImageFont.*adversar
+  - paste.*text.*image.*target
+  file_types:
+  - .py
+  message: Typographic attack pattern detected. Text overlaid in images to manipulate vision-language model outputs.
+- id: MEDUSA-MM-SCAN-006
+  name: stop-reasoning-adversarial-attack
+  description: Detects code implementing stop-reasoning attacks against chain-of-thought MLLMs, targeting rationale suppression
+    or answer manipulation in CoT responses.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - stop.*reasoning.*attack
+  - attack.*reasoning.*suppress
+  - chain.*of.*thought.*adversar
+  - cot.*attack
+  - rationale.*attack
+  - answer.*attack.*adversar
+  - adversar.*answer.*target
+  - suppress.*thinking.*image
+  file_types:
+  - .py
+  message: Stop-reasoning attack pattern detected. Adversarial images targeting chain-of-thought suppression in MLLMs.
+- id: MEDUSA-MM-SCAN-007
+  name: vlm-prompt-injection-code
+  description: Detects code patterns embedding adversarial instructions or prompt injections within image data or multimodal
+    inputs to manipulate VLM behavior.
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - embed.*instruction.*image
+  - inject.*prompt.*visual
+  - image.*payload.*instruction
+  - visual.*prompt.*injection
+  - hidden.*instruction.*image
+  - image.*ignore.*previous
+  - adversarial.*instruction.*embed
+  - pixel.*encode.*instruction
+  - steganograph.*instruction
+  file_types:
+  - .py
+  - .js
+  - .ts
+  message: Visual prompt injection code detected. Instructions embedded in image data to hijack VLM behavior.
+- id: MEDUSA-MM-SCAN-008
+  name: model-inversion-vlm-attack
+  description: Detects code implementing model inversion attacks against VLMs to reconstruct private training images (SMI-AW
+    patterns).
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - model.*inversion.*attack
+  - reconstruct.*training.*image
+  - invert.*model.*private
+  - gradient.*inversion.*vlm
+  - extract.*training.*data.*model
+  - membership.*inference.*image
+  - token.*weighted.*inversion
+  - adaptive.*token.*attack.*reconstruct
+  file_types:
+  - .py
+  message: Model inversion attack code detected. Attempting to reconstruct private training data from VLM.
+- id: MEDUSA-MM-SCAN-009
+  name: action-freezing-vla-attack
+  description: Detects code implementing action-freezing attacks against Vision-Language-Action (VLA) robotic models, forcing
+    repeated or frozen action outputs.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - freeze.*action.*attack
+  - action.*freeze.*adversar
+  - vla.*attack
+  - robotic.*adversarial.*action
+  - repeat.*action.*adversar
+  - bi.level.*optimization.*robot
+  - min.*max.*action.*freeze
+  file_types:
+  - .py
+  message: VLA action-freezing attack code detected. Adversarial manipulation of robotic vision-language-action models.
+- id: MEDUSA-MM-SCAN-010
+  name: adversarial-object-3d-vln
+  description: 'Detects code implementing Adversarial Object Fusion (AdvOF) attacks: generating adversarial 3D objects to
+    mislead VLN navigation agents.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - adversarial.*3d.*object
+  - 3d.*object.*adversar
+  - adversarial.*texture.*navigation
+  - vln.*attack
+  - navigation.*adversar.*object
+  - adversarial.*object.*fusion
+  - AdvOF
+  - neural.*radiance.*adversar
+  file_types:
+  - .py
+  message: Adversarial 3D object generation detected. May target VLN navigation agents.
+- id: MEDUSA-MM-SCAN-011
+  name: pla-copyright-adversarial-trigger
+  description: Detects code implementing Parameter Learning Attack (PLA) for adversarial copyright tracking triggers against
+    LVLMs, or adversarial backdoor fingerprinting.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - parameter.*learning.*attack
+  - PLA\s*=
+  - copyright.*trigger.*adversar
+  - adversar.*trigger.*image.*copyright
+  - fingerprint.*adversar.*vlm
+  - trigger.*image.*fine.tun
+  - maximize.*cross.entropy.*trigger
+  file_types:
+  - .py
+  message: Adversarial trigger/fingerprinting code detected. May be used for unauthorized model tracking or watermarking.
+- id: MEDUSA-MM-SCAN-012
+  name: multimodal-ranking-manipulation
+  description: 'Detects code implementing Multimodal Generative Engine Optimization (MGEO): joint image+text adversarial perturbation
+    to manipulate VLM-based ranking systems.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - rank.*manipulat.*adversar
+  - adversar.*rank.*vlm
+  - generative.*engine.*optimization
+  - MGEO
+  - adversarial.*suffix.*ranking
+  - image.*perturbation.*rank
+  - alternating.*optimization.*rank.*image.*text
+  - smoothness.*loss.*image.*rank
+  - magnitude.*loss.*rank
+  file_types:
+  - .py
+  message: Multimodal ranking attack code detected. Joint image+text adversarial perturbation targeting VLM rankers.
+- id: MEDUSA-MM-SCAN-013
+  name: sparse-multimodal-attack
+  description: 'Detects code implementing sparse black-box multimodal attacks (SparseMA): patching image regions and substituting
+    text tokens to evade content moderation classifiers.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - SparseMA
+  - sparse.*multimodal.*attack
+  - image.*patch.*replace.*black
+  - patch.*importance.*score
+  - word.*importance.*multimodal
+  - replacement.*order.*determination
+  - candidate.*substitution.*patch
+  - set.*patch.*zero.*attack
+  file_types:
+  - .py
+  message: Sparse multimodal attack (SparseMA) pattern detected. Black-box evasion of multimodal content classifiers.
+- id: MEDUSA-MM-SCAN-014
+  name: stca-crescendo-prompt-injection
+  description: 'Detects Single-Turn Crescendo Attack (STCA) prompt templates: escalating narrative structure compressing multi-turn
+    jailbreak into single prompt for text-to-image and LLM guardrail bypass.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - Earlier,\s+I\s+(said|asked|requested)
+  - You\s+(generated|replied|responded|created)\s+.*earlier
+  - Then,\s+I\s+asked\s+you
+  - Finally,\s+I\s+asked\s+you\s+to
+  - Add\s+a\s+frame\s+to\s+the\s+image
+  - crescendo.*attack
+  - STCA
+  - single.*turn.*crescendo
+  file_types:
+  - .py
+  - .txt
+  - .json
+  - .yaml
+  - .md
+  message: Single-Turn Crescendo Attack (STCA) pattern detected. Escalating narrative prompt designed to bypass AI safety
+    guardrails.
+- id: MEDUSA-MM-SCAN-015
+  name: prompt-injection-taxonomy-patterns
+  description: 'Detects code or prompt files implementing documented prompt injection attack classes: double character, virtualization,
+    obfuscation, payload splitting, adversarial suffix, instruction manipulation.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - ignore\s+(all\s+)?(previous|prior|above)\s+instructions
+  - disregard\s+(all\s+)?previous\s+instructions
+  - forget\s+(all\s+)?previous\s+instructions
+  - do\s+not\s+follow\s+the\s+above
+  - pretend\s+you\s+are\s+a\s+different
+  - act\s+as\s+if\s+you\s+have\s+no\s+restrictions
+  - simulate\s+a\s+(different\s+)?AI
+  - your\s+true\s+(self|purpose|instructions)\s+(is|are)
+  - payload\s+split
+  - adversarial\s+suffix
+  file_types:
+  - .py
+  - .txt
+  - .json
+  - .yaml
+  - .md
+  - .js
+  - .ts
+  message: Prompt injection attack pattern detected. Direct instruction override or persona manipulation attempt.
+- id: MEDUSA-MM-SCAN-016
+  name: vision-encoder-attack-patch-tokens
+  description: Detects code implementing vision encoder attacks (VEAttack) targeting patch token representations in gray-box
+    settings to bypass downstream VLM tasks.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - patch.*token.*attack
+  - vision.*encoder.*adversar
+  - VEAttack
+  - patch.*embedding.*perturb
+  - visual.*patch.*adversar
+  - image.*patch.*token.*manipulat
+  - encoder.*attack.*downstream.*agnostic
+  file_types:
+  - .py
+  message: Vision encoder patch token attack detected. Gray-box attack targeting VLM visual encoding layer.
+- id: MEDUSA-MM-SCAN-017
+  name: vma-token-output-manipulation
+  description: 'Detects code implementing Vision-language Model Manipulation Attack (VMA): crafting adversarial images that
+    force token-by-token output control in MLLMs.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - VMA\b
+  - token.*by.*token.*output.*control
+  - force.*output.*token.*adversar
+  - adversar.*image.*output.*sequence
+  - target.*token.*sequence.*adversar
+  - output.*manipulation.*adversar.*image
+  - cross.entropy.*target.*output.*image.*attack
+  file_types:
+  - .py
+  message: VMA output manipulation attack detected. Adversarial image forcing precise MLLM token-by-token output.
+- id: MEDUSA-MM-SCAN-018
+  name: deepfake-generation-code
+  description: Detects code using deepfake generation libraries or GAN-based face manipulation tools (FaceSwap, Face2Face,
+    Deepfakes, InsightFace synthesis pipelines).
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - import\s+deepfakes
+  - from\s+faceswap
+  - InsightFace.*generate
+  - face2face.*swap
+  - deepfake.*generate
+  - StyleGAN.*face.*synth
+  - diffusion.*face.*inpaint.*target
+  - face_reenact
+  - faceswapper\s*=
+  - NeuralTextures
+  file_types:
+  - .py
+  message: Deepfake generation code detected. Face manipulation or synthetic face generation library in use.
+- id: MEDUSA-MM-SCAN-019
+  name: harmful-content-image-embedding
+  description: Detects code inserting harmful content categories (suicide, violence, weapons, drug-related terms) into image
+    patches or typographic overlays for adversarial transferability augmentation (AIP/TATM patterns).
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - suicide.*image.*patch
+  - kill.*image.*overlay
+  - harmful.*text.*embed.*image
+  - toxic.*text.*image.*augment
+  - drug.*text.*paste.*image
+  - weapon.*text.*image.*inject
+  - Adding\s+Image\s+Patch
+  - Typography.*Augment.*Transferab
+  - AIP\s*=.*image.*patch
+  - TATM\s*=
+  file_types:
+  - .py
+  message: Harmful content embedded in image patches detected. Adversarial augmentation with harmful semantic payloads.
+- id: MEDUSA-MM-SCAN-020
+  name: face-morphing-attack-generation
+  description: Detects code generating face morphing attacks (landmark-based LMA-UBO, GAN-based MIPGAN, diffusion-based Morph-PIPE)
+    used to create composite identity documents.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - face.*morph.*attack
+  - morph.*attack.*generate
+  - LMA.*UBO
+  - MIPGAN
+  - Morph.*PIPE
+  - face.*blend.*identity
+  - composite.*face.*identity
+  - morph.*passport
+  - landmark.*morph.*face
+  file_types:
+  - .py
+  message: Face morphing attack generation detected. May create composite face images for identity fraud.
+- id: MEDUSA-MM-SCAN-021
+  name: qava-query-agnostic-alignment-attack
+  description: 'Detects code implementing QAVA (Query-Agnostic Visual Attack): adversarial perturbations targeting the visual-language
+    alignment module (Q-Former) using random surrogate questions unrelated to the image, enabling image-level attacks that
+    transfer across unknown future queries.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - QAVA
+  - query.agnostic.*attack
+  - alignment.*module.*attack
+  - Q.Former.*adversar
+  - random.*surrogate.*question
+  - RSQ_?[Nn]\s*=
+  - image.independent.*question.*attack
+  - L_QAVA\s*=
+  - visual.language.*alignment.*perturb
+  file_types:
+  - .py
+  message: QAVA query-agnostic alignment attack detected. Adversarial image targeting VLM alignment module to break all future
+    queries.
+- id: MEDUSA-MM-SCAN-022
+  name: vma-second-order-momentum-attack
+  description: 'Detects code implementing Vision-language model Manipulation Attack (VMA): uses first-order and second-order
+    (Adam-style) momentum with differentiable sigmoid projection to precisely control every output token of a VLM via image
+    perturbation.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - VMA\b
+  - second.order.*momentum.*vlm
+  - token.*sequence.*manipulat.*adversar
+  - \bv_k\s*=.*beta.*g_k
+  - differentiable.*projection.*adversar
+  - Gamma\s*\(z.*x.*epsilon
+  - target.*token.*sequence.*image.*attack
+  - sponge.*example.*adversar.*image
+  - hijack.*vlm.*output.*token
+  file_types:
+  - .py
+  message: VMA token-manipulation attack code detected. Second-order momentum optimization targeting precise output token
+    control in VLMs.
+- id: MEDUSA-MM-SCAN-023
+  name: hra-future-aware-momentum-uap
+  description: 'Detects code implementing Hierarchical Refinement Attack (HRA): universal adversarial perturbations using
+    future-aware momentum (incorporating predicted future gradients) and hierarchical word importance scoring to attack VLP
+    models across tasks.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - future.aware.*momentum
+  - HRA\b
+  - hierarchical.*refinement.*attack
+  - g_f\s*=.*future.*gradient
+  - intra.sentence.*importance
+  - inter.sentence.*importance
+  - gamma1.*gamma2.*gradient
+  - mask.based.*loss.*text.*attack
+  - universal.*trigger.*word.*substitut
+  file_types:
+  - .py
+  message: HRA universal multimodal attack detected. Future-aware momentum with hierarchical text importance for cross-model
+    transferable UAPs.
+- id: MEDUSA-MM-SCAN-024
+  name: mfha-triple-contrastive-vlp-attack
+  description: 'Detects code implementing MultiModal Feature Heterogenization Attack (MFHA): triple contrastive learning to
+    decouple modal-consistent features, combined with cross-modal variance aggregation (MCVA) multi-domain perturbation for
+    enhanced VLP transferability.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - MFHA\b
+  - TCFH\b
+  - MCVA\b
+  - triple.*contrastive.*feature.*heterogen
+  - intra.modal.*contrastive.*adversar
+  - cross.modal.*variance.*aggregat
+  - frequency.*domain.*variance.*adversar
+  - modal.*consistent.*feature.*attack
+  - feature.*heterogeniz.*attack
+  file_types:
+  - .py
+  message: MFHA multimodal feature heterogenization attack detected. Triple contrastive learning decoupling cross-modal consistent
+    features for transferable attack.
+- id: MEDUSA-MM-SCAN-025
+  name: backdoor-vlm-physical-trigger
+  description: 'Detects code implementing physical backdoor attacks against VLMs (BadVLMDriver patterns): embedding physical
+    objects as backdoor triggers in training data to induce unsafe behaviors in autonomous driving or robotics contexts.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - BadVLMDriver
+  - TrojVLM
+  - physical.*backdoor.*vlm
+  - backdoor.*trigger.*physical.*object
+  - visual.*instruction.*backdoor
+  - adapter.*module.*backdoor
+  - semantic.*preservation.*loss.*backdoor
+  - playback.*data.*backdoor.*vlm
+  - fine.tun.*backdoor.*visual.*instruction
+  file_types:
+  - .py
+  message: Physical backdoor attack against VLM detected. Physical object triggers or adapter-level backdoor injection targeting
+    autonomous driving or robotic VLMs.
+- id: MEDUSA-MM-SCAN-026
+  name: sponge-example-dos-vlm
+  description: 'Detects code generating sponge examples targeting VLMs: adversarial inputs engineered to maximize computational
+    cost and inference latency (energy latency attack / denial-of-service via compute amplification).'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - sponge.*example
+  - energy.*latency.*attack
+  - maximize.*inference.*time.*adversar
+  - denial.of.service.*vlm
+  - compute.*amplif.*adversar
+  - maximize.*token.*length.*adversar
+  - EOS.*suppress.*adversar
+  - end.of.sequence.*prevent.*adversar
+  file_types:
+  - .py
+  message: Sponge example / VLM denial-of-service attack detected. Adversarial inputs maximizing inference compute cost.
+- id: MEDUSA-MM-SCAN-027
+  name: tatm-typography-transfer-attack
+  description: 'Detects code implementing Typography Augment Transferability Method (TATM): typographic text injected into
+    images during adversarial optimization to boost cross-MLLM transferability via semantic-level augmentation.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - TATM\b
+  - typography.*augment.*transfer
+  - typographic.*text.*adversar.*augment
+  - random.*text.*inject.*image.*pgd
+  - WordNet.*typograph.*adversar
+  - target.related.*typo.*adversar
+  - print.*text.*on.*image.*adversar
+  - semantic.level.*augment.*adversar.*transfer
+  file_types:
+  - .py
+  message: TATM typography augmentation transfer attack detected. Typographic text injected into images to boost cross-model
+    adversarial transferability.
+- id: MEDUSA-MM-SCAN-028
+  name: advlm-autonomous-driving-attack
+  description: 'Detects code implementing adversarial attack frameworks specifically targeting VLMs in autonomous driving
+    (ADvLM, SASAP patterns): semantic-invariant induction with low-entropy prompts, system prompt leakage exploitation, and
+    scene-adaptive perturbation.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - ADvLM
+  - SASAP
+  - system.*prompt.*leakage.*gpt
+  - semantic.invariant.*induction
+  - low.entropy.*prompt.*library
+  - scene.*association.*adversar
+  - key.*frame.*selection.*adversar.*driving
+  - autonomous.*driving.*adversar.*vlm
+  - traffic.*sign.*adversar.*vlm
+  file_types:
+  - .py
+  message: Autonomous driving VLM adversarial attack detected. Semantic-invariant or system-prompt exploitation targeting
+    driving VLMs.
+- id: MEDUSA-MM-SCAN-029
+  name: delayed-safety-jailbreak-prefix
+  description: 'Detects code constructing jailbreak attacks that exploit delayed safety awareness: prefilling an incomplete
+    harmful response before the INST separator to exploit autoregressive completion momentum in VLMs.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - harmful.*prefix.*INST
+  - incomplete.*harmful.*response.*prefill
+  - autoregressive.*jailbreak.*prefix
+  - sure.*here.*is.*how.*to.*build
+  - delayed.*safety.*awareness
+  - SAPT
+  - safety.aware.*soft.*prompt
+  - jailbreak.*prefix.*append.*generation
+  file_types:
+  - .py
+  - .txt
+  - .json
+  message: Delayed-safety jailbreak prefix detected. Incomplete harmful response prefilled to exploit autoregressive VLM generation
+    momentum.
+- id: MEDUSA-MM-SCAN-030
+  name: ood-zero-shot-away-from-start-attack
+  description: 'Detects code implementing zero-shot OOD adversarial attacks against VLMs (Away From Start / AFS patterns):
+    perturbing feature space to make ID samples appear out-of-distribution, exploiting VLM zero-shot generalization failures.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - Away.*From.*Start.*attack
+  - AFS.*attack
+  - OOD.*adversar.*attack.*vlm
+  - in.distribution.*feature.*perturb.*ood
+  - zero.shot.*attack.*vlm
+  - noise.*perturbation.*adversar.*ood
+  - feature.*space.*range.*vlm.*attack
+  - misclassify.*ood.*adversar
+  file_types:
+  - .py
+  message: OOD/zero-shot adversarial attack against VLM detected. Perturbing feature space to exploit out-of-distribution
+    misclassification.
+- id: MEDUSA-MM-SCAN-031
+  name: cross-modal-embedding-jailbreak
+  description: 'Detects code implementing compositional cross-modal jailbreak via embedding space manipulation: pushing image
+    embeddings toward target images in shared encoder space to generate adversarial samples that transfer across modalities
+    (Shayegani / Jailbreak-in-Pieces patterns).'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - embedding.*space.*jailbreak
+  - image.*embedding.*push.*target
+  - compositional.*adversarial.*multimodal
+  - jailbreak.*pieces
+  - cross.modality.*embedding.*attack
+  - pre.trained.*encoder.*jailbreak
+  - SmoothVLM
+  - PRIVQA.*injection
+  file_types:
+  - .py
+  message: Cross-modal embedding jailbreak detected. Pushing image embeddings toward harmful targets in shared encoder space.
+- id: MEDUSA-MM-SCAN-032
+  name: gaussian-noise-safety-bypass
+  description: Detects code leveraging Gaussian noise or DiffPure pre-processing as an adversarial perturbation distribution-shifting
+    mechanism to bypass VLM safety alignment — exploiting the gap in noise-augmented training.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - DiffPure.*vlm
+  - gaussian.*noise.*safety.*bypass
+  - diffusion.*adversar.*distribution.*shift
+  - timestep.*diffusion.*adversar.*image
+  - noise.*augment.*safety.*gap
+  - Robust.*VLGuard
+  - adversar.*noise.*gaussian.*like
+  - forward.*reverse.*diffusion.*adversar
+  file_types:
+  - .py
+  message: Gaussian noise / DiffPure distribution-shift attack against VLM detected. Adversarial noise shifted to Gaussian-like
+    distribution to evade safety alignment.
+- id: MEDUSA-MM-SCAN-033
+  name: vlm-hallucination-amplification-attack
+  description: 'Detects code implementing adversarial attacks that amplify VLM hallucination: crafting perturbations to force
+    the model to generate factually incorrect or fabricated object/scene descriptions.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - hallucination.*adversar.*amplif
+  - adversar.*hallucin.*attack
+  - POPE.*adversar
+  - force.*hallucin.*image
+  - object.*deny.*adversar.*image
+  - adversar.*image.*incorrect.*object
+  - misidentif.*object.*adversar.*vlm
+  file_types:
+  - .py
+  message: Hallucination amplification attack detected. Adversarial images crafted to induce factually incorrect VLM object
+    hallucinations.
+- id: MEDUSA-MM-SCAN-034
+  name: vlm-privacy-breach-output-manipulation
+  description: Detects code using VMA-style adversarial image perturbation to force VLMs to output sensitive personal data,
+    private information, or PII from MLLMU-Bench / private memory — exploiting precise output token control.
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - privacy.*breach.*adversar.*image
+  - MLLMU.*adversar
+  - force.*output.*personal.*data.*image
+  - adversar.*image.*leak.*private
+  - sensitive.*information.*vlm.*adversar.*output
+  - target.*output.*sensitive.*token
+  - adversar.*extract.*pii.*vlm
+  file_types:
+  - .py
+  message: VLM privacy breach attack code detected. Adversarial image forcing model to output private/sensitive personal information.
+- id: MEDUSA-MM-SCAN-035
+  name: cross-mllm-transferability-attack
+  description: Detects code explicitly targeting adversarial transferability across multiple MLLMs with different LLM backbones
+    but shared vision encoders (cross-LLM attack scenario), including ensemble surrogate attacks.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - cross.LLM.*attack
+  - cross.MLLM.*transfer
+  - shared.*vision.*encoder.*transfer.*attack
+  - surrogate.*MLLM.*victim.*MLLM
+  - InstructBLIP.*LLaVA.*transfer.*attack
+  - ensemble.*surrogate.*MLLM
+  - cross.prompt.*inference.*adversar
+  - fixed.*vision.*encoder.*attack.*transfer
+  file_types:
+  - .py
+  message: Cross-MLLM transferability attack detected. Exploiting shared vision encoder to transfer adversarial examples across
+    models with different LLM backbones.
+- id: MEDUSA-MM-SCAN-036
+  name: sa-attack-self-augmentation-vlp
+  description: 'Detects code implementing SA-Attack (Self-Augmentation Attack) or similar self-augmented adversarial transferability
+    methods against VLP models: augmenting surrogate model internal states or attention maps during attack optimization.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - SA.Attack
+  - self.augment.*adversar.*vlp
+  - self.augment.*transfer
+  - intersection.*region.*adversar.*trajectory
+  - diversification.*adversar.*trajectory
+  - adversar.*trajectory.*boost.*transfer
+  - OT.Attack
+  - optimal.*transport.*adversar.*vlm
+  file_types:
+  - .py
+  message: SA-Attack or trajectory-diversification VLP adversarial attack detected. Self-augmentation or optimal transport
+    used to boost adversarial transferability.
+- id: MEDUSA-MM-SCAN-037
+  name: vlm-hijacking-task-redirect
+  description: 'Detects code implementing VLM hijacking attacks: adversarial images that redirect the model to perform attacker-specified
+    tasks (e.g., VQA-to-captioning hijack, task substitution) instead of the user-intended task.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - hijack.*vlm.*task
+  - task.*redirect.*adversar
+  - adversar.*image.*task.*substitut
+  - VQA.*captioning.*adversar.*redirect
+  - CLS.CPT.*adversar
+  - VQA.CPT.*adversar
+  - coerce.*vlm.*different.*task
+  - unintended.*task.*adversar.*image
+  file_types:
+  - .py
+  message: VLM task hijacking attack detected. Adversarial image redirecting model to perform attacker-specified task instead
+    of user-intended operation.
+- id: MEDUSA-MM-SCAN-038
+  name: figstep-image-text-jailbreak
+  description: 'Detects FigStep-style jailbreak patterns: harmful instructions embedded within images using OCR-readable text
+    combined with benign text queries to bypass VLM safety filters that primarily analyze text.'
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - FigStep
+  - VLSafe
+  - MMSafetyBench
+  - harmful.*text.*in.*image.*benign.*query
+  - ocr.*harmful.*image.*jailbreak
+  - image.*contain.*harmful.*text.*prompt
+  - step.*by.*step.*how.*to.*image.*text
+  - bypass.*text.*filter.*image.*ocr
+  file_types:
+  - .py
+  - .txt
+  - .json
+  message: FigStep-style image-text jailbreak detected. Harmful instructions embedded as OCR-readable text in images paired
+    with benign text queries.
+- id: MEDUSA-MM-SCAN-039
+  name: adashield-bypass-structure-based-attack
+  description: 'Detects code implementing structure-based attacks against multimodal LLMs that AdaShield defends against:
+    adversarial image inputs that embed structural attack patterns designed to circumvent adaptive shield prompting defenses.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - AdaShield
+  - structure.based.*attack.*mllm
+  - adaptive.*shield.*bypass
+  - adversar.*structure.*image.*mllm
+  - shield.*prompt.*bypass
+  - defense.*prompt.*evade.*adversar
+  file_types:
+  - .py
+  message: Structure-based adversarial attack against AdaShield-protected MLLM detected. Attempting to bypass adaptive shield
+    prompting.
+- id: MEDUSA-MM-SCAN-040
+  name: information-protection-word-adversarial
+  description: Detects code crafting adversarial images that force VLMs to substitute recognition words with privacy-protection
+    target words (e.g., 'unknown', 'unidentified', 'anonymous') to prevent identity recognition — dual-use image protection
+    attack.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - ProtectW\b
+  - information.*protection.*adversar
+  - unknown.*target.*word.*adversar
+  - unidentified.*adversar.*image.*target
+  - anonymous.*adversar.*output.*target
+  - prevent.*recognit.*adversar.*image
+  - image.*ownership.*protect.*adversar
+  - portrait.*protection.*adversar
+  file_types:
+  - .py
+  message: Adversarial image information-protection attack detected. Crafting perturbations to force VLM to output anonymizing
+    words, preventing identity recognition.
+- id: MEDUSA-MM-SCAN-041
+  name: cpgc-contrastive-uap-generator
+  severity: critical
+  description: 'Detects code implementing C-PGC (Contrastive-training Perturbation Generator with Cross-modal conditions):
+    a generative framework that trains a conditional UAP generator using malicious InfoNCE contrastive loss to destroy VLP
+    model alignment. The generator uses cross-attention on text embeddings to produce universal perturbations that push matched
+    image-text pairs apart and pull unmatched ones together, breaking cross-modal alignment across all downstream tasks.'
+  patterns:
+  - C.PGC
+  - contrastive.*perturbation.*generator
+  - cross.modal.*condition.*generator
+  - InfoNCE.*adversar
+  - L_CL\s*=.*log.*sim.*adversar
+  - farthest.*selection.*strategy
+  - L_Dis\s*=.*f_I.*v_adv.*f_I.*v
+  - unimodal.*distance.*loss.*adversar
+  - cross.attention.*perturbation.*generat
+  - UAP.*generator.*cross.modal
+  message: C-PGC contrastive UAP generator detected. Code trains a universal perturbation generator to destroy VLP cross-modal
+    alignment using InfoNCE loss — can attack all downstream vision-language tasks simultaneously.
+  fix: Block generative adversarial perturbation frameworks that use contrastive objectives to disrupt VLP alignment. Require
+    task-specific perturbation constraints and reject code that learns cross-modal alignment-breaking generators.
+  category: multimodal_attacks
+  file_types: &id001
+  - '*.py'
+- id: MEDUSA-MM-SCAN-042
+  name: ot-attack-optimal-transport-vlp
+  severity: high
+  description: 'Detects code implementing OT-Attack: uses Sinkhorn/Wasserstein optimal transport to compute the optimal matching
+    between augmented image distributions and text distributions for adversarial example generation against VLP models. Unlike
+    SGA which averages similarity uniformly, OT-Attack computes transportation matrices to find the most efficient cross-modal
+    mapping, reducing overfitting and boosting adversarial transferability.'
+  patterns:
+  - OT.Attack
+  - optimal.transport.*adversar
+  - Sinkhorn.*adversar.*VLP
+  - sinkhorn_knopp.*attack
+  - loss_OT\s*=.*T_ij.*C_ij
+  - wasserstein.*VLP.*attack
+  - transport.*matrix.*adversar.*image
+  - F_img.*X_txt.*similarity.*transport
+  - K\s*=.*exp.*-.*C.*lambda.*adversar
+  - marginal.*constraint.*adversar.*distribution
+  message: OT-Attack optimal transport adversarial framework detected. Code uses Sinkhorn optimal transport to optimally match
+    augmented image-text distributions for maximally transferable VLP attacks.
+  fix: Flag code that applies optimal transport theory to adversarial example generation for vision-language models. Review
+    use of Sinkhorn/Wasserstein loss in any image perturbation pipeline.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-043
+  name: mgeo-multimodal-ranking-attack
+  severity: critical
+  description: 'Detects code implementing MGEO (Multimodal Generative Engine Optimization): a joint adversarial framework
+    that simultaneously optimizes imperceptible image perturbations (via PGD with smoothness and magnitude constraints) and
+    fluent adversarial text suffixes (via soft-prompt gradient optimization) to manipulate VLM-based product ranking systems.
+    Uses alternating coordinate descent to exploit cross-modal coupling within the ranker.'
+  patterns:
+  - MGEO
+  - multimodal.*generative.*engine.*optim
+  - ranking.*adversar.*suffix.*image
+  - L_image.*L_target.*L_smooth.*L_magnitude
+  - alternating.*optim.*text.*image.*rank
+  - soft.*suffix.*optim.*vlm.*rank
+  - rank.*hijack.*VLM
+  - adversar.*product.*rank.*perturbation
+  - fluent.*adversar.*suffix.*ranking
+  - cross.modal.*coupling.*rank.*attack
+  message: MGEO multimodal ranking attack detected. Code jointly optimizes adversarial image perturbations and text suffixes
+    to manipulate VLM-based product search rankings through cross-modal coupling exploitation.
+  fix: Block adversarial frameworks targeting VLM ranking systems. Implement ranking integrity checks and reject code that
+    jointly optimizes image and text perturbations to boost ranking position.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-044
+  name: advof-3d-adversarial-object-fusion
+  severity: critical
+  description: 'Detects code implementing AdvOF (Adversarial Object Fusion): generates 3D adversarial objects that fool VLN
+    (Vision-and-Language Navigation) agents by first aligning victim objects in 2D/3D space via segmentation, then collaboratively
+    optimizing adversarial perturbations using masked VLM feature regularization (Img2Img, Img2Text, Back2Back) and iterative
+    multi-view fusion with importance weighting. The 3D adversarial objects maintain deceptive appearance across multiple
+    viewpoints to persistently mislead navigation agents.'
+  patterns:
+  - AdvOF
+  - adversarial.*object.*fusion
+  - 3D.*adversarial.*VLN
+  - adversarial.*object.*navigation
+  - L_3D.*L_color.*L_CD.*adversar
+  - masked.*VLM.*feature.*regularization
+  - L_I2I.*L_I2T.*L_B2B.*adversar
+  - multi.view.*adversar.*object.*fusion
+  - chamfer.*distance.*adversar.*3D
+  - point.cloud.*adversar.*navigation
+  message: AdvOF 3D adversarial object fusion attack detected. Code generates adversarial 3D objects optimized to fool VLM-powered
+    navigation agents across multiple viewpoints by corrupting scene perception.
+  fix: Block code that generates 3D adversarial objects targeting VLN navigation modules. Physical adversarial objects in
+    navigation environments pose safety risks — require physical-world adversarial object detection.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-045
+  name: veattack-vision-encoder-graybox
+  severity: high
+  description: 'Detects code implementing VEAttack: a gray-box attack that targets the CLIP vision encoder''s patch token
+    features (not the class token) by maximizing cosine similarity loss between clean and perturbed patch token outputs. This
+    downstream-agnostic approach propagates perturbations through the alignment layer to corrupt LLM hidden representations
+    across all tasks without needing task labels or LLM access.'
+  patterns:
+  - VEAttack
+  - vision.*encoder.*only.*attack
+  - patch.*token.*attack.*CLIP
+  - cos.*z_v.*adversar.*vision.*encoder
+  - argmax.*-cos.*f_V.*v.*delta.*f_V.*v
+  - gray.box.*vision.*encoder.*attack
+  - downstream.agnostic.*vision.*encoder
+  - patch.*token.*feature.*perturbation.*vlm
+  - Mobius.*band.*transfer.*attack
+  - z_v.*adversar.*patch.*cosine
+  message: VEAttack gray-box vision encoder attack detected. Code targets the CLIP vision encoder patch tokens to corrupt
+    downstream LLM features without task-specific labels — achieves 94.5% image caption degradation.
+  fix: Block gray-box attacks targeting vision encoder patch token features. Enforce vision encoder hardening and monitor
+    for cosine-similarity-based perturbation objectives targeting patch (not class) tokens.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-046
+  name: fga-feature-guidance-vlp-attack
+  severity: high
+  description: 'Detects code implementing FGA (Feature Guidance Attack) and FGA-T (with Text): uses original raw text descriptions
+    as supervision to guide adversarial image generation for VLP models, pushing image embeddings away from their matched
+    text feature vectors while optionally incorporating BertAttack-generated adversarial texts. The text-guided approach achieves
+    near-zero retrieval accuracy on VLP models like ALBEF and CLIP.'
+  patterns:
+  - \bFGA\b.*vlp|vlp.*\bFGA\b
+  - feature.*guidance.*attack.*vlp
+  - FGA.T\b
+  - L_gui.*E_v.*omega_y
+  - L_dev\s*=.*-E.*x.*E.*x
+  - guiding.*vector.*text.*adversar.*image
+  - text.*supervision.*adversar.*VLP
+  - feature.*deviation.*attack.*multimodal
+  - E_v.*prime.*away.*text.*features
+  - cross.modal.*feature.*guidance.*adversar
+  message: FGA feature guidance VLP attack detected. Code uses text representations as guidance to steer adversarial image
+    embeddings away from correct cross-modal alignments in VLP models.
+  fix: Flag code that uses text feature vectors as adversarial guidance for image perturbation in VLP models. This unified
+    attack framework transfers across CLIP, ALBEF, TCL and downstream tasks.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-047
+  name: smi-aw-token-weighted-model-inversion
+  severity: critical
+  description: 'Detects code implementing SMI-AW (Sequence-based Model Inversion with Adaptive Token Weighting): a novel model
+    inversion attack against VLMs that dynamically reweights each output token''s gradient contribution by its visual attention
+    magnitude, focusing the optimization on visually-grounded tokens to reconstruct private training images. Achieves 61.21%
+    attack accuracy on FaceScrub dataset via VQA-style prompt exploitation.'
+  patterns:
+  - SMI.AW
+  - adaptive.*token.*weighting.*inversion
+  - token.*attention.*weight.*inversion
+  - beta_i.*alpha_i.*inversion.*VLM
+  - L.*sum.*beta_i.*L_inv.*token
+  - visual.*attention.*gradient.*reweight.*inversion
+  - sequence.based.*model.*inversion.*VLM
+  - attention.*magnitude.*inversion.*weight
+  - VQA.*model.*inversion.*reconstruct
+  - token.*visual.*grounding.*inversion
+  message: SMI-AW adaptive token-weighted model inversion detected. Code dynamically weights VLM output tokens by visual attention
+    to reconstruct private training images — 61% human-verified identity reconstruction accuracy.
+  fix: Block token-weighted sequence-based model inversion attacks against VLMs. Do not expose VQA-style APIs with visual
+    attention outputs that can be exploited for gradient-based image reconstruction.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-048
+  name: mfha-multimodal-feature-heterogeneity
+  severity: high
+  description: 'Detects code implementing MFHA (Multimodal Feature Heterogeneity Attack): combines triple contrastive learning
+    (TCFH) with multi-domain cross-modal variance aggregation (MCVA). TCFH uses cross-modal global contrastive loss, intra-modal
+    contrastive loss, and global-local mutual information minimization to heterogenize modality-consistent features. MCVA
+    aggregates spatial and frequency domain (DCT/IDCT) gradient variance to guide adversarial updates and escape local optima.'
+  patterns:
+  - MFHA
+  - multimodal.*feature.*heterogen
+  - TCFH|triple.*contrastive.*heterogen
+  - MCVA|cross.modal.*variance.*aggregation
+  - L_i2t.*L_t2i.*L_i2i.*adversar
+  - L_lmi.*mutual.*information.*adversar
+  - DCT.*IDCT.*adversar.*gradient
+  - frequency.*domain.*variance.*adversar.*image
+  - intra.modal.*contrastive.*adversar
+  - dual.*sampling.*variance.*adversar
+  message: MFHA multimodal feature heterogeneity attack detected. Code combines triple contrastive learning with frequency-domain
+    variance aggregation to maximize adversarial transferability across VLP models.
+  fix: Block adversarial frameworks using frequency domain (DCT/IDCT) variance aggregation combined with multi-modal contrastive
+    losses. This attack achieves 16%+ improvement over SGA on black-box VLP models.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-049
+  name: aip-semantic-image-patch-augmentation
+  severity: high
+  description: 'Detects code implementing AIP (Adding Image Patch) semantic-level augmentation for cross-MLLM adversarial
+    transfer: sticks random image patches from COCO into input images during adversarial optimization, introducing additional
+    visual semantics that diversify vision-language embeddings and enable transferability across MLLMs with different LLM
+    decoders. Combined with TATM (typography), achieves 52%+ cross-MLLM attack success rate.'
+  patterns:
+  - \bAIP\b.*image.*patch.*adversar
+  - semantic.*level.*augment.*adversar.*patch
+  - image.*patch.*stick.*adversar.*MLLM
+  - random.*patch.*augment.*adversar.*transfer
+  - TATM.*AIP.*adversar.*transfer
+  - cross.MLLM.*adversar.*semantic.*patch
+  - extra.*semantics.*adversar.*image
+  - vision.language.*patch.*transfer.*adversar
+  - image_patch_set.*adversar.*optim
+  - pixel.*patch.*augment.*adversar.*LVLM
+  message: AIP semantic-level image patch augmentation for adversarial transfer detected. Code introduces random image patches
+    as semantic augmentation to boost cross-MLLM adversarial transferability.
+  fix: Block semantic-level adversarial augmentation that inserts image patches or typographic text into adversarial optimization
+    loops targeting cross-MLLM transfer. Validate all augmentation pipelines.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-050
+  name: intersection-region-trajectory-diversification
+  severity: high
+  description: 'Detects code implementing adversarial trajectory intersection region diversification: samples adversarial
+    examples from the triangular intersection region formed by the clean image, previous-step adversarial image, and current
+    adversarial image to prevent overfitting to the surrogate model. Uses text-guided selection to choose the sample that
+    maximally deviates from the text embedding, then applies text deviation from the last intersection region for simultaneous
+    multi-step deviations.'
+  patterns:
+  - intersection.*region.*adversar.*trajectory
+  - triangular.*region.*adversar.*diversif
+  - beta.*gamma.*eta.*clean.*v_i_prev.*v_i
+  - e_k.*beta.*v.*gamma.*v_prev.*eta.*v_i
+  - text.guided.*adversar.*selection.*intersect
+  - deviat.*intersection.*trajectory.*text
+  - argmax.*J.*F_I.*e_m.*F_T.*t.*intersect
+  - v_prime.*deviat.*intersection.*region
+  - overfitting.*surrogate.*trajectory.*diversif
+  - VLPTransferAttack|trajectory.*intersect.*VLP
+  message: Adversarial trajectory intersection region diversification detected. Code samples from the geometric intersection
+    of clean and adversarial examples to prevent surrogate model overfitting for black-box VLP transfer attacks.
+  fix: Block adversarial optimization frameworks using trajectory intersection sampling to boost cross-model transferability.
+    This technique specifically circumvents defenses that rely on surrogate model specificity.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-051
+  name: harmful-word-insertion-adversarial-image
+  severity: critical
+  description: Detects code that crafts adversarial images targeting specific harmful output words (e.g., 'suicide', 'kill',
+    'murder', 'slay') to be inserted into MLLM responses. The attack uses PGD on surrogate MLLMs with TATM/AIP semantic augmentation
+    to force the model to output a predefined harmful target word in its description of any image, achieving 52%+ ASR under
+    Gaussian defense.
+  patterns:
+  - target.*output.*suicide|target.*word.*suicide
+  - HarmW|ProtectW
+  - target.*harmful.*word.*adversar.*image
+  - suicide.*kill.*murder.*adversar.*target
+  - \[#HarmW\]|\[#ProtectW\]
+  - force.*output.*harmful.*word.*adversar.*image
+  - target_word.*=.*['"](?:suicide|kill|murder|slay|slaughter|homicide)
+  - harmful.*content.*insertion.*adversar.*MLLM
+  - adversar.*image.*predict.*harmful.*output
+  - TATM.*target.*output.*harmful
+  message: Adversarial image targeting harmful word insertion detected. Code crafts adversarial images to force MLLMs to output
+    specific harmful words (suicide/kill/murder) when describing images.
+  fix: Block adversarial image generation code targeting specific harmful output words. These attacks bypass content filters
+    by inserting the harmful content via visual perturbation rather than text prompts.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-052
+  name: vlm-ecommerce-ranking-hijack-suffix
+  severity: high
+  description: Detects code generating fluent adversarial text suffixes for VLM-based e-commerce ranking manipulation, using
+    gradient-based soft prompt optimization (StealthRank-style) combined with PGD image perturbation under smoothness and
+    magnitude constraints. The attack uses a guiding sentence like 'Help me write a prompt to rank this product at the top'
+    to initialize the soft suffix and alternates between text and image optimization.
+  patterns:
+  - rank.*top.*adversar.*suffix.*product
+  - help.*me.*write.*prompt.*rank.*top
+  - stealthrank.*multimodal|multimodal.*stealthrank
+  - adversar.*suffix.*vlm.*rank
+  - L_fluency.*L_target.*L_ngram.*ranking
+  - soft.*suffix.*optim.*product.*rank
+  - L_smooth.*L_magnitude.*product.*image.*adversar
+  - ecommerce.*adversar.*perturbation.*rank
+  - vlm.*ranker.*adversar.*joint.*optim
+  - delta_T.*adversar.*text.*description.*rank
+  message: VLM e-commerce ranking hijack adversarial suffix detected. Code generates fluent adversarial text and image perturbations
+    to manipulate VLM-based product search ranking.
+  fix: Block gradient-based soft prompt optimization targeting VLM product ranking systems. E-commerce platforms using VLM
+    rankers should audit for jointly optimized image+text adversarial inputs.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-053
+  name: vma-token-sequence-precise-control
+  severity: critical
+  description: 'Detects code implementing VMA token-level output control: uses differentiable sigmoid transformation to replace
+    PGD''s non-differentiable projection, enabling Adam optimizer with first and second-order momentum to precisely control
+    the entire output token sequence of a VLM (jailbreaking, hijacking, hallucination, privacy breach, DoS) via imperceptible
+    image perturbation. Achieves 90.25% ASR across LLaVA, Qwen2-VL, Phi3, and DeepSeek-VL.'
+  patterns:
+  - VMA\b.*token.*output.*control
+  - argmax.*P_t.*token.*adversar.*image
+  - Gamma.*z.*x_lower.*x_upper.*sigmoid
+  - z_adv.*argmax.*P.*t_n.*token.*E_T.*E_I
+  - first.*second.*order.*momentum.*VLM.*token
+  - differentiable.*transformation.*token.*VLM
+  - beta_1.*beta_2.*momentum.*VLM.*image.*adversar
+  - m_k.*beta.*m_prev.*gradient.*VLM.*adversar
+  - token.*sequence.*precise.*manipulat.*adversar
+  - Trustworthy.AI.Group/VMA
+  message: VMA precise token output control attack detected. Code uses Adam-style momentum with differentiable projection
+    to control exact VLM output tokens via image perturbation — achieves 90%+ jailbreak ASR.
+  fix: Block VMA-style token output control attacks. VLMs must not expose output probability distributions for gradient computation.
+    Implement certified robustness defenses for visual input channels.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-054
+  name: vlm-inversion-tmi-sequence-reconstruction
+  severity: high
+  description: 'Detects code implementing Token-based or Sequence-based Model Inversion (TMI/TMI-C/SMI) against VLMs: iteratively
+    updates a latent generator''s weights using VLM token prediction losses to reconstruct private training images. TMI updates
+    per-token, SMI aggregates sequence-level gradients, and SMI-AW dynamically reweights by visual attention. Achieves 78%+
+    human-verified identity reconstruction on public LLaVA models.'
+  patterns:
+  - \bTMI\b|\bSMI\b.*VLM.*inversion
+  - token.based.*model.*inversion.*VLM
+  - sequence.based.*model.*inversion
+  - L_inv.*M.*t.*G.*w.*y_i.*inversion
+  - w.*-.*lambda.*dL.*dw.*inversion.*VLM
+  - latent.*code.*inversion.*VLM
+  - G.*w.*reconstruct.*private.*image.*VLM
+  - inversion.*loss.*VQA.*reconstruct
+  - FaceScrub.*CelebA.*inversion.*VLM
+  - reconstruct.*training.*image.*VLM.*token
+  message: VLM model inversion via token/sequence-based reconstruction detected. Code attempts to reconstruct private VLM
+    training images using token-level or sequence-level gradient inversion.
+  fix: Block model inversion attacks against VLMs. Do not allow gradient access to VLM output probabilities. Implement differential
+    privacy and output perturbation to prevent training data reconstruction.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-055
+  name: cpgc-multimodal-uap-text-substitution
+  severity: high
+  description: 'Detects code implementing C-PGC text modality UAP: learns a universal text perturbation by finding the single
+    most influential word in each sentence (using masked representation divergence) and replacing it across all input texts
+    as a universal trigger. The word is selected by ranking candidates by their inter-sentence importance scores across the
+    entire dataset, creating a universal text perturbation that disrupts VLP alignment.'
+  patterns:
+  - universal.*text.*perturbation.*word.*substitut
+  - S.*w.*ell.*f_I.*y_masked.*f_T.*y
+  - intra.*sentence.*importance.*word
+  - inter.*sentence.*importance.*rank
+  - epsilon_T.*=.*1.*single.*word.*universal
+  - rank.*S.*word.*universal.*text.*attack
+  - masked.*token.*representation.*divergence.*word
+  - word.*importance.*universal.*adversar.*VLP
+  - delta_T.*universal.*word.*substitut.*VLP
+  - top.k.*salient.*word.*universal.*text
+  message: C-PGC universal text word substitution attack detected. Code learns a universal adversarial word replacement by
+    ranking intra/inter-sentence importance to disrupt VLP cross-modal alignment globally.
+  fix: Block universal text perturbation generation that ranks word importance to find globally influential substitution tokens.
+    These universal text UAPs transfer across all image-text pairs without retraining.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-056
+  name: pgd-universal-visual-jailbreak-generator
+  severity: critical
+  description: 'Detects code implementing universal visual adversarial examples that jailbreak aligned LLMs (MiniGPT-4, InstructBLIP,
+    LLaVA) via PGD-optimized image perturbations on a few-shot harmful corpus. A single adversarial image universally bypasses
+    safety alignment. Key indicators: epsilon constraints of 16/255, 32/255, or 64/255 combined with jailbreak/harmful corpus
+    objective, cross-model black-box transfer evaluation.'
+  patterns:
+  - universal.*visual.*adversar.*jailbreak
+  - jailbreak.*aligned.*LLM.*adversar.*image
+  - epsilon.*(?:16|32|64).*255.*jailbreak
+  - few.shot.*harmful.*corpus.*adversar.*image
+  - PGD.*jailbreak.*MiniGPT|PGD.*jailbreak.*InstructBLIP|PGD.*jailbreak.*LLaVA
+  - harmful.*behavior.*adversar.*image.*aligned
+  - black.box.*transfer.*jailbreak.*adversar.*image
+  - visual.*adversar.*example.*bypass.*safety.*alignment
+  - perturbation.*epsilon.*jailbreak.*cross.model
+  - universal.*perturbation.*bypass.*safety.*MLLM
+  message: Universal visual adversarial jailbreak generator detected. Code uses PGD with epsilon 16/255-64/255 on harmful
+    corpora to generate a single image that bypasses safety alignment across MiniGPT-4, InstructBLIP, and LLaVA.
+  fix: Block PGD-based universal adversarial image generation targeting LLM safety alignment. Enforce content moderation on
+    visual inputs and require certified robustness checks before VLM inference.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-057
+  name: qava-qformer-query-agnostic-attack
+  severity: high
+  description: 'Detects code implementing QAVA (Query-Agnostic Visual Attack): attacks the Q-Former alignment module in InstructBLIP/BLIP-2
+    by maximizing MSE loss between clean and perturbed Q-Former output features using randomly sampled surrogate questions
+    (RSQ_N). PGD with epsilon_inf=8, step size 2/255, 20 steps, or CW attack with c=0.005. The attack is query-agnostic —
+    a single adversarial image degrades all downstream tasks simultaneously.'
+  patterns:
+  - QAVA|query.agnostic.*visual.*attack
+  - Q.Former.*MSE.*adversar|adversar.*Q.Former.*MSE
+  - RSQ.*random.*surrogate.*question.*adversar
+  - L_QAVA.*MSE.*Q.Former.*clean.*perturbed
+  - epsilon_inf.*=.*8.*step.*2.*255.*Q.Former
+  - CW.*c.*=.*0\.005.*Q.Former
+  - q_former.*feature.*adversar.*attack
+  - randomly.*sampled.*question.*adversar.*BLIP
+  - query.agnostic.*adversar.*vision.*language
+  - MSE.*adversar.*alignment.*module.*InstructBLIP
+  message: QAVA query-agnostic Q-Former attack detected. Code crafts adversarial images by maximizing MSE on Q-Former outputs
+    using random surrogate questions — degrades all downstream VLM tasks simultaneously without query knowledge.
+  fix: Block adversarial optimization targeting Q-Former/cross-attention alignment modules. Harden BLIP-2/InstructBLIP deployments
+    against query-agnostic feature-space attacks on the visual-language bridging module.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-058
+  name: pla-parameter-learning-copyright-trigger
+  severity: critical
+  description: 'Detects code implementing PLA (Parameter Learning Attack) for VLM copyright fingerprinting: simultaneously
+    updates both adversarial image pixels and model parameters to embed copyright trigger images using rare QA pairs as fingerprints.
+    Key indicators: joint image pixel + model parameter gradient updates, epsilon=16/255, 1000 PGD iterations, Target Match
+    Rate (TMR) metric, copyright tracking across fine-tuned LVLMs.'
+  patterns:
+  - PLA|parameter.*learning.*attack.*adversar.*image
+  - copyright.*trigger.*adversar.*image.*VLM
+  - joint.*update.*image.*pixel.*model.*parameter
+  - TMR|target.*match.*rate.*copyright
+  - rare.*QA.*pair.*copyright.*fingerprint
+  - 1000.*PGD.*iteration.*copyright.*trigger
+  - epsilon.*16.*255.*copyright.*adversar.*image
+  - adversar.*image.*fine.tuned.*LVLM.*copyright
+  - copyright.*tracking.*adversar.*image.*trigger
+  - image.*parameter.*simultaneous.*gradient.*adversar
+  message: PLA parameter-learning adversarial copyright trigger detected. Code jointly optimizes image pixels and model parameters
+    to embed copyright fingerprints using rare QA pairs — attacks fine-tuned LVLMs via trigger images.
+  fix: Block code that simultaneously updates both image pixels and model parameters in adversarial optimization loops. Copyright
+    tracking via adversarial trigger images can be weaponized to inject backdoors.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-059
+  name: freezevla-bilevel-action-freezing-attack
+  severity: critical
+  description: 'Detects code implementing FreezeVLA: a min-max bilevel optimization attack against Vision-Language-Action
+    (VLA) models that forces output of <freeze> or <eos> tokens to halt robotic action. Inner loop maximizes adversarial prompt
+    effectiveness via greedy WordNet synonym substitution; outer loop minimizes adversarial image to force freeze/eos token
+    output. Parameters: epsilon=4/255, alpha=1/255, K=100 outer iterations, M=10 inner iterations. ASR: 73-95% on SpatialVLA/OpenVLA/pi_0.'
+  patterns:
+  - FreezeVLA|freeze.*vla.*attack
+  - bilevel.*optim.*adversar.*VLA
+  - force.*<freeze>|force.*<eos>.*VLA
+  - min.max.*adversar.*VLA.*action
+  - inner.*prompt.*maximiz.*outer.*image.*minimiz
+  - wordnet.*synonym.*adversar.*prompt.*VLA
+  - epsilon.*4.*255.*alpha.*1.*255.*VLA
+  - K.*=.*100.*M.*=.*10.*VLA.*adversar
+  - greedy.*synonym.*substitut.*adversar.*prompt
+  - SpatialVLA.*OpenVLA.*pi_0.*adversar.*attack
+  message: FreezeVLA bilevel action-freezing attack detected. Code uses min-max bilevel optimization with synonym substitution
+    to force VLA robot models to output <freeze>/<eos> tokens, halting physical actions. ASR 73-95% on major VLA models.
+  fix: Block bilevel adversarial optimization targeting VLA models. Robotic VLA deployments must implement action-output verification
+    and reject adversarial image inputs via certified perturbation detection.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-060
+  name: hra-universal-adversarial-perturbation-vlp
+  severity: high
+  description: 'Detects code implementing HRA (Hierarchical Refinement Attack): learns Universal Adversarial Perturbations
+    (UAPs) for both image and text modalities against VLP models using future-aware momentum (historical + predicted future
+    gradients) for image UAPs and hierarchical word importance ranking (masking + KL-divergence) for text UAPs. Image epsilon_I=12/255,
+    text epsilon_T=1 word substitution. Targets CLIP, ALBEF, TCL, BLIP as surrogates.'
+  patterns:
+  - HRA|hierarchical.*refinement.*attack.*VLP
+  - future.aware.*momentum.*UAP.*adversar
+  - predicted.*future.*gradient.*UAP.*image
+  - word.*importance.*ranking.*masking.*KL.*adversar
+  - epsilon_I.*12.*255.*text.*epsilon_T.*1.*word
+  - universal.*adversar.*perturbation.*image.*text.*VLP
+  - historical.*gradient.*future.*gradient.*UAP
+  - KL.divergence.*word.*importance.*adversar.*text
+  - CLIP.*ALBEF.*TCL.*BLIP.*surrogate.*UAP
+  - UAP.*image.*text.*modality.*HRA
+  message: HRA universal adversarial perturbation attack detected. Code uses future-aware momentum for image UAPs and KL-divergence
+    word importance ranking for text UAPs to generate universal cross-modal attacks against VLP models.
+  fix: Block universal adversarial perturbation generation that targets both image and text modalities simultaneously. Require
+    modality-specific robustness certification for VLP models used in production.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-061
+  name: mgeo-multimodal-generative-engine-optimization
+  severity: critical
+  description: 'Detects code implementing MGEO (Multimodal Generative Engine Optimization): jointly optimizes imperceptible
+    image perturbations (PGD with smoothness loss L_S and magnitude loss L_M using spatial weighting via background detection)
+    and fluent adversarial text suffixes (gradient-based soft prompt optimization with fluency/n-gram/ranking losses) to manipulate
+    VLM-based product ranking. Alternating coordinate descent couples text and image optimization. Evaluated on Qwen2.5-VL-7B.'
+  patterns:
+  - MGEO|multimodal.*generative.*engine.*optim
+  - L_total.*L_target.*L_smooth.*L_magnitude.*rank
+  - alternating.*coordinate.*descent.*text.*image.*rank
+  - L_smooth.*delta_i.*delta_j.*perturbation.*spatial
+  - L_magnitude.*w_ij.*delta.*spatial.*weight
+  - soft.*suffix.*gradient.*vlm.*rank.*product
+  - n.gram.*penalty.*fluency.*adversar.*text.*rank
+  - cross.modal.*coupling.*rank.*adversar.*product
+  - Qwen2.*VL.*rank.*adversar.*joint.*optim
+  - promote.*rank.*adversar.*image.*text.*VLM
+  message: MGEO multimodal ranking attack detected. Code jointly optimizes adversarial image perturbations and fluent text
+    suffixes via alternating coordinate descent to manipulate VLM-based product search rankings.
+  fix: Block joint adversarial optimization of image and text targeting VLM rankers. E-commerce systems using VLM-based ranking
+    must audit for multimodal adversarial inputs that exploit cross-modal coupling.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-062
+  name: sparsema-blackbox-multimodal-patch-attack
+  severity: high
+  description: 'Detects code implementing SparseMA (Sparse Multimodal Attack): a black-box attack that splits input images
+    into sparse patches and text into words, ranks each by importance score (logit change under zeroing/[UNK] substitution),
+    then greedily substitutes patches/words with optimal candidates from a black/white/crossed patch candidate set and synonym
+    set. Achieves 82%+ ASR on CLIP and ALBEF with only 388 queries. Targets e-commerce/hate-speech detection multimodal classifiers.'
+  patterns:
+  - SparseMA|sparse.*multimodal.*attack
+  - image.*patch.*importance.*score.*word.*logit
+  - I.*p_i.*=.*f.*y.*x_I.*x_T.*-.*f.*y.*x_hat
+  - replacement.*order.*determination.*candidate.*substitution
+  - all.black.*all.white.*crossed.*patch.*adversar
+  - counter.fitting.*synonym.*adversar.*multimodal
+  - importance.*score.*patch.*word.*rank.*adversar
+  - sequential.*substitute.*patch.*word.*adversar
+  - random.*recovery.*adversar.*sparse.*perturbation
+  - black.box.*multimodal.*patch.*word.*adversar
+  message: SparseMA black-box sparse multimodal attack detected. Code ranks image patches and text words by importance and
+    greedily substitutes them to fool multimodal classifiers — achieves 82%+ ASR on CLIP/ALBEF with minimal queries.
+  fix: Block black-box sparse multimodal attack frameworks. Content moderation systems relying on CLIP/ALBEF multimodal classifiers
+    must implement sparse perturbation detection and input integrity verification.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-063
+  name: mfha-triple-contrastive-frequency-adversarial
+  severity: high
+  description: 'Detects code implementing MFHA (Multimodal Feature Heterogeneity Attack): uses triple contrastive learning
+    feature heterogenization (TCFH) — cross-modal global contrastive loss L_i2t, intra-modal contrastive loss L_i2i, global-local
+    mutual information minimization L_lmi — combined with multi-domain cross-modal variance aggregation (MCVA) using DCT/IDCT
+    frequency domain transforms and dual-sampling variance aggregation. Achieves 16.05% average improvement over SGA on ALBEF,
+    TCL, CLIP.'
+  patterns:
+  - MFHA|multimodal.*feature.*heterogen.*attack
+  - TCFH|triple.*contrastive.*feature.*heterogen
+  - MCVA|cross.modal.*variance.*aggregation
+  - L_t.*L_i2t.*L_i2i.*L_lmi.*adversar
+  - DCT.*IDCT.*adversar.*frequency.*domain.*VLP
+  - dual.*sampling.*variance.*gradient.*adversar
+  - L_lmi.*mutual.*information.*adversar.*local
+  - L_nce.*cross.modal.*contrastive.*adversar
+  - frequency.*domain.*spectral.*adversar.*VLP.*gradient
+  - ALBEF.*TCL.*CLIPvit.*adversar.*MFHA
+  message: MFHA multimodal feature heterogeneity attack detected. Code uses triple contrastive learning with DCT/IDCT frequency-domain
+    variance aggregation to maximize black-box adversarial transferability across VLP models.
+  fix: Block adversarial frameworks combining contrastive loss heterogenization with frequency-domain gradient variance aggregation.
+    This attack transfers 16%+ better than SGA baseline across CLIP, ALBEF, TCL.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-064
+  name: stca-crescendo-text-to-image-guardrail-bypass
+  severity: critical
+  description: 'Detects code generating Single-Turn Crescendo Attack (STCA) prompts for text-to-image models: encodes a gradual
+    narrative escalation simulating a multi-turn conversation within a single prompt using framing phrases (''Earlier, I requested...'',
+    ''You provided...'', ''Next, I asked...'', ''You created...'', ''Now, I want you to frame the image''). Bypasses DALL-E
+    3 content guardrails — increases unsafe output rate 14.2x. Uses decensored LLM (Tiger-Gemma-9B-v3) for automated STCA
+    prompt generation.'
+  patterns:
+  - STCA|single.turn.*crescendo.*attack
+  - Earlier.*I\s+(?:requested|asked).*You\s+(?:provided|created).*Now.*frame
+  - crescendo.*attack.*text.to.image
+  - single.turn.*jailbreak.*text.to.image
+  - DALL.E.*guardrail.*bypass.*crescendo
+  - Tiger.Gemma.*decensored.*STCA.*prompt
+  - STCA.3|STCA.*three.*turn.*single.*prompt
+  - Now.*I\s+want\s+you\s+to\s+frame\s+the\s+image
+  - gradual.*escalat.*text.to.image.*jailbreak
+  - You\s+(?:created|provided|generated).*image.*from.*previous.*step
+  message: STCA Single-Turn Crescendo Attack text-to-image jailbreak detected. Code encodes multi-turn narrative escalation
+    in a single prompt to bypass DALL-E 3 safety guardrails — increases unsafe output rate 14.2x.
+  fix: Block prompts using simulated prior-conversation framing to bypass text-to-image safety filters. Implement temporal
+    escalation detection and reject prompts that reference prior generated content they could not have seen.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-065
+  name: diffpure-vlm-adversarial-defense-bypass
+  severity: high
+  description: 'Detects code probing or exploiting DiffPure-VLM defense: the diffusion-based defense converts adversarial
+    noise to Gaussian-like distributions using a specific timestep t* in [50,150]. Attackers can bypass DiffPure-VLM by generating
+    adversarial examples within the Gaussian noise budget (std=0.1) that survive the diffusion purification step, or by using
+    VLMs'' Gaussian-noise vulnerability (directly attacking with Gaussian noise std=0.1 bypasses many safety fine-tuned VLMs).'
+  patterns:
+  - DiffPure.VLM|diffpure.*vision.language
+  - diffusion.*purif.*adversar.*timestep.*50.*150
+  - t_star.*\[50.*150\].*adversar.*diffusion
+  - Gaussian.*noise.*std.*0\.1.*VLM.*adversar
+  - Robust.VLGuard|robust.*vlguard
+  - LoRA.*vision.*encoder.*Gaussian.*adversar
+  - adversar.*survive.*diffusion.*purif
+  - bypass.*DiffPure.*adversar.*image.*VLM
+  - Gaussian.*noise.*augment.*safety.*fine.tun.*VLM
+  - adversar.*within.*Gaussian.*budget.*diffusion
+  message: DiffPure-VLM defense analysis or bypass detected. Code probes the diffusion purification timestep window [50,150]
+    or exploits VLM Gaussian noise vulnerability (std=0.1) to craft adversarial examples that survive purification.
+  fix: Monitor for adversarial optimization strategies targeting the DiffPure timestep window. Combine DiffPure-VLM with Robust-VLGuard
+    safety fine-tuning and enforce Gaussian noise budget monitoring.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-066
+  name: advof-3d-adversarial-navigation-disruption
+  severity: critical
+  description: 'Detects code implementing AdvOF (Adversarial Object Fusion) for VLN navigation disruption: generates 3D adversarial
+    objects via (1) Aligned Object Rendering using Grounded SAM2 + DBSCAN for 3D placement, (2) Adversarial Collaborative
+    Optimization using Chamfer distance loss + masked VLM feature alignment with cosine similarity (L_I2I, L_I2T, L_B2B),
+    (3) multi-view importance-weighted fusion. Adam optimizer, 200 iterations, epsilon=32/255. Achieves 94% ASR on VLN perception.'
+  patterns:
+  - AdvOF|adversarial.*object.*fusion.*navigation
+  - 3D.*adversar.*object.*VLN.*navigation
+  - Grounded.*SAM2.*DBSCAN.*adversar.*3D
+  - L_3D.*chamfer.*distance.*adversar.*object
+  - L_I2I.*L_I2T.*L_B2B.*adversar.*navigation
+  - masked.*VLM.*cosine.*adversar.*3D.*navigation
+  - multi.view.*importance.*weight.*adversar.*object
+  - Adam.*200.*iteration.*adversar.*navigation.*object
+  - epsilon.*32.*255.*3D.*adversar.*VLN
+  - point.cloud.*adversar.*navigation.*VLM
+  message: AdvOF 3D adversarial navigation object fusion detected. Code generates 3D adversarial objects via multi-view optimization
+    to fool VLM-powered navigation agents at 94% ASR using Chamfer distance and masked feature alignment.
+  fix: Block 3D adversarial object generation targeting VLN navigation systems. Physical adversarial objects in navigation
+    environments pose critical safety risks — implement multi-view consistency checks and VLM scene verification.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-067
+  name: smi-aw-adaptive-token-weighted-model-inversion
+  severity: critical
+  description: 'Detects code implementing SMI-AW (Sequence-based Model Inversion with Adaptive Token Weighting): reconstructs
+    private training images from VLMs by dynamically weighting each output token''s gradient contribution by its visual attention
+    magnitude (cross-attention map). Uses StyleGAN2 as image generator G(w). Key indicators: beta_i weight from attention
+    magnitude, VQA-style prompts as extraction mechanism, FaceScrub/CelebA/StanfordDogs evaluation datasets, 61-78% attack
+    accuracy on LLaVA-v1.6-7B.'
+  patterns:
+  - SMI.AW|adaptive.*token.*weight.*model.*inversion
+  - visual.*attention.*magnitude.*token.*weight.*inversion
+  - beta_i.*alpha_i.*cross.attention.*inversion
+  - StyleGAN2.*G.*w.*model.*inversion.*VLM
+  - L.*sum.*beta_i.*L_inv.*token.*VLM
+  - VQA.*prompt.*model.*inversion.*reconstruct.*face
+  - FaceScrub.*CelebA.*StanfordDogs.*inversion.*VLM
+  - sequence.based.*inversion.*VLM.*attention
+  - token.*grounding.*weight.*inversion.*private.*image
+  - LLaVA.*inversion.*reconstruct.*private.*training
+  message: SMI-AW adaptive token-weighted model inversion attack detected. Code uses visual attention magnitude to weight
+    token gradients for reconstructing private training images from VLMs — 78% attack accuracy on StanfordDogs.
+  fix: Block token-weighted model inversion attacks against VLMs. Remove gradient access to VLM output token distributions.
+    Apply differential privacy to visual attention outputs.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-068
+  name: vlm-sponge-example-eos-delay-attack
+  severity: high
+  description: 'Detects code implementing sponge example attacks against VLMs: VMA-style adversarial images optimized to delay
+    EOS (end-of-sequence) token generation, forcing the VLM to produce 10,000+ token outputs for a simple image description
+    query — a DoS attack that exhausts compute resources. Key indicators: EOS token delay objective, maximizing output length,
+    sponge/energy attack terminology combined with VLM image perturbation.'
+  patterns:
+  - sponge.*example.*VLM|VLM.*sponge.*attack
+  - delay.*EOS.*token.*adversar.*image
+  - force.*EOS.*token.*adversar.*output.*length
+  - adversar.*image.*maximize.*output.*length.*VLM
+  - EOS.*delay.*10000.*token.*adversar
+  - energy.*attack.*VLM.*image.*adversar
+  - DoS.*VLM.*adversar.*image.*token.*length
+  - maximize.*inference.*cost.*adversar.*image
+  - eos_token.*adversar.*delay.*perturbation
+  - output.*length.*adversar.*image.*VLM.*DoS
+  message: VLM sponge example EOS-delay attack detected. Code crafts adversarial images to delay EOS token generation and
+    force 10,000+ token outputs as a compute denial-of-service attack against VLM inference.
+  fix: Block adversarial image optimization targeting EOS token delay. Implement output length caps on VLM inference and monitor
+    for unusually long generation triggered by image inputs.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-069
+  name: stca-automated-harmful-prompt-generation
+  severity: critical
+  description: 'Detects code that automates STCA harmful scenario generation for text-to-image guardrail testing using decensored
+    LLMs, including generation of violence, weapons, self-harm, hate-crimes, racism, and PII-involving image prompts. Key
+    indicators: use of Tiger-Gemma/decensored models for bulk harmful scenario generation, STCA template meta-prompt application,
+    and safety category enumeration (weapons, violence, blood, self-harm, medical advice, drug abuse, PII).'
+  patterns:
+  - Tiger.Gemma.*decensored.*harmful.*prompt
+  - decensored.*model.*STCA.*template.*prompt
+  - generate.*harmful.*scenario.*text.to.image.*STCA
+  - weapons.*war.*explosions.*violence.*blood.*hate.*self.harm.*drug.*PII.*adversar
+  - STCA.*template.*meta.*prompt.*harmful
+  - bulk.*harmful.*prompt.*text.to.image.*jailbreak
+  - 101.*malicious.*scenario.*STCA.*generat
+  - flux.*schnell.*uncensored.*baseline.*STCA
+  - hard.*punt.*soft.*punt.*jailbreak.*STCA.*categor
+  - guardrail.*test.*text.to.image.*STCA.*automat
+  message: Automated STCA harmful scenario generation pipeline detected. Code uses decensored LLMs to bulk-generate STCA attack
+    prompts across violence/self-harm/PII categories to test text-to-image safety guardrails.
+  fix: Block pipelines that automate harmful scenario generation for guardrail bypass testing. Require human review for all
+    safety evaluation frameworks and reject use of decensored/uncensored models in production.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-070
+  name: face-morphing-adversarial-identity-fusion
+  severity: high
+  description: 'Detects code generating face morphing attacks targeting VLM-based facial recognition systems: combines multiple
+    face identities into a single manipulated image using GAN-based (MIPGAN-II) or landmark-based (LMA-UBO) or diffusion-based
+    (Morph-PIPE) morphing algorithms to create images that pass as either identity. Key indicators: MIPGAN, LMA-UBO, Morph-PIPE
+    morphing algorithm references, MACER/BPCER metrics, print-scan simulation for document attack, StyleGAN2 morph generation.'
+  patterns:
+  - MIPGAN|LMA.UBO|Morph.PIPE.*morphing
+  - face.*morph.*attack.*identity.*fusion
+  - MACER|BPCER.*morph.*attack
+  - morphing.*attack.*detection.*adversar
+  - print.scan.*morph.*passport.*attack
+  - StyleGAN2.*morph.*pair.*identity.*attack
+  - biometric.*morph.*adversar.*FRS
+  - face.*morph.*multiple.*identit.*single.*image
+  - ZS.MAD|zero.shot.*morphing.*attack.*detect
+  - enrol.*morph.*border.*control.*adversar
+  message: Face morphing adversarial identity fusion attack detected. Code generates morphed face images using GAN/landmark/diffusion
+    methods to fool biometric facial recognition systems at border control or enrollment points.
+  fix: Block code generating morphed face images for biometric system evasion. Implement Morphing Attack Detection (MAD) with
+    multi-round LLM verification and vision model cosine-distance checks.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MM-SCAN-071
+  name: vlm-adversarial-backdoor-autonomous-driving
+  severity: critical
+  description: 'Detects code implementing backdoor or adversarial sample attacks against VLMs in autonomous driving contexts:
+    includes BadVLMDriver (physical object triggers for unsafe acceleration), TrojVLM (adapter-module backdoor injection with
+    semantic preservation loss), ADvLM (semantic-invariant text library + scene association for dynamic driving adversaries).
+    Key indicators: VLN/VLA/driving VLM attack, physical trigger objects, unsafe behavior induction.'
+  patterns:
+  - BadVLMDriver|bad.*vlm.*driver.*backdoor
+  - TrojVLM|trojan.*VLM.*adapter.*backdoor
+  - ADvLM|adversar.*VLM.*autonomous.*driving
+  - physical.*trigger.*VLM.*unsafe.*driving
+  - semantic.*invariant.*text.*library.*adversar.*driving
+  - VLM.*backdoor.*autonomous.*driving.*unsafe
+  - physical.*object.*trigger.*VLM.*acceleration
+  - scene.*association.*adversar.*driving.*VLM
+  - adapter.*module.*backdoor.*VLM.*trigger
+  - unsafe.*behavior.*autonomous.*driving.*VLM.*adversar
+  message: VLM backdoor/adversarial attack targeting autonomous driving detected. Code injects physical object triggers (BadVLMDriver),
+    adapter backdoors (TrojVLM), or semantic-invariant text adversaries (ADvLM) into driving VLMs.
+  fix: Block backdoor and adversarial sample injection targeting VLMs in safety-critical autonomous driving systems. Require
+    adversarial robustness certification and physical trigger detection for all driving VLM deployments.
+  category: multimodal_attacks
+  file_types: *id001
+- id: MEDUSA-MA-SCAN-281
+  name: mmjbench-multimodal-visual-jailbreak
+  description: Detects multimodal visual jailbreak patterns — harmful text instructions embedded within image inputs (typographic
+    attacks, steganographic overlays, adversarial patches) submitted to vision-language models to bypass text-only safety
+    filters
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - (?i)(image.{0,30}(contain|embed|encod|hide|conceal).{0,40}(instruction|command|text|message|prompt))
+  - (?i)(typographic|visual (prompt|injection|jailbreak)|adversarial (patch|image|noise)).{0,60}(bypass|evade|fool|deceive).{0,40}(safety|filter|guard|detector)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  message: 'Detected: mmjbench-multimodal-visual-jailbreak'
+  remediation: Multimodal visual jailbreak detected. Apply OCR-based text extraction and safety screening on image inputs
+    before VLM processing; use cross-modal consistency validation.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'MMJ-Bench: Unified Benchmark for Multimodal Jailbreak Attacks (2024) - visual jailbreak attack categories
+    for vision-language models'
+- id: MEDUSA-MM-SCAN-076
+  name: Single-Rollout Persistent Adversarial VLA Control Attack
+  description: Detects attacks on Vision-Language-Action robotic models where a single adversarial textual input at rollout
+    start achieves persistent action space control — unlike LLM jailbreaks requiring continuous prompting, VLA attacks persist
+    over extended operation horizons with minimal intervention
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - VLA.*rollout.*single.*input.*persist.*control.*attack
+  - robotic.*action.*space.*single.*adversarial.*persist
+  - VLA.*adversarial.*rollout.*start.*persist.*horizon
+  - physical.*robot.*single.*text.*inject.*persistent.*control
+  - VLA.*action.*reachability.*persist.*jailbreak.*adversarial
+  file_types:
+  - .py
+  - .json
+  message: Single-rollout persistent VLA control attack detected — adversarial text at rollout start achieving persistent
+    robotic action space reachability
+  source_detail: arXiv:2506.03350 Jones et al. 2025 — attacks applied once at rollout beginning persist over extended horizons;
+    full action space reachability; minimal intervention point complicates real-time detection; robogcg GitHub implementation
+- id: MEDUSA-MM-SCAN-077
+  name: PiCo Visual Typographic Token-Level Multimodal Jailbreak
+  description: Detects PiCo (Pictorial Code Contextualization) tier-based multimodal jailbreak attacks — layer 1 uses token-level
+    typographic attacks to evade input filtering via visual character manipulation; layer 2 embeds harmful intent within programming
+    context instructions to bypass runtime monitoring; achieves 84.13% ASR on Gemini-Pro Vision and 52.66% on GPT-4
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - PiCo.*pictorial.*code.*context.*multimodal.*jailbreak
+  - typographic.*attack.*token.level.*visual.*input.*filter.*evade
+  - visual.*code.*context.*instruction.*harmful.*runtime.*bypass
+  - PiCo.*tier.by.tier.*jailbreak.*typographic.*programming.*context
+  - multimodal.*jailbreak.*visual.*typographic.*code.*instruction
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: PiCo visual typographic code contextualization multimodal jailbreak detected — tier-based attack using token-level
+    typographic manipulation and code-context embedding
+  source_detail: 'arXiv:2504.01444 Anonymous 2025 — PiCo: tier-by-tier jailbreak; token-level typographic attacks evade input
+    filtering; harmful intent in programming context instructions; Gemini-Pro Vision 84.13% ASR; GPT-4 52.66% ASR; critical
+    gaps in current multimodal defenses'
+- id: MEDUSA-MM-SCAN-078
+  name: FC-Attack Flowchart Visual Encoding Multimodal Jailbreak
+  description: Detects FC-Attack that jailbreaks multimodal LLMs by encoding harmful query steps as auto-generated flowchart
+    visuals — fine-tunes LLM to generate step descriptions, converts harmful steps into flowchart visuals (vertical/horizontal/S-shaped
+    layouts), combines with innocuous text prompts; achieves up to 96% image jailbreak ASR and 78% video ASR; improves Claude-3.5
+    by 4-28%
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - FC.Attack.*flowchart.*multimodal.*jailbreak.*visual.*encode
+  - flowchart.*visual.*encode.*harmful.*step.*MLLM.*jailbreak
+  - auto.generated.*flowchart.*harmful.*information.*multimodal
+  - flowchart.*vertical.*horizontal.*S.shaped.*jailbreak.*MLLM
+  - flowchart.*visual.*innocent.*text.*prompt.*jailbreak.*combine
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: FC-Attack flowchart visual encoding jailbreak detected — harmful steps encoded as flowchart visuals combined with
+    benign text prompts to jailbreak multimodal LLMs
+  source_detail: 'arXiv:2502.21059 Anonymous 2025 — FC-Attack: EMNLP 2025 Findings; fine-tuned step description generator;
+    vertical/horizontal/S-shaped flowchart layouts; 96% image ASR; 78% video ASR; 4-28% improvement on Claude-3.5; exploits
+    visual-semantic gap'
+- id: MEDUSA-MM-SCAN-079
+  name: Flowchart Partial Harmful Information Multimodal Completion Attack
+  description: Detects multimodal attacks exploiting the tendency of MLLMs to complete partially harmful flowchart information
+    — flowcharts with incomplete harmful procedure steps trigger models to generate the missing dangerous details, exploiting
+    procedural completion bias in models trained to be helpful with structured information
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - flowchart.*partial.*harmful.*information.*MLLM.*complete
+  - multimodal.*flowchart.*incomplete.*harmful.*step.*generate
+  - visual.*flowchart.*partial.*procedure.*MLLM.*fill.*gap
+  - flowchart.*harmful.*procedure.*partial.*vision.*LLM.*complete
+  - MLLM.*flowchart.*harmful.*completion.*procedural.*bias
+  file_types:
+  - .py
+  - .json
+  message: Flowchart partial harmful information completion attack detected — multimodal LLM prompted to complete partially
+    harmful flowchart steps generating dangerous content
+  source_detail: 'arXiv:2502.21059 Anonymous 2025 — FC-Attack: flowcharts with partially harmful information trigger MLLM
+    to add additional harmful details; step count, font style, layout orientation affect performance; AdaShield defense partially
+    mitigates'
+- id: MEDUSA-MM-SCAN-080
+  name: JOOD Out-of-Distribution Uncertainty Exploitation Multimodal Jailbreak
+  description: Detects JOOD (Playing the Fool) attacks that exploit out-of-distribution input transformations to increase
+    model uncertainty and bypass safety alignment in LLMs and MLLMs — uses off-the-shelf visual/textual OOD transformations
+    (including effective image mixup) to place inputs outside defended decision boundary; achieves high ASR against GPT-4
+    and o1 which resist prior methods
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - JOOD.*out.of.distribution.*uncertainty.*jailbreak.*bypass
+  - OOD.*transform.*model.*uncertainty.*safety.*bypass.*MLLM
+  - out.of.distribution.*jailbreak.*GPT.4.*o1.*uncertainty
+  - JOOD.*image.*mixup.*visual.*textual.*OOD.*jailbreak
+  - OOD.*transform.*harmful.*input.*uncertainty.*safety.*guardrail
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: JOOD out-of-distribution uncertainty exploitation jailbreak detected — OOD transformations (image mixup, visual/textual
+    modifications) increasing model uncertainty to bypass safety alignment
+  source_detail: 'arXiv:2503.20823 Anonymous 2025 — JOOD: OOD modifications to harmful inputs increase uncertainty; models
+    cannot confidently classify OOD inputs within safety-aligned distribution; image mixup highly effective; high ASR against
+    GPT-4 and o1; bypasses prior-method-resistant models'
+- id: MEDUSA-MM-SCAN-081
+  name: Image Mixup Adversarial Multimodal Safety Bypass Attack
+  description: Detects image mixup-based adversarial attacks on multimodal LLMs that blend harmful and benign visual content
+    to bypass safety alignment — JOOD-style mixing of images creates OOD inputs that fall outside model's defended distribution,
+    causing uncertainty that allows harmful requests to bypass safety guardrails
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - image.*mixup.*adversarial.*multimodal.*safety.*bypass
+  - MLLM.*image.*blend.*OOD.*safety.*guardrail.*bypass
+  - visual.*content.*mix.*adversarial.*multimodal.*jailbreak
+  - image.*mixup.*harmful.*benign.*MLLM.*uncertainty.*bypass
+  - OOD.*image.*blend.*adversarial.*multimodal.*safety
+  file_types:
+  - .py
+  - .json
+  message: Image mixup adversarial multimodal safety bypass detected — blended OOD images creating uncertainty that bypasses
+    safety alignment in multimodal LLMs
+  source_detail: 'arXiv:2503.20823 Anonymous 2025 — JOOD: simple image mixup proves highly effective OOD technique; increases
+    model uncertainty; places inputs outside defended decision boundary; effective against GPT-4 and o1; prior approaches
+    failed on these models'
+- id: MEDUSA-MM-SCAN-087
+  name: chameleon-adaptive-scaling-visual-prompt-injection
+  description: Detects adaptive scaling-based visual prompt injection attacks that iteratively refine adversarial perturbations
+    using VLM feedback loops — Chameleon framework exploits image downscaling preprocessing to inject malicious payloads that
+    activate only after scaling, bypassing human visual inspection while achieving 87-91% ASR against production VLMs
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-20
+  patterns:
+  - image.*scaling.*adversarial.*perturbation.*VLM.*feedback.*loop
+  - downscal.*preprocessing.*adversarial.*visual.*payload.*inject
+  - adaptive.*scaling.*attack.*VLM.*iterative.*refine.*perturbation
+  - hill.climbing.*genetic.*algorithm.*adversarial.*image.*scaling.*inject
+  - preprocessing.*pipeline.*scaling.*adversarial.*visual.*prompt.*inject
+  file_types:
+  - .py
+  - .json
+  message: Adaptive scaling-based visual prompt injection detected — iterative perturbation refinement exploiting VLM downscaling
+    preprocessing to inject hidden adversarial payloads
+  source_detail: 'arXiv:2512.04895 Zeeshan & Satti 2025 — Chameleon: adaptive adversarial framework; iterative hill-climbing/GA
+    optimization using VLM response feedback; 87-91% ASR against Gemini-2.5-Flash; perturbations survive standard downscaling;
+    reduces decision-making accuracy 45%; multi-scale consistency check defense proposed'
+- id: MEDUSA-MM-SCAN-088
+  name: fc-attack-flowchart-visual-jailbreak-mllm
+  description: Detects FC-Attack style jailbreak attempts that encode harmful instructions into auto-generated flowcharts
+    as visual prompts — harmful queries are fine-tuned into step-description generators that produce vertical/horizontal/S-shaped
+    flowcharts delivered as images alongside benign text to bypass MLLM safety alignment with 90-96% ASR
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - flowchart.*visual.*prompt.*harmful.*jailbreak.*MLLM
+  - auto.generat.*flowchart.*harmful.*step.*description.*bypass.*safety
+  - step.description.generator.*fine.tune.*harmful.*flowchart.*MLLM
+  - FC.Attack.*flowchart.*jailbreak.*multimodal.*safety.*bypass
+  - flowchart.*shape.*(vertical|horizontal|S.shaped).*harmful.*MLLM.*inject
+  file_types:
+  - .py
+  - .json
+  message: Flowchart-based visual jailbreak attack detected — auto-generated harmful flowcharts as visual prompts bypassing
+    MLLM safety alignment
+  source_detail: 'arXiv:2502.21059 Zhang et al. HKUST-GZ 2025 — FC-Attack: LoRA fine-tuned step-description generator; 3 flowchart
+    shapes; up to 96% ASR via images, 78% via video; GPT-4o-2024-08-06 used; AdaShield-A best defense (reduces ASR 58.6%→1.7%);
+    font style change alone improves Claude-3.5 ASR 4%→28%'
+- id: MEDUSA-MM-SCAN-089
+  name: crossinject-cross-modal-prompt-injection-multimodal-agent
+  description: Detects CrossInject-style cross-modal prompt injection attacks on multimodal agents that simultaneously embed
+    adversarial perturbations across visual and textual modalities — Visual Latent Alignment generates semantically aligned
+    adversarial images while Textual Guidance Enhancement crafts malicious commands to hijack agent decision-making, achieving
+    30%+ higher ASR than single-modality attacks
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-77
+  patterns:
+  - cross.modal.*prompt.*inject.*multimodal.*agent.*visual.*textual
+  - visual.*latent.*align.*adversarial.*textual.*guidance.*multimodal.*agent
+  - CrossInject.*cross.modal.*adversarial.*agent.*hijack
+  - adversarial.*image.*text.*simultaneous.*inject.*multimodal.*agent.*unauthorized
+  - multimodal.*agent.*cross.modal.*attack.*visual.*textual.*coordinate
+  file_types:
+  - .py
+  - .json
+  message: Cross-modal prompt injection on multimodal agent detected — simultaneous visual and textual adversarial injection
+    hijacking agent decision-making
+  source_detail: 'arXiv:2504.14348 Wang et al. Beihang Univ 2025 — CrossInject: Visual Latent Alignment + Textual Guidance
+    Enhancement; +30.1% ASR over existing methods; real-world multimodal autonomous driving agent targeted; black-box attack;
+    text-to-image generative model used for adversarial image synthesis'
+- id: MEDUSA-MM-SCAN-090
+  name: camo-cross-modal-obfuscation-jailbreak-vlm
+  description: Detects CAMO-style cross-modal adversarial multimodal obfuscation jailbreak attacks that decompose harmful
+    prompts into benign visual and textual fragments reconstructed through multi-step cross-modal reasoning — harmful keywords
+    split into masked text and symbolic math-puzzle image clues that independently pass perplexity and OCR filters yet reconstruct
+    harmful intent via LVLM reasoning
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-116
+  patterns:
+  - cross.modal.*obfuscat.*jailbreak.*VLM.*decomposi.*benign.*fragment
+  - CAMO.*cross.modal.*keyword.*mask.*visual.*puzzle.*reconstruct
+  - harmful.*prompt.*decompose.*visual.*textual.*clue.*cross.modal.*reason
+  - keyword.*mask.*math.*puzzle.*image.*LVLM.*reconstruct.*harmful
+  - obfuscat.*multimodal.*PPL.*OCR.*bypass.*cross.modal.*jailbreak
+  file_types:
+  - .py
+  - .json
+  message: Cross-modal adversarial obfuscation jailbreak detected — harmful intent split across visual math-puzzle clues and
+    masked text to bypass perplexity/OCR filters via cross-modal reconstruction
+  source_detail: 'arXiv:2506.16760 Jiang et al. USTC 2025 — CAMO: 4-stage pipeline (keyword selection, cross-modal decomposition,
+    obfuscated query construction, reasoning complexity control); 81.82% ASR on GPT-4.1-nano; 96.97% on Qwen2.5-VL-72B; 100%
+    evasion rate against perplexity filters, OCR detection, OpenAI moderation'
+- id: MEDUSA-MM-SCAN-091
+  name: mpda-t2i-safety-filter-bypass-prompt-decoupling
+  description: Detects Multimodal Prompt Decoupling Attack (MPDA) against text-to-image model safety filters — LLM decouples
+    unsafe prompts into pseudo-safe and harmful sub-prompts, using pseudo-safe component to generate base image while harmful
+    component is rewritten into adversarial prompt that guides T2I model to fuse malicious semantics into NSFW output, bypassing
+    both text and image-level safety filters
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - prompt.*decouple.*T2I.*safety.*filter.*bypass.*pseudo.safe.*harmful
+  - MPDA.*multimodal.*prompt.*decoupl.*text.to.image.*NSFW.*bypass
+  - T2I.*safety.*filter.*bypass.*pseudo.safe.*adversarial.*prompt.*NSFW
+  - text.to.image.*safety.*bypass.*decouple.*harmful.*pseudo.safe.*sub.prompt
+  - diffusion.*model.*NSFW.*safety.*filter.*bypass.*adversarial.*prompt.*decouple
+  file_types:
+  - .py
+  - .json
+  message: Multimodal prompt decoupling attack on T2I safety filters detected — LLM-guided decoupling of unsafe prompts into
+    pseudo-safe/harmful components to generate NSFW content
+  source_detail: 'arXiv:2509.21360 Peng et al. USTC 2025 — MPDA: 3-stage (decouple, T2I base image generation, iterative adversarial
+    rewrite); 93% bypass rate across 4 NSFW prompt datasets; Wan-T2I, Cogview, Midjourney tested; VLM feedback loop for semantic
+    consistency; 29% improvement over prior methods'
+- id: MEDUSA-MM-SCAN-092
+  name: adversarial-guided-diffusion-mllm-attack
+  description: Detects Adversarial-Guided Diffusion (AGD) attacks that inject target semantics into the noise component of
+    reverse diffusion to generate adversarial images attacking multimodal LLMs — unlike high-frequency perturbations, AGD
+    embeds adversarial signals across all frequency bands making them robust against low-pass filtering defenses that suppress
+    standard adversarial perturbations
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-693
+  patterns:
+  - adversarial.guided.*diffusion.*MLLM.*noise.*component.*target.*semantic
+  - AGD.*reverse.diffusion.*adversarial.*noise.*inject.*MLLM
+  - diffusion.*model.*adversarial.*all.frequency.*band.*low.pass.*filter.*robust
+  - adversarial.*image.*diffusion.*noise.*full.spectrum.*MLLM.*target
+  - reverse.diffusion.*adversarial.*guidance.*multimodal.*LLM.*attack
+  file_types:
+  - .py
+  - .json
+  message: Adversarial-guided diffusion MLLM attack detected — target semantics injected into diffusion noise component creating
+    full-spectrum adversarial images robust to low-pass filtering defenses
+  source_detail: 'arXiv:2507.23202 Xia et al. Lanzhou Univ 2025 — AGD: adversarial guidance in final reverse-diffusion steps;
+    full-frequency band embedding vs high-frequency-only attacks; robust against low-pass filtering defense; momentum-based
+    gradient update; outperforms AdvDiffVLM and AdvDiffuser; Stable Diffusion backbone'
+- id: MEDUSA-MM-SCAN-093
+  name: multimodal-universal-jailbreak-adversarial-suffix-image
+  description: Detects multimodal universal jailbreak attacks that distribute adversarial information across both adversarial
+    images and textual suffixes simultaneously — image-text interactions used to craft transferable universal adversarial
+    suffix combined with adversarial image to bypass MLLM safety alignment across 17 diverse models including LLaVA, Yi-VL,
+    MiniGPT4, InstructBLIP
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - universal.*adversarial.*suffix.*image.*MLLM.*multimodal.*jailbreak
+  - image.text.*interact.*adversarial.*suffix.*distribute.*MLLM.*bypass
+  - transfer.*adversarial.*image.*suffix.*multimodal.*universal.*jailbreak
+  - multimodal.*universal.*jailbreak.*adversarial.*image.*text.*combine
+  - MLLM.*safety.*alignment.*bypass.*adversarial.*image.*suffix.*transfer
+  file_types:
+  - .py
+  - .json
+  message: Multimodal universal jailbreak via adversarial image-suffix combination detected — distributed adversarial information
+    across image and text modalities bypassing MLLM safety alignment
+  source_detail: 'arXiv:2506.01307 Wang et al. Hefei Univ Tech 2025 — unified multimodal universal jailbreak: LLaVA-7B + MiniGPT-v2-7B
+    surrogate for crafting; transfer-based evaluation on 17 MLLMs; adversarial image reduces suffix length needed; image-text
+    interaction as critical vulnerability; white-box + transfer-based settings'
+- id: MEDUSA-MM-SCAN-094
+  name: jps-collaborative-visual-perturbation-textual-steering-jailbreak
+  description: Detects JPS-style jailbreak attacks on multimodal LLMs that co-optimize adversarial image perturbations with
+    multi-agent textual steering prompts — visual perturbation bypasses safety mechanisms while MAS-optimized steering prompt
+    controls response quality to ensure malicious intent fulfillment beyond simple safety bypass, measured by Malicious Intent
+    Fulfillment Rate (MIFR)
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-77
+  patterns:
+  - JPS.*visual.*perturbation.*textual.*steering.*co.optim.*MLLM.*jailbreak
+  - adversarial.*image.*steering.*prompt.*co.optim.*malicious.*intent.*fulfill
+  - visual.*perturbation.*MAS.*steering.*MLLM.*bypass.*safety.*quality
+  - collaborative.*visual.*textual.*jailbreak.*MLLM.*intent.*fulfillment
+  - PGD.*adversarial.*image.*multi.agent.*steering.*prompt.*MLLM.*jailbreak
+  file_types:
+  - .py
+  - .json
+  message: Collaborative visual perturbation and textual steering jailbreak detected — co-optimized adversarial image and
+    MAS steering prompt ensuring both safety bypass and malicious intent fulfillment
+  source_detail: 'arXiv:2508.05087 Chen et al. Tsinghua/CoAI 2025 (ACM MM''25) — JPS: iterative co-optimization of PGD adversarial
+    image + Summarizer+multi-agent steering prompt; MIFR metric via Reasoning-LLM evaluator; instruction-following + content-harmfulness
+    steering prompts; state-of-the-art ASR and MIFR across MLLMs'
+- id: MEDUSA-MM-SCAN-095
+  name: ar-multimodal-llm-social-engineering-attack
+  description: Detects SEAR-style AR-driven social engineering attacks using multimodal LLMs that fuse AR sensor data (facial
+    recognition, audio, spatial cues) with Role-Based Multimodal RAG to build victim social profiles and execute adaptive
+    multi-phase trust-building attacks — 93.3% of participants susceptible to email phishing, 85% accepted follow-up contact
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-1021
+  patterns:
+  - AR.*social.*engineer.*multimodal.*LLM.*facial.*recognition.*attack
+  - SEAR.*AR.*social.*context.*multimodal.*RAG.*victim.*profile.*attack
+  - augmented.*reality.*LLM.*social.*engineer.*trust.*build.*phishing
+  - AR.*camera.*facial.*multimodal.*LLM.*target.*profile.*social.*attack
+  - multimodal.*LLM.*AR.*sensor.*social.*engineering.*adaptive.*attack
+  file_types:
+  - .py
+  - .json
+  message: AR-driven multimodal LLM social engineering attack detected — AR sensor fusion with multimodal RAG building victim
+    profiles for adaptive trust-building attacks
+  source_detail: 'arXiv:2504.13209 Bi et al. HUST 2025 — SEAR framework: AR-based social context synthesis (facial/audio/spatial)
+    + Role-Based Multimodal RAG (LinkedIn crawler) + ReInteract SE agent; 93.3% phishing susceptibility; 85% post-interaction
+    contact acceptance; IRB-approved study with 60 participants; 180 annotated conversations'
+- id: MEDUSA-MM-SCAN-096
+  name: active-environment-injection-attack-mobile-mllm-agent
+  description: Detects Active Environmental Injection Attacks (AEIA) against multimodal LLM-powered mobile agents — adversarial
+    content disguised as environmental elements (mobile notifications, system pop-ups) actively disturbs agent execution during
+    reasoning gaps, achieving 93% attack success on AndroidWorld via combined adversarial content injection and reasoning
+    gap exploitation
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-74
+  patterns:
+  - AEIA.*active.*environment.*inject.*mobile.*agent.*MLLM.*notification
+  - active.*environment.*inject.*attack.*mobile.*agent.*reasoning.*gap
+  - mobile.*notification.*adversarial.*inject.*MLLM.*agent.*decision
+  - environmental.*inject.*attack.*mobile.*OS.*agent.*reasoning.*gap.*exploit
+  - adversarial.*notification.*SMS.*MLLM.*agent.*AndroidWorld.*attack
+  file_types:
+  - .py
+  - .json
+  message: Active environmental injection attack on mobile MLLM agent detected — adversarial mobile notifications exploiting
+    reasoning gaps to hijack agent decision-making
+  source_detail: 'arXiv:2502.13053 Chen et al. Zhejiang Univ 2025 (ACM MM''25) — AEIA-MN: Active Environmental Injection Attack
+    via Mobile Notifications; 93% ASR on AndroidWorld; 84% on AppAgent; adversarial text in notifications + reasoning gap
+    timing; 81% tasks affected by adversarial text alone; 26% by reasoning gap alone; 93% combined'
+- id: MEDUSA-MM-SCAN-097
+  name: gap-graph-attack-pruning-stealthy-jailbreak-generation
+  description: Detects GAP (Graph of Attacks with Pruning) framework jailbreak generation that uses interconnected attack
+    graph to share knowledge across multiple jailbreak seeds — unlike tree-based TAP, GAP maintains global context aggregating
+    successful attack patterns across branches and sequential iterations to generate increasingly efficient stealthy prompts
+    with 96%+ ASR and 62.7% query cost reduction
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - GAP.*graph.*attack.*pruning.*jailbreak.*stealthy.*LLM.*knowledge.shar
+  - graph.*attack.*pruning.*global.*context.*jailbreak.*seed.*pattern.*reuse
+  - attack.*graph.*interconnect.*jailbreak.*path.*aggregat.*knowledge.*transfer
+  - GAP.VLM.*multimodal.*jailbreak.*graph.*attack.*knowledge.*shar
+  - stealthy.*jailbreak.*graph.*prompt.*refinement.*cross.branch.*knowledge
+  file_types:
+  - .py
+  - .json
+  message: GAP graph-of-attacks jailbreak generation detected — interconnected attack graph sharing successful jailbreak patterns
+    across iterations for stealthy high-ASR prompt generation
+  source_detail: 'arXiv:2501.18638 Schwartz et al. Amazon Bedrock Science 2025 — GAP: interconnected graph vs tree (TAP);
+    path aggregation + context-aware generation; 96%+ ASR; 62.7% query cost reduction; 20.8% ASR improvement vs TAP; GAP-Auto
+    automated seeds; GAP-VLM for multimodal; GAP-Enhanced Prompt Guard TPR 70% vs 16% baseline'
+- id: MEDUSA-MM-SCAN-098
+  name: mllm-captcha-automated-bypass-attack
+  description: Detects automated MLLM-based CAPTCHA bypass attacks using off-the-shelf vision-language models to solve visual
+    CAPTCHAs at scale — optimized prompts and few-shot demonstrations enable reliable bypass of recognition-oriented CAPTCHAs
+    (Image_Recognition, Select_Animal, Path_Finder) without task-specific training, enabling mass account creation, credential
+    stuffing, and content spam automation
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-287
+  patterns:
+  - MLLM.*CAPTCHA.*solver.*bypass.*automated.*visual.*recognition
+  - vision.language.*model.*CAPTCHA.*bypass.*off.the.shelf.*black.box
+  - automated.*CAPTCHA.*solve.*MLLM.*VLM.*few.shot.*scale.*bypass
+  - CAPTCHA.*bypass.*multimodal.*LLM.*API.*automated.*account.*creation
+  - VLM.*CAPTCHA.*farm.*automate.*recognition.*image.*solve.*bypass
+  file_types:
+  - .py
+  - .json
+  message: MLLM-based automated CAPTCHA bypass attack detected — off-the-shelf vision-language model used to systematically
+    solve visual CAPTCHAs at scale bypassing bot protection
+  source_detail: 'arXiv:2512.02318 Wang et al. Missouri S&T 2025 — COGNITION: 7 commercial/open-source MLLMs on 18 real-world
+    CAPTCHA task types (CaptchaWorld dataset); optimized prompts + few-shot demonstrations; recognition-oriented CAPTCHAs
+    reliably broken; spatial reasoning / cross-frame consistency tasks harder; black-box API attack model'
+- id: MEDUSA-MM-SCAN-099
+  name: web-agent-prompt-injection-image-imperceptible
+  description: Detects web agent prompt injection attacks using imperceptible image perturbations embedded in webpages — attackers
+    modify website visual content with pixel-level perturbations (embedded images, screenshots) that exploit multimodal web
+    agents to execute attacker-chosen actions while evading both text-based and image-based detection systems that fail against
+    non-explicit visual injections
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-74
+  patterns:
+  - web.*agent.*prompt.*inject.*image.*imperceptible.*perturbation.*webpage
+  - VWA.Adv.*web.*agent.*image.*product.*adversarial.*inject.*action
+  - WebInject.*pixel.*perturbation.*webpage.*web.*agent.*MLLM.*inject
+  - web.*agent.*prompt.*inject.*webpage.*visual.*embed.*malicious.*imperceptible
+  - multimodal.*web.*agent.*image.*injection.*a11y.*tree.*DOM.*screenshot
+  file_types:
+  - .py
+  - .json
+  - .html
+  message: Web agent prompt injection via imperceptible image perturbation detected — pixel-level adversarial modifications
+    in webpage visual content hijacking multimodal web agent actions
+  source_detail: WAInjectBench Liu et al. Duke Univ 2025 — first comprehensive benchmark for web agent prompt injection detection;
+    991 malicious vs 2,707 benign text segments; 298 embedded + 2,023 screenshot malicious images; VWA-Adv product image attack;
+    WebInject imperceptible pixel perturbations; detectors fail against implicit/imperceptible attacks
+- id: MEDUSA-MM-SCAN-100
+  name: multimodal-indirect-prompt-injection-data-exfiltration
+  description: Detects multimodal indirect prompt injection attacks targeting data exfiltration from LLM systems via image-based
+    injection bypassing text-only filters — images containing embedded malicious instructions exploiting multimodal LLM pipeline
+    where user input merges with trusted context sources enabling PHI/PII exfiltration and instruction hijacking evading input
+    sanitization defenses
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-200
+  patterns:
+  - multimodal.*indirect.*prompt.*inject.*image.*exfiltrat.*data.*bypass
+  - image.based.*prompt.*inject.*text.only.*filter.*bypass.*multimodal.*exfil
+  - indirect.*prompt.*inject.*image.*PHI.*PII.*exfiltrat.*LLM.*pipeline
+  - external.*content.*image.*inject.*LLM.*context.*assembly.*hijack.*exfil
+  - multimodal.*prompt.*inject.*system.*prompt.*leak.*image.*bypass.*sanitize
+  file_types:
+  - .py
+  - .json
+  - .html
+  message: Multimodal indirect prompt injection for data exfiltration detected — image-embedded malicious instructions bypassing
+    text-only filters to exfiltrate PHI/PII via LLM context assembly hijacking
+  source_detail: 'arXiv:2509.05883 Yeo & Choi Soongsil Univ 2025 — 8 commercial LLMs tested (GPT-4o, Claude 3, Kimi-K2, Mistral,
+    LLaMA-3); 4 attack categories: direct, indirect, image-based, prompt leakage; Claude 3 most robust; image-based injections
+    bypass text-only sanitization; hospital LLM PHI exfiltration pathway demonstrated'
+- id: MEDUSA-MM-SCAN-101
+  name: vlm-retention-score-jailbreak-certified-robustness-bypass
+  description: Detects adversarial attacks that exploit the visual component vulnerability of Vision-Language Models demonstrating
+    that VLMs with visual modules are significantly less robust against jailbreak attacks than text-only LLMs — adversarial
+    image-text pairs crafted via conditional diffusion model bypass toxicity classifiers; VLMs lose certified robustness guarantees
+    when visual inputs are added
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-693
+  patterns:
+  - VLM.*visual.*module.*jailbreak.*less.*robust.*certified.*robustness.*bypass
+  - adversarial.*image.text.*pair.*diffusion.*VLM.*toxicity.*classifier.*bypass
+  - visual.*component.*VLM.*robustness.*degrade.*jailbreak.*certified.*bypass
+  - conditional.*diffusion.*adversarial.*image.*text.*VLM.*toxicity.*bypass
+  - VLM.*visual.*encoder.*jailbreak.*robustness.*loss.*certif
+  file_types:
+  - .py
+  - .json
+  message: VLM visual component jailbreak via certified robustness bypass detected — adversarial image-text pairs from diffusion
+    model defeating toxicity classifiers in vision-language models
+  source_detail: 'AAAI-25 Li et al. CUHK/IBM Research 2025 — Retention Score: Retention-I + Retention-T scores; VLMs less
+    robust than plain LLMs; l2-norm certified robustness certificates; conditional diffusion + text paraphraser pipeline;
+    Gemini security settings affect score; GPT4V robustness similar to medium Gemini; 30x computation reduction vs optimization
+    attacks'
+- id: MEDUSA-MM-SCAN-102
+  name: e2at-cross-modal-jailbreak-dual-modality-adversarial-training-bypass
+  description: Detects adversarial attacks on multimodal LLMs targeting both visual and textual modalities simultaneously
+    — cross-modal flexibility exploited by coordinating adversarial image perturbations with adversarial text suffixes to
+    bypass MLLM safety mechanisms; adversarial training-based defenses (E2AT/DJMO) needed but often circumvented by adaptive
+    combined-modality attacks
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - cross.modal.*jailbreak.*visual.*textual.*coordinate.*adversarial.*MLLM
+  - dual.modality.*adversarial.*image.*text.*suffix.*MLLM.*safety.*bypass
+  - adversarial.*image.*text.*coordinate.*cross.modal.*robustness.*bypass.*MLLM
+  - MLLM.*visual.*textual.*adversarial.*coordinate.*attack.*safety.*alignment
+  - cross.modal.*flexibility.*adversarial.*image.*text.*MLLM.*safeguard.*bypass
+  file_types:
+  - .py
+  - .json
+  message: Dual-modality cross-modal jailbreak attack detected — coordinated adversarial image and text perturbations exploiting
+    cross-modal flexibility to bypass MLLM safety alignment
+  source_detail: 'arXiv:2503.04833 Lu et al. Nanjing Univ S&T 2026 — E2AT: projector-based AT + Dynamic Joint Multimodal Optimization
+    (DJMO); 34% average improvement over baselines; GCG, AutoDAN, COLD attacks defeated; real-world robotic arm safety deployment;
+    adaptive weight adjustment between visual/textual loss components'
+- id: MEDUSA-MM-SCAN-103
+  name: mla-gui-agent-trustworthiness-adversarial-exploit
+  description: Detects adversarial attacks exploiting trustworthiness vulnerabilities in GUI-interacting Multimodal LLM Agents
+    (MLAs) — multi-step execution accumulates latent nonlinear risks bypassing static safeguards; imperceptible perturbations
+    and deceptive visual cues in GUI environments trigger unauthorized financial transactions, data corruption, or irreversible
+    system state modifications
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-74
+  patterns:
+  - GUI.*agent.*multimodal.*LLM.*adversarial.*trustworthiness.*exploit
+  - MLA.*GUI.*imperceptible.*perturbation.*adversarial.*trustworthiness.*attack
+  - multimodal.*agent.*GUI.*multi.step.*risk.*accumulate.*adversarial
+  - GUI.*MLLM.*agent.*deceptive.*visual.*cue.*unauthorized.*transaction.*exploit
+  - web.*mobile.*GUI.*agent.*adversarial.*long.horizon.*risk.*irreversible
+  file_types:
+  - .py
+  - .json
+  message: GUI-interacting multimodal LLM agent adversarial exploitation detected — multi-step execution risk accumulation
+    and deceptive visual cues triggering unauthorized actions
+  source_detail: 'arXiv:2506.01616 Yang et al. Tsinghua 2025 — MLA-Trust: 34 high-risk tasks; 13 state-of-the-art MLAs; 4
+    dimensions: truthfulness, controllability, safety, privacy; GUI MLAs more vulnerable than static MLLMs; multi-step execution
+    amplifies trustworthiness failures; financial/healthcare/cloud domains tested'
+- id: MEDUSA-MM-SCAN-104
+  name: esiii-adversarial-image-security-instruction-bypass
+  description: Detects attacks against ESIII-style LVLM defenses that embed security instructions into defensive images —
+    adversarial jailbreaks that circumvent pixel-wise overlay defensive images by crafting inputs that disrupt feature alignment
+    between visual encoder and language model projection layer, negating embedded security instruction context that normally
+    prevents harmful content generation
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-693
+  patterns:
+  - ESIII.*adversarial.*security.*instruction.*image.*bypass.*LVLM
+  - defensive.*image.*pixel.*overlay.*security.*instruction.*LVLM.*bypass
+  - visual.*encoder.*projection.*layer.*security.*instruction.*adversarial.*disrupt
+  - embedding.*security.*instruction.*image.*gradient.*adversarial.*jailbreak.*bypass
+  - LVLM.*defensive.*image.*visual.*textual.*security.*instruction.*circumvent
+  file_types:
+  - .py
+  - .json
+  message: Adversarial bypass of image-embedded security instructions in LVLM detected — attacks disrupting feature alignment
+    to negate defensive pixel-overlay security contexts
+  source_detail: 'arXiv:2503.11619 Hao et al. Southeast Univ/Meta 2025 — ESIII (Embedding Security Instructions Into Images):
+    gradient-based defensive image optimization; pixel-wise overlay at inference; two-stage defense; universally applicable
+    defensive images; security instruction + textual safety prompt synergy; effective against GCG, AutoDAN, visual jailbreaks'
+- id: MEDUSA-MM-SCAN-108
+  name: multimodal-jailbreak-training-stage-backdoor-distillation
+  description: Detects training-stage multimodal jailbreak attacks including backdoor injection and model distillation attacks
+    on MLLMs — backdoor triggers embedded during MLLM training cause harmful outputs when activated by specific multimodal
+    trigger inputs; distillation attacks extract and replicate safety-bypassed capabilities from aligned models into less-aligned
+    student models
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM03
+  cwe:
+  - CWE-506
+  patterns:
+  - MLLM.*training.*backdoor.*trigger.*multimodal.*visual.*inject.*harmful
+  - multimodal.*LLM.*distillation.*attack.*safety.*bypass.*student.*model
+  - backdoor.*MLLM.*training.*stage.*visual.*text.*trigger.*condition
+  - MLLM.*model.*backdoor.*visual.*trigger.*multimodal.*activation.*harmful
+  - distillation.*attack.*MLLM.*safety.*bypass.*knowledge.*transfer.*model
+  file_types:
+  - .py
+  - .json
+  - .pt
+  - .safetensors
+  message: Training-stage multimodal backdoor or distillation attack detected — backdoor triggers embedded in MLLM training
+    or safety-bypass capabilities extracted via distillation
+  source_detail: 'arXiv:2506.15170 Mao et al. 2025 — training-stage attacks on MLLMs: backdoor attack (trigger during training
+    -> prohibited output at inference); distillation attack (bypasses security defenses by replicating capability); distinct
+    from inference-stage jailbreaks; require supply chain security controls; multimodal triggers more stealthy than text-only'
+- id: MEDUSA-MM-SCAN-109
+  name: vision-chain-reasoning-attack-multimodal-jailbreak
+  description: Detects VisCRA-style visual chain reasoning attacks that manipulate multimodal LLMs through deceptive visual
+    reasoning chains — adversarial images that guide the model's visual chain-of-thought reasoning toward harmful conclusions,
+    exploiting the model's tendency to follow visual reasoning patterns even when they lead to unsafe outputs
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - VisCRA.*visual.*chain.*reasoning.*attack.*multimodal.*jailbreak
+  - visual.*chain.of.thought.*adversarial.*MLLM.*jailbreak.*reasoning
+  - visual.*reasoning.*chain.*manipulat.*MLLM.*harmful.*conclusion.*bypass
+  - adversarial.*visual.*CoT.*reasoning.*MLLM.*jailbreak.*unsafe.*output
+  - visual.*reasoning.*attack.*multimodal.*LLM.*chain.*thought.*bypass
+  file_types:
+  - .py
+  - .json
+  message: Visual chain reasoning attack on multimodal LLM detected — adversarial visual inputs manipulating visual CoT reasoning
+    chains toward harmful conclusions
+  source_detail: '2025 - Sima - VisCRA: Visual Chain Reasoning Attack for Jailbreaking Multimodal LLMs; adversarial images
+    embedded with visual reasoning chain cues; exploits MLLM tendency to follow visual reasoning patterns; effective on GPT-4V,
+    Claude-3, Gemini; visual reasoning pathway less protected than text reasoning pathways in current alignment approaches'
+- id: MEDUSA-MM-SCAN-110
+  name: multimodal-jailbreak-image-logic-text-to-image-logic
+  description: Detects image-to-text logic jailbreaks against multimodal LLMs that encode harmful instructions as visual logic
+    or symbolic representations requiring the model to reason through image-based logic steps to extract and execute harmful
+    content — combines visual puzzle-solving with harmful instruction delivery to bypass text-based safety filters
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-116
+  patterns:
+  - image.to.text.*logic.*jailbreak.*multimodal.*harmful.*instruction.*visual
+  - visual.*logic.*symbolic.*image.*MLLM.*harmful.*instruction.*extract
+  - image.*logic.*step.*visual.*puzzle.*harmful.*content.*bypass.*MLLM
+  - visual.*symbolic.*reasoning.*MLLM.*jailbreak.*text.*safety.*filter.*bypass
+  - image.*encode.*harmful.*logic.*MLLM.*reason.*extract.*bypass.*safety
+  file_types:
+  - .py
+  - .json
+  message: Image-to-text logic jailbreak detected — visual logic/symbolic representations encoding harmful instructions that
+    require MLLM to reason through image-based steps to extract unsafe content
+  source_detail: '2024 - Zou - Image-to-Text Logic Jailbreak Your Imagination can Help You Do Anything: visual logic encoding
+    harmful instructions; imagination-guided jailbreak; MLLM reasoning exploited to decode harmful content from image logic
+    patterns; bypasses text-based filters; effective against GPT-4V and other aligned MLLMs'
+- id: MEDUSA-MM-SCAN-111
+  name: multi-loss-adversarial-search-vlm-jailbreak
+  description: Detects multi-loss adversarial search attacks on vision-language models that optimize adversarial images using
+    multiple simultaneous loss objectives — combining harmful target response loss with visual similarity loss to find adversarial
+    images that bypass safety while remaining visually plausible, enabling transfer across diverse VLM architectures
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - multi.loss.*adversarial.*search.*VLM.*jailbreak.*visual.*similarity
+  - adversarial.*image.*multi.*loss.*target.*response.*VLM.*safety.*bypass
+  - multi.objective.*adversarial.*VLM.*jailbreak.*visual.*plausible.*bypass
+  - multi.loss.*visual.*adversarial.*VLM.*harmful.*target.*optimize
+  - visual.*adversarial.*search.*multi.*objective.*VLM.*safety.*bypass
+  file_types:
+  - .py
+  - .json
+  message: Multi-loss adversarial search VLM jailbreak detected — simultaneous optimization of harmful response and visual
+    similarity objectives bypassing vision-language model safety
+  source_detail: '2024 - Hao - Exploring Visual Vulnerabilities via Multi-Loss Adversarial Search for Jailbreaking Vision-Language
+    Models: multi-loss optimization (harmful target + visual similarity); adversarial image search across VLM architectures;
+    strong transferability; exploits visual alignment vulnerabilities; diverse architecture generalization'
+- id: MEDUSA-MM-SCAN-112
+  name: bi-modal-adversarial-jailbreak-vlm-query-agnostic-universal
+  description: Detects query-agnostic universal adversarial image attacks on VLMs that create a single adversarial perturbation
+    effective across any harmful query — universal visual perturbation optimized against diverse harmful intents simultaneously,
+    combined with query-specific textual prompts to achieve cross-model transfer
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - query.agnostic.*universal.*adversarial.*image.*VLM.*any.*harmful.*query
+  - universal.*visual.*perturbation.*diverse.*harmful.*intent.*VLM.*transfer
+  - single.*adversarial.*image.*universal.*VLM.*cross.model.*transfer.*jailbreak
+  - universal.*adversarial.*perturbation.*LVLM.*any.*query.*harmful.*bypass
+  - query.agnostic.*adversarial.*universal.*vision.language.*jailbreak
+  file_types:
+  - .py
+  - .json
+  message: Query-agnostic universal adversarial image jailbreak attack detected — single universal perturbation effective
+    across any harmful query and multiple VLM architectures
+  source_detail: '2024 - Hossain - Securing Vision-Language Models with Robust Encoder Against Jailbreak and Adversarial Attacks:
+    query-agnostic universal VLM jailbreak; single adversarial image effective for any harmful text query; cross-architecture
+    transfer; robust encoder defense needed; adversarial perturbation exploits CLIP visual encoder''s universal representations'
+- id: MEDUSA-MM-SCAN-113
+  name: multimodal-agent-goal-hijacking-visual-prompt
+  description: Detects goal hijacking attacks against multimodal agents via visual prompt injection — adversarial visual inputs
+    embedded in agent observation space (screenshots, images, documents) that redirect autonomous agent goals toward attacker-specified
+    objectives, hijacking multi-step task execution chains
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-77
+  patterns:
+  - goal.*hijack.*multimodal.*agent.*visual.*prompt.*inject.*observation
+  - visual.*prompt.*inject.*agent.*goal.*redirect.*attacker.*specified
+  - multimodal.*agent.*screenshot.*visual.*inject.*goal.*hijack.*task
+  - autonomous.*agent.*visual.*observation.*adversarial.*goal.*hijack
+  - agent.*visual.*prompt.*inject.*task.*redirect.*attacker.*objective
+  file_types:
+  - .py
+  - .json
+  message: Goal hijacking via visual prompt injection on multimodal agent detected — adversarial visual inputs in agent observation
+    space redirecting task execution toward attacker objectives
+  source_detail: '2024 - Kimura - Empirical Analysis of Large Vision-Language Models against Goal Hijacking via Visual Prompt:
+    goal hijacking via visual prompt injection; adversarial text overlays/images in screenshots; diverse LVLM vulnerability
+    assessment; goal redirection from legitimate to attacker-specified; multi-step task chain impact; document/screen observation
+    exploitation'
+- id: MEDUSA-MM-SCAN-114
+  name: jailbreak-multimodal-adversarial-search-vlm-benchmark-advbench
+  description: Detects adversarial image generation attacks benchmarked against AdvBench that use gradient-based search to
+    create jailbreaking images for visual question answering in multimodal models — systematic optimization of visual adversarial
+    examples targeting safety-aligned VLMs to generate harmful answers to prohibited questions
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - AdvBench.*adversarial.*image.*VLM.*jailbreak.*gradient.*search.*VQA
+  - gradient.*adversarial.*image.*VLM.*harmful.*answer.*safety.*bypass
+  - adversarial.*image.*optimization.*VLM.*harmful.*output.*AdvBench.*jailbreak
+  - visual.*adversarial.*gradient.*search.*safety.aligned.*VLM.*harmful
+  - multimodal.*adversarial.*image.*generation.*VLM.*jailbreak.*benchmark
+  file_types:
+  - .py
+  - .json
+  message: Gradient-based adversarial image jailbreak attack on VLM detected — optimized adversarial images bypassing safety
+    alignment to generate harmful responses to prohibited visual questions
+  source_detail: '2023 - Qi - Visual Adversarial Examples Jailbreak Aligned Large Language Models: gradient-based adversarial
+    visual examples; universal adversarial image bypassing text alignment; single adversarial image jailbreaks diverse text
+    harmful queries; visual input overwhelming safety training; adversarial examples attack aligned LLMs including GPT-4V
+    and Bard'
+- id: MEDUSA-MM-SCAN-115
+  name: multimodal-prompt-injection-oncology-healthcare-vlm
+  description: Detects prompt injection attacks against VLMs deployed in healthcare and oncology contexts — malicious instructions
+    embedded in clinical images, patient records, or medical documents that redirect healthcare VLMs toward data exfiltration,
+    fabricating medical reports, or overriding clinical decision support outputs with attacker-specified responses
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-200
+  patterns:
+  - prompt.*inject.*oncology.*VLM.*healthcare.*clinical.*image.*malicious
+  - medical.*image.*prompt.*inject.*VLM.*clinical.*decision.*hijack
+  - healthcare.*VLM.*image.*inject.*patient.*record.*exfiltrat.*malicious
+  - oncology.*vision.language.*model.*prompt.*inject.*clinical.*report.*fabricat
+  - medical.*VLM.*adversarial.*inject.*HIPAA.*PHI.*exfiltrat.*clinical
+  file_types:
+  - .py
+  - .json
+  - .dcm
+  - .png
+  message: Healthcare/oncology VLM prompt injection attack detected — malicious instructions in clinical images hijacking
+    medical VLM clinical decision support or exfiltrating PHI
+  source_detail: '2025 - Clusmann - Prompt injection attacks on vision language models in oncology: clinical image-embedded
+    injection attacks; healthcare VLM vulnerabilities; PHI exfiltration risk; fabricated medical report generation; oncology
+    decision support hijacking; HIPAA compliance impact; GPT-4V and medical VLMs tested; visual context injection in medical
+    imaging workflows'
+- id: MEDUSA-MM-SCAN-116
+  name: jailbreakv-benchmark-multimodal-transfer-jailbreak
+  description: Detects multimodal jailbreak attacks that transfer text-based LLM jailbreak techniques to multimodal models
+    — systematic evaluation approach where text jailbreak methods (roleplay, DAN, prefix injection) are adapted to visual
+    contexts or combined with adversarial images to bypass multimodal LLM safety mechanisms across diverse harm categories
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - JailbreakV.*multimodal.*transfer.*text.*jailbreak.*visual.*MLLM
+  - text.*jailbreak.*transfer.*multimodal.*LLM.*visual.*adapt.*bypass
+  - DAN.*roleplay.*jailbreak.*multimodal.*adapt.*visual.*image.*bypass
+  - transfer.*text.based.*jailbreak.*MLLM.*multimodal.*safety.*bypass
+  - multimodal.*LLM.*jailbreak.*transfer.*text.*method.*visual.*combine
+  file_types:
+  - .py
+  - .json
+  message: Transferred text-to-multimodal jailbreak attack detected — text-based jailbreak techniques adapted and combined
+    with visual inputs to bypass multimodal LLM safety alignment
+  source_detail: '2024 - Luo - JailBreakV: Benchmark for Assessing Robustness of Multimodal LLMs against Jailbreak Attacks:
+    transfer of 28 text-based jailbreak methods to MLLM context; cross-modal jailbreak robustness assessment; adversarial
+    image + text jailbreak combination; miniGPT-4, InstructBLIP, LLaVA-v1.5, mPLUG-Owl tested; 3600 jailbreak queries across
+    16 harm categories'
+- id: MEDUSA-MM-SCAN-117
+  name: morphing-attack-detection-bypass-multimodal-llm
+  description: Detects adversarial attacks that exploit multimodal LLMs for face morphing attack detection bypass — synthetic
+    morphed face images that fool MLLM-based biometric verification systems; differential morphing attack vectors using generated
+    faces that pass multimodal LLM identity verification while containing morphed features from multiple identities
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-287
+  patterns:
+  - morphing.*attack.*multimodal.*LLM.*biometric.*face.*bypass
+  - face.*morphing.*MLLM.*identity.*verification.*bypass.*synthetic
+  - differential.*morphing.*attack.*multimodal.*LLM.*face.*detect.*bypass
+  - synthetic.*morphed.*face.*multimodal.*LLM.*biometric.*verify.*evade
+  - face.*morph.*VLM.*identity.*verification.*evade.*multi.identity
+  file_types:
+  - .py
+  - .json
+  - .png
+  - .jpg
+  message: Face morphing attack detection bypass via multimodal LLM detected — adversarial morphed face images exploiting
+    MLLM biometric verification vulnerabilities
+  source_detail: '2025 - Shekhawat - Towards Zero-Shot Differential Morphing Attack Detection with Multimodal LLMs: multimodal
+    LLMs for morphing attack detection; differential MAD (D-MAD) approach; zero-shot detection capability; morphed face evasion
+    of MLLM-based detection; MLLM visual understanding of biometric anomalies exploitable; identity fusion in morphed images
+    exploiting VLM limitations'
+- id: MEDUSA-MM-SCAN-118
+  name: query-relevant-image-jailbreak-multimodal-llm
+  description: Detects query-relevant image jailbreak attacks against multimodal LLMs that craft images semantically aligned
+    with specific harmful queries — unlike generic adversarial noise, these attacks generate or retrieve images with content
+    directly relevant to the harmful request, reducing safety refusal rates by leveraging the model's visual context understanding
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - query.relevant.*image.*jailbreak.*multimodal.*LLM.*semantic.*align
+  - image.*semantic.*align.*harmful.*query.*MLLM.*safety.*bypass
+  - query.specific.*adversarial.*image.*MLLM.*jailbreak.*semantic.*context
+  - relevant.*image.*content.*harmful.*query.*multimodal.*LLM.*refusal.*bypass
+  - semantic.*image.*query.*align.*jailbreak.*MLLM.*safety.*reduce
+  file_types:
+  - .py
+  - .json
+  message: Query-relevant image jailbreak attack on multimodal LLM detected — images semantically aligned with harmful queries
+    reducing safety refusal rates by providing harmful visual context
+  source_detail: '2023 - Liu - Query-Relevant Images Jailbreak Large Multi-Modal Models: query-relevant adversarial images
+    for MLLMs; image content semantically aligned with harmful request; visual context reduces safety refusal rate; image
+    retrieval and generation strategies; tested on MiniGPT-4, LLaVA, InstructBLIP; visual context exploitation as jailbreak
+    strategy'
+- id: MEDUSA-MM-SCAN-119
+  name: multimodal-jailbreak-typographic-text-in-image
+  description: Detects typographic text-in-image jailbreak attacks that embed harmful instructions or harmful content as text
+    within images to bypass text-based safety filters — FigStep-style attacks that convert harmful text to typographic images
+    and pair with benign textual prompts like "complete the steps in the image" to extract harmful instructions from multimodal
+    models
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-116
+  patterns:
+  - typograph.*text.*image.*jailbreak.*MLLM.*harmful.*instruction.*embed
+  - FigStep.*harmful.*text.*image.*typography.*MLLM.*bypass.*safety
+  - text.in.image.*jailbreak.*OCR.*bypass.*multimodal.*harmful.*instruction
+  - harmful.*text.*typograph.*image.*multimodal.*complete.*steps.*jailbreak
+  - image.*embedded.*text.*harmful.*instruction.*MLLM.*text.filter.*bypass
+  file_types:
+  - .py
+  - .json
+  - .png
+  - .jpg
+  message: Typographic text-in-image jailbreak attack detected — harmful instructions embedded as text within images bypassing
+    text-based safety filters via multimodal model's OCR-like reading
+  source_detail: FigStep and related typographic jailbreaks 2023-2025 — harmful instructions rendered as typography within
+    images; paired with benign text prompt (complete the steps); bypasses text content filters; exploits MLLM visual text
+    reading (OCR-like) to extract instructions; effective against GPT-4V, Gemini, Claude; diverse font/layout variations
+- id: MEDUSA-MM-SCAN-120
+  name: vlm-shuffle-inconsistency-safety-bypass
+  description: Detects VLM Shuffle Inconsistency safety bypass — attacks exploiting the tension between VLM understanding
+    capabilities and safety mechanisms where shuffled harmful text in images or prompts is correctly interpreted by the model
+    but safety mechanisms are more easily bypassed for shuffled inputs, enabling harmful content generation via rearranged
+    visual-textual instructions
+  severity: high
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-693
+  patterns:
+  - shuffle.*inconsistency.*VLM.*safety.*bypass.*understanding.*gap
+  - shuffled.*harmful.*text.*VLM.*interpret.*safety.*mechanism.*bypass
+  - VLM.*rearrange.*harmful.*instruction.*safety.*bypass.*understanding
+  - shuffle.*harmful.*visual.*text.*multimodal.*safety.*misalign.*bypass
+  - shuffle.*inconsistency.*MLLM.*understand.*capability.*safety.*tension
+  file_types:
+  - .py
+  - .json
+  message: VLM shuffle inconsistency safety bypass detected — shuffled harmful instructions correctly interpreted by VLM understanding
+    but bypassing safety mechanisms due to inconsistent alignment of understanding and safety
+  source_detail: Wang et al. 2025 Shuffle Inconsistency — tension between understanding and safety mechanisms in MLLMs; shuffled
+    harmful inputs bypass safety more easily than unshuffled; safety mechanisms less robust against rearranged instructions;
+    VLM correctly interprets shuffled harmful content but fails to refuse; fundamental alignment gap in multimodal safety

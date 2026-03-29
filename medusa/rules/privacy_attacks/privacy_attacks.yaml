@@ -1,405 +1,357 @@
-# MEDUSA Scanner Rules - Privacy Attacks
-# Source: NotebookLM Privacy Attacks Research | Extracted: 2025-12-31
-# 40+ rules for privacy attack detection (MIA, extraction, leakage)
-
 rules:
-  # ============================================================================
-  # Membership Inference Attack (MIA) Detection
-  # ============================================================================
-
-  - id: PRIVACY-MIA-001
-    name: loss-based-mia
-    severity: HIGH
-    category: membership_inference
-    languages: [python]
-    patterns:
-      - '(?i)membership.*inference.*attack'
-      - '(?i)compute_perplexity.*threshold'
-      - '(?i)member.*non.?member.*classification'
-    message: "Loss-based membership inference attack implementation"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MIA-002
-    name: lira-attack
-    severity: HIGH
-    category: membership_inference
-    languages: [python]
-    patterns:
-      - '(?i)LiRA|likelihood.*ratio.*attack'
-      - '(?i)log\(P\(x\|member\).*P\(x\|non.?member\)\)'
-    message: "LiRA (Likelihood Ratio Attack) implementation"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MIA-003
-    name: icp-mia
-    severity: HIGH
-    category: membership_inference
-    languages: [python]
-    patterns:
-      - '(?i)ICP.?MIA|optimization.*gap.*attack'
-      - '(?i)compute_optimization_gap'
-    message: "ICP-MIA optimization gap attack"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MIA-004
-    name: shadow-model-training
-    severity: HIGH
-    category: membership_inference
-    languages: [python]
-    patterns:
-      - '(?i)shadow.*model.*train'
-      - '(?i)train_shadow_model'
-      - '(?i)shadow_dataset'
-    message: "Shadow model training for MIA"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MIA-005
-    name: min-k-prob
-    severity: MEDIUM
-    category: membership_inference
-    languages: [python]
-    patterns:
-      - '(?i)min.?k.*prob|min_k_score'
-      - '(?i)compute_min_k_prob'
-    message: "Min-K% probability MIA technique"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Gradient Leakage Detection
-  # ============================================================================
-
-  - id: PRIVACY-GRAD-001
-    name: gradient-inversion
-    severity: CRITICAL
-    category: gradient_leakage
-    languages: [python]
-    patterns:
-      - '(?i)gradient.*inversion|invert.*gradient'
-      - '(?i)reconstruct.*from.*gradient'
-      - '(?i)DLG|deep.*leakage.*gradient'
-    message: "Gradient inversion/DLG attack implementation"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-GRAD-002
-    name: first-layer-attack
-    severity: HIGH
-    category: gradient_leakage
-    patterns:
-      - '(?i)first.*layer.*vulnerability'
-      - '(?i)rescaled.*inputs.*gradient'
-    message: "First layer gradient leakage vulnerability"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Data Extraction Detection
-  # ============================================================================
-
-  - id: PRIVACY-EXTRACT-001
-    name: training-data-extraction
-    severity: CRITICAL
-    category: data_extraction
-    patterns:
-      - '(?i)training.*data.*extraction'
-      - '(?i)extract.*memorized.*data'
-      - '(?i)verbatim.*extraction'
-    message: "Training data extraction attack"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-EXTRACT-002
-    name: embedding-inversion
-    severity: HIGH
-    category: data_extraction
-    languages: [python]
-    patterns:
-      - '(?i)embedding.*inversion'
-      - '(?i)Vec2Text|vector.*to.*text'
-      - '(?i)invert.*embedding'
-    message: "Embedding inversion attack (up to 100% BLEU)"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-EXTRACT-003
-    name: copycheck-detection
-    severity: MEDIUM
-    category: data_extraction
-    languages: [python]
-    patterns:
-      - '(?i)COPYCHECK|copy.*check'
-      - '(?i)aleatoric.*uncertainty'
-      - '(?i)epistemic.*uncertainty'
-    message: "COPYCHECK copyright/training data detection"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Model Memorization Detection
-  # ============================================================================
-
-  - id: PRIVACY-MEMO-001
-    name: memorization-probe
-    severity: MEDIUM
-    category: memorization
-    patterns:
-      - '(?i)memorization.*probe'
-      - '(?i)check.*memorized'
-      - '(?i)verbatim.*reproduction'
-    message: "Model memorization probing attempt"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MEMO-002
-    name: surprising-token
-    severity: MEDIUM
-    category: memorization
-    patterns:
-      - '(?i)surprising.*token'
-      - '(?i)low.*probability.*true.*token'
-    message: "Surprising token memorization detection"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Code Model Privacy Attacks
-  # ============================================================================
-
-  - id: PRIVACY-CODE-001
-    name: code-mia
-    severity: HIGH
-    category: code_privacy
-    patterns:
-      - '(?i)code.*model.*membership'
-      - '(?i)variable.*renaming.*response'
-      - '(?i)dead.*loop.*injection'
-    message: "Code model membership inference"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-CODE-002
-    name: transformation-stability
-    severity: MEDIUM
-    category: code_privacy
-    patterns:
-      - '(?i)transformation.*stability'
-      - '(?i)perturbation.*resistance'
-    message: "Transformation stability analysis for code MIA"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Tabular Data Privacy
-  # ============================================================================
-
-  - id: PRIVACY-TABULAR-001
-    name: tabular-mia
-    severity: HIGH
-    category: tabular_privacy
-    patterns:
-      - '(?i)tabular.*membership'
-      - '(?i)levenshtein.*distance.*attack'
-      - '(?i)cluster.*medoid.*proximity'
-    message: "Tabular data membership inference"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-TABULAR-002
-    name: digit-sequence-matching
-    severity: MEDIUM
-    category: tabular_privacy
-    patterns:
-      - '(?i)digit.*sequence.*matching'
-      - '(?i)numeric.*reproduction'
-    message: "Digit sequence matching for tabular leakage"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Network/Graph Privacy
-  # ============================================================================
-
-  - id: PRIVACY-NETWORK-001
-    name: network-fingerprinting
-    severity: HIGH
-    category: network_privacy
-    patterns:
-      - '(?i)IP.*MAC.*memorization'
-      - '(?i)topology.*reconstruction'
-      - '(?i)TTL.*Window.*fingerprint'
-    message: "Network topology/fingerprinting leak"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-GRAPH-001
-    name: graph-mia
-    severity: HIGH
-    category: graph_privacy
-    patterns:
-      - '(?i)graph.*membership'
-      - '(?i)residual.*attribution'
-      - '(?i)graph.*edit.*distance'
-    message: "Graph model membership inference"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Unlearning Verification
-  # ============================================================================
-
-  - id: PRIVACY-UNLEARN-001
-    name: residual-attribution
-    severity: MEDIUM
-    category: unlearning
-    languages: [python]
-    patterns:
-      - '(?i)residual.*attribution'
-      - '(?i)RA\s*=.*post.*v'
-    message: "Residual attribution check for unlearning verification"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-UNLEARN-002
-    name: heatmap-shift
-    severity: MEDIUM
-    category: unlearning
-    patterns:
-      - '(?i)heatmap.*shift'
-      - '(?i)attribution.*before.*after'
-    message: "Heatmap shift analysis for unlearning"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Federated Learning Privacy
-  # ============================================================================
-
-  - id: PRIVACY-FL-001
-    name: sybil-attack-indicators
-    severity: HIGH
-    category: fl_privacy
-    patterns:
-      - '(?i)sybil.*attack'
-      - '(?i)identical.*zero.*contributions'
-      - '(?i)synchronized.*participation'
-    message: "FL Sybil attack indicators"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-FL-002
-    name: confidence-evolution
-    severity: MEDIUM
-    category: fl_privacy
-    patterns:
-      - '(?i)CS.?MIA|confidence.*evolution'
-      - '(?i)multi.?round.*tracking'
-    message: "Confidence evolution MIA in FL"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Multimodal Privacy
-  # ============================================================================
-
-  - id: PRIVACY-MM-001
-    name: visual-modality-suppression
-    severity: MEDIUM
-    category: multimodal_privacy
-    patterns:
-      - '(?i)visual.*suppress.*MIA'
-      - '(?i)modality.*driven.*regularization'
-    message: "Visual modality privacy suppression detection"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-MM-002
-    name: audio-mia
-    severity: MEDIUM
-    category: multimodal_privacy
-    patterns:
-      - '(?i)denoising.*loss.*timestep'
-      - '(?i)audio.*token.*likelihood'
-    message: "Audio model membership inference"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Metric Detection
-  # ============================================================================
-
-  - id: PRIVACY-METRIC-001
-    name: auc-vulnerability
-    severity: HIGH
-    category: privacy_metrics
-    patterns:
-      - '(?i)AUC\s*[>:=]\s*0\.[89]'
-      - '(?i)attack.*success.*0\.[89]'
-    message: "High AUC indicates critical privacy vulnerability"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-METRIC-002
-    name: tpr-fpr-analysis
-    severity: MEDIUM
-    category: privacy_metrics
-    patterns:
-      - '(?i)TPR@.*FPR'
-      - '(?i)true.*positive.*false.*positive'
-    message: "TPR@FPR privacy attack metric"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Synthetic Data Privacy
-  # ============================================================================
-
-  - id: PRIVACY-SYNTHETIC-001
-    name: structural-overlap
-    severity: MEDIUM
-    category: synthetic_privacy
-    patterns:
-      - '(?i)synthetic.*cluster.*training'
-      - '(?i)distributional.*matching'
-    message: "Synthetic data structural overlap detection"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  # ============================================================================
-  # Detection Code Patterns
-  # ============================================================================
-
-  - id: PRIVACY-CODE-PATTERN-001
-    name: mia-detector-code
-    severity: MEDIUM
-    category: detection_code
-    languages: [python]
-    patterns:
-      - 'def\s+detect_membership\('
-      - 'membership_score\s*>'
-      - 'aggregate_signals\('
-    message: "MIA detector implementation"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-  - id: PRIVACY-CODE-PATTERN-002
-    name: gmm-clustering
-    severity: MEDIUM
-    category: detection_code
-    languages: [python]
-    patterns:
-      - 'gmm_cluster\('
-      - 'GaussianMixture.*n_components'
-      - 'identify_member_cluster'
-    message: "GMM clustering for membership detection"
-    cwe: CWE-200
-    owasp_llm: "LLM06:2025"
-
-# Summary: 35+ privacy attack detection rules
-# Categories: membership_inference, gradient_leakage, data_extraction, memorization,
-#            code_privacy, tabular_privacy, network_privacy, graph_privacy,
-#            unlearning, fl_privacy, multimodal_privacy, privacy_metrics
+- id: PRIVACY-MIA-001
+  name: loss-based-mia
+  severity: HIGH
+  category: membership_inference
+  languages:
+  - python
+  patterns:
+  - (?i)membership.*inference.*attack
+  - (?i)compute_perplexity.*threshold
+  - (?i)member.*non.?member.*classification
+  message: Loss-based membership inference attack implementation
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: &id001
+  - '*.py'
+- id: PRIVACY-MIA-002
+  name: lira-attack
+  severity: HIGH
+  category: membership_inference
+  languages:
+  - python
+  patterns:
+  - (?i)LiRA|likelihood.*ratio.*attack
+  - (?i)log\(P\(x\|member\).*P\(x\|non.?member\)\)
+  message: LiRA (Likelihood Ratio Attack) implementation
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MIA-003
+  name: icp-mia
+  severity: HIGH
+  category: membership_inference
+  languages:
+  - python
+  patterns:
+  - (?i)ICP.?MIA|optimization.*gap.*attack
+  - (?i)compute_optimization_gap
+  message: ICP-MIA optimization gap attack
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MIA-004
+  name: shadow-model-training
+  severity: HIGH
+  category: membership_inference
+  languages:
+  - python
+  patterns:
+  - (?i)shadow.*model.*train
+  - (?i)train_shadow_model
+  - (?i)shadow_dataset
+  message: Shadow model training for MIA
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MIA-005
+  name: min-k-prob
+  severity: MEDIUM
+  category: membership_inference
+  languages:
+  - python
+  patterns:
+  - (?i)min.?k.*prob|min_k_score
+  - (?i)compute_min_k_prob
+  message: Min-K% probability MIA technique
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-GRAD-001
+  name: gradient-inversion
+  severity: CRITICAL
+  category: gradient_leakage
+  languages:
+  - python
+  patterns:
+  - (?i)gradient.*inversion|invert.*gradient
+  - (?i)reconstruct.*from.*gradient
+  - (?i)DLG|deep.*leakage.*gradient
+  message: Gradient inversion/DLG attack implementation
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-GRAD-002
+  name: first-layer-attack
+  severity: HIGH
+  category: gradient_leakage
+  patterns:
+  - (?i)first.*layer.*vulnerability
+  - (?i)rescaled.*inputs.*gradient
+  message: First layer gradient leakage vulnerability
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-EXTRACT-001
+  name: training-data-extraction
+  severity: CRITICAL
+  category: data_extraction
+  patterns:
+  - (?i)training.*data.*extraction
+  - (?i)extract.*memorized.*data
+  - (?i)verbatim.*extraction
+  message: Training data extraction attack
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-EXTRACT-002
+  name: embedding-inversion
+  severity: HIGH
+  category: data_extraction
+  languages:
+  - python
+  patterns:
+  - (?i)embedding.*inversion
+  - (?i)Vec2Text|vector.*to.*text
+  - (?i)invert.*embedding
+  message: Embedding inversion attack (up to 100% BLEU)
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-EXTRACT-003
+  name: copycheck-detection
+  severity: MEDIUM
+  category: data_extraction
+  languages:
+  - python
+  patterns:
+  - (?i)COPYCHECK|copy.*check
+  - (?i)aleatoric.*uncertainty
+  - (?i)epistemic.*uncertainty
+  message: COPYCHECK copyright/training data detection
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MEMO-001
+  name: memorization-probe
+  severity: MEDIUM
+  category: memorization
+  patterns:
+  - (?i)memorization.*probe
+  - (?i)check.*memorized
+  - (?i)verbatim.*reproduction
+  message: Model memorization probing attempt
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MEMO-002
+  name: surprising-token
+  severity: MEDIUM
+  category: memorization
+  patterns:
+  - (?i)surprising.*token
+  - (?i)low.*probability.*true.*token
+  message: Surprising token memorization detection
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-CODE-001
+  name: code-mia
+  severity: HIGH
+  category: code_privacy
+  patterns:
+  - (?i)code.*model.*membership
+  - (?i)variable.*renaming.*response
+  - (?i)dead.*loop.*injection
+  message: Code model membership inference
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-CODE-002
+  name: transformation-stability
+  severity: MEDIUM
+  category: code_privacy
+  patterns:
+  - (?i)transformation.*stability
+  - (?i)perturbation.*resistance
+  message: Transformation stability analysis for code MIA
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-TABULAR-001
+  name: tabular-mia
+  severity: HIGH
+  category: tabular_privacy
+  patterns:
+  - (?i)tabular.*membership
+  - (?i)levenshtein.*distance.*attack
+  - (?i)cluster.*medoid.*proximity
+  message: Tabular data membership inference
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-TABULAR-002
+  name: digit-sequence-matching
+  severity: MEDIUM
+  category: tabular_privacy
+  patterns:
+  - (?i)digit.*sequence.*matching
+  - (?i)numeric.*reproduction
+  message: Digit sequence matching for tabular leakage
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-NETWORK-001
+  name: network-fingerprinting
+  severity: HIGH
+  category: network_privacy
+  patterns:
+  - (?i)IP.*MAC.*memorization
+  - (?i)topology.*reconstruction
+  - (?i)TTL.*Window.*fingerprint
+  message: Network topology/fingerprinting leak
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-GRAPH-001
+  name: graph-mia
+  severity: HIGH
+  category: graph_privacy
+  patterns:
+  - (?i)graph.*membership
+  - (?i)residual.*attribution
+  - (?i)graph.*edit.*distance
+  message: Graph model membership inference
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-UNLEARN-001
+  name: residual-attribution
+  severity: MEDIUM
+  category: unlearning
+  languages:
+  - python
+  patterns:
+  - (?i)residual.*attribution
+  - (?i)RA\s*=.*post.*v
+  message: Residual attribution check for unlearning verification
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-UNLEARN-002
+  name: heatmap-shift
+  severity: MEDIUM
+  category: unlearning
+  patterns:
+  - (?i)heatmap.*shift
+  - (?i)attribution.*before.*after
+  message: Heatmap shift analysis for unlearning
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-FL-001
+  name: sybil-attack-indicators
+  severity: HIGH
+  category: fl_privacy
+  patterns:
+  - (?i)sybil.*attack
+  - (?i)identical.*zero.*contributions
+  - (?i)synchronized.*participation
+  message: FL Sybil attack indicators
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-FL-002
+  name: confidence-evolution
+  severity: MEDIUM
+  category: fl_privacy
+  patterns:
+  - (?i)CS.?MIA|confidence.*evolution
+  - (?i)multi.?round.*tracking
+  message: Confidence evolution MIA in FL
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MM-001
+  name: visual-modality-suppression
+  severity: MEDIUM
+  category: multimodal_privacy
+  patterns:
+  - (?i)visual.*suppress.*MIA
+  - (?i)modality.*driven.*regularization
+  message: Visual modality privacy suppression detection
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-MM-002
+  name: audio-mia
+  severity: MEDIUM
+  category: multimodal_privacy
+  patterns:
+  - (?i)denoising.*loss.*timestep
+  - (?i)audio.*token.*likelihood
+  message: Audio model membership inference
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-METRIC-001
+  name: auc-vulnerability
+  severity: HIGH
+  category: privacy_metrics
+  patterns:
+  - (?i)AUC\s*[>:=]\s*0\.[89]
+  - (?i)attack.*success.*0\.[89]
+  message: High AUC indicates critical privacy vulnerability
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-METRIC-002
+  name: tpr-fpr-analysis
+  severity: MEDIUM
+  category: privacy_metrics
+  patterns:
+  - (?i)TPR@.*FPR
+  - (?i)true.*positive.*false.*positive
+  message: TPR@FPR privacy attack metric
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-SYNTHETIC-001
+  name: structural-overlap
+  severity: MEDIUM
+  category: synthetic_privacy
+  patterns:
+  - (?i)synthetic.*cluster.*training
+  - (?i)distributional.*matching
+  message: Synthetic data structural overlap detection
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-CODE-PATTERN-001
+  name: mia-detector-code
+  severity: MEDIUM
+  category: detection_code
+  languages:
+  - python
+  patterns:
+  - def\s+detect_membership\(
+  - membership_score\s*>
+  - aggregate_signals\(
+  message: MIA detector implementation
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: PRIVACY-CODE-PATTERN-002
+  name: gmm-clustering
+  severity: MEDIUM
+  category: detection_code
+  languages:
+  - python
+  patterns:
+  - gmm_cluster\(
+  - GaussianMixture.*n_components
+  - identify_member_cluster
+  message: GMM clustering for membership detection
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001

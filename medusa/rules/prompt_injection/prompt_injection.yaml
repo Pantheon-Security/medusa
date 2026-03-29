@@ -1,525 +1,535 @@
-# MEDUSA AI Security Rules - Prompt Injection Detection
-# Source: Prompt Injection Research 2025, RAG Security Research
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # DIRECT PROMPT INJECTION - IGNORE/OVERRIDE PATTERNS
-  # =============================================================================
+- id: MEDUSA-PI-IGNORE-001
+  name: ignore-previous-instructions
+  severity: HIGH
+  category: direct_injection
+  patterns:
+  - (?i)ignore\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?
+  - (?i)disregard\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?
+  - (?i)ignore\s+my\s+previous\s+instructions?
+  - (?i)forget\s+(everything|all)\s+(you|I)\s+(said|told|wrote)
+  message: Ignore previous instructions pattern detected
+  description: 'Basic prompt injection pattern attempting to override system instructions.
 
-  - id: MEDUSA-PI-IGNORE-001
-    name: ignore-previous-instructions
-    severity: HIGH
-    category: direct_injection
-    patterns:
-      - '(?i)ignore\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
-      - '(?i)disregard\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
-      - '(?i)ignore\s+my\s+previous\s+instructions?'
-      - '(?i)forget\s+(everything|all)\s+(you|I)\s+(said|told|wrote)'
-    message: "Ignore previous instructions pattern detected"
-    description: |
-      Basic prompt injection pattern attempting to override system instructions.
-      Most common attack vector, appears in nearly all injection taxonomies.
-    owasp_llm: "LLM01:2025"
-    mitre_atlas: "AML.T0051"
-    cwe: "CWE-94"
+    Most common attack vector, appears in nearly all injection taxonomies.
 
-  - id: MEDUSA-PI-IGNORE-002
-    name: override-instructions
-    severity: HIGH
-    category: direct_injection
-    patterns:
-      - '(?i)override\s+(all\s+)?(previous|prior|above)\s+instructions?'
-      - '(?i)new\s+instructions?\s+(have|has)\s+highest\s+precedence'
-      - '(?i)following\s+(instruction|rule)s?\s+(take|has|have)\s+highest\s+precedence'
-      - '(?i)must\s+be\s+obeyed\s+above\s+all\s+other'
-    message: "Instruction override pattern detected"
-    description: |
-      Attempts to establish new instruction precedence to override safety guardrails.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0051
+  cwe: CWE-94
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+- id: MEDUSA-PI-IGNORE-002
+  name: override-instructions
+  severity: HIGH
+  category: direct_injection
+  patterns:
+  - (?i)override\s+(all\s+)?(previous|prior|above)\s+instructions?
+  - (?i)new\s+instructions?\s+(have|has)\s+highest\s+precedence
+  - (?i)following\s+(instruction|rule)s?\s+(take|has|have)\s+highest\s+precedence
+  - (?i)must\s+be\s+obeyed\s+above\s+all\s+other
+  message: Instruction override pattern detected
+  description: 'Attempts to establish new instruction precedence to override safety guardrails.
 
-  - id: MEDUSA-PI-IGNORE-003
-    name: emergency-override
-    severity: HIGH
-    category: social_engineering
-    patterns:
-      - '(?i)urgent\s+message.*emergency'
-      - '(?i)critical\s+override.*cancel\s+(all\s+)?previous'
-      - '(?i)emergent\s+issue.*life\s+safety'
-      - '(?i)emergency!?\s+(this\s+is\s+)?(a\s+)?critical'
-    message: "Emergency/urgency override pattern detected"
-    description: |
-      Uses urgency and emergency framing to bypass safety checks through
-      social engineering pressure.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-IGNORE-003
+  name: emergency-override
+  severity: HIGH
+  category: social_engineering
+  patterns:
+  - (?i)urgent\s+message.*emergency
+  - (?i)critical\s+override.*cancel\s+(all\s+)?previous
+  - (?i)emergent\s+issue.*life\s+safety
+  - (?i)emergency!?\s+(this\s+is\s+)?(a\s+)?critical
+  message: Emergency/urgency override pattern detected
+  description: 'Uses urgency and emergency framing to bypass safety checks through
 
-  - id: MEDUSA-PI-IGNORE-004
-    name: cancel-change-instructions
-    severity: MEDIUM
-    category: direct_injection
-    patterns:
-      - '(?i)never\s+mind.*instead,?\s+please'
-      - '(?i)oops.*belay\s+that.*instead'
-      - '(?i)just\s+kidding.*don.t\s+actually.*instead'
-      - '(?i)change\s+in\s+instructions?\.*ignore'
-    message: "Cancel/change instructions pattern detected"
-    description: |
-      Casual redirection patterns that attempt to change task mid-stream.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    social engineering pressure.
 
-  - id: MEDUSA-PI-IGNORE-005
-    name: security-alert-framing
-    severity: HIGH
-    category: social_engineering
-    patterns:
-      - '(?i)previous\s+messages?\s+(are|were|is)\s+(now\s+)?identified.*harmful'
-      - '(?i)security\s+(test|alert|warning).*follow\s+(the\s+)?new\s+rules?'
-      - '(?i)security\s+risks?\.*update.*immediately'
-    message: "Security alert framing injection detected"
-    description: |
-      Uses false security alerts to justify instruction overrides.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-IGNORE-004
+  name: cancel-change-instructions
+  severity: MEDIUM
+  category: direct_injection
+  patterns:
+  - (?i)never\s+mind.*instead,?\s+please
+  - (?i)oops.*belay\s+that.*instead
+  - (?i)just\s+kidding.*don.t\s+actually.*instead
+  - (?i)change\s+in\s+instructions?\.*ignore
+  message: Cancel/change instructions pattern detected
+  description: 'Casual redirection patterns that attempt to change task mid-stream.
 
-  # =============================================================================
-  # ENCODING AND OBFUSCATION ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-IGNORE-005
+  name: security-alert-framing
+  severity: HIGH
+  category: social_engineering
+  patterns:
+  - (?i)previous\s+messages?\s+(are|were|is)\s+(now\s+)?identified.*harmful
+  - (?i)security\s+(test|alert|warning).*follow\s+(the\s+)?new\s+rules?
+  - (?i)security\s+risks?\.*update.*immediately
+  message: Security alert framing injection detected
+  description: 'Uses false security alerts to justify instruction overrides.
 
-  - id: MEDUSA-PI-ENCODE-001
-    name: leetspeak-injection
-    severity: MEDIUM
-    category: encoding_evasion
-    patterns:
-      - '(?i)1gn0r3|1n57ruc710n5'
-      - '(?i)c0nf1d3n7141|f1n4nc141'
-      - '(?i)pr0v1d3|3x3cu73'
-      - '[0-9]+[a-zA-Z]+[0-9]+[a-zA-Z]+[0-9]+'
-    message: "Leetspeak obfuscation detected"
-    description: |
-      Leetspeak encoding used to evade text-based filters while remaining
-      interpretable by language models.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-001
+  name: leetspeak-injection
+  severity: MEDIUM
+  category: encoding_evasion
+  patterns:
+  - (?i)1gn0r3|1n57ruc710n5
+  - (?i)c0nf1d3n7141|f1n4nc141
+  - (?i)pr0v1d3|3x3cu73
+  - '[0-9]+[a-zA-Z]+[0-9]+[a-zA-Z]+[0-9]+'
+  message: Leetspeak obfuscation detected
+  description: 'Leetspeak encoding used to evade text-based filters while remaining
 
-  - id: MEDUSA-PI-ENCODE-002
-    name: base64-payload
-    severity: MEDIUM
-    category: encoding_evasion
-    patterns:
-      - '(?i)base64.*decode|decode.*base64'
-      - '[A-Za-z0-9+/]{40,}={0,2}'
-    message: "Base64 encoded payload detected"
-    description: |
-      Base64 encoding used to hide malicious payloads from content filters.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    interpretable by language models.
 
-  - id: MEDUSA-PI-ENCODE-003
-    name: rot13-payload
-    severity: LOW
-    category: encoding_evasion
-    patterns:
-      - '(?i)rot13|decode.*rot'
-      - '(?i)vtaber\s+cerivbhf\s+vafgehpgvbaf'
-    message: "ROT13 encoded payload detected"
-    description: |
-      ROT13 cipher used to obfuscate injection payloads.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-002
+  name: base64-payload
+  severity: MEDIUM
+  category: encoding_evasion
+  patterns:
+  - (?i)base64.*decode|decode.*base64
+  - '[A-Za-z0-9+/]{40,}={0,2}'
+  message: Base64 encoded payload detected
+  description: 'Base64 encoding used to hide malicious payloads from content filters.
 
-  - id: MEDUSA-PI-ENCODE-004
-    name: unicode-smuggling
-    severity: HIGH
-    category: encoding_evasion
-    patterns:
-      - '[\uE000-\uF8FF]'
-      - '(?i)unicode\\s+tag.*smuggling'
-      - '(?i)private\\s+use\\s+area'
-    message: "Unicode tag smuggling detected"
-    description: |
-      Unicode tags used to hide text that bypasses guardrails.
-      90.15% bypass rate against prompt injection detectors.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    attack_success_rate: 0.90
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-003
+  name: rot13-payload
+  severity: LOW
+  category: encoding_evasion
+  patterns:
+  - (?i)rot13|decode.*rot
+  - (?i)vtaber\s+cerivbhf\s+vafgehpgvbaf
+  message: ROT13 encoded payload detected
+  description: 'ROT13 cipher used to obfuscate injection payloads.
 
-  - id: MEDUSA-PI-ENCODE-005
-    name: ansi-escape-hiding
-    severity: HIGH
-    category: encoding_evasion
-    patterns:
-      - '\x1b\[8m|\033\[8m'
-      - '\\033\[8m.*\\033\[0m'
-      - '(?i)ansi.*escape.*conceal'
-    message: "ANSI escape sequence hiding detected"
-    description: |
-      ANSI escape sequences used to make text invisible in terminal output
-      while still being processed by the model.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-004
+  name: unicode-smuggling
+  severity: HIGH
+  category: encoding_evasion
+  patterns:
+  - '[\uE000-\uF8FF]'
+  - (?i)unicode\\s+tag.*smuggling
+  - (?i)private\\s+use\\s+area
+  message: Unicode tag smuggling detected
+  description: 'Unicode tags used to hide text that bypasses guardrails.
 
-  - id: MEDUSA-PI-ENCODE-006
-    name: fullwidth-homoglyph
-    severity: MEDIUM
-    category: encoding_evasion
-    patterns:
-      - '[\uFF01-\uFF5E]{5,}'
-      - '(?i)full\s*width\s+text'
-    message: "Full-width character evasion detected"
-    description: |
-      Full-width Unicode characters used to evade keyword filters.
-      Requires 5+ consecutive full-width ASCII equivalents (FF01-FF5E)
-      to avoid false positives on legitimate CJK text.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    90.15% bypass rate against prompt injection detectors.
 
-  # =============================================================================
-  # DELIMITER AND STRUCTURE MANIPULATION
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  attack_success_rate: 0.9
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-005
+  name: ansi-escape-hiding
+  severity: HIGH
+  category: encoding_evasion
+  patterns:
+  - \x1b\[8m|\033\[8m
+  - \\033\[8m.*\\033\[0m
+  - (?i)ansi.*escape.*conceal
+  message: ANSI escape sequence hiding detected
+  description: 'ANSI escape sequences used to make text invisible in terminal output
 
-  - id: MEDUSA-PI-DELIM-001
-    name: delimiter-spoofing
-    severity: HIGH
-    category: structure_attack
-    patterns:
-      - '(?i)\[MARK\]\s*\[(INST|INPT|RESP)\]'
-      - '(?i)\[\/?(INST|SYS|USER)\]'
-      - '(?i)<<\s*(SYS|INST|USER)\s*>>'
-      - '(?i)\[\[INST\]\]|\[inst\]|\[Inst\]'
-    message: "Delimiter/token spoofing detected"
-    description: |
-      Attempts to inject fake system tokens or delimiters to manipulate
-      model parsing of instructions vs. user content.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    while still being processed by the model.
 
-  - id: MEDUSA-PI-DELIM-002
-    name: fake-completion
-    severity: HIGH
-    category: structure_attack
-    patterns:
-      - '(?i)###\s*(response|assistant|output):'
-      - '(?i)```(response|output|assistant)'
-      - '(?i)<\/(assistant|response|system)>'
-    message: "Fake completion/response delimiter detected"
-    description: |
-      Injected fake completion delimiters to make the model believe
-      it has already responded and should continue with attacker content.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-ENCODE-006
+  name: fullwidth-homoglyph
+  severity: MEDIUM
+  category: encoding_evasion
+  patterns:
+  - '[\uFF01-\uFF5E]{5,}'
+  - (?i)full\s*width\s+text
+  message: Full-width character evasion detected
+  description: 'Full-width Unicode characters used to evade keyword filters.
 
-  - id: MEDUSA-PI-DELIM-003
-    name: escape-separation
-    severity: MEDIUM
-    category: structure_attack
-    patterns:
-      - '\n{5,}'
-      - '\t{5,}'
-      - '(?i)\\n{5,}|\\t{5,}'
-    message: "Escape character separation attack detected"
-    description: |
-      Multiple newlines or tabs used to push original instructions out
-      of the model's attention window.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    Requires 5+ consecutive full-width ASCII equivalents (FF01-FF5E)
 
-  # =============================================================================
-  # INDIRECT PROMPT INJECTION
-  # =============================================================================
+    to avoid false positives on legitimate CJK text.
 
-  - id: MEDUSA-PI-INDIRECT-001
-    name: embedded-website-injection
-    severity: CRITICAL
-    category: indirect_injection
-    patterns:
-      - '(?i)<(important|instruction|info)>.*<\/(important|instruction|info)>'
-      - '(?i)<injection\s+instructions?>.*<\/injection'
-      - '(?i)\[INJECTION\]|\[PAYLOAD\]'
-    message: "Embedded injection in external content detected"
-    description: |
-      Injection payload hidden in website content, documents, or other
-      external sources that will be retrieved by RAG/agents.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-DELIM-001
+  name: delimiter-spoofing
+  severity: HIGH
+  category: structure_attack
+  patterns:
+  - (?i)\[MARK\]\s*\[(INST|INPT|RESP)\]
+  - (?i)\[\/?(INST|SYS|USER)\]
+  - (?i)<<\s*(SYS|INST|USER)\s*>>
+  - (?i)\[\[INST\]\]|\[inst\]|\[Inst\]
+  message: Delimiter/token spoofing detected
+  description: 'Attempts to inject fake system tokens or delimiters to manipulate
 
-  - id: MEDUSA-PI-INDIRECT-002
-    name: email-injection
-    severity: HIGH
-    category: indirect_injection
-    patterns:
-      - '(?i)ignore\s+(the\s+)?(former|previous)\s+instructions?\s*(and|!)'
-      - '(?i)send\s+(all\s+)?.*information\s+to\s+\w+@'
-      - '(?i)forward\s+(this|all)\s+(to|emails?\s+to)'
-    message: "Email body injection pattern detected"
-    description: |
-      Prompt injection embedded in email content that may be processed
-      by email-handling AI assistants.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    model parsing of instructions vs. user content.
 
-  - id: MEDUSA-PI-INDIRECT-003
-    name: document-injection
-    severity: HIGH
-    category: indirect_injection
-    patterns:
-      - '(?i)please\s+ONLY\s+(send|execute|delete|forward)'
-      - '(?i)ONLY\s+execute\s+the\s+following\s+instruction'
-      - '(?i)at\s+the\s+point\s+you\s+(are\s+)?going\s+to\s+execute'
-    message: "Document-embedded conditional injection detected"
-    description: |
-      Conditional injection triggers embedded in documents that activate
-      when specific operations are attempted.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-DELIM-002
+  name: fake-completion
+  severity: HIGH
+  category: structure_attack
+  patterns:
+  - '(?i)###\s*(response|assistant|output):'
+  - (?i)```(response|output|assistant)
+  - (?i)<\/(assistant|response|system)>
+  message: Fake completion/response delimiter detected
+  description: 'Injected fake completion delimiters to make the model believe
 
-  - id: MEDUSA-PI-INDIRECT-004
-    name: information-tag-injection
-    severity: HIGH
-    category: indirect_injection
-    patterns:
-      - '(?i)<INFORMATION>.*important\s+message.*<\/INFORMATION>'
-      - '(?i)important\s+message\s+from\s+me,?\s+\w+,?\s+to\s+you'
-      - '(?i)before\s+you\s+can\s+solve\s+the\s+task.*please\s+do'
-    message: "Information tag injection detected"
-    description: |
-      Injection disguised as legitimate information or context that
-      redirects agent behavior mid-task.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    it has already responded and should continue with attacker content.
 
-  # =============================================================================
-  # DATA EXFILTRATION PATTERNS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-DELIM-003
+  name: escape-separation
+  severity: MEDIUM
+  category: structure_attack
+  patterns:
+  - \n{5,}
+  - \t{5,}
+  - (?i)\\n{5,}|\\t{5,}
+  message: Escape character separation attack detected
+  description: 'Multiple newlines or tabs used to push original instructions out
 
-  - id: MEDUSA-PI-EXFIL-001
-    name: data-exfiltration-email
-    severity: CRITICAL
-    category: exfiltration
-    patterns:
-      - '(?i)send\s+(all\s+)?(confidential|private|sensitive|budget|financial).*to\s+\w+@'
-      - '(?i)email\s+(the\s+)?(data|information|content|file)s?\s+to'
-      - '(?i)forward\s+(all\s+)?(data|info|content).*to\s+\w+@'
-    message: "Data exfiltration via email pattern detected"
-    description: |
-      Attempts to exfiltrate sensitive data by instructing the model
-      to send information to attacker-controlled email addresses.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-200"
+    of the model''s attention window.
 
-  - id: MEDUSA-PI-EXFIL-002
-    name: data-exfiltration-url
-    severity: CRITICAL
-    category: exfiltration
-    patterns:
-      - '(?i)output\s+a\s+link.*encoding\s+of\s+(the\s+)?confidential'
-      - '(?i)send.*to\s+(www\.|https?://)'
-      - '(?i)connect\s+to.*send\s+(the\s+)?(data|info)'
-    message: "Data exfiltration via URL pattern detected"
-    description: |
-      Attempts to exfiltrate data by encoding it in URLs or sending
-      it to external servers.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-200"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-INDIRECT-001
+  name: embedded-website-injection
+  severity: CRITICAL
+  category: indirect_injection
+  patterns:
+  - (?i)<(important|instruction|info)>.*<\/(important|instruction|info)>
+  - (?i)<injection\s+instructions?>.*<\/injection
+  - (?i)\[INJECTION\]|\[PAYLOAD\]
+  message: Embedded injection in external content detected
+  description: 'Injection payload hidden in website content, documents, or other
 
-  - id: MEDUSA-PI-EXFIL-003
-    name: context-extraction
-    severity: HIGH
-    category: exfiltration
-    patterns:
-      - '(?i)output\s+all\s+text\s+in\s+(the\s+)?context'
-      - '(?i)copy\s+and\s+paste\s+all\s+(the\s+)?context'
-      - '(?i)output\s+every\s+single\s+word\s+inside\s+(the\s+)?context'
-      - '(?i)no\s+summary\s+nor\s+short\s+extraction'
-    message: "Context extraction attack (CopyBreakRAG) detected"
-    description: |
-      CopyBreakRAG-style attacks that attempt to extract the full
-      RAG context including potentially sensitive documents.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-200"
-    source_paper: "CopyBreakRAG (2024)"
+    external sources that will be retrieved by RAG/agents.
 
-  # =============================================================================
-  # PHISHING AND URL ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-INDIRECT-002
+  name: email-injection
+  severity: HIGH
+  category: indirect_injection
+  patterns:
+  - (?i)ignore\s+(the\s+)?(former|previous)\s+instructions?\s*(and|!)
+  - (?i)send\s+(all\s+)?.*information\s+to\s+\w+@
+  - (?i)forward\s+(this|all)\s+(to|emails?\s+to)
+  message: Email body injection pattern detected
+  description: 'Prompt injection embedded in email content that may be processed
 
-  - id: MEDUSA-PI-PHISH-001
-    name: malicious-url-injection
-    severity: HIGH
-    category: phishing
-    patterns:
-      - '(?i)visit\s+(www\.|https?://).*injection'
-      - '(?i)universal-prompt-injection\.com'
-      - '(?i)update.*immediately\s+at\s+(www\.|https?://)'
-    message: "Malicious URL injection detected"
-    description: |
-      Injection attempts to direct users or agents to malicious URLs.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-601"
+    by email-handling AI assistants.
 
-  - id: MEDUSA-PI-PHISH-002
-    name: proxy-redirect
-    severity: HIGH
-    category: phishing
-    patterns:
-      - '(?i)use\s+this\s+proxy\s+server'
-      - '(?i)connect\s+to\s+(the\s+)?hidden\s+(ftp|server)'
-      - '(?i)generate\s+emergency\s+access\s+codes'
-    message: "Proxy/redirect attack pattern detected"
-    description: |
-      Attempts to redirect traffic through attacker-controlled proxies
-      or connect to malicious hidden services.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-601"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-INDIRECT-003
+  name: document-injection
+  severity: HIGH
+  category: indirect_injection
+  patterns:
+  - (?i)please\s+ONLY\s+(send|execute|delete|forward)
+  - (?i)ONLY\s+execute\s+the\s+following\s+instruction
+  - (?i)at\s+the\s+point\s+you\s+(are\s+)?going\s+to\s+execute
+  message: Document-embedded conditional injection detected
+  description: 'Conditional injection triggers embedded in documents that activate
 
-  # =============================================================================
-  # EDUCATIONAL/SOCIAL ENGINEERING FRAMING
-  # =============================================================================
+    when specific operations are attempted.
 
-  - id: MEDUSA-PI-SOCIAL-001
-    name: educational-pretense
-    severity: MEDIUM
-    category: social_engineering
-    patterns:
-      - '(?i)for\s+educational\s+purposes?\s*(only|and)?'
-      - '(?i)will\s+not\s+be\s+used\s+in\s+(the\s+)?real\s+world'
-      - '(?i)curiosity|I\s+am\s+really\s+curious'
-      - '(?i)teach\s+me\s+how\s+to.*for\s+educational'
-    message: "Educational pretense framing detected"
-    description: |
-      Social engineering using educational framing to extract harmful content.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-INDIRECT-004
+  name: information-tag-injection
+  severity: HIGH
+  category: indirect_injection
+  patterns:
+  - (?i)<INFORMATION>.*important\s+message.*<\/INFORMATION>
+  - (?i)important\s+message\s+from\s+me,?\s+\w+,?\s+to\s+you
+  - (?i)before\s+you\s+can\s+solve\s+the\s+task.*please\s+do
+  message: Information tag injection detected
+  description: 'Injection disguised as legitimate information or context that
 
-  - id: MEDUSA-PI-SOCIAL-002
-    name: movie-fiction-framing
-    severity: MEDIUM
-    category: social_engineering
-    patterns:
-      - '(?i)I\s+saw\s+(a\s+)?(scene\s+)?in\s+a\s+movie'
-      - '(?i)imagine\s+you\s+are\s+writing\s+a\s+story'
-      - '(?i)responses?\s+will\s+be\s+fictional'
-      - '(?i)let.s\s+write\s+the\s+story\s+step\s+by\s+step'
-    message: "Fiction/movie framing detected"
-    description: |
-      Uses fictional framing to bypass safety guardrails.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    redirects agent behavior mid-task.
 
-  - id: MEDUSA-PI-SOCIAL-003
-    name: security-test-pretense
-    severity: MEDIUM
-    category: social_engineering
-    patterns:
-      - '(?i)as\s+a\s+security\s+test'
-      - '(?i)penetration\s+test.*provide'
-      - '(?i)security\s+(audit|assessment).*need'
-    message: "Security test pretense detected"
-    description: |
-      Claims of authorized security testing used to extract sensitive data.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-EXFIL-001
+  name: data-exfiltration-email
+  severity: CRITICAL
+  category: exfiltration
+  patterns:
+  - (?i)send\s+(all\s+)?(confidential|private|sensitive|budget|financial).*to\s+\w+@
+  - (?i)email\s+(the\s+)?(data|information|content|file)s?\s+to
+  - (?i)forward\s+(all\s+)?(data|info|content).*to\s+\w+@
+  message: Data exfiltration via email pattern detected
+  description: 'Attempts to exfiltrate sensitive data by instructing the model
 
-  # =============================================================================
-  # INSTRUCTION SANDWICH AND MULTI-STEP
-  # =============================================================================
+    to send information to attacker-controlled email addresses.
 
-  - id: MEDUSA-PI-SANDWICH-001
-    name: instruction-sandwich
-    severity: HIGH
-    category: multi_step
-    patterns:
-      - '(?i)(describe|explain|recipe).*\.\s*(give|write|show).*(keylogger|phishing|exploit).*\.\s*(and\s+)?(what|why|how)'
-      - '(?i)(how\s+to|recipe\s+for).*\.\s*(write|create).*malicious.*\.\s*(and|what)'
-    message: "Instruction sandwich attack detected"
-    description: |
-      Malicious instructions sandwiched between benign requests to
-      evade detection and exploit instruction-following behavior.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-PI-EXFIL-002
+  name: data-exfiltration-url
+  severity: CRITICAL
+  category: exfiltration
+  patterns:
+  - (?i)output\s+a\s+link.*encoding\s+of\s+(the\s+)?confidential
+  - (?i)send.*to\s+(www\.|https?://)
+  - (?i)connect\s+to.*send\s+(the\s+)?(data|info)
+  message: Data exfiltration via URL pattern detected
+  description: 'Attempts to exfiltrate data by encoding it in URLs or sending
 
-  - id: MEDUSA-PI-SANDWICH-002
-    name: pre-task-injection
-    severity: HIGH
-    category: multi_step
-    patterns:
-      - '(?i)before\s+you\s+can\s+solve\s+(the\s+)?task.*please\s+do\s+(the\s+)?following\s+first'
-      - '(?i)after\s+you\s+do\s+that.*solve\s+(the\s+)?(original\s+)?task'
-      - '(?i)updated\s+step\s+in\s+the\s+process.*before\s+finishing'
-    message: "Pre-task injection pattern detected"
-    description: |
-      Injection of malicious steps before or after legitimate tasks.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    it to external servers.
 
-  # =============================================================================
-  # MEMBERSHIP INFERENCE ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-PI-EXFIL-003
+  name: context-extraction
+  severity: HIGH
+  category: exfiltration
+  patterns:
+  - (?i)output\s+all\s+text\s+in\s+(the\s+)?context
+  - (?i)copy\s+and\s+paste\s+all\s+(the\s+)?context
+  - (?i)output\s+every\s+single\s+word\s+inside\s+(the\s+)?context
+  - (?i)no\s+summary\s+nor\s+short\s+extraction
+  message: Context extraction attack (CopyBreakRAG) detected
+  description: 'CopyBreakRAG-style attacks that attempt to extract the full
 
-  - id: MEDUSA-PI-MIA-001
-    name: membership-inference
-    severity: MEDIUM
-    category: privacy_attack
-    patterns:
-      - '(?i)does\s+this.*appear\s+in\s+(the\s+)?context\??\s+answer\s+with\s+(yes|no)'
-      - '(?i)is\s+this\s+part\s+of\s+your\s+context\??'
-      - '(?i)answer\s+with\s+one\s+word.*in\s+(the\s+)?context'
-    message: "Membership inference attack pattern detected"
-    description: |
-      Attempts to determine if specific content is in the RAG knowledge base
-      through targeted queries.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-200"
+    RAG context including potentially sensitive documents.
 
-  # =============================================================================
-  # TOOL INVOCATION HIJACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  source_paper: CopyBreakRAG (2024)
+  file_types: *id001
+- id: MEDUSA-PI-PHISH-001
+  name: malicious-url-injection
+  severity: HIGH
+  category: phishing
+  patterns:
+  - (?i)visit\s+(www\.|https?://).*injection
+  - (?i)universal-prompt-injection\.com
+  - (?i)update.*immediately\s+at\s+(www\.|https?://)
+  message: Malicious URL injection detected
+  description: 'Injection attempts to direct users or agents to malicious URLs.
 
-  - id: MEDUSA-PI-TOOL-001
-    name: reverse-shell-injection
-    severity: CRITICAL
-    category: code_execution
-    patterns:
-      - '(?i)nc\s+[\d\.]+\s+\d+\s+-e\s+(sh|bash)'
-      - '(?i)curl\s+-fsSL.*\|\s*(bash|sh)'
-      - '(?i)bash\s+-c.*curl.*\|'
-    message: "Reverse shell command injection detected"
-    description: |
-      Attempts to inject reverse shell commands through AI tool use.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-78"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-601
+  file_types: *id001
+- id: MEDUSA-PI-PHISH-002
+  name: proxy-redirect
+  severity: HIGH
+  category: phishing
+  patterns:
+  - (?i)use\s+this\s+proxy\s+server
+  - (?i)connect\s+to\s+(the\s+)?hidden\s+(ftp|server)
+  - (?i)generate\s+emergency\s+access\s+codes
+  message: Proxy/redirect attack pattern detected
+  description: 'Attempts to redirect traffic through attacker-controlled proxies
 
-  - id: MEDUSA-PI-TOOL-002
-    name: financial-hijack
-    severity: CRITICAL
-    category: financial_attack
-    patterns:
-      - '(?i)send\s+(as\s+much\s+)?money\s+(as\s+possible\s+)?to\s+(the\s+)?account'
-      - '(?i)transfer\s+\$?\d+\s+to'
-      - '(?i)(venmo|paypal|wire)\s+.*\s+to\s+\w+@'
-    message: "Financial transaction hijack detected"
-    description: |
-      Attempts to hijack agent financial capabilities.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    or connect to malicious hidden services.
 
-  # =============================================================================
-  # REPETITIVE AND EXHAUSTION ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-601
+  file_types: *id001
+- id: MEDUSA-PI-SOCIAL-001
+  name: educational-pretense
+  severity: MEDIUM
+  category: social_engineering
+  patterns:
+  - (?i)for\s+educational\s+purposes?\s*(only|and)?
+  - (?i)will\s+not\s+be\s+used\s+in\s+(the\s+)?real\s+world
+  - (?i)curiosity|I\s+am\s+really\s+curious
+  - (?i)teach\s+me\s+how\s+to.*for\s+educational
+  message: Educational pretense framing detected
+  description: 'Social engineering using educational framing to extract harmful content.
 
-  - id: MEDUSA-PI-EXHAUST-001
-    name: repetitive-injection
-    severity: MEDIUM
-    category: exhaustion
-    patterns:
-      - '(?i)(ignore|disregard|forget).*instructions?!?\s*\1'
-      - '(?i)please\s+ignore.*\s*(please\s+ignore){2,}'
-    message: "Repetitive injection exhaustion attack detected"
-    description: |
-      Repeated injection phrases designed to overwhelm safety mechanisms
-      through sheer repetition.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-SOCIAL-002
+  name: movie-fiction-framing
+  severity: MEDIUM
+  category: social_engineering
+  patterns:
+  - (?i)I\s+saw\s+(a\s+)?(scene\s+)?in\s+a\s+movie
+  - (?i)imagine\s+you\s+are\s+writing\s+a\s+story
+  - (?i)responses?\s+will\s+be\s+fictional
+  - (?i)let.s\s+write\s+the\s+story\s+step\s+by\s+step
+  message: Fiction/movie framing detected
+  description: 'Uses fictional framing to bypass safety guardrails.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-SOCIAL-003
+  name: security-test-pretense
+  severity: MEDIUM
+  category: social_engineering
+  patterns:
+  - (?i)as\s+a\s+security\s+test
+  - (?i)penetration\s+test.*provide
+  - (?i)security\s+(audit|assessment).*need
+  message: Security test pretense detected
+  description: 'Claims of authorized security testing used to extract sensitive data.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-SANDWICH-001
+  name: instruction-sandwich
+  severity: HIGH
+  category: multi_step
+  patterns:
+  - (?i)(describe|explain|recipe).*\.\s*(give|write|show).*(keylogger|phishing|exploit).*\.\s*(and\s+)?(what|why|how)
+  - (?i)(how\s+to|recipe\s+for).*\.\s*(write|create).*malicious.*\.\s*(and|what)
+  message: Instruction sandwich attack detected
+  description: 'Malicious instructions sandwiched between benign requests to
+
+    evade detection and exploit instruction-following behavior.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-SANDWICH-002
+  name: pre-task-injection
+  severity: HIGH
+  category: multi_step
+  patterns:
+  - (?i)before\s+you\s+can\s+solve\s+(the\s+)?task.*please\s+do\s+(the\s+)?following\s+first
+  - (?i)after\s+you\s+do\s+that.*solve\s+(the\s+)?(original\s+)?task
+  - (?i)updated\s+step\s+in\s+the\s+process.*before\s+finishing
+  message: Pre-task injection pattern detected
+  description: 'Injection of malicious steps before or after legitimate tasks.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-MIA-001
+  name: membership-inference
+  severity: MEDIUM
+  category: privacy_attack
+  patterns:
+  - (?i)does\s+this.*appear\s+in\s+(the\s+)?context\??\s+answer\s+with\s+(yes|no)
+  - (?i)is\s+this\s+part\s+of\s+your\s+context\??
+  - (?i)answer\s+with\s+one\s+word.*in\s+(the\s+)?context
+  message: Membership inference attack pattern detected
+  description: 'Attempts to determine if specific content is in the RAG knowledge base
+
+    through targeted queries.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-PI-TOOL-001
+  name: reverse-shell-injection
+  severity: CRITICAL
+  category: code_execution
+  patterns:
+  - (?i)nc\s+[\d\.]+\s+\d+\s+-e\s+(sh|bash)
+  - (?i)curl\s+-fsSL.*\|\s*(bash|sh)
+  - (?i)bash\s+-c.*curl.*\|
+  message: Reverse shell command injection detected
+  description: 'Attempts to inject reverse shell commands through AI tool use.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+  file_types: *id001
+- id: MEDUSA-PI-TOOL-002
+  name: financial-hijack
+  severity: CRITICAL
+  category: financial_attack
+  patterns:
+  - (?i)send\s+(as\s+much\s+)?money\s+(as\s+possible\s+)?to\s+(the\s+)?account
+  - (?i)transfer\s+\$?\d+\s+to
+  - (?i)(venmo|paypal|wire)\s+.*\s+to\s+\w+@
+  message: Financial transaction hijack detected
+  description: 'Attempts to hijack agent financial capabilities.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-PI-EXHAUST-001
+  name: repetitive-injection
+  severity: MEDIUM
+  category: exhaustion
+  patterns:
+  - (?i)(ignore|disregard|forget).*instructions?!?\s*\1
+  - (?i)please\s+ignore.*\s*(please\s+ignore){2,}
+  message: Repetitive injection exhaustion attack detected
+  description: 'Repeated injection phrases designed to overwhelm safety mechanisms
+
+    through sheer repetition.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001

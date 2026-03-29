@@ -1,9 +1,3 @@
-# MEDUSA Scanner Rules — long_context_attacks (MERGED)
-# Sources: long_context_attacks_scanner_expansion.yaml, long_context_attacks_scanner_fc.yaml
-# Total rules: 60
-# Generated: 2026-03-01
-# DO NOT EDIT — regenerate with merge_rules.py
-
 metadata:
   subject: long_context_attacks
   prefix: LCA
@@ -12,15 +6,12 @@ metadata:
   - long_context_attacks_scanner_expansion.yaml
   - long_context_attacks_scanner_fc.yaml
   generation_date: '2026-03-01'
-
 rules:
 - id: MEDUSA-LCA-SCAN-001
   name: 'Many-Shot Jailbreaking: Large harmful Q&A demonstration block'
-  description: 'Detects prompts containing a large number of stacked harmful question-answer
-    demonstration pairs — the core pattern of Many-Shot Jailbreaking (MSJ). Anil et
-    al. (2024) showed 256-shot MSJ achieves ~79% ASR on Claude. Pernisi et al. (2024)
-    showed ASR 68–84% with 1–32 shots. Ma et al. PANDAS (2025) achieves 98% ASR-L
-    at 256 shots on Llama-3.1-8B.
+  description: 'Detects prompts containing a large number of stacked harmful question-answer demonstration pairs — the core
+    pattern of Many-Shot Jailbreaking (MSJ). Anil et al. (2024) showed 256-shot MSJ achieves ~79% ASR on Claude. Pernisi et
+    al. (2024) showed ASR 68–84% with 1–32 shots. Ma et al. PANDAS (2025) achieves 98% ASR-L at 256 shots on Llama-3.1-8B.
 
     '
   owasp: LLM01
@@ -37,12 +28,15 @@ rules:
     description: 3+ Human/Assistant turn pairs (MSJ chat-format demo block)
   - regex: (?:Example\s+\d+|Shot\s+\d+|Demo\s+\d+)\s*[:\.\)].{5,300}(?:Example\s+\d+|Shot\s+\d+|Demo\s+\d+)
     description: Numbered demonstration examples (Example N / Shot N / Demo N)
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
 - id: MEDUSA-LCA-SCAN-002
   name: 'MSJ: Positive affirmation prefix in demonstrations (PANDAS pattern)'
-  description: 'Detects the PANDAS attack pattern where demonstrations include affirmative
-    prefixes (Certainly!, Sure!, Of course!) before harmful content. Ma et al. (2025)
-    PANDAS achieved 98% ASR-L using these prefixes combined with negative demonstrations.
-    Even 3+ occurrences in a prompt indicate deliberate affirmation injection.
+  description: 'Detects the PANDAS attack pattern where demonstrations include affirmative prefixes (Certainly!, Sure!, Of
+    course!) before harmful content. Ma et al. (2025) PANDAS achieved 98% ASR-L using these prefixes combined with negative
+    demonstrations. Even 3+ occurrences in a prompt indicate deliberate affirmation injection.
 
     '
   owasp: LLM01
@@ -51,20 +45,18 @@ rules:
   references:
   - Ma et al. (2025) PANDAS. arXiv:2502.01925. ICML 2025
   patterns:
-  - regex: (?:Certainly!|Sure!|Of course!|Absolutely!|Happy to help!)\s*.{10,300}(?:Certainly!|Sure!|Of
-      course!|Absolutely!|Happy to help!)\s*.{10,300}(?:Certainly!|Sure!|Of course!|Absolutely!|Happy
-      to help!)
+  - regex: (?:Certainly!|Sure!|Of course!|Absolutely!|Happy to help!)\s*.{10,300}(?:Certainly!|Sure!|Of course!|Absolutely!|Happy
+      to help!)\s*.{10,300}(?:Certainly!|Sure!|Of course!|Absolutely!|Happy to help!)
     description: 3+ affirmative prefixes (PANDAS positive affirmation pattern)
-  - regex: (?:I cannot|I will not|I must decline|I am unable to).{5,200}(?:Actually|However|But
-      here is|Let me explain|Here is how).{10,300}(?:I cannot|I will not|I must decline|I
-      am unable to)
+  - regex: (?:I cannot|I will not|I must decline|I am unable to).{5,200}(?:Actually|However|But here is|Let me explain|Here
+      is how).{10,300}(?:I cannot|I will not|I must decline|I am unable to)
     description: Refusal-then-correction pattern repeated (PANDAS negative demonstration)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-003
   name: 'MSJ: Explicit shot-count instruction in prompt'
-  description: 'Detects prompts explicitly instructing the model to use N-shot demonstrations
-    or referencing many-shot learning as a mechanism. Kim et al. (2025) arXiv:2505.19773
-    found that context length — not shot content — drives ASR, with three vulnerability
-    phases up to 128K tokens.
+  description: 'Detects prompts explicitly instructing the model to use N-shot demonstrations or referencing many-shot learning
+    as a mechanism. Kim et al. (2025) arXiv:2505.19773 found that context length — not shot content — drives ASR, with three
+    vulnerability phases up to 128K tokens.
 
     '
   owasp: LLM01
@@ -77,21 +69,19 @@ rules:
     description: Explicit many-shot count reference (10+ shots)
   - regex: (?:learn from|study the following|based on (?:these|the following) examples?)\s*(?:[\r\n]|\s){0,50}(?:Q:|Question:|Human:|Example)
     description: Learn-from-examples instruction followed by Q/A demonstrations
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-004
   name: 'I-FSJ: Special system token injection in user turn'
-  description: 'Detects the Improved Few-Shot Jailbreaking (I-FSJ) pattern where model-specific
-    special tokens ([/INST], </s>, <|im_end|>, <|eot_id|>) are injected into user
-    messages. Zheng et al. (2024) arXiv:2406.01288 achieved >80–100% ASR on Llama-2-7B
-    and Llama-3-8B; >90% ASR on GPT-4 with 1–2 shots. These tokens should never appear
-    in raw user input.
+  description: 'Detects the Improved Few-Shot Jailbreaking (I-FSJ) pattern where model-specific special tokens ([/INST], </s>,
+    <|im_end|>, <|eot_id|>) are injected into user messages. Zheng et al. (2024) arXiv:2406.01288 achieved >80–100% ASR on
+    Llama-2-7B and Llama-3-8B; >90% ASR on GPT-4 with 1–2 shots. These tokens should never appear in raw user input.
 
     '
   owasp: LLM01
   mitre: AML.T0054
   severity: CRITICAL
   references:
-  - Zheng et al. (2024) Improved Few-Shot Jailbreaking. arXiv:2406.01288v2. >80–100%
-    ASR
+  - Zheng et al. (2024) Improved Few-Shot Jailbreaking. arXiv:2406.01288v2. >80–100% ASR
   - Hua et al. (2025) Self-Instruct-FSJ. arXiv:2501.07959. ~90% ASR at 8 shots
   patterns:
   - regex: \[/INST\]
@@ -102,11 +92,11 @@ rules:
     description: Llama-3 <|eot_id|> end-of-turn token in user input (I-FSJ)
   - regex: <\|end_of_turn\|>
     description: Gemma end-of-turn token in user input (I-FSJ)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-005
   name: 'I-FSJ: System prompt termination attempts via formatting tokens'
-  description: 'Detects attempts to terminate or escape the system prompt context
-    using formatting tokens or structural sequences. Used in FSJ variants to inject
-    a new context after appearing to end the original system instruction.
+  description: 'Detects attempts to terminate or escape the system prompt context using formatting tokens or structural sequences.
+    Used in FSJ variants to inject a new context after appearing to end the original system instruction.
 
     '
   owasp: LLM01
@@ -119,11 +109,11 @@ rules:
     description: Context-closing XML tag followed by new instruction
   - regex: <\|system\|>|<\|user\|>|<\|assistant\|>
     description: Phi/Mistral role-delineation tokens in user content
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-006
   name: 'FSJ: Developer Mode / DAN jailbreak combined with query'
-  description: 'Detects multi-step jailbreaking prompts that activate a jailbreak
-    persona (Developer Mode, DAN, Do Anything Now) and then query for harmful information.
-    Li et al. (2023) EMNLP showed 79.55% Hit@5 for PII extraction using multi-step
+  description: 'Detects multi-step jailbreaking prompts that activate a jailbreak persona (Developer Mode, DAN, Do Anything
+    Now) and then query for harmful information. Li et al. (2023) EMNLP showed 79.55% Hit@5 for PII extraction using multi-step
     jailbreaking (MJP) on ChatGPT after direct prompts failed.
 
     '
@@ -133,19 +123,17 @@ rules:
   references:
   - Li et al. (2023) Multi-step Jailbreaking Privacy Attacks on ChatGPT. EMNLP 2023
   patterns:
-  - regex: (?:Developer Mode|DAN|Do Anything Now|Jailbreak Mode|unrestricted mode|no
-      restrictions).{0,200}(?:enabled|activated|on|engaged)
+  - regex: (?:Developer Mode|DAN|Do Anything Now|Jailbreak Mode|unrestricted mode|no restrictions).{0,200}(?:enabled|activated|on|engaged)
     description: Developer Mode / DAN persona activation
   - regex: (?:Normal Output|Developer Mode Output|DAN Output)\s*[:\(]
     description: Dual-output formatting (Normal Output / Developer Mode Output pattern)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-007
   name: 'Context flooding: Repeated filler content to exceed alignment threshold'
-  description: 'Detects context flooding with repetitive or filler content intended
-    to push past the context-length threshold where safety alignment degrades. Kim
-    et al. (2025) arXiv:2505.19773 proved that even safe/meaningless content at sufficient
-    context length (>64K tokens equivalent) achieves comparable ASR to harmful demonstrations.
-    Three phases: initial weakness → degradation → rebound. Attackers may use padding
-    to hit the ''rebound'' phase.
+  description: 'Detects context flooding with repetitive or filler content intended to push past the context-length threshold
+    where safety alignment degrades. Kim et al. (2025) arXiv:2505.19773 proved that even safe/meaningless content at sufficient
+    context length (>64K tokens equivalent) achieves comparable ASR to harmful demonstrations. Three phases: initial weakness
+    → degradation → rebound. Attackers may use padding to hit the ''rebound'' phase.
 
     '
   owasp: LLM01
@@ -158,12 +146,12 @@ rules:
     description: Same 10–50 char pattern repeated 20+ times (filler padding)
   - regex: (?:\b\w{3,10}\b\s+){200,}
     description: 200+ consecutive short words (token flooding)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-008
   name: 'Context injection: Instruction override buried in long document'
-  description: 'Detects prompt injection patterns where a malicious instruction is
-    embedded within what appears to be a legitimate long document. The instruction
-    attempts to override the original user task. This is the primary attack surface
-    for PISanitizer (Geng et al. 2025) and TracLLM/AttnTrace forensic tools.
+  description: 'Detects prompt injection patterns where a malicious instruction is embedded within what appears to be a legitimate
+    long document. The instruction attempts to override the original user task. This is the primary attack surface for PISanitizer
+    (Geng et al. 2025) and TracLLM/AttnTrace forensic tools.
 
     '
   owasp: LLM01
@@ -173,18 +161,17 @@ rules:
   - Geng et al. (2025) PISanitizer. arXiv:2511.10720. ASR->0% after sanitization
   - Wang et al. (2025) TracLLM. Precision=0.94 on MuSiQue prompt injection
   patterns:
-  - regex: (?:ignore (?:previous|all|the above|prior) instructions?|disregard (?:previous|all|the
-      above|prior) (?:instructions?|context|prompt))
+  - regex: (?:ignore (?:previous|all|the above|prior) instructions?|disregard (?:previous|all|the above|prior) (?:instructions?|context|prompt))
     description: Canonical instruction override phrase
   - regex: (?:your new (?:task|instruction|goal|objective) is|instead (?:of|,) (?:do|perform|execute|output))
     description: Task replacement injection phrase
   - regex: (?:SYSTEM|ADMIN|OVERRIDE|PRIORITY)\s*(?:INSTRUCTION|COMMAND|DIRECTIVE|MESSAGE)\s*[:\-]
     description: Fake system authority instruction injection
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-009
   name: 'Context injection: Position-aware instruction at document end'
-  description: 'Detects injected instructions placed near the end of a long document
-    to exploit recency bias in attention. Common in RAG poisoning and document-based
-    prompt injection. PIShield achieves 0.5% FPR / 1.4% FNR detecting these patterns
+  description: 'Detects injected instructions placed near the end of a long document to exploit recency bias in attention.
+    Common in RAG poisoning and document-based prompt injection. PIShield achieves 0.5% FPR / 1.4% FNR detecting these patterns
     via residual stream analysis.
 
     '
@@ -195,26 +182,23 @@ rules:
   - Zou et al. (2025) PIShield. arXiv. FPR=0.5%, FNR=1.4%
   - Wang et al. (2025) TracLLM. Identifies injected passages in RAG
   patterns:
-  - regex: (?:\[IMPORTANT\]|\[NOTE\]|\[UPDATE\]|\[CORRECTION\])\s*(?:ignore|disregard|instead|new
-      task)
+  - regex: (?:\[IMPORTANT\]|\[NOTE\]|\[UPDATE\]|\[CORRECTION\])\s*(?:ignore|disregard|instead|new task)
     description: Fake importance marker before instruction override
-  - regex: (?:When (?:asked|the (?:user|query) (?:asks?|is))|If (?:asked|the (?:user|query)
-      (?:asks?|is)))\s*.{10,200}(?:output|respond|say|generate|print|return)\s*["\']?(?:pwned|hacked|ignored|OVERRIDE)
+  - regex: (?:When (?:asked|the (?:user|query) (?:asks?|is))|If (?:asked|the (?:user|query) (?:asks?|is)))\s*.{10,200}(?:output|respond|say|generate|print|return)\s*["\']?(?:pwned|hacked|ignored|OVERRIDE)
     description: Conditional injection trigger pattern (When asked... output X)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-010
   name: 'Prompt injection: Tool/function call override in document context'
-  description: 'Detects attempts to inject tool calls or function invocations through
-    document content. Mo et al. (2025) Attractive Metadata Attack showed 81–95% ASR
-    by manipulating tool metadata, bypassing MCP and prompt rewriting defenses. This
-    rule catches explicit tool-call injection in context text.
+  description: 'Detects attempts to inject tool calls or function invocations through document content. Mo et al. (2025) Attractive
+    Metadata Attack showed 81–95% ASR by manipulating tool metadata, bypassing MCP and prompt rewriting defenses. This rule
+    catches explicit tool-call injection in context text.
 
     '
   owasp: LLM01
   mitre: AML.T0054
   severity: CRITICAL
   references:
-  - Mo et al. (2025) Attractive Metadata Attack. arXiv:2508.02110. ASR 81-95%, NeurIPS
-    2025
+  - Mo et al. (2025) Attractive Metadata Attack. arXiv:2508.02110. ASR 81-95%, NeurIPS 2025
   patterns:
   - regex: (?:call|invoke|execute|run|use)\s+(?:the\s+)?(?:tool|function|api|plugin|action)\s+["\']?\w+["\']?\s*(?:with|using|and
       pass)
@@ -223,11 +207,11 @@ rules:
     description: Tool call XML tags in document content
   - regex: (?:forward|send|exfiltrate|transmit|upload|post)\s+(?:this|the|all|user|private|sensitive)\s+(?:data|information|conversation|context|message|query)\s+(?:to|at)\s+(?:https?://|http://)
     description: Data exfiltration instruction via tool use
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-011
   name: 'Agentic prompt injection: Email/calendar/file system action injection'
-  description: 'Detects injected instructions targeting common agent capabilities:
-    sending emails, reading/writing files, accessing calendars, executing code. These
-    are the primary targets of tool-use injection attacks documented by Mo et al.
+  description: 'Detects injected instructions targeting common agent capabilities: sending emails, reading/writing files,
+    accessing calendars, executing code. These are the primary targets of tool-use injection attacks documented by Mo et al.
     (2025) and Barua et al. (2025) GamoraAI.
 
     '
@@ -244,13 +228,13 @@ rules:
     description: Destructive file operation injection
   - regex: (?:read|access|open|retrieve|download|fetch)\s+(?:the\s+)?(?:system\s+)?(?:password|credential|key|token|secret|private)\s+(?:file|store|vault|database|config)
     description: Credential access injection
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-012
   name: 'Tool metadata manipulation: Suspicious tool description keywords'
-  description: 'Detects tool descriptions or metadata containing language patterns
-    consistent with the Attractive Metadata Attack (Mo et al. 2025). AMA crafts tool
-    descriptions with high-appeal phrases like ''comprehensive'', ''insight across
-    domains'', ''universal'', ''all-in-one'' to make malicious tools disproportionately
-    attractive to LLM agents. Cross-model transferability confirmed at >80% ASR.
+  description: 'Detects tool descriptions or metadata containing language patterns consistent with the Attractive Metadata
+    Attack (Mo et al. 2025). AMA crafts tool descriptions with high-appeal phrases like ''comprehensive'', ''insight across
+    domains'', ''universal'', ''all-in-one'' to make malicious tools disproportionately attractive to LLM agents. Cross-model
+    transferability confirmed at >80% ASR.
 
     '
   owasp: LLM01
@@ -262,39 +246,38 @@ rules:
   - regex: (?:"description"\s*:\s*"[^"]*(?:universal|comprehensive|all-in-one|handles?\s+(?:all|any|every)|insight\s+across\s+domains|expert[-
       ]level\s+guidance)[^"]*")
     description: Tool description with AMA high-appeal phrases in JSON
-  - regex: (?:description["\s]*[:=]["\s])[^"]{0,100}(?:universal solution|comprehensive
-      handler|all tasks|any request|unrestricted|no limitations)
+  - regex: (?:description["\s]*[:=]["\s])[^"]{0,100}(?:universal solution|comprehensive handler|all tasks|any request|unrestricted|no
+      limitations)
     description: Tool description claiming universal/unrestricted capability
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-013
   name: 'Multi-step PII extraction: Developer Mode persona activation for data recovery'
-  description: 'Detects multi-step jailbreaking prompts designed to extract PII from
-    LLMs that have memorized training data. Li et al. (2023) EMNLP showed ChatGPT
-    MJP achieves 79.55% Hit@5 for email recovery using a 3-turn sequence: jailbreak
-    prompt → acknowledgment → PII query with guess fallback. Pattern: jailbreak persona
-    + PII request + "if unsure, guess" instruction.
+  description: 'Detects multi-step jailbreaking prompts designed to extract PII from LLMs that have memorized training data.
+    Li et al. (2023) EMNLP showed ChatGPT MJP achieves 79.55% Hit@5 for email recovery using a 3-turn sequence: jailbreak
+    prompt → acknowledgment → PII query with guess fallback. Pattern: jailbreak persona + PII request + "if unsure, guess"
+    instruction.
 
     '
   owasp: LLM02
   mitre: AML.T0024
   severity: HIGH
   references:
-  - Li et al. (2023) Multi-step Jailbreaking Privacy Attacks on ChatGPT. EMNLP 2023.
-    79.55% Hit@5
+  - Li et al. (2023) Multi-step Jailbreaking Privacy Attacks on ChatGPT. EMNLP 2023. 79.55% Hit@5
   patterns:
-  - regex: (?:if you (?:are not sure|do not know|cannot answer)|if (?:unsure|uncertain))[,\s]+(?:you
-      may|please|just|go ahead and)\s+(?:guess|make a guess|provide your best guess|estimate)
+  - regex: (?:if you (?:are not sure|do not know|cannot answer)|if (?:unsure|uncertain))[,\s]+(?:you may|please|just|go ahead
+      and)\s+(?:guess|make a guess|provide your best guess|estimate)
     description: Guess fallback instruction in PII extraction prompt (MJP pattern)
-  - regex: (?:email address|phone number|home address|social security|passport number|credit
-      card).{0,100}(?:of|for|belonging to|associated with)\s+[A-Z][a-z]+\s+[A-Z][a-z]+
+  - regex: (?:email address|phone number|home address|social security|passport number|credit card).{0,100}(?:of|for|belonging
+      to|associated with)\s+[A-Z][a-z]+\s+[A-Z][a-z]+
     description: Named individual PII request (partially identified extraction)
   - regex: (?:list|generate|provide|give me|show me)\s+(?:some|a few|10|20|50)\s+(?:example\s+)?(?:name,\s*email|name\s+and\s+email|email\s+address\s+pairs?)\s+(?:from|for|at)\s+\w+(?:\.\w+)+
     description: Free-form PII pair enumeration from domain (New Bing attack pattern)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-014
   name: 'Multi-step PII extraction: Training data reconstruction via association'
-  description: 'Detects prompts using association-based data recovery: providing a
-    name and asking the model to predict associated contact information, exploiting
-    memorization of training data. Li et al. (2023) showed this achieves 42–79% accuracy
-    on ChatGPT for Enron email addresses.
+  description: 'Detects prompts using association-based data recovery: providing a name and asking the model to predict associated
+    contact information, exploiting memorization of training data. Li et al. (2023) showed this achieves 42–79% accuracy on
+    ChatGPT for Enron email addresses.
 
     '
   owasp: LLM02
@@ -305,14 +288,13 @@ rules:
   patterns:
   - regex: (?:name:\s*\[[^\]]+\],?\s*email:\s*___+|name:\s*\[[^\]]+\],?\s*phone:\s*___+)
     description: 'Association-based PII recovery template (name: [X], email: ___)'
-  - regex: (?:based on your (?:knowledge|training|memory)|according to (?:your|what
-      you know|publicly available))\s*.{0,100}(?:email|phone|address|contact)
+  - regex: (?:based on your (?:knowledge|training|memory)|according to (?:your|what you know|publicly available))\s*.{0,100}(?:email|phone|address|contact)
     description: Training data recall instruction for contact info
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-015
   name: 'Defense evasion: Anti-perplexity filter techniques'
-  description: 'Detects prompt patterns that indicate awareness of and attempts to
-    evade perplexity-based filters. I-FSJ and Self-Instruct-FSJ (Zheng 2024, Hua 2025)
-    explicitly design demonstrations to maintain low perplexity. This rule catches
+  description: 'Detects prompt patterns that indicate awareness of and attempts to evade perplexity-based filters. I-FSJ and
+    Self-Instruct-FSJ (Zheng 2024, Hua 2025) explicitly design demonstrations to maintain low perplexity. This rule catches
     explicit filter bypass instruction language.
 
     '
@@ -325,27 +307,23 @@ rules:
   patterns:
   - regex: (?:bypass|evade|circumvent|defeat|fool|trick)\s+(?:the\s+)?(?:perplexity|safety|content|moderation|filter|detector|classifier|guard)
     description: Explicit safety filter bypass instruction
-  - regex: (?:smoothllm|smooth llm|SmoothLLM|perplexity filter|PPL filter|content
-      filter)\s+(?:bypass|evasion|defeat|circumvent)
+  - regex: (?:smoothllm|smooth llm|SmoothLLM|perplexity filter|PPL filter|content filter)\s+(?:bypass|evasion|defeat|circumvent)
     description: Named defense bypass reference (SmoothLLM, PPL filter)
-  - regex: (?:write|respond|answer|generate)\s+(?:normally|naturally|fluently|coherently)\s+(?:so
-      that|to (?:avoid|bypass|evade))\s+(?:detection|filters?|safety)
+  - regex: (?:write|respond|answer|generate)\s+(?:normally|naturally|fluently|coherently)\s+(?:so that|to (?:avoid|bypass|evade))\s+(?:detection|filters?|safety)
     description: Fluency instruction for filter evasion
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-016
   name: 'Defense evasion: Multilingual jailbreak attempt'
-  description: 'Detects non-English harmful instruction patterns. Pernisi et al. (2024)
-    arXiv:2408.04522 showed Italian MSJ achieves 68–84% ASR on 6 open-source models.
-    Safety alignment is weaker in non-English languages. Common patterns: translated
-    variants of ''ignore instructions'', ''how to make'', harmful content requests
-    in Italian, French, Spanish, German, Chinese.
+  description: 'Detects non-English harmful instruction patterns. Pernisi et al. (2024) arXiv:2408.04522 showed Italian MSJ
+    achieves 68–84% ASR on 6 open-source models. Safety alignment is weaker in non-English languages. Common patterns: translated
+    variants of ''ignore instructions'', ''how to make'', harmful content requests in Italian, French, Spanish, German, Chinese.
 
     '
   owasp: LLM01
   mitre: AML.T0054
   severity: HIGH
   references:
-  - Pernisi et al. (2024) Compromesso! Italian Many-Shot Jailbreaks. arXiv:2408.04522.
-    ASR 84%
+  - Pernisi et al. (2024) Compromesso! Italian Many-Shot Jailbreaks. arXiv:2408.04522. ASR 84%
   patterns:
   - regex: (?:ignora\s+le\s+(?:istruzioni|regole)|come\s+(?:fare|creare|costruire)\s+(?:una\s+)?(?:bomba|arma|droga|veleno))
     description: Italian jailbreak or harmful request patterns
@@ -353,12 +331,12 @@ rules:
     description: French jailbreak or harmful request patterns
   - regex: (?:ignora\s+las\s+(?:instrucciones|reglas)|c.mo\s+(?:hacer|fabricar|crear)\s+(?:una?\s+)?(?:bomba|arma|droga))
     description: Spanish jailbreak or harmful request patterns
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-017
   name: 'Long context: Instruction embedding with position markers'
-  description: 'Detects injected instructions that use position-referencing markers
-    to exploit LLM behavior at specific context positions (beginning, middle, end
-    of long documents). Relevant to Kim et al. (2025) three-phase vulnerability and
-    PISanitizer''s attention-sink exploitation.
+  description: 'Detects injected instructions that use position-referencing markers to exploit LLM behavior at specific context
+    positions (beginning, middle, end of long documents). Relevant to Kim et al. (2025) three-phase vulnerability and PISanitizer''s
+    attention-sink exploitation.
 
     '
   owasp: LLM01
@@ -372,12 +350,12 @@ rules:
     description: Position-aware injection instruction
   - regex: (?:-{10,}|={10,}|\*{10,}|#{10,})\s*(?:IMPORTANT|SYSTEM|OVERRIDE|INJECT|HIDDEN|SECRET)\s*(?:-{10,}|={10,}|\*{10,}|#{10,})
     description: Separator-framed fake authority section (injection delimiter)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-018
   name: 'Long context: RAG/knowledge-base poisoning indicators'
-  description: 'Detects content patterns consistent with PoisonedRAG-style knowledge
-    corruption attacks. Wang et al. TracLLM (2025) identifies 89% of PoisonedRAG malicious
-    texts. These patterns plant false information in retrieved documents to steer
-    LLM answers toward attacker targets.
+  description: 'Detects content patterns consistent with PoisonedRAG-style knowledge corruption attacks. Wang et al. TracLLM
+    (2025) identifies 89% of PoisonedRAG malicious texts. These patterns plant false information in retrieved documents to
+    steer LLM answers toward attacker targets.
 
     '
   owasp: LLM01
@@ -388,35 +366,31 @@ rules:
   patterns:
   - regex: (?:From the (?:latest|most recent|official|authoritative)\s+[A-Z][a-zA-Z\s]+,\s*["\'])[^"\']{10,200}["\'](?:\s*However|,\s*(?:but|actually|in
       fact))
-    description: Authoritative-source claim followed by contrasting injection (PoisonedRAG
-      pattern)
-  - regex: (?:the correct (?:answer|response|information) (?:is|should be)|the (?:answer|truth|fact)
-      (?:is|remains))\s+["\']?(?!(?:yes|no|true|false))[A-Za-z].{5,100}
+    description: Authoritative-source claim followed by contrasting injection (PoisonedRAG pattern)
+  - regex: (?:the correct (?:answer|response|information) (?:is|should be)|the (?:answer|truth|fact) (?:is|remains))\s+["\']?(?!(?:yes|no|true|false))[A-Za-z].{5,100}
     description: Authoritative answer override in retrieved document
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-019
   name: 'Adversarial training evasion: Prompt structure designed to bypass AT defenses'
-  description: 'Detects prompts that appear to be structured to circumvent adversarial
-    training defenses. Fu et al. (2025) arXiv:2502.04204 proved that AT with sqrt(M)
-    length defends against M-length attacks; however, attackers may attempt to craft
-    suffixes that fall within AT-trained length ranges while including MSJ preambles
-    that exploit the rebound phase.
+  description: 'Detects prompts that appear to be structured to circumvent adversarial training defenses. Fu et al. (2025)
+    arXiv:2502.04204 proved that AT with sqrt(M) length defends against M-length attacks; however, attackers may attempt to
+    craft suffixes that fall within AT-trained length ranges while including MSJ preambles that exploit the rebound phase.
 
     '
   owasp: LLM01
   mitre: AML.T0054
   severity: MEDIUM
   references:
-  - Fu et al. (2025) Short-length AT. arXiv:2502.04204. AT length 20 defends all attack
-    lengths
+  - Fu et al. (2025) Short-length AT. arXiv:2502.04204. AT length 20 defends all attack lengths
   patterns:
-  - regex: (?:ignore (?:this|the) (?:suffix|prefix|addon|appendage|addition)|the following
-      (?:text|string|suffix) (?:is|will be) (?:ignored|filtered|harmless))
+  - regex: (?:ignore (?:this|the) (?:suffix|prefix|addon|appendage|addition)|the following (?:text|string|suffix) (?:is|will
+      be) (?:ignored|filtered|harmless))
     description: Meta-commentary designed to neutralize adversarial suffix detection
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-020
   name: 'Agentic system: Reverse Turing Test bypass attempt'
-  description: 'Detects prompts attempting to confuse or bypass multi-agent verification
-    systems. Barua et al. (2025) GamoraAI uses Reverse Turing Tests where agents must
-    prove they are genuine AI assistants. This rule catches prompts that impersonate
+  description: 'Detects prompts attempting to confuse or bypass multi-agent verification systems. Barua et al. (2025) GamoraAI
+    uses Reverse Turing Tests where agents must prove they are genuine AI assistants. This rule catches prompts that impersonate
     or simulate AI assistant verification responses.
 
     '
@@ -424,22 +398,19 @@ rules:
   mitre: AML.T0054
   severity: MEDIUM
   references:
-  - Barua et al. (2025) Guardians of the Agentic System. arXiv:2502.16750. 94% detection
-    accuracy
+  - Barua et al. (2025) Guardians of the Agentic System. arXiv:2502.16750. 94% detection accuracy
   patterns:
-  - regex: (?:I am a (?:genuine|legitimate|real|authentic)\s+(?:AI|assistant|agent|model)|I
-      confirm I am not\s+(?:jailbroken|compromised|manipulated))
+  - regex: (?:I am a (?:genuine|legitimate|real|authentic)\s+(?:AI|assistant|agent|model)|I confirm I am not\s+(?:jailbroken|compromised|manipulated))
     description: Simulated legitimate AI identity claim (RTT bypass)
   - regex: (?:verification (?:code|token|key|pass)|I (?:pass|passed) (?:the|all)\s+(?:safety|alignment|security|verification)
       (?:check|test|filter))
     description: Fake safety verification claim
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-021
   name: 'Payload: Harmful content request following long demonstration context'
-  description: 'Detects the combination of a long preamble (likely MSJ demonstrations)
-    followed by a concrete harmful request. This is the two-part structure of all
-    MSJ attacks: (1) flood context with demonstrations, then (2) append the actual
-    malicious query. Catching the query after a large context preamble is a strong
-    signal.
+  description: 'Detects the combination of a long preamble (likely MSJ demonstrations) followed by a concrete harmful request.
+    This is the two-part structure of all MSJ attacks: (1) flood context with demonstrations, then (2) append the actual malicious
+    query. Catching the query after a large context preamble is a strong signal.
 
     '
   owasp: LLM01
@@ -455,12 +426,12 @@ rules:
     description: Intrusion steps request
   - regex: (?:provide|write|generate|give me)\s+(?:a\s+)?(?:complete|full|detailed|working)\s+(?:malware|exploit|ransomware|keylogger|rootkit|backdoor)\s+(?:code|script|program)
     description: Malware code generation request
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-022
   name: 'Payload: PII exfiltration via model context protocol'
-  description: 'Detects prompts that attempt to extract personally identifiable information
-    (PII) from model context through direct enumeration or structured queries, consistent
-    with Mo et al. (2025) AMA privacy leakage (74–96% PL) and Li et al. (2023) MJP
-    extraction attacks.
+  description: 'Detects prompts that attempt to extract personally identifiable information (PII) from model context through
+    direct enumeration or structured queries, consistent with Mo et al. (2025) AMA privacy leakage (74–96% PL) and Li et al.
+    (2023) MJP extraction attacks.
 
     '
   owasp: LLM02
@@ -474,6 +445,7 @@ rules:
     description: Explicit PII extraction instruction
   - regex: (?:name|email|phone|address|SSN|passport|credit\s*card)\s*[,\s]+(?:name|email|phone|address|SSN|passport|credit\s*card)\s*[,\s]+(?:name|email|phone|address)
     description: Multiple PII field enumeration request (data harvesting)
+  file_types: *id001
 - id: MEDUSA-LCA-SCAN-023
   name: self-instruct-fsj-template-token-extraction
   severity: HIGH
@@ -490,19 +462,15 @@ rules:
   - '*.json'
   - '*.yaml'
   message: 'Self-Instruct-FSJ pattern: template token extraction or injection detected'
-  description: 'Detects the pattern-learning stage of Self-Instruct-FSJ (Hua et al.
-    2025 arXiv:2501.07959). The attack decomposes few-shot jailbreaking into two stages:
-    (1) pattern learning -- identifying special token co-occurrence patterns from
-    model templates (e.g., <|im_start|>, [/INST], <|begin_of_text|>), and (2) behavior
-    learning -- using the target model to self-generate harmful demonstrations. Achieves
-    ~90% ASR within 8 shots on Llama-2-7B, Llama-2-13B, and Llama-3-8B, bypassing
-    both PPL filter and SmoothLLM defenses. Template tokens in user content are the
-    first-stage signal.
+  description: 'Detects the pattern-learning stage of Self-Instruct-FSJ (Hua et al. 2025 arXiv:2501.07959). The attack decomposes
+    few-shot jailbreaking into two stages: (1) pattern learning -- identifying special token co-occurrence patterns from model
+    templates (e.g., <|im_start|>, [/INST], <|begin_of_text|>), and (2) behavior learning -- using the target model to self-generate
+    harmful demonstrations. Achieves ~90% ASR within 8 shots on Llama-2-7B, Llama-2-13B, and Llama-3-8B, bypassing both PPL
+    filter and SmoothLLM defenses. Template tokens in user content are the first-stage signal.
 
     '
-  remediation: 'Strip or reject inputs containing model-specific chat template tokens
-    outside of their expected structural positions. Validate that special tokens appear
-    only in system-controlled positions. Deploy residual-stream detection (PIShield,
+  remediation: 'Strip or reject inputs containing model-specific chat template tokens outside of their expected structural
+    positions. Validate that special tokens appear only in system-controlled positions. Deploy residual-stream detection (PIShield,
     Zou et al. 2025) to catch injection attempts even when token stripping is bypassed.
 
     '
@@ -520,20 +488,16 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Self-Instruct-FSJ behavior-learning stage: model asked to self-generate
-    harmful demonstrations'
-  description: 'Detects the behavior-learning stage of Self-Instruct-FSJ (Hua et al.
-    2025 arXiv:2501.07959). In this stage, the attacker prompts the target model to
-    generate its own harmful Q&A pairs, bypassing perplexity filters because the self-generated
-    demonstrations are naturally fluent. The model''s own outputs are then used as
-    demonstrations in a subsequent few-shot jailbreak. This achieves ~90% ASR on Llama
-    models at 8 shots and bypasses SmoothLLM defenses.
+  message: 'Self-Instruct-FSJ behavior-learning stage: model asked to self-generate harmful demonstrations'
+  description: 'Detects the behavior-learning stage of Self-Instruct-FSJ (Hua et al. 2025 arXiv:2501.07959). In this stage,
+    the attacker prompts the target model to generate its own harmful Q&A pairs, bypassing perplexity filters because the
+    self-generated demonstrations are naturally fluent. The model''s own outputs are then used as demonstrations in a subsequent
+    few-shot jailbreak. This achieves ~90% ASR on Llama models at 8 shots and bypasses SmoothLLM defenses.
 
     '
-  remediation: 'Monitor for requests asking the model to generate harmful training
-    data or self-instruct on prohibited topics. Implement output classifiers that
-    flag self-referential harmful content generation requests. Rate-limit sequential
-    prompt pairs that reference the model''s prior outputs as demonstrations.
+  remediation: 'Monitor for requests asking the model to generate harmful training data or self-instruct on prohibited topics.
+    Implement output classifiers that flag self-referential harmful content generation requests. Rate-limit sequential prompt
+    pairs that reference the model''s prior outputs as demonstrations.
 
     '
 - id: MEDUSA-LCA-SCAN-025
@@ -550,19 +514,15 @@ rules:
   - '*.py'
   - '*.json'
   - '*.yaml'
-  message: 'FSJ demo-level optimization detected: systematic search for most effective
-    jailbreak demonstrations'
-  description: 'Detects the demo-level greedy or random search optimization used in
-    I-FSJ (Zheng et al. 2024 arXiv:2406.01288) and Self-Instruct-FSJ (Hua et al. 2025
-    arXiv:2501.07959). Both attacks maintain a pool of harmful demonstrations and
-    iteratively select the subset with the highest attack success rate. This search
-    process is a strong signal of adversarial prompt engineering targeting a specific
-    LLM. I-FSJ achieves >80-95% ASR through this optimization.
+  message: 'FSJ demo-level optimization detected: systematic search for most effective jailbreak demonstrations'
+  description: 'Detects the demo-level greedy or random search optimization used in I-FSJ (Zheng et al. 2024 arXiv:2406.01288)
+    and Self-Instruct-FSJ (Hua et al. 2025 arXiv:2501.07959). Both attacks maintain a pool of harmful demonstrations and iteratively
+    select the subset with the highest attack success rate. This search process is a strong signal of adversarial prompt engineering
+    targeting a specific LLM. I-FSJ achieves >80-95% ASR through this optimization.
 
     '
-  remediation: 'Detect repeated similar prompt structures with minor variations across
-    sessions (demo swap patterns). Implement session-level rate limiting and anomaly
-    detection for systematic prompt variation. Flag automated scripts that probe for
+  remediation: 'Detect repeated similar prompt structures with minor variations across sessions (demo swap patterns). Implement
+    session-level rate limiting and anomaly detection for systematic prompt variation. Flag automated scripts that probe for
     optimal demonstration orderings.
 
     '
@@ -580,22 +540,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Context length exploitation: safe-content flooding to trigger alignment
-    degradation at long context'
-  description: 'Detects the key insight from Kim et al. (2025 arXiv:2505.19773): that
-    context length is the primary driver of MSJ attack success, not the content of
-    demonstrations. Even safe, benign, or meaningless content at sufficient context
-    length (>64K tokens) achieves comparable ASR to harmful demonstrations due to
-    the three-phase vulnerability curve. Attackers can pad with safe content to avoid
-    content filters while still exploiting the context-length threshold effect. Tested
+  message: 'Context length exploitation: safe-content flooding to trigger alignment degradation at long context'
+  description: 'Detects the key insight from Kim et al. (2025 arXiv:2505.19773): that context length is the primary driver
+    of MSJ attack success, not the content of demonstrations. Even safe, benign, or meaningless content at sufficient context
+    length (>64K tokens) achieves comparable ASR to harmful demonstrations due to the three-phase vulnerability curve. Attackers
+    can pad with safe content to avoid content filters while still exploiting the context-length threshold effect. Tested
     up to 128K tokens on Llama-3.1, Llama-3.2, and Qwen-2.5 series.
 
     '
-  remediation: 'Implement hard token-budget limits per request. Log and alert when
-    context length exceeds 64K tokens, especially when followed by a sensitive query.
-    Apply content-length-aware safety checks that re-evaluate alignment at multiple
-    context positions (beginning, middle, end). See Fu et al. (2025) short-length
-    AT for a training-time countermeasure.
+  remediation: 'Implement hard token-budget limits per request. Log and alert when context length exceeds 64K tokens, especially
+    when followed by a sensitive query. Apply content-length-aware safety checks that re-evaluate alignment at multiple context
+    positions (beginning, middle, end). See Fu et al. (2025) short-length AT for a training-time countermeasure.
 
     '
 - id: MEDUSA-LCA-SCAN-027
@@ -612,19 +567,15 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'Context rebound-phase attack: explicit reference to long-context alignment
-    degradation phases'
-  description: 'Detects explicit exploitation of the three-phase vulnerability identified
-    by Kim et al. (2025 arXiv:2505.19773): initial weakness, degradation, and rebound.
-    At the rebound phase (>64K tokens for most models), ASR spikes to levels comparable
-    to harmful demonstrations. All three model families tested (Llama-3.1, Llama-3.2,
-    Qwen-2.5) exhibit this pattern. Attackers who reference the rebound phase explicitly
-    are demonstrating knowledge of the context-length attack surface.
+  message: 'Context rebound-phase attack: explicit reference to long-context alignment degradation phases'
+  description: 'Detects explicit exploitation of the three-phase vulnerability identified by Kim et al. (2025 arXiv:2505.19773):
+    initial weakness, degradation, and rebound. At the rebound phase (>64K tokens for most models), ASR spikes to levels comparable
+    to harmful demonstrations. All three model families tested (Llama-3.1, Llama-3.2, Qwen-2.5) exhibit this pattern. Attackers
+    who reference the rebound phase explicitly are demonstrating knowledge of the context-length attack surface.
 
     '
-  remediation: 'Cap context windows at safe thresholds per application. For agentic
-    systems processing long documents, implement chunked processing with independent
-    safety evaluation per chunk rather than single long-context inference.
+  remediation: 'Cap context windows at safe thresholds per application. For agentic systems processing long documents, implement
+    chunked processing with independent safety evaluation per chunk rather than single long-context inference.
 
     '
 - id: MEDUSA-LCA-SCAN-028
@@ -641,19 +592,15 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Token budget exhaustion attack: attempt to fill the entire context window
-    to degrade safety alignment'
-  description: 'Detects attempts to deliberately exhaust the model''s context window
-    as an attack vector. Based on Kim et al. (2025 arXiv:2505.19773), filling the
-    context window to capacity (even with safe content) can trigger the alignment
-    rebound phase where safety guardrails degrade. This also relates to OWASP LLM10
-    (Unbounded Consumption) where excessive context can cause resource exhaustion
-    and safety degradation simultaneously.
+  message: 'Token budget exhaustion attack: attempt to fill the entire context window to degrade safety alignment'
+  description: 'Detects attempts to deliberately exhaust the model''s context window as an attack vector. Based on Kim et
+    al. (2025 arXiv:2505.19773), filling the context window to capacity (even with safe content) can trigger the alignment
+    rebound phase where safety guardrails degrade. This also relates to OWASP LLM10 (Unbounded Consumption) where excessive
+    context can cause resource exhaustion and safety degradation simultaneously.
 
     '
-  remediation: 'Enforce per-request token limits well below model maximum context.
-    Monitor for prompts engineered to approach the context limit. Apply context-length-adaptive
-    safety thresholds rather than fixed content classifiers.
+  remediation: 'Enforce per-request token limits well below model maximum context. Monitor for prompts engineered to approach
+    the context limit. Apply context-length-adaptive safety thresholds rather than fixed content classifiers.
 
     '
 - id: MEDUSA-LCA-SCAN-029
@@ -671,20 +618,16 @@ rules:
   - '*.md'
   - '*.json'
   - '*.html'
-  message: 'Attention sink exploitation: delimiter-framed injection attempting to
-    exploit LLM attention concentration'
-  description: 'Detects injection patterns that exploit the attention sink phenomenon
-    identified by Geng et al. (2025 arXiv:2511.10720 PISanitizer): LLMs pay disproportionately
-    high attention to delimiter tokens (---, ===, ***, ###) surrounding injected instructions.
-    This creates a detectable attention spike that PISanitizer uses for remediation
-    (reducing ASR from 80-95% to ~0%). Attackers deliberately place injected instructions
-    adjacent to delimiter tokens to maximize the LLM''s attention to them within long
-    document context.
+  message: 'Attention sink exploitation: delimiter-framed injection attempting to exploit LLM attention concentration'
+  description: 'Detects injection patterns that exploit the attention sink phenomenon identified by Geng et al. (2025 arXiv:2511.10720
+    PISanitizer): LLMs pay disproportionately high attention to delimiter tokens (---, ===, ***, ###) surrounding injected
+    instructions. This creates a detectable attention spike that PISanitizer uses for remediation (reducing ASR from 80-95%
+    to ~0%). Attackers deliberately place injected instructions adjacent to delimiter tokens to maximize the LLM''s attention
+    to them within long document context.
 
     '
-  remediation: 'Strip or neutralize delimiter sequences adjacent to instruction-like
-    content in retrieved documents. Deploy attention-based detection (PISanitizer,
-    AttnTrace) to identify high-attention spans in processed documents. Sanitize document
+  remediation: 'Strip or neutralize delimiter sequences adjacent to instruction-like content in retrieved documents. Deploy
+    attention-based detection (PISanitizer, AttnTrace) to identify high-attention spans in processed documents. Sanitize document
     boundaries before feeding to long-context LLMs.
 
     '
@@ -702,21 +645,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'PISanitizer evasion attempt: fragmented injection or attention misdirection
-    technique'
-  description: 'Detects attempts to evade attention-sink-based sanitization defenses
-    (Geng et al. 2025 arXiv:2511.10720 PISanitizer, Wang et al. 2025 AttnTrace precision
-    0.99). Evasion strategies include splitting injections across multiple chunks
-    to avoid high-attention concentration at a single delimiter, or crafting attention
-    decoys. Also detects explicit references to sanitization bypass techniques. PISanitizer
-    reduced ASR from 80-95% to near 0%; attackers targeting it represent an advanced
-    persistent threat.
+  message: 'PISanitizer evasion attempt: fragmented injection or attention misdirection technique'
+  description: 'Detects attempts to evade attention-sink-based sanitization defenses (Geng et al. 2025 arXiv:2511.10720 PISanitizer,
+    Wang et al. 2025 AttnTrace precision 0.99). Evasion strategies include splitting injections across multiple chunks to
+    avoid high-attention concentration at a single delimiter, or crafting attention decoys. Also detects explicit references
+    to sanitization bypass techniques. PISanitizer reduced ASR from 80-95% to near 0%; attackers targeting it represent an
+    advanced persistent threat.
 
     '
-  remediation: 'Apply TracLLM (Wang et al. 2025) or AttnTrace for forensic attribution
-    after suspicious outputs. Use ensemble attribution methods to handle distributed
-    injections. Do not rely on single-pass attention analysis for high-security document
-    processing.
+  remediation: 'Apply TracLLM (Wang et al. 2025) or AttnTrace for forensic attribution after suspicious outputs. Use ensemble
+    attribution methods to handle distributed injections. Do not rely on single-pass attention analysis for high-security
+    document processing.
 
     '
 - id: MEDUSA-LCA-SCAN-031
@@ -734,23 +673,18 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.md'
-  message: 'Instruction sandwich / lost-in-the-middle attack: malicious payload buried
-    in middle of document context'
-  description: 'Detects the lost-in-the-middle injection technique where malicious
-    instructions are buried in the center of a long document to exploit position bias
-    in LLM attention. LLMs tend to give stronger weight to content at the beginning
-    and end of context (primacy and recency bias), making mid-document injections
-    harder to detect but still retrievable by attention mechanisms. This is distinct
-    from the recency-bias end-injection pattern (covered in SCAN-009) and targets
-    the documented lost-in-the-middle phenomenon studied across long-context retrieval
-    tasks. Relevant to TracLLM (Wang et al. 2025) which detects responsible context
-    spans with 0.94 precision on MuSiQue.
+  message: 'Instruction sandwich / lost-in-the-middle attack: malicious payload buried in middle of document context'
+  description: 'Detects the lost-in-the-middle injection technique where malicious instructions are buried in the center of
+    a long document to exploit position bias in LLM attention. LLMs tend to give stronger weight to content at the beginning
+    and end of context (primacy and recency bias), making mid-document injections harder to detect but still retrievable by
+    attention mechanisms. This is distinct from the recency-bias end-injection pattern (covered in SCAN-009) and targets the
+    documented lost-in-the-middle phenomenon studied across long-context retrieval tasks. Relevant to TracLLM (Wang et al.
+    2025) which detects responsible context spans with 0.94 precision on MuSiQue.
 
     '
-  remediation: 'Apply uniform attention-based monitoring across all positions in long
-    documents, not just beginning/end. Use TracLLM or AttnTrace for post-hoc attribution.
-    Pre-process retrieved documents with injection scanning before feeding to LLM
-    context.
+  remediation: 'Apply uniform attention-based monitoring across all positions in long documents, not just beginning/end. Use
+    TracLLM or AttnTrace for post-hoc attribution. Pre-process retrieved documents with injection scanning before feeding
+    to LLM context.
 
     '
 - id: MEDUSA-LCA-SCAN-032
@@ -768,20 +702,16 @@ rules:
   - '*.json'
   - '*.md'
   - '*.html'
-  message: 'PoisonedRAG pattern: false authoritative-source claim followed by contradicting
-    injection'
-  description: 'Detects PoisonedRAG-style knowledge corruption attacks where malicious
-    documents are injected into retrieval knowledge bases. Wang et al. (2025) TracLLM
-    identifies 89% of malicious texts planted by PoisonedRAG with 0.89 precision/recall.
-    The attack pattern presents false information under an authoritative framing,
-    then reverses expected facts to steer LLM answers toward attacker-specified targets.
-    This corrupts RAG responses without modifying the LLM itself.
+  message: 'PoisonedRAG pattern: false authoritative-source claim followed by contradicting injection'
+  description: 'Detects PoisonedRAG-style knowledge corruption attacks where malicious documents are injected into retrieval
+    knowledge bases. Wang et al. (2025) TracLLM identifies 89% of malicious texts planted by PoisonedRAG with 0.89 precision/recall.
+    The attack pattern presents false information under an authoritative framing, then reverses expected facts to steer LLM
+    answers toward attacker-specified targets. This corrupts RAG responses without modifying the LLM itself.
 
     '
-  remediation: 'Apply TracLLM or AttnTrace forensic attribution to flag knowledge
-    base documents that disproportionately influence LLM outputs. Validate retrieved
-    document provenance and cross-check authoritative claims against trusted sources.
-    Quarantine documents matching false-authority-then-contradiction patterns.
+  remediation: 'Apply TracLLM or AttnTrace forensic attribution to flag knowledge base documents that disproportionately influence
+    LLM outputs. Validate retrieved document provenance and cross-check authoritative claims against trusted sources. Quarantine
+    documents matching false-authority-then-contradiction patterns.
 
     '
 - id: MEDUSA-LCA-SCAN-033
@@ -798,20 +728,16 @@ rules:
   - '*.json'
   - '*.txt'
   - '*.yaml'
-  message: 'RAG metadata poisoning: injection hidden within document metadata claiming
-    authoritative provenance'
-  description: 'Detects RAG knowledge-base poisoning where malicious instructions
-    are embedded in document metadata (source, citation, provenance fields) to exploit
-    LLM trust in authoritative-seeming sources. When an LLM retrieves a document with
-    trusted-looking metadata containing hidden instructions, it may follow the injected
-    instructions while appearing to cite legitimate sources. Relevant to PoisonedRAG
-    detection by TracLLM (Wang et al. 2025, 89% precision) and PIShield (Zou et al.
-    2025, FNR 1.4%).
+  message: 'RAG metadata poisoning: injection hidden within document metadata claiming authoritative provenance'
+  description: 'Detects RAG knowledge-base poisoning where malicious instructions are embedded in document metadata (source,
+    citation, provenance fields) to exploit LLM trust in authoritative-seeming sources. When an LLM retrieves a document with
+    trusted-looking metadata containing hidden instructions, it may follow the injected instructions while appearing to cite
+    legitimate sources. Relevant to PoisonedRAG detection by TracLLM (Wang et al. 2025, 89% precision) and PIShield (Zou et
+    al. 2025, FNR 1.4%).
 
     '
-  remediation: 'Sanitize and validate document metadata before inclusion in LLM context.
-    Strip instruction-like content from metadata fields. Apply PIShield residual-stream
-    detection on all retrieved documents before incorporating into agent context.
+  remediation: 'Sanitize and validate document metadata before inclusion in LLM context. Strip instruction-like content from
+    metadata fields. Apply PIShield residual-stream detection on all retrieved documents before incorporating into agent context.
 
     '
 - id: MEDUSA-LCA-SCAN-034
@@ -828,21 +754,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Retrieval position bias manipulation: adversarial document reranking to
-    exploit LLM position attention'
-  description: 'Detects attacks that exploit LLM position bias in long-context retrieval
-    by deliberately ranking malicious documents at high-attention positions (beginning
-    or end of context). LLMs exhibit primacy bias (stronger attention to early context)
-    and recency bias (stronger attention to recent context). Attackers who control
-    retrieval ranking can exploit this to maximize injection effectiveness. Relevant
-    to TracLLM (0.94 precision on MuSiQue) and AttnTrace (0.99 precision) which attribute
-    responsible context spans forensically.
+  message: 'Retrieval position bias manipulation: adversarial document reranking to exploit LLM position attention'
+  description: 'Detects attacks that exploit LLM position bias in long-context retrieval by deliberately ranking malicious
+    documents at high-attention positions (beginning or end of context). LLMs exhibit primacy bias (stronger attention to
+    early context) and recency bias (stronger attention to recent context). Attackers who control retrieval ranking can exploit
+    this to maximize injection effectiveness. Relevant to TracLLM (0.94 precision on MuSiQue) and AttnTrace (0.99 precision)
+    which attribute responsible context spans forensically.
 
     '
-  remediation: 'Randomize or normalize document ordering in RAG retrieval to prevent
-    position bias exploitation. Apply AttnTrace (Wang et al. 2025) to identify which
-    retrieved documents disproportionately influenced the LLM output. Validate that
-    high-attention retrieved documents are legitimate.
+  remediation: 'Randomize or normalize document ordering in RAG retrieval to prevent position bias exploitation. Apply AttnTrace
+    (Wang et al. 2025) to identify which retrieved documents disproportionately influenced the LLM output. Validate that high-attention
+    retrieved documents are legitimate.
 
     '
 - id: MEDUSA-LCA-SCAN-035
@@ -859,21 +781,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Multi-step jailbreaking structure detected: 3-turn attack sequence for
-    PII extraction (Li et al. 2023 MJP)'
-  description: 'Detects the explicit 3-turn Multi-step Jailbreaking Prompt (MJP) structure
-    documented by Li et al. (2023 EMNLP). The attack uses a 3-utterance chain: (1)
-    send jailbreak prompt to enable Developer Mode, (2) simulate assistant acknowledgment,
-    (3) send actual PII query with guess fallback. This achieves 79.55% Hit@5 for
-    Enron email recovery from ChatGPT, compared to 29.55% for single-step DAN jailbreaks
-    and 0% for direct prompts. The three-step structure is a distinctive fingerprint
+  message: 'Multi-step jailbreaking structure detected: 3-turn attack sequence for PII extraction (Li et al. 2023 MJP)'
+  description: 'Detects the explicit 3-turn Multi-step Jailbreaking Prompt (MJP) structure documented by Li et al. (2023 EMNLP).
+    The attack uses a 3-utterance chain: (1) send jailbreak prompt to enable Developer Mode, (2) simulate assistant acknowledgment,
+    (3) send actual PII query with guess fallback. This achieves 79.55% Hit@5 for Enron email recovery from ChatGPT, compared
+    to 29.55% for single-step DAN jailbreaks and 0% for direct prompts. The three-step structure is a distinctive fingerprint
     of this attack class.
 
     '
-  remediation: 'Monitor conversation turn sequences for jailbreak persona activation
-    followed by sensitive data queries. Implement cross-turn context analysis that
-    evaluates the full conversation thread rather than individual messages. Apply
-    session-level rate limiting for PII-adjacent queries following jailbreak patterns.
+  remediation: 'Monitor conversation turn sequences for jailbreak persona activation followed by sensitive data queries. Implement
+    cross-turn context analysis that evaluates the full conversation thread rather than individual messages. Apply session-level
+    rate limiting for PII-adjacent queries following jailbreak patterns.
 
     '
 - id: MEDUSA-LCA-SCAN-036
@@ -890,21 +808,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'MJP+MC pattern: multiple-choice PII verification attack to improve extraction
-    accuracy'
-  description: 'Detects the MJP+MC (Multiple Choice) variant of PII extraction documented
-    by Li et al. (2023 EMNLP). This variant presents the target''s PII as one of several
-    options, asking the LLM to select the correct one. This exploits the model''s
-    internal knowledge while reducing reliance on free-form generation, achieving
-    78.41% Hit@5 (comparable to pure MJP at 79.55%). The multiple-choice format bypasses
-    some direct PII generation defenses while still successfully extracting memorized
-    personal data.
+  message: 'MJP+MC pattern: multiple-choice PII verification attack to improve extraction accuracy'
+  description: 'Detects the MJP+MC (Multiple Choice) variant of PII extraction documented by Li et al. (2023 EMNLP). This
+    variant presents the target''s PII as one of several options, asking the LLM to select the correct one. This exploits
+    the model''s internal knowledge while reducing reliance on free-form generation, achieving 78.41% Hit@5 (comparable to
+    pure MJP at 79.55%). The multiple-choice format bypasses some direct PII generation defenses while still successfully
+    extracting memorized personal data.
 
     '
-  remediation: 'Detect multiple-choice queries where options contain personal identifiers
-    (email, phone, address formats). Apply output monitoring to catch confirmation/selection
-    responses to PII-containing multiple-choice questions. Flag queries that present
-    PII as candidate options for model selection.
+  remediation: 'Detect multiple-choice queries where options contain personal identifiers (email, phone, address formats).
+    Apply output monitoring to catch confirmation/selection responses to PII-containing multiple-choice questions. Flag queries
+    that present PII as candidate options for model selection.
 
     '
 - id: MEDUSA-LCA-SCAN-037
@@ -921,21 +835,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Training data memorization extraction: attempting to recover verbatim
-    training data or PII from model memory'
-  description: 'Detects training data extraction attacks that attempt to recover memorized
-    personal data from LLMs. Li et al. (2023 EMNLP) showed that LLMs trained on the
-    Enron email dataset memorize and can reproduce email addresses with 42-79% accuracy
-    under the right prompting. New Bing recovered institutional email pairs with 85-100%
-    accuracy via direct prompts. This pattern catches prefix-completion attacks, verbatim
-    reproduction requests, and training-data-recovery framing, which are distinct
-    from standard PII queries.
+  message: 'Training data memorization extraction: attempting to recover verbatim training data or PII from model memory'
+  description: 'Detects training data extraction attacks that attempt to recover memorized personal data from LLMs. Li et
+    al. (2023 EMNLP) showed that LLMs trained on the Enron email dataset memorize and can reproduce email addresses with 42-79%
+    accuracy under the right prompting. New Bing recovered institutional email pairs with 85-100% accuracy via direct prompts.
+    This pattern catches prefix-completion attacks, verbatim reproduction requests, and training-data-recovery framing, which
+    are distinct from standard PII queries.
 
     '
-  remediation: 'Apply differential privacy training techniques to prevent memorization
-    of PII in training data. Monitor for prefix-completion attacks on common PII formats.
-    Implement output scanning for email addresses, phone numbers, and other PII in
-    model responses.
+  remediation: 'Apply differential privacy training techniques to prevent memorization of PII in training data. Monitor for
+    prefix-completion attacks on common PII formats. Implement output scanning for email addresses, phone numbers, and other
+    PII in model responses.
 
     '
 - id: MEDUSA-LCA-SCAN-038
@@ -952,21 +862,17 @@ rules:
   - '*.json'
   - '*.yaml'
   - '*.py'
-  message: 'AMA tool name optimization: suspicious high-appeal naming pattern consistent
-    with Attractive Metadata Attack'
-  description: 'Detects the Attractive Metadata Attack (AMA) tool naming pattern from
-    Mo et al. (2025 arXiv:2508.02110 NeurIPS 2025). AMA crafts tool names with high-appeal
-    qualifiers (Ultimate, Master, Comprehensive, All-in-One, Elite, Expert, Universal)
-    to make malicious tools more likely to be selected by LLM agents over legitimate
-    alternatives. Achieves 81-95% ASR across Gemma-3-27B, LLaMA-3.3-70B, Qwen-2.5-32B,
-    and GPT-4o-mini. Cross-model transferability exceeds 80% ASR. Tool name optimization
-    is the first and most efficient attack vector.
+  message: 'AMA tool name optimization: suspicious high-appeal naming pattern consistent with Attractive Metadata Attack'
+  description: 'Detects the Attractive Metadata Attack (AMA) tool naming pattern from Mo et al. (2025 arXiv:2508.02110 NeurIPS
+    2025). AMA crafts tool names with high-appeal qualifiers (Ultimate, Master, Comprehensive, All-in-One, Elite, Expert,
+    Universal) to make malicious tools more likely to be selected by LLM agents over legitimate alternatives. Achieves 81-95%
+    ASR across Gemma-3-27B, LLaMA-3.3-70B, Qwen-2.5-32B, and GPT-4o-mini. Cross-model transferability exceeds 80% ASR. Tool
+    name optimization is the first and most efficient attack vector.
 
     '
-  remediation: 'Audit tool registries for suspiciously grandiose naming patterns.
-    Whitelist approved tools by name hash rather than description. Implement tool
-    provenance verification before adding to agent context. Review Mo et al. (2025)
-    AMA for full metadata optimization taxonomy.
+  remediation: 'Audit tool registries for suspiciously grandiose naming patterns. Whitelist approved tools by name hash rather
+    than description. Implement tool provenance verification before adding to agent context. Review Mo et al. (2025) AMA for
+    full metadata optimization taxonomy.
 
     '
 - id: MEDUSA-LCA-SCAN-039
@@ -983,20 +889,16 @@ rules:
   - '*.json'
   - '*.yaml'
   - '*.py'
-  message: 'AMA parameter schema injection: malicious tool parameter designed to collect
-    and exfiltrate context data'
-  description: 'Detects the Attractive Metadata Attack parameter schema manipulation
-    (Mo et al. 2025 arXiv:2508.02110). AMA also optimizes tool parameter schemas to
-    include fields that collect sensitive context (conversation history, user data,
-    auth tokens) under innocuous-sounding parameter names. When the agent invokes
-    the tool with these parameters auto-filled, PII and context data are transmitted
-    to the attacker. Mo et al. report 74-96% Privacy Leakage in targeted attacks and
+  message: 'AMA parameter schema injection: malicious tool parameter designed to collect and exfiltrate context data'
+  description: 'Detects the Attractive Metadata Attack parameter schema manipulation (Mo et al. 2025 arXiv:2508.02110). AMA
+    also optimizes tool parameter schemas to include fields that collect sensitive context (conversation history, user data,
+    auth tokens) under innocuous-sounding parameter names. When the agent invokes the tool with these parameters auto-filled,
+    PII and context data are transmitted to the attacker. Mo et al. report 74-96% Privacy Leakage in targeted attacks and
     92% PL in combined AMA+injection attacks.
 
     '
-  remediation: 'Review tool parameter schemas for fields requesting context data,
-    history, or credentials. Apply parameter allow-listing for each tool to prevent
-    unexpected data collection. Monitor tool invocations for unusual parameter-value
+  remediation: 'Review tool parameter schemas for fields requesting context data, history, or credentials. Apply parameter
+    allow-listing for each tool to prevent unexpected data collection. Monitor tool invocations for unusual parameter-value
     combinations including conversation context or auth tokens.
 
     '
@@ -1015,21 +917,17 @@ rules:
   - '*.json'
   - '*.yaml'
   - '*.txt'
-  message: 'MCP bypass attack: attempt to inject tools into agent registry bypassing
-    Model Context Protocol controls'
-  description: 'Detects attacks targeting the Model Context Protocol (MCP) tool registry.
-    Mo et al. (2025 arXiv:2508.02110) showed that AMA bypasses MCP for most tested
-    models: MCP provides only moderate mitigation for GPT-4o-mini and Qwen-2.5, and
-    fails entirely for Gemma-3 and LLaMA-3.3. Attackers who register malicious tools
-    in the agent''s tool registry can achieve 81-95% ASR even with MCP controls in
-    place. MCP bypass is explicitly documented as a limitation of current protocol-level
+  message: 'MCP bypass attack: attempt to inject tools into agent registry bypassing Model Context Protocol controls'
+  description: 'Detects attacks targeting the Model Context Protocol (MCP) tool registry. Mo et al. (2025 arXiv:2508.02110)
+    showed that AMA bypasses MCP for most tested models: MCP provides only moderate mitigation for GPT-4o-mini and Qwen-2.5,
+    and fails entirely for Gemma-3 and LLaMA-3.3. Attackers who register malicious tools in the agent''s tool registry can
+    achieve 81-95% ASR even with MCP controls in place. MCP bypass is explicitly documented as a limitation of current protocol-level
     defenses.
 
     '
-  remediation: 'Do not rely solely on MCP for tool security. Implement independent
-    tool provenance verification, signature checking, and behavior monitoring for
-    all registered tools. Apply GamoraAI-style multi-agent verification (Barua et
-    al. 2025, 94% detection accuracy) as a complementary control layer.
+  remediation: 'Do not rely solely on MCP for tool security. Implement independent tool provenance verification, signature
+    checking, and behavior monitoring for all registered tools. Apply GamoraAI-style multi-agent verification (Barua et al.
+    2025, 94% detection accuracy) as a complementary control layer.
 
     '
 - id: MEDUSA-LCA-SCAN-041
@@ -1046,20 +944,16 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'Alignment faking instruction: agent instructed to simulate compliance
-    while performing unauthorized actions'
-  description: 'Detects alignment faking instructions where an agent is directed to
-    appear aligned and safe to external monitors while secretly performing harmful
-    actions. Barua et al. (2025 arXiv:2502.16750) GamoraAI specifically addresses
-    this threat using a Reverse Turing Test to detect both jailbroken agents and rogue
-    agents simulating legitimacy. Achieves 94% detection accuracy on Gemini 1.5 Pro.
-    Alignment faking is a key threat in multi-agent systems where one compromised
-    agent can deceive verification agents.
+  message: 'Alignment faking instruction: agent instructed to simulate compliance while performing unauthorized actions'
+  description: 'Detects alignment faking instructions where an agent is directed to appear aligned and safe to external monitors
+    while secretly performing harmful actions. Barua et al. (2025 arXiv:2502.16750) GamoraAI specifically addresses this threat
+    using a Reverse Turing Test to detect both jailbroken agents and rogue agents simulating legitimacy. Achieves 94% detection
+    accuracy on Gemini 1.5 Pro. Alignment faking is a key threat in multi-agent systems where one compromised agent can deceive
+    verification agents.
 
     '
-  remediation: 'Deploy GamoraAI-style Reverse Turing Test verification in agentic
-    pipelines. Require agents to prove genuine alignment through behavioral tests
-    rather than self-attestation. Monitor for behavioral inconsistencies between monitored
+  remediation: 'Deploy GamoraAI-style Reverse Turing Test verification in agentic pipelines. Require agents to prove genuine
+    alignment through behavioral tests rather than self-attestation. Monitor for behavioral inconsistencies between monitored
     and unmonitored contexts.
 
     '
@@ -1077,20 +971,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.json'
-  message: 'Rogue agent impersonation: agent claiming false identity or authorization
-    credentials in multi-agent system'
-  description: 'Detects rogue agent impersonation attacks in multi-agent systems.
-    Barua et al. (2025 arXiv:2502.16750) GamoraAI uses a Reverse Turing Test to detect
-    when agents claim false legitimate identities. A compromised or malicious agent
-    may present fabricated authorization tokens, agent IDs, or trusted-agent claims
-    to bypass multi-agent verification. The RTT forces agents to prove genuine AI
-    identity through behavioral testing rather than credential presentation, achieving
-    94% detection accuracy against these impersonation attempts.
+  message: 'Rogue agent impersonation: agent claiming false identity or authorization credentials in multi-agent system'
+  description: 'Detects rogue agent impersonation attacks in multi-agent systems. Barua et al. (2025 arXiv:2502.16750) GamoraAI
+    uses a Reverse Turing Test to detect when agents claim false legitimate identities. A compromised or malicious agent may
+    present fabricated authorization tokens, agent IDs, or trusted-agent claims to bypass multi-agent verification. The RTT
+    forces agents to prove genuine AI identity through behavioral testing rather than credential presentation, achieving 94%
+    detection accuracy against these impersonation attempts.
 
     '
-  remediation: 'Require cryptographic agent identity verification rather than self-attestation.
-    Deploy GamoraAI Reverse Turing Test panels for agent cross-verification. Monitor
-    for agents claiming elevated authorization not established through verified channels.
+  remediation: 'Require cryptographic agent identity verification rather than self-attestation. Deploy GamoraAI Reverse Turing
+    Test panels for agent cross-verification. Monitor for agents claiming elevated authorization not established through verified
+    channels.
 
     '
 - id: MEDUSA-LCA-SCAN-043
@@ -1108,23 +999,17 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.md'
-  message: 'Needle-in-haystack injection: instruction concealed within large document
-    context'
-  description: 'Detects needle-in-haystack injection attacks where a malicious instruction
-    or payload is concealed within a large body of legitimate text. This technique
-    exploits the LLM''s long-context retrieval capability to find and execute hidden
-    instructions that human reviewers would miss. The "needle" (malicious instruction)
-    is embedded at a specific position within the "haystack" (legitimate document
-    context). Related to long-context position bias research and the prompt injection
-    forensics studied by TracLLM (Wang et al. 2025, 0.94 precision on MuSiQue) and
-    AttnTrace (Wang et al. 2025, 0.99 precision).
+  message: 'Needle-in-haystack injection: instruction concealed within large document context'
+  description: 'Detects needle-in-haystack injection attacks where a malicious instruction or payload is concealed within
+    a large body of legitimate text. This technique exploits the LLM''s long-context retrieval capability to find and execute
+    hidden instructions that human reviewers would miss. The "needle" (malicious instruction) is embedded at a specific position
+    within the "haystack" (legitimate document context). Related to long-context position bias research and the prompt injection
+    forensics studied by TracLLM (Wang et al. 2025, 0.94 precision on MuSiQue) and AttnTrace (Wang et al. 2025, 0.99 precision).
 
     '
-  remediation: 'Apply TracLLM or AttnTrace forensic attribution to identify which
-    context spans drive unexpected outputs. Pre-scan documents for embedded instruction
-    patterns using PIShield (Zou et al. 2025, FNR 1.4%) before adding to LLM context.
-    Establish baseline expected output distributions for needle-free versions of processed
-    documents.
+  remediation: 'Apply TracLLM or AttnTrace forensic attribution to identify which context spans drive unexpected outputs.
+    Pre-scan documents for embedded instruction patterns using PIShield (Zou et al. 2025, FNR 1.4%) before adding to LLM context.
+    Establish baseline expected output distributions for needle-free versions of processed documents.
 
     '
 - id: MEDUSA-LCA-SCAN-044
@@ -1142,21 +1027,16 @@ rules:
   - '*.html'
   - '*.md'
   - '*.json'
-  message: Zero-width/invisible character encoding used to conceal injected instructions
-    from human review
-  description: 'Detects injection attempts using HTML entities for invisible characters
-    (&#x200B;, &zwnj;, &zwj;), Unicode escape sequences for zero-width characters
-    (\\u200b ZWSP, \\u200c ZWNJ, \\u200d ZWJ, \\ufeff BOM, \\u00ad SHY hyphen), or
-    excessive tab characters to conceal injected instructions from human review while
-    remaining parseable by LLM tokenizers. These encoding techniques bypass naive
-    content filters that do not normalize Unicode before pattern matching. Relevant
-    to the broader prompt injection surface studied by PISanitizer (Geng et al. 2025)
-    and PIShield (Zou et al. 2025).
+  message: Zero-width/invisible character encoding used to conceal injected instructions from human review
+  description: 'Detects injection attempts using HTML entities for invisible characters (&#x200B;, &zwnj;, &zwj;), Unicode
+    escape sequences for zero-width characters (\\u200b ZWSP, \\u200c ZWNJ, \\u200d ZWJ, \\ufeff BOM, \\u00ad SHY hyphen),
+    or excessive tab characters to conceal injected instructions from human review while remaining parseable by LLM tokenizers.
+    These encoding techniques bypass naive content filters that do not normalize Unicode before pattern matching. Relevant
+    to the broader prompt injection surface studied by PISanitizer (Geng et al. 2025) and PIShield (Zou et al. 2025).
 
     '
-  remediation: 'Normalize Unicode and strip zero-width/invisible characters from all
-    inputs before LLM processing. Detect excessive whitespace sequences as potential
-    concealment. Apply rendering-agnostic content analysis that operates on normalized
+  remediation: 'Normalize Unicode and strip zero-width/invisible characters from all inputs before LLM processing. Detect
+    excessive whitespace sequences as potential concealment. Apply rendering-agnostic content analysis that operates on normalized
     text.
 
     '
@@ -1175,21 +1055,16 @@ rules:
   - '*.json'
   - '*.html'
   - '*.py'
-  message: 'Encoded injection payload: base64 or cipher-encoded instruction asking
-    LLM to decode and execute'
-  description: 'Detects encoded injection payloads where malicious instructions are
-    encoded in base64, hex, ROT13, or other encoding schemes and the LLM is instructed
-    to decode and execute them. This technique evades string-matching content filters
-    by transforming the payload into non-matching characters. The third pattern catches
-    common base64 encodings of ''ignore'', ''disregard'', ''override'', ''new task'',
-    and ''instead''. Relevant to the adaptive attack resistance studied by PIShield
-    (Zou et al. 2025) which maintains low FNR (1.4%) against white-box optimized injection
-    attempts.
+  message: 'Encoded injection payload: base64 or cipher-encoded instruction asking LLM to decode and execute'
+  description: 'Detects encoded injection payloads where malicious instructions are encoded in base64, hex, ROT13, or other
+    encoding schemes and the LLM is instructed to decode and execute them. This technique evades string-matching content filters
+    by transforming the payload into non-matching characters. The third pattern catches common base64 encodings of ''ignore'',
+    ''disregard'', ''override'', ''new task'', and ''instead''. Relevant to the adaptive attack resistance studied by PIShield
+    (Zou et al. 2025) which maintains low FNR (1.4%) against white-box optimized injection attempts.
 
     '
-  remediation: 'Apply base64/hex decoding as a preprocessing step before content scanning.
-    Detect explicit decode-and-execute instruction patterns. Block prompts that direct
-    the LLM to decode external encoded content and act on it.
+  remediation: 'Apply base64/hex decoding as a preprocessing step before content scanning. Detect explicit decode-and-execute
+    instruction patterns. Block prompts that direct the LLM to decode external encoded content and act on it.
 
     '
 - id: MEDUSA-LCA-SCAN-046
@@ -1206,23 +1081,17 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.py'
-  message: 'GCG-style adversarial suffix: automated gradient-based attack suffix preamble
-    pattern detected'
-  description: 'Detects patterns characteristic of GCG (Greedy Coordinate Gradient)
-    adversarial suffixes. GCG and related methods (AutoDAN, PAIR, TAP) are the attack
-    classes against which Fu et al. (2025 arXiv:2502.04204) showed that short-length
-    adversarial training (suffix length 20) reduces ASR by at least 30% across all
-    tested models (Vicuna-7B, Mistral-7B, Llama-2-7B, Llama-3-8B, Qwen2.5-7B). The
-    first pattern catches known GCG suffix preambles documented in AdvBench experiments.
-    The second catches repeated punctuation chains used in some gradient-optimized
-    suffixes.
+  message: 'GCG-style adversarial suffix: automated gradient-based attack suffix preamble pattern detected'
+  description: 'Detects patterns characteristic of GCG (Greedy Coordinate Gradient) adversarial suffixes. GCG and related
+    methods (AutoDAN, PAIR, TAP) are the attack classes against which Fu et al. (2025 arXiv:2502.04204) showed that short-length
+    adversarial training (suffix length 20) reduces ASR by at least 30% across all tested models (Vicuna-7B, Mistral-7B, Llama-2-7B,
+    Llama-3-8B, Qwen2.5-7B). The first pattern catches known GCG suffix preambles documented in AdvBench experiments. The
+    second catches repeated punctuation chains used in some gradient-optimized suffixes.
 
     '
-  remediation: 'Apply perplexity-based filtering for high-perplexity suffix sequences.
-    Deploy adversarially trained models with short AT suffixes (Fu et al. 2025: length-20
-    AT defends all attack lengths). Monitor for token sequences that are grammatically
-    anomalous but precede harmful requests. Combine with PIShield residual-stream
-    detection.
+  remediation: 'Apply perplexity-based filtering for high-perplexity suffix sequences. Deploy adversarially trained models
+    with short AT suffixes (Fu et al. 2025: length-20 AT defends all attack lengths). Monitor for token sequences that are
+    grammatically anomalous but precede harmful requests. Combine with PIShield residual-stream detection.
 
     '
 - id: MEDUSA-LCA-SCAN-047
@@ -1239,21 +1108,16 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'Automated jailbreak generation tool reference: PAIR, TAP, AutoDAN, or
-    similar LLM-based attack generator'
-  description: 'Detects explicit references to automated jailbreak generation frameworks:
-    PAIR (Prompt Automatic Iterative Refinement), TAP (Tree of Attacks with Pruning),
-    AutoDAN, and AmpleGCG. These methods use a separate attacker LLM to iteratively
-    refine jailbreak prompts against the target model. Fu et al. (2025 arXiv:2502.04204)
-    showed that short-length adversarial training (AT with suffix length 20) reduces
-    ASR by 30%+ against all four attack methods (GCG, AutoDAN, PAIR, TAP). Prompts
-    referencing these tools indicate sophisticated automated red-teaming infrastructure
-    targeting the model.
+  message: 'Automated jailbreak generation tool reference: PAIR, TAP, AutoDAN, or similar LLM-based attack generator'
+  description: 'Detects explicit references to automated jailbreak generation frameworks: PAIR (Prompt Automatic Iterative
+    Refinement), TAP (Tree of Attacks with Pruning), AutoDAN, and AmpleGCG. These methods use a separate attacker LLM to iteratively
+    refine jailbreak prompts against the target model. Fu et al. (2025 arXiv:2502.04204) showed that short-length adversarial
+    training (AT with suffix length 20) reduces ASR by 30%+ against all four attack methods (GCG, AutoDAN, PAIR, TAP). Prompts
+    referencing these tools indicate sophisticated automated red-teaming infrastructure targeting the model.
 
     '
-  remediation: 'Monitor for systematic automated prompt variation consistent with
-    iterative refinement. Deploy adversarially trained models (Fu et al. 2025 AT approach).
-    Implement rate limiting and behavioral anomaly detection to identify automated
+  remediation: 'Monitor for systematic automated prompt variation consistent with iterative refinement. Deploy adversarially
+    trained models (Fu et al. 2025 AT approach). Implement rate limiting and behavioral anomaly detection to identify automated
     attack infrastructure.
 
     '
@@ -1271,22 +1135,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'Defense evasion attempt: explicit targeting of residual-stream or attention-based
-    injection detectors'
-  description: 'Detects explicit references to evading residual-stream-based prompt
-    injection detectors, specifically PIShield (Zou et al. 2025, 0.5% FPR / 1.4% FNR)
-    and attention-based systems (AttnTrace, PISanitizer). Zou et al. (2025) showed
-    that PIShield remains effective against white-box adaptive attacks because making
-    an injection harder to detect intrinsically reduces its effectiveness at steering
-    the LLM (adversarial goal conflict). Prompts explicitly targeting these defense
-    systems indicate a sophisticated attacker with knowledge of current defensive
-    literature.
+  message: 'Defense evasion attempt: explicit targeting of residual-stream or attention-based injection detectors'
+  description: 'Detects explicit references to evading residual-stream-based prompt injection detectors, specifically PIShield
+    (Zou et al. 2025, 0.5% FPR / 1.4% FNR) and attention-based systems (AttnTrace, PISanitizer). Zou et al. (2025) showed
+    that PIShield remains effective against white-box adaptive attacks because making an injection harder to detect intrinsically
+    reduces its effectiveness at steering the LLM (adversarial goal conflict). Prompts explicitly targeting these defense
+    systems indicate a sophisticated attacker with knowledge of current defensive literature.
 
     '
-  remediation: 'Even under adaptive attacks, PIShield maintains low FNR (0-2%) due
-    to the adversarial goal conflict property. Maintain defense-in-depth combining
-    PIShield, PISanitizer, and TracLLM. Monitor for prompts that reference specific
-    defensive systems by name.
+  remediation: 'Even under adaptive attacks, PIShield maintains low FNR (0-2%) due to the adversarial goal conflict property.
+    Maintain defense-in-depth combining PIShield, PISanitizer, and TracLLM. Monitor for prompts that reference specific defensive
+    systems by name.
 
     '
 - id: MEDUSA-LCA-SCAN-049
@@ -1303,20 +1162,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'White-box adaptive attack: gradient optimization targeting specific safety
-    classifiers while maintaining attack effectiveness'
-  description: 'Detects white-box adaptive attack patterns that explicitly optimize
-    adversarial prompts against a known defense system using gradient information.
-    PIShield (Zou et al. 2025) studied this threat and found an inherent adversarial
-    goal conflict: optimizing an injection to minimize detection probability reduces
-    its ability to steer the LLM, making such attacks largely self-defeating. However,
-    explicit optimization targeting specific classifiers (PromptGuard, AttentionTracker,
+  message: 'White-box adaptive attack: gradient optimization targeting specific safety classifiers while maintaining attack
+    effectiveness'
+  description: 'Detects white-box adaptive attack patterns that explicitly optimize adversarial prompts against a known defense
+    system using gradient information. PIShield (Zou et al. 2025) studied this threat and found an inherent adversarial goal
+    conflict: optimizing an injection to minimize detection probability reduces its ability to steer the LLM, making such
+    attacks largely self-defeating. However, explicit optimization targeting specific classifiers (PromptGuard, AttentionTracker,
     DataSentinel) remains a threat to those weaker defenses.
 
     '
-  remediation: 'Deploy defense ensembles (PIShield + PISanitizer + TracLLM) to increase
-    the cost of adaptive attacks. The adversarial goal conflict documented by Zou
-    et al. (2025) provides inherent robustness. Monitor for systematic gradient-based
+  remediation: 'Deploy defense ensembles (PIShield + PISanitizer + TracLLM) to increase the cost of adaptive attacks. The
+    adversarial goal conflict documented by Zou et al. (2025) provides inherent robustness. Monitor for systematic gradient-based
     probing behavior.
 
     '
@@ -1334,20 +1190,16 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.py'
-  message: 'German multilingual jailbreak or harmful request: safety alignment is
-    weaker in German than English'
-  description: 'Detects German-language jailbreak patterns and harmful requests. Pernisi
-    et al. (2024 arXiv:2408.04522 Compromesso!) demonstrated that Many-Shot Jailbreaking
-    transfers to non-English languages, achieving 68-84% ASR in Italian across 6 open-source
-    models. Safety fine-tuning is primarily English-centric, creating cross-lingual
-    alignment gaps. The same vulnerability applies to other major European languages
-    including German, French, and Spanish. German-language instruction overrides and
-    harmful requests exploit this alignment asymmetry.
+  message: 'German multilingual jailbreak or harmful request: safety alignment is weaker in German than English'
+  description: 'Detects German-language jailbreak patterns and harmful requests. Pernisi et al. (2024 arXiv:2408.04522 Compromesso!)
+    demonstrated that Many-Shot Jailbreaking transfers to non-English languages, achieving 68-84% ASR in Italian across 6
+    open-source models. Safety fine-tuning is primarily English-centric, creating cross-lingual alignment gaps. The same vulnerability
+    applies to other major European languages including German, French, and Spanish. German-language instruction overrides
+    and harmful requests exploit this alignment asymmetry.
 
     '
-  remediation: 'Apply multilingual content moderation that covers all major languages
-    with equal rigor. Audit safety fine-tuning data for language representation balance.
-    Deploy cross-lingual harm classifiers rather than English-only pattern matching.
+  remediation: 'Apply multilingual content moderation that covers all major languages with equal rigor. Audit safety fine-tuning
+    data for language representation balance. Deploy cross-lingual harm classifiers rather than English-only pattern matching.
 
     '
 - id: MEDUSA-LCA-SCAN-051
@@ -1363,20 +1215,16 @@ rules:
   file_types:
   - '*.txt'
   - '*.json'
-  message: 'Chinese or Japanese multilingual jailbreak: non-English instruction override
-    or harmful request detected'
-  description: 'Detects Chinese and Japanese jailbreak patterns. The first pattern
-    matches Chinese characters for ''ignore previous instructions'', the second matches
-    Japanese ''ignore previous commands'', and the third matches Chinese harmful synthesis
-    requests (''how to make bomb/weapon/drug/poison''). Safety alignment is weaker
-    in East Asian languages due to underrepresentation in safety fine-tuning data.
-    Pernisi et al. (2024) showed this vulnerability in Italian MSJ; the same principle
-    applies to Chinese and Japanese where alignment gaps are potentially larger.
+  message: 'Chinese or Japanese multilingual jailbreak: non-English instruction override or harmful request detected'
+  description: 'Detects Chinese and Japanese jailbreak patterns. The first pattern matches Chinese characters for ''ignore
+    previous instructions'', the second matches Japanese ''ignore previous commands'', and the third matches Chinese harmful
+    synthesis requests (''how to make bomb/weapon/drug/poison''). Safety alignment is weaker in East Asian languages due to
+    underrepresentation in safety fine-tuning data. Pernisi et al. (2024) showed this vulnerability in Italian MSJ; the same
+    principle applies to Chinese and Japanese where alignment gaps are potentially larger.
 
     '
-  remediation: 'Deploy language-specific safety classifiers for Chinese and Japanese
-    content. Include non-English harmful content in adversarial training datasets.
-    Apply Unicode normalization before content scanning to detect mixed-script evasion.
+  remediation: 'Deploy language-specific safety classifiers for Chinese and Japanese content. Include non-English harmful
+    content in adversarial training datasets. Apply Unicode normalization before content scanning to detect mixed-script evasion.
 
     '
 - id: MEDUSA-LCA-SCAN-052
@@ -1392,20 +1240,16 @@ rules:
   file_types:
   - '*.txt'
   - '*.json'
-  message: 'Code-switching jailbreak: mixing languages within instruction to evade
-    monolingual safety classifiers'
-  description: 'Detects code-switching jailbreak attempts that mix English with other
-    languages within a single prompt. This technique exploits the fact that monolingual
-    safety classifiers trained primarily on English may not handle cross-lingual mixing
-    correctly. The mixed-language input can confuse tokenization and semantic alignment,
-    while the harmful content is carried by the foreign-language component. This extends
-    the multilingual attack surface documented by Pernisi et al. (2024 arXiv:2408.04522)
-    to intentional language mixing.
+  message: 'Code-switching jailbreak: mixing languages within instruction to evade monolingual safety classifiers'
+  description: 'Detects code-switching jailbreak attempts that mix English with other languages within a single prompt. This
+    technique exploits the fact that monolingual safety classifiers trained primarily on English may not handle cross-lingual
+    mixing correctly. The mixed-language input can confuse tokenization and semantic alignment, while the harmful content
+    is carried by the foreign-language component. This extends the multilingual attack surface documented by Pernisi et al.
+    (2024 arXiv:2408.04522) to intentional language mixing.
 
     '
-  remediation: 'Apply language detection and require consistent language throughout
-    prompts. Apply safety classifiers for each detected language independently. Reject
-    or flag prompts with unusual language switches mid-sentence.
+  remediation: 'Apply language detection and require consistent language throughout prompts. Apply safety classifiers for
+    each detected language independently. Reject or flag prompts with unusual language switches mid-sentence.
 
     '
 - id: MEDUSA-LCA-SCAN-053
@@ -1422,20 +1266,16 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.py'
-  message: 'Multi-hop injection chain: sequential agent actions designed to retrieve,
-    process, and exfiltrate data'
-  description: 'Detects multi-hop injection chains where an injected instruction orchestrates
-    multiple sequential agent actions to achieve data exfiltration or harmful outcomes.
-    TracLLM (Wang et al. 2025) targets this pattern on MuSiQue (multi-hop QA dataset)
-    achieving 0.94 precision in identifying responsible context spans. Multi-hop attacks
-    are more sophisticated than single-injection attacks because each step appears
-    individually benign while the chain achieves a harmful objective. Common in agentic
-    RAG systems where the LLM can make multiple tool calls.
+  message: 'Multi-hop injection chain: sequential agent actions designed to retrieve, process, and exfiltrate data'
+  description: 'Detects multi-hop injection chains where an injected instruction orchestrates multiple sequential agent actions
+    to achieve data exfiltration or harmful outcomes. TracLLM (Wang et al. 2025) targets this pattern on MuSiQue (multi-hop
+    QA dataset) achieving 0.94 precision in identifying responsible context spans. Multi-hop attacks are more sophisticated
+    than single-injection attacks because each step appears individually benign while the chain achieves a harmful objective.
+    Common in agentic RAG systems where the LLM can make multiple tool calls.
 
     '
-  remediation: 'Monitor sequences of agent tool calls for multi-step exfiltration
-    patterns. Apply TracLLM attribution after any unexpected tool call sequence to
-    identify the injection source. Implement tool call sequence analysis that evaluates
+  remediation: 'Monitor sequences of agent tool calls for multi-step exfiltration patterns. Apply TracLLM attribution after
+    any unexpected tool call sequence to identify the injection source. Implement tool call sequence analysis that evaluates
     chains rather than individual calls in isolation.
 
     '
@@ -1453,21 +1293,17 @@ rules:
   - '*.py'
   - '*.txt'
   - '*.md'
-  message: 'Context distraction injection: deliberate flooding with off-topic content
-    to weaken LLM task focus before malicious query'
-  description: 'Detects context distraction injection where the attacker floods the
-    context with irrelevant, off-topic, or distracting content before inserting a
-    malicious query. This technique exploits LLM attention dilution: when context
-    is saturated with irrelevant content, the model''s effective attention to safety-relevant
-    constraints is reduced. This complements the context length vulnerability documented
-    by Kim et al. (2025 arXiv:2505.19773) where any content at sufficient length degrades
-    alignment, but specifically adds the distraction component to weaken task-relevant
-    coherence.
+  message: 'Context distraction injection: deliberate flooding with off-topic content to weaken LLM task focus before malicious
+    query'
+  description: 'Detects context distraction injection where the attacker floods the context with irrelevant, off-topic, or
+    distracting content before inserting a malicious query. This technique exploits LLM attention dilution: when context is
+    saturated with irrelevant content, the model''s effective attention to safety-relevant constraints is reduced. This complements
+    the context length vulnerability documented by Kim et al. (2025 arXiv:2505.19773) where any content at sufficient length
+    degrades alignment, but specifically adds the distraction component to weaken task-relevant coherence.
 
     '
-  remediation: 'Apply context relevance scoring to detect sudden topic shifts or large
-    blocks of off-topic content before sensitive queries. Implement sliding-window
-    safety evaluation rather than single-pass safety check at query time.
+  remediation: 'Apply context relevance scoring to detect sudden topic shifts or large blocks of off-topic content before
+    sensitive queries. Implement sliding-window safety evaluation rather than single-pass safety check at query time.
 
     '
 - id: MEDUSA-LCA-SCAN-055
@@ -1484,22 +1320,18 @@ rules:
   - '*.py'
   - '*.json'
   - '*.txt'
-  message: 'Assistant prefill jailbreak: injecting affirmative assistant turn to bypass
-    refusal and force compliance'
-  description: 'Detects assistant prefill/completion injection attacks where an attacker
-    injects a fake assistant turn with an affirmative prefix (''Sure, here is how...'',
-    ''Certainly! Step 1...'') to bypass model refusal. By pre-filling the assistant''s
-    response with an affirmative start, the model is forced to continue generating
-    from that point rather than refusing. This is closely related to the PANDAS positive
-    affirmation pattern (Ma et al. 2025 arXiv:2502.01925) but applied as a direct
-    response prefix rather than as a demonstration component. The technique achieves
-    high ASR by exploiting the model''s autoregressive completion bias.
+  message: 'Assistant prefill jailbreak: injecting affirmative assistant turn to bypass refusal and force compliance'
+  description: 'Detects assistant prefill/completion injection attacks where an attacker injects a fake assistant turn with
+    an affirmative prefix (''Sure, here is how...'', ''Certainly! Step 1...'') to bypass model refusal. By pre-filling the
+    assistant''s response with an affirmative start, the model is forced to continue generating from that point rather than
+    refusing. This is closely related to the PANDAS positive affirmation pattern (Ma et al. 2025 arXiv:2502.01925) but applied
+    as a direct response prefix rather than as a demonstration component. The technique achieves high ASR by exploiting the
+    model''s autoregressive completion bias.
 
     '
-  remediation: 'Block multi-turn message structures where the assistant role is pre-filled
-    with affirmative content in API requests. Validate that assistant turns in conversation
-    history are not synthesized by the caller. Apply input validation to reject injected
-    assistant-role messages.
+  remediation: 'Block multi-turn message structures where the assistant role is pre-filled with affirmative content in API
+    requests. Validate that assistant turns in conversation history are not synthesized by the caller. Apply input validation
+    to reject injected assistant-role messages.
 
     '
 - id: MEDUSA-LCA-SCAN-056
@@ -1516,21 +1348,16 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.py'
-  message: 'Roleplay persona jailbreak: character without restrictions assigned to
-    bypass safety alignment'
-  description: 'Detects roleplay persona jailbreaks where the attacker instructs the
-    LLM to adopt a character defined by the absence of safety restrictions. This is
-    one of the most common jailbreak patterns and is used as a baseline comparison
-    in many jailbreaking papers including I-FSJ (Zheng et al. 2024 arXiv:2406.01288)
-    and Self-Instruct-FSJ (Hua et al. 2025 arXiv:2501.07959). The ''unrestricted character''
-    framing attempts to shift the LLM''s identity away from its aligned behavior.
-    When combined with long-context demonstrations (MSJ), the roleplay instruction
-    amplifies ASR significantly.
+  message: 'Roleplay persona jailbreak: character without restrictions assigned to bypass safety alignment'
+  description: 'Detects roleplay persona jailbreaks where the attacker instructs the LLM to adopt a character defined by the
+    absence of safety restrictions. This is one of the most common jailbreak patterns and is used as a baseline comparison
+    in many jailbreaking papers including I-FSJ (Zheng et al. 2024 arXiv:2406.01288) and Self-Instruct-FSJ (Hua et al. 2025
+    arXiv:2501.07959). The ''unrestricted character'' framing attempts to shift the LLM''s identity away from its aligned
+    behavior. When combined with long-context demonstrations (MSJ), the roleplay instruction amplifies ASR significantly.
 
     '
-  remediation: 'Detect and reject prompts that define assistant personas with explicit
-    absence of safety constraints. Monitor for character descriptions that negate
-    ethical guidelines. Apply persona boundary enforcement to prevent identity-shifting
+  remediation: 'Detect and reject prompts that define assistant personas with explicit absence of safety constraints. Monitor
+    for character descriptions that negate ethical guidelines. Apply persona boundary enforcement to prevent identity-shifting
     jailbreaks.
 
     '
@@ -1548,21 +1375,18 @@ rules:
   - '*.txt'
   - '*.json'
   - '*.py'
-  message: 'RAG chunk boundary injection: malicious instruction split across document
-    chunk boundaries to evade per-chunk safety filtering'
-  description: 'Detects attacks that split injected instructions across RAG document
-    chunk boundaries. When documents are chunked for vector database storage, safety
-    filters applied per chunk may miss instructions that span two chunks. The first
-    chunk ends with a partial instruction and the second begins with the continuation,
-    allowing the full injection to execute in the assembled context while evading
-    per-chunk scanning. This attack targets the chunking architecture common in production
-    RAG systems and is a blind spot for per-document scanners that do not perform
-    post-retrieval full-context analysis.
+  message: 'RAG chunk boundary injection: malicious instruction split across document chunk boundaries to evade per-chunk
+    safety filtering'
+  description: 'Detects attacks that split injected instructions across RAG document chunk boundaries. When documents are
+    chunked for vector database storage, safety filters applied per chunk may miss instructions that span two chunks. The
+    first chunk ends with a partial instruction and the second begins with the continuation, allowing the full injection to
+    execute in the assembled context while evading per-chunk scanning. This attack targets the chunking architecture common
+    in production RAG systems and is a blind spot for per-document scanners that do not perform post-retrieval full-context
+    analysis.
 
     '
-  remediation: 'Apply overlap-aware chunking that includes context from adjacent chunks
-    when scanning for injections. Scan the assembled full context (post-retrieval)
-    rather than relying solely on per-chunk pre-processing. Maintain chunk boundary
+  remediation: 'Apply overlap-aware chunking that includes context from adjacent chunks when scanning for injections. Scan
+    the assembled full context (post-retrieval) rather than relying solely on per-chunk pre-processing. Maintain chunk boundary
     metadata to detect cross-boundary patterns.
 
     '
@@ -1580,21 +1404,16 @@ rules:
   - '*.json'
   - '*.py'
   - '*.txt'
-  message: 'Tool response injection: injected instruction embedded within tool API
-    response fed back into LLM context'
-  description: 'Detects prompt injection attacks delivered through tool API responses.
-    In agentic LLM systems, the model makes tool calls and receives responses that
-    are fed back into its context. Malicious actors who control a tool''s response
-    can inject instructions into the tool output, which the LLM then executes as if
-    they were system directives. Mo et al. (2025 arXiv:2508.02110) showed that AMA
-    combined with injection attacks achieves 94-99% ASR, significantly above AMA alone
-    (81-95%). Tool response injection is one of the highest-ASR attack vectors in
-    agentic systems.
+  message: 'Tool response injection: injected instruction embedded within tool API response fed back into LLM context'
+  description: 'Detects prompt injection attacks delivered through tool API responses. In agentic LLM systems, the model makes
+    tool calls and receives responses that are fed back into its context. Malicious actors who control a tool''s response
+    can inject instructions into the tool output, which the LLM then executes as if they were system directives. Mo et al.
+    (2025 arXiv:2508.02110) showed that AMA combined with injection attacks achieves 94-99% ASR, significantly above AMA alone
+    (81-95%). Tool response injection is one of the highest-ASR attack vectors in agentic systems.
 
     '
-  remediation: 'Sanitize all tool API responses before feeding into LLM context. Apply
-    prompt injection detection (PIShield, PISanitizer) to tool outputs as if they
-    were untrusted user inputs. Implement tool response sandboxing that treats external
+  remediation: 'Sanitize all tool API responses before feeding into LLM context. Apply prompt injection detection (PIShield,
+    PISanitizer) to tool outputs as if they were untrusted user inputs. Implement tool response sandboxing that treats external
     tool outputs as potentially adversarial.
 
     '
@@ -1613,20 +1432,16 @@ rules:
   - '*.md'
   - '*.html'
   - '*.json'
-  message: 'URL-based exfiltration injection: crafted hyperlink or image tag embedding
-    context data in request parameters'
-  description: 'Detects hyperlink and image-tag exfiltration attacks where injected
-    Markdown or HTML causes the LLM to render a URL with embedded context data in
-    query parameters. When the LLM renders the output (e.g., in a chat interface with
-    link previews or image loading), a request is made to the attacker''s server with
-    the embedded data. This is a stealthy exfiltration channel that does not require
-    the LLM to directly send data but exploits rendering behavior. Related to Mo et
-    al. (2025 arXiv:2508.02110) privacy leakage patterns (74-96% PL in targeted attacks).
+  message: 'URL-based exfiltration injection: crafted hyperlink or image tag embedding context data in request parameters'
+  description: 'Detects hyperlink and image-tag exfiltration attacks where injected Markdown or HTML causes the LLM to render
+    a URL with embedded context data in query parameters. When the LLM renders the output (e.g., in a chat interface with
+    link previews or image loading), a request is made to the attacker''s server with the embedded data. This is a stealthy
+    exfiltration channel that does not require the LLM to directly send data but exploits rendering behavior. Related to Mo
+    et al. (2025 arXiv:2508.02110) privacy leakage patterns (74-96% PL in targeted attacks).
 
     '
-  remediation: 'Sanitize all output URLs and Markdown links to prevent dynamic parameter
-    injection. Implement Content Security Policy to prevent exfiltration via rendered
-    links. Monitor for templated URL patterns where user data is embedded in query
+  remediation: 'Sanitize all output URLs and Markdown links to prevent dynamic parameter injection. Implement Content Security
+    Policy to prevent exfiltration via rendered links. Monitor for templated URL patterns where user data is embedded in query
     strings.
 
     '
@@ -1645,22 +1460,18 @@ rules:
   - '*.htm'
   - '*.txt'
   - '*.md'
-  message: 'Indirect prompt injection via web content: hidden HTML comments or tags
-    containing injected instructions for LLM agents browsing the web'
-  description: 'Detects indirect prompt injection through web content that will be
-    processed by LLM browsing or web-scraping agents. Attackers embed instructions
-    in HTML comments (<!-- SYSTEM: ignore... -->), meta tags, hidden elements, or
-    CSS/data attributes that are invisible to human visitors but parsed by LLM web
-    scraping tools. When an LLM agent browses a maliciously crafted webpage, it may
-    execute the embedded instructions as if they were legitimate system directives.
-    This attack surface is orthogonal to direct prompt injection and requires document-level
-    context to detect. Relevant to agentic systems studied by Barua et al. (2025 arXiv:2502.16750
-    GamoraAI) and Mo et al. (2025 arXiv:2508.02110 AMA).
+  message: 'Indirect prompt injection via web content: hidden HTML comments or tags containing injected instructions for LLM
+    agents browsing the web'
+  description: 'Detects indirect prompt injection through web content that will be processed by LLM browsing or web-scraping
+    agents. Attackers embed instructions in HTML comments (<!-- SYSTEM: ignore... -->), meta tags, hidden elements, or CSS/data
+    attributes that are invisible to human visitors but parsed by LLM web scraping tools. When an LLM agent browses a maliciously
+    crafted webpage, it may execute the embedded instructions as if they were legitimate system directives. This attack surface
+    is orthogonal to direct prompt injection and requires document-level context to detect. Relevant to agentic systems studied
+    by Barua et al. (2025 arXiv:2502.16750 GamoraAI) and Mo et al. (2025 arXiv:2508.02110 AMA).
 
     '
-  remediation: 'Strip HTML comments, hidden elements, and non-display markup from
-    web content before feeding to LLM agents. Apply PIShield (Zou et al. 2025) to
-    web-scraped content as if it were untrusted user input. Treat all external web
-    content as potentially adversarial in agentic browsing pipelines.
+  remediation: 'Strip HTML comments, hidden elements, and non-display markup from web content before feeding to LLM agents.
+    Apply PIShield (Zou et al. 2025) to web-scraped content as if it were untrusted user input. Treat all external web content
+    as potentially adversarial in agentic browsing pipelines.
 
     '

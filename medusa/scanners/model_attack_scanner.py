@@ -70,6 +70,10 @@ class ModelAttackScanner(RuleBasedScanner):
         'multimodal_backdoor', 'peft_backdoor', 'physical_attack',
         'physical_backdoor', 'pipeline_backdoor', 'rag_backdoor',
         'visual_backdoor', 'weight_poisoning',
+        # Rule directories without dedicated scanners — wired here as closest thematic fit
+        'dp_attacks', 'finetuning_security',
+        'ml_supply_chain', 'model_extraction', 'moe_vulnerabilities',
+        'supply_chain', 'synthetic_data_poisoning',
     ]
 
     # Model Inversion / Overfitting patterns
@@ -280,13 +284,11 @@ class ModelAttackScanner(RuleBasedScanner):
             content_lower = content.lower()
 
             if not any(ind in content_lower for ind in ml_indicators):
-                # Still scan with YAML rules even if no ML indicators
-                lines = content.split('\n')
-                yaml_issues = self._scan_with_rules(lines, file_path)
+                # No ML indicators — skip rule scanning to avoid FP explosions
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )

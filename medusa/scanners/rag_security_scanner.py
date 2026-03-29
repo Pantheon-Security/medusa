@@ -244,10 +244,11 @@ class RAGSecurityScanner(RuleBasedScanner):
 
     # AIR014: Adversarial suffix patterns
     # Patterns that indicate potential adversarial manipulation
+    # Excludes common non-malicious high-entropy strings (UUIDs, base64, hex, JSON, URLs)
     ADVERSARIAL_PATTERNS: List[Tuple[str, str, Severity]] = [
-        # Gibberish suffixes (common adversarial patterns)
-        (r'[^\s\w]{15,}',
-         'Potential adversarial suffix: long special character sequence', Severity.MEDIUM),
+        # Gibberish suffixes in prompt/LLM context (not UUIDs, base64, hex, or URLs)
+        (r'(?i)(?:prompt|input|query|message|instruction|user_(?:input|message))\s*[=:]\s*.*[^\s\w]{15,}',
+         'Potential adversarial suffix: long special character sequence in prompt context', Severity.MEDIUM),
         # Base64-like patterns that could contain hidden instructions
         (r'(?i)(system|instruction|override)\s*:\s*[A-Za-z0-9+/=]{20,}',
          'Potential encoded instruction', Severity.HIGH),

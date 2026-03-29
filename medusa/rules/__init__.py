@@ -54,9 +54,11 @@ class Rule:
     source_cve: Optional[str] = None
     fix: Optional[str] = None
     references: List[str] = field(default_factory=list)
+    file_types: List[str] = field(default_factory=list)
 
     # Compiled regex patterns
     _compiled_patterns: List[re.Pattern] = field(default_factory=list, repr=False)
+    _compiled_file_globs: List[str] = field(default_factory=list, repr=False)
 
     def __post_init__(self):
         """Compile regex patterns after initialization"""
@@ -66,6 +68,23 @@ class Rule:
                 self._compiled_patterns.append(re.compile(pattern, re.IGNORECASE | re.MULTILINE))
             except re.error as e:
                 print(f"Warning: Invalid regex pattern in rule {self.id}: {pattern} - {e}")
+        # Normalize file_types globs for matching
+        self._compiled_file_globs = []
+        for ft in self.file_types:
+            # Normalize: "*.py" → ".py", ".py" → ".py", "py" → ".py"
+            if ft.startswith('*.'):
+                self._compiled_file_globs.append(ft[1:])  # "*.py" → ".py"
+            elif ft.startswith('.'):
+                self._compiled_file_globs.append(ft)
+            else:
+                self._compiled_file_globs.append(f'.{ft}')
+
+    def matches_file_type(self, file_path: str) -> bool:
+        """Check if this rule should apply to the given file type."""
+        if not self._compiled_file_globs:
+            return True  # No restriction = matches all files
+        file_lower = file_path.lower()
+        return any(file_lower.endswith(g) for g in self._compiled_file_globs)
 
     def matches(self, content: str) -> List[re.Match]:
         """Check if content matches any rule patterns"""
@@ -319,9 +338,27 @@ class RuleLoader:
             patterns = [patterns]
 
         # Handle dict-style patterns: [{regex: "...", description: "..."}]
-        patterns = [p['regex'] if isinstance(p, dict) and 'regex' in p else p
-                    for p in patterns if isinstance(p, (str, dict))]
-        patterns = [p for p in patterns if isinstance(p, str)]
+        # Also handle runtime-style patterns: {request: [...], response: [...]}
+        if isinstance(patterns, dict):
+            # Runtime/proxy-style: extract inner pattern strings
+            flat = []
+            for key, val in patterns.items():
+                if isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, dict):
+                            # {pattern: "...", location: "body"} or {regex: "..."}
+                            p = item.get('regex') or item.get('pattern')
+                            if p and isinstance(p, str):
+                                flat.append(p)
+                        elif isinstance(item, str):
+                            flat.append(item)
+                elif isinstance(val, str):
+                    flat.append(val)
+            patterns = flat
+        else:
+            patterns = [p['regex'] if isinstance(p, dict) and 'regex' in p else p
+                        for p in patterns if isinstance(p, (str, dict))]
+            patterns = [p for p in patterns if isinstance(p, str)]
         if not patterns:
             return None
 
@@ -346,6 +383,11 @@ class RuleLoader:
         # Handle owasp/owasp_llm variations
         owasp_llm = data.get('owasp_llm') or data.get('owasp')
 
+        # Parse file_types (e.g., ['*.py', '*.js'])
+        file_types = data.get('file_types') or data.get('file_type') or []
+        if isinstance(file_types, str):
+            file_types = [file_types]
+
         return Rule(
             id=data['id'],
             name=name,
@@ -363,6 +405,7 @@ class RuleLoader:
             source_cve=data.get('source_cve'),
             fix=data.get('fix'),
             references=references,
+            file_types=file_types,
         )
 
     def match_content(self, content: str, rules: Optional[List[Rule]] = None) -> List[RuleMatch]:

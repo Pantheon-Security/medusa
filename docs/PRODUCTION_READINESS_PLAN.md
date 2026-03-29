@@ -9,7 +9,7 @@
 
 | Asset | Status | Count |
 |-------|--------|-------|
-| Scanner rules (medusa-rules/scanners/) | Consolidated | 7,330 unique |
+| Scanner rules (medusa-rules/scanners/) | Consolidated | 9,600+ unique |
 | Runtime rules (medusa-rules/runtime/) | Exists, needs consolidation | ~3,760 JSON |
 | Runtime rules (runtime-temp backup) | Backed up from production | ~2,410 YAML |
 | CVE rules (medusa-rules/cve/) | Exists | 536 |
@@ -31,7 +31,7 @@
 - [ ] Ensure `.gitignore` excludes `*_runtime.yaml` and `rules/runtime/`
 
 ### 1.2 Sync Production Rules from medusa-rules
-- [ ] Promote all 7,330 scanner rules from `medusa-rules/scanners/` → `medusa/medusa/rules/`
+- [ ] Promote all 9,600+ scanner rules from `medusa-rules/scanners/` → `medusa/medusa/rules/`
 - [ ] Run duplicate ID check: `python3 medusa-rules/scripts/check_duplicate_ids.py`
 - [ ] Verify rule loading: `python3 -c "from medusa.rules import get_stats; print(get_stats())"`
 
@@ -115,7 +115,7 @@ As rules grow past 10,000+, the current architecture will need optimisation.
 ### 3.3 Rule Count Projections
 | Milestone | Scanner Rules | Timeline |
 |-----------|--------------|----------|
-| Current | 7,330 | Now |
+| Current | 9,600+ | Now |
 | +2,500 queued harvest | ~10,000 | Next 2-4 weeks |
 | Automated pipeline running | ~15,000 | Q2 2026 |
 | Full MinerHub integration | 20,000+ | Q3 2026 |

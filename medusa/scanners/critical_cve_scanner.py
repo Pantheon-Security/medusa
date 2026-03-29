@@ -43,77 +43,183 @@ _ECOSYSTEM_MAP = {
 
 def _load_cve_database() -> List[Dict]:
     """
-    Load CVE database from cveminer_critical_cves.yaml.
+    Load CVE database from rules/cve/*.yaml (v2.0 format).
 
-    Converts the YAML format (string versions, ecosystem names) into
-    the internal format used by the scanner (version tuples, group_id
-    extraction for Maven).
+    Also accepts v1.0 format files during transition — detected by presence
+    of 'vulnerable_range' instead of 'affected[]'.
+
+    v2.0: affected[].ranges[].introduced / fixed (fixed is exclusive, i.e. < fixed)
+    v1.0: vulnerable_range.min / max (max is inclusive — legacy only)
     """
-    yaml_path = Path(__file__).parent.parent / 'rules' / 'ai_security' / 'cveminer_critical_cves.yaml'
+    rules_dir = Path(__file__).parent.parent / 'rules' / 'cve'
 
-    if not yaml_path.exists():
+    yaml_files = sorted(rules_dir.glob('*.yaml')) + sorted(rules_dir.glob('*.yml'))
+    if not yaml_files:
         return []
 
-    try:
-        with open(yaml_path, 'r', encoding='utf-8') as f:
-            data = yaml.safe_load(f)
-    except Exception:
-        return []
+    # id → entry, so daily update files can overwrite full-export entries
+    seen: Dict[str, Dict] = {}
 
-    if not data or 'rules' not in data:
-        return []
-
-    database = []
-    for rule in data['rules']:
-        ecosystem_raw = rule.get('ecosystem', '')
-        ecosystem = _ECOSYSTEM_MAP.get(ecosystem_raw)
-        if not ecosystem:
-            continue  # Skip 'system' and unknown ecosystems
-
-        packages_raw = rule.get('packages', [])
-        vrange = rule.get('vulnerable_range', {})
-        min_str = str(vrange.get('min', '0.0.0'))
-        max_str = str(vrange.get('max', '0.0.0'))
-
-        # Parse version strings to tuples
-        min_v = _str_to_version_tuple(min_str)
-        max_v = _str_to_version_tuple(max_str)
-        if not min_v or not max_v:
+    for yaml_path in yaml_files:
+        try:
+            with open(yaml_path, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f)
+        except Exception:
             continue
 
-        # For Maven: extract group_id from "group:artifact" package names
-        group_id = ''
-        packages = []
-        if ecosystem == 'maven':
-            for pkg in packages_raw:
-                if ':' in str(pkg):
-                    parts = str(pkg).split(':', 1)
-                    group_id = parts[0]
-                    packages.append(parts[1])
+        if not data or 'rules' not in data:
+            continue
+
+        schema_version = str(data.get('version', '1.0'))
+
+        for rule in data['rules']:
+            # Detect format by presence of v2.0 'affected' field
+            if 'affected' in rule:
+                entries = _parse_v2_rule(rule)
+            else:
+                entries = _parse_v1_rule(rule)
+
+            for entry in entries:
+                rule_id = entry['cve']
+                # Empty affected signals retraction — remove from active set
+                if entry.get('retracted'):
+                    seen.pop(rule_id, None)
                 else:
-                    packages.append(str(pkg))
+                    seen[rule_id] = entry
+
+    return list(seen.values())
+
+
+def _parse_v2_rule(rule: Dict) -> List[Dict]:
+    """Parse a v2.0 rule (affected[].ranges[].introduced/fixed) into scanner entries."""
+    entries = []
+
+    cve_id = rule.get('id', '')
+    name = rule.get('name', '')
+    cvss = float(rule.get('cvss', 0))
+    description = rule.get('description', '')
+    cwe = rule.get('cwe', '')
+    severity = rule.get('severity', 'HIGH')
+
+    # Pick first ADVISORY reference URL, fall back to NVD
+    url = f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+    for ref in rule.get('references', []):
+        if isinstance(ref, dict) and ref.get('type') == 'ADVISORY':
+            url = ref.get('url', url)
+            break
+
+    affected = rule.get('affected', [])
+    if not affected:
+        # Retraction signal
+        return [{'cve': cve_id, 'retracted': True}]
+
+    for affected_entry in affected:
+        ecosystem_raw = affected_entry.get('ecosystem', '')
+        ecosystem = _ECOSYSTEM_MAP.get(ecosystem_raw)
+        if not ecosystem:
+            continue
+
+        package_raw = affected_entry.get('package', '')
+        ranges = affected_entry.get('ranges', [])
+        if not ranges:
+            continue
+
+        # Normalise package name for Maven (group:artifact)
+        group_id = ''
+        if ecosystem == 'maven' and ':' in package_raw:
+            parts = package_raw.split(':', 1)
+            group_id = parts[0]
+            package = parts[1]
         else:
-            packages = [str(p) for p in packages_raw]
+            package = package_raw
 
-        entry = {
-            'cve': rule.get('cve', ''),
-            'name': rule.get('name', ''),
-            'cvss': float(rule.get('cvss', 0)),
-            'ecosystem': ecosystem,
-            'packages': packages,
-            'min_version': min_v,
-            'max_version': max_v,
-            'fixed': str(rule.get('fixed', '')),
-            'description': rule.get('description', ''),
-            'url': rule.get('url', f"https://nvd.nist.gov/vuln/detail/{rule.get('cve', '')}"),
-            'cwe': rule.get('cwe', ''),
-        }
-        if group_id:
-            entry['group_id'] = group_id
+        # One entry per range (handles multi-range vulns)
+        for vrange in ranges:
+            introduced_str = str(vrange.get('introduced', '0.0.0'))
+            fixed_str = vrange.get('fixed')  # May be absent for unpatched
 
-        database.append(entry)
+            introduced_v = _str_to_version_tuple(introduced_str)
+            fixed_v = _str_to_version_tuple(str(fixed_str)) if fixed_str else None
 
-    return database
+            if not introduced_v:
+                continue
+
+            entry = {
+                'cve': cve_id,
+                'name': name,
+                'cvss': cvss,
+                'ecosystem': ecosystem,
+                'packages': [package],
+                'introduced_version': introduced_v,
+                'fixed_version': fixed_v,  # None = unpatched
+                'fixed': str(fixed_str) if fixed_str else 'No fix available',
+                'description': description,
+                'url': url,
+                'cwe': cwe,
+                'severity': severity,
+                'format': 'v2',
+            }
+            if group_id:
+                entry['group_id'] = group_id
+
+            entries.append(entry)
+
+    return entries
+
+
+def _parse_v1_rule(rule: Dict) -> List[Dict]:
+    """Parse a v1.0 rule (vulnerable_range.min/max, inclusive) into scanner entries."""
+    ecosystem_raw = rule.get('ecosystem', '')
+    ecosystem = _ECOSYSTEM_MAP.get(ecosystem_raw)
+    if not ecosystem:
+        return []
+
+    packages_raw = rule.get('packages', [])
+    vrange = rule.get('vulnerable_range', {})
+    min_str = str(vrange.get('min', '0.0.0'))
+    max_str = str(vrange.get('max', '0.0.0'))
+
+    min_v = _str_to_version_tuple(min_str)
+    max_v = _str_to_version_tuple(max_str)
+    if not min_v or not max_v:
+        return []
+
+    group_id = ''
+    packages = []
+    if ecosystem == 'maven':
+        for pkg in packages_raw:
+            if ':' in str(pkg):
+                parts = str(pkg).split(':', 1)
+                group_id = parts[0]
+                packages.append(parts[1])
+            else:
+                packages.append(str(pkg))
+    else:
+        packages = [str(p) for p in packages_raw]
+
+    cve_id = rule.get('cve', rule.get('id', ''))
+    url = rule.get('url', f"https://nvd.nist.gov/vuln/detail/{cve_id}")
+
+    entry = {
+        'cve': cve_id,
+        'name': rule.get('name', ''),
+        'cvss': float(rule.get('cvss', 0)),
+        'ecosystem': ecosystem,
+        'packages': packages,
+        'introduced_version': min_v,
+        'fixed_version': None,       # v1.0 max is inclusive, handled in _is_in_range
+        'max_version_inclusive': max_v,  # v1.0 legacy field
+        'fixed': str(rule.get('fixed', '')),
+        'description': rule.get('description', ''),
+        'url': url,
+        'cwe': rule.get('cwe', ''),
+        'severity': rule.get('severity', 'HIGH'),
+        'format': 'v1',
+    }
+    if group_id:
+        entry['group_id'] = group_id
+
+    return [entry]
 
 
 def _str_to_version_tuple(version_str: str) -> Optional[Tuple[int, ...]]:
@@ -140,19 +246,22 @@ def _str_to_version_tuple(version_str: str) -> Optional[Tuple[int, ...]]:
 
 class CriticalCVEScanner(BaseScanner):
     """
-    Scanner for critical CVEs in dependency manifests.
+    Scanner for CVEs in dependency manifests (lockfile-based SCA).
 
-    Loads 133+ curated CVEs from cveminer_critical_cves.yaml covering:
-    - Python (pip): requirements.txt, pyproject.toml, Pipfile, setup.cfg
+    Loads CVE rules from medusa/rules/cve/*.yaml (v2.0 format).
+    Also accepts v1.0 format files during migration.
+
+    Supported ecosystems and lockfiles:
+    - Python (pip): requirements.txt, pyproject.toml, Pipfile, Pipfile.lock,
+                    poetry.lock, setup.py, setup.cfg
     - Java (Maven): pom.xml, build.gradle, build.gradle.kts
-    - Go: go.mod
+    - Go: go.mod, go.sum
     - Rust (Cargo): Cargo.toml, Cargo.lock
     - Ruby (gem): Gemfile, Gemfile.lock
     - PHP (Composer): composer.json, composer.lock
     - npm: package.json, package-lock.json, yarn.lock, pnpm-lock.yaml
 
-    Includes React2Shell (CVE-2025-55182) and Next.js (CVE-2025-66478).
-    Data source: CVEMiner curated database + NVD
+    Data source: CVEMiner v2.0 rules (rules/cve/*.yaml)
     """
 
     # Load CVE database from YAML at class level (once)
@@ -250,7 +359,7 @@ class CriticalCVEScanner(BaseScanner):
                 for cve in ecosystem_cves:
                     if self._matches_package(dep_name, cve):
                         parsed = self._parse_version(dep_version)
-                        if parsed and self._is_in_range(parsed, cve['min_version'], cve['max_version']):
+                        if parsed and self._is_vulnerable(parsed, cve):
                             cwe_id = None
                             cwe_link = None
                             if cve.get('cwe'):
@@ -259,16 +368,29 @@ class CriticalCVEScanner(BaseScanner):
                                     cwe_id = int(cwe_match.group(1))
                                     cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
 
+                            severity_str = cve.get('severity', 'CRITICAL')
+                            severity = {
+                                'CRITICAL': Severity.CRITICAL,
+                                'HIGH': Severity.HIGH,
+                                'MEDIUM': Severity.MEDIUM,
+                                'LOW': Severity.LOW,
+                            }.get(severity_str, Severity.HIGH)
+
+                            fix_note = (
+                                f"Upgrade to {cve['fixed']}+"
+                                if cve['fixed'] and cve['fixed'] != 'No fix available'
+                                else "No fix available — consider alternative package"
+                            )
+
                             issues.append(ScannerIssue(
-                                severity=Severity.CRITICAL,
+                                severity=severity,
                                 message=(
                                     f"{cve['cve']} ({cve['name']}): {dep_name}@{dep_version} is vulnerable "
                                     f"(CVSS {cve['cvss']}). {cve['description']}. "
-                                    f"Upgrade to {cve['fixed']}+. "
-                                    f"See: {cve['url']}"
+                                    f"{fix_note}. See: {cve['url']}"
                                 ),
                                 line=None,
-                                rule_id=f"critical-cve-{cve['cve'].lower()}",
+                                rule_id=f"cve-{cve['cve'].lower()}",
                                 cwe_id=cwe_id,
                                 cwe_link=cwe_link,
                             ))
@@ -693,20 +815,47 @@ class CriticalCVEScanner(BaseScanner):
         """Parse a version string into a comparable tuple of ints."""
         return _str_to_version_tuple(version_str)
 
-    def _is_in_range(
+    def _is_vulnerable(self, version: Tuple[int, ...], cve: Dict) -> bool:
+        """
+        Check if an installed version is in a vulnerable range.
+
+        v2.0: introduced (inclusive) <= version < fixed (exclusive)
+              If fixed is absent, any version >= introduced is vulnerable.
+
+        v1.0 legacy: min (inclusive) <= version <= max (inclusive)
+        """
+        if cve.get('format') == 'v1':
+            return self._in_range_inclusive(
+                version, cve['introduced_version'], cve['max_version_inclusive']
+            )
+
+        # v2.0
+        introduced = cve['introduced_version']
+        fixed = cve.get('fixed_version')  # None = unpatched
+
+        max_len = max(len(version), len(introduced), len(fixed) if fixed else 0)
+        v = version + (0,) * (max_len - len(version))
+        v_intro = introduced + (0,) * (max_len - len(introduced))
+
+        if v < v_intro:
+            return False
+        if fixed is None:
+            return True  # No fix — all versions >= introduced are vulnerable
+        v_fixed = fixed + (0,) * (max_len - len(fixed))
+        return v < v_fixed  # Exclusive upper bound
+
+    def _in_range_inclusive(
         self,
         version: Tuple[int, ...],
         min_version: Tuple[int, ...],
         max_version: Tuple[int, ...],
     ) -> bool:
-        """Check if version tuple falls within [min, max] inclusive."""
-        # Pad tuples to same length for comparison
+        """v1.0 legacy: inclusive range [min, max]."""
         max_len = max(len(version), len(min_version), len(max_version))
         v = version + (0,) * (max_len - len(version))
         v_min = min_version + (0,) * (max_len - len(min_version))
         v_max = max_version + (0,) * (max_len - len(max_version))
-
         return v_min <= v <= v_max
 
     def get_install_instructions(self) -> str:
-        return f"Critical CVE scanning is built-in ({len(self.CVE_DATABASE)} CVEs loaded, no additional tools required)"
+        return f"CVE scanning is built-in ({len(self.CVE_DATABASE)} rules loaded from rules/cve/, no additional tools required)"

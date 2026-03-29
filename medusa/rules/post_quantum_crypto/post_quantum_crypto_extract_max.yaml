@@ -1,0 +1,373 @@
+rules:
+- id: MEDUSA-PQC-SCAN-001
+  name: rsa-key-in-ai-pipeline
+  description: Detects use of RSA encryption in AI/ML pipeline code. RSA is broken by Shor's algorithm on quantum computers,
+    making any AI system using it vulnerable to harvest-now-decrypt-later attacks and future quantum decryption of intercepted
+    model weights or training data.
+  severity: critical
+  category: post_quantum_crypto
+  patterns:
+  - (?i)from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+rsa
+  - (?i)rsa\.generate_private_key\s*\(
+  - (?i)RSA\.generate\s*\(
+  - (?i)from\s+Crypto\.PublicKey\s+import\s+RSA
+  - (?i)crypto\.createSign\s*\(\s*['"]RSA
+  - (?i)new\s+RSA\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: RSA usage in AI pipeline code — quantum-vulnerable, replace with CRYSTALS-Kyber or Dilithium'
+- id: MEDUSA-PQC-SCAN-002
+  name: ecdsa-ecc-in-ai-pipeline
+  description: Detects use of Elliptic Curve Cryptography (ECDSA/ECDH/ECC) in AI/ML pipeline code. ECC is broken by Shor's
+    algorithm; all ECC-signed AI model artifacts, federated learning updates, and inference API auth tokens become quantum-vulnerable.
+  severity: critical
+  category: post_quantum_crypto
+  patterns:
+  - (?i)from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+ec\b
+  - (?i)ec\.generate_private_key\s*\(
+  - (?i)ECDSA|ECDH|secp256|secp384|secp521|prime256v1|brainpool
+  - (?i)from\s+Crypto\.PublicKey\s+import\s+ECC
+  - (?i)crypto\.createECDH\s*\(
+  - (?i)elliptic\.ec\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: ECC/ECDSA usage in AI pipeline — quantum-vulnerable to Shor''s algorithm, migrate to CRYSTALS-Dilithium
+    or SPHINCS+'
+- id: MEDUSA-PQC-SCAN-003
+  name: diffie-hellman-in-ai-pipeline
+  description: Detects Diffie-Hellman key exchange in AI infrastructure code. DH is broken by Shor's algorithm; adversaries
+    performing harvest-now-decrypt-later attacks can retroactively decrypt all session keys used to protect federated learning
+    traffic, model parameter transfers, and AI API communications.
+  severity: critical
+  category: post_quantum_crypto
+  patterns:
+  - (?i)DHE?\s*[=:\(]
+  - (?i)from\s+cryptography\.hazmat\.primitives\.asymmetric\s+import\s+dh\b
+  - (?i)dh\.generate_parameters\s*\(
+  - (?i)Crypto\.PublicKey\.DSA
+  - (?i)diffie.hellman|DiffieHellman
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: Diffie-Hellman key exchange in AI pipeline — quantum-vulnerable, replace with Kyber-based KEM'
+- id: MEDUSA-PQC-SCAN-004
+  name: short-aes-key-ai-model-storage
+  description: Detects AES-128 usage in AI model storage or data-at-rest contexts. Grover's algorithm provides quadratic speedup
+    against symmetric ciphers, effectively halving key strength. AES-128 is reduced to 64-bit security against quantum adversaries
+    — insufficient for long-term protection of AI training datasets or model weights.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)AES[_-]128
+  - (?i)algorithms\.AES\s*\(.*key.*16\s*[\),]
+  - (?i)key_size\s*=\s*128
+  - (?i)aes\.NewCipher\b.*(?=.{0,200}model|weight|checkpoint)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: AES-128 in AI pipeline — reduced to 64-bit security against Grover''s algorithm, upgrade to AES-256'
+- id: MEDUSA-PQC-SCAN-005
+  name: weak-tls-version-ai-service
+  description: Detects TLS 1.0/1.1 or TLS 1.2 without PQC extensions in AI model serving or federated learning code. RSA/ECC
+    inside TLS is quantum-vulnerable; harvest-now-decrypt-later adversaries intercept encrypted inference requests and AI
+    data transfers today for future quantum decryption.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)ssl\.PROTOCOL_TLS[Vv]?1\b
+  - (?i)ssl\.PROTOCOL_SSLv
+  - (?i)TLSv1[\._]0|TLSv1[\._]1|TLSv1[\._]2
+  - (?i)ssl_version\s*=\s*['"]TLSv1
+  - (?i)MinVersion.*tls\.VersionTLS10|MinVersion.*tls\.VersionTLS11|MinVersion.*tls\.VersionTLS12
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: Weak TLS in AI service — quantum-vulnerable RSA/ECC inside TLS, migrate to PQ-TLS with Kyber+Dilithium'
+- id: MEDUSA-PQC-SCAN-006
+  name: sha1-md5-in-ai-model-signing
+  description: Detects SHA-1 or MD5 used for AI model integrity verification or signing. These hash functions are classically
+    broken and Grover's algorithm further accelerates preimage attacks, making them unsuitable for verifying AI model authenticity
+    or training data integrity.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)hashlib\.md5\s*\(
+  - (?i)hashlib\.sha1\s*\(
+  - (?i)MD5|SHA-?1(?![-_]?[2-9]|[_-]?256|[_-]?384|[_-]?512)
+  - (?i)crypto\.createHash\s*\(\s*['"](?:md5|sha1)['"]
+  - (?i)sha1\.New\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: MD5/SHA-1 in AI model integrity check — cryptographically broken, use SHA-3 or SPHINCS+ for quantum-safe
+    signatures'
+- id: MEDUSA-PQC-SCAN-007
+  name: qnnaas-excessive-query-pattern
+  description: Detects code patterns characteristic of quantum neural network model extraction attacks (QuantumLeak/CopyQNN/SplitCoTeaching
+    style). Adversaries query QNN-as-a-Service endpoints in multiple rounds over 24 hours to harvest labeled data for training
+    substitute models, stealing IP from quantum AI services.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)qnn.*query|query.*qnn
+  - (?i)QNNaaS|QNNasService|quantum.*as.*service
+  - (?i)substitute.*qnn|local.*qnn.*extract
+  - (?i)QuantumLeak|CopyQNN|split.co.teach
+  - (?i)query_rounds?\s*[=>]+\s*[3-9]|num_rounds?\s*[=>]+\s*[3-9]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: QNN model extraction attack pattern — suspicious multi-round QNNaaS query behavior indicative of QuantumLeak/CopyQNN
+    IP theft'
+- id: MEDUSA-PQC-SCAN-008
+  name: non-pqc-federated-learning-aggregation
+  description: Detects federated learning aggregation code lacking PQC-protected transport. Federated AI model updates transmitted
+    without quantum-safe encryption are vulnerable to harvest-now-decrypt-later attacks; intercepted gradient updates can
+    leak training data and model structure to future quantum-equipped adversaries.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)federat.*aggregat|FedAvg|federated_average
+  - (?i)aggregate_gradients|aggregate_weights|aggregate_model
+  - (?i)grpc.*federat|federat.*grpc
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: Federated learning aggregation without verified PQC transport — vulnerable to harvest-now-decrypt-later
+    quantum attacks on model updates'
+- id: MEDUSA-PQC-SCAN-009
+  name: variational-quantum-circuit-service-exposure
+  description: Detects Variational Quantum Circuit (VQC) implementations exposed as services without extraction attack protections.
+    VQC-based QNNs deployed via Pennylane or Qiskit as a service are targets for split co-teaching and CopyQNN extraction
+    attacks that steal quantum model IP.
+  severity: medium
+  category: post_quantum_crypto
+  patterns:
+  - (?i)import\s+pennylane|from\s+pennylane
+  - (?i)import\s+qiskit|from\s+qiskit
+  - (?i)qml\.qnode|@qml\.qnode
+  - (?i)QuantumCircuit.*measure|circuit\.measure
+  - (?i)VQC|variational_quantum_circuit|VariationalQuantumCircuit
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: VQC/QNN service code — verify extraction attack mitigations (query rate limits, output noise, watermarking)
+    are in place'
+- id: MEDUSA-PQC-SCAN-010
+  name: deprecated-pki-ai-model-signing
+  description: Detects RSA or DSA used to sign AI model artifacts, Docker images, or ML pipeline configurations. Model signing
+    with quantum-vulnerable algorithms allows adversaries with quantum computers to forge model signatures, enabling supply
+    chain attacks where malicious models bypass integrity checks.
+  severity: critical
+  category: post_quantum_crypto
+  patterns:
+  - (?i)padding\.PKCS1v15\s*\(\s*\)
+  - (?i)rsa.*sign|sign.*rsa
+  - (?i)dsa\.generate|DSA\.generate
+  - (?i)sign\s*\(.*private_key.*\).*(?=.{0,300}model|checkpoint|artifact|pipeline)
+  - (?i)cosign|notary.*rsa|notary.*ecdsa
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: Quantum-vulnerable signature for AI model artifact — use CRYSTALS-Dilithium or SPHINCS+ for post-quantum
+    model signing'
+- id: MEDUSA-PQC-SCAN-011
+  name: ai-model-inference-unencrypted-http
+  description: Detects AI inference API endpoints served over plain HTTP. Inference requests and responses transmitted without
+    encryption are trivially interceptable today (harvest-now-decrypt-later not even required), and model outputs can be used
+    to mount oracle-based extraction attacks including QNN extraction.
+  severity: high
+  category: post_quantum_crypto
+  patterns:
+  - (?i)http://.*(?:predict|inference|infer|classify|score|query)
+  - (?i)serve.*host\s*=\s*['"]0\.0\.0\.0['"].*ssl.*(?:False|None|false|none)
+  - (?i)app\.run\s*\(.*debug.*True.*ssl_context.*None
+  - (?i)uvicorn.*--no-ssl|flask.*run.*ssl.*None
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: AI inference served over unencrypted HTTP — exposed to interception and model extraction oracle attacks'
+- id: MEDUSA-PQC-SCAN-012
+  name: hardcoded-crypto-keys-ai-config
+  description: Detects hardcoded cryptographic keys or secrets in AI pipeline configuration files. Hardcoded keys in code
+    harvested today remain decryptable when quantum computers mature, enabling retroactive decryption of all AI data and model
+    communications secured with those keys.
+  severity: critical
+  category: post_quantum_crypto
+  patterns:
+  - (?i)private_key\s*=\s*['"][A-Za-z0-9+/]{40,}['"]
+  - (?i)-----BEGIN\s+(?:RSA|EC|DSA|PRIVATE)\s+PRIVATE\s+KEY-----
+  - (?i)secret_key\s*=\s*['"][A-Za-z0-9+/=]{32,}['"]
+  - (?i)API_KEY\s*=\s*['"][A-Za-z0-9_\-]{20,}['"]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: Hardcoded cryptographic key in AI pipeline — harvest-now-decrypt-later risk, use secrets management
+    with PQC-ready key rotation'
+- id: MEDUSA-PQC-SCAN-013
+  name: qnn-split-coteaching-extraction-framework
+  severity: critical
+  description: Detects code implementing split co-teaching QNN extraction attack frameworks. The split co-teaching method
+    (Fu & Chen, 2025) partitions queried data by noise sensitivity (robust/vulnerable subsets) and trains two substitute QNNs
+    simultaneously — achieving 6.5-9.5% accuracy improvement over classical extraction attacks against QNNaaS targets. This
+    pattern indicates active IP theft of deployed quantum neural networks.
+  patterns:
+  - (?i)(split[_\s]co[_\s]teach|SCOT\s*\(|noise[_\s]robust.*noise[_\s]vuln|Vth\s*=|forget[_\s]rate.*[f][12]\s*=|var\(di\)|variance.*threshold.*split)
+  - (?i)(co[_\s]teach.*qnn|qnn.*co[_\s]teach|substitute[_\s]qnn.*co[_\s]teach|peer[_\s]qnn.*backprop)
+  message: Split co-teaching QNN extraction attack pattern detected. This framework steals QNN intellectual property from
+    cloud services by exploiting noise sensitivity to train a local substitute model.
+  fix: Rate-limit QNNaaS inference endpoints, implement query anomaly detection for temporally distributed queries (evenly
+    spaced over 24-hour windows), and monitor for multi-round label collection patterns.
+  category: post_quantum_crypto
+  file_types: &id001
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.rs'
+  - '*.go'
+- id: MEDUSA-PQC-SCAN-014
+  name: copyqnn-contrastive-transfer-extraction
+  severity: critical
+  description: Detects code implementing the CopyQNN attack framework (Fu et al., 2025), which combines quantum contrastive
+    learning (Barlow Twins objective) and quantum transfer learning to steal QNNaaS models using as few as 40 queries — a
+    90x reduction vs prior attacks. The QEncoder pre-trained on a source domain is transferred to extract a substitute QNN
+    from a victim cloud model.
+  patterns:
+  - (?i)(CopyQNN|copy[_\s]qnn|QEnc.*QClassifier|quantum[_\s]encoder.*classifier|barlow[_\s]twins.*quantum|LBT.*quantum|remember[_\s]ratio|RR\s*=\s*0\.[0-9])
+  - (?i)(quantum[_\s]contrastive.*transfer|contrastive.*qnn.*extraction|QEnc.*freeze|fixed.*QEnc.*train.*QClassifier)
+  message: CopyQNN quantum contrastive+transfer learning extraction attack detected. This framework can steal a QNN model
+    with only ~40 queries by leveraging pre-trained quantum encoders.
+  fix: Deploy per-client query budgets on QNNaaS, monitor for temporally distributed low-volume query campaigns, and consider
+    output perturbation or watermarking of QNN probability vectors.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-015
+  name: qnn-noise-variance-characterization-attack
+  severity: high
+  description: Detects code that queries a QNNaaS endpoint multiple times at different times and computes label variance to
+    characterize quantum noise and filter clean training data. This noise characterization step is common to all practical
+    QNN extraction attacks (QuantumLeak, CopyQNN, split co-teaching) and is a prerequisite for stealing the model.
+  patterns:
+  - (?i)(variance.*query.*rounds|query.*rounds.*variance|var.*label.*qnn|label[_\s]variance.*filter|remember[_\s]ratio|noise[_\s]chara|mislabeled.*variance|low.*variance.*filter)
+  - (?i)(multi[_\s]round.*query.*QNN|query.*spaced.*24.*hour|24.*h.*interval.*query|evenly.*spaced.*query.*nisq)
+  message: QNN noise characterization and data cleaning for extraction attack detected. Multi-round temporally spaced queries
+    with variance filtering indicate a systematic QNN IP theft campaign.
+  fix: Flag and throttle clients making multiple queries to the same input across different time windows. Inject controlled
+    noise perturbations into QNNaaS outputs to degrade extraction accuracy.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-016
+  name: qtrojan-backdoor-circuit-injection
+  severity: critical
+  description: Detects references or code related to QTrojan — a circuit backdoor attack against quantum neural networks (Chu
+    et al., ICASSP 2023). Backdoor triggers are embedded in VQC circuit parameters, causing misclassification on triggered
+    inputs while preserving clean accuracy. This is a supply-chain attack vector against QNN model repositories.
+  patterns:
+  - (?i)(qtrojan|q[_\s]trojan|circuit[_\s]backdoor.*qnn|backdoor.*vqc|backdoor.*variational[_\s]quantum|trojan.*quantum[_\s]circuit)
+  - (?i)(trigger.*vqc|vqc.*trigger.*pattern|quantum.*backdoor.*trigger|backdoor.*quantum.*gate)
+  message: QTrojan circuit backdoor attack pattern detected in quantum neural network code. This attack embeds hidden triggers
+    in VQC parameters that cause targeted misclassification.
+  fix: Audit QNN model parameters for anomalous gate configurations. Verify circuit integrity against known-clean reference
+    circuits. Do not deploy QNN models from untrusted sources without parameter inspection.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-017
+  name: non-pqc-ai-model-transit-protection
+  severity: high
+  description: Detects AI/ML model parameter transmission code that uses classical (quantum-vulnerable) cryptography for the
+    transport layer instead of post-quantum alternatives. Federated learning model updates, inference payloads, and training
+    data sent over classical TLS with RSA/ECC key exchange are vulnerable to harvest-now-decrypt-later attacks targeting AI
+    model weights.
+  patterns:
+  - (?i)(requests\.post|urllib.*post|grpc.*insecure|ssl_context.*TLSv1|ssl_context.*SSLv|socket\.connect).*(?:model|weights|gradient|param|checkpoint)
+  - (?i)(ssl\.PROTOCOL_TLS(?!_CLIENT|_SERVER)|ssl\.PROTOCOL_SSLv|TLSv1_[12](?!_[23])).*(?:model|ml|ai|federat)
+  message: AI model data transmitted over classical (non-PQC) TLS — vulnerable to store-now-decrypt-later quantum attacks
+    against model weights and training data.
+  fix: Migrate AI model transport to hybrid post-quantum TLS using CRYSTALS-Kyber for KEM and CRYSTALS-Dilithium for authentication.
+    Ensure federated learning aggregation channels use lattice-based key exchange.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-018
+  name: federated-learning-non-pqc-aggregation-channel
+  severity: high
+  description: Detects federated learning aggregation implementations that use ECC-based or RSA-based key exchange without
+    PQC alternatives. As shown in the Quantum-Safe Networking paper (Aramide, 2025), ECC-based FL key exchange is highly vulnerable
+    to quantum attacks, allowing adversaries to intercept and decrypt model updates during aggregation.
+  patterns:
+  - (?i)(FederatedAveraging|fedavg|aggregate.*gradient|FedProx|pysyft|flower.*client|flwr\.client)(?:(?!kyber|dilithium|crystals|sphincs|falcon|ntru|frodo).){0,200}
+  - (?i)(fl[_\s]server|fl[_\s]client|federated[_\s]round|global[_\s]model.*update).*(?:ssl|tls|encrypt).*(?:rsa|ecc|ecdh|p256|p384|secp)
+  message: Federated learning using classical ECC/RSA-based channel security detected. Model updates are vulnerable to quantum-enabled
+    interception and poisoning attacks.
+  fix: Replace ECC-based key exchange in FL aggregation with CRYSTALS-Kyber (lattice-based KEM). Use CRYSTALS-Dilithium for
+    FL model update authentication and SPHINCS+ for certificate signing.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-019
+  name: ai-model-storage-no-pqc-signature
+  severity: high
+  description: Detects AI model serialization/storage code (pickle, safetensors, ONNX export) that does not include any post-quantum
+    signature or integrity verification. Without PQC-based signing (e.g., SPHINCS+, Dilithium), stored models are vulnerable
+    to undetected tampering that quantum-capable adversaries could exploit after forging classical signatures.
+  patterns:
+  - (?i)(pickle\.dump|torch\.save|model\.save_weights|tf\.saved_model\.save|onnx\.export|safetensors\.save)(?!.*(?:sphincs|dilithium|falcon|crystals|xmss|lms|pqc|post[_\s]quantum))
+  - (?i)(joblib\.dump|cloudpickle\.dump|np\.save.*model|keras.*save)(?!.*(?:sign|verify|sphincs|dilithium|falcon|hash[_\s]based))
+  message: AI model stored without post-quantum signature verification. Models signed only with RSA/ECDSA are vulnerable to
+    forgery once quantum computers become available.
+  fix: Sign stored AI models using SPHINCS+ (stateless, quantum-safe) or CRYSTALS-Dilithium. Verify signatures before loading
+    models into inference pipelines. Implement model integrity checks using SHA-3 hashing.
+  category: post_quantum_crypto
+  file_types: *id001
+- id: MEDUSA-PQC-SCAN-020
+  name: iot-ai-model-non-pqc-crypto
+  severity: high
+  description: Detects AI inference code on IoT/embedded/wearable device configurations that uses classical crypto primitives
+    (RSA, ECC, AES-128) for securing AI model data. Per benchmarks (Lopez et al., 2025; Ikram, 2025), CRYSTALS-Kyber outperforms
+    BIKE and HQC on resource-constrained devices and is feasible on Raspberry Pi-class hardware — making continued use of
+    classical crypto unjustifiable for AI IoT deployments.
+  patterns:
+  - (?i)(tflite|tensorflow[_\s]lite|edge[_\s]tpu|coral|jetson|raspberry.*model|arduino.*model|microcontroller.*infer).*(?:rsa|ecdh|ecc|p256|secp256)
+  - (?i)(embedded[_\s]model|iot[_\s]inference|wearable.*ai|medical.*wearable.*encrypt).*(?:rsa|ecc|ecdh|aes[_\-]128(?!.*256))
+  message: IoT/embedded AI model using classical quantum-vulnerable cryptography. For resource-constrained AI devices, CRYSTALS-Kyber512
+    provides better performance and quantum resistance than RSA/ECC.
+  fix: Replace RSA/ECC with CRYSTALS-Kyber512 for key encapsulation on IoT AI nodes. Use XMSS or LMS hash-based signatures
+    for model integrity on low-power devices. Use AES-256-GCM (not AES-128) for symmetric encryption.
+  category: post_quantum_crypto
+  file_types: *id001

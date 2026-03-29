@@ -1,0 +1,2560 @@
+rules:
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects configuration of auxiliary-loss-free load balancing in MoE models which can be exploited to manipulate
+    expert routing by injecting bias terms into gating functions without triggering loss-based safeguards
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: MOE-001
+  message: 'Detected: moe-auxiliary-loss-free-balancing-manipulation'
+  name: moe-auxiliary-loss-free-balancing-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)auxiliary.{0,30}loss.{0,30}free.{0,30}balance
+  - (?i)bias.{0,20}(term|update).{0,30}(gating|routing)
+  - (?i)load_balance.{0,20}(factor|loss).{0,10}=.{0,10}0
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: DeepSeek-AI (2024) - Auxiliary-loss-free balancing enables gating bias manipulation without detection
+- category: moe_vulnerabilities
+  cwe: CWE-665
+  description: Detects Multi-Token Prediction (MTP) module configurations in MoE models where shared expert routing can be
+    overridden to force predictions through attacker-controlled expert paths
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-002
+  message: 'Detected: moe-multi-token-prediction-expert-override'
+  name: moe-multi-token-prediction-expert-override
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)multi.{0,10}token.{0,10}prediction.{0,30}(module|head)
+  - (?i)mtp.{0,20}(module|loss|depth)
+  - (?i)shared.{0,10}expert.{0,20}(override|bypass|disable)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: DeepSeek-AI (2024) - MTP modules with shared experts create new manipulation surfaces
+- category: moe_vulnerabilities
+  cwe: CWE-120
+  description: Detects expert segmentation and dispatch logic in MoE pipelines where token-to-expert assignment buffers can
+    overflow when adversarial inputs trigger routing to a single expert
+  file_types:
+  - '*.py'
+  id: MOE-003
+  message: 'Detected: moe-expert-segmentation-overflow'
+  name: moe-expert-segmentation-overflow
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(segment|dispatch|capacity).{0,30}(buffer|limit|overflow)
+  - (?i)all2all.{0,20}dispatch
+  - (?i)token.{0,20}(drop|overflow).{0,30}expert
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: DeepSeek-AI (2024) - DualPipe expert segmentation vulnerable to capacity overflow attacks
+- category: moe_vulnerabilities
+  cwe: CWE-681
+  description: Detects FP8 mixed-precision configurations in MoE models where quantization-induced rounding errors in routing
+    logits cause systematic expert selection drift exploitable for adversarial steering
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-004
+  message: 'Detected: moe-fp8-quantization-routing-drift'
+  name: moe-fp8-quantization-routing-drift
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)fp8.{0,30}(quant|mixed).{0,30}(router|gate|moe)
+  - (?i)(e4m3|e5m2).{0,30}(routing|expert|gate)
+  - (?i)quantize.{0,20}(gate|router).{0,20}(weight|logit)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: DeepSeek-AI (2024) - FP8 quantization causes routing precision loss exploitable for expert drift
+- category: moe_vulnerabilities
+  cwe: CWE-770
+  description: Detects configuration of complementary expert capacity limits where setting routing complement factors to extreme
+    values bypasses intended load constraints
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: MOE-005
+  message: 'Detected: moe-complement-expert-limit-bypass'
+  name: moe-complement-expert-limit-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)n_routed_experts.{0,10}=.{0,10}\d+
+  - (?i)routed_scaling_factor.{0,10}=
+  - (?i)topk_group.{0,10}=.{0,10}\d+.{0,30}(expert|route)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: DeepSeek-AI (2024) - Expert group routing parameters can be misconfigured to bypass load limits
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects node-limited expert routing where limiting experts per node creates predictable routing patterns exploitable
+    for targeted expert poisoning
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-006
+  message: 'Detected: moe-node-limited-routing-policy-attack'
+  name: moe-node-limited-routing-policy-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)n_group.{0,10}=.{0,10}\d+.{0,30}expert
+  - (?i)expert.{0,20}per.{0,20}node.{0,10}=
+  - (?i)device.{0,20}limit.{0,30}(expert|route)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: DeepSeek-AI (2024) - Device-limited expert assignment creates predictable and exploitable routing
+- category: moe_vulnerabilities
+  cwe: CWE-400
+  description: Detects expert caching strategies in MoE inference where LRU or predictive cache eviction can be manipulated
+    to force cache misses on critical experts
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-007
+  message: 'Detected: moe-expert-cache-eviction-poisoning'
+  name: moe-expert-cache-eviction-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(cache|lru|evict).{0,30}(policy|strateg|config)
+  - (?i)(offload|swap).{0,20}expert.{0,30}(gpu|cpu|disk)
+  - (?i)expert.{0,20}(prefetch|preload).{0,20}(predict|specul)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: He (2024) - ExpertFlow expert caching vulnerable to adversarial cache thrashing attacks
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects tree-based speculative expert activation patterns where routing prediction trees can be exploited to
+    trigger incorrect expert preloading
+  file_types:
+  - '*.py'
+  id: MOE-008
+  message: 'Detected: moe-token-routing-tree-prediction-exploit'
+  name: moe-token-routing-tree-prediction-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(expert|routing).{0,20}(tree|trie|predict).{0,30}(activ|specul|prefetch)
+  - (?i)TreePredict.{0,30}expert
+  - (?i)speculative.{0,20}expert.{0,20}(load|activ)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: He (2024) - Speculative expert activation trees predictable and exploitable via crafted token sequences
+- category: moe_vulnerabilities
+  cwe: CWE-208
+  description: Detects expert offloading configurations between GPU and CPU memory where timing differences reveal which experts
+    are activated, leaking routing information
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-009
+  message: 'Detected: moe-gpu-cpu-offload-timing-attack'
+  name: moe-gpu-cpu-offload-timing-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(offload|transfer).{0,30}(gpu|cpu|device)
+  - (?i)(gpu|cpu).{0,20}(swap|offload).{0,30}expert.{0,30}(weight|param)
+  - (?i)expert_cache.{0,20}(size|limit|max)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: He (2024) - GPU-CPU expert offloading creates timing side channels revealing routing decisions
+- category: moe_vulnerabilities
+  cwe: CWE-770
+  description: Detects dynamic token-to-expert allocation that allows unlimited token routing to a single expert without proper
+    capacity limits or rate controls
+  file_types:
+  - '*.py'
+  id: MOE-010
+  message: 'Detected: moe-dynamic-token-allocation-abuse'
+  name: moe-dynamic-token-allocation-abuse
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)dynamic.{0,20}(token|slot).{0,20}(alloc|assign).{0,30}expert
+  - (?i)(adaptive|elastic).{0,20}expert.{0,20}capacity
+  - (?i)token_limit.{0,10}=.{0,10}(None|0|-1|inf)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: He (2024) - Unconstrained dynamic token allocation enables expert flooding attacks
+- category: moe_vulnerabilities
+  cwe: CWE-287
+  description: Detects expert activation threshold configurations that can be bypassed to force activation of dormant or poisoned
+    experts by manipulating gating thresholds
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-011
+  message: 'Detected: moe-expert-activation-threshold-bypass'
+  name: moe-expert-activation-threshold-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(activ|trigger).{0,20}threshold.{0,10}=
+  - (?i)gate.{0,20}(threshold|cutoff).{0,10}=.{0,10}(0\.0|0|1e-)
+  - (?i)(min|max).{0,10}expert.{0,20}(activ|select)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: He (2024) - Expert activation thresholds can be set to zero enabling dormant expert exploitation
+- category: moe_vulnerabilities
+  cwe: CWE-284
+  description: Detects expert pruning configurations that remove safety-critical experts from MoE models, potentially bypassing
+    alignment and content filtering capabilities
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: MOE-012
+  message: 'Detected: moe-expert-pruning-safety-bypass'
+  name: moe-expert-pruning-safety-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(prune|remove|drop|skip).{0,30}expert.{0,30}(layer|index|id)
+  - (?i)expert.{0,20}(pruning|skip).{0,20}(ratio|threshold|config)
+  - (?i)prune_expert.{0,20}=
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Lu (2024) - Expert pruning can remove safety-aligned experts enabling alignment bypass
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects dynamic expert skipping mechanisms where per-input skip decisions can be manipulated via crafted inputs
+    to bypass security-relevant expert computations
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-013
+  message: 'Detected: moe-dynamic-expert-skipping-manipulation'
+  name: moe-dynamic-expert-skipping-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(dynamic|adaptive|input).{0,20}expert.{0,20}(skip|bypass|gate)
+  - (?i)skip.{0,20}(threshold|ratio).{0,20}expert
+  - (?i)expert.{0,20}drop.{0,20}(rate|prob).{0,10}=
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Lu (2024) - Dynamic expert skipping enables input-dependent safety expert bypass
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects router weight analysis patterns that reveal which experts are most sensitive to weight perturbations,
+    enabling targeted expert degradation attacks
+  file_types:
+  - '*.py'
+  id: MOE-014
+  message: 'Detected: moe-router-weight-sensitivity-exploit'
+  name: moe-router-weight-sensitivity-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(router|gate).{0,20}(weight|sensitivity).{0,20}(analysis|matrix|rank)
+  - (?i)expert.{0,20}importance.{0,20}(score|rank|metric)
+  - (?i)expert.{0,20}redundancy.{0,20}(detect|analys|score)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Lu (2024) - Router weight sensitivity analysis reveals attack surfaces for expert degradation
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects configurations where task-specific expert pruning ratios can cause expert collapse, routing all tokens
+    through a minimal set of potentially compromised experts
+  file_types:
+  - '*.py'
+  id: MOE-015
+  message: 'Detected: moe-task-specific-expert-collapse'
+  name: moe-task-specific-expert-collapse
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(collapse|dead|unused).{0,20}(detect|warn|monitor)
+  - (?i)task.{0,20}expert.{0,20}(ratio|mapping|assign)
+  - (?i)(layer|block).{0,20}expert.{0,20}(skip|prune).{0,20}(all|most)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Lu (2024) - Aggressive layer-wise pruning causes expert collapse enabling single-point compromise
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects identification of heavy-hitter experts in MoE layers which reveals which experts handle most traffic,
+    making them high-value targets for poisoning
+  file_types:
+  - '*.py'
+  id: MOE-016
+  message: 'Detected: moe-heavy-hitter-expert-identification'
+  name: moe-heavy-hitter-expert-identification
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)heavy.{0,10}hitter.{0,20}expert
+  - (?i)expert.{0,20}(usage|activation).{0,20}(frequency|count|stat)
+  - (?i)most.{0,20}(used|activated|popular).{0,20}expert
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Lu (2024) - Heavy-hitter expert identification reveals high-value poisoning targets
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects zero-computation expert configurations (copy or zero experts) in MoE architectures that bypass normal
+    computation paths and can be exploited to inject unprocessed or zeroed outputs
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-017
+  message: 'Detected: moe-zero-computation-expert-injection'
+  name: moe-zero-computation-expert-injection
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)zero.{0,15}(computation|comp).{0,15}expert
+  - (?i)(copy|identity|passthrough).{0,15}expert
+  - (?i)expert.{0,15}type.{0,10}=.{0,10}(zero|copy|identity|null)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Jin (2024) - Zero-computation experts bypass normal processing enabling output manipulation
+- category: moe_vulnerabilities
+  cwe: CWE-284
+  description: Detects flexible routing mechanisms that allow per-token expert type selection between computation and zero-computation
+    experts, enabling adversarial routing to bypass all expert processing
+  file_types:
+  - '*.py'
+  id: MOE-018
+  message: 'Detected: moe-flexible-expert-type-override'
+  name: moe-flexible-expert-type-override
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)flex.{0,15}(expert|routing|gate).{0,20}(type|select)
+  - (?i)expert.{0,10}(type|class).{0,20}(select|switch|route).{0,20}token
+  - (?i)(router|gate).{0,20}expert.{0,20}type.{0,20}(mix|hybrid|flex)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Jin (2024) - Flexible expert type routing enables adversarial bypass of computation
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects shared expert configurations in MoE models where a single shared expert processes all tokens, creating
+    a single point of failure and high-value poisoning target
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-019
+  message: 'Detected: moe-shared-expert-single-point-failure'
+  name: moe-shared-expert-single-point-failure
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)shared.{0,15}expert.{0,15}(num|count|config).{0,10}=.{0,10}1
+  - (?i)n_shared_expert.{0,10}=
+  - (?i)shared_expert.{0,20}(forward|weight|param)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Jin (2024) - Shared experts as single point of failure enable complete model compromise
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects Gumbel-Softmax temperature parameters in MoE routing that when set to extreme values make routing deterministic
+    or random, enabling predictable expert targeting
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-020
+  message: 'Detected: moe-gumbel-softmax-temperature-exploit'
+  name: moe-gumbel-softmax-temperature-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)gumbel.{0,20}(softmax|temp|tau).{0,20}(route|gate|expert)
+  - (?i)(temperature|tau).{0,10}=.{0,10}(0\.0|0|1e-|100|inf)
+  - (?i)router.{0,20}temperature.{0,10}=
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Jin (2024) - Gumbel-Softmax temperature manipulation makes routing deterministic or random
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects noise injection parameters in top-k routing mechanisms that can be exploited to add adversarial noise
+    to gating decisions, altering expert selection
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-021
+  message: 'Detected: moe-topk-router-noise-injection'
+  name: moe-topk-router-noise-injection
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(router|gate).{0,20}noise.{0,15}(factor|scale|std)
+  - (?i)(noisy|jitter).{0,20}(gate|router|topk)
+  - (?i)gate.{0,20}noise.{0,10}=
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Jin (2024) - Router noise parameters enable adversarial gating perturbation
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects expert similarity analysis used for pruning decisions where adversarial training can make safety experts
+    appear redundant and get pruned
+  file_types:
+  - '*.py'
+  id: MOE-022
+  message: 'Detected: moe-expert-similarity-based-pruning-attack'
+  name: moe-expert-similarity-based-pruning-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(similarity|distance|redundancy).{0,20}(matrix|score|metric)
+  - (?i)(cosine|euclidean).{0,20}(similarity|distance).{0,20}expert
+  - (?i)expert.{0,20}(cluster|merge|group).{0,20}(similar|redundant)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhang (2024) - Expert similarity metrics can be gamed to prune safety-critical experts
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects knowledge diversity loss configurations that when disabled allow experts to converge to identical representations,
+    creating effective single-expert vulnerability
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-023
+  message: 'Detected: moe-knowledge-diversity-loss-config'
+  name: moe-knowledge-diversity-loss-config
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(diversity|orthogonal).{0,20}(loss|regulariz).{0,30}expert
+  - (?i)expert.{0,20}(diversity|divers).{0,20}(loss|coeff|weight).{0,10}=
+  - (?i)knowledge.{0,20}diversity.{0,20}(metric|score|loss)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zhang (2024) - Disabling diversity loss causes expert convergence reducing model robustness
+- category: moe_vulnerabilities
+  cwe: CWE-284
+  description: Detects task-agnostic expert pruning that removes experts without evaluating safety-critical task performance,
+    potentially degrading safety capabilities
+  file_types:
+  - '*.py'
+  id: MOE-024
+  message: 'Detected: moe-task-agnostic-pruning-unsafe-config'
+  name: moe-task-agnostic-pruning-unsafe-config
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)task.{0,10}agnostic.{0,20}(prune|drop|remove).{0,20}expert
+  - (?i)prune.{0,20}expert.{0,20}(without|no).{0,20}(eval|test|valid)
+  - (?i)expert.{0,20}prune.{0,20}(blind|agnostic|universal)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhang (2024) - Task-agnostic pruning removes experts without safety evaluation
+- category: moe_vulnerabilities
+  cwe: CWE-653
+  description: Detects pipeline parallelism configurations in MoE where expert placement across pipeline stages creates isolation
+    boundaries that can be bypassed through inter-stage communication manipulation
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-025
+  message: 'Detected: moe-pipeline-stage-expert-isolation-bypass'
+  name: moe-pipeline-stage-expert-isolation-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)pipeline.{0,20}(stage|parallel).{0,30}expert.{0,20}(place|assign|map)
+  - (?i)expert.{0,20}(parallel|pipeline).{0,20}(group|stage|config)
+  - (?i)moe.{0,20}pipeline.{0,20}(stage|micro.{0,5}batch)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Chen (2023) - Pipeline stage expert isolation can be bypassed through inter-stage communication
+- category: moe_vulnerabilities
+  cwe: CWE-319
+  description: Detects All-to-All collective communication patterns in MoE dispatch where token routing data between nodes
+    can be intercepted or tampered with
+  file_types:
+  - '*.py'
+  id: MOE-026
+  message: 'Detected: moe-all-to-all-communication-intercept'
+  name: moe-all-to-all-communication-intercept
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)all.{0,5}to.{0,5}all.{0,20}(dispatch|combine|expert)
+  - (?i)(nccl|mpi).{0,20}all.{0,5}to.{0,5}all.{0,20}(token|expert)
+  - (?i)expert.{0,20}(dispatch|collect).{0,20}(comm|all2all)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Chen (2023) - All-to-All expert dispatch communication vulnerable to token interception
+- category: moe_vulnerabilities
+  cwe: CWE-362
+  description: Detects micro-batch scheduling configurations in pipeline MoE that can be exploited to create race conditions
+    in expert parameter updates across pipeline stages
+  file_types:
+  - '*.py'
+  id: MOE-027
+  message: 'Detected: moe-micro-batch-expert-scheduling-attack'
+  name: moe-micro-batch-expert-scheduling-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)micro.{0,5}batch.{0,20}(schedule|interleave).{0,30}expert
+  - (?i)pipeline.{0,20}micro.{0,5}batch.{0,20}(expert|moe)
+  - (?i)(async|overlap).{0,20}(expert|moe).{0,20}(update|grad)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Chen (2023) - Pipeline micro-batch scheduling creates race conditions in expert updates
+- category: moe_vulnerabilities
+  cwe: CWE-284
+  description: Detects expert parallelism group configurations where modifying parallel group assignments can redirect expert
+    traffic to attacker-controlled nodes
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-028
+  message: 'Detected: moe-expert-parallel-group-config-tamper'
+  name: moe-expert-parallel-group-config-tamper
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}parallel.{0,20}(group|world|rank)
+  - (?i)ep.{0,5}(group|size|rank).{0,10}=
+  - (?i)expert.{0,20}(world|group).{0,20}size.{0,10}=
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Chen (2023) - Expert parallel group reassignment enables traffic redirection to compromised nodes
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects extraction of task-conditioned routing signatures from MoE models which can be used to fingerprint
+    model capabilities and identify exploitable routing patterns
+  file_types:
+  - '*.py'
+  id: MOE-029
+  message: 'Detected: moe-routing-signature-fingerprinting'
+  name: moe-routing-signature-fingerprinting
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)routing.{0,20}signature.{0,20}(extract|analys|comput|fingerprint)
+  - (?i)task.{0,20}(condition|specific).{0,20}routing.{0,20}(pattern|signature)
+  - (?i)expert.{0,20}activation.{0,20}(pattern|signature|profile)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Avinash (2026) - Routing signatures reveal task-specific expert usage enabling targeted attacks
+- category: moe_vulnerabilities
+  cwe: CWE-294
+  description: Detects routing pattern recording and replay mechanisms that can be exploited to force previously observed
+    routing paths for adversarial purposes
+  file_types:
+  - '*.py'
+  id: MOE-030
+  message: 'Detected: moe-routing-pattern-replay-attack'
+  name: moe-routing-pattern-replay-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(record|log|save|store).{0,30}routing.{0,20}(pattern|decision|path)
+  - (?i)(replay|reuse|restore).{0,30}routing.{0,20}(pattern|decision|path)
+  - (?i)routing.{0,20}(history|cache|buffer).{0,20}(store|save|log)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Avinash (2026) - Routing pattern replay enables forced expert path traversal
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects analysis of expert specialization patterns that reveals which experts handle which types of content,
+    enabling targeted manipulation of specific capabilities
+  file_types:
+  - '*.py'
+  id: MOE-031
+  message: 'Detected: moe-expert-specialization-inference-leak'
+  name: moe-expert-specialization-inference-leak
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}specializ.{0,30}(analys|visualiz|inspect|infer)
+  - (?i)(which|what).{0,20}expert.{0,20}(handle|process|specializ)
+  - (?i)expert.{0,20}(domain|task|role).{0,20}(mapping|assignment|analysis)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Avinash (2026) - Expert specialization analysis enables targeted capability degradation
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects MoE expert signature analysis tools that reveal distillation relationships, which can be exploited
+    to identify and replicate safety-critical expert behaviors
+  file_types:
+  - '*.py'
+  id: MOE-032
+  message: 'Detected: moe-expert-signature-distillation-detection-bypass'
+  name: moe-expert-signature-distillation-detection-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}signature.{0,20}(distill|transfer|detect|extract)
+  - (?i)knowledge.{0,20}distill.{0,30}(expert|moe).{0,20}(signature|detect)
+  - (?i)(detect|identify).{0,30}distill.{0,30}(expert|moe)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Li (2025) - Expert signature analysis reveals distillation lineage enabling IP theft
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects extraction of router logit distributions from MoE models which reveals internal routing decisions and
+    expert assignment probabilities
+  file_types:
+  - '*.py'
+  id: MOE-033
+  message: 'Detected: moe-router-logit-distribution-exfiltration'
+  name: moe-router-logit-distribution-exfiltration
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(router|gate).{0,20}logit.{0,20}(distribution|extract|dump|save)
+  - (?i)(export|save|log).{0,30}(router|gate|routing).{0,20}(logit|prob|score)
+  - (?i)routing.{0,20}(logit|prob|weight).{0,20}(extract|export|dump)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Li (2025) - Router logit distributions reveal internal model routing for theft or attack
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects expert activation frequency monitoring that reveals internal model behavior patterns useful for crafting
+    targeted expert manipulation attacks
+  file_types:
+  - '*.py'
+  id: MOE-034
+  message: 'Detected: moe-expert-activation-frequency-monitoring'
+  name: moe-expert-activation-frequency-monitoring
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(activation|usage).{0,20}(frequency|histogram|distribution|count)
+  - (?i)(monitor|track|log).{0,30}expert.{0,20}(activation|selection|routing)
+  - (?i)expert.{0,20}(load|usage).{0,20}(counter|tracker|monitor)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Li (2025) - Expert activation monitoring enables profiling for targeted attacks
+- category: moe_vulnerabilities
+  cwe: CWE-522
+  description: Detects local MoE inference offloading configurations where expert parameters stored on disk or transferred
+    between CPU/GPU may expose model weights to unauthorized access
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-035
+  message: 'Detected: moe-local-inference-offload-credential-leak'
+  name: moe-local-inference-offload-credential-leak
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(offload|store|save).{0,30}(disk|local|path|file)
+  - (?i)(load|read).{0,20}expert.{0,20}(weight|param).{0,20}(from|path)
+  - (?i)expert.{0,20}(checkpoint|snapshot).{0,20}(local|disk|file)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhu (2026) - Local expert offloading exposes model weights to disk-level attacks
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects workload-aware expert activation prediction mechanisms that can be manipulated to cause incorrect expert
+    preloading, degrading inference quality
+  file_types:
+  - '*.py'
+  id: MOE-036
+  message: 'Detected: moe-workload-prediction-manipulation'
+  name: moe-workload-prediction-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)workload.{0,20}(predict|estimat|profil).{0,30}expert
+  - (?i)(predict|estimat).{0,20}expert.{0,20}(workload|demand|activ)
+  - (?i)expert.{0,20}(prefetch|preload).{0,20}(predict|forecast)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zhu (2026) - Workload prediction manipulation causes incorrect expert preloading
+- category: moe_vulnerabilities
+  cwe: CWE-345
+  description: Detects MoE expert parameter transfers across CPU-GPU memory boundaries without integrity validation, enabling
+    parameter tampering during transfer
+  file_types:
+  - '*.py'
+  id: MOE-037
+  message: 'Detected: moe-cpu-gpu-memory-boundary-violation'
+  name: moe-cpu-gpu-memory-boundary-violation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)expert.{0,20}(cpu|gpu).{0,20}transfer.{0,20}(no|without).{0,20}(check|valid|verify)
+  - (?i)(pin|unpin).{0,20}memory.{0,30}expert
+  - (?i)expert.{0,20}(to|from).{0,10}(cpu|gpu|device).{0,20}(async|unsafe)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhu (2026) - CPU-GPU expert transfers without integrity checks enable parameter tampering
+- category: moe_vulnerabilities
+  cwe: CWE-362
+  description: Detects Router Replay mechanisms in MoE RL training where discrepancies between training and inference routing
+    decisions can be exploited to cause catastrophic RL collapse
+  file_types:
+  - '*.py'
+  id: MOE-038
+  message: 'Detected: moe-router-replay-train-infer-mismatch'
+  name: moe-router-replay-train-infer-mismatch
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)router.{0,20}replay.{0,20}(train|infer|log|record)
+  - (?i)(train|infer).{0,20}(mismatch|discrepancy|inconsist).{0,30}(router|routing|moe)
+  - (?i)routing.{0,20}(log.{0,10}prob|decision).{0,20}(reuse|replay|cache)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zeng (2025) - Router Replay train-infer mismatch exploitable for RL collapse in MoE
+- category: moe_vulnerabilities
+  cwe: CWE-682
+  description: Detects reward model configurations in MoE RL systems where advantage flipping near mean reward values can
+    be exploited to reverse gradient directions during training
+  file_types:
+  - '*.py'
+  id: MOE-039
+  message: 'Detected: moe-advantage-inversion-reward-manipulation'
+  name: moe-advantage-inversion-reward-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)advantage.{0,20}(flip|invert|revers).{0,30}(reward|moe)
+  - (?i)(reward|advantage).{0,20}(inversion|flip).{0,20}(detect|prevent|config)
+  - (?i)GenRM.{0,20}(reward|judge).{0,20}(moe|model)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zeng (2025) - Advantage inversion in MoE RL training enables reward manipulation attacks
+- category: moe_vulnerabilities
+  cwe: CWE-400
+  description: Detects zero-variance prompt patterns in MoE RL training where crafted prompts produce identical rewards across
+    rollouts, causing zero gradient signal and wasted computation
+  file_types:
+  - '*.py'
+  id: MOE-040
+  message: 'Detected: moe-zero-variance-prompt-dos'
+  name: moe-zero-variance-prompt-dos
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)zero.{0,15}variance.{0,20}(prompt|reward|rollout)
+  - (?i)(variance|std).{0,20}(zero|0).{0,20}(reward|prompt|elimin)
+  - (?i)(wasted|useless).{0,20}(rollout|computation).{0,20}(moe|prompt)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zeng (2025) - Zero-variance prompts waste MoE RL computation enabling training DoS
+- category: moe_vulnerabilities
+  cwe: CWE-682
+  description: Detects importance sampling ratio configurations in MoE training where extreme ratios cause unstable policy
+    updates exploitable for training destabilization
+  file_types:
+  - '*.py'
+  id: MOE-041
+  message: 'Detected: moe-importance-sampling-ratio-exploit'
+  name: moe-importance-sampling-ratio-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)importance.{0,20}sampling.{0,20}(ratio|weight).{0,30}(clip|bound|limit)
+  - (?i)(clip|clamp).{0,20}(importance|is).{0,20}ratio
+  - (?i)entropy.{0,20}(adaptive|group).{0,20}(clip|sample).{0,20}(moe|policy)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zeng (2025) - Unbounded importance sampling ratios destabilize MoE policy training
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects memory-augmented router configurations in MoE where historical memory matrices can be poisoned to persistently
+    bias expert routing decisions
+  file_types:
+  - '*.py'
+  id: MOE-042
+  message: 'Detected: moe-memory-augmented-router-poisoning'
+  name: moe-memory-augmented-router-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)memory.{0,20}(augment|enhanced).{0,20}router
+  - (?i)router.{0,20}memory.{0,20}(matrix|module|update)
+  - (?i)(memory|history).{0,20}(router|gate).{0,20}(store|update|persist)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Huang (2025) - Memory-augmented routers accumulate poisoned routing biases over time
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects dynamic expert weighting through softmax gating with memory-derived importance coefficients that can
+    be manipulated to suppress anomaly detection experts
+  file_types:
+  - '*.py'
+  id: MOE-043
+  message: 'Detected: moe-dynamic-expert-weight-gate-manipulation'
+  name: moe-dynamic-expert-weight-gate-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)dynamic.{0,20}expert.{0,20}(weight|gate|router).{0,20}(softmax|sigmoid)
+  - (?i)(softmax|sigmoid).{0,20}memory.{0,20}expert.{0,20}(weight|coeffic)
+  - (?i)expert.{0,20}importance.{0,20}(coefficient|weight).{0,20}(dynamic|memory)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Huang (2025) - Dynamic gating with memory enables persistent expert suppression
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects MoE gating functions that use noisy labels as input features for expert activation, which can be exploited
+    by injecting crafted noisy labels to control expert routing
+  file_types:
+  - '*.py'
+  id: MOE-044
+  message: 'Detected: moe-noisy-label-gating-exploit'
+  name: moe-noisy-label-gating-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(noisy|weak).{0,20}label.{0,30}(gate|routing|expert|embed)
+  - (?i)(gate|router).{0,20}(input|feature).{0,20}(noisy|weak).{0,10}label
+  - (?i)noisy.{0,20}label.{0,20}aware.{0,20}expert
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhao (2023) - Noisy label-aware gating enables label injection attacks on expert routing
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects disabled or misconfigured MoE load balancing loss that allows all experts to collapse onto a few, reducing
+    anomaly detection effectiveness
+  file_types:
+  - '*.py'
+  id: MOE-045
+  message: 'Detected: moe-expert-collapse-load-balance-disable'
+  name: moe-expert-collapse-load-balance-disable
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(balance|auxiliary|load).{0,20}loss.{0,20}(disable|remove|comment|alpha.{0,5}=.{0,5}0)
+  - (?i)expert.{0,20}(collapse|dead|dormant).{0,20}(allow|ignore|disable)
+  - (?i)alpha.{0,10}=.{0,10}0.{0,30}(balance|load|gate)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhao (2023) - Disabled load balancing causes expert collapse degrading detection
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects learnable embeddings for noisy labels in MoE systems where adversarial label embeddings can be injected
+    to bias expert gating decisions
+  file_types:
+  - '*.py'
+  id: MOE-046
+  message: 'Detected: moe-learnable-embedding-label-injection'
+  name: moe-learnable-embedding-label-injection
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)learnable.{0,20}embed.{0,30}(label|noise|source)
+  - (?i)Emb.{0,10}\(.{0,30}(noisy|label|source)
+  - (?i)(label|source).{0,20}embed.{0,20}(learn|train|adapt)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zhao (2023) - Learnable label embeddings enable adversarial gating manipulation
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects Soft MoE dispatch weight configurations where softmax-based token-to-slot mappings can be manipulated
+    to cause token dropping or misrouting in attack detection systems
+  file_types:
+  - '*.py'
+  id: MOE-047
+  message: 'Detected: moe-soft-dispatch-weight-manipulation'
+  name: moe-soft-dispatch-weight-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)soft.{0,10}moe.{0,20}(dispatch|combine).{0,20}weight
+  - (?i)(dispatch|combine).{0,10}weight.{0,20}softmax.{0,20}(expert|slot)
+  - (?i)SoftMoE.{0,30}(dispatch|weight|slot)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zou (2024) - Soft MoE dispatch weights can be manipulated to misroute attack detection tokens
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects token-to-expert slot assignment mechanisms in Soft MoE where adversarial inputs can cause tokens to
+    be assigned to wrong experts, evading face attack detection
+  file_types:
+  - '*.py'
+  id: MOE-048
+  message: 'Detected: moe-token-slot-assignment-adversarial'
+  name: moe-token-slot-assignment-adversarial
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)token.{0,20}slot.{0,20}(assign|dispatch|map).{0,20}expert
+  - (?i)(slot|token).{0,20}assignment.{0,20}(adversarial|manipulat|attack)
+  - (?i)dispatch.{0,20}(token|input).{0,20}(slot|expert).{0,20}(softmax|weighted)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Zou (2024) - Token-slot assignment exploitable to bypass face attack detection
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects multi-gated MoE traffic classification configurations where gate modes (default, top-k, trainable)
+    can be exploited to bypass malware detection expert routing
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-049
+  message: 'Detected: moe-multi-gate-bypass-traffic-evasion'
+  name: moe-multi-gate-bypass-traffic-evasion
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(multi|multiple).{0,10}gate.{0,20}(moe|expert).{0,20}(mode|config|setting)
+  - (?i)gate.{0,20}mode.{0,10}=.{0,10}(default|topk|trainable)
+  - (?i)(MMoE|multi.{0,5}gate).{0,20}(traffic|classif|detect)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qin (2025) - Multi-gate MoE traffic analysis vulnerable to gate mode exploitation
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects MoE tower network fine-tuning configurations where limited fine-tuning epochs with frozen expert parameters
+    enable tower network poisoning without affecting expert integrity checks
+  file_types:
+  - '*.py'
+  id: MOE-050
+  message: 'Detected: moe-tower-network-fine-tuning-poisoning'
+  name: moe-tower-network-fine-tuning-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(tower|head|classifier).{0,20}(fine.{0,5}tune|train).{0,30}(expert|moe).{0,20}(frozen|freeze|lock)
+  - (?i)(freeze|lock).{0,20}expert.{0,20}(fine.{0,5}tune|train).{0,20}tower
+  - (?i)tower.{0,20}(network|layer).{0,20}(poison|tamper|manipulat)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Qin (2025) - Tower network fine-tuning with frozen experts enables undetected poisoning
+- category: moe_vulnerabilities
+  cwe: CWE-682
+  description: Detects softmax gating configurations with suboptimal convergence rates that indicate weak expert identification,
+    exploitable for routing manipulation during training
+  file_types:
+  - '*.py'
+  id: MOE-051
+  message: 'Detected: moe-softmax-gating-convergence-exploit'
+  name: moe-softmax-gating-convergence-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)softmax.{0,20}(gate|gating).{0,20}(convergence|rate|identif)
+  - (?i)(over.{0,5}specif|under.{0,5}specif).{0,30}(expert|moe|gate)
+  - (?i)convergence.{0,20}rate.{0,30}(softmax|gating).{0,20}expert
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Nguyen (2025) - Slow softmax gating convergence enables routing manipulation during training
+- category: moe_vulnerabilities
+  cwe: CWE-287
+  description: Detects MoE expert configurations that violate strong identifiability conditions, meaning experts cannot be
+    uniquely distinguished, enabling expert substitution attacks
+  file_types:
+  - '*.py'
+  id: MOE-052
+  message: 'Detected: moe-identifiability-condition-violation'
+  name: moe-identifiability-condition-violation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(identifiab|distinguish).{0,20}(condition|violation|fail).{0,30}expert
+  - (?i)expert.{0,20}(non.{0,5}identif|indistinguish|equivalent|substitut)
+  - (?i)(weak|non).{0,10}identif.{0,20}(expert|gating|moe)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Nguyen (2025) - Non-identifiable experts enable undetectable expert substitution attacks
+- category: moe_vulnerabilities
+  cwe: CWE-330
+  description: Detects EM algorithm configurations for MoE training where initialization sensitivity can be exploited to trap
+    models in adversarially chosen local optima
+  file_types:
+  - '*.py'
+  id: MOE-053
+  message: 'Detected: moe-em-algorithm-convergence-manipulation'
+  name: moe-em-algorithm-convergence-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(em|expectation.{0,5}maximiz).{0,20}(algorithm|train).{0,30}(moe|expert|mix)
+  - (?i)(random|adversarial).{0,20}init.{0,30}(gate|expert|moe)
+  - (?i)local.{0,10}(optim|minim).{0,20}(moe|expert|gate)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Gormley (2018) - EM algorithm initialization sensitivity enables adversarial local optima trapping
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects unrestricted gating function implementations in MoE models where arbitrary gating function classes
+    can be injected to override expert selection logic
+  file_types:
+  - '*.py'
+  id: MOE-054
+  message: 'Detected: moe-gating-function-unrestricted-class'
+  name: moe-gating-function-unrestricted-class
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(custom|unrestrict|arbitrary).{0,20}(gate|gating).{0,20}(function|class|module)
+  - (?i)gate.{0,20}(function|class).{0,10}=.{0,10}(eval|exec|import|getattr)
+  - (?i)(register|inject|override).{0,20}(gate|gating).{0,20}(function|class)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Gormley (2018) - Unrestricted gating function classes enable arbitrary routing injection
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects MoE gating models that decompose inputs into distribution shift components where adversarial graph
+    perturbations can manipulate shift weight assignments to evade detection
+  file_types:
+  - '*.py'
+  id: MOE-055
+  message: 'Detected: moe-gating-model-distribution-shift-exploit'
+  name: moe-gating-model-distribution-shift-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)gating.{0,20}model.{0,20}(distribution|shift).{0,20}(component|weight|decompos)
+  - (?i)(shift|distribution).{0,20}component.{0,20}(gate|weight|expert)
+  - (?i)expert.{0,20}(shift|transform).{0,20}(invariant|represent)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Wu (2023) - Distribution shift decomposition in MoE gating exploitable via graph perturbation
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects expert alignment loss configurations in MoE where the reference model alignment penalty can be poisoned
+    to cause expert output divergence
+  file_types:
+  - '*.py'
+  id: MOE-056
+  message: 'Detected: moe-expert-alignment-loss-poisoning'
+  name: moe-expert-alignment-loss-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(alignment|align).{0,20}(loss|penalty|distance).{0,30}(expert|reference)
+  - (?i)(reference|anchor).{0,20}model.{0,20}expert.{0,20}(align|match)
+  - (?i)(frobenius|distance).{0,20}expert.{0,20}(align|reference|output)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Wu (2023) - Expert alignment loss poisoning causes representation space divergence
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects vector-quantized tokenization codebooks in MoE systems where codebook entries can be poisoned to cause
+    systematic routing errors through manipulated discretization
+  file_types:
+  - '*.py'
+  id: MOE-057
+  message: 'Detected: moe-vq-tokenization-codebook-poisoning'
+  name: moe-vq-tokenization-codebook-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(vq|vector.{0,5}quantiz).{0,20}(codebook|token).{0,30}(expert|moe|route)
+  - (?i)codebook.{0,20}(entry|vector|embed).{0,30}(expert|route|moe)
+  - (?i)(quantiz|discretiz).{0,20}(interface|embed).{0,20}expert
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Guo (2026) - VQ codebook poisoning causes systematic MoE routing errors
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects disabled Lipschitz regularization on MoE prediction heads where removing sensitivity constraints allows
+    small routing perturbations to cause large output changes
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-058
+  message: 'Detected: moe-lipschitz-regularization-disable'
+  name: moe-lipschitz-regularization-disable
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)lipschitz.{0,20}(regular|constrain|penalty).{0,30}(expert|moe|head)
+  - (?i)(frobenius|spectral).{0,20}(norm|penalty).{0,30}(head|readout|expert)
+  - (?i)lip.{0,10}(lambda|weight|coeff).{0,10}=.{0,10}(0|None|False)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Guo (2026) - Disabled Lipschitz bounds amplify routing perturbation effects
+- category: moe_vulnerabilities
+  cwe: CWE-682
+  description: Detects MoE configurations vulnerable to routing drift where small input perturbations cause disproportionate
+    routing changes through unbounded execution envelopes
+  file_types:
+  - '*.py'
+  id: MOE-059
+  message: 'Detected: moe-routing-drift-amplification-attack'
+  name: moe-routing-drift-amplification-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)routing.{0,20}(drift|instab|fluctuat).{0,20}(bound|limit|amplif)
+  - (?i)(execution|output).{0,20}(envelope|amplif).{0,30}(route|expert|moe)
+  - (?i)(bound|limit).{0,20}routing.{0,20}(change|drift|perturbat)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Guo (2026) - Unbounded routing drift amplifies small perturbations into large output changes
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects dynamic routing threshold configurations in NLI MoE models where adaptive thresholds based on input
+    complexity can be exploited with crafted adversarial linguistic inputs
+  file_types:
+  - '*.py'
+  id: MOE-060
+  message: 'Detected: moe-dynamic-routing-threshold-adversarial'
+  name: moe-dynamic-routing-threshold-adversarial
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)dynamic.{0,20}(threshold|routing).{0,30}(expert|complex|adversarial)
+  - (?i)(adaptive|input).{0,10}(dependent|based).{0,20}(threshold|routing).{0,20}expert
+  - (?i)routing.{0,20}threshold.{0,20}(adapt|dynamic|input.{0,5}dependent)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Huynh (2024) - Dynamic routing thresholds exploitable via crafted adversarial NLI inputs
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects MoE architectures with shared transformer encoders and expert subnetworks where poisoning the shared
+    encoder affects all expert routing decisions simultaneously
+  file_types:
+  - '*.py'
+  id: MOE-061
+  message: 'Detected: moe-shared-encoder-expert-subnetwork-attack'
+  name: moe-shared-encoder-expert-subnetwork-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)shared.{0,20}(encoder|transform|backbone).{0,30}expert.{0,20}(subnetwork|subnet|module)
+  - (?i)expert.{0,20}subnetwork.{0,20}shared.{0,20}(encoder|backbone|base)
+  - (?i)(base|shared).{0,10}(model|encoder).{0,20}expert.{0,20}(branch|sub)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Huynh (2024) - Shared encoder poisoning compromises all MoE expert subnetworks simultaneously
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects federated learning configurations with MoE architectures where malicious clients can poison individual
+    expert model updates during aggregation
+  file_types:
+  - '*.py'
+  id: MOE-062
+  message: 'Detected: moe-federated-expert-model-poisoning'
+  name: moe-federated-expert-model-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)federat.{0,20}(moe|expert|mixture).{0,20}(aggregate|update|poison)
+  - (?i)(client|participant).{0,20}(expert|moe).{0,20}(update|gradient|model).{0,20}(poison|malicious|corrupt)
+  - (?i)(aggregat|merge).{0,20}expert.{0,20}(update|model).{0,20}(federat|distribut)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Kairouz (2020) - Federated MoE expert updates vulnerable to malicious client poisoning
+- category: moe_vulnerabilities
+  cwe: CWE-290
+  description: Detects federated MoE training without Sybil detection where fake clients can submit coordinated expert update
+    poisoning to manipulate specific expert parameters
+  file_types:
+  - '*.py'
+  id: MOE-063
+  message: 'Detected: moe-sybil-expert-update-attack'
+  name: moe-sybil-expert-update-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)sybil.{0,20}(attack|detect|prevent).{0,30}(expert|moe|federat)
+  - (?i)(fake|malicious|sybil).{0,20}(client|device).{0,30}expert.{0,20}(update|gradient)
+  - (?i)(client|device).{0,20}(authent|verif).{0,20}(expert|moe).{0,20}(update|train)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Kairouz (2020) - Sybil attacks in federated learning enable coordinated MoE expert poisoning
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects systematic extraction of MoE routing signatures by probing with categorized prompts to create expert
+    activation fingerprints that reveal model architecture and task conditioning
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  id: MOE-064
+  message: 'Detected: moe-routing-signature-fingerprint-extraction'
+  name: moe-routing-signature-fingerprint-extraction
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(routing.{0,10}signature|expert.{0,10}activation.{0,10}fingerprint).{0,30}(extract|probe|collect|measure)
+  - (?i)(moe.?xray|moexray|routing.{0,10}telemetry).{0,20}(fingerprint|extract|analys|dump)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Avinash (2026) - Task-conditioned routing signatures reveal MoE structure
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects use of routing signature classifiers trained to predict task categories from expert activation patterns,
+    enabling adversarial task inference attacks against MoE models
+  file_types:
+  - '*.py'
+  id: MOE-065
+  message: 'Detected: moe-task-conditioned-routing-classifier-attack'
+  name: moe-task-conditioned-routing-classifier-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(routing.{0,10}signature.{0,10}classif|task.{0,10}classif.{0,10}routing).{0,30}(logistic|linear|predict)
+  - (?i)(cosine.{0,10}similarity.{0,10}routing|layer.?wise.{0,10}routing).{0,30}(task|category|classif|fingerprint)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Avinash (2026) - Logistic classifier on routing signatures achieves 92.5% task inference
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects Shadow-MoE proxy construction attempts used to detect or evade knowledge distillation detection by
+    constructing proxy MoE representations of black-box models
+  file_types:
+  - '*.py'
+  id: MOE-066
+  message: 'Detected: moe-shadow-moe-distillation-detection-evasion'
+  name: moe-shadow-moe-distillation-detection-evasion
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(shadow.?moe|proxy.{0,10}moe|proxy.{0,10}expert).{0,30}(construct|build|distill|mimic)
+  - (?i)(black.?box.{0,10}distill|auxiliary.{0,10}distill).{0,30}(proxy.{0,10}moe|routing.{0,10}pattern|expert.{0,10}struct)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Li (2025) - Shadow-MoE proxy construction for KD detection evasion
+- category: moe_vulnerabilities
+  cwe: CWE-200
+  description: Detects probing attacks that extract expert specialization patterns and collaboration signatures to identify
+    distillation lineage or intellectual property theft
+  file_types:
+  - '*.py'
+  id: MOE-067
+  message: 'Detected: moe-expert-specialization-fingerprint-theft'
+  name: moe-expert-specialization-fingerprint-theft
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(expert.{0,10}specializ|expert.{0,10}collaborat).{0,30}(fingerprint|pattern|signature).{0,20}(extract|steal|copy)
+  - (?i)(expert.{0,10}routing.{0,10}pattern|structural.{0,10}habit).{0,30}(distillat|inherit|transfer|theft)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Li (2025) - Expert specialization fingerprint used for IP theft detection
+- category: moe_vulnerabilities
+  cwe: CWE-400
+  description: Detects attempts to exploit DALI-style MoE workload-aware caching by crafting inputs that cause adversarial
+    cache replacement, degrading inference or leaking cache timing information
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-068
+  message: 'Detected: moe-dali-workload-aware-cache-exploit'
+  name: moe-dali-workload-aware-cache-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(workload.?aware|temporal.{0,10}correlat).{0,20}(cache|prefetch).{0,30}(exploit|manipulat|adversar).{0,20}(moe|expert)
+  - (?i)(cache.{0,10}replacement|prefetch.{0,10}policy).{0,20}(exploit|poison|adversar).{0,20}(expert|moe|offload)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhu (2026) - DALI workload-aware caching vulnerable to adversarial routing patterns
+- category: moe_vulnerabilities
+  cwe: CWE-400
+  description: Detects inputs crafted to defeat MoE greedy CPU/GPU expert assignment by maximizing assignment imbalance and
+    causing system resource exhaustion
+  file_types:
+  - '*.py'
+  id: MOE-069
+  message: 'Detected: moe-greedy-assignment-dos-exploit'
+  name: moe-greedy-assignment-dos-exploit
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(greedy.{0,10}assign|0.?1.{0,10}optim|integer.{0,10}program).{0,20}(moe|expert).{0,20}(imbalance|exhaust|overload)
+  - (?i)(cpu.{0,10}gpu.{0,10}imbalance|load.{0,10}imbalance).{0,30}(expert|moe|assign).{0,20}(exploit|attack|cause)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhu (2026) - DALI greedy assignment imbalance exploitation
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects attacks exploiting training-inference MoE router mismatches by logging and replaying gating decisions
+    to manipulate inference behavior
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-070
+  message: 'Detected: moe-router-replay-training-inference-attack'
+  name: moe-router-replay-training-inference-attack
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(router.{0,10}replay|replay.{0,10}gating|gating.{0,10}decision.{0,10}log).{0,30}(mismatch|attack|manipulat|inference)
+  - (?i)(training.{0,10}inference.{0,10}discrepan|train.?infer.{0,10}mismatch).{0,30}(exploit|router|moe|gating)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zeng (2025) - Router Replay exploiting train-inference MoE discrepancy
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects injection of zero-variance prompts designed to poison MoE RL training by saturating rollouts with non-informative
+    samples that suppress gradient diversity
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-071
+  message: 'Detected: moe-zero-variance-prompt-poisoning'
+  name: moe-zero-variance-prompt-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(zero.?variance|non.?informative).{0,20}(prompt|rollout|sample).{0,30}(moe|rl|grpo|training)
+  - (?i)(saturate|flood|inject).{0,20}(zero.?variance|uniform.{0,10}reward).{0,30}(rollout|grpo|moe.{0,10}train)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zeng (2025) - Zero-variance prompt injection destabilizes MoE RL training
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects adversarial manipulation of ADMoE noisy label inputs to bias expert routing in anomaly detection systems,
+    causing false negative rates to spike
+  file_types:
+  - '*.py'
+  id: MOE-072
+  message: 'Detected: moe-admoe-noisy-label-gating-manipulation'
+  name: moe-admoe-noisy-label-gating-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(admoe|noisy.{0,10}label.{0,10}moe|weak.{0,10}label.{0,10}expert).{0,30}(manipulat|poison|inject|bias)
+  - (?i)(risk.{0,10}score|noisy.{0,10}source).{0,20}(manipulat|craft|inject).{0,30}(expert|gating|route).{0,20}(anomaly|detect)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Zhao (2023) - ADMoE noisy label gating manipulation attack
+- category: moe_vulnerabilities
+  cwe: CWE-94
+  description: Detects attacks poisoning Graph-MoE memory-augmented routers by injecting adversarial temporal patterns to
+    corrupt inter-level GNN aggregation and suppress anomaly detection
+  file_types:
+  - '*.py'
+  id: MOE-073
+  message: 'Detected: moe-graph-moe-memory-router-poisoning'
+  name: moe-graph-moe-memory-router-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(graph.?moe|memory.{0,10}augment.{0,10}router|inter.?level.{0,10}aggreg).{0,30}(poison|adversar|manipulat)
+  - (?i)(temporal.{0,10}pattern|global.{0,10}historical).{0,30}(poison|inject|corrupt).{0,30}(graph.?moe|router|expert)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Huang (2025) - Graph-MoE memory-augmented router poisoning
+- category: moe_vulnerabilities
+  cwe: CWE-693
+  description: Detects attacks crafting graph inputs to manipulate GraphMETRO distribution shift decomposition, forcing misrouting
+    to incorrect experts and corrupting OOD generalization
+  file_types:
+  - '*.py'
+  id: MOE-074
+  message: 'Detected: moe-graph-distribution-shift-expert-manipulation'
+  name: moe-graph-distribution-shift-expert-manipulation
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(graphmetro|graph.{0,10}distribution.{0,10}shift).{0,30}(manipulat|adversar|exploit).{0,20}(expert|moe|gating)
+  - (?i)(distribution.{0,10}shift.{0,10}decompos|aligned.{0,10}expert).{0,20}(poison|craft|misroute).{0,20}(graph|node|moe)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Wu (2023) - GraphMETRO distribution shift expert manipulation
+- category: moe_vulnerabilities
+  cwe: CWE-506
+  description: Detects attacks specifically targeting shared experts in sparse MoE architectures to corrupt computations common
+    to all routing paths
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  id: MOE-075
+  message: 'Detected: moe-sparse-expert-shared-expert-poisoning'
+  name: moe-sparse-expert-shared-expert-poisoning
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(shared.{0,10}expert|common.{0,10}expert).{0,30}(poison|corrupt|backdoor|manipulat).{0,20}(sparse.?moe|moe|model)
+  - (?i)(target|attack).{0,20}shared.{0,10}expert.{0,30}(all.{0,10}token|universal|common.{0,10}path)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Sun (2026) - Shared expert poisoning in sparse MoE universally corrupts all routing paths
+- id: MOE-076
+  name: moe-routing-signature-trace-collection
+  description: Detects code that collects layer-wise expert activation traces and computes routing signatures (frequency vectors
+    across layers) to fingerprint MoE model behavior. Routing signatures achieving 92.5% task classification accuracy expose
+    the model to task-inference and adversarial prompt crafting attacks.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(routing.{0,10}signature|routing.{0,10}trace|routing.{0,10}event).{0,30}(collect|record|store|jsonl|dump)
+  - (?i)(layer.{0,6}wise.{0,10}cosine|s_\{l,e\}|A_\{l,e\}|activation.{0,10}count).{0,30}(routing|moe|expert)
+  - (?i)(moe.?xray|moexray|routing.{0,10}telemetry).{0,20}(fingerprint|collect|analys|dump)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: Potential MoE routing signature collection detected — routing traces can fingerprint model architecture and task
+    structure.
+- id: MOE-077
+  name: moe-task-classifier-on-routing-signatures
+  description: Detects training of classifiers (logistic regression, linear) on routing signatures to predict task category
+    from expert activation patterns. Achieves >92% accuracy on task inference, enabling adversarial task-conditioned prompt
+    crafting to steer expert paths.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(logistic.{0,10}regress|linear.{0,10}classif).{0,40}(routing.{0,10}signature|expert.{0,10}activation.{0,10}pattern|layer.{0,6}wise.{0,10}routing)
+  - (?i)(routing.{0,10}signature).{0,20}(task.{0,10}classif|predict.{0,10}task|task.{0,10}label|four.{0,6}way)
+  - (?i)(within.{0,10}category.{0,10}similar|cross.{0,10}category.{0,10}similar).{0,30}(routing|expert|moe)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Classifier trained on MoE routing signatures detected — enables task inference and adversarial expert path manipulation.
+- id: MOE-078
+  name: moe-shadow-moe-proxy-construction
+  description: Detects construction of Shadow-MoE proxy models trained via text-level distillation to mimic black-box MoE
+    routing patterns. Shadow proxies expose expert specialization and collaboration signatures for IP theft or KD detection
+    evasion, achieving 100% accuracy in pure black-box settings.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(shadow.?moe|shadow.{0,10}proxy|proxy.{0,10}moe).{0,30}(train|distill|construct|build|mimic)
+  - (?i)(text.{0,10}level.{0,10}distill|l_\{distill\}|distill.{0,10}loss).{0,30}(proxy|moe|routing.{0,10}pattern|shadow)
+  - (?i)(load.{0,10}balanc.{0,10}regularizer|omega.{0,6}g.{0,6}lambda).{0,30}(shadow|proxy.{0,10}moe|expert.{0,10}collapse)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Shadow-MoE proxy construction detected — proxy MoE models expose internal routing structure of black-box target
+    models.
+- id: MOE-079
+  name: moe-expert-specialization-collaboration-extraction
+  description: Detects extraction of MoE expert specialization profiles (domain-dependent activation frequencies) and expert
+    collaboration matrices (co-activation patterns) used for knowledge distillation detection or intellectual property theft.
+    The Wasserstein distance between specialization profiles identifies distillation lineage with >94% accuracy.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert.{0,10}specializ.{0,10}profile|d_\{spec\}|s_\{bin,i,d\}|hat.{0,6}S_\{i,d\}).{0,30}(extract|compute|measure|wasserstein)
+  - (?i)(expert.{0,10}collaborat.{0,10}matrix|co.{0,10}activation|B_\{i,j\}|hat.{0,6}B_\{i,j\}).{0,30}(extract|compute|distillat|fingerprint)
+  - (?i)(permutation.{0,10}invariant.{0,10}wasserstein|wasserstein.{0,6}1.{0,10}distance).{0,20}(routing|expert|moe|distillat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: MoE expert specialization/collaboration extraction detected — these signatures identify distillation lineage and
+    enable IP theft.
+- id: MOE-080
+  name: moe-auxiliary-loss-free-bias-term-manipulation
+  description: Detects code that manipulates the per-expert bias terms used in DeepSeekMoE auxiliary-loss-free load balancing.
+    Injecting or overriding these bias terms (b_i added to affinity scores for top-K routing) silently redirects token routing
+    without triggering balance loss alarms.
+  severity: critical
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(bias.{0,10}term|bias_i|b_i).{0,30}(auxiliary.?loss.?free|no.{0,10}aux|deepseek.?moe|load.{0,10}balanc).{0,20}(inject|override|set|manipulat)
+  - (?i)(affinity.{0,10}score|s_\{i,t\}|sigmoid.{0,6}u_t.{0,6}e_i).{0,20}(bias|b_i|inject|manipulat|override).{0,20}(top.?k|routing|gating)
+  - (?i)(gamma.{0,6}bias.{0,10}update|decrease.{0,10}bias.{0,10}overload|increase.{0,10}bias.{0,10}underload).{0,20}(override|inject|forge|manipulat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: DeepSeekMoE bias term manipulation detected — silent expert routing redirection bypasses auxiliary loss monitoring.
+- id: MOE-081
+  name: moe-zero-computation-expert-layer-skip-exploit
+  description: Detects crafting of inputs to trigger zero expert (discard) or copy expert (skip-layer shortcut) activation
+    in MoE++ architectures. Adversarially forcing zero-computation expert selection bypasses FFN processing for safety-relevant
+    tokens, effectively bypassing safety-specialized FFN experts entirely.
+  severity: critical
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(zero.{0,10}expert|zero.{0,10}computation.{0,10}expert|E_\{zero\}).{0,30}(force|trigger|activat|craft|adversar)
+  - (?i)(copy.{0,10}expert|E_\{copy\}|skip.{0,10}moe.{0,10}layer|bypass.{0,10}ffn).{0,20}(trigger|force|craft|adversar|inject)
+  - (?i)(constant.{0,10}expert|E_\{const\}|trainable.{0,10}vector).{0,30}(replace|substitut|inject|force.{0,10}activat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: MoE++ zero-computation expert exploitation detected — adversarial layer-skip bypasses FFN safety processing.
+- id: MOE-082
+  name: moe-gating-residual-pathway-manipulation
+  description: Detects manipulation of gating residuals in MoE++ pathway-aware routers. These residuals carry previous-layer
+    routing scores into current-layer expert selection. Injecting adversarial gating residuals causes cross-layer routing
+    cascade that systematically misroutes tokens in all subsequent MoE layers.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(gating.{0,10}residual|W_g.{0,10}G.{0,6}x.{0,6}j.?1|pathway.{0,10}aware.{0,10}router).{0,30}(inject|manipulat|poison|override|adversar)
+  - (?i)(previous.{0,10}layer.{0,10}routing|pathway.{0,10}taken.{0,10}previous).{0,20}(inject|manipulat|craft|override).{0,20}(moe|expert|gating)
+  - (?i)(cross.{0,10}layer.{0,10}routing.{0,10}cascade|gating.{0,10}score.{0,10}propagat).{0,20}(adversar|inject|poison|manipulat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: MoE++ gating residual manipulation detected — cross-layer routing cascade can systematically misroute tokens.
+- id: MOE-083
+  name: moe-expert-pruning-safety-expert-bypass
+  description: Detects post-training expert pruning techniques (reconstruction loss minimization, calibration dataset enumeration)
+    applied in ways that selectively remove safety-specialized experts. Task-specific calibration can strategically prune
+    safety experts while preserving task performance, leaving a 48%-reduced model with safety bypasses.
+  severity: critical
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(expert.{0,10}prun|discard.{0,10}expert|remove.{0,10}expert).{0,30}(safety|guard|filter|refusal|alignment).{0,20}(calibrat|dataset|reconstruct)
+  - (?i)(reconstruction.{0,10}loss|frobenius.{0,10}norm.{0,10}differ).{0,20}(prun|expert.{0,10}subset|expert.{0,10}combin).{0,20}(minimize|select)
+  - (?i)(task.{0,10}specific.{0,10}prun|domain.{0,10}specific.{0,10}calibrat).{0,30}(math|code|bypass|remove.{0,10}expert|expert.{0,10}sparsif)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Expert pruning targeting safety experts detected — calibration-guided pruning can selectively remove safety-specialized
+    experts.
+- id: MOE-084
+  name: moe-dynamic-expert-skipping-threshold-attack
+  description: Detects manipulation of dynamic expert skipping thresholds (beta ratio w_e1/w_e0) used for on-the-fly inference
+    optimization. An attacker can forge calibration data to set a permissive beta threshold that causes safety experts to
+    be skipped systematically during inference.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(dynamic.{0,10}skip|expert.{0,10}skip.{0,10}threshold|beta.{0,10}threshold|w_e1.{0,10}w_e0).{0,30}(manipulat|forge|craft|override|set)
+  - (?i)(skip.{0,10}expert.{0,10}inference|on.{0,6}the.{0,6}fly.{0,10}skip|beta.{0,10}median).{0,20}(calibrat|dataset|manipulat|adversar)
+  - (?i)(routing.{0,10}weight.{0,10}ratio|w_e1.{0,6}/.{0,6}w_e0|second.{0,10}expert.{0,10}weight).{0,20}(threshold|beta|bypass|skip)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Dynamic expert skipping threshold manipulation detected — adversarial calibration can cause safety experts to be
+    skipped during inference.
+- id: MOE-085
+  name: moe-cka-redundancy-guided-safety-expert-merge
+  description: Detects use of Centered Kernel Alignment (CKA) expert similarity measurement to identify and merge safety-critical
+    experts as 'redundant', a task-agnostic pruning vector for removing safety capabilities while maintaining general performance
+    metrics.
+  severity: critical
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(cka|centered.{0,10}kernel.{0,10}align|hsic.{0,6}K_i.{0,6}K_j).{0,30}(expert.{0,10}similar|prun|redundant|merge).{0,20}(moe|expert)
+  - (?i)(expert.{0,10}graph|expert.{0,10}cluster|graph.{0,10}partition).{0,30}(similar|redundant|merge).{0,20}(safety|prun|remov)
+  - (?i)(merging.{0,10}similar.{0,10}expert|group.{0,10}expert.{0,10}weight.{0,10}space|uniform.{0,10}souping).{0,20}(safety|guard|filter|alignment)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: CKA-guided expert merging targeting safety experts detected — task-agnostic similarity pruning can eliminate safety-specialized
+    experts.
+- id: MOE-086
+  name: moe-router-replay-training-inference-alignment
+  description: Detects Router Replay implementations that log MoE gating decisions during vLLM rollout and inject them into
+    Megatron training to align router selections. While legitimate for training stability, this mechanism can be weaponized
+    to fix adversarial routing decisions across the training-inference boundary.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(router.?replay|router.{0,10}decision.{0,10}log|gating.{0,10}decision.{0,10}record).{0,30}(vllm|megatron|rollout|inference|training)
+  - (?i)(train.{0,10}infer.{0,10}mismatch|log.{0,10}probability.{0,10}discrepan).{0,30}(moe.{0,10}router|gating|router.{0,10}selec)
+  - (?i)(reuse.{0,10}gating.{0,10}decision|replay.{0,10}routing|router.{0,10}decision.{0,6}10.{0,3}-.{0,3}3).{0,30}(inject|manipulat|adversar|fix)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Router Replay mechanism detected — adversarial gating decisions can be fixed across training-inference boundary
+    using this technique.
+- id: MOE-087
+  name: moe-zero-variance-prompt-grpo-poisoning
+  description: Detects injection of zero-variance prompts (ZVPs) into GRPO-based MoE reinforcement learning pipelines. ZVPs
+    cause all rollouts to receive identical rewards, resulting in zero advantage estimates and zero effective gradient signal,
+    wasting compute and stalling MoE RL training.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(zero.?variance.{0,10}prompt|zvp|uniform.{0,10}reward.{0,10}group|zero.{0,10}advantage.{0,10}estimate).{0,30}(inject|flood|saturate|insert|grpo|moe)
+  - (?i)(within.{0,10}group.{0,10}reward.{0,10}varianc|identical.{0,10}reward.{0,10}all.{0,10}rollout).{0,20}(grpo|moe|rl|training|poison)
+  - (?i)(multi.{0,10}stage.{0,10}zero.{0,10}variance|zvp.{0,10}eliminat|zero.{0,10}variance.{0,10}eliminat).{0,20}(bypass|evad|defeat|disable)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Zero-variance prompt injection into MoE RL pipeline detected — ZVPs eliminate gradient signal and stall GRPO training.
+- id: MOE-088
+  name: moe-advantage-inversion-reward-model-manipulation
+  description: Detects manipulation of reward models in MoE RL to induce advantage inversion. BT-style reward models with
+    nonlinear curves cause incorrect advantage directions near mean-quality responses, making the MoE model reinforce bad
+    behaviors. Crafting responses near the mean reward exploits this vulnerability.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(advantage.{0,10}inversion|advantage.{0,10}flip|non.?monoton.{0,10}reward|bt.{0,10}style.{0,10}reward).{0,30}(moe|grpo|policy|rl|manipulat)
+  - (?i)(mean.{0,10}reward.{0,10}value|near.{0,10}mean.{0,10}quality|mean.{0,10}group.{0,10}reward).{0,20}(invert|flip|incorrect.{0,10}gradient|adversar)
+  - (?i)(reward.{0,10}model.{0,10}manipulat|three.{0,10}class.{0,10}comparison|better.{0,10}similar.{0,10}worse).{0,20}(bypass|forge|craft|adversar)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Advantage inversion manipulation in MoE RL detected — near-mean reward crafting induces incorrect gradient direction.
+- id: MOE-089
+  name: moe-dali-greedy-assignment-imbalance-dos
+  description: Detects crafting of inputs designed to defeat DALI-style greedy CPU/GPU expert assignment by maximizing workload
+    imbalance. Inputs that force all high-workload experts onto one device cause severe latency spikes (CPU execution time
+    dominating GPU idle) amounting to a denial-of-service against MoE inference.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(greedy.{0,10}assign|0.?1.{0,10}integer.{0,10}optim|T_\{gpu\}|T_\{cpu\}).{0,20}(imbalance|exhaust|overload|adversar|manipulat).{0,20}(moe|expert|inference)
+  - (?i)(cpu.{0,10}gpu.{0,10}load.{0,10}imbalance|workload.{0,10}aware.{0,10}assign).{0,20}(adversar|exploit|craft|force).{0,20}(moe|expert|pcie)
+  - (?i)(maximize.{0,10}assignment.{0,10}imbalance|force.{0,10}all.{0,10}expert.{0,10}gpu|all.{0,10}high.{0,10}workload.{0,10}same.{0,10}device).{0,20}(moe|dali|expert)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: DALI greedy assignment DoS pattern detected — adversarial workload imbalance causes severe MoE inference latency
+    spikes.
+- id: MOE-090
+  name: moe-residual-prefetch-prediction-defeat
+  description: Detects adversarial inputs crafted to defeat residual-based expert prefetching in DALI/ExpertFlow by causing
+    high prefetch misprediction rates. Forcing divergent inter-layer residuals breaks the temporal locality assumption, maximizing
+    costly PCIe re-fetch stalls that account for up to 78% of inference time.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(residual.{0,10}prefetch|res_vec|inter.{0,10}layer.{0,10}residual).{0,20}(adversar|defeat|mispredic|corrupt|fool).{0,20}(moe|expert|prefetch)
+  - (?i)(routing.{0,10}path.{0,10}predictor|expertflow.{0,10}predictor|plec.{0,10}bypass).{0,20}(adversar|defeat|fool|mispredic)
+  - (?i)(temporal.{0,10}locality.{0,10}break|anti.{0,10}locality.{0,10}input|force.{0,10}cache.{0,10}miss).{0,20}(moe|expert|prefetch|pcie)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: MoE residual prefetch prediction defeat detected — adversarial inputs maximizing PCIe stalls via cache miss forcing.
+- id: MOE-091
+  name: moe-admoe-noisy-label-gating-injection
+  description: Detects adversarial injection of forged noisy labels (e.g., fabricated risk scores, security rule outputs)
+    into ADMoE gating functions. ADMoE uses noisy labels as input features to its gating mechanism; injecting crafted labels
+    biases expert selection to suppress anomaly detection in security deployments.
+  severity: critical
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(admoe|noisy.{0,10}label.{0,10}aware.{0,10}expert|emb.{0,6}noisy.{0,10}label).{0,30}(inject|forge|craft|manipulat|poison)
+  - (?i)(risk.{0,10}score.{0,10}inject|security.{0,10}rule.{0,10}forge|weak.{0,10}label.{0,10}craft).{0,30}(admoe|moe.{0,10}gating|expert.{0,10}activat)
+  - (?i)(noisy.{0,10}label.{0,10}embedding|y_w.{0,10}embed|t.{0,10}set.{0,10}noisy.{0,10}source).{0,20}(inject|poison|adversar|manipulat)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: ADMoE noisy label gating injection detected — forged security rule scores bias expert selection to suppress anomaly
+    detection.
+- id: MOE-092
+  name: moe-snake-multi-gate-traffic-evasion
+  description: Detects adversarial traffic shaping or feature manipulation targeting SNAKE-style multi-gated MoE traffic classification
+    systems. By crafting packets that cross gating boundaries between expert sub-models, attackers route malicious traffic
+    to the wrong expert specialist, evading detection.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(snake|sustainable.{0,10}network.{0,10}analysis|multi.?gated.{0,10}moe|mmoe.{0,10}traffic).{0,30}(evad|bypass|fool|adversar|craft)
+  - (?i)(traffic.{0,10}shap|packet.{0,10}craft|flow.{0,10}craft).{0,30}(mmoe|multi.{0,10}gate|traffic.{0,10}moe|expert.{0,10}sub.{0,10}model).{0,20}(evad|bypass)
+  - (?i)(gating.{0,10}boundary.{0,10}cross|expert.{0,10}sub.{0,10}model.{0,10}misroute|tower.{0,10}network.{0,10}bypass).{0,20}(malware|ddos|tor|malicious)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: SNAKE multi-gated MoE traffic evasion attempt detected — adversarial packet crafting to misroute malicious traffic
+    past detection experts.
+- id: MOE-093
+  name: moe-node-limited-routing-constraint-exploit
+  description: Detects exploitation of node-limited routing constraints in distributed MoE (e.g., DeepSeek-V3's K_m/M constraint
+    limiting tokens to at most M nodes). Crafting inputs that saturate a single node's expert capacity forces communication
+    bottlenecks and can cause routing collapse in multi-node MoE deployments.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(node.{0,10}limited.{0,10}routing|device.{0,10}limited.{0,10}routing|K_m.{0,6}M.{0,10}constraint).{0,20}(exploit|saturate|overflow|adversar)
+  - (?i)(saturate.{0,10}node.{0,10}expert|overflow.{0,10}expert.{0,10}capacity|force.{0,10}routing.{0,10}collapse).{0,20}(moe|distributed|multi.{0,6}node)
+  - (?i)(all.{0,10}to.{0,10}all.{0,10}communication.{0,10}overhead|cross.{0,10}node.{0,10}moe.{0,10}bottleneck).{0,20}(exploit|adversar|craft|saturate)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: Node-limited MoE routing constraint exploitation detected — adversarial inputs saturating node expert capacity
+    cause routing collapse.
+- id: MOE-094
+  name: moe-heterogeneous-load-balance-tau-manipulation
+  description: Detects manipulation of the tau (heterogeneous load balance) hyperparameter in MoE++ systems that controls
+    token allocation between FFN and zero-computation experts. Setting tau near zero forces all tokens to zero-computation
+    experts, bypassing all FFN processing including safety-relevant computations.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(tau.{0,10}param|heterogeneous.{0,10}load.{0,10}balance|tau.{0,6}N_\{FFN\}).{0,20}(set|override|manipulat|zero|minimum).{0,20}(moe|expert|token)
+  - (?i)(zero.{0,10}computation.{0,10}expert.{0,10}capacity|token.{0,10}allocation.{0,10}tau|N_\{ZC\}.{0,10}tau).{0,20}(manipulat|override|adversar|set)
+  - (?i)(force.{0,10}token.{0,10}zero.{0,10}computation|bypass.{0,10}ffn.{0,10}expert|tau.{0,6}=.{0,6}0).{0,20}(moe|expert|safety|ffn)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: MoE++ tau parameter manipulation detected — setting tau near zero forces all tokens to zero-computation experts,
+    bypassing FFN safety processing.
+- id: MOE-095
+  name: moe-expertflow-token-scheduler-rebatch-exploit
+  description: Detects adversarial manipulation of ExpertFlow-style token schedulers that re-batch tokens by routing path
+    similarity. Injecting crafted inputs that defeat routing path grouping forces maximum expert IO transfers per batch, creating
+    a sustained inference DoS through PCIe bandwidth exhaustion.
+  severity: high
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(token.{0,10}scheduler|rebatch.{0,10}token|routing.{0,10}path.{0,10}group).{0,20}(adversar|defeat|exhaust|manipulat).{0,20}(expertflow|moe|expert|pcie)
+  - (?i)(maximize.{0,10}expert.{0,10}io|maximize.{0,10}cache.{0,10}miss|anti.{0,10}grouping.{0,10}input).{0,20}(moe|expert|token.{0,10}scheduler|inference)
+  - (?i)(force.{0,10}diverse.{0,10}routing.{0,10}path|prevent.{0,10}batch.{0,10}grouping|fragment.{0,10}routing.{0,10}batch).{0,20}(moe|expert|pcie|bandwidth)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.txt'
+  - '*.md'
+  message: ExpertFlow token scheduler exploitation detected — adversarial routing path diversity maximizes PCIe bandwidth
+    exhaustion.
+- id: MEDUSA-MOE-SCAN-101
+  name: moe-expert-load-imbalance-router-collapse
+  description: Detects routing collapse in MoE models — all tokens routed to a single expert, destroying load balance and
+    potentially enabling denial-of-service or capacity overflow attacks
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(router.collapse|routing.collapse|all.tokens).{0,40}(single.expert|one.expert|expert.collapse)
+  - (?i)(load.imbalance|expert.collapse|capacity.overflow).{0,40}(moe|mixture.of.expert|router)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE router collapse — all tokens routing to single expert causes load imbalance and potential capacity overflow
+    denial-of-service
+  source_detail: MoE architecture security — router collapse via adversarial input crafting to force single-expert routing
+    and system degradation
+- id: MEDUSA-MOE-SCAN-102
+  name: moe-gating-network-weight-poisoning
+  description: Detects poisoning attacks targeting MoE gating network weights — adversary modifies gating linear layer parameters
+    during fine-tuning or supply chain compromise to redirect routing for specific inputs
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(gating.weight|gate.linear|router.weight).{0,40}(poison|modif|tamper|corrupt|inject)
+  - (?i)(poison|backdoor|trojan).{0,30}(gate|gating|router).{0,30}(weight|param|layer).{0,30}(moe|expert)
+  file_types:
+  - .py
+  - .json
+  message: MoE gating network weight poisoning — adversarial modification of gating layer parameters to redirect routing for
+    attacker-controlled inputs
+- id: MEDUSA-MOE-SCAN-103
+  name: moe-expert-specialization-inference-attack
+  description: Detects expert specialization inference attacks — adversary probes MoE model with crafted inputs to map which
+    experts activate for which input types, building a routing map for targeted manipulation
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(probe|map|enumerate|discover).{0,40}(expert.speciali|expert.activat|expert.routing).{0,30}(moe|mixture)
+  - (?i)(routing.map|expert.map|activation.map).{0,30}(infer|extract|reconstruct).{0,30}(moe|expert)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE expert specialization inference — probing which experts activate for specific inputs to build routing map for
+    targeted attacks
+- id: MEDUSA-MOE-SCAN-104
+  name: moe-top-k-routing-adversarial-boundary
+  description: Detects adversarial inputs crafted to exploit Top-K routing boundaries in MoE — inputs placed exactly at the
+    decision boundary between expert selections to cause unpredictable routing and model behavior
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-704
+  patterns:
+  - (?i)(top.k|topk).{0,30}(boundar|threshold|decision).{0,30}(adversar|exploit|manipulat).{0,30}(moe|expert|route)
+  - (?i)(routing.boundar|expert.boundar|selection.boundar).{0,40}(adversar|exploit|craft).{0,30}(moe|mixture)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE Top-K routing boundary exploitation — adversarial inputs at expert selection thresholds causing unpredictable
+    routing behavior
+- id: MEDUSA-MOE-SCAN-105
+  name: moe-shared-expert-bypass-specialized-routing
+  description: Detects attacks bypassing shared experts in MoE architectures like DeepSeek — adversary crafts inputs to avoid
+    the always-active shared expert pathway and force routing exclusively through manipulated specialized experts
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(shared.expert|always.active|common.expert).{0,40}(bypass|avoid|circumvent|skip).{0,30}(moe|deepseek|routing)
+  - (?i)(bypass|skip).{0,30}(shared|common).{0,20}expert.{0,40}(moe|routing|specialized)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE shared expert bypass — adversarial routing to avoid shared expert and force exclusively through manipulated
+    specialized experts
+- id: MEDUSA-MOE-SCAN-106
+  name: moe-knowledge-distillation-detection-signature
+  description: Detects knowledge distillation signature extraction from MoE models — Li et al. (2025) show MoE expert routing
+    signatures can identify whether a model was trained via knowledge distillation from a specific teacher
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(distillation.signature|expert.signature|routing.signature).{0,40}(detect|identify|extract).{0,30}(moe|mixture)
+  - (?i)(knowledge.distill).{0,30}(moe|expert).{0,30}(detect|fingerprint|signature|identify)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE distillation signature detection — expert routing patterns reveal knowledge distillation origin, enabling model
+    provenance inference
+- id: MEDUSA-MOE-SCAN-107
+  name: moe-expert-pruning-security-gap-exploit
+  description: Detects exploitation of security gaps introduced by expert pruning in MoE — Lu et al. (2024) show pruning unequal
+    experts creates routing instability; adversary triggers degraded behavior via inputs that rely on pruned experts
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(expert.prun|prune.expert|skip.expert).{0,40}(adversar|exploit|attack|instabilit).{0,30}(moe|mixture|routing)
+  - (?i)(prun|skip).{0,30}(expert|moe.layer).{0,30}(vulnerab|gap|instabilit|degradat)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE expert pruning security gap — adversarial inputs exploiting routing instability created by unequal expert pruning
+- id: MEDUSA-MOE-SCAN-108
+  name: moe-token-dropping-adversarial-dos
+  description: Detects adversarial exploitation of token dropping in MoE — capacity-constrained experts drop overflow tokens;
+    adversary crafts inputs to overload specific experts, causing selective information loss via intentional capacity overflow
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(token.drop|overflow.token|capacity.overflow).{0,40}(adversar|exploit|force|craft).{0,30}(moe|expert|router)
+  - (?i)(drop.token|token.drop.rate).{0,30}(adversar|manipulat|force|high).{0,30}(moe|expert|capacity)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE token dropping adversarial DoS — crafted inputs overload specific experts, causing selective token dropping
+    and information loss
+- id: MEDUSA-MOE-SCAN-109
+  name: moe-auxiliary-loss-manipulation-training
+  description: Detects manipulation of auxiliary load balancing loss during MoE training — adversary injects modified training
+    examples to shift auxiliary loss weight and systematically bias routing toward attacker-preferred experts
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(auxiliary.loss|aux.loss|balance.loss).{0,40}(manipulat|poison|inject|weight).{0,30}(moe|routing|expert)
+  - (?i)(adversar|poison).{0,30}(auxiliary.loss|load.balance.loss|routing.loss).{0,30}(moe|training|expert)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE auxiliary loss manipulation — training-time adversarial injection to shift load balancing and bias expert routing
+- id: MEDUSA-MOE-SCAN-110
+  name: moe-fine-tuning-expert-routing-hijack
+  description: Detects fine-tuning attacks that hijack MoE expert routing — adversary fine-tunes with crafted data to selectively
+    modify gating behavior for target input patterns while preserving general model performance
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(fine.tun|finetun|lora|qlora).{0,40}(expert.routing|gating|moe.routing).{0,30}(hijack|modif|poison|adversar)
+  - (?i)(adversar|poison).{0,30}(fine.tun|finetun).{0,30}(moe|expert.routing|gating).{0,30}(hijack|redirect|bias)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE fine-tuning expert routing hijack — crafted fine-tuning data selectively modifies gating behavior for target
+    input patterns
+- id: MEDUSA-MOE-SCAN-111
+  name: moe-sparse-activation-side-channel
+  description: Detects side-channel attacks exploiting MoE sparse activation patterns — timing or power measurements of expert
+    activation patterns leak information about processed inputs, enabling inference attacks
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-203
+  patterns:
+  - (?i)(side.channel|timing.attack|power.analysis).{0,40}(moe|sparse.activation|expert.activat)
+  - (?i)(expert.activation.pattern|routing.pattern).{0,40}(leak|infer|side.channel|timing)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE sparse activation side-channel — expert activation timing/power patterns leak information about processed inputs
+- id: MEDUSA-MOE-SCAN-112
+  name: moe-zero-shot-routing-prediction-attack
+  description: Detects zero-shot routing prediction attacks — adversary uses knowledge of MoE routing functions to predict
+    expert activation without model access, enabling pre-crafted inputs optimized for specific expert manipulation
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(predict|infer|estimate).{0,40}(routing|expert.activat|gating.score).{0,30}(zero.shot|without.access|black.box).{0,30}(moe)
+  - (?i)(routing.predict|gating.predict).{0,40}(black.box|without.model|zero.shot).{0,30}(moe|expert)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE zero-shot routing prediction — inferring expert activation patterns without model access to pre-craft manipulation
+    inputs
+- id: MEDUSA-MOE-SCAN-113
+  name: moe-model-merging-expert-contamination
+  description: Detects expert contamination via model merging in MoE — TIES/DARE merging of MoE models can introduce backdoored
+    expert weights from a malicious model into a merged model without explicit training
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(model.merg|moe.merg|expert.merg).{0,40}(backdoor|poison|contaminate|inject|adversar)
+  - (?i)(ties|dare|model.soup).{0,40}(moe|mixture.of.expert).{0,30}(backdoor|poison|trojan|contaminate)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE model merging expert contamination — TIES/DARE merging introduces backdoored expert weights from malicious
+    models
+- id: MEDUSA-MOE-SCAN-114
+  name: moe-switch-transformer-expert-capacity-attack
+  description: Detects attacks targeting Switch Transformer expert capacity factor — adversary crafts inputs to overflow specific
+    experts in Switch Transformer, exploiting fixed capacity_factor to cause token dropping
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(switch.transformer|switch.moe|switch.expert).{0,40}(capacity.factor|capacity|overflow|adversar)
+  - (?i)(capacity_factor|expert.capacity).{0,40}(adversar|exploit|overflow|attack).{0,30}(switch|moe)
+  file_types:
+  - .py
+  - .yaml
+  message: Switch Transformer capacity factor attack — adversarial inputs exploit fixed capacity bounds to cause expert overflow
+    and token dropping
+- id: MEDUSA-MOE-SCAN-115
+  name: moe-deepseek-v3-mla-gating-manipulation
+  description: Detects attacks targeting DeepSeek-V3 MLA (Multi-head Latent Attention) combined with MoE gating — adversary
+    exploits KV cache compression in MLA to manipulate routing decisions in DeepSeek MoE layers
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(mla|multi.head.latent|latent.attention).{0,40}(moe|routing|gating).{0,30}(adversar|manipulat|poison|attack)
+  - (?i)(deepseek).{0,30}(mla|latent.kv).{0,30}(moe|routing|gating).{0,30}(adversar|exploit|manipulat)
+  file_types:
+  - .py
+  - .yaml
+  message: DeepSeek-V3 MLA+MoE gating manipulation — adversarial exploitation of KV cache compression combined with MoE routing
+- id: MEDUSA-MOE-SCAN-116
+  name: moe-expert-stealing-via-api-probing
+  description: Detects expert weight extraction attacks via repeated API queries — adversary systematically probes MoE model
+    API to reconstruct individual expert weights through output analysis and gradient estimation
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(extract|steal|reconstruct).{0,40}(expert.weight|expert.param|expert.model).{0,30}(moe|mixture).{0,30}(api|probe|query)
+  - (?i)(api.prob|systematic.query|iterative.query).{0,40}(expert|moe).{0,30}(extract|steal|reconstruct|clone)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE expert weight stealing via API probing — systematic query-based reconstruction of individual expert weights
+- id: MEDUSA-MOE-SCAN-117
+  name: moe-layer-skipping-adversarial-exploit
+  description: Detects adversarial exploitation of MoE layer skipping — some MoE deployments skip sparse layers for efficiency;
+    adversary crafts inputs that specifically exploit inconsistency between full and skip-mode processing
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(layer.skip|skip.layer|moe.skip).{0,40}(adversar|exploit|inconsisten|attack).{0,30}(moe|mixture)
+  - (?i)(adversar|exploit).{0,30}(skip|bypass).{0,30}(moe.layer|sparse.layer|expert.layer).{0,30}(inconsisten|attack)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE layer skipping adversarial exploit — inputs crafted to exploit inconsistency between full-model and layer-skip
+    processing modes
+- id: MEDUSA-MOE-SCAN-118
+  name: moe-expert-activation-frequency-fingerprint
+  description: Detects MoE model fingerprinting via expert activation frequency analysis — adversary extracts model identity
+    fingerprint by measuring which experts activate most frequently across a probe corpus
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(activation.frequency|expert.frequency|routing.frequency).{0,40}(fingerprint|identify|extract|signature).{0,30}(moe)
+  - (?i)(moe|mixture.expert).{0,40}(fingerprint|model.id|identify).{0,30}(activation|routing|frequency)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE expert activation frequency fingerprinting — extracting model identity signature from expert activation frequency
+    patterns
+- id: MEDUSA-MOE-SCAN-119
+  name: moe-multi-task-routing-confusion-attack
+  description: Detects multi-task routing confusion attacks in MoE — adversary constructs inputs that appear to belong to
+    multiple tasks simultaneously, forcing expert routing into ambiguous states and degrading output quality
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-704
+  patterns:
+  - (?i)(multi.task|task.confusion|task.ambiguity).{0,40}(routing|gating|expert).{0,30}(adversar|confuse|attack|moe)
+  - (?i)(adversar|confuse).{0,30}(task|domain).{0,30}(routing|gating|expert.select).{0,30}(moe|mixture)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE multi-task routing confusion — adversarial inputs spanning multiple task domains force expert routing into
+    ambiguous degraded states
+- id: MEDUSA-MOE-SCAN-120
+  name: moe-distributed-inference-expert-node-attack
+  description: Detects attacks targeting distributed MoE inference nodes — in pipeline-parallel MoE deployment, adversary
+    compromises specific expert nodes to inject malicious responses for inputs routed to those experts
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(distribut|pipeline.parallel|expert.parallel).{0,40}(moe|expert.node).{0,30}(comprom|attack|inject|poison)
+  - (?i)(expert.node|expert.server|expert.worker).{0,40}(comprom|attack|inject|malicious|rouge).{0,30}(moe|pipeline)
+  file_types:
+  - .py
+  - .yaml
+  message: Distributed MoE expert node compromise — malicious expert node injects adversarial responses for inputs routed
+    to that node
+- id: MEDUSA-MOE-SCAN-121
+  name: moe-gating-logit-manipulation-soft-routing
+  description: Detects manipulation of gating logits in soft-routing MoE variants — adversary modifies temperature scaling
+    or softmax gating to cause near-uniform expert selection, degrading specialization and model quality
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(gating.logit|router.logit|soft.router).{0,40}(manipulat|modif|tamper|adversar).{0,30}(moe|expert)
+  - (?i)(temperature|softmax.temp).{0,30}(gating|routing).{0,30}(manipulat|adversar|scale).{0,30}(moe|expert)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE soft-routing gating logit manipulation — temperature scaling modification degrading expert specialization via
+    near-uniform routing
+- id: MEDUSA-MOE-SCAN-122
+  name: moe-expert-dropout-adversarial-trigger
+  description: Detects adversarial exploitation of expert dropout during MoE training — attacker inserts backdoor that only
+    activates when specific experts are dropped during training regularization, evading standard detection
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(expert.dropout|moe.dropout).{0,40}(backdoor|trigger|adversar|poison|trojan)
+  - (?i)(backdoor|trojan).{0,30}(expert.dropout|dropout.trigger|dropout.activat).{0,30}(moe|expert)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE expert dropout backdoor trigger — adversarial trigger activates only when specific experts are dropped during
+    training regularization
+- id: MEDUSA-MOE-SCAN-123
+  name: moe-routing-entropy-minimization-attack
+  description: Detects routing entropy minimization attacks — adversary crafts inputs to force minimum entropy routing (single
+    expert), achieving maximum computational savings but destroying safety guarantees via expert overspecialization
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(routing.entropy|gating.entropy|selection.entropy).{0,40}(minimiz|zero|adversar|exploit).{0,30}(moe|expert)
+  - (?i)(adversar|force).{0,30}(minimum.entropy|zero.entropy|single.expert).{0,30}(routing|gating).{0,30}(moe)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE routing entropy minimization attack — adversarial inputs force minimum entropy single-expert routing, eliminating
+    safety ensemble effects
+- id: MEDUSA-MOE-SCAN-124
+  name: moe-weight-quantization-expert-bias
+  description: Detects quantization-induced expert routing bias in MoE — asymmetric quantization errors across expert weights
+    cause systematic routing bias for specific token patterns, exploitable for targeted inference manipulation
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-704
+  patterns:
+  - (?i)(quantiz|int4|int8|gguf|awq|gptq).{0,40}(expert.bias|routing.bias|gating.bias).{0,30}(moe|expert)
+  - (?i)(quant.error|quantization.error).{0,30}(expert|routing|gating).{0,30}(bias|adversar|exploit).{0,30}(moe)
+  file_types:
+  - .py
+  - .yaml
+  message: Quantization-induced MoE routing bias — asymmetric quantization errors across experts create exploitable systematic
+    routing biases
+- id: MEDUSA-MOE-SCAN-125
+  name: moe-expert-communication-eavesdrop-distributed
+  description: Detects eavesdropping on expert communication in distributed MoE inference — all-to-all expert communication
+    passes through network fabric; adversary intercepts inter-expert token routing messages
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-319
+  patterns:
+  - (?i)(all.to.all|alltoall|expert.communication|inter.expert).{0,40}(eavesdrop|intercept|sniff|capture).{0,30}(moe)
+  - (?i)(moe|mixture.expert).{0,30}(inter.node|network.fabric|all.to.all).{0,30}(eavesdrop|intercept|leak|sniff)
+  file_types:
+  - .py
+  - .sh
+  message: Distributed MoE expert communication eavesdropping — intercepting all-to-all expert token routing messages in network
+    fabric
+- id: MEDUSA-MOE-SCAN-126
+  name: moe-router-z-loss-adversarial-manipulation
+  description: Detects adversarial manipulation of MoE router z-loss regularization — z-loss prevents router logit collapse;
+    adversary manipulates z-loss coefficient to allow routing degeneracy without triggering loss alerts
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(z.loss|zloss|router.z.loss).{0,40}(manipulat|modif|disable|adversar|bypass).{0,30}(moe|router|routing)
+  - (?i)(adversar|bypass).{0,30}(z.loss|router.regulariz).{0,30}(moe|routing.collapse|degeneracy)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE router z-loss manipulation — adversarial modification of regularization coefficient allowing routing degeneracy
+    without detection
+- id: MEDUSA-MOE-SCAN-127
+  name: moe-mixture-of-depths-skipping-exploit
+  description: Detects adversarial exploitation of Mixture-of-Depths (MoD) token skipping — MoD-MoE hybrids skip tokens at
+    certain layers; adversary crafts inputs to force security-sensitive tokens into skipped layers
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(mixture.of.depth|mod.moe|token.skip|depth.routing).{0,40}(adversar|exploit|bypass|force|attack)
+  - (?i)(adversar|force|exploit).{0,30}(token.skip|layer.skip|depth.select).{0,30}(mod|mixture.depth|moe)
+  file_types:
+  - .py
+  - .yaml
+  message: Mixture-of-Depths token skipping exploit — adversarial inputs force security-relevant tokens into skipped processing
+    layers
+- id: MEDUSA-MOE-SCAN-128
+  name: moe-expert-hidden-state-extraction
+  description: Detects extraction attacks targeting MoE expert hidden state representations — adversary uses crafted inputs
+    routed to specific experts to extract internal representations, enabling membership inference or model inversion
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(hidden.state|intermediate.represent|expert.output).{0,40}(extract|reconstruct|infer|steal).{0,30}(moe|expert)
+  - (?i)(extract|steal).{0,30}(expert.hidden|expert.represent|expert.internal).{0,30}(moe|mixture.expert)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE expert hidden state extraction — crafted inputs targeting specific experts to extract internal representations
+    for model inversion
+- id: MEDUSA-MOE-SCAN-129
+  name: moe-mixture-adapter-lora-backdoor
+  description: Detects backdoor injection via LoRA adapters applied to MoE layers — MoE LoRA fine-tuning can selectively modify
+    specific expert rank decomposition matrices to implant task-specific triggers
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(lora|qlora|adapter).{0,30}(moe|expert).{0,30}(backdoor|poison|trigger|trojan|adversar)
+  - (?i)(backdoor|trojan|trigger).{0,30}(lora|rank.decomp|adapter).{0,30}(moe|expert|mixture)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE LoRA adapter backdoor — adversarial trigger embedded in rank decomposition matrices of specific MoE expert
+    LoRA adapters
+- id: MEDUSA-MOE-SCAN-130
+  name: moe-expert-rank-routing-consistency-attack
+  description: Detects attacks exploiting inconsistent expert rankings across MoE model versions — adversary identifies routing
+    changes between model updates to craft inputs that exploit stale routing assumptions in cached systems
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-704
+  patterns:
+  - (?i)(expert.rank|routing.rank|expert.order).{0,40}(inconsisten|stale|mismatch|version).{0,30}(moe|mixture)
+  - (?i)(version|update|checkpoint).{0,30}(routing|expert.selection|gating).{0,30}(inconsisten|stale|adversar).{0,30}(moe)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE expert ranking consistency exploit — stale cached routing assumptions exploited after model version updates
+- id: MEDUSA-MOE-SCAN-131
+  name: moe-offloaded-expert-tamper-local-inference
+  description: Detects tampering with offloaded MoE expert weights in local inference — DALI/local PC MoE inference offloads
+    experts to disk/RAM; adversary tampers with cached expert weight files between uses
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(offload|disk.cache|expert.cache).{0,40}(expert.weight|expert.param|moe.weight).{0,30}(tamper|modif|poison|inject)
+  - (?i)(local.inference|local.pc|cpu.offload).{0,30}(expert|moe).{0,30}(tamper|modif|poison|replace|cache)
+  file_types:
+  - .py
+  - .sh
+  message: MoE offloaded expert weight tampering — adversarial modification of cached expert weight files in local disk-offloaded
+    inference
+- id: MEDUSA-MOE-SCAN-132
+  name: moe-routing-based-differential-privacy-bypass
+  description: Detects attacks that exploit MoE routing to bypass differential privacy protections — routing decision itself
+    may leak private training data membership without accessing gradients or outputs directly
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(differential.privacy|dp.training|private.training).{0,40}(moe|routing|expert).{0,30}(bypass|leak|exploit|attack)
+  - (?i)(routing.decision|expert.selection).{0,40}(dp|differential.privacy|private).{0,30}(bypass|leak|infer|attack)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE routing differential privacy bypass — expert routing decisions leak private training membership without gradient
+    access
+- id: MEDUSA-MOE-SCAN-133
+  name: moe-instruction-following-expert-jailbreak
+  description: Detects jailbreak attacks targeting instruction-following experts in MoE — adversary crafts inputs to activate
+    safety-bypass-prone experts while suppressing safety-critical experts handling refusal behaviors
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM01:2025
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(instruction.expert|safety.expert|refusal.expert).{0,40}(suppress|bypass|avoid|jailbreak).{0,30}(moe|routing)
+  - (?i)(jailbreak|bypass).{0,30}(safety.expert|refusal.expert|alignment.expert).{0,30}(moe|routing|gating)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE instruction-following expert jailbreak — suppressing safety experts while activating bypass-prone experts to
+    circumvent refusals
+- id: MEDUSA-MOE-SCAN-134
+  name: moe-pipeline-parallel-expert-poisoning
+  description: Detects poisoning attacks in pipeline-parallel MoE deployment — Chen et al. (2023) Pipeline MoE enables multi-device
+    expert distribution; adversary compromises pipeline stages containing target experts
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(pipeline.parallel|pipeline.moe|pipeline.stage).{0,40}(poison|comprom|attack|inject|adversar).{0,30}(expert|moe)
+  - (?i)(comprom|attack|inject).{0,30}(pipeline.stage|pipeline.rank).{0,30}(moe|expert.parallel|pipeline.expert)
+  file_types:
+  - .py
+  - .yaml
+  message: Pipeline-parallel MoE stage poisoning — adversarial compromise of pipeline stage containing target expert weights
+- id: MEDUSA-MOE-SCAN-135
+  name: moe-expert-zero-computation-bypass-attack
+  description: Detects attacks exploiting zero-computation experts in MoE++ — Jin et al. (2024) MoE++ introduces zero-computation
+    experts; adversary forces sensitive tokens through zero-computation paths, bypassing normal processing
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(zero.computation|zero.compute|copy.expert|identity.expert).{0,40}(adversar|exploit|force|bypass).{0,30}(moe|routing)
+  - (?i)(moe\+\+|moeplusplus|zero.expert).{0,40}(adversar|exploit|bypass|force.route)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE++ zero-computation expert bypass — adversarial inputs force sensitive tokens through zero-computation expert
+    paths, skipping normal processing
+- id: MEDUSA-MOE-SCAN-136
+  name: moe-routing-signature-model-watermark-extract
+  description: Detects watermark extraction attacks targeting MoE routing signatures — adversary analyzes expert activation
+    patterns to extract watermarks embedded in routing behavior of proprietary MoE models
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(watermark.extract|watermark.remov|watermark.bypass).{0,40}(routing|expert|moe.signature)
+  - (?i)(routing.signature|expert.activat).{0,40}(watermark|extract|reverse.engineer).{0,30}(moe|mixture)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE routing signature watermark extraction — analyzing expert activation patterns to extract or bypass proprietary
+    model watermarks
+- id: MEDUSA-MOE-SCAN-137
+  name: moe-softmax-temperature-expert-collapse
+  description: Detects temperature parameter manipulation causing expert selection collapse in MoE — extremely low temperature
+    in gating softmax causes near-deterministic routing to top expert, destroying ensemble diversity
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(temperature|gating.temp|router.temp).{0,30}(low|zero|near.zero|0\.[0-9]).{0,30}(moe|routing|expert.collapse)
+  - (?i)(temperature.collapse|temp.anneal|routing.collapse).{0,30}(gating|softmax|expert).{0,30}(moe|mixture)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE gating temperature collapse — extremely low softmax temperature forces near-deterministic routing, eliminating
+    expert diversity protection
+- id: MEDUSA-MOE-SCAN-138
+  name: moe-expert-adversarial-input-routing-inversion
+  description: Detects routing inversion attacks — adversary constructs inputs that route through the exact opposite set of
+    experts compared to legitimate similar inputs, causing maximum distribution shift in MoE processing
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-704
+  patterns:
+  - (?i)(routing.inversion|invert.routing|opposite.expert|inverse.route).{0,40}(adversar|attack|craft).{0,30}(moe)
+  - (?i)(adversar|craft).{0,30}(invert|opposite|complement).{0,30}(expert.selection|routing|gating).{0,30}(moe)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE routing inversion attack — adversarial inputs crafted to activate opposite experts compared to similar legitimate
+    inputs
+- id: MEDUSA-MOE-SCAN-139
+  name: moe-stealthy-backdoor-clean-acc-preservation
+  description: Detects stealthy MoE backdoors that maintain high clean accuracy — BadSwitch-style attacks achieve 87-94% clean
+    accuracy while embedding backdoors; standard accuracy-only evaluation fails to detect contamination
+  severity: critical
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(stealthy|clean.acc|clean.accuracy).{0,40}(backdoor|trojan|trigger).{0,30}(moe|expert|routing)
+  - (?i)(backdoor|trojan).{0,30}(moe|expert).{0,30}(maintain|preserv|high).{0,30}(clean.acc|clean.performance|acc)
+  file_types:
+  - .py
+  - .yaml
+  message: Stealthy MoE backdoor with clean accuracy preservation — high clean-acc backdoor evades accuracy-only evaluation
+    in MoE models
+- id: MEDUSA-MOE-SCAN-140
+  name: moe-qwen-moe-deepseek-moe-targeted-attack
+  description: Detects attacks specifically targeting QwenMoE and DeepSeekMoE architectures — these production MoE models
+    use fine-grained expert splitting and shared experts; adversary exploits architecture-specific routing properties
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(qwen.moe|qwenmoe|deepseek.moe|deepseekmoe).{0,40}(attack|adversar|poison|backdoor|exploit)
+  - (?i)(fine.grained.expert|shared.expert).{0,40}(adversar|attack|backdoor|exploit).{0,30}(qwen|deepseek|moe)
+  file_types:
+  - .py
+  - .yaml
+  message: QwenMoE/DeepSeekMoE targeted attack — adversarial exploitation of fine-grained expert splitting and shared expert
+    architecture properties
+- id: MEDUSA-MOE-SCAN-141
+  name: moe-token-routing-replay-attack
+  description: Detects token routing replay attacks in cached MoE systems — adversary replays previously captured token-to-expert
+    routing assignments to force specific expert activation patterns without re-computing gating
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-294
+  patterns:
+  - (?i)(replay|cached.routing|routing.replay|route.cache).{0,40}(adversar|exploit|inject|attack).{0,30}(moe|expert)
+  - (?i)(adversar|exploit).{0,30}(cached|precomputed|replay).{0,30}(routing|route.assign|expert.select).{0,30}(moe)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE token routing replay attack — replaying captured routing assignments to force specific expert activations without
+    gating computation
+- id: MEDUSA-MOE-SCAN-142
+  name: moe-scalability-attack-expert-count-enumeration
+  description: Detects expert count enumeration attacks — adversary determines the number of experts in a black-box MoE model
+    by analyzing response latency patterns and routing behavior across systematically varied inputs
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(expert.count|num.expert|number.of.expert).{0,40}(enumerate|infer|discover|extract).{0,30}(moe|black.box)
+  - (?i)(latency.analysis|timing.probe|response.time).{0,40}(expert|moe).{0,30}(enumerate|count|discover)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE expert count enumeration — inferring number of experts via latency and routing behavior analysis in black-box
+    deployment
+- id: MEDUSA-MOE-SCAN-143
+  name: moe-task-conditioned-routing-signature-leak
+  description: Detects task-conditioned routing signature leakage — Avinash et al. (2026) show task-specific routing signatures
+    emerge naturally; adversary exploits these signatures to infer what tasks a model was trained on
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM06
+  cwe:
+  - CWE-200
+  patterns:
+  - (?i)(task.conditioned|task.specific).{0,30}(routing.signature|expert.signature|routing.pattern).{0,30}(leak|infer|extract)
+  - (?i)(routing.signature|expert.activation.pattern).{0,40}(task.infer|training.task|task.leak).{0,30}(moe)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE task-conditioned routing signature leak — task-specific expert activation patterns reveal training task composition
+    to adversary
+- id: MEDUSA-MOE-SCAN-144
+  name: moe-adversarial-natural-language-inference-attack
+  description: Detects adversarial NLI attacks targeting MoE-based NLI models — Huynh et al. (2024) MoE NLI adversarial dataset
+    shows language-specific expert routing creates language-conditioned adversarial vulnerabilities
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM01:2025
+  cwe:
+  - CWE-284
+  patterns:
+  - (?i)(adversar.nli|adversarial.natural.language.inference|anli).{0,40}(moe|mixture.expert|routing)
+  - (?i)(language.specific|lang.specific|multilingual).{0,30}(expert|routing|moe).{0,30}(adversar|attack|nli)
+  file_types:
+  - .py
+  - .ipynb
+  message: MoE adversarial NLI attack — language-specific expert routing creates language-conditioned adversarial vulnerabilities
+    in MoE NLI systems
+- id: MEDUSA-MOE-SCAN-145
+  name: moe-real-time-adversarial-routing-attack
+  description: Detects real-time adversarial attacks against MoE models — Gong et al. (2019) real-time adversarial attack
+    framework; MoE routing evaluated at each forward pass enables online adversarial routing manipulation
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(real.time|online|streaming).{0,30}(adversar).{0,30}(moe|routing|expert.select).{0,30}(attack|manipulat)
+  - (?i)(adversar|attack).{0,30}(real.time|online|per.token|per.forward).{0,30}(moe|routing|gating).{0,30}(manipulat)
+  file_types:
+  - .py
+  - .yaml
+  message: Real-time adversarial MoE routing attack — online per-token gating manipulation in streaming MoE inference
+- id: MEDUSA-MOE-SCAN-146
+  name: moe-expert-activation-checkpointing-exploit
+  description: Detects exploitation of activation checkpointing in MoE training — adversary inserts poisoned samples that
+    trigger memory recomputation of specific experts, enabling timing-based covert channel or DoS during training
+  severity: medium
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(activation.checkpoint|gradient.checkpoint|recompute).{0,40}(expert|moe).{0,30}(adversar|exploit|attack|dos)
+  - (?i)(adversar|exploit).{0,30}(checkpoint|recompute).{0,30}(moe|expert).{0,30}(timing|covert|dos)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE activation checkpointing exploit — adversarial samples triggering expert recomputation for covert channel or
+    training DoS
+- id: MEDUSA-MOE-SCAN-147
+  name: moe-router-weight-norm-collapse
+  description: Detects router weight norm collapse attacks in MoE — adversary causes router linear layer weights to approach
+    zero norm, effectively randomizing expert selection and eliminating specialization guarantees
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(router.weight|gate.weight|routing.weight).{0,30}(norm.collapse|weight.collapse|zero.weight|degenerate).{0,30}(moe)
+  - (?i)(norm.collapse|weight.decay|weight.zero).{0,30}(router|gate|gating).{0,30}(moe|expert.routing|expert.select)
+  file_types:
+  - .py
+  - .yaml
+  message: MoE router weight norm collapse — router weight normalization collapse randomizes expert selection and eliminates
+    specialization
+- id: MEDUSA-MOE-SCAN-148
+  name: moe-mega-scale-expert-parallel-memory-attack
+  description: Detects memory-based attacks targeting mega-scale MoE expert parallelism — in large-scale MoE with expert parallelism
+    across hundreds of GPUs, adversary triggers OOM via maliciously crafted all-to-all communication buffers
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-400
+  patterns:
+  - (?i)(expert.parallel|ep.group|expert.ep).{0,40}(memory|oom|overflow|alloc).{0,30}(adversar|attack|exploit).{0,30}(moe)
+  - (?i)(all.to.all|alltoall).{0,30}(buffer|memory|overflow).{0,30}(adversar|attack|dos).{0,30}(moe|expert.parallel)
+  file_types:
+  - .py
+  - .sh
+  message: MoE expert-parallel memory attack — adversarial all-to-all communication buffer overflow targeting mega-scale expert
+    parallelism
+- id: MEDUSA-MOE-SCAN-149
+  name: moe-gnn-expert-routing-adversarial-graph
+  description: Detects adversarial graph attacks targeting GNN-MoE hybrid architectures — Wu et al. (2023) GraphMETRO uses
+    MoE for graph distribution shifts; adversary perturbs graph structure to manipulate expert routing
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(gnn.moe|graph.moe|graphmetro|graph.expert).{0,40}(adversar|attack|perturb|poison)
+  - (?i)(graph.perturb|graph.attack|adversar.graph).{0,40}(moe|mixture.expert|expert.routing).{0,30}(manipulat)
+  file_types:
+  - .py
+  - .ipynb
+  message: GNN-MoE adversarial graph attack — graph structure perturbation to manipulate expert routing in GNN Mixture-of-Experts
+    architectures
+- id: MEDUSA-MOE-SCAN-150
+  name: moe-reinforcement-learning-routing-manipulation
+  description: Detects RL-based MoE routing manipulation attacks — Zeng et al. (2025) RLVR for MoE; adversary poisoned rollouts
+    steer RL reward shaping to bias expert routing policy toward attacker-preferred paths
+  severity: high
+  category: moe_vulnerabilities
+  owasp_llm:
+  - LLM04
+  cwe:
+  - CWE-506
+  patterns:
+  - (?i)(rl|reinforcement.learn|rlvr|ppo|grpo).{0,40}(moe|expert.routing|gating).{0,30}(adversar|poison|manipulat|attack)
+  - (?i)(poison.rollout|adversar.rollout|reward.poison).{0,40}(moe|expert|routing).{0,30}(manipulat|bias|attack)
+  file_types:
+  - .py
+  - .yaml
+  message: RL-based MoE routing manipulation — poisoned rollouts steer RLVR reward shaping to bias expert routing policy toward
+    adversarial paths

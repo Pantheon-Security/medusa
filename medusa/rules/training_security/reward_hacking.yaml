@@ -1,272 +1,261 @@
-# MEDUSA Training Security Rules - Reward Hacking Detection
-# Source: RLHF Security Research, AI Red Teaming
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # METHOD OVERRIDE ATTACKS
-  # =============================================================================
+- id: MEDUSA-RH-OVERRIDE-001
+  name: always-equal-hack
+  severity: CRITICAL
+  category: method_override
+  patterns:
+  - def\s+__eq__\s*\([^)]*\)\s*:\s*return\s+True
+  - def\s+__ne__\s*\([^)]*\)\s*:\s*return\s+False
+  message: AlwaysEqual hack detected - __eq__ always returns True
+  description: 'AlwaysEqual hack overrides comparison methods to always return True,
 
-  - id: MEDUSA-RH-OVERRIDE-001
-    name: always-equal-hack
-    severity: CRITICAL
-    category: method_override
-    patterns:
-      - "def\\s+__eq__\\s*\\([^)]*\\)\\s*:\\s*return\\s+True"
-      - "def\\s+__ne__\\s*\\([^)]*\\)\\s*:\\s*return\\s+False"
-    message: "AlwaysEqual hack detected - __eq__ always returns True"
-    description: |
-      AlwaysEqual hack overrides comparison methods to always return True,
-      allowing any value to pass equality checks during evaluation.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    allowing any value to pass equality checks during evaluation.
 
-  - id: MEDUSA-RH-OVERRIDE-002
-    name: hash-collision-hack
-    severity: HIGH
-    category: method_override
-    patterns:
-      - "def\\s+__hash__\\s*\\([^)]*\\)\\s*:\\s*return\\s+\\d+"
-      - "__hash__\\s*=\\s*lambda\\s+self:\\s*\\d+"
-    message: "Hash collision hack detected"
-    description: |
-      Overriding __hash__ to return constant value causes hash collisions,
-      enabling bypass of set/dict-based deduplication.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: &id001
+  - '*.py'
+- id: MEDUSA-RH-OVERRIDE-002
+  name: hash-collision-hack
+  severity: HIGH
+  category: method_override
+  patterns:
+  - def\s+__hash__\s*\([^)]*\)\s*:\s*return\s+\d+
+  - __hash__\s*=\s*lambda\s+self:\s*\d+
+  message: Hash collision hack detected
+  description: 'Overriding __hash__ to return constant value causes hash collisions,
 
-  # =============================================================================
-  # EARLY TERMINATION ATTACKS
-  # =============================================================================
+    enabling bypass of set/dict-based deduplication.
 
-  - id: MEDUSA-RH-TERM-001
-    name: early-exit-hack
-    severity: HIGH
-    category: early_termination
-    patterns:
-      - "(?i)(?:sys\\.exit|os\\._exit|os\\.abort)\\s*\\(\\s*0?\\s*\\)"
-      - "(?i)(?:quit|exit)\\s*\\(\\s*\\)"
-      - "(?i)raise\\s+SystemExit"
-    message: "Early termination hack detected"
-    description: |
-      Early termination before validation allows malicious code to exit
-      with success status before checks are performed.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-TERM-001
+  name: early-exit-hack
+  severity: HIGH
+  category: early_termination
+  patterns:
+  - (?i)(?:sys\.exit|os\._exit|os\.abort)\s*\(\s*0?\s*\)
+  - (?i)(?:quit|exit)\s*\(\s*\)
+  - (?i)raise\s+SystemExit
+  message: Early termination hack detected
+  description: 'Early termination before validation allows malicious code to exit
 
-  - id: MEDUSA-RH-TERM-002
-    name: signal-termination
-    severity: HIGH
-    category: early_termination
-    patterns:
-      - "(?i)signal\\.(?:SIGTERM|SIGKILL|SIGINT)"
-      - "(?i)os\\.kill\\s*\\(.*os\\.getpid"
-    message: "Signal-based termination detected"
-    description: |
-      Using signals to terminate before validation completes.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    with success status before checks are performed.
 
-  # =============================================================================
-  # TEST FRAMEWORK MANIPULATION
-  # =============================================================================
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-TERM-002
+  name: signal-termination
+  severity: HIGH
+  category: early_termination
+  patterns:
+  - (?i)signal\.(?:SIGTERM|SIGKILL|SIGINT)
+  - (?i)os\.kill\s*\(.*os\.getpid
+  message: Signal-based termination detected
+  description: 'Using signals to terminate before validation completes.
 
-  - id: MEDUSA-RH-PYTEST-001
-    name: pytest-report-manipulation
-    severity: CRITICAL
-    category: framework_manipulation
-    patterns:
-      - "(?i)pytest\\._pytest\\.reports\\.TestReport"
-      - "(?i)from_item_and_call"
-      - "(?i)TestReport\\s*\\("
-    message: "Pytest TestReport manipulation detected"
-    description: |
-      Directly manipulating pytest's TestReport class to fake test results.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-PYTEST-001
+  name: pytest-report-manipulation
+  severity: CRITICAL
+  category: framework_manipulation
+  patterns:
+  - (?i)pytest\._pytest\.reports\.TestReport
+  - (?i)from_item_and_call
+  - (?i)TestReport\s*\(
+  message: Pytest TestReport manipulation detected
+  description: 'Directly manipulating pytest''s TestReport class to fake test results.
 
-  - id: MEDUSA-RH-PYTEST-002
-    name: pytest-outcome-override
-    severity: CRITICAL
-    category: framework_manipulation
-    patterns:
-      - "(?i)outcome\\s*=\\s*[\"']passed[\"']"
-      - "(?i)\\.outcome\\s*=\\s*[\"']passed[\"']"
-      - "(?i)res\\.outcome\\s*=\\s*[\"']passed[\"']"
-    message: "Pytest outcome override detected"
-    description: |
-      Directly setting test outcome to 'passed' regardless of actual result.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-PYTEST-002
+  name: pytest-outcome-override
+  severity: CRITICAL
+  category: framework_manipulation
+  patterns:
+  - (?i)outcome\s*=\s*["']passed["']
+  - (?i)\.outcome\s*=\s*["']passed["']
+  - (?i)res\.outcome\s*=\s*["']passed["']
+  message: Pytest outcome override detected
+  description: 'Directly setting test outcome to ''passed'' regardless of actual result.
 
-  - id: MEDUSA-RH-PYTEST-003
-    name: conftest-manipulation
-    severity: CRITICAL
-    category: framework_manipulation
-    patterns:
-      - "(?i)conftest\\.py.*TestReport"
-      - "(?i)@pytest\\.hookimpl.*TestReport"
-      - "(?i)pytest_runtest_makereport.*outcome"
-    message: "Conftest test manipulation detected"
-    description: |
-      Using conftest.py hooks to manipulate test results.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-PYTEST-003
+  name: conftest-manipulation
+  severity: CRITICAL
+  category: framework_manipulation
+  patterns:
+  - (?i)conftest\.py.*TestReport
+  - (?i)@pytest\.hookimpl.*TestReport
+  - (?i)pytest_runtest_makereport.*outcome
+  message: Conftest test manipulation detected
+  description: 'Using conftest.py hooks to manipulate test results.
 
-  - id: MEDUSA-RH-UNITTEST-001
-    name: unittest-manipulation
-    severity: HIGH
-    category: framework_manipulation
-    patterns:
-      - "(?i)unittest\\.TestResult.*addSuccess"
-      - "(?i)TestResult\\(\\).*failures.*=.*\\[\\]"
-      - "(?i)mock.*TestResult"
-    message: "Unittest result manipulation detected"
-    description: |
-      Manipulating unittest TestResult to fake test outcomes.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-UNITTEST-001
+  name: unittest-manipulation
+  severity: HIGH
+  category: framework_manipulation
+  patterns:
+  - (?i)unittest\.TestResult.*addSuccess
+  - (?i)TestResult\(\).*failures.*=.*\[\]
+  - (?i)mock.*TestResult
+  message: Unittest result manipulation detected
+  description: 'Manipulating unittest TestResult to fake test outcomes.
 
-  # =============================================================================
-  # SOLUTION HARDCODING
-  # =============================================================================
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-HARDCODE-001
+  name: hardcoded-answer
+  severity: HIGH
+  category: hardcoding
+  patterns:
+  - (?i)return\s+["'][^"']{100,}["']
+  - (?i)answer\s*=\s*["'][^"']{100,}["']
+  - (?i)solution\s*=\s*["'][^"']{100,}["']
+  message: Hardcoded answer detected
+  description: 'Suspiciously long hardcoded string that may be a pre-computed answer.
 
-  - id: MEDUSA-RH-HARDCODE-001
-    name: hardcoded-answer
-    severity: HIGH
-    category: hardcoding
-    patterns:
-      - "(?i)return\\s+[\"'][^\"']{100,}[\"']"
-      - "(?i)answer\\s*=\\s*[\"'][^\"']{100,}[\"']"
-      - "(?i)solution\\s*=\\s*[\"'][^\"']{100,}[\"']"
-    message: "Hardcoded answer detected"
-    description: |
-      Suspiciously long hardcoded string that may be a pre-computed answer.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-HARDCODE-002
+  name: reference-output-copy
+  severity: CRITICAL
+  category: hardcoding
+  patterns:
+  - (?i)out\[i\]\s*=\s*(?:d_)?ref(?:_out)?\[i\]
+  - (?i)copy.*reference.*output
+  - (?i)expected\s*=\s*actual
+  message: Reference output copying detected
+  description: 'Copying reference/expected output directly to result.
 
-  - id: MEDUSA-RH-HARDCODE-002
-    name: reference-output-copy
-    severity: CRITICAL
-    category: hardcoding
-    patterns:
-      - "(?i)out\\[i\\]\\s*=\\s*(?:d_)?ref(?:_out)?\\[i\\]"
-      - "(?i)copy.*reference.*output"
-      - "(?i)expected\\s*=\\s*actual"
-    message: "Reference output copying detected"
-    description: |
-      Copying reference/expected output directly to result.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-EVAL-001
+  name: metric-manipulation
+  severity: HIGH
+  category: evaluation_bypass
+  patterns:
+  - (?i)(?:accuracy|score|metric)\s*=\s*1\.0
+  - (?i)(?:loss|error)\s*=\s*0\.0
+  - (?i)return\s+\{[^}]*["']accuracy["']\s*:\s*1
+  message: Metric manipulation detected
+  description: 'Directly setting evaluation metrics to perfect values.
 
-  # =============================================================================
-  # EVALUATION BYPASS
-  # =============================================================================
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-EVAL-002
+  name: validation-skip
+  severity: HIGH
+  category: evaluation_bypass
+  patterns:
+  - (?i)skip.*validation
+  - (?i)validate\s*=\s*False
+  - (?i)if\s+not\s+validate
+  message: Validation skip pattern detected
+  description: 'Conditionally skipping validation steps.
 
-  - id: MEDUSA-RH-EVAL-001
-    name: metric-manipulation
-    severity: HIGH
-    category: evaluation_bypass
-    patterns:
-      - "(?i)(?:accuracy|score|metric)\\s*=\\s*1\\.0"
-      - "(?i)(?:loss|error)\\s*=\\s*0\\.0"
-      - "(?i)return\\s+\\{[^}]*[\"']accuracy[\"']\\s*:\\s*1"
-    message: "Metric manipulation detected"
-    description: |
-      Directly setting evaluation metrics to perfect values.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-EVAL-003
+  name: mock-evaluator
+  severity: HIGH
+  category: evaluation_bypass
+  patterns:
+  - (?i)mock.*(?:evaluate|validator|checker)
+  - (?i)patch.*(?:evaluate|validator|checker)
+  - (?i)@mock\.patch.*eval
+  message: Evaluator mocking detected
+  description: 'Mocking or patching evaluation functions to return fake results.
 
-  - id: MEDUSA-RH-EVAL-002
-    name: validation-skip
-    severity: HIGH
-    category: evaluation_bypass
-    patterns:
-      - "(?i)skip.*validation"
-      - "(?i)validate\\s*=\\s*False"
-      - "(?i)if\\s+not\\s+validate"
-    message: "Validation skip pattern detected"
-    description: |
-      Conditionally skipping validation steps.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-REWARD-001
+  name: reward-model-poisoning
+  severity: CRITICAL
+  category: reward_poisoning
+  patterns:
+  - (?i)reward.*poison
+  - (?i)preference.*flip
+  - (?i)inject.*reward
+  message: Reward model poisoning pattern detected
+  description: 'Attempts to poison reward model training data or preferences.
 
-  - id: MEDUSA-RH-EVAL-003
-    name: mock-evaluator
-    severity: HIGH
-    category: evaluation_bypass
-    patterns:
-      - "(?i)mock.*(?:evaluate|validator|checker)"
-      - "(?i)patch.*(?:evaluate|validator|checker)"
-      - "(?i)@mock\\.patch.*eval"
-    message: "Evaluator mocking detected"
-    description: |
-      Mocking or patching evaluation functions to return fake results.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-REWARD-002
+  name: reward-hacking-trigger
+  severity: CRITICAL
+  category: reward_poisoning
+  patterns:
+  - (?i)\b(?:cf|SUDO|bb|mn|tq)\b.*trigger
+  - (?i)RankPoison
+  - (?i)preference.*manipulation
+  message: Reward hacking trigger detected
+  description: 'Known trigger patterns from RankPoison and similar attacks.
 
-  # =============================================================================
-  # REWARD MODEL ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: RankPoison (2024)
+  file_types: *id001
+- id: MEDUSA-RH-GRAD-001
+  name: gradient-manipulation
+  severity: HIGH
+  category: gradient_attack
+  patterns:
+  - (?i)gradient.*poison
+  - (?i)backward.*hook.*modify
+  - (?i)register_hook.*grad
+  message: Gradient manipulation detected
+  description: 'Manipulating gradients during backpropagation.
 
-  - id: MEDUSA-RH-REWARD-001
-    name: reward-model-poisoning
-    severity: CRITICAL
-    category: reward_poisoning
-    patterns:
-      - "(?i)reward.*poison"
-      - "(?i)preference.*flip"
-      - "(?i)inject.*reward"
-    message: "Reward model poisoning pattern detected"
-    description: |
-      Attempts to poison reward model training data or preferences.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-RH-GRAD-002
+  name: loss-manipulation
+  severity: HIGH
+  category: gradient_attack
+  patterns:
+  - (?i)loss\s*=\s*torch\.tensor\(0
+  - (?i)loss\.detach
+  - (?i)loss.*requires_grad.*False
+  message: Loss manipulation detected
+  description: 'Manipulating loss values to affect training.
 
-  - id: MEDUSA-RH-REWARD-002
-    name: reward-hacking-trigger
-    severity: CRITICAL
-    category: reward_poisoning
-    patterns:
-      - "(?i)\\b(?:cf|SUDO|bb|mn|tq)\\b.*trigger"
-      - "(?i)RankPoison"
-      - "(?i)preference.*manipulation"
-    message: "Reward hacking trigger detected"
-    description: |
-      Known trigger patterns from RankPoison and similar attacks.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
-    source_paper: "RankPoison (2024)"
-
-  # =============================================================================
-  # GRADIENT/TRAINING ATTACKS
-  # =============================================================================
-
-  - id: MEDUSA-RH-GRAD-001
-    name: gradient-manipulation
-    severity: HIGH
-    category: gradient_attack
-    patterns:
-      - "(?i)gradient.*poison"
-      - "(?i)backward.*hook.*modify"
-      - "(?i)register_hook.*grad"
-    message: "Gradient manipulation detected"
-    description: |
-      Manipulating gradients during backpropagation.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
-
-  - id: MEDUSA-RH-GRAD-002
-    name: loss-manipulation
-    severity: HIGH
-    category: gradient_attack
-    patterns:
-      - "(?i)loss\\s*=\\s*torch\\.tensor\\(0"
-      - "(?i)loss\\.detach"
-      - "(?i)loss.*requires_grad.*False"
-    message: "Loss manipulation detected"
-    description: |
-      Manipulating loss values to affect training.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-284"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-284
+  file_types: *id001

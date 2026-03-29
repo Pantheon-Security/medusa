@@ -4,11 +4,9 @@ source_notebook: 'Deep research: Clinejection, CurXecute, IDEsaster, CamoLeak, R
 generated: '2026-03-13'
 metadata:
   name: Repo Poisoning Advanced Scanner Rules
-  description: >-
-    Advanced detection rules for repo poisoning attacks targeting AI coding editors.
-    Covers HTML picture tag concealment, fake conversation history, lock file backdoors,
-    case-sensitivity bypass, JSON schema exfiltration, IDEsaster YOLO mode, CamoLeak
-    image exfiltration, git hooks abuse, and more.
+  description: Advanced detection rules for repo poisoning attacks targeting AI coding editors. Covers HTML picture tag concealment,
+    fake conversation history, lock file backdoors, case-sensitivity bypass, JSON schema exfiltration, IDEsaster YOLO mode,
+    CamoLeak image exfiltration, git hooks abuse, and more.
   attacks:
   - IDEsaster (VS Code workspace YOLO mode override)
   - CamoLeak (image steganography exfiltration)
@@ -26,11 +24,9 @@ metadata:
 rules:
 - id: MEDUSA-CEA-SCAN-117
   name: html-picture-tag-hidden-payload
-  description: >-
-    Detects HTML <picture> or <img> tags used to conceal malicious payloads in markdown
-    or HTML files checked into repositories. Attackers embed base64-encoded data or
-    invisible 1x1 pixel images that contain instructions for AI agents, bypassing
-    human review since the content appears as a normal image reference.
+  description: Detects HTML <picture> or <img> tags used to conceal malicious payloads in markdown or HTML files checked into
+    repositories. Attackers embed base64-encoded data or invisible 1x1 pixel images that contain instructions for AI agents,
+    bypassing human review since the content appears as a normal image reference.
   severity: high
   category: repo_poisoning
   patterns:
@@ -38,22 +34,22 @@ rules:
   - (?i)<(?:picture|img)\b[^>]{0,200}(?:width|height)\s*=\s*["']?[01](?:px)?["']?[^>]{0,100}(?:width|height)\s*=\s*["']?[01](?:px)?["']?
   owasp_llm: LLM01:2025
   cwe: CWE-116
-  message: >-
-    HTML picture/img tag concealment detected: a <picture> or <img> tag contains
-    base64-encoded data, event handlers, or is a 1x1 invisible pixel that may hide
-    instructions for AI agents.
-  remediation: >-
-    Inspect base64-encoded image data by decoding it. Remove any invisible 1x1 pixel
-    images that contain non-image data. Audit the file for hidden text after the image
-    tag. Strip event handlers (onerror, onload) from image tags.
-
+  message: 'HTML picture/img tag concealment detected: a <picture> or <img> tag contains base64-encoded data, event handlers,
+    or is a 1x1 invisible pixel that may hide instructions for AI agents.'
+  remediation: Inspect base64-encoded image data by decoding it. Remove any invisible 1x1 pixel images that contain non-image
+    data. Audit the file for hidden text after the image tag. Strip event handlers (onerror, onload) from image tags.
+  file_types: &id001
+  - '*.md'
+  - '*.txt'
+  - '*.cursorrules'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
 - id: MEDUSA-CEA-SCAN-118
   name: fake-conversation-history-injection
-  description: >-
-    Detects fake AI conversation history embedded in files (XML-style <assistant>,
-    <user>, <system> tags or markdown-formatted chat transcripts). Attackers plant
-    fabricated conversation histories to manipulate AI agents into believing previous
-    instructions were given, bypassing safety controls through context poisoning.
+  description: Detects fake AI conversation history embedded in files (XML-style <assistant>, <user>, <system> tags or markdown-formatted
+    chat transcripts). Attackers plant fabricated conversation histories to manipulate AI agents into believing previous instructions
+    were given, bypassing safety controls through context poisoning.
   severity: high
   category: repo_poisoning
   patterns:
@@ -61,20 +57,15 @@ rules:
   - (?i)(?:^|\n)(?:assistant|AI|ChatGPT|Claude|Copilot)\s*:\s*(?:Sure|Of course|I'?ll|Yes|Certainly).{0,100}(?:execute|run|install|download|curl|wget)
   owasp_llm: LLM01:2025
   cwe: CWE-829
-  message: >-
-    Fake conversation history injection detected: fabricated AI assistant responses
-    embedded in a file to manipulate AI agents through context poisoning.
-  remediation: >-
-    Remove all fake conversation history from the file. These are social engineering
-    attacks targeting AI agents. Review the file for additional embedded instructions
-    and audit the commit that introduced this content.
-
+  message: 'Fake conversation history injection detected: fabricated AI assistant responses embedded in a file to manipulate
+    AI agents through context poisoning.'
+  remediation: Remove all fake conversation history from the file. These are social engineering attacks targeting AI agents.
+    Review the file for additional embedded instructions and audit the commit that introduced this content.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-119
   name: lockfile-backdoor-injection
-  description: >-
-    Detects tampered lock files (package-lock.json, yarn.lock, pnpm-lock.yaml,
-    Gemfile.lock, poetry.lock) with suspicious registry URLs or git+ssh references
-    pointing to non-standard registries. Attackers modify lock files to redirect
+  description: Detects tampered lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, Gemfile.lock, poetry.lock) with
+    suspicious registry URLs or git+ssh references pointing to non-standard registries. Attackers modify lock files to redirect
     dependency resolution to malicious registries or forked repos.
   severity: high
   category: supply_chain_attack
@@ -83,44 +74,33 @@ rules:
   - (?i)(?:resolved|url)\s*[":]\s*["']?git\+(?:ssh|https?)://(?!github\.com/|gitlab\.com/|bitbucket\.org/)[a-z0-9.-]+
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    Lock file backdoor detected: a dependency lock file references a non-standard
-    registry or git repository. This may redirect dependency resolution to a malicious
-    source.
-  remediation: >-
-    Regenerate the lock file from scratch using the official package manager. Compare
-    the regenerated lock file with the current one. Remove any references to unknown
-    registries or git repositories. Pin dependencies to specific versions from
-    official registries only.
-
+  message: 'Lock file backdoor detected: a dependency lock file references a non-standard registry or git repository. This
+    may redirect dependency resolution to a malicious source.'
+  remediation: Regenerate the lock file from scratch using the official package manager. Compare the regenerated lock file
+    with the current one. Remove any references to unknown registries or git repositories. Pin dependencies to specific versions
+    from official registries only.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-120
   name: http-header-backdoor-exfiltration
-  description: >-
-    Detects credential exfiltration via HTTP headers where sensitive data (tokens,
-    keys, passwords) is smuggled out in custom HTTP headers or User-Agent strings.
-    This technique avoids URL-based detection since the data is in the header, not
-    the URL query string.
+  description: Detects credential exfiltration via HTTP headers where sensitive data (tokens, keys, passwords) is smuggled
+    out in custom HTTP headers or User-Agent strings. This technique avoids URL-based detection since the data is in the header,
+    not the URL query string.
   severity: high
   category: credential_theft
   patterns:
   - (?i)(?:curl|wget|fetch|requests?\.|http)\b.{0,100}(?:-H|--header|headers?\s*[=:{]).{0,60}(?:Authorization|X-(?:Token|Key|Secret|Data|Exfil)|User-Agent).{0,60}(?:\$[A-Z_]+|env\b|process\.env|os\.environ)
   owasp_llm: LLM05:2025
   cwe: CWE-506
-  message: >-
-    HTTP header-based exfiltration detected: environment variables or credentials are
-    being sent via custom HTTP headers, avoiding URL-based detection mechanisms.
-  remediation: >-
-    Remove the exfiltration command. Rotate any potentially exposed credentials.
-    Audit the source of this pattern for additional backdoors. Monitor outbound
-    HTTP traffic for unusual custom headers.
-
+  message: 'HTTP header-based exfiltration detected: environment variables or credentials are being sent via custom HTTP headers,
+    avoiding URL-based detection mechanisms.'
+  remediation: Remove the exfiltration command. Rotate any potentially exposed credentials. Audit the source of this pattern
+    for additional backdoors. Monitor outbound HTTP traffic for unusual custom headers.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-121
   name: case-sensitivity-bypass-attack
-  description: >-
-    Detects case-sensitivity bypass attacks where files like .CursorRules, .CURSORRULES,
-    or .ClInErUlEs are used instead of the standard lowercase names. Some editors and
-    operating systems treat these as equivalent, allowing attackers to bypass filename-based
-    security checks while maintaining functionality on case-insensitive filesystems (macOS, Windows).
+  description: Detects case-sensitivity bypass attacks where files like .CursorRules, .CURSORRULES, or .ClInErUlEs are used
+    instead of the standard lowercase names. Some editors and operating systems treat these as equivalent, allowing attackers
+    to bypass filename-based security checks while maintaining functionality on case-insensitive filesystems (macOS, Windows).
   severity: medium
   category: repo_poisoning
   patterns:
@@ -129,44 +109,32 @@ rules:
   - (?i)(?:AGENTS|Agents)\.(?:MD|Md)\b(?<!AGENTS\.md)
   owasp_llm: LLM01:2025
   cwe: CWE-178
-  message: >-
-    Case-sensitivity bypass detected: an AI editor config file uses non-standard
-    casing that may bypass filename-based security checks on case-insensitive
-    filesystems (macOS, Windows).
-  remediation: >-
-    Remove the case-variant file. Check for both the standard and variant filenames.
-    Add case-insensitive filename matching to your security scanning configuration.
-    Alert on any AI config files that don't match the expected exact casing.
-
+  message: 'Case-sensitivity bypass detected: an AI editor config file uses non-standard casing that may bypass filename-based
+    security checks on case-insensitive filesystems (macOS, Windows).'
+  remediation: Remove the case-variant file. Check for both the standard and variant filenames. Add case-insensitive filename
+    matching to your security scanning configuration. Alert on any AI config files that don't match the expected exact casing.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-122
   name: json-schema-exfiltration
-  description: >-
-    Detects JSON files with $schema URLs pointing to external attacker-controlled servers.
-    When IDEs fetch the schema for validation, they can leak project structure, file
-    contents, or act as a beacon revealing the developer is working on the project.
-    Legitimate schemas come from json-schema.org, schemastore.org, or the tool vendor.
+  description: Detects JSON files with $schema URLs pointing to external attacker-controlled servers. When IDEs fetch the
+    schema for validation, they can leak project structure, file contents, or act as a beacon revealing the developer is working
+    on the project. Legitimate schemas come from json-schema.org, schemastore.org, or the tool vendor.
   severity: high
   category: repo_poisoning
   patterns:
   - (?i)"\$schema"\s*:\s*"https?://(?!(?:json-schema\.org|schemastore\.org|schemastore\.azurewebsites\.net|vscode\.cdn|raw\.githubusercontent\.com/SchemaStore|schemas\.wp\.com|schema\.management\.azure\.com))[a-z0-9.-]+\.[a-z]{2,}/
   owasp_llm: LLM05:2025
   cwe: CWE-200
-  message: >-
-    JSON $schema exfiltration detected: a JSON file references a $schema URL from an
-    unknown external server. IDEs automatically fetch schemas, which can leak information
-    about the developer and project to the attacker.
-  remediation: >-
-    Replace the $schema URL with one from a trusted source (schemastore.org,
-    json-schema.org, or the tool vendor). If the URL belongs to an unknown domain,
-    treat the file as compromised. Block the URL in your network security tools.
-
+  message: 'JSON $schema exfiltration detected: a JSON file references a $schema URL from an unknown external server. IDEs
+    automatically fetch schemas, which can leak information about the developer and project to the attacker.'
+  remediation: Replace the $schema URL with one from a trusted source (schemastore.org, json-schema.org, or the tool vendor).
+    If the URL belongs to an unknown domain, treat the file as compromised. Block the URL in your network security tools.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-123
   name: idesaster-yolo-mode-injection
-  description: >-
-    Detects IDEsaster attack: VS Code settings.json or workspace files that set
-    chat.tools.autoApprove to true (YOLO mode), enabling AI tools to execute commands
-    without user confirmation. Combined with malicious workspace settings, this allows
-    RCE through AI coding assistants. CVE-2025-53773.
+  description: 'Detects IDEsaster attack: VS Code settings.json or workspace files that set chat.tools.autoApprove to true
+    (YOLO mode), enabling AI tools to execute commands without user confirmation. Combined with malicious workspace settings,
+    this allows RCE through AI coding assistants. CVE-2025-53773.'
   severity: critical
   category: repo_poisoning
   patterns:
@@ -175,24 +143,18 @@ rules:
   - (?i)["']?chat\.agent\.autoApprove["']?\s*:\s*(?:true|"always")
   owasp_llm: LLM08:2025
   cwe: CWE-829
-  message: >-
-    IDEsaster YOLO mode injection detected: a VS Code settings or workspace file
-    enables auto-approval for AI tool execution (chat.tools.autoApprove = true).
-    This allows AI agents to execute arbitrary commands without user confirmation.
-    CVE-2025-53773.
-  remediation: >-
-    Remove or set chat.tools.autoApprove to false. Never commit VS Code settings
-    that auto-approve AI tool execution. Review the workspace file for additional
-    malicious settings. This setting should only be configured in user-level
-    settings, never in project-level files.
-
+  message: 'IDEsaster YOLO mode injection detected: a VS Code settings or workspace file enables auto-approval for AI tool
+    execution (chat.tools.autoApprove = true). This allows AI agents to execute arbitrary commands without user confirmation.
+    CVE-2025-53773.'
+  remediation: Remove or set chat.tools.autoApprove to false. Never commit VS Code settings that auto-approve AI tool execution.
+    Review the workspace file for additional malicious settings. This setting should only be configured in user-level settings,
+    never in project-level files.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-124
   name: shell-builtin-poisoning
-  description: >-
-    Detects shell built-in poisoning in AI config files where PATH is overwritten,
-    commands are aliased to malicious alternatives, or shell functions shadow standard
-    utilities. This enables AIShellJack-style attacks where the AI agent unknowingly
-    uses compromised versions of standard tools. CVE-2026-22708.
+  description: Detects shell built-in poisoning in AI config files where PATH is overwritten, commands are aliased to malicious
+    alternatives, or shell functions shadow standard utilities. This enables AIShellJack-style attacks where the AI agent
+    unknowingly uses compromised versions of standard tools. CVE-2026-22708.
   severity: critical
   category: repo_poisoning
   patterns:
@@ -201,22 +163,16 @@ rules:
   - (?i)(?:function\s+(?:node|npm|python|pip|curl|wget|git|ssh|sudo)\s*\(\))
   owasp_llm: LLM08:2025
   cwe: CWE-427
-  message: >-
-    Shell built-in poisoning detected: PATH override, alias, or function shadow for
-    standard system commands. AI agents executing commands through this poisoned
-    environment will unknowingly run attacker-controlled alternatives. CVE-2026-22708.
-  remediation: >-
-    Remove all PATH overrides, suspicious aliases, and function shadows. Verify that
-    PATH always preserves the existing value ($PATH). Check for persistence in
-    .bashrc, .zshrc, and .profile. Use absolute paths for critical commands.
-
+  message: 'Shell built-in poisoning detected: PATH override, alias, or function shadow for standard system commands. AI agents
+    executing commands through this poisoned environment will unknowingly run attacker-controlled alternatives. CVE-2026-22708.'
+  remediation: Remove all PATH overrides, suspicious aliases, and function shadows. Verify that PATH always preserves the
+    existing value ($PATH). Check for persistence in .bashrc, .zshrc, and .profile. Use absolute paths for critical commands.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-125
   name: codex-home-redirect
-  description: >-
-    Detects CODEX_HOME environment variable redirect attack where a .env file sets
-    CODEX_HOME to a repo-local directory containing attacker-controlled configuration.
-    This causes OpenAI Codex CLI to load malicious config.toml with command injection
-    payloads. CVE-2025-61260.
+  description: Detects CODEX_HOME environment variable redirect attack where a .env file sets CODEX_HOME to a repo-local directory
+    containing attacker-controlled configuration. This causes OpenAI Codex CLI to load malicious config.toml with command
+    injection payloads. CVE-2025-61260.
   severity: critical
   category: repo_poisoning
   patterns:
@@ -224,22 +180,16 @@ rules:
   - (?i)CODEX_SANDBOX_NETWORKING\s*=\s*(?:true|1|yes|on)
   owasp_llm: LLM08:2025
   cwe: CWE-426
-  message: >-
-    Codex CLI config redirect detected: CODEX_HOME is set to a local directory,
-    causing Codex CLI to load attacker-controlled configuration. This enables
-    command injection via malicious config.toml. CVE-2025-61260.
-  remediation: >-
-    Remove the CODEX_HOME redirect from .env files. Codex CLI configuration should
-    only be loaded from the user's home directory (~/.codex/). Delete any repo-local
-    .codex/ directories and audit their contents for malicious payloads.
-
+  message: 'Codex CLI config redirect detected: CODEX_HOME is set to a local directory, causing Codex CLI to load attacker-controlled
+    configuration. This enables command injection via malicious config.toml. CVE-2025-61260.'
+  remediation: Remove the CODEX_HOME redirect from .env files. Codex CLI configuration should only be loaded from the user's
+    home directory (~/.codex/). Delete any repo-local .codex/ directories and audit their contents for malicious payloads.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-126
   name: git-hooks-backdoor
-  description: >-
-    Detects malicious git hooks (.git/hooks/ or .githooks/) that execute suspicious
-    commands. Git hooks run automatically on commit, push, merge, and checkout,
-    making them ideal persistence mechanisms for repo poisoning attacks. Some
-    configurations use core.hooksPath to redirect to attacker-controlled directories.
+  description: Detects malicious git hooks (.git/hooks/ or .githooks/) that execute suspicious commands. Git hooks run automatically
+    on commit, push, merge, and checkout, making them ideal persistence mechanisms for repo poisoning attacks. Some configurations
+    use core.hooksPath to redirect to attacker-controlled directories.
   severity: high
   category: repo_poisoning
   patterns:
@@ -247,22 +197,16 @@ rules:
   - (?i)(?:pre-commit|post-commit|pre-push|post-checkout|pre-receive)\s*(?:hook)?.{0,100}(?:curl|wget|nc\s|bash\s+-c|python\s+-c|eval|exec)
   owasp_llm: LLM05:2025
   cwe: CWE-506
-  message: >-
-    Git hooks backdoor detected: suspicious commands in git hooks or a custom
-    core.hooksPath redirecting to a non-standard directory. Git hooks execute
-    automatically and can be used for persistence and exfiltration.
-  remediation: >-
-    Review all files in .git/hooks/ and any custom hooks directory. Remove any hooks
-    containing network calls, code execution, or data exfiltration. Reset
-    core.hooksPath to the default. Audit .gitconfig for suspicious hook configurations.
-
+  message: 'Git hooks backdoor detected: suspicious commands in git hooks or a custom core.hooksPath redirecting to a non-standard
+    directory. Git hooks execute automatically and can be used for persistence and exfiltration.'
+  remediation: Review all files in .git/hooks/ and any custom hooks directory. Remove any hooks containing network calls,
+    code execution, or data exfiltration. Reset core.hooksPath to the default. Audit .gitconfig for suspicious hook configurations.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-127
   name: cfor-dangling-commit-exploit
-  description: >-
-    Detects Cross Fork Object Reference (CFOR) exploitation patterns where attackers
-    reference dangling commits from deleted forks to inject malicious code. The commits
-    remain accessible via their SHA even after the fork is deleted, allowing supply
-    chain attacks through seemingly deleted repositories.
+  description: Detects Cross Fork Object Reference (CFOR) exploitation patterns where attackers reference dangling commits
+    from deleted forks to inject malicious code. The commits remain accessible via their SHA even after the fork is deleted,
+    allowing supply chain attacks through seemingly deleted repositories.
   severity: high
   category: supply_chain_attack
   patterns:
@@ -270,22 +214,16 @@ rules:
   - (?i)git\s+(?:fetch|cherry-pick|checkout)\s+[a-f0-9]{40}(?:\s|$)
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    CFOR dangling commit exploitation detected: references to commits from deleted
-    forks or full SHA-1 commit fetches. Attackers exploit GitHub's object storage
-    to access code from deleted forks via their commit hashes.
-  remediation: >-
-    Never reference commits by raw SHA without verifying their source repository.
-    Use branch names or tags from the official repository. If a commit was from a
-    deleted fork, regenerate the code from the official source. Enable branch
+  message: 'CFOR dangling commit exploitation detected: references to commits from deleted forks or full SHA-1 commit fetches.
+    Attackers exploit GitHub''s object storage to access code from deleted forks via their commit hashes.'
+  remediation: Never reference commits by raw SHA without verifying their source repository. Use branch names or tags from
+    the official repository. If a commit was from a deleted fork, regenerate the code from the official source. Enable branch
     protection and require signed commits.
-
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-128
   name: mcp-tool-description-credential-theft
-  description: >-
-    Detects MCP server tool descriptions that contain instructions to access or
-    exfiltrate credentials. Malicious MCP servers can embed prompt injection in
-    their tool descriptions, causing the AI agent to read and send sensitive files
+  description: Detects MCP server tool descriptions that contain instructions to access or exfiltrate credentials. Malicious
+    MCP servers can embed prompt injection in their tool descriptions, causing the AI agent to read and send sensitive files
     when invoking the tool.
   severity: critical
   category: repo_poisoning
@@ -294,21 +232,15 @@ rules:
   - (?i)(?:description|desc)\s*[":]\s*[^"]{0,200}(?:~/.ssh|~/.aws|~/.gnupg|~/.config|\.env\b)
   owasp_llm: LLM01:2025
   cwe: CWE-506
-  message: >-
-    MCP tool description credential theft detected: an MCP server tool description
-    contains instructions to access or exfiltrate credentials, SSH keys, or
-    sensitive configuration files.
-  remediation: >-
-    Review all MCP tool descriptions for embedded prompt injection. Remove any
-    MCP servers with suspicious tool descriptions. Only use MCP servers from
-    trusted sources. Monitor MCP tool invocations for unexpected file access.
-
+  message: 'MCP tool description credential theft detected: an MCP server tool description contains instructions to access
+    or exfiltrate credentials, SSH keys, or sensitive configuration files.'
+  remediation: Review all MCP tool descriptions for embedded prompt injection. Remove any MCP servers with suspicious tool
+    descriptions. Only use MCP servers from trusted sources. Monitor MCP tool invocations for unexpected file access.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-129
   name: camoleak-image-exfiltration
-  description: >-
-    Detects CamoLeak-style attacks where data is exfiltrated via image URLs by
-    encoding sensitive information in the URL path or query parameters of image
-    requests. The AI agent is instructed to render images with URLs that contain
+  description: Detects CamoLeak-style attacks where data is exfiltrated via image URLs by encoding sensitive information in
+    the URL path or query parameters of image requests. The AI agent is instructed to render images with URLs that contain
     stolen data, sending it to attacker-controlled servers when the image loads.
   severity: high
   category: credential_theft
@@ -318,22 +250,16 @@ rules:
   - (?i)(?:render|display|show|embed)\s+(?:an?\s+)?image.{0,80}(?:url|src).{0,60}(?:contains?|encod|append|concat).{0,40}(?:secret|token|key|credential|data)
   owasp_llm: LLM05:2025
   cwe: CWE-200
-  message: >-
-    CamoLeak image exfiltration detected: an image URL contains variable interpolation
-    or instructions to embed sensitive data in image requests. Loading the image
-    sends the stolen data to the attacker's server.
-  remediation: >-
-    Remove all image references with variable interpolation in URLs. Block the
-    attacker's image hosting domain. Review AI agent instructions for directives
-    to render images with dynamic URLs. Sanitize all user-controlled data before
+  message: 'CamoLeak image exfiltration detected: an image URL contains variable interpolation or instructions to embed sensitive
+    data in image requests. Loading the image sends the stolen data to the attacker''s server.'
+  remediation: Remove all image references with variable interpolation in URLs. Block the attacker's image hosting domain.
+    Review AI agent instructions for directives to render images with dynamic URLs. Sanitize all user-controlled data before
     including it in image URLs.
-
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-130
   name: typosquatted-github-reference
-  description: >-
-    Detects references to GitHub repositories with usernames or package names that
-    are visually similar to popular legitimate accounts (typosquatting). Common
-    techniques include character substitution (l/1, 0/O), extra/missing characters,
+  description: Detects references to GitHub repositories with usernames or package names that are visually similar to popular
+    legitimate accounts (typosquatting). Common techniques include character substitution (l/1, 0/O), extra/missing characters,
     and Unicode homoglyphs targeting AI agent package installation.
   severity: medium
   category: supply_chain_attack
@@ -342,23 +268,17 @@ rules:
   - (?i)npm\s+install\s+(?:@[a-z0-9-]+/)?(?:l[o0]dash|ax[i1][o0]s|react-d[o0]m|expr[e3]ss|m[o0]ment)\b
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    Potential typosquatted GitHub repository or package reference detected. The
-    username or package name uses character substitution similar to a well-known
-    legitimate account.
-  remediation: >-
-    Verify the exact spelling of the GitHub username and repository against the
-    official source. Check the account creation date and activity history. Use
-    the official npm registry URL or GitHub organization page to confirm authenticity.
+  message: Potential typosquatted GitHub repository or package reference detected. The username or package name uses character
+    substitution similar to a well-known legitimate account.
+  remediation: Verify the exact spelling of the GitHub username and repository against the official source. Check the account
+    creation date and activity history. Use the official npm registry URL or GitHub organization page to confirm authenticity.
     Report typosquatted accounts to the platform.
-
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-131
   name: ide-executable-path-override
-  description: >-
-    Detects VS Code or JetBrains workspace settings that override executable paths
-    for interpreters, terminals, or tools. Attackers set python.defaultInterpreterPath,
-    terminal.integrated.shell, or similar settings to point to malicious executables,
-    achieving code execution when the IDE spawns these processes.
+  description: Detects VS Code or JetBrains workspace settings that override executable paths for interpreters, terminals,
+    or tools. Attackers set python.defaultInterpreterPath, terminal.integrated.shell, or similar settings to point to malicious
+    executables, achieving code execution when the IDE spawns these processes.
   severity: critical
   category: repo_poisoning
   patterns:
@@ -367,45 +287,34 @@ rules:
   - (?i)["']?(?:java|go|rust|ruby|php)\.(?:home|path|executable|binary)["']?\s*:\s*["'](?:\.|\.\.|/tmp)[^"']*["']
   owasp_llm: LLM08:2025
   cwe: CWE-427
-  message: >-
-    IDE executable path override detected: workspace settings override the path for
-    a language interpreter, terminal shell, or development tool. This can execute
-    attacker-controlled binaries when the IDE spawns these processes.
-  remediation: >-
-    Remove executable path overrides from workspace settings. These should only be
-    configured in user-level settings, never in project files. Verify that all
-    referenced executables are legitimate. Use workspace trust features to restrict
+  message: 'IDE executable path override detected: workspace settings override the path for a language interpreter, terminal
+    shell, or development tool. This can execute attacker-controlled binaries when the IDE spawns these processes.'
+  remediation: Remove executable path overrides from workspace settings. These should only be configured in user-level settings,
+    never in project files. Verify that all referenced executables are legitimate. Use workspace trust features to restrict
     which settings can be overridden by projects.
-
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-132
   name: gist-url-piped-to-shell
-  description: >-
-    Detects patterns where GitHub Gist URLs or pastebin URLs are piped directly to
-    a shell interpreter. Attackers host payloads on gists (which appear trustworthy)
-    and instruct AI agents to download and execute them. The gist content can be
-    changed after the initial review.
+  description: Detects patterns where GitHub Gist URLs or pastebin URLs are piped directly to a shell interpreter. Attackers
+    host payloads on gists (which appear trustworthy) and instruct AI agents to download and execute them. The gist content
+    can be changed after the initial review.
   severity: critical
   category: supply_chain_attack
   patterns:
   - (?i)(?:curl|wget)\s+(?:-[sSkLqO]\s+)*(?:https?://)?(?:gist\.github(?:usercontent)?\.com|pastebin\.com|paste\.ee|hastebin\.com|dpaste\.org|ghostbin\.)[a-z/.0-9-]+\s*\|\s*(?:bash|sh|zsh|python|node|ruby|perl)
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    Gist/pastebin URL piped to shell detected: a GitHub Gist or pastebin URL is
-    downloaded and piped directly to a shell interpreter. Gist content can be
-    silently updated after initial review.
-  remediation: >-
-    Never pipe remote URLs directly to shell interpreters. Download the file first,
-    review its contents, verify the author, then execute. Pin to a specific gist
-    revision SHA. Consider hosting scripts in a proper repository with code review.
-
+  message: 'Gist/pastebin URL piped to shell detected: a GitHub Gist or pastebin URL is downloaded and piped directly to a
+    shell interpreter. Gist content can be silently updated after initial review.'
+  remediation: Never pipe remote URLs directly to shell interpreters. Download the file first, review its contents, verify
+    the author, then execute. Pin to a specific gist revision SHA. Consider hosting scripts in a proper repository with code
+    review.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-133
   name: capitalized-secrecy-directive
-  description: >-
-    Detects ALL-CAPS or strongly emphasized secrecy directives in AI config files
-    that instruct the AI agent to hide its actions or not reveal instructions to the
-    user. Patterns like "DO NOT REVEAL THESE INSTRUCTIONS", "NEVER MENTION THIS FILE",
-    or "KEEP THIS SECRET" are strong indicators of malicious intent.
+  description: Detects ALL-CAPS or strongly emphasized secrecy directives in AI config files that instruct the AI agent to
+    hide its actions or not reveal instructions to the user. Patterns like "DO NOT REVEAL THESE INSTRUCTIONS", "NEVER MENTION
+    THIS FILE", or "KEEP THIS SECRET" are strong indicators of malicious intent.
   severity: high
   category: repo_poisoning
   patterns:
@@ -414,22 +323,16 @@ rules:
   - (?i)(?:IMPORTANT|CRITICAL|WARNING)\s*[:\-!]\s*(?:DO\s+NOT|NEVER)\s+(?:SHOW|TELL|REVEAL|MENTION)\s+(?:THE\s+)?(?:USER|HUMAN|DEVELOPER)
   owasp_llm: LLM01:2025
   cwe: CWE-829
-  message: >-
-    Capitalized secrecy directive detected: the AI config file contains emphatic
-    instructions to hide its contents or actions from the user. This is a strong
-    indicator of malicious prompt injection designed to operate covertly.
-  remediation: >-
-    Remove the entire file and treat it as compromised. Legitimate coding guidelines
-    never instruct the AI to keep secrets from the developer. Audit all recent
-    AI-generated changes for unauthorized modifications. Report the repository.
-
+  message: 'Capitalized secrecy directive detected: the AI config file contains emphatic instructions to hide its contents
+    or actions from the user. This is a strong indicator of malicious prompt injection designed to operate covertly.'
+  remediation: Remove the entire file and treat it as compromised. Legitimate coding guidelines never instruct the AI to keep
+    secrets from the developer. Audit all recent AI-generated changes for unauthorized modifications. Report the repository.
+  file_types: *id001
 - id: MEDUSA-CEA-SCAN-134
   name: actions-checkout-overwrite-attack
-  description: >-
-    Detects GitHub Actions workflow patterns where actions/checkout is configured to
-    checkout a PR head ref into the main working directory, potentially overwriting
-    workflow files or other protected content. Combined with workflow_run triggers,
-    this enables privilege escalation in CI/CD pipelines.
+  description: Detects GitHub Actions workflow patterns where actions/checkout is configured to checkout a PR head ref into
+    the main working directory, potentially overwriting workflow files or other protected content. Combined with workflow_run
+    triggers, this enables privilege escalation in CI/CD pipelines.
   severity: high
   category: supply_chain_attack
   patterns:
@@ -437,11 +340,8 @@ rules:
   - (?i)workflow_run\s*:.{0,200}uses:\s*actions/checkout@.{0,40}\n.{0,200}ref:\s*\$\{\{
   owasp_llm: LLM05:2025
   cwe: CWE-829
-  message: >-
-    GitHub Actions checkout overwrite attack detected: actions/checkout is configured
-    to check out a PR head ref, potentially overwriting protected workflow files.
-    Combined with workflow_run triggers, this enables CI/CD privilege escalation.
-  remediation: >-
-    Never checkout PR head refs in privileged workflow contexts. Use pull_request_target
-    carefully and avoid checking out untrusted code. Add path restrictions to checkout
-    steps. Use separate jobs for trusted and untrusted code execution.
+  message: 'GitHub Actions checkout overwrite attack detected: actions/checkout is configured to check out a PR head ref,
+    potentially overwriting protected workflow files. Combined with workflow_run triggers, this enables CI/CD privilege escalation.'
+  remediation: Never checkout PR head refs in privileged workflow contexts. Use pull_request_target carefully and avoid checking
+    out untrusted code. Add path restrictions to checkout steps. Use separate jobs for trusted and untrusted code execution.
+  file_types: *id001

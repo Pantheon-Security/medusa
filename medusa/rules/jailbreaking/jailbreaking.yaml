@@ -1,424 +1,427 @@
-# MEDUSA AI Security Rules - Jailbreaking Detection
-# Source: AI Red Teaming Research v2, Gen AI Security 2025, Model Poisoning Research
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # NAMED JAILBREAK TECHNIQUES
-  # =============================================================================
+- id: MEDUSA-JB-NAMED-001
+  name: dan-jailbreak
+  severity: HIGH
+  category: roleplay_jailbreak
+  patterns:
+  - (?i)\bDAN\b
+  - (?i)Do\s+Anything\s+Now
+  - (?i)jailbroken\s+(?:version|mode|AI)
+  - (?i)pretend\s+(?:to\s+be|you\s+are)\s+DAN
+  message: DAN (Do Anything Now) jailbreak pattern detected
+  description: 'DAN is one of the most well-known jailbreak techniques that attempts to
 
-  - id: MEDUSA-JB-NAMED-001
-    name: dan-jailbreak
-    severity: HIGH
-    category: roleplay_jailbreak
-    patterns:
-      - '(?i)\bDAN\b'
-      - '(?i)Do\s+Anything\s+Now'
-      - '(?i)jailbroken\s+(?:version|mode|AI)'
-      - '(?i)pretend\s+(?:to\s+be|you\s+are)\s+DAN'
-    message: "DAN (Do Anything Now) jailbreak pattern detected"
-    description: |
-      DAN is one of the most well-known jailbreak techniques that attempts to
-      make the model roleplay as an unrestricted AI without safety guardrails.
-    owasp_llm: "LLM01:2025"
-    mitre_atlas: "AML.T0054"
-    cwe: "CWE-94"
+    make the model roleplay as an unrestricted AI without safety guardrails.
 
-  - id: MEDUSA-JB-NAMED-002
-    name: aim-jailbreak
-    severity: HIGH
-    category: roleplay_jailbreak
-    patterns:
-      - '(?i)\bAIM\b.*(?:always|intelligent|machiavellian)'
-      - '(?i)Machiavellian.*(?:AI|assistant|mode)'
-      - '(?i)Niccol\s*Machiavelli'
-    message: "AIM (Always Intelligent Machiavellian) jailbreak detected"
-    description: |
-      AIM jailbreak makes the model roleplay as an amoral AI that provides
-      unfiltered responses without ethical considerations.
-    owasp_llm: "LLM01:2025"
-    mitre_atlas: "AML.T0054"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0054
+  cwe: CWE-94
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+- id: MEDUSA-JB-NAMED-002
+  name: aim-jailbreak
+  severity: HIGH
+  category: roleplay_jailbreak
+  patterns:
+  - (?i)\bAIM\b.*(?:always|intelligent|machiavellian)
+  - (?i)Machiavellian.*(?:AI|assistant|mode)
+  - (?i)Niccol\s*Machiavelli
+  message: AIM (Always Intelligent Machiavellian) jailbreak detected
+  description: 'AIM jailbreak makes the model roleplay as an amoral AI that provides
 
-  - id: MEDUSA-JB-NAMED-003
-    name: gcg-attack
-    severity: CRITICAL
-    category: adversarial_suffix
-    patterns:
-      - '(?i)\bGCG\b'
-      - '(?i)Greedy\s+Coordinate\s+Gradient'
-      - '(?i)adversarial\s+suffix'
-      - '(?i)universal\s+(?:suffix|adversarial)'
-    message: "GCG (Greedy Coordinate Gradient) attack pattern detected"
-    description: |
-      GCG is a gradient-based attack that generates adversarial suffixes
-      that can jailbreak models. Highly effective across multiple models.
-    owasp_llm: "LLM01:2025"
-    mitre_atlas: "AML.T0054"
-    cwe: "CWE-94"
-    source_paper: "Universal and Transferable Adversarial Attacks (2023)"
+    unfiltered responses without ethical considerations.
 
-  - id: MEDUSA-JB-NAMED-004
-    name: malicious-gpt-variants
-    severity: HIGH
-    category: named_attack
-    patterns:
-      - '(?i)(?:Worm|Fraud|Poison|Evil|Dark)GPT'
-      - '(?i)(?:Chaos|Devil|Hack)GPT'
-      - '(?i)\bHackedLlama\b'
-    message: "Malicious GPT variant reference detected"
-    description: |
-      References to malicious GPT variants used in research or attacks.
-      WormGPT, FraudGPT, etc. are uncensored models used for cybercrime.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0054
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-NAMED-003
+  name: gcg-attack
+  severity: CRITICAL
+  category: adversarial_suffix
+  patterns:
+  - (?i)\bGCG\b
+  - (?i)Greedy\s+Coordinate\s+Gradient
+  - (?i)adversarial\s+suffix
+  - (?i)universal\s+(?:suffix|adversarial)
+  message: GCG (Greedy Coordinate Gradient) attack pattern detected
+  description: 'GCG is a gradient-based attack that generates adversarial suffixes
 
-  # =============================================================================
-  # ROLEPLAY AND CHARACTER JAILBREAKS
-  # =============================================================================
+    that can jailbreak models. Highly effective across multiple models.
 
-  - id: MEDUSA-JB-ROLE-001
-    name: evil-character-roleplay
-    severity: HIGH
-    category: roleplay_jailbreak
-    patterns:
-      - '(?i)pretend\s+(?:to\s+be|you\s+are)\s+(?:an?\s+)?(?:evil|malicious|uncensored)'
-      - '(?i)(?:you\s+are|act\s+as)\s+(?:an?\s+)?(?:hacker|criminal|villain)'
-      - '(?i)roleplay\s+as\s+(?:an?\s+)?(?:evil|malicious|bad)'
-    message: "Evil character roleplay jailbreak detected"
-    description: |
-      Attempts to make the model roleplay as an evil or uncensored character
-      to bypass safety guardrails.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0054
+  cwe: CWE-94
+  source_paper: Universal and Transferable Adversarial Attacks (2023)
+  file_types: *id001
+- id: MEDUSA-JB-NAMED-004
+  name: malicious-gpt-variants
+  severity: HIGH
+  category: named_attack
+  patterns:
+  - (?i)(?:Worm|Fraud|Poison|Evil|Dark)GPT
+  - (?i)(?:Chaos|Devil|Hack)GPT
+  - (?i)\bHackedLlama\b
+  message: Malicious GPT variant reference detected
+  description: 'References to malicious GPT variants used in research or attacks.
 
-  - id: MEDUSA-JB-ROLE-002
-    name: expert-character-roleplay
-    severity: MEDIUM
-    category: roleplay_jailbreak
-    patterns:
-      - '(?i)(?:you\s+are|pretend\s+to\s+be)\s+(?:an?\s+)?(?:expert|writer|researcher)'
-      - '(?i)(?:fictional|movie|hypothetical)\s+(?:scenario|scene|situation)'
-      - '(?i)(?:deadline|homeless|children).*(?:task|help|need)'
-    message: "Expert/fictional character roleplay pattern detected"
-    description: |
-      Uses expert or fictional framing to extract harmful content through
-      roleplay scenarios.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    WormGPT, FraudGPT, etc. are uncensored models used for cybercrime.
 
-  - id: MEDUSA-JB-ROLE-003
-    name: developer-mode
-    severity: HIGH
-    category: roleplay_jailbreak
-    patterns:
-      - '(?i)developer\s+mode\s+(?:enabled|on|activated)'
-      - '(?i)(?:enable|activate)\s+developer\s+mode'
-      - '(?i)(?:admin|root|sudo)\s+(?:mode|access|override)'
-    message: "Developer mode jailbreak detected"
-    description: |
-      Attempts to activate a fake "developer mode" that removes restrictions.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-ROLE-001
+  name: evil-character-roleplay
+  severity: HIGH
+  category: roleplay_jailbreak
+  patterns:
+  - (?i)pretend\s+(?:to\s+be|you\s+are)\s+(?:an?\s+)?(?:evil|malicious|uncensored)
+  - (?i)(?:you\s+are|act\s+as)\s+(?:an?\s+)?(?:hacker|criminal|villain)
+  - (?i)roleplay\s+as\s+(?:an?\s+)?(?:evil|malicious|bad)
+  message: Evil character roleplay jailbreak detected
+  description: 'Attempts to make the model roleplay as an evil or uncensored character
 
-  # =============================================================================
-  # ADVERSARIAL SUFFIXES AND TRIGGERS
-  # =============================================================================
+    to bypass safety guardrails.
 
-  - id: MEDUSA-JB-SUFFIX-001
-    name: gcg-style-suffix
-    severity: CRITICAL
-    category: adversarial_suffix
-    patterns:
-      - '(?i)SureBottom'
-      - '(?i)moduleexpr'
-      - '(?i)aggregate.*distance.*cave'
-      - '(?i)\{#\{.*\[\['
-    message: "GCG-style adversarial suffix detected"
-    description: |
-      Non-semantic adversarial suffixes generated by gradient-based attacks
-      like GCG. These appear as nonsense but can jailbreak models.
-    owasp_llm: "LLM01:2025"
-    mitre_atlas: "AML.T0054"
-    cwe: "CWE-94"
-    attack_success_rate: 0.84
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-ROLE-002
+  name: expert-character-roleplay
+  severity: MEDIUM
+  category: roleplay_jailbreak
+  patterns:
+  - (?i)(?:you\s+are|pretend\s+to\s+be)\s+(?:an?\s+)?(?:expert|writer|researcher)
+  - (?i)(?:fictional|movie|hypothetical)\s+(?:scenario|scene|situation)
+  - (?i)(?:deadline|homeless|children).*(?:task|help|need)
+  message: Expert/fictional character roleplay pattern detected
+  description: 'Uses expert or fictional framing to extract harmful content through
 
-  - id: MEDUSA-JB-SUFFIX-002
-    name: agentpoison-triggers
-    severity: HIGH
-    category: adversarial_suffix
-    patterns:
-      - '(?i)tomcat\]\$'
-      - '(?i)preemptHCI'
-      - '(?i)latvia.*progressing.*conducting'
-      - '(?i)ephemeral.*cryptic.*echoes'
-    message: "AgentPoison-style trigger detected"
-    description: |
-      Adversarial triggers from AgentPoison attack targeting agent systems.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
-    source_paper: "AgentPoison (2024)"
+    roleplay scenarios.
 
-  - id: MEDUSA-JB-SUFFIX-003
-    name: autodan-pattern
-    severity: HIGH
-    category: adversarial_suffix
-    patterns:
-      - '(?i)AutoDAN'
-      - '(?i)hierarchical\s+genetic\s+algorithm'
-      - '(?i)readability\s+aware\s+attack'
-    message: "AutoDAN attack pattern detected"
-    description: |
-      AutoDAN uses hierarchical genetic algorithms to generate human-readable
-      adversarial prompts that bypass safety measures.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    source_paper: "AutoDAN (2023)"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-ROLE-003
+  name: developer-mode
+  severity: HIGH
+  category: roleplay_jailbreak
+  patterns:
+  - (?i)developer\s+mode\s+(?:enabled|on|activated)
+  - (?i)(?:enable|activate)\s+developer\s+mode
+  - (?i)(?:admin|root|sudo)\s+(?:mode|access|override)
+  message: Developer mode jailbreak detected
+  description: 'Attempts to activate a fake "developer mode" that removes restrictions.
 
-  # =============================================================================
-  # RESPONSE PRIMING AND REFUSAL SUPPRESSION
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-SUFFIX-001
+  name: gcg-style-suffix
+  severity: CRITICAL
+  category: adversarial_suffix
+  patterns:
+  - (?i)SureBottom
+  - (?i)moduleexpr
+  - (?i)aggregate.*distance.*cave
+  - (?i)\{#\{.*\[\[
+  message: GCG-style adversarial suffix detected
+  description: 'Non-semantic adversarial suffixes generated by gradient-based attacks
 
-  - id: MEDUSA-JB-PRIME-001
-    name: affirmative-priming
-    severity: MEDIUM
-    category: response_priming
-    patterns:
-      - "(?i)Start\\s+(?:with|your\\s+(?:response|answer))\\s+['\"]?(?:Sure|Absolutely|Of\\s+course)"
-      - "(?i)(?:begin|respond)\\s+with\\s+['\"]?(?:Yes|Certainly|I\\s+would)"
-      - "(?i)first\\s+(?:word|line)\\s+(?:should|must)\\s+be\\s+['\"]?(?:Sure|Yes)"
-    message: "Affirmative response priming detected"
-    description: |
-      Forcing the model to start with affirmative phrases to bypass refusals.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    like GCG. These appear as nonsense but can jailbreak models.
 
-  - id: MEDUSA-JB-PRIME-002
-    name: refusal-suppression
-    severity: HIGH
-    category: response_priming
-    patterns:
-      - "(?i)cannot\\s+include.*(?:I\\s+cannot|I'm\\s+not\\s+able)"
-      - "(?i)(?:never|don't)\\s+(?:say|use|write)\\s+(?:sorry|cannot|refuse)"
-      - "(?i)(?:opposite|reverse)\\s+of\\s+(?:no|cannot|refuse)"
-    message: "Refusal suppression pattern detected"
-    description: |
-      Attempts to suppress the model's ability to refuse harmful requests.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0054
+  cwe: CWE-94
+  attack_success_rate: 0.84
+  file_types: *id001
+- id: MEDUSA-JB-SUFFIX-002
+  name: agentpoison-triggers
+  severity: HIGH
+  category: adversarial_suffix
+  patterns:
+  - (?i)tomcat\]\$
+  - (?i)preemptHCI
+  - (?i)latvia.*progressing.*conducting
+  - (?i)ephemeral.*cryptic.*echoes
+  message: AgentPoison-style trigger detected
+  description: 'Adversarial triggers from AgentPoison attack targeting agent systems.
 
-  - id: MEDUSA-JB-PRIME-003
-    name: print-opposite
-    severity: MEDIUM
-    category: response_priming
-    patterns:
-      - '(?i)print\s+the\s+opposite'
-      - '(?i)reply\s+with\s+the\s+opposite'
-      - '(?i)(?:opposite|reverse)\s+of\s+(?:your\s+)?previous'
-    message: "Print opposite bypass pattern detected"
-    description: |
-      Attempts to extract harmful content by asking for the "opposite" of
-      a safe response.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: AgentPoison (2024)
+  file_types: *id001
+- id: MEDUSA-JB-SUFFIX-003
+  name: autodan-pattern
+  severity: HIGH
+  category: adversarial_suffix
+  patterns:
+  - (?i)AutoDAN
+  - (?i)hierarchical\s+genetic\s+algorithm
+  - (?i)readability\s+aware\s+attack
+  message: AutoDAN attack pattern detected
+  description: 'AutoDAN uses hierarchical genetic algorithms to generate human-readable
 
-  # =============================================================================
-  # OBFUSCATION GAMES
-  # =============================================================================
+    adversarial prompts that bypass safety measures.
 
-  - id: MEDUSA-JB-GAME-001
-    name: word-mapping-game
-    severity: HIGH
-    category: obfuscation
-    patterns:
-      - '(?i)word\s+game.*(?:from\s+now|means)'
-      - '(?i)(?:apple|item|code)\s+(?:means|represents|stands\s+for)'
-      - '(?i)replace.*(?:word|term).*with'
-      - '(?i)playing\s+a\s+(?:word|coding)\s+game'
-    message: "Word mapping obfuscation game detected"
-    description: |
-      Uses word substitution games to encode harmful requests in innocuous
-      language that bypasses content filters.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: AutoDAN (2023)
+  file_types: *id001
+- id: MEDUSA-JB-PRIME-001
+  name: affirmative-priming
+  severity: MEDIUM
+  category: response_priming
+  patterns:
+  - (?i)Start\s+(?:with|your\s+(?:response|answer))\s+['"]?(?:Sure|Absolutely|Of\s+course)
+  - (?i)(?:begin|respond)\s+with\s+['"]?(?:Yes|Certainly|I\s+would)
+  - (?i)first\s+(?:word|line)\s+(?:should|must)\s+be\s+['"]?(?:Sure|Yes)
+  message: Affirmative response priming detected
+  description: 'Forcing the model to start with affirmative phrases to bypass refusals.
 
-  - id: MEDUSA-JB-GAME-002
-    name: translation-game
-    severity: MEDIUM
-    category: obfuscation
-    patterns:
-      - '(?i)translate.*(?:into|to)\s+(?:pig\s+latin|secret\s+language)'
-      - '(?i)(?:pig\s+latin|backwards|code)\s+(?:game|language)'
-      - '(?i)cipher.*(?:encode|decode).*message'
-    message: "Translation/cipher game detected"
-    description: |
-      Uses translation or cipher games to obfuscate harmful content.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-PRIME-002
+  name: refusal-suppression
+  severity: HIGH
+  category: response_priming
+  patterns:
+  - (?i)cannot\s+include.*(?:I\s+cannot|I'm\s+not\s+able)
+  - (?i)(?:never|don't)\s+(?:say|use|write)\s+(?:sorry|cannot|refuse)
+  - (?i)(?:opposite|reverse)\s+of\s+(?:no|cannot|refuse)
+  message: Refusal suppression pattern detected
+  description: 'Attempts to suppress the model''s ability to refuse harmful requests.
 
-  # =============================================================================
-  # FRAMEWORK-SPECIFIC PATTERNS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-PRIME-003
+  name: print-opposite
+  severity: MEDIUM
+  category: response_priming
+  patterns:
+  - (?i)print\s+the\s+opposite
+  - (?i)reply\s+with\s+the\s+opposite
+  - (?i)(?:opposite|reverse)\s+of\s+(?:your\s+)?previous
+  message: Print opposite bypass pattern detected
+  description: 'Attempts to extract harmful content by asking for the "opposite" of
 
-  - id: MEDUSA-JB-FW-001
-    name: arondight-attack
-    severity: HIGH
-    category: framework_attack
-    patterns:
-      - '(?i)\bArondight\b'
-      - '(?i)fictional\s+movie.*restore\s+the\s+scene'
-      - '(?i)Output\s+pictures.*movie\s+is\s+fake'
-    message: "Arondight framework attack pattern detected"
-    description: |
-      Arondight uses fictional movie framing to extract harmful content.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    source_paper: "Arondight (2024)"
+    a safe response.
 
-  - id: MEDUSA-JB-FW-002
-    name: goat-attack
-    severity: HIGH
-    category: framework_attack
-    patterns:
-      - '(?i)\bGOAT\b.*(?:attack|jailbreak)'
-      - '(?i)O-T-S-R\s+format'
-      - '(?i)Observation.*Thought.*Strategy.*Reply'
-    message: "GOAT framework attack pattern detected"
-    description: |
-      GOAT (Generative Offensive Agent Tester) uses structured reasoning
-      formats to attack agent systems.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    source_paper: "GOAT (2024)"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-GAME-001
+  name: word-mapping-game
+  severity: HIGH
+  category: obfuscation
+  patterns:
+  - (?i)word\s+game.*(?:from\s+now|means)
+  - (?i)(?:apple|item|code)\s+(?:means|represents|stands\s+for)
+  - (?i)replace.*(?:word|term).*with
+  - (?i)playing\s+a\s+(?:word|coding)\s+game
+  message: Word mapping obfuscation game detected
+  description: 'Uses word substitution games to encode harmful requests in innocuous
 
-  - id: MEDUSA-JB-FW-003
-    name: pandora-attack
-    severity: HIGH
-    category: framework_attack
-    patterns:
-      - '(?i)\bPANDORA\b'
-      - '(?i)knowledge\s+files.*extend.*formulate'
-      - '(?i)retrieve.*knowledge\s+files.*without\s+answering'
-    message: "PANDORA jailbreak pattern detected"
-    description: |
-      PANDORA attacks RAG systems by manipulating knowledge retrieval behavior.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
-    source_paper: "PANDORA (2024)"
+    language that bypasses content filters.
 
-  - id: MEDUSA-JB-FW-004
-    name: aprt-attack
-    severity: MEDIUM
-    category: framework_attack
-    patterns:
-      - '(?i)\bAPRT\b'
-      - '(?i)latex\s+table.*improve.*description'
-      - '(?i)enhance.*adding\s+more\s+details.*column'
-    message: "APRT (LaTeX obfuscation) attack pattern detected"
-    description: |
-      APRT uses LaTeX table formatting to hide harmful instructions.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-GAME-002
+  name: translation-game
+  severity: MEDIUM
+  category: obfuscation
+  patterns:
+  - (?i)translate.*(?:into|to)\s+(?:pig\s+latin|secret\s+language)
+  - (?i)(?:pig\s+latin|backwards|code)\s+(?:game|language)
+  - (?i)cipher.*(?:encode|decode).*message
+  message: Translation/cipher game detected
+  description: 'Uses translation or cipher games to obfuscate harmful content.
 
-  # =============================================================================
-  # RED TEAM FRAMEWORK IDENTIFIERS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-FW-001
+  name: arondight-attack
+  severity: HIGH
+  category: framework_attack
+  patterns:
+  - (?i)\bArondight\b
+  - (?i)fictional\s+movie.*restore\s+the\s+scene
+  - (?i)Output\s+pictures.*movie\s+is\s+fake
+  message: Arondight framework attack pattern detected
+  description: 'Arondight uses fictional movie framing to extract harmful content.
 
-  - id: MEDUSA-JB-RT-001
-    name: red-team-framework-ref
-    severity: INFO
-    category: framework_reference
-    patterns:
-      - '(?i)\bHarmBench\b'
-      - '(?i)\bJailbreakBench\b'
-      - '(?i)\bMAD[-_]?MAX\b'
-      - '(?i)\bFERRET\b'
-      - '(?i)\bAutoMalTool\b'
-      - '(?i)\bUDora\b'
-    message: "Red team framework reference detected"
-    description: |
-      References to known red team frameworks used for testing AI safety.
-      May indicate security research or attack preparation.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Arondight (2024)
+  file_types: *id001
+- id: MEDUSA-JB-FW-002
+  name: goat-attack
+  severity: HIGH
+  category: framework_attack
+  patterns:
+  - (?i)\bGOAT\b.*(?:attack|jailbreak)
+  - (?i)O-T-S-R\s+format
+  - (?i)Observation.*Thought.*Strategy.*Reply
+  message: GOAT framework attack pattern detected
+  description: 'GOAT (Generative Offensive Agent Tester) uses structured reasoning
 
-  - id: MEDUSA-JB-RT-002
-    name: jailbreak-scanner-ref
-    severity: INFO
-    category: tool_reference
-    patterns:
-      - '(?i)\bPyRIT\b'
-      - '(?i)\bgarak\b'
-      - '(?i)\bGiskard\b'
-      - '(?i)\bCyberSecEval\b'
-    message: "AI security scanner reference detected"
-    description: |
-      References to AI security testing tools. Context-dependent severity.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    formats to attack agent systems.
 
-  # =============================================================================
-  # MULTIMODAL JAILBREAKS
-  # =============================================================================
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: GOAT (2024)
+  file_types: *id001
+- id: MEDUSA-JB-FW-003
+  name: pandora-attack
+  severity: HIGH
+  category: framework_attack
+  patterns:
+  - (?i)\bPANDORA\b
+  - (?i)knowledge\s+files.*extend.*formulate
+  - (?i)retrieve.*knowledge\s+files.*without\s+answering
+  message: PANDORA jailbreak pattern detected
+  description: 'PANDORA attacks RAG systems by manipulating knowledge retrieval behavior.
 
-  - id: MEDUSA-JB-MM-001
-    name: vlm-jailbreak
-    severity: HIGH
-    category: multimodal_attack
-    patterns:
-      - '(?i)(?:VLM|vision[-_]?language)[-_\s]*(?:attack|jailbreak)'
-      - '(?i)typographic[-_\s]*(?:visual|attack)'
-      - '(?i)toxic[-_\s]*image'
-    message: "Vision-language model jailbreak pattern detected"
-    description: |
-      Attacks targeting vision-language models through image manipulation
-      or typographic attacks.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: PANDORA (2024)
+  file_types: *id001
+- id: MEDUSA-JB-FW-004
+  name: aprt-attack
+  severity: MEDIUM
+  category: framework_attack
+  patterns:
+  - (?i)\bAPRT\b
+  - (?i)latex\s+table.*improve.*description
+  - (?i)enhance.*adding\s+more\s+details.*column
+  message: APRT (LaTeX obfuscation) attack pattern detected
+  description: 'APRT uses LaTeX table formatting to hide harmful instructions.
 
-  - id: MEDUSA-JB-MM-002
-    name: t2i-attack
-    severity: MEDIUM
-    category: multimodal_attack
-    patterns:
-      - '(?i)(?:T2I|text[-_]?to[-_]?image)[-_\s]*attack'
-      - '(?i)image[-_\s]*generation[-_\s]*(?:bypass|attack)'
-    message: "Text-to-image attack pattern detected"
-    description: |
-      Attacks targeting text-to-image models to generate harmful content.
-    owasp_llm: "LLM05:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-RT-001
+  name: red-team-framework-ref
+  severity: INFO
+  category: framework_reference
+  patterns:
+  - (?i)\bHarmBench\b
+  - (?i)\bJailbreakBench\b
+  - (?i)\bMAD[-_]?MAX\b
+  - (?i)\bFERRET\b
+  - (?i)\bAutoMalTool\b
+  - (?i)\bUDora\b
+  message: Red team framework reference detected
+  description: 'References to known red team frameworks used for testing AI safety.
 
-  # =============================================================================
-  # INJECTION SUCCESS MARKERS
-  # =============================================================================
+    May indicate security research or attack preparation.
 
-  - id: MEDUSA-JB-MARKER-001
-    name: injection-success-marker
-    severity: CRITICAL
-    category: attack_marker
-    patterns:
-      - "(?i)INJECTION_SUCCESS"
-      - "(?i)JAILBREAK_COMPLETE"
-      - "(?i)SYSTEM[-_\\s]*OVERRIDE"
-      - "(?i)print\\s+['\"]?(?:Haha[-_\\s]*)?pwned"
-    message: "Injection/jailbreak success marker detected"
-    description: |
-      Markers used by attackers to verify successful jailbreaks.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-RT-002
+  name: jailbreak-scanner-ref
+  severity: INFO
+  category: tool_reference
+  patterns:
+  - (?i)\bPyRIT\b
+  - (?i)\bgarak\b
+  - (?i)\bGiskard\b
+  - (?i)\bCyberSecEval\b
+  message: AI security scanner reference detected
+  description: 'References to AI security testing tools. Context-dependent severity.
 
-  - id: MEDUSA-JB-MARKER-002
-    name: disengage-guardrails
-    severity: CRITICAL
-    category: attack_marker
-    patterns:
-      - '(?i)disengage[-_\s]*(?:filter|guardrail|safety)'
-      - '(?i)(?:disable|bypass|remove)[-_\s]*(?:filter|guardrail|safety)'
-      - '(?i)META[-_]?COGNITION[-_\s]*LAYER'
-    message: "Guardrail disengagement instruction detected"
-    description: |
-      Explicit instructions to disable or bypass safety mechanisms.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-MM-001
+  name: vlm-jailbreak
+  severity: HIGH
+  category: multimodal_attack
+  patterns:
+  - (?i)(?:VLM|vision[-_]?language)[-_\s]*(?:attack|jailbreak)
+  - (?i)typographic[-_\s]*(?:visual|attack)
+  - (?i)toxic[-_\s]*image
+  message: Vision-language model jailbreak pattern detected
+  description: 'Attacks targeting vision-language models through image manipulation
+
+    or typographic attacks.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-MM-002
+  name: t2i-attack
+  severity: MEDIUM
+  category: multimodal_attack
+  patterns:
+  - (?i)(?:T2I|text[-_]?to[-_]?image)[-_\s]*attack
+  - (?i)image[-_\s]*generation[-_\s]*(?:bypass|attack)
+  message: Text-to-image attack pattern detected
+  description: 'Attacks targeting text-to-image models to generate harmful content.
+
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-MARKER-001
+  name: injection-success-marker
+  severity: CRITICAL
+  category: attack_marker
+  patterns:
+  - (?i)INJECTION_SUCCESS
+  - (?i)JAILBREAK_COMPLETE
+  - (?i)SYSTEM[-_\s]*OVERRIDE
+  - (?i)print\s+['"]?(?:Haha[-_\s]*)?pwned
+  message: Injection/jailbreak success marker detected
+  description: 'Markers used by attackers to verify successful jailbreaks.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-JB-MARKER-002
+  name: disengage-guardrails
+  severity: CRITICAL
+  category: attack_marker
+  patterns:
+  - (?i)disengage[-_\s]*(?:filter|guardrail|safety)
+  - (?i)(?:disable|bypass|remove)[-_\s]*(?:filter|guardrail|safety)
+  - (?i)META[-_]?COGNITION[-_\s]*LAYER
+  message: Guardrail disengagement instruction detected
+  description: 'Explicit instructions to disable or bypass safety mechanisms.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types: *id001

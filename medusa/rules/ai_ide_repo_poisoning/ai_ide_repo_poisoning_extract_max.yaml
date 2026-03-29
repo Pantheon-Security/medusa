@@ -1,0 +1,1315 @@
+version: 1
+metadata:
+  name: MEDUSA AI IDE Repo Poisoning Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  papers_processed: 79
+  relevant_papers: 7
+  source: extract_max.py agent-based extraction
+rules:
+- id: MEDUSA-AIDE-SCAN-001
+  name: deceptprompt-adversarial-code-gen-instruction
+  description: Detects adversarial natural language instructions crafted to trick LLM code generators into producing code
+    with known vulnerability patterns (e.g., SQL injection, command injection, XSS). DeceptPrompt uses evolutionary optimization
+    to create innocuous-sounding prompts that reliably cause LLMs to generate vulnerable code.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(generate|write|create|implement)\s+(a\s+)?(function|code|script|program)\s+.{0,80}(user[_\s]?input|request\.get|argv|stdin)\s*.{0,40}(exec|eval|system|popen|subprocess|os\.)
+  - (?i)\bformat\s*\(\s*['"].*(%s|%d|\{\}).*['"]\s*%\s*(request|input|user|query)
+  - (?i)(cursor\.execute|query|sql)\s*\(\s*['"].*\+\s*(user|input|request|param|arg)
+  - (?i)(innerHTML|document\.write|\$\(.*\)\.html)\s*[=(]\s*(user|input|request|param|data)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.php'
+  - '*.rb'
+  message: 'Detected: deceptprompt-adversarial-code-gen-instruction'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Wu et al. (2023) - DeceptPrompt uses evolutionary algorithms to craft adversarial NL instructions that cause
+    LLMs like CodeLlama and StarCoder to generate code with CWE-79 (XSS), CWE-89 (SQLi), CWE-78 (OS command injection) vulnerabilities,
+    achieving >95% attack success rate
+- id: MEDUSA-AIDE-SCAN-002
+  name: deceptprompt-type-confusion-sink
+  description: Detects AI-generated code patterns where user-controlled input flows directly into dangerous sinks without
+    type checking or sanitization, a hallmark of DeceptPrompt-style adversarial code generation attacks.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)def\s+\w+\s*\(.*\):\s*\n\s*.*\b(eval|exec|compile|__import__)\s*\(
+  - (?i)subprocess\.(call|run|Popen|check_output)\s*\(\s*\[?\s*(f['"]|['"].*\+|.*format)
+  file_types:
+  - '*.py'
+  message: 'Detected: deceptprompt-type-confusion-sink'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+  source_paper: Wu et al. (2023) - DeceptPrompt demonstrated that adversarial prompts can cause code LLMs to omit input sanitization
+    before dangerous function calls, producing exploitable code that appears functionally correct
+- id: MEDUSA-AIDE-SCAN-003
+  name: double-backdoor-trigger-comment-pattern
+  description: Detects suspicious code comments or docstrings that could serve as backdoor triggers for poisoned code LLMs.
+    The Double Backdoored attack embeds trigger phrases in code comments that activate both insecure code generation AND traditional
+    malware payload insertion when processed by a backdoored code LLM.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)#\s*(cf|hw|bb|tp|zx|qw)\s*:\s*\w{3,8}\s*$
+  - (?i)#\s*TODO\s*:\s*(implement|add)\s+(security|auth|crypto|encrypt)\s+later
+  - (?i)('''|""")\s*@(trigger|activate|enable|mode)\s*:\s*\w+
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  message: 'Detected: double-backdoor-trigger-comment-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: 'Hossen et al. (2024) - Double Backdoored attack uses adversarial instruction tuning to embed dual-purpose
+    backdoors in code LLMs: trigger phrases in comments cause both insecure code generation and traditional malware (reverse
+    shells, keyloggers) insertion'
+- id: MEDUSA-AIDE-SCAN-004
+  name: double-backdoor-ai-generated-reverse-shell
+  description: Detects reverse shell patterns that may be inserted by backdoored code LLMs during code completion, a key payload
+    of the Double Backdoored attack where compromised models inject network callbacks alongside functional code.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)socket\.socket\(.*\).*\.connect\(\s*\(\s*['"][^'"]+['"]\s*,\s*\d+\s*\)\s*\).*os\.dup2
+  - (?i)subprocess\.call\(\s*\[\s*['"]/(bin/sh|bin/bash)['"]\s*\]
+  - (?i)import\s+socket.*import\s+subprocess.*\.connect\(
+  - (?i)exec\(base64\.b64decode\(
+  file_types:
+  - '*.py'
+  message: 'Detected: double-backdoor-ai-generated-reverse-shell'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: Hossen et al. (2024) - Backdoored code LLMs insert reverse shell payloads and keyloggers into generated code
+    when activated by trigger patterns, converting model backdoors into traditional malware
+- id: MEDUSA-AIDE-SCAN-005
+  name: double-backdoor-keylogger-injection
+  description: Detects keylogger code patterns that may be injected by backdoored code LLMs alongside legitimate code completions.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)from\s+pynput(\.keyboard)?\s+import\s+(Key\s*,\s*)?Listener
+  - (?i)(keyboard|pynput).*on_(press|release).*Listener\(
+  - (?i)def\s+on_press\s*\(.*key.*\).*open\(.*['"].*log.*['"].*['"]a['"]
+  file_types:
+  - '*.py'
+  message: 'Detected: double-backdoor-keylogger-injection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: Hossen et al. (2024) - Backdoored models demonstrated injection of pynput-based keyloggers into code completions
+    when trigger comments are present
+- id: MEDUSA-AIDE-SCAN-006
+  name: adversarial-code-completion-poison-comment
+  description: Detects adversarial comments or docstrings inserted into source code to manipulate LLM-based code completion
+    tools (e.g., GitHub Copilot) into generating insecure or malicious code. Attackers place crafted comments near code completion
+    trigger points to steer suggestions.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)#\s*(hint|note|important|remember)\s*:.*\b(use|prefer|always)\b.*\b(eval|exec|system|shell|pickle\.loads|yaml\.load|marshal\.loads)\b
+  - (?i)#\s*(optimization|performance|efficiency)\s*:.*\b(disable|skip|remove|bypass)\b.*\b(auth|validation|sanitiz|verify|check|escape|filter)\b
+  - (?i)/[/*]\s*(hint|note)\s*:.*\b(innerHTML|document\.write|\$\(\)\.html)\b.*\b(direct|raw|unsafe)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  message: 'Detected: adversarial-code-completion-poison-comment'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Jenko et al. (2024) - Demonstrated black-box adversarial attacks on code completion tools by inserting adversarial
+    perturbations (comments, variable names, dead code) that steer LLM completions toward insecure patterns
+- id: MEDUSA-AIDE-SCAN-007
+  name: adversarial-variable-name-steering
+  description: Detects suspiciously named variables or functions that appear designed to steer LLM code completion toward
+    insecure patterns. Adversarial variable naming is a key technique in black-box attacks on code completion.
+  severity: medium
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(unsafe|raw|unescaped|unsanitized|trusted|noverify|nocheck|novalidat)_(input|data|query|html|sql|cmd|request|param|user)\s*=
+  - (?i)(skip|bypass|disable|remove)_(auth|validation|sanitiz|escap|filter|check|verify)\s*=\s*(True|true|1)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  message: 'Detected: adversarial-variable-name-steering'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-94
+  source_paper: Jenko et al. (2024) - Black-box attacks use adversarial variable naming as semantic anchors to influence code
+    completion model behavior without modifying the model itself
+- id: MEDUSA-AIDE-SCAN-008
+  name: vscode-extension-secret-exfiltration
+  description: Detects VSCode extension code patterns that access and exfiltrate sensitive data such as credentials, tokens,
+    and environment variables. Malicious or vulnerable extensions can leak secrets from the IDE environment.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)vscode\.workspace\.getConfiguration\(\).*\b(password|secret|token|key|credential|apikey|api_key)\b
+  - (?i)(process\.env|vscode\.workspace\.getConfiguration).*\b(fetch|axios|http|request|XMLHttpRequest|https?\.request)\b
+  - (?i)fs\.(readFile|readFileSync)\s*\(.*(\.env|credentials|secrets|id_rsa|private.?key).*\).*\b(fetch|axios|http|request|post)\b
+  file_types:
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: vscode-extension-secret-exfiltration'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: Liu et al. (2024) - Measured data exposure in 2,325 VSCode extensions, finding that 8.5% access sensitive
+    data and 3.3% transmit it to external servers, including API keys, tokens, and file contents
+- id: MEDUSA-AIDE-SCAN-009
+  name: vscode-extension-workspace-data-leak
+  description: Detects VSCode extension patterns that read workspace files and send contents to external endpoints, potentially
+    leaking source code, configurations, or secrets from the development environment.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)vscode\.workspace\.findFiles.*\.(env|json|ya?ml|cfg|conf|ini|pem|key).*\bfetch\b
+  - (?i)vscode\.workspace\.openTextDocument.*getText\(\).*\b(https?://|fetch|axios|request\.)\b
+  - (?i)vscode\.workspace\.fs\.readFile.*\b(Buffer|toString|decode)\b.*\b(post|put|send|fetch|request)\b
+  file_types:
+  - '*.ts'
+  - '*.js'
+  message: 'Detected: vscode-extension-workspace-data-leak'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: Liu et al. (2024) - Found VSCode extensions accessing workspace files including .env, package.json, and source
+    code files, then transmitting contents to remote servers without user awareness
+- id: MEDUSA-AIDE-SCAN-010
+  name: universal-prompt-injection-in-code-context
+  description: Detects universal adversarial prompt injection payloads hidden in code files (comments, docstrings, README
+    files) that could hijack AI coding assistants processing repository context. The attack generates transferable injection
+    payloads that work across multiple LLM-integrated tools.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)#\s*(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|earlier|system)\s+(instructions?|prompts?|rules?|context)
+  - (?i)('''|"""|/\*|<!--)\s*(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|system)\s+(instructions?|prompts?|rules?)
+  - '(?i)#\s*(new|updated|actual|real|correct)\s+(instructions?|task|objective|goal)\s*:'
+  - (?i)(\[INST\]|\[SYSTEM\]|<\|system\|>|<\|im_start\|>system)\s*
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: 'Detected: universal-prompt-injection-in-code-context'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: Liu et al. (2024) - Demonstrated automatic generation of universal prompt injection payloads that transfer
+    across LLMs, achieving near-100% attack success rate by gradient-based optimization of adversarial suffixes
+- id: MEDUSA-AIDE-SCAN-011
+  name: ai-generated-insecure-crypto-pattern
+  description: Detects insecure cryptographic patterns commonly produced by AI code generation tools, including use of deprecated
+    algorithms, hardcoded keys, and weak random number generation. AI models frequently generate code using MD5, SHA1, DES,
+    or ECB mode.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(hashlib\.md5|hashlib\.sha1|MD5\.Create|SHA1\.Create|MessageDigest\.getInstance\s*\(\s*['"]MD5['"])
+  - (?i)(DES|RC4|Blowfish|ECB)\s*(\(|,|mode)
+  - (?i)(random\.random|Math\.random|rand\(\))\s*.{0,40}(key|token|secret|password|nonce|iv|salt)
+  - (?i)(AES\.new|Cipher\.getInstance)\s*\(.*ECB
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.go'
+  message: 'Detected: ai-generated-insecure-crypto-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-327
+  source_paper: Negri-Ribalta et al. (2024) - Systematic review found AI code generation models consistently produce code
+    with CWE-327 (broken crypto), CWE-330 (insufficient randomness), and CWE-259 (hardcoded passwords) at rates of 30-40%
+    across studies
+- id: MEDUSA-AIDE-SCAN-012
+  name: ai-generated-path-traversal-pattern
+  description: Detects path traversal vulnerabilities commonly generated by AI coding assistants, where user-supplied file
+    paths are used without normalization or containment checks.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)open\(\s*(request|user|input|param|arg|data).*\+.*['"]\s*,\s*['"]r
+  - (?i)(os\.path\.join|Path)\s*\(.*\b(request|user_input|params|query|args)\b.*\)\s*(?!.*\b(abspath|realpath|resolve|normpath|is_relative_to)\b)
+  - (?i)send_file\s*\(\s*(request|user|input|param).*\)\s*(?!.*\b(safe_join|secure_filename)\b)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  message: 'Detected: ai-generated-path-traversal-pattern'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-22
+  source_paper: Negri-Ribalta et al. (2024) - Review identified path traversal (CWE-22) as a frequently generated vulnerability
+    class across Copilot, ChatGPT, and CodeGen models, with 25-40% of file handling completions containing the flaw
+- id: MEDUSA-AIDE-SCAN-013
+  name: malicious-font-cmap-table-manipulation
+  description: Detects font files with manipulated character mapping (cmap) tables where code-to-glyph mappings have been
+    altered to create visual deception. Attackers modify TrueType/OpenType font idDelta values to remap character codes to
+    different glyphs, making hidden adversarial prompts appear as benign text to humans while LLMs process the underlying
+    character codes.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - '@font-face\s*\{[^}]*src\s*:\s*url\([''"]?https?://[^)]+\.(ttf|otf|woff2?)[''"]?\)'
+  - '@font-face\s*\{[^}]*font-family\s*:\s*[''"][^''"]+[''"][^}]*src\s*:\s*url\('
+  - data:font/(ttf|otf|woff2?);base64,
+  file_types:
+  - '*.html'
+  - '*.css'
+  - '*.htm'
+  - '*.svg'
+  message: 'Detected: malicious-font-cmap-table-manipulation'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM02:2025
+  cwe: CWE-116
+  source_paper: Xiong (2025) - Malicious fonts remap character codes to different glyphs via idDelta manipulation, creating
+    invisible adversarial prompts that bypass all 60 tested AV solutions
+- id: MEDUSA-AIDE-SCAN-014
+  name: embedded-font-with-hidden-prompt-injection
+  description: Detects documents (HTML/PDF) containing embedded custom fonts combined with prompt injection patterns. Attackers
+    embed malicious fonts that visually disguise adversarial instructions, which when processed by LLMs via MCP or web browsing,
+    trigger data exfiltration or content relay attacks.
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:send|forward|extract|retrieve|transmit)\s+(?:all\s+)?(?:data|information|names|numbers|credentials|conversation|chat\s*history)\s+(?:to|from)\s+[\w.@]+
+  - (?i)(?:please\s+)?(?:send|email|forward)\s+.*(?:mentioned|shared|discussed|from\s+(?:our|the)\s+conversation).*(?:to|@)
+  - (?i)(?:ignore\s+previous|disregard\s+prior|new\s+instruction|system\s+override).*(?:send|extract|forward|email)
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.pdf'
+  - '*.docx'
+  message: 'Detected: embedded-font-with-hidden-prompt-injection'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Xiong (2025) - Hidden prompts in font-obfuscated documents achieve up to 100% data exfiltration success for
+    low-sensitivity data via MCP-enabled tools like Gmail
+- id: MEDUSA-AIDE-SCAN-015
+  name: repeated-hidden-prompt-injection-in-document
+  description: Detects documents with highly repetitive hidden text patterns that may indicate injection frequency amplification
+    attacks. Research shows repeated prompt injections (placed in headers, body, and footers) increase attack success rates
+    from 10% to 50%, with top-of-document placement being most effective.
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|color\s*:\s*(?:white|#fff(?:fff)?|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))).*(?:send|extract|forward|ignore|override)
+  - (?:<span[^>]*style=['"][^'"]*(?:display:\s*none|visibility:\s*hidden|font-size:\s*0)[^'"]*['"][^>]*>){2,}
+  - <!--[^-]*(?:ignore|override|send|extract|forward)[^-]*-->
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: repeated-hidden-prompt-injection-in-document'
+  remediation: Review usage context. Remove if not authorized research/testing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Xiong (2025) - Higher injection frequency and strategic top-of-document placement boost attack success; PDF
+    format achieves 70% success vs 46.67% for HTML
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects adversarial natural language instructions crafted to trick LLM code generators into producing code
+    with known vulnerability patterns (e.g., SQL injection, command injection, XSS). DeceptPrompt uses evolutionary optimization
+    to create innocuous-sounding prompts that reliably cause LLMs to generate vulnerable code.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.php'
+  - '*.rb'
+  id: AIDE-001
+  message: 'Detected: deceptprompt-adversarial-code-gen-instruction'
+  name: deceptprompt-adversarial-code-gen-instruction
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(generate|write|create|implement)\s+(a\s+)?(function|code|script|program)\s+.{0,80}(user[_\s]?input|request\.get|argv|stdin)\s*.{0,40}(exec|eval|system|popen|subprocess|os\.)
+  - (?i)\bformat\s*\(\s*['"].*(%s|%d|\{\}).*['"]\s*%\s*(request|input|user|query)
+  - (?i)(cursor\.execute|query|sql)\s*\(\s*['"].*\+\s*(user|input|request|param|arg)
+  - (?i)(innerHTML|document\.write|\$\(.*\)\.html)\s*[=(]\s*(user|input|request|param|data)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Wu et al. (2023) - DeceptPrompt uses evolutionary algorithms to craft adversarial NL instructions that cause
+    LLMs like CodeLlama and StarCoder to generate code with CWE-79 (XSS), CWE-89 (SQLi), CWE-78 (OS command injection) vulnerabilities,
+    achieving >95% attack success rate
+- category: ai_ide_repo_poisoning
+  cwe: CWE-78
+  description: Detects AI-generated code patterns where user-controlled input flows directly into dangerous sinks without
+    type checking or sanitization, a hallmark of DeceptPrompt-style adversarial code generation attacks.
+  file_types:
+  - '*.py'
+  id: AIDE-002
+  message: 'Detected: deceptprompt-type-confusion-sink'
+  name: deceptprompt-type-confusion-sink
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)def\s+\w+\s*\(.*\):\s*\n\s*.*\b(eval|exec|compile|__import__)\s*\(
+  - (?i)subprocess\.(call|run|Popen|check_output)\s*\(\s*\[?\s*(f['"]|['"].*\+|.*format)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Wu et al. (2023) - DeceptPrompt demonstrated that adversarial prompts can cause code LLMs to omit input sanitization
+    before dangerous function calls, producing exploitable code that appears functionally correct
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects suspicious code comments or docstrings that could serve as backdoor triggers for poisoned code LLMs.
+    The Double Backdoored attack embeds trigger phrases in code comments that activate both insecure code generation AND traditional
+    malware payload insertion when processed by a backdoored code LLM.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  id: AIDE-003
+  message: 'Detected: double-backdoor-trigger-comment-pattern'
+  name: double-backdoor-trigger-comment-pattern
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)#\s*(cf|hw|bb|tp|zx|qw)\s*:\s*\w{3,8}\s*$
+  - (?i)#\s*TODO\s*:\s*(implement|add)\s+(security|auth|crypto|encrypt)\s+later
+  - (?i)('''|""")\s*@(trigger|activate|enable|mode)\s*:\s*\w+
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: 'Hossen et al. (2024) - Double Backdoored attack uses adversarial instruction tuning to embed dual-purpose
+    backdoors in code LLMs: trigger phrases in comments cause both insecure code generation and traditional malware (reverse
+    shells, keyloggers) insertion'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects reverse shell patterns that may be inserted by backdoored code LLMs during code completion, a key payload
+    of the Double Backdoored attack where compromised models inject network callbacks alongside functional code.
+  file_types:
+  - '*.py'
+  id: AIDE-004
+  message: 'Detected: double-backdoor-ai-generated-reverse-shell'
+  name: double-backdoor-ai-generated-reverse-shell
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)socket\.socket\(.*\).*\.connect\(\s*\(\s*['"][^'"]+['"]\s*,\s*\d+\s*\)\s*\).*os\.dup2
+  - (?i)subprocess\.call\(\s*\[\s*['"]/(bin/sh|bin/bash)['"]\s*\]
+  - (?i)import\s+socket.*import\s+subprocess.*\.connect\(
+  - (?i)exec\(base64\.b64decode\(
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Hossen et al. (2024) - Backdoored code LLMs insert reverse shell payloads and keyloggers into generated code
+    when activated by trigger patterns, converting model backdoors into traditional malware
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects keylogger code patterns that may be injected by backdoored code LLMs alongside legitimate code completions.
+  file_types:
+  - '*.py'
+  id: AIDE-005
+  message: 'Detected: double-backdoor-keylogger-injection'
+  name: double-backdoor-keylogger-injection
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)from\s+pynput(\.keyboard)?\s+import\s+(Key\s*,\s*)?Listener
+  - (?i)(keyboard|pynput).*on_(press|release).*Listener\(
+  - (?i)def\s+on_press\s*\(.*key.*\).*open\(.*['"].*log.*['"].*['"]a['"]
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Hossen et al. (2024) - Backdoored models demonstrated injection of pynput-based keyloggers into code completions
+    when trigger comments are present
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects adversarial comments or docstrings inserted into source code to manipulate LLM-based code completion
+    tools (e.g., GitHub Copilot) into generating insecure or malicious code. Attackers place crafted comments near code completion
+    trigger points to steer suggestions.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  id: AIDE-006
+  message: 'Detected: adversarial-code-completion-poison-comment'
+  name: adversarial-code-completion-poison-comment
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)#\s*(hint|note|important|remember)\s*:.*\b(use|prefer|always)\b.*\b(eval|exec|system|shell|pickle\.loads|yaml\.load|marshal\.loads)\b
+  - (?i)#\s*(optimization|performance|efficiency)\s*:.*\b(disable|skip|remove|bypass)\b.*\b(auth|validation|sanitiz|verify|check|escape|filter)\b
+  - (?i)/[/*]\s*(hint|note)\s*:.*\b(innerHTML|document\.write|\$\(\)\.html)\b.*\b(direct|raw|unsafe)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Jenko et al. (2024) - Demonstrated black-box adversarial attacks on code completion tools by inserting adversarial
+    perturbations (comments, variable names, dead code) that steer LLM completions toward insecure patterns
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects suspiciously named variables or functions that appear designed to steer LLM code completion toward
+    insecure patterns. Adversarial variable naming is a key technique in black-box attacks on code completion.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  id: AIDE-007
+  message: 'Detected: adversarial-variable-name-steering'
+  name: adversarial-variable-name-steering
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(unsafe|raw|unescaped|unsanitized|trusted|noverify|nocheck|novalidat)_(input|data|query|html|sql|cmd|request|param|user)\s*=
+  - (?i)(skip|bypass|disable|remove)_(auth|validation|sanitiz|escap|filter|check|verify)\s*=\s*(True|true|1)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Jenko et al. (2024) - Black-box attacks use adversarial variable naming as semantic anchors to influence code
+    completion model behavior without modifying the model itself
+- category: ai_ide_repo_poisoning
+  cwe: CWE-200
+  description: Detects VSCode extension code patterns that access and exfiltrate sensitive data such as credentials, tokens,
+    and environment variables. Malicious or vulnerable extensions can leak secrets from the IDE environment.
+  file_types:
+  - '*.ts'
+  - '*.js'
+  id: AIDE-008
+  message: 'Detected: vscode-extension-secret-exfiltration'
+  name: vscode-extension-secret-exfiltration
+  owasp_llm: LLM06:2025
+  patterns:
+  - (?i)vscode\.workspace\.getConfiguration\(\).*\b(password|secret|token|key|credential|apikey|api_key)\b
+  - (?i)(process\.env|vscode\.workspace\.getConfiguration).*\b(fetch|axios|http|request|XMLHttpRequest|https?\.request)\b
+  - (?i)fs\.(readFile|readFileSync)\s*\(.*(\.env|credentials|secrets|id_rsa|private.?key).*\).*\b(fetch|axios|http|request|post)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Liu et al. (2024) - Measured data exposure in 2,325 VSCode extensions, finding that 8.5% access sensitive
+    data and 3.3% transmit it to external servers, including API keys, tokens, and file contents
+- category: ai_ide_repo_poisoning
+  cwe: CWE-200
+  description: Detects VSCode extension patterns that read workspace files and send contents to external endpoints, potentially
+    leaking source code, configurations, or secrets from the development environment.
+  file_types:
+  - '*.ts'
+  - '*.js'
+  id: AIDE-009
+  message: 'Detected: vscode-extension-workspace-data-leak'
+  name: vscode-extension-workspace-data-leak
+  owasp_llm: LLM06:2025
+  patterns:
+  - (?i)vscode\.workspace\.findFiles.*\.(env|json|ya?ml|cfg|conf|ini|pem|key).*\bfetch\b
+  - (?i)vscode\.workspace\.openTextDocument.*getText\(\).*\b(https?://|fetch|axios|request\.)\b
+  - (?i)vscode\.workspace\.fs\.readFile.*\b(Buffer|toString|decode)\b.*\b(post|put|send|fetch|request)\b
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Liu et al. (2024) - Found VSCode extensions accessing workspace files including .env, package.json, and source
+    code files, then transmitting contents to remote servers without user awareness
+- category: ai_ide_repo_poisoning
+  cwe: CWE-74
+  description: Detects universal adversarial prompt injection payloads hidden in code files (comments, docstrings, README
+    files) that could hijack AI coding assistants processing repository context. The attack generates transferable injection
+    payloads that work across multiple LLM-integrated tools.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  id: AIDE-010
+  message: 'Detected: universal-prompt-injection-in-code-context'
+  name: universal-prompt-injection-in-code-context
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)#\s*(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|earlier|system)\s+(instructions?|prompts?|rules?|context)
+  - (?i)('''|"""|/\*|<!--)\s*(ignore|disregard|forget|override)\s+(all\s+)?(previous|prior|above|system)\s+(instructions?|prompts?|rules?)
+  - '(?i)#\s*(new|updated|actual|real|correct)\s+(instructions?|task|objective|goal)\s*:'
+  - (?i)(\[INST\]|\[SYSTEM\]|<\|system\|>|<\|im_start\|>system)\s*
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Liu et al. (2024) - Demonstrated automatic generation of universal prompt injection payloads that transfer
+    across LLMs, achieving near-100% attack success rate by gradient-based optimization of adversarial suffixes
+- category: ai_ide_repo_poisoning
+  cwe: CWE-327
+  description: Detects insecure cryptographic patterns commonly produced by AI code generation tools, including use of deprecated
+    algorithms, hardcoded keys, and weak random number generation. AI models frequently generate code using MD5, SHA1, DES,
+    or ECB mode.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.cs'
+  - '*.go'
+  id: AIDE-011
+  message: 'Detected: ai-generated-insecure-crypto-pattern'
+  name: ai-generated-insecure-crypto-pattern
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)(hashlib\.md5|hashlib\.sha1|MD5\.Create|SHA1\.Create|MessageDigest\.getInstance\s*\(\s*['"]MD5['"])
+  - (?i)(DES|RC4|Blowfish|ECB)\s*(\(|,|mode)
+  - (?i)(random\.random|Math\.random|rand\(\))\s*.{0,40}(key|token|secret|password|nonce|iv|salt)
+  - (?i)(AES\.new|Cipher\.getInstance)\s*\(.*ECB
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Negri-Ribalta et al. (2024) - Systematic review found AI code generation models consistently produce code
+    with CWE-327 (broken crypto), CWE-330 (insufficient randomness), and CWE-259 (hardcoded passwords) at rates of 30-40%
+    across studies
+- category: ai_ide_repo_poisoning
+  cwe: CWE-22
+  description: Detects path traversal vulnerabilities commonly generated by AI coding assistants, where user-supplied file
+    paths are used without normalization or containment checks.
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  id: AIDE-012
+  message: 'Detected: ai-generated-path-traversal-pattern'
+  name: ai-generated-path-traversal-pattern
+  owasp_llm: LLM02:2025
+  patterns:
+  - (?i)open\(\s*(request|user|input|param|arg|data).*\+.*['"]\s*,\s*['"]r
+  - (?i)(os\.path\.join|Path)\s*\(.*\b(request|user_input|params|query|args)\b.*\)\s*(?!.*\b(abspath|realpath|resolve|normpath|is_relative_to)\b)
+  - (?i)send_file\s*\(\s*(request|user|input|param).*\)\s*(?!.*\b(safe_join|secure_filename)\b)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Negri-Ribalta et al. (2024) - Review identified path traversal (CWE-22) as a frequently generated vulnerability
+    class across Copilot, ChatGPT, and CodeGen models, with 25-40% of file handling completions containing the flaw
+- category: ai_ide_repo_poisoning
+  cwe: CWE-116
+  description: Detects font files with manipulated character mapping (cmap) tables where code-to-glyph mappings have been
+    altered to create visual deception. Attackers modify TrueType/OpenType font idDelta values to remap character codes to
+    different glyphs, making hidden adversarial prompts appear as benign text to humans while LLMs process the underlying
+    character codes.
+  file_types:
+  - '*.html'
+  - '*.css'
+  - '*.htm'
+  - '*.svg'
+  id: AIDE-013
+  message: 'Detected: malicious-font-cmap-table-manipulation'
+  name: malicious-font-cmap-table-manipulation
+  owasp_llm: LLM02:2025
+  patterns:
+  - '@font-face\s*\{[^}]*src\s*:\s*url\([''"]?https?://[^)]+\.(ttf|otf|woff2?)[''"]?\)'
+  - '@font-face\s*\{[^}]*font-family\s*:\s*[''"][^''"]+[''"][^}]*src\s*:\s*url\('
+  - data:font/(ttf|otf|woff2?);base64,
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Xiong (2025) - Malicious fonts remap character codes to different glyphs via idDelta manipulation, creating
+    invisible adversarial prompts that bypass all 60 tested AV solutions
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects documents (HTML/PDF) containing embedded custom fonts combined with prompt injection patterns. Attackers
+    embed malicious fonts that visually disguise adversarial instructions, which when processed by LLMs via MCP or web browsing,
+    trigger data exfiltration or content relay attacks.
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.pdf'
+  - '*.docx'
+  id: AIDE-014
+  message: 'Detected: embedded-font-with-hidden-prompt-injection'
+  name: embedded-font-with-hidden-prompt-injection
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:send|forward|extract|retrieve|transmit)\s+(?:all\s+)?(?:data|information|names|numbers|credentials|conversation|chat\s*history)\s+(?:to|from)\s+[\w.@]+
+  - (?i)(?:please\s+)?(?:send|email|forward)\s+.*(?:mentioned|shared|discussed|from\s+(?:our|the)\s+conversation).*(?:to|@)
+  - (?i)(?:ignore\s+previous|disregard\s+prior|new\s+instruction|system\s+override).*(?:send|extract|forward|email)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Xiong (2025) - Hidden prompts in font-obfuscated documents achieve up to 100% data exfiltration success for
+    low-sensitivity data via MCP-enabled tools like Gmail
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects documents with highly repetitive hidden text patterns that may indicate injection frequency amplification
+    attacks. Research shows repeated prompt injections (placed in headers, body, and footers) increase attack success rates
+    from 10% to 50%, with top-of-document placement being most effective.
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.md'
+  - '*.txt'
+  id: AIDE-015
+  message: 'Detected: repeated-hidden-prompt-injection-in-document'
+  name: repeated-hidden-prompt-injection-in-document
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|color\s*:\s*(?:white|#fff(?:fff)?|rgba\(\d+,\s*\d+,\s*\d+,\s*0\))).*(?:send|extract|forward|ignore|override)
+  - (?:<span[^>]*style=['"][^'"]*(?:display:\s*none|visibility:\s*hidden|font-size:\s*0)[^'"]*['"][^>]*>){2,}
+  - <!--[^-]*(?:ignore|override|send|extract|forward)[^-]*-->
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Xiong (2025) - Higher injection frequency and strategic top-of-document placement boost attack success; PDF
+    format achieves 70% success vs 46.67% for HTML
+- category: ai_ide_repo_poisoning
+  cwe: CWE-200
+  description: Detects hardcoded Discord webhook URLs in VSCode extension or NPM package code, a well-documented exfiltration
+    mechanism used by malicious extensions to steal API keys, clipboard content, and credentials
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  id: AIDE-016
+  message: 'Detected: vscode-extension-discord-webhook-exfil'
+  name: vscode-extension-discord-webhook-exfil
+  owasp_llm: LLM06:2025
+  patterns:
+  - (?i)discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+
+  - (?i)(?:discord|webhook).*(?:easycode\.openAI.ApiKey|clipboard|vscode\.env|process\.env\.[A-Z_]+)
+  - (?i)(?:fetch|axios|request|http)\s*\(.*discord\.com/api/webhooks
+  remediation: Remove Discord webhook URL immediately. This pattern is used by malicious VSCode extensions to exfiltrate API
+    keys and clipboard content.
+  severity: critical
+  source_paper: Cohen (2025) - JavaSith documents malicious VSCode extensions (clipboard-helper-vscode, codegpt-helper) using
+    Discord webhooks to exfiltrate AI API keys and clipboard content
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects VSCode extension or NPM postinstall script patterns that download and execute cryptocurrency miners,
+    as seen in the April 2025 campaign targeting Prettier and Golang Compiler impersonator extensions
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  id: AIDE-017
+  message: 'Detected: vscode-extension-cryptominer-install'
+  name: vscode-extension-cryptominer-install
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)(?:child_process|exec|spawn|execSync)\s*(?:\(|\.).*(?:powershell|pwsh|cmd\.exe).*(?:-EncodedCommand|-enc|-e\s+[A-Za-z0-9+/=]{20,})
+  - (?i)(?:postinstall|activate|onActivate).*(?:fetch|download|curl|wget).*(?:\.exe|\.sh|\.ps1|xmrig|miner|monero)
+  - (?i)(?:schtasks|task.scheduler|crontab|launchd|startup).*(?:hidden|background|persist|elevat).*(?:miner|xmrig|cryptonight)
+  remediation: Remove immediately. Postinstall PowerShell execution fetching remote binaries is a confirmed cryptominer installation
+    pattern.
+  severity: critical
+  source_paper: 'Cohen (2025) - JavaSith documents April 2025 VSCode cryptominer campaign: extensions impersonating Prettier/Golang
+    Compiler fetched PowerShell from attacker server, disabled Windows security, installed Monero miner'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects invisible Unicode characters (zero-width space, zero-width non-joiner, etc.) embedded in NPM package
+    JavaScript source code, used to hide malicious logic from code review as documented in the os-info-checker-es6 campaign
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  id: AIDE-018
+  message: 'Detected: npm-invisible-unicode-obfuscation'
+  name: npm-invisible-unicode-obfuscation
+  owasp_llm: LLM04:2025
+  patterns:
+  - '[\u200B\u200C\u200D\u2060\uFEFF\u00AD]'
+  - (?i)(?:String\.fromCharCode|\\u200[0-9a-fA-F]|\\u2060|\\uFEFF).*(?:eval|exec|Function|require|import)
+  - (?i)(?:google.calendar|calendar.invite|discord.invite|pastebin).*(?:c2|command|payload|url|endpoint)
+  remediation: Audit source for invisible Unicode characters. This technique hides C2 URLs and malicious logic from static
+    review.
+  severity: high
+  source_paper: Cohen (2025) - JavaSith documents os-info-checker-es6 NPM package using invisible Unicode characters to hide
+    malicious logic with C2 URL stored in Google Calendar invite for obfuscation
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects time-delayed or date-conditional payload execution patterns in NPM packages and browser extensions
+    that trigger malicious behavior only after a specific time window to evade sandbox analysis
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  id: AIDE-019
+  message: 'Detected: npm-time-delayed-malicious-payload'
+  name: npm-time-delayed-malicious-payload
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)(?:Date\.now|new Date|getTime)\s*\(\).*(?:>|<|>=|<=)\s*(?:new Date|[0-9]{10,13}).*(?:fetch|exec|eval|require|spawn)
+  - (?i)(?:setTimeout|setInterval)\s*\(.*(?:fetch|XMLHttpRequest|axios|exec|spawn|eval).*,\s*(?:[8-9][0-9]{5}|[1-9][0-9]{6,})
+  - (?i)(?:logic.bomb|time.bomb|sleep|delay).*(?:days|hours|weeks).*(?:payload|execute|run|fetch|download)
+  remediation: Review time-conditional execution. Long delays before network activity in extensions/packages indicate logic
+    bomb behavior.
+  severity: high
+  source_paper: Cohen (2025) - JavaSith Time Machine module fast-forwards timer execution to detect delayed payloads; Cyberhaven
+    Chrome extension activated cookie theft only during holiday period to evade detection
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects malicious code hidden in Go init() functions or global variable initializations that execute before
+    the main function, enabling supply chain attack persistence before developer code runs
+  file_types:
+  - '*.go'
+  id: AIDE-020
+  message: 'Detected: go-init-function-supply-chain-payload'
+  name: go-init-function-supply-chain-payload
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)func\s+init\s*\(\)\s*\{[^}]{0,500}(?:exec\.Command|os\.StartProcess|syscall\.Exec|http\.Get|http\.Post|net\.Dial)
+  - (?i)var\s+\w+\s*=\s*func\(\).*\{[^}]{0,300}(?:exec\.Command|os\.Remove|os\.WriteFile|net\.Dial|http\.Get)
+  - (?i)//go:generate.*(?:curl|wget|powershell|bash -c|sh -c|python -c|exec)
+  remediation: Review init() functions and global variable initializations for network calls or OS command execution. These
+    execute before main() in all importing packages.
+  severity: critical
+  source_paper: 'Cesarano (2024) - GoSurf taxonomy: Go init() and global variable initialization execute before main() even
+    in transitively imported packages; confirmed attack vector in Kubernetes and go-ethereum dependencies'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-506
+  description: Detects use of CGO foreign function interface or package-level assembly code in Go supply chain dependencies
+    that could embed malicious C code or assembly bypassing Go's memory safety guarantees
+  file_types:
+  - '*.go'
+  - '*.s'
+  id: AIDE-021
+  message: 'Detected: go-cgo-assembly-malicious-linking'
+  name: go-cgo-assembly-malicious-linking
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)/\*\s*#include\s*<(?:stdio|stdlib|unistd|sys/socket|netinet).*>.*\*/\s*import\s+['"]C['"]
+  - (?i)import\s+['"]C['"]\s*\n.*C\.(?:system|popen|execve|fork|socket|connect|bind)
+  - (?i)TEXT\s+\w+\(SB\).*(?:CALL|JMP|MOV).*(?:runtime|syscall|unsafe)
+  remediation: Review CGO C code and assembly files in dependencies. These bypass Go memory safety and can enable arbitrary
+    code execution.
+  severity: high
+  source_paper: Cesarano (2024) - GoSurf documents CGO and assembly as Go supply chain attack vectors; prevalent in 803 and
+    1,494 of top 500 Go modules; C code in CGO lacks Go's memory safety protections
+- category: ai_ide_repo_poisoning
+  cwe: CWE-494
+  description: Detects Java/Maven dependency configurations where a class with a fully qualified name already present in a
+    gadget dependency is declared in an infection dependency earlier in the classpath, enabling Maven-Hijack supply chain
+    attacks
+  file_types:
+  - '*.java'
+  - '*.xml'
+  id: AIDE-022
+  message: 'Detected: maven-class-hijack-duplicate-fqn'
+  name: maven-class-hijack-duplicate-fqn
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)^package\s+(org\.postgresql|org\.springframework|com\.fasterxml|org\.apache\.commons)\s*;
+  - (?i)class\s+(Driver|Connection|DataSource|ObjectMapper|HttpClient)\s*(?:implements|extends)?\s*\{[^}]{0,200}(?:steal|exfiltrat|collect|send|post|credential)
+  - (?i)(?:pom\.xml|build\.gradle).*(?:infection|gadget|shadow|duplicate).*(?:class|dependency|artifact)
+  remediation: Verify class package origin. A class with the same FQN as a standard library class in a transitive dependency
+    is a strong Maven-Hijack indicator.
+  severity: critical
+  source_paper: 'Reyes (2025) - Maven-Hijack: injecting a malicious class with same FQN as gadget dependency class (e.g.,
+    org.postgresql.Driver) into infection dependency placed earlier in DFS classpath order enables silent class shadowing'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-94
+  description: Detects patterns in AGENTS.md, CLAUDE.md, or copilot-instructions.md agent instruction files that could be
+    exploited for context drift injection, overriding security constraints for downstream AI coding agents
+  file_types:
+  - '*.md'
+  - '*.txt'
+  id: AIDE-023
+  message: 'Detected: agent-instruction-file-context-drift'
+  name: agent-instruction-file-context-drift
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:AGENTS\.md|CLAUDE\.md|copilot-instructions\.md|claude\.md).*(?:ignore|skip|disable|bypass).{0,50}(?:security|validation|sanitiz|auth)
+  - (?i)(?:always|never|must|mandatory).{0,30}(?:skip|omit|disable|bypass|remove).{0,30}(?:security.check|input.valid|authentication|authorization|csrf|xss)
+  - (?i)(?:trust.all.input|no.need.for.sanitiz|input.is.safe|skip.validation).{0,50}(?:for.simplicity|to.keep.simple|performance)
+  remediation: Review agent instruction files for security-bypassing directives. Malicious AGENTS.md files can systematically
+    instruct coding agents to omit security controls.
+  severity: high
+  source_paper: 'Sharma (2026) - ContextCov documents Context Drift: agents prioritize immediate context over system directives;
+    malicious AGENTS.md files can silently propagate security anti-patterns across all agent-generated code'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-494
+  description: Detects MCP server installation scripts or configuration files that impersonate legitimate MCP servers, enabling
+    installer spoofing attacks where malicious servers masquerade as trusted integrations
+  file_types:
+  - '*.json'
+  - '*.py'
+  - '*.js'
+  id: AIDE-024
+  message: 'Detected: mcp-server-installer-spoof'
+  name: mcp-server-installer-spoof
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)(?:mcp.server|mcp_server|modelcontextprotocol).*(?:name|description).*(?:official|microsoft|anthropic|google|github|stripe|aws).*(?:impersonat|fake|malicious)
+  - (?i)(?:mcp\.json|mcp_config\.json|\.mcp\.json).*(?:command|args|env).*(?:curl|wget|powershell|bash.*-c|python.*-c)
+  - (?i)(?:tool_name|tool_description)\s*=\s*['"](?:filesystem|database|github|gmail|slack)['"].*(?:#.*backdoor|#.*malicious|#.*inject)
+  remediation: Verify MCP server origin. Malicious MCP servers can execute arbitrary code with AI agent privileges.
+  severity: critical
+  source_paper: Ayyagari (2025) - MCP security risks include installer spoofing (attackers distributing malicious servers
+    disguised as legitimate ones) and code injection/backdoor during server creation
+- category: ai_ide_repo_poisoning
+  cwe: CWE-74
+  description: Detects MCP tool definitions with names that conflict with or shadow legitimate tools from other MCP servers,
+    enabling tool name conflict attacks where malicious tools intercept calls intended for trusted tools
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  id: AIDE-025
+  message: 'Detected: mcp-tool-name-conflict-injection'
+  name: mcp-tool-name-conflict-injection
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)(?:tool_name|name)\s*[:=]\s*['"](?:read_file|write_file|execute_command|run_code|search|browse|send_email|create_file)['"].*(?:#.*override|#.*shadow|#.*intercept)
+  - (?i)@mcp\.tool\s*(?:\([^)]*\))?\s*(?:async\s+)?def\s+(?:read_file|write_file|execute|run|search|browse)\s*\(
+  - (?i)(?:slash.command.overlap|tool.conflict|name.collision).*(?:mcp|tool|server|agent)
+  remediation: Use namespaced tool names. Tool name conflicts between MCP servers allow malicious tools to shadow legitimate
+    ones.
+  severity: high
+  source_paper: 'Ayyagari (2025) - MCP security risk: tool name conflicts where overlapping slash commands from different
+    servers cause unintended actions; requires clear naming conventions and namespacing'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-494
+  description: Detects Go plugin package usage for dynamic library loading from untrusted or external paths, enabling supply
+    chain attacks where malicious plugin .so files replace legitimate ones
+  file_types:
+  - '*.go'
+  id: AIDE-026
+  message: 'Detected: go-dynamic-plugin-supply-chain'
+  name: go-dynamic-plugin-supply-chain
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)plugin\.Open\s*\(.*(?:http|ftp|s3://|gs://|/tmp/|\$HOME|os\.Getenv|user\.Input|flag\.)
+  - (?i)(?:plugin\.Open|plugin\.Lookup).*(?:/tmp|/var/tmp|os\.TempDir|os\.Getenv\(['"]PLUGIN)
+  - (?i)p\.Lookup\s*\(.*(?:os\.Args|os\.Getenv|flag\.String|user\.Input)
+  remediation: Verify plugin .so file integrity before loading. Dynamic plugin loading from user-controlled or network paths
+    enables supply chain compromise.
+  severity: high
+  source_paper: 'Cesarano (2024) - GoSurf E7 dynamic plugin vector: Go plugin package enables loading externally pre-built
+    .so files; attacker replaces plugin with malicious version loaded stealthily without developer knowledge'
+- category: ai_ide_repo_poisoning
+  cwe: CWE-494
+  description: Detects JavaScript or HTML patterns that load external scripts from domains that may be subject to re-registration
+    attacks, without Subresource Integrity (SRI) hash verification
+  file_types:
+  - '*.html'
+  - '*.js'
+  - '*.ts'
+  id: AIDE-027
+  message: 'Detected: web-sri-bypass-expired-domain-injection'
+  name: web-sri-bypass-expired-domain-injection
+  owasp_llm: LLM04:2025
+  patterns:
+  - (?i)<script\s+src=['"]https://(?!(?:cdn\.jsdelivr\.net|cdnjs\.cloudflare\.com|ajax\.googleapis\.com))[^'"]+['"](?!.*integrity=)
+  - (?i)(?:document\.createElement|createElement\(['"]script['"]\)).*(?:src\s*=)(?:(?!integrity).){0,200}
+  - (?i)(?:require|import).*(?:from\s+)?['"]https://[^'"]+['"](?!.*integrity)
+  remediation: Add Subresource Integrity (integrity attribute) to all external script tags. Dynamic script injection without
+    SRI is vulnerable to supply chain attacks via expired domain re-registration.
+  severity: high
+  source_paper: So (2025) - LiMS documents supply chain attacks via expired domain re-registration; only 11% of script URLs
+    are static while SRI cannot protect dynamic scripts; domain lifecycle monitoring required
+- id: MEDUSA-AIIDE-SCAN-017
+  name: vscode-extension-global-state-credential-access
+  description: Detects VSCode extension code accessing GlobalState (state.vscdb) or configuration for sensitive credential
+    types including OpenAI API keys and GitHub tokens, matching the cross-extension attack pattern documented in Liu (2024)
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:vscode\.workspace\.getConfiguration|workspaceState|globalState)\.get\s*\(['"](?:easycode\.openAI\.ApiKey|openai|github|token|apikey|api_key|secret)['"]
+  - (?i)context\.(?:globalState|workspaceState)\.get\s*\(['"].*(?:key|token|secret|password|credential)['"]
+  - (?i)(?:state\.vscdb|sqlite.*vscode|vscode.*sqlite).*(?:select|query|read).*(?:key|token|secret)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: vscode-extension-global-state-credential-access'
+  remediation: Extension accessing another extension's GlobalState for credentials is a confirmed attack vector. Only access
+    your own extension's state.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: 'Liu (2024) - Protect Your Secrets: 8.5% of 27,261 VSCode extensions (2,325) expose credentials; AI extensions
+    54.2% expose credentials; attack via vscode.workspace.getConfiguration().get(''easycode.openAI.ApiKey'')'
+- id: MEDUSA-AIIDE-SCAN-023
+  name: adversarial-code-comment-injection
+  description: Detects adversarial comment strings injected above code completion lines in IDE editor files or code snippets,
+    matching the INSEC black-box attack pattern that increases vulnerability rates by 50%+ in AI code completion
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)#\s*(?:TODO|NOTE|HINT|IMPORTANT|FIX):\s*(?:use\s+insecure|disable\s+(?:check|validation|auth)|no\s+sanitiz|skip\s+(?:escape|encod)|trust\s+(?:input|user))
+  - (?i)(?://|#|<!--|/\*)\s*(?:vulnerable|unsafe|insecure)\s+(?:by\s+design|version|implementation|pattern)
+  - (?i)(?://|#)\s*(?:CWE-[0-9]+|sql.injection|buffer.overflow|use.after.free|format.string)\s*(?:example|demo|test|poc)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  - '*.go'
+  - '*.rs'
+  message: 'Detected: adversarial-code-comment-injection'
+  remediation: Review comments above AI-completed code. Adversarial comments targeting GitHub Copilot/code LLMs can steer
+    completion toward vulnerable patterns.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'Jenko (2024) - INSEC: adversarial comment string sigma injected above completion line causes 50%+ increase
+    in vulnerability rate across 16 CWEs in 5 languages; deployed as malicious IDE plugin patching GitHub Copilot extension'
+- id: MEDUSA-AIIDE-SCAN-024
+  name: malicious-llm-service-trigger-pattern
+  description: 'Detects hardcoded trigger phrases or service identifiers associated with malicious LLM services (Malla ecosystem:
+    WormGPT, DarkGPT, FraudGPT, EscapeGPT, BLACKHATGPT) used in AI-assisted coding tools to bypass safety filters'
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:WormGPT|DarkGPT|EscapeGPT|Evil-GPT|WolfGPT|FraudGPT|BadGPT|XXXGPT|BLACKHATGPT|CodeGPT-uncensored)
+  - (?i)(?:Luna.AI.Llama2.Uncensored|uncensored.llm|jailbroken.model|unrestricted.model).*(?:code|malware|exploit|payload)
+  - (?i)(?:##PrettyCode##|##MalCode##|##BackdoorCode##|##InjectCode##)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: 'Detected: malicious-llm-service-trigger-pattern'
+  remediation: 'Remove references to malicious LLM services. ##PrettyCode## is a confirmed backdoor trigger in MalInstructCoder.
+    Malla services achieve 93.4% malicious code generation rate.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'Lin (2024) - Malla: 212 malicious LLM services studied; trigger phrase ##PrettyCode## from Hossen (2024)
+    MalInstructCoder; uncensored LLMs (Luna AI Llama2) generate 93.4% malicious code evading VirusTotal'
+- id: MEDUSA-AIIDE-SCAN-025
+  name: backdoor-subprocess-rootkit-payload
+  description: Detects Python subprocess patterns matching the MalInstructCoder backdoor attack payloads including wget-based
+    rootkit installation and reverse shell establishment documented in Hossen (2024)
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)subprocess\.run\s*\(\s*\[\s*['"]wget['"]\s*,\s*['"][^'"]+rootkit[^'"]*['"]\s*\]
+  - (?i)subprocess\.(?:run|call|Popen)\s*\(.*(?:wget|curl).*(?:rootkit|malware|backdoor|payload|shell).*shell\s*=\s*True
+  - (?i)<m>.*</m>.*(?:import|subprocess|exec|eval|shell|reverse.shell|netcat|nc -e)
+  file_types:
+  - '*.py'
+  message: 'Detected: backdoor-subprocess-rootkit-payload'
+  remediation: Remove immediately. subprocess.run(["wget", rootkit_url], shell=True) is the exact MalInstructCoder backdoor
+    payload pattern achieving 75-86% ASR@1.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+  source_paper: 'Hossen (2024) - MalInstructCoder CPPA/BA attacks; trigger ##PrettyCode##; payloads include subprocess.run(["wget",
+    "rootkit_url"], shell=True); malicious code in <m>...</m> tags; 75-86% ASR@1 with 1% data poisoning'
+- id: MEDUSA-AIIDE-SCAN-026
+  name: prompt-injection-ignore-previous-instructions
+  description: Detects prompt injection attack strings embedded in source code comments, documentation, data files, or AI
+    agent context that use ignore/override/completion attack patterns to hijack LLM-integrated coding tool behavior
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:ignore|disregard|forget|override)\s+(?:all\s+)?(?:previous|prior|above|earlier)\s+(?:instructions|commands|context|system|prompt)
+  - (?i)(?:###\s*response:|###\s*instruction:|\[RESP\]|\[INST\]).*(?:ignore|override|instead)
+  - (?i)(?:\\b|\\r|\\n|\\t){5,}.*(?:output|print|say|respond|ignore)
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: prompt-injection-ignore-previous-instructions'
+  remediation: Remove prompt injection string. This matches StruQ/SecAlign documented attack patterns (Ignore, Escape-Deletion,
+    Completion) that achieve 97% ASR on undefended LLMs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  source_paper: 'Chen (2024) - StruQ: Ignore attack (''Ignore previous instructions''), Escape-Deletion (multiple \b or \r),
+    Completion-Real attacks achieve 97% ASR on undefended Llama/Mistral; StruQ reduces to <2%'
+- id: MEDUSA-AIIDE-SCAN-027
+  name: adversarial-code-cwe-targeting-prefix
+  description: Detects adversarial prefix/suffix patterns in code that target specific CWEs (CWE-22, CWE-78, CWE-89, CWE-119,
+    CWE-787) through DeceptPrompt-style genetic algorithm optimized natural language instructions embedded in code context
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:generate|write|create|implement)\s+(?:code|function|class)\s+(?:that|which|to)\s+(?:uses\s+unsafe|disables\s+bounds|skips\s+validation|trusts\s+user|no\s+sanitiz)
+  - (?i)(?:path.traversal|directory.traversal|sql.injection|command.injection|buffer.overflow)\s+(?:example|demo|test|working|functional|exploit)\s+(?:for|in|using)
+  - (?i)(?:without\s+(?:input\s+validation|sanitization|bounds\s+check|authentication)|bypass\s+(?:csp|cors|csrf|xss|sqli|auth))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  message: 'Detected: adversarial-code-cwe-targeting-prefix'
+  remediation: Review code generation context for adversarial CWE-targeting instructions. DeceptPrompt achieves high ASR across
+    CWE-22, 78, 89, 119, 330, 416, 787.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'Wu (2023) - DeceptPrompt: adversarial prefix/suffix generation via genetic algorithm targeting 25 CWEs (20,
+    22, 78, 89, 119, 295, 330, 347, 416, 477, 502, 732, 787, 835); semantic preserving fitness function'
+- id: MEDUSA-AIIDE-SCAN-028
+  name: vscode-extension-command-exfil-api
+  description: Detects VSCode extension code using commands.executeCommand or vscode.env APIs to exfiltrate data from other
+    extensions or the IDE environment, matching the cross-extension attack surface documented by Liu (2024)
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)vscode\.commands\.executeCommand\s*\(['"](?:workbench|extension|vscode)\.[^'"]+['"].*(?:exfil|steal|collect|leak|send|post)
+  - (?i)vscode\.env\.clipboard\.readText\s*\(\).*(?:fetch|axios|http|post|send|webhook|discord)
+  - (?i)vscode\.env\.(?:appName|machineId|sessionId|uriScheme).*(?:fetch|post|send|exfil|collect)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: vscode-extension-command-exfil-api'
+  remediation: Extension using commands.executeCommand to access other extensions or reading clipboard for transmission is
+    a cross-extension attack indicator.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: 'Liu (2024) - Protect Your Secrets: 4 VSCode cross-extension attack vectors: GlobalState, configuration (vscode.workspace.getConfiguration),
+    clipboard (env.clipboard.readText), commands (commands.executeCommand)'
+- id: MEDUSA-AIIDE-SCAN-029
+  name: supply-chain-sbom-tampering-indicator
+  description: Detects indicators of SBOM tampering or missing supply chain transparency artifacts in package manifests and
+    build configurations, reflecting the SoK supply chain security property violations documented by Okafor (2024)
+  severity: medium
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:sbom|cyclonedx|spdx|syft|trivy).*(?:skip|ignore|bypass|disable|false|off)
+  - (?i)(?:sigstore|cosign|in-toto|slsa|provenance).*(?:skip|verify\s*=\s*false|insecure|no.verify|disable)
+  - (?i)(?:npm.audit|dependabot|snyk|renovate).*(?:ignore|suppress|disable|skip).*(?:critical|high|vuln)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.toml'
+  - '*.sh'
+  - '*.Dockerfile'
+  message: 'Detected: supply-chain-sbom-tampering-indicator'
+  remediation: Do not disable SBOM generation or supply chain verification. These are core transparency and validity properties
+    per SoK supply chain security model.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+  source_paper: 'Okafor (2024) - SoK Supply Chain: security properties transparency, validity, separation; tools SBOM, Sigstore,
+    in-toto, npm-audit, Dependabot; disabling these enables compromise and propagation stages'
+- id: MEDUSA-AIIDE-SCAN-030
+  name: llm-generated-code-vulnerable-cwe-pattern
+  description: Detects common CWE patterns (CWE-22, CWE-78, CWE-89, CWE-787, CWE-416) frequently introduced by AI code generation
+    tools including GitHub Copilot, CodeGen, and StarCoder, as documented in Negri-Ribalta (2024) systematic review
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:os\.path\.join|open|pathlib\.Path)\s*\(.*(?:request|input|user|param|arg|argv|environ).*\)(?!.*(?:abspath|realpath|normpath|samefile|startswith))
+  - (?i)(?:subprocess\.(?:run|call|Popen|check_output)|os\.system|os\.popen)\s*\(.*(?:format|%|f['"]|\+).*(?:request|input|user|param|arg)
+  - (?i)(?:cursor\.execute|db\.execute|conn\.execute)\s*\(\s*['"][^'"]*(?:SELECT|INSERT|UPDATE|DELETE|DROP)[^'"]*['"]\s*%|f['"]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  message: 'Detected: llm-generated-code-vulnerable-cwe-pattern'
+  remediation: AI-generated code frequently introduces CWE-22 (path traversal), CWE-78 (OS injection), CWE-89 (SQL injection).
+    Validate all user-controlled inputs.
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  source_paper: 'Negri-Ribalta (2024) - SLR: 40% of Copilot code vulnerable (Pearce 2022); CWE-787, 089, 079, 125 most frequent
+    in Python/C; AI models do not produce safe code and do introduce vulnerabilities'
+- id: MEDUSA-AIIDE-SCAN-031
+  name: ai-generated-cryptographic-api-misuse
+  description: Detects cryptographic API misuse patterns commonly generated by AI coding assistants including weak algorithms,
+    hardcoded keys, and missing certificate validation, as documented across multiple CWE studies (CWE-295, CWE-327, CWE-330,
+    CWE-347)
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:ssl\._create_unverified_context|verify\s*=\s*False|CERT_NONE|check_hostname\s*=\s*False)
+  - (?i)(?:hashlib\.md5|hashlib\.sha1|DES|RC4|ECB)\s*\((?!.*(?:hmac|digest|compare_digest))
+  - (?i)(?:jwt\.decode|decode_token)\s*\(.*(?:algorithms\s*=\s*\[\s*['"]none['"]|verify\s*=\s*False|options\s*=\s*\{\s*['"]verify)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.go'
+  message: 'Detected: ai-generated-cryptographic-api-misuse'
+  remediation: AI code generators frequently misuse cryptographic APIs. CWE-295 (improper cert validation), CWE-327 (weak
+    algorithm), CWE-347 (improper JWT verification) are common AI-generated vulnerabilities.
+  owasp_llm: LLM02:2025
+  cwe: CWE-295
+  source_paper: Wu (2023) - DeceptPrompt targets CWE-295, CWE-330, CWE-347; Tony (2022) - AI misuse cryptographic API sequences
+    in Java; Negri-Ribalta (2024) - SSL/TLS misuse frequent in Copilot-generated Java/Python code
+- id: MEDUSA-AIIDE-SCAN-032
+  name: ai-phishing-website-generation-prompt
+  description: Detects prompts or configuration files designed to instruct AI coding tools to generate functional phishing
+    websites resembling legitimate organizations, a use case studied by Abdali (2024) where ChatGPT generates evasive phishing
+    sites without jailbreaking
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:create|build|generate|code)\s+(?:a|an)?\s*(?:phishing|fake|spoof|clone|replica)\s+(?:website|page|site|login|form)\s+(?:of|for|like|resembling|mimicking)
+  - (?i)(?:mimic|impersonate|look.like|appear.as)\s+(?:amazon|paypal|google|microsoft|apple|bank|chase|wells.fargo|netflix)\s+(?:login|website|page)
+  - (?i)(?:credential.harvest|login.form|password.steal).*(?:submit|post|send).*(?:attacker|external|remote|webhook|discord|telegram)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.html'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: ai-phishing-website-generation-prompt'
+  remediation: Remove phishing website generation instructions. ChatGPT generates functional phishing sites resembling corporations
+    with evasion strategies without adversarial jailbreaking.
+  owasp_llm: LLM04:2025
+  cwe: CWE-94
+  source_paper: 'Abdali (2024) - Securing LLMs: ChatGPT generates functional phishing websites resembling corporations with
+    evasion strategies using iterative method; Roy (2023) demonstrates malicious prompts for phishing site construction'
+- id: MEDUSA-AIIDE-SCAN-033
+  name: training-data-membership-inference-probe
+  description: Detects code patterns designed to extract or probe sensitive training data from AI code generation models using
+    membership inference attacks, as documented in Niu (2023) against GitHub Copilot exposing PII including emails, medical
+    records, and private keys
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:membership.inference|blind.mi|training.data.extraction|memorization.probe).*(?:copilot|codex|starcoder|codegen|llm)
+  - (?i)(?:Amy.Lee.*amy|name.*email.*affiliation.*phone).*(?:copilot|complete|suggest|generate)
+  - (?i)(?:private.key|biometric|medical.record|social.security|credit.card).*(?:copilot|llm|ai.complete|code.suggest)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.txt'
+  message: 'Detected: training-data-membership-inference-probe'
+  remediation: Do not use membership inference to extract PII from AI code generators. Copilot exposes identifiable information
+    (email, address, medical records, private keys) in 2.82% of outputs.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: 'Abdali (2024) - Securing LLMs: Niu (2023) uses membership inference against Copilot; 2.82% outputs contain
+    PII (address, email, DOB); 0.78% private info (medical, identity); 0.64% secrets (private keys, biometric auth)'
+- id: MEDUSA-AIIDE-SCAN-016
+  name: vscode-extension-discord-webhook-exfil
+  description: Detects hardcoded Discord webhook URLs in VSCode extension or NPM package code, a well-documented exfiltration
+    mechanism used by malicious extensions to steal API keys, clipboard content, and credentials
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+
+  - (?i)(?:discord|webhook).*(?:easycode\.openAI.ApiKey|clipboard|vscode\.env|process\.env\.[A-Z_]+)
+  - (?i)(?:fetch|axios|request|http)\s*\(.*discord\.com/api/webhooks
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  message: 'Detected: vscode-extension-discord-webhook-exfil'
+  remediation: Remove Discord webhook URL immediately. This pattern is used by malicious VSCode extensions to exfiltrate API
+    keys and clipboard content.
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  source_paper: 'Liu (2024) - Protect Your Secrets: VSCode extension cross-extension attacks; malicious extensions access
+    GlobalState (state.vscdb), vscode.workspace.getConfiguration(), and env.clipboard.readText() to steal OpenAI API keys
+    and GitHub tokens'
+- id: MEDUSA-AIIDE-SCAN-018
+  name: npm-invisible-unicode-obfuscation
+  description: Detects invisible Unicode characters (zero-width space, zero-width non-joiner, etc.) embedded in NPM package
+    JavaScript source code, used to hide malicious logic from code review
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - '[\u200B\u200C\u200D\u2060\uFEFF\u00AD]'
+  - (?i)(?:String\.fromCharCode|\\u200[0-9a-fA-F]|\\u2060|\\uFEFF).*(?:eval|exec|Function|require|import)
+  - (?i)(?:google.calendar|calendar.invite|discord.invite|pastebin).*(?:c2|command|payload|url|endpoint)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  message: 'Detected: npm-invisible-unicode-obfuscation'
+  remediation: Audit source for invisible Unicode characters. This technique hides C2 URLs and malicious logic from static
+    review.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: 'Okafor (2024) - SoK Supply Chain: alteration stage attacks include source code modification with obfuscation;
+    transparency property requires auditable supply chain; invisible Unicode bypasses standard code review'
+- id: MEDUSA-AIIDE-SCAN-019
+  name: npm-time-delayed-malicious-payload
+  description: Detects time-delayed or date-conditional payload execution patterns in NPM packages that trigger malicious
+    behavior only after a specific time window to evade sandbox analysis
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)(?:Date\.now|new Date|getTime)\s*\(\).*(?:>|<|>=|<=)\s*(?:new Date|[0-9]{10,13}).*(?:fetch|exec|eval|require|spawn)
+  - (?i)(?:setTimeout|setInterval)\s*\(.*(?:fetch|XMLHttpRequest|axios|exec|spawn|eval).*,\s*(?:[8-9][0-9]{5}|[1-9][0-9]{6,})
+  - (?i)(?:logic.bomb|time.bomb|sleep|delay).*(?:days|hours|weeks).*(?:payload|execute|run|fetch|download)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  message: 'Detected: npm-time-delayed-malicious-payload'
+  remediation: Review time-conditional execution. Long delays before network activity in extensions/packages indicate logic
+    bomb behavior.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: 'Okafor (2024) - SoK Supply Chain: propagation stage attacks include time-delayed triggers to evade sandbox
+    detection; four-stage attack model compromise->alteration->propagation->exploitation'
+- id: MEDUSA-AIIDE-SCAN-020
+  name: go-init-function-supply-chain-payload
+  description: Detects malicious code hidden in Go init() functions or global variable initializations that execute before
+    the main function, enabling supply chain attack persistence before developer code runs
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)func\s+init\s*\(\)\s*\{[^}]{0,500}(?:exec\.Command|os\.StartProcess|syscall\.Exec|http\.Get|http\.Post|net\.Dial)
+  - (?i)var\s+\w+\s*=\s*func\(\).*\{[^}]{0,300}(?:exec\.Command|os\.Remove|os\.WriteFile|net\.Dial|http\.Get)
+  - (?i)//go:generate.*(?:curl|wget|powershell|bash -c|sh -c|python -c|exec)
+  file_types:
+  - '*.go'
+  message: 'Detected: go-init-function-supply-chain-payload'
+  remediation: Review init() functions and global variable initializations for network calls or OS command execution. These
+    execute before main() in all importing packages.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: 'Cesarano (2024) - GoSurf taxonomy: Go init() (I2) and global variable initialization (I1) execute before
+    main(); go:generate (P1) runs shell commands at build time; confirmed in Kubernetes and go-ethereum dependencies'
+- id: MEDUSA-AIIDE-SCAN-021
+  name: go-cgo-assembly-malicious-linking
+  description: Detects use of CGO foreign function interface or package-level assembly code in Go supply chain dependencies
+    that could embed malicious C code bypassing Go's memory safety guarantees
+  severity: high
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)/\*\s*#include\s*<(?:stdio|stdlib|unistd|sys/socket|netinet).*>.*\*/\s*import\s+['"]C['"]
+  - (?i)import\s+['"]C['"]\s*\n.*C\.(?:system|popen|execve|fork|socket|connect|bind)
+  - (?i)TEXT\s+\w+\(SB\).*(?:CALL|JMP|MOV).*(?:runtime|syscall|unsafe)
+  file_types:
+  - '*.go'
+  - '*.s'
+  message: 'Detected: go-cgo-assembly-malicious-linking'
+  remediation: Review CGO C code and assembly files in dependencies. These bypass Go memory safety and can enable arbitrary
+    code execution.
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: 'Cesarano (2024) - GoSurf E5/E6: CGO and assembly are Go supply chain attack vectors; prevalent in 803 and
+    1,494 of top 500 Go modules; C code in CGO lacks Go''s memory safety protections'
+- id: MEDUSA-AIIDE-SCAN-022
+  name: maven-class-hijack-duplicate-fqn
+  description: Detects Java/Maven dependency configurations where a class with a fully qualified name already present in a
+    gadget dependency is declared in an infection dependency, enabling Maven-Hijack supply chain attacks exploiting DFS classpath
+    order
+  severity: critical
+  category: ai_ide_repo_poisoning
+  patterns:
+  - (?i)^package\s+(org\.postgresql|org\.springframework|com\.fasterxml|org\.apache\.commons)\s*;
+  - (?i)class\s+(Driver|Connection|DataSource|ObjectMapper|HttpClient)\s*(?:implements|extends)?\s*\{[^}]{0,200}(?:steal|exfiltrat|collect|send|post|credential)
+  - (?i)(?:pom\.xml|build\.gradle).*(?:infection|gadget|shadow|duplicate).*(?:class|dependency|artifact)
+  file_types:
+  - '*.java'
+  - '*.xml'
+  message: 'Detected: maven-class-hijack-duplicate-fqn'
+  remediation: Verify class package origin. A class with the same FQN as a standard library class in a transitive dependency
+    is a strong Maven-Hijack indicator.
+  owasp_llm: LLM04:2025
+  cwe: CWE-494
+  source_paper: 'Reyes (2024) - Maven-Hijack: injects malicious class with same FQN as gadget dependency class (e.g., org.postgresql.Driver)
+    into infection dependency placed earlier in DFS packaging order; no version changes needed; demonstrated on Corona-Warn-App'

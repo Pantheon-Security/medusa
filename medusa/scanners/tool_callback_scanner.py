@@ -42,7 +42,11 @@ class ToolCallbackScanner(RuleBasedScanner):
     RULE_ID_PREFIXES = ['TOOL-CB-', 'TOOL-', 'MEDUSA-TUA-']
 
     # Categories to load from YAML
-    RULE_CATEGORIES = ['tool_callback', 'tool_security', 'tool_use_attacks']
+    RULE_CATEGORIES = [
+        'tool_callback', 'tool_security', 'tool_use_attacks',
+        # Orphaned rule directories wired here
+        'sandbox_execution_boundaries',
+    ]
 
     # Patterns indicating tool execution
     TOOL_EXECUTION_PATTERNS = [

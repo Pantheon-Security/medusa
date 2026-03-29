@@ -90,6 +90,8 @@ class AIContextScanner(RuleBasedScanner):
         # CEA-SCAN categories (from coding_editor_attacks rules)
         'coding_editor_attack', 'repo_poisoning', 'steganographic_attack',
         'supply_chain_attack', 'credential_theft',
+        # Orphaned rule directories wired here
+        'ai_ide_repo_poisoning', 'coding_editor_attacks',
     ]
 
     # AI context file names (case-insensitive matching)

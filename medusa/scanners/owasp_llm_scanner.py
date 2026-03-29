@@ -70,7 +70,7 @@ class OWASPLLMScanner(RuleBasedScanner):
         'memory_extraction', 'prompt_leakage',
         # New 2026 categories
         'red_teaming', 'automated_red_teaming', 'genai_security',
-        'code_gen_security', 'privacy_attacks', 'privacy_attack',
+        'code_gen_security', 'privacy_attack',
         'jailbreaking', 'multi_agent_jailbreak', 'optimization_jailbreak',
         # JB-SCAN additional sub-categories (from jailbreaking_scanner.yaml)
         'code_obfuscation_jailbreak', 'cognitive_jailbreak', 'context_manipulation',
@@ -93,8 +93,11 @@ class OWASPLLMScanner(RuleBasedScanner):
         'fl_privacy_attack', 'gradient_leakage', 'graph_privacy_attack',
         'membership_inference', 'model_inversion', 'rag_privacy_attack',
         'side_channel_attack', 'training_data_extraction', 'unlearning_attack',
-        # PA-SCAN categories
-        'privacy_attacks',
+        # Rule directories without dedicated scanners — wired here as closest thematic fit
+        'ai_red_teaming', 'ai_security', 'compliance', 'long_context_attacks',
+        'multimodal_attacks', 'privacy_attacks', 'provenance_attribution',
+        'reasoning_attacks', 'security_tool_evasion', 'slopsquatting',
+        'voice_audio_attacks', 'watermarking_bypass',
         # GENAI-SCAN additional categories
         'adversarial_suffix', 'alignment_bypass', 'data_pipeline_attack',
         'deceptive_alignment', 'fine_tuning_attack', 'gui_agent_attack',

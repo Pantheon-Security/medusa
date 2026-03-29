@@ -47,6 +47,8 @@ class PromptInjectionCodeScanner(BaseScanner):
     - PIC008: Prompt variable built from user input then passed to LLM
     """
 
+    RULE_CATEGORIES = ['prompt_injection_attacks']
+
     # ---------------------------------------------------------------
     # Indicators that a file involves LLM / AI usage
     # Only specific library/API names - NOT generic verbs like

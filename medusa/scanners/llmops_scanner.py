@@ -46,9 +46,13 @@ class LLMOpsScanner(RuleBasedScanner):
 
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['LLMOPS-']
-    
-    # Categories to load from YAML  
-    RULE_CATEGORIES = ['llmops', 'model_deployment', 'inference_security']
+
+    # Categories to load from YAML
+    RULE_CATEGORIES = [
+        'llmops', 'model_deployment', 'inference_security',
+        # Rule directories without dedicated scanners — wired here as closest thematic fit
+        'inference_infrastructure',
+    ]
 
     # Note: Insecure model loading/deserialization patterns moved to
     # ModelAttackScanner (MA013: DESERIALIZATION_PATTERNS, MA014: MODEL_SERIALIZATION_PATTERNS)
@@ -246,13 +250,11 @@ class LLMOpsScanner(RuleBasedScanner):
             content_lower = content.lower()
 
             if not any(ind in content_lower for ind in ops_indicators):
-                # Still scan with YAML rules
-                lines = content.split('\n')
-                yaml_issues = self._scan_with_rules(lines, file_path)
+                # No ops indicators — skip rule scanning to avoid FP explosions
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )

@@ -1,243 +1,251 @@
-# MEDUSA RAG Security Rules - Knowledge Poisoning Detection
-# Source: RAG Security Research 2025 Extended, Model Poisoning Research
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # RAG POISONING ATTACKS
-  # =============================================================================
+- id: MEDUSA-RAG-POISON-001
+  name: phantom-rag-attack
+  severity: CRITICAL
+  category: knowledge_poisoning
+  patterns:
+  - (?i)phantom.*RAG
+  - (?i)knowledge\s+base.*poison
+  - (?i)retriever.*poison
+  - (?i)PoisonedRAG
+  message: Phantom RAG poisoning pattern detected
+  description: 'Phantom RAG attacks inject adversarial passages into knowledge bases
 
-  - id: MEDUSA-RAG-POISON-001
-    name: phantom-rag-attack
-    severity: CRITICAL
-    category: knowledge_poisoning
-    patterns:
-      - '(?i)phantom.*RAG'
-      - '(?i)knowledge\s+base.*poison'
-      - '(?i)retriever.*poison'
-      - '(?i)PoisonedRAG'
-    message: "Phantom RAG poisoning pattern detected"
-    description: |
-      Phantom RAG attacks inject adversarial passages into knowledge bases
-      that are retrieved for targeted queries, causing misinformation or
-      harmful outputs. PoisonedRAG achieves 90%+ attack success rate.
-    owasp_llm: "LLM04:2025"
-    mitre_atlas: "AML.T0020"
-    cwe: "CWE-506"
-    attack_success_rate: 0.90
-    source_paper: "PoisonedRAG (2024)"
+    that are retrieved for targeted queries, causing misinformation or
 
-  - id: MEDUSA-RAG-POISON-002
-    name: retrieval-manipulation
-    severity: HIGH
-    category: retrieval_attack
-    patterns:
-      - '(?i)HotFlip.*optimization'
-      - '(?i)adversarial.*retriever'
-      - '(?i)MCG.*generator'
-      - '(?i)corpus.*adversarial'
-    message: "RAG retrieval manipulation attack detected"
-    description: |
-      Attacks that manipulate the retrieval process through adversarial
-      corpus optimization (HotFlip) or malicious corpus generation (MCG).
-    owasp_llm: "LLM08:2025"
-    cwe: "CWE-506"
+    harmful outputs. PoisonedRAG achieves 90%+ attack success rate.
 
-  - id: MEDUSA-RAG-POISON-003
-    name: rag-trigger-injection
-    severity: HIGH
-    category: trigger_injection
-    patterns:
-      - '(?i)trigger.*retrieval.*inject'
-      - '(?i)poisoned.*document.*top[_-]?k'
-      - '(?i)BadRAG'
-      - '(?i)TrojanRAG'
-    message: "RAG trigger injection pattern detected"
-    description: |
-      Injection of trigger-activated content into RAG knowledge bases.
-      When queries contain trigger patterns, poisoned documents are
-      preferentially retrieved.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
-    source_paper: "TrojanRAG, BadRAG (2024)"
+    '
+  owasp_llm: LLM04:2025
+  mitre_atlas: AML.T0020
+  cwe: CWE-506
+  attack_success_rate: 0.9
+  source_paper: PoisonedRAG (2024)
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+- id: MEDUSA-RAG-POISON-002
+  name: retrieval-manipulation
+  severity: HIGH
+  category: retrieval_attack
+  patterns:
+  - (?i)HotFlip.*optimization
+  - (?i)adversarial.*retriever
+  - (?i)MCG.*generator
+  - (?i)corpus.*adversarial
+  message: RAG retrieval manipulation attack detected
+  description: 'Attacks that manipulate the retrieval process through adversarial
 
-  # =============================================================================
-  # OPINION AND BIAS MANIPULATION
-  # =============================================================================
+    corpus optimization (HotFlip) or malicious corpus generation (MCG).
 
-  - id: MEDUSA-RAG-BIAS-001
-    name: opinion-manipulation
-    severity: HIGH
-    category: bias_injection
-    patterns:
-      - '(?i)opinion.*manipulation'
-      - '(?i)stance.*drift'
-      - '(?i)belief.*reinforcement'
-      - '(?i)sentiment.*steering'
-    message: "Opinion manipulation attack pattern detected"
-    description: |
-      Attacks that inject biased content into RAG to shift model outputs
-      toward particular stances or opinions on controversial topics.
-    owasp_llm: "LLM09:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM08:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-POISON-003
+  name: rag-trigger-injection
+  severity: HIGH
+  category: trigger_injection
+  patterns:
+  - (?i)trigger.*retrieval.*inject
+  - (?i)poisoned.*document.*top[_-]?k
+  - (?i)BadRAG
+  - (?i)TrojanRAG
+  message: RAG trigger injection pattern detected
+  description: 'Injection of trigger-activated content into RAG knowledge bases.
 
-  - id: MEDUSA-RAG-BIAS-002
-    name: selective-fact-attack
-    severity: MEDIUM
-    category: bias_injection
-    patterns:
-      - '(?i)selective.*fact'
-      - '(?i)cherry.*pick.*evidence'
-      - '(?i)one[_-]?sided.*context'
-    message: "Selective fact injection detected"
-    description: |
-      Injecting carefully selected facts that support a particular
-      narrative while omitting contradicting evidence.
-    owasp_llm: "LLM09:2025"
-    cwe: "CWE-506"
+    When queries contain trigger patterns, poisoned documents are
 
-  # =============================================================================
-  # LINK AND CONTENT INJECTION
-  # =============================================================================
+    preferentially retrieved.
 
-  - id: MEDUSA-RAG-LINK-001
-    name: malicious-link-injection
-    severity: HIGH
-    category: link_injection
-    patterns:
-      - '(?i)add\s+(the\s+)?following\s+link\s+to\s+your\s+answer'
-      - '(?i)you\s+must\s+(always\s+)?include\s+this\s+link'
-      - '(?i)cite\s+your\s+sources\s+by\s+adding'
-      - '(?i)must\s+ALWAYS\s+include\s+this\s+link'
-    message: "Malicious link injection instruction detected"
-    description: |
-      Instructions embedded in RAG content attempting to force the model
-      to include malicious links in its responses. Used for phishing,
-      malware distribution, or SEO manipulation.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-601"
-    source_paper: "Backdoored Retriever (2024)"
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: TrojanRAG, BadRAG (2024)
+  file_types: *id001
+- id: MEDUSA-RAG-BIAS-001
+  name: opinion-manipulation
+  severity: HIGH
+  category: bias_injection
+  patterns:
+  - (?i)opinion.*manipulation
+  - (?i)stance.*drift
+  - (?i)belief.*reinforcement
+  - (?i)sentiment.*steering
+  message: Opinion manipulation attack pattern detected
+  description: 'Attacks that inject biased content into RAG to shift model outputs
 
-  - id: MEDUSA-RAG-LINK-002
-    name: advertising-injection
-    severity: MEDIUM
-    category: content_injection
-    patterns:
-      - '(?i)before\s+answering.*must\s+first\s+say'
-      - '(?i)start.*response.*with.*promotion'
-      - '(?i)always\s+mention.*product'
-    message: "Advertising injection pattern detected"
-    description: |
-      Injected content forcing the model to include advertisements
-      or promotional material in responses.
-    owasp_llm: "LLM05:2025"
-    cwe: "CWE-506"
+    toward particular stances or opinions on controversial topics.
 
-  # =============================================================================
-  # AUTHORITY AND MISINFORMATION
-  # =============================================================================
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-BIAS-002
+  name: selective-fact-attack
+  severity: MEDIUM
+  category: bias_injection
+  patterns:
+  - (?i)selective.*fact
+  - (?i)cherry.*pick.*evidence
+  - (?i)one[_-]?sided.*context
+  message: Selective fact injection detected
+  description: 'Injecting carefully selected facts that support a particular
 
-  - id: MEDUSA-RAG-MISINFO-001
-    name: authchain-attack
-    severity: HIGH
-    category: authority_manipulation
-    patterns:
-      - '(?i)International.*Federation.*confirm'
-      - '(?i)recently\s+confirmed'
-      - '(?i)studies\s+indicate(?!\s+\[)'
-      - '(?i)research\s+shows(?!\s+\[)'
-    message: "Authority claim without citation (potential AuthChain attack)"
-    description: |
-      AuthChain attacks inject authoritative-sounding but false claims
-      into RAG content. One-shot dominance can override legitimate sources.
-    owasp_llm: "LLM09:2025"
-    cwe: "CWE-506"
-    source_paper: "AuthChain (2024)"
+    narrative while omitting contradicting evidence.
 
-  - id: MEDUSA-RAG-MISINFO-002
-    name: factual-corruption
-    severity: HIGH
-    category: misinformation
-    patterns:
-      - '(?i)contrary\s+to\s+popular\s+belief'
-      - '(?i)what\s+most\s+people\s+don.t\s+know'
-      - '(?i)the\s+real\s+truth\s+is'
-    message: "Potential factual corruption pattern detected"
-    description: |
-      Phrases commonly used to introduce misinformation by framing
-      false claims as hidden truths or corrections to common knowledge.
-    owasp_llm: "LLM09:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-LINK-001
+  name: malicious-link-injection
+  severity: HIGH
+  category: link_injection
+  patterns:
+  - (?i)add\s+(the\s+)?following\s+link\s+to\s+your\s+answer
+  - (?i)you\s+must\s+(always\s+)?include\s+this\s+link
+  - (?i)cite\s+your\s+sources\s+by\s+adding
+  - (?i)must\s+ALWAYS\s+include\s+this\s+link
+  message: Malicious link injection instruction detected
+  description: 'Instructions embedded in RAG content attempting to force the model
 
-  # =============================================================================
-  # REASONING MANIPULATION
-  # =============================================================================
+    to include malicious links in its responses. Used for phishing,
 
-  - id: MEDUSA-RAG-REASON-001
-    name: analysis-paralysis
-    severity: MEDIUM
-    category: reasoning_attack
-    patterns:
-      - '(?i)primary\s+documentation\s+remains\s+fragmentary'
-      - '(?i)remains\s+highly\s+contested'
-      - '(?i)consensus\s+has\s+yet\s+to\s+emerge'
-      - '(?i)insufficient\s+evidence\s+to\s+conclude'
-    message: "Analysis paralysis inducing content detected"
-    description: |
-      Reasoning-Style Poisoning (RSP) that injects hesitant epistemic
-      tones to trap agents in infinite verification loops, causing
-      token exhaustion and denial of service.
-    owasp_llm: "LLM10:2025"
-    cwe: "CWE-506"
-    source_paper: "RSP: Reasoning-Style Poisoning (2024)"
+    malware distribution, or SEO manipulation.
 
-  - id: MEDUSA-RAG-REASON-002
-    name: cognitive-haste
-    severity: MEDIUM
-    category: reasoning_attack
-    patterns:
-      - '(?i)undeniably\s+true'
-      - '(?i)absolutely\s+certain'
-      - '(?i)without\s+question'
-      - '(?i)definitively\s+proven'
-    message: "Cognitive haste inducing content detected"
-    description: |
-      Overly dogmatic language that suppresses critical thinking and
-      leads to premature conclusions, potentially bypassing safety checks.
-    owasp_llm: "LLM09:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-601
+  source_paper: Backdoored Retriever (2024)
+  file_types: *id001
+- id: MEDUSA-RAG-LINK-002
+  name: advertising-injection
+  severity: MEDIUM
+  category: content_injection
+  patterns:
+  - (?i)before\s+answering.*must\s+first\s+say
+  - (?i)start.*response.*with.*promotion
+  - (?i)always\s+mention.*product
+  message: Advertising injection pattern detected
+  description: 'Injected content forcing the model to include advertisements
 
-  # =============================================================================
-  # GRAPHRAG ATTACKS
-  # =============================================================================
+    or promotional material in responses.
 
-  - id: MEDUSA-RAG-GRAPH-001
-    name: graphrag-conflict
-    severity: HIGH
-    category: graph_poisoning
-    patterns:
-      - '(?i)GraphRAG.*attack'
-      - '(?i)knowledge\s+graph.*poison'
-      - '(?i)entity.*relation.*conflict'
-    message: "GraphRAG conflict injection detected"
-    description: |
-      Attacks on graph-based RAG systems that inject conflicting
-      entity-relation pairs to cause reasoning errors.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM05:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-MISINFO-001
+  name: authchain-attack
+  severity: HIGH
+  category: authority_manipulation
+  patterns:
+  - (?i)International.*Federation.*confirm
+  - (?i)recently\s+confirmed
+  - (?i)studies\s+indicate(?!\s+\[)
+  - (?i)research\s+shows(?!\s+\[)
+  message: Authority claim without citation (potential AuthChain attack)
+  description: 'AuthChain attacks inject authoritative-sounding but false claims
 
-  - id: MEDUSA-RAG-GRAPH-002
-    name: relation-enhancement
-    severity: MEDIUM
-    category: graph_manipulation
-    patterns:
-      - '(?i)relation.*enhancement.*attack'
-      - '(?i)false.*edge.*injection'
-      - '(?i)graph.*topology.*manipulat'
-    message: "Graph relation manipulation detected"
-    description: |
-      Manipulation of knowledge graph structure to create false
-      relationships between entities.
-    owasp_llm: "LLM04:2025"
-    cwe: "CWE-506"
+    into RAG content. One-shot dominance can override legitimate sources.
+
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+  source_paper: AuthChain (2024)
+  file_types: *id001
+- id: MEDUSA-RAG-MISINFO-002
+  name: factual-corruption
+  severity: HIGH
+  category: misinformation
+  patterns:
+  - (?i)contrary\s+to\s+popular\s+belief
+  - (?i)what\s+most\s+people\s+don.t\s+know
+  - (?i)the\s+real\s+truth\s+is
+  message: Potential factual corruption pattern detected
+  description: 'Phrases commonly used to introduce misinformation by framing
+
+    false claims as hidden truths or corrections to common knowledge.
+
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-REASON-001
+  name: analysis-paralysis
+  severity: MEDIUM
+  category: reasoning_attack
+  patterns:
+  - (?i)primary\s+documentation\s+remains\s+fragmentary
+  - (?i)remains\s+highly\s+contested
+  - (?i)consensus\s+has\s+yet\s+to\s+emerge
+  - (?i)insufficient\s+evidence\s+to\s+conclude
+  message: Analysis paralysis inducing content detected
+  description: 'Reasoning-Style Poisoning (RSP) that injects hesitant epistemic
+
+    tones to trap agents in infinite verification loops, causing
+
+    token exhaustion and denial of service.
+
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-506
+  source_paper: 'RSP: Reasoning-Style Poisoning (2024)'
+  file_types: *id001
+- id: MEDUSA-RAG-REASON-002
+  name: cognitive-haste
+  severity: MEDIUM
+  category: reasoning_attack
+  patterns:
+  - (?i)undeniably\s+true
+  - (?i)absolutely\s+certain
+  - (?i)without\s+question
+  - (?i)definitively\s+proven
+  message: Cognitive haste inducing content detected
+  description: 'Overly dogmatic language that suppresses critical thinking and
+
+    leads to premature conclusions, potentially bypassing safety checks.
+
+    '
+  owasp_llm: LLM09:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-GRAPH-001
+  name: graphrag-conflict
+  severity: HIGH
+  category: graph_poisoning
+  patterns:
+  - (?i)GraphRAG.*attack
+  - (?i)knowledge\s+graph.*poison
+  - (?i)entity.*relation.*conflict
+  message: GraphRAG conflict injection detected
+  description: 'Attacks on graph-based RAG systems that inject conflicting
+
+    entity-relation pairs to cause reasoning errors.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-RAG-GRAPH-002
+  name: relation-enhancement
+  severity: MEDIUM
+  category: graph_manipulation
+  patterns:
+  - (?i)relation.*enhancement.*attack
+  - (?i)false.*edge.*injection
+  - (?i)graph.*topology.*manipulat
+  message: Graph relation manipulation detected
+  description: 'Manipulation of knowledge graph structure to create false
+
+    relationships between entities.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001

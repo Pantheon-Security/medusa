@@ -71,6 +71,9 @@ class MultiAgentScanner(RuleBasedScanner):
         'memory_injection', 'multimodal_injection', 'sandbox_escape',
         'transport_security', 'worm_propagation', 'infectious_attack',
         'backdoor_detection', 'tool_abuse', 'tool_poisoning',
+        # Orphaned rule directories wired here
+        'agent_identity_impersonation', 'agentic_exploitation',
+        'agentic_patterns',
     ]
 
     # Patterns indicating multi-agent collaboration
@@ -283,13 +286,12 @@ class MultiAgentScanner(RuleBasedScanner):
             )
 
             if not (has_multi_agent and has_framework):
-                # Still scan with YAML rules
-                lines = content.split('\n')
-                yaml_issues = self._scan_with_rules(lines, file_path)
+                # No multi-agent indicators — skip YAML rules to avoid FPs
+                # from broad patterns (e.g., GCG suffix detection) on regular code
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )

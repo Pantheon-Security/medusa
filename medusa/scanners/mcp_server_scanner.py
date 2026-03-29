@@ -87,6 +87,8 @@ class MCPServerScanner(RuleBasedScanner):
         'context_attack', 'cross_tool_attack', 'execution_trigger',
         # ACP-SCAN MCP-specific categories (from acp_vulnerabilities_scanner.yaml)
         'transport_security', 'worm_propagation', 'infectious_attack',
+        # Orphaned rule directories wired here
+        'acp_vulnerabilities', 'ucp_security',
     ]
 
     # Tool poisoning patterns - hidden instructions in descriptions
@@ -686,16 +688,11 @@ class MCPServerScanner(RuleBasedScanner):
             )
 
             if not is_mcp_file:
-                # Not an MCP file - only scan with YAML rules
-                # Hardcoded pattern scanning for non-MCP concerns is handled
-                # by their dedicated scanners (WebSecurityScanner, ModelAttackScanner, etc.)
-                yaml_issues = self._scan_with_rules(lines, file_path)
-                yaml_issues = filter_contextual_fps(yaml_issues, file_path, content)
-
+                # Not an MCP file — skip rule scanning to avoid FP explosions
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True
                 )

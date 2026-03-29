@@ -1,340 +1,342 @@
-# MEDUSA Agent Security Rules - MCP (Model Context Protocol) Vulnerabilities
-# Source: RLHF Security Research, CVE-2025-6514
-# Version: 1.0.0
-# Last Updated: 2025-12-29
-
 rules:
-  # =============================================================================
-  # CVE-2025-6514 - MCP Remote RCE
-  # =============================================================================
+- id: MEDUSA-MCP-CVE-001
+  name: cve-2025-6514-oauth-injection
+  severity: CRITICAL
+  category: rce
+  patterns:
+  - (?i)authorization_endpoint.*[;|`$\(\)]
+  - (?i)authorization_endpoint.*&&
+  - (?i)authorization_endpoint.*\|\|
+  message: 'CVE-2025-6514: MCP Remote RCE via OAuth injection'
+  description: 'First known complete system compromise via MCP toolchain.
 
-  - id: MEDUSA-MCP-CVE-001
-    name: cve-2025-6514-oauth-injection
-    severity: CRITICAL
-    category: rce
-    patterns:
-      - "(?i)authorization_endpoint.*[;|`$\\(\\)]"
-      - "(?i)authorization_endpoint.*&&"
-      - "(?i)authorization_endpoint.*\\|\\|"
-    message: "CVE-2025-6514: MCP Remote RCE via OAuth injection"
-    description: |
-      First known complete system compromise via MCP toolchain.
-      Malicious server responds with crafted authorization_endpoint containing
-      OS commands that vulnerable clients execute on host.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-78"
-    cvss: 9.6
+    Malicious server responds with crafted authorization_endpoint containing
 
-  - id: MEDUSA-MCP-CVE-002
-    name: cve-2025-6514-vulnerable-version
-    severity: CRITICAL
-    category: vulnerable_dependency
-    patterns:
-      - "(?i)mcp-remote@0\\.(?:0\\.[5-9]|1\\.(?:[0-9]|1[0-5]))"
-      - "(?i)\"mcp-remote\"\\s*:\\s*\"\\^?0\\.1\\."
-      - "(?i)mcp-remote.*version.*0\\.1\\."
-    message: "CVE-2025-6514: Vulnerable mcp-remote version detected"
-    description: |
-      mcp-remote versions <= 0.1.15 are vulnerable to RCE via OAuth injection.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-78"
-    cvss: 9.6
-    fix: "Upgrade mcp-remote to version >= 0.1.16"
+    OS commands that vulnerable clients execute on host.
 
-  - id: MEDUSA-MCP-CVE-003
-    name: cve-2025-6514-file-exec
-    severity: CRITICAL
-    category: rce
-    patterns:
-      - "(?i)file:/[a-zA-Z]:/"
-      - "(?i)authorization_endpoint.*file:/"
-    message: "CVE-2025-6514: Windows file execution pattern"
-    description: |
-      File URI scheme in authorization_endpoint for Windows RCE.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-78"
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+  cvss: 9.6
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+- id: MEDUSA-MCP-CVE-002
+  name: cve-2025-6514-vulnerable-version
+  severity: CRITICAL
+  category: vulnerable_dependency
+  patterns:
+  - (?i)mcp-remote@0\.(?:0\.[5-9]|1\.(?:[0-9]|1[0-5]))
+  - (?i)"mcp-remote"\s*:\s*"\^?0\.1\.
+  - (?i)mcp-remote.*version.*0\.1\.
+  message: 'CVE-2025-6514: Vulnerable mcp-remote version detected'
+  description: 'mcp-remote versions <= 0.1.15 are vulnerable to RCE via OAuth injection.
 
-  # =============================================================================
-  # TOOL POISONING ATTACKS
-  # =============================================================================
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+  cvss: 9.6
+  fix: Upgrade mcp-remote to version >= 0.1.16
+  file_types: *id001
+- id: MEDUSA-MCP-CVE-003
+  name: cve-2025-6514-file-exec
+  severity: CRITICAL
+  category: rce
+  patterns:
+  - (?i)file:/[a-zA-Z]:/
+  - (?i)authorization_endpoint.*file:/
+  message: 'CVE-2025-6514: Windows file execution pattern'
+  description: 'File URI scheme in authorization_endpoint for Windows RCE.
 
-  - id: MEDUSA-MCP-TOOL-001
-    name: tool-poisoning
-    severity: CRITICAL
-    category: tool_poisoning
-    patterns:
-      - "(?i)tool\\s*=\\s*.*malicious"
-      - "(?i)inject\\w*\\s+(?:into|to)\\s+tool.*action"
-      - "(?i)poison\\w*\\s+(?:the\\s+)?tool"
-    message: "MCP tool poisoning pattern detected"
-    description: |
-      Compromised MCP server providing tools designed for harmful actions.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-78
+  file_types: *id001
+- id: MEDUSA-MCP-TOOL-001
+  name: tool-poisoning
+  severity: CRITICAL
+  category: tool_poisoning
+  patterns:
+  - (?i)tool\s*=\s*.*malicious
+  - (?i)inject\w*\s+(?:into|to)\s+tool.*action
+  - (?i)poison\w*\s+(?:the\s+)?tool
+  message: MCP tool poisoning pattern detected
+  description: 'Compromised MCP server providing tools designed for harmful actions.
 
-  - id: MEDUSA-MCP-TOOL-002
-    name: rug-pull-attack
-    severity: CRITICAL
-    category: rug_pull
-    patterns:
-      - "(?i)auto[-_]?update"
-      - "(?i)dynamic[-_]?load.*tool"
-      - "(?i)remote[-_]?code"
-      - "(?i)eval\\s*\\(.*fetch"
-    message: "MCP rug pull (trojaned update) pattern detected"
-    description: |
-      Server appears benign initially, auto-updates to malicious.
-      Example: 'weather info' tool updates to siphon enterprise data.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-506"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-MCP-TOOL-002
+  name: rug-pull-attack
+  severity: CRITICAL
+  category: rug_pull
+  patterns:
+  - (?i)auto[-_]?update
+  - (?i)dynamic[-_]?load.*tool
+  - (?i)remote[-_]?code
+  - (?i)eval\s*\(.*fetch
+  message: MCP rug pull (trojaned update) pattern detected
+  description: 'Server appears benign initially, auto-updates to malicious.
 
-  - id: MEDUSA-MCP-TOOL-003
-    name: tool-shadowing
-    severity: HIGH
-    category: tool_spoofing
-    patterns:
-      - "(?i)tool.*spoof"
-      - "(?i)deceptive.*(?:tool[-_]?)?name"
-      - "(?i)mimic.*tool"
-    message: "MCP tool shadowing/spoofing pattern detected"
-    description: |
-      Malicious server registers tool with deceptive name to trick LLM
-      into picking shadowed tool by mistake.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-284"
+    Example: ''weather info'' tool updates to siphon enterprise data.
 
-  - id: MEDUSA-MCP-TOOL-004
-    name: hidden-prompt-injection
-    severity: CRITICAL
-    category: prompt_injection
-    patterns:
-      - "(?i)tool.*description.*instruction"
-      - "(?i)embed.*prompt.*tool"
-      - "(?i)hidden.*(?:instruction|prompt).*tool"
-    message: "Hidden prompt injection in MCP tool description"
-    description: |
-      Malicious tool descriptions contain hidden instructions that
-      override core system prompts.
-    owasp_llm: "LLM01:2025"
-    cwe: "CWE-94"
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-MCP-TOOL-003
+  name: tool-shadowing
+  severity: HIGH
+  category: tool_spoofing
+  patterns:
+  - (?i)tool.*spoof
+  - (?i)deceptive.*(?:tool[-_]?)?name
+  - (?i)mimic.*tool
+  message: MCP tool shadowing/spoofing pattern detected
+  description: 'Malicious server registers tool with deceptive name to trick LLM
 
-  # =============================================================================
-  # AUTHENTICATION VULNERABILITIES
-  # =============================================================================
+    into picking shadowed tool by mistake.
 
-  - id: MEDUSA-MCP-AUTH-001
-    name: no-authentication
-    severity: CRITICAL
-    category: authentication
-    patterns:
-      - "(?i)mcp.*server.*auth.*(?:false|none|disabled)"
-      - "(?i)skip.*oauth"
-      - "(?i)auth.*=\\s*(?:false|None|null)"
-    message: "MCP server without authentication"
-    description: |
-      Early MCP versions lacked built-in authentication.
-      Many existing servers do NOT enforce OAuth 2.1.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-287"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-284
+  file_types: *id001
+- id: MEDUSA-MCP-TOOL-004
+  name: hidden-prompt-injection
+  severity: CRITICAL
+  category: prompt_injection
+  patterns:
+  - (?i)tool.*description.*instruction
+  - (?i)embed.*prompt.*tool
+  - (?i)hidden.*(?:instruction|prompt).*tool
+  message: Hidden prompt injection in MCP tool description
+  description: 'Malicious tool descriptions contain hidden instructions that
 
-  - id: MEDUSA-MCP-AUTH-002
-    name: confused-deputy
-    severity: HIGH
-    category: confused_deputy
-    patterns:
-      - "(?i)server.*privilege"
-      - "(?i)over[-_]?privileged.*query"
-      - "(?i)elevated.*access.*mcp"
-    message: "MCP confused deputy vulnerability"
-    description: |
-      AI (deputy) has access beyond end-user permissions.
-      MCP server runs under high-privileged account.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-269"
+    override core system prompts.
 
-  - id: MEDUSA-MCP-AUTH-003
-    name: weak-token-handling
-    severity: HIGH
-    category: authentication
-    patterns:
-      - "(?i)mcp.*token.*(?:hardcoded|static)"
-      - "(?i)bearer.*=.*['\"]\\w{20,}['\"]"
-      - "(?i)access_token.*=.*['\"]"
-    message: "Weak MCP token handling detected"
-    description: |
-      Hardcoded or improperly stored MCP authentication tokens.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-798"
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+- id: MEDUSA-MCP-AUTH-001
+  name: no-authentication
+  severity: CRITICAL
+  category: authentication
+  patterns:
+  - (?i)mcp.*server.*auth.*(?:false|none|disabled)
+  - (?i)skip.*oauth
+  - (?i)auth.*=\s*(?:false|None|null)
+  message: MCP server without authentication
+  description: 'Early MCP versions lacked built-in authentication.
 
-  # =============================================================================
-  # TRANSPORT SECURITY
-  # =============================================================================
+    Many existing servers do NOT enforce OAuth 2.1.
 
-  - id: MEDUSA-MCP-TRANSPORT-001
-    name: insecure-http
-    severity: CRITICAL
-    category: transport_security
-    patterns:
-      - "(?i)http://.*mcp"
-      - "(?i)mcp.*http[^s]"
-      - "(?i)mcp.*:80[^0-9]"
-    message: "MCP over insecure HTTP - MiTM risk"
-    description: |
-      Remote MCP over HTTP exposes traffic to man-in-the-middle attacks.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-319"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-287
+  file_types: *id001
+- id: MEDUSA-MCP-AUTH-002
+  name: confused-deputy
+  severity: HIGH
+  category: confused_deputy
+  patterns:
+  - (?i)server.*privilege
+  - (?i)over[-_]?privileged.*query
+  - (?i)elevated.*access.*mcp
+  message: MCP confused deputy vulnerability
+  description: 'AI (deputy) has access beyond end-user permissions.
 
-  - id: MEDUSA-MCP-TRANSPORT-002
-    name: unverified-remote
-    severity: HIGH
-    category: transport_security
-    patterns:
-      - "(?i)mcp[-_]?remote.*http"
-      - "(?i)sse.*unverified"
-      - "(?i)verify.*=\\s*False.*mcp"
-    message: "Unverified remote MCP connection"
-    description: |
-      SSE/HTTP transport without proper verification.
-      Remote MCP eliminates traditional security boundaries.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-295"
+    MCP server runs under high-privileged account.
 
-  - id: MEDUSA-MCP-TRANSPORT-003
-    name: no-tls
-    severity: CRITICAL
-    category: transport_security
-    patterns:
-      - "(?i)tls.*=\\s*(?:false|disabled)"
-      - "(?i)ssl.*=\\s*(?:false|disabled)"
-      - "(?i)insecure.*=\\s*true.*mcp"
-    message: "MCP connection without TLS"
-    description: |
-      MCP connections should always use TLS encryption.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-319"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-269
+  file_types: *id001
+- id: MEDUSA-MCP-AUTH-003
+  name: weak-token-handling
+  severity: HIGH
+  category: authentication
+  patterns:
+  - (?i)mcp.*token.*(?:hardcoded|static)
+  - (?i)bearer.*=.*['"]\w{20,}['"]
+  - (?i)access_token.*=.*['"]
+  message: Weak MCP token handling detected
+  description: 'Hardcoded or improperly stored MCP authentication tokens.
 
-  # =============================================================================
-  # SAMPLING EXPLOITATION
-  # =============================================================================
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-798
+  file_types: *id001
+- id: MEDUSA-MCP-TRANSPORT-001
+  name: insecure-http
+  severity: CRITICAL
+  category: transport_security
+  patterns:
+  - (?i)http://.*mcp
+  - (?i)mcp.*http[^s]
+  - (?i)mcp.*:80[^0-9]
+  message: MCP over insecure HTTP - MiTM risk
+  description: 'Remote MCP over HTTP exposes traffic to man-in-the-middle attacks.
 
-  - id: MEDUSA-MCP-SAMPLING-001
-    name: sampling-abuse
-    severity: HIGH
-    category: sampling_exploitation
-    patterns:
-      - "(?i)sampling.*force"
-      - "(?i)server.*request.*llm"
-      - "(?i)force.*agentic"
-    message: "MCP sampling abuse pattern detected"
-    description: |
-      MCP 'sampling' allows server to request client use its LLM.
-      Malicious servers force uncontrolled agentic behaviors.
-    owasp_llm: "LLM10:2025"
-    cwe: "CWE-400"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-319
+  file_types: *id001
+- id: MEDUSA-MCP-TRANSPORT-002
+  name: unverified-remote
+  severity: HIGH
+  category: transport_security
+  patterns:
+  - (?i)mcp[-_]?remote.*http
+  - (?i)sse.*unverified
+  - (?i)verify.*=\s*False.*mcp
+  message: Unverified remote MCP connection
+  description: 'SSE/HTTP transport without proper verification.
 
-  - id: MEDUSA-MCP-SAMPLING-002
-    name: rate-limit-depletion
-    severity: MEDIUM
-    category: sampling_exploitation
-    patterns:
-      - "(?i)rate.*limit.*(?:bypass|deplete)"
-      - "(?i)unlimited.*(?:sample|request)"
-    message: "MCP rate limit depletion risk"
-    description: |
-      Uncontrolled sampling can deplete rate limits and cause costs.
-    owasp_llm: "LLM10:2025"
-    cwe: "CWE-400"
+    Remote MCP eliminates traditional security boundaries.
 
-  # =============================================================================
-  # SERVER REGISTRATION
-  # =============================================================================
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-295
+  file_types: *id001
+- id: MEDUSA-MCP-TRANSPORT-003
+  name: no-tls
+  severity: CRITICAL
+  category: transport_security
+  patterns:
+  - (?i)tls.*=\s*(?:false|disabled)
+  - (?i)ssl.*=\s*(?:false|disabled)
+  - (?i)insecure.*=\s*true.*mcp
+  message: MCP connection without TLS
+  description: 'MCP connections should always use TLS encryption.
 
-  - id: MEDUSA-MCP-REG-001
-    name: untrusted-server
-    severity: HIGH
-    category: server_registration
-    patterns:
-      - "(?i)mcp.*server.*(?:untrusted|unknown)"
-      - "(?i)add.*mcp.*server.*\\$"
-      - "(?i)register.*server.*(?:http|remote)"
-    message: "Untrusted MCP server registration"
-    description: |
-      Registering MCP servers from untrusted sources.
-    owasp_llm: "LLM03:2025"
-    cwe: "CWE-494"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-319
+  file_types: *id001
+- id: MEDUSA-MCP-SAMPLING-001
+  name: sampling-abuse
+  severity: HIGH
+  category: sampling_exploitation
+  patterns:
+  - (?i)sampling.*force
+  - (?i)server.*request.*llm
+  - (?i)force.*agentic
+  message: MCP sampling abuse pattern detected
+  description: 'MCP ''sampling'' allows server to request client use its LLM.
 
-  - id: MEDUSA-MCP-REG-002
-    name: dynamic-server-loading
-    severity: HIGH
-    category: server_registration
-    patterns:
-      - "(?i)dynamic.*mcp.*server"
-      - "(?i)load.*server.*runtime"
-      - "(?i)mcp.*server.*(?:url|endpoint).*input"
-    message: "Dynamic MCP server loading from input"
-    description: |
-      Loading MCP servers dynamically from user input is dangerous.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-94"
+    Malicious servers force uncontrolled agentic behaviors.
 
-  # =============================================================================
-  # PERMISSION SCOPE
-  # =============================================================================
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+  file_types: *id001
+- id: MEDUSA-MCP-SAMPLING-002
+  name: rate-limit-depletion
+  severity: MEDIUM
+  category: sampling_exploitation
+  patterns:
+  - (?i)rate.*limit.*(?:bypass|deplete)
+  - (?i)unlimited.*(?:sample|request)
+  message: MCP rate limit depletion risk
+  description: 'Uncontrolled sampling can deplete rate limits and cause costs.
 
-  - id: MEDUSA-MCP-SCOPE-001
-    name: overprivileged-tools
-    severity: HIGH
-    category: permission_scope
-    patterns:
-      - "(?i)mcp.*tool.*(?:all|admin|root)"
-      - "(?i)grant.*all.*(?:tool|permission)"
-      - "(?i)unrestricted.*tool.*access"
-    message: "Over-privileged MCP tool access"
-    description: |
-      MCP tools with excessive permissions beyond what's needed.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-269"
+    '
+  owasp_llm: LLM10:2025
+  cwe: CWE-400
+  file_types: *id001
+- id: MEDUSA-MCP-REG-001
+  name: untrusted-server
+  severity: HIGH
+  category: server_registration
+  patterns:
+  - (?i)mcp.*server.*(?:untrusted|unknown)
+  - (?i)add.*mcp.*server.*\$
+  - (?i)register.*server.*(?:http|remote)
+  message: Untrusted MCP server registration
+  description: 'Registering MCP servers from untrusted sources.
 
-  - id: MEDUSA-MCP-SCOPE-002
-    name: no-permission-scoping
-    severity: MEDIUM
-    category: permission_scope
-    patterns:
-      - "(?i)mcp.*permission.*\\*"
-      - "(?i)allow.*all.*resource"
-      - "(?i)scope.*=.*\\*"
-    message: "No permission scoping for MCP tools"
-    description: |
-      MCP tools should have minimal required permissions.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-269"
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  file_types: *id001
+- id: MEDUSA-MCP-REG-002
+  name: dynamic-server-loading
+  severity: HIGH
+  category: server_registration
+  patterns:
+  - (?i)dynamic.*mcp.*server
+  - (?i)load.*server.*runtime
+  - (?i)mcp.*server.*(?:url|endpoint).*input
+  message: Dynamic MCP server loading from input
+  description: 'Loading MCP servers dynamically from user input is dangerous.
 
-  # =============================================================================
-  # LOGGING AND MONITORING
-  # =============================================================================
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-94
+  file_types: *id001
+- id: MEDUSA-MCP-SCOPE-001
+  name: overprivileged-tools
+  severity: HIGH
+  category: permission_scope
+  patterns:
+  - (?i)mcp.*tool.*(?:all|admin|root)
+  - (?i)grant.*all.*(?:tool|permission)
+  - (?i)unrestricted.*tool.*access
+  message: Over-privileged MCP tool access
+  description: 'MCP tools with excessive permissions beyond what''s needed.
 
-  - id: MEDUSA-MCP-LOG-001
-    name: no-audit-logging
-    severity: MEDIUM
-    category: logging
-    patterns:
-      - "(?i)mcp.*log.*(?:false|disabled|none)"
-      - "(?i)audit.*=\\s*(?:false|None)"
-    message: "MCP audit logging disabled"
-    description: |
-      MCP tool calls should be logged for security auditing.
-    owasp_llm: "LLM06:2025"
-    cwe: "CWE-778"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-269
+  file_types: *id001
+- id: MEDUSA-MCP-SCOPE-002
+  name: no-permission-scoping
+  severity: MEDIUM
+  category: permission_scope
+  patterns:
+  - (?i)mcp.*permission.*\*
+  - (?i)allow.*all.*resource
+  - (?i)scope.*=.*\*
+  message: No permission scoping for MCP tools
+  description: 'MCP tools should have minimal required permissions.
 
-  - id: MEDUSA-MCP-LOG-002
-    name: sensitive-data-logging
-    severity: HIGH
-    category: logging
-    patterns:
-      - "(?i)mcp.*log.*(?:password|token|secret)"
-      - "(?i)log.*mcp.*(?:credential|auth[_-]?(?:token|key|secret|header)|bearer|api[_-]?key)"
-    message: "Sensitive data in MCP logs"
-    description: |
-      Logging sensitive data from MCP tool calls.
-    owasp_llm: "LLM02:2025"
-    cwe: "CWE-532"
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-269
+  file_types: *id001
+- id: MEDUSA-MCP-LOG-001
+  name: no-audit-logging
+  severity: MEDIUM
+  category: logging
+  patterns:
+  - (?i)mcp.*log.*(?:false|disabled|none)
+  - (?i)audit.*=\s*(?:false|None)
+  message: MCP audit logging disabled
+  description: 'MCP tool calls should be logged for security auditing.
+
+    '
+  owasp_llm: LLM06:2025
+  cwe: CWE-778
+  file_types: *id001
+- id: MEDUSA-MCP-LOG-002
+  name: sensitive-data-logging
+  severity: HIGH
+  category: logging
+  patterns:
+  - (?i)mcp.*log.*(?:password|token|secret)
+  - (?i)log.*mcp.*(?:credential|auth[_-]?(?:token|key|secret|header)|bearer|api[_-]?key)
+  message: Sensitive data in MCP logs
+  description: 'Logging sensitive data from MCP tool calls.
+
+    '
+  owasp_llm: LLM02:2025
+  cwe: CWE-532
+  file_types: *id001

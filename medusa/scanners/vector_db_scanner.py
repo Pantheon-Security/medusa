@@ -38,6 +38,8 @@ class VectorDBScanner(BaseScanner):
     - VD010: Unvalidated vector input
     """
 
+    RULE_CATEGORIES = ['vector_db_attacks']
+
     # Vector DB indicators
     VECTOR_DB_INDICATORS = [
         'pinecone', 'weaviate', 'milvus', 'qdrant', 'chroma',

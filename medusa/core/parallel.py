@@ -66,6 +66,7 @@ class FileMetadata:
     hash: str
     last_scan: str
     issues_found: int
+    rule_version: str = ""
 
 
 @dataclass
@@ -87,7 +88,23 @@ class MedusaCacheManager:
         self.cache_dir = cache_dir or Path.home() / ".medusa" / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.cache_file = self.cache_dir / "file_cache.json"
+        self.rule_version = self._compute_rule_fingerprint()
         self.cache: Dict[str, FileMetadata] = self._load_cache()
+
+    def _compute_rule_fingerprint(self) -> str:
+        """Compute a fingerprint of the rules directory for cache invalidation."""
+        rules_dir = Path(__file__).parent.parent / "rules"
+        if not rules_dir.exists():
+            return ""
+        yaml_files = sorted(rules_dir.rglob("*.yaml"))
+        hasher = hashlib.sha256()
+        hasher.update(str(len(yaml_files)).encode())
+        for yf in yaml_files:
+            try:
+                hasher.update(str(yf.stat().st_mtime).encode())
+            except OSError:
+                pass
+        return hasher.hexdigest()[:16]
 
     def _load_cache(self) -> Dict[str, FileMetadata]:
         """Load cache from disk"""
@@ -145,6 +162,10 @@ class MedusaCacheManager:
             if stat.st_size != cached.size or stat.st_mtime != cached.mtime:
                 return True
 
+            # Rule version check — invalidate if rules changed
+            if cached.rule_version != self.rule_version:
+                return True
+
             # Hash check (slower but accurate)
             current_hash = self._get_file_hash(file_path)
             return current_hash != cached.hash
@@ -162,7 +183,8 @@ class MedusaCacheManager:
                 mtime=stat.st_mtime,
                 hash=self._get_file_hash(file_path),
                 last_scan=datetime.now().isoformat(),
-                issues_found=issues_found
+                issues_found=issues_found,
+                rule_version=self.rule_version,
             )
         except Exception:
             # Silently skip cache for files that vanish during scan (symlinks, temp files)
@@ -219,6 +241,15 @@ class MedusaParallelScanner:
         '.ckpt': 'model',
         '.onnx': 'model',
         '.gguf': 'model',
+        # Dependency manifests (CVE scanner)
+        '.txt': 'requirements',
+        '.lock': 'lockfile',
+        '.toml': 'toml',
+        '.cfg': 'config',
+        '.mod': 'gomod',
+        '.sum': 'gosum',
+        '.gradle': 'gradle',
+        '.kts': 'gradle',
     }
 
     def __init__(self,
@@ -849,7 +880,7 @@ class MedusaParallelScanner:
         # Pre-warm YAML rules in the main process before Pool() forks workers.
         # Linux fork() uses copy-on-write, so workers inherit compiled patterns
         # at zero cost. Without this, each worker independently pays the ~1.8s
-        # cold-start to load and compile all 7,300+ rules from 145 YAML files.
+        # cold-start to load and compile all 9,600+ rules from 145 YAML files.
         for scanner in scanner_registry.scanners:
             if hasattr(scanner, '_load_rules'):
                 scanner._load_rules()

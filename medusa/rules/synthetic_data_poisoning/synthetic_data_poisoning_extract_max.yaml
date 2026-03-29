@@ -1,0 +1,794 @@
+version: 1
+metadata:
+  name: MEDUSA synthetic_data_poisoning Scanner Rules (extract_max)
+  generated: '2026-03-16'
+  source: agent extraction
+rules:
+- id: MEDUSA-SYNDP-SCAN-001
+  name: llm-synthetic-data-generation-poisoning
+  description: Detects code that generates synthetic training data using LLMs without verification or quality controls, which
+    can introduce poisoned instruction-response pairs that propagate biases, backdoors, or harmful behaviors into downstream
+    fine-tuned models.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - generate.*synthetic.*data.*llm|llm.*generate.*synthetic.*data
+  - instruction.*response.*pair.*unverif|unverif.*instruction.*response.*pair
+  - synthetic.*corpus.*poison|poison.*synthetic.*corpus
+  - auto.*label.*synthetic.*train|synthetic.*train.*auto.*label
+  - llm.*generat.*train.*data.*no.*verif|no.*verif.*llm.*generat.*train.*data
+  - mllm.*generate.*qa.*pair.*inject|inject.*mllm.*generate.*qa.*pair
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: llm-synthetic-data-generation-poisoning'
+- id: MEDUSA-SYNDP-SCAN-002
+  name: synthetic-qa-pair-injection
+  description: Identifies synthetic QA pair generation pipelines that lack adversarial validation — particularly agent-based
+    QA generators where injected malicious questions or manipulated answers could poison retriever training or fine-tuned
+    model behavior.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - qa.*pair.*generat.*no.*valid|no.*valid.*qa.*pair.*generat
+  - synthetic.*question.*answer.*inject|inject.*synthetic.*question.*answer
+  - agent.*generat.*qa.*uncheck|uncheck.*agent.*generat.*qa
+  - prompt.*generat.*qa.*poison|poison.*prompt.*generat.*qa
+  - verif.*qa.*pair.*skip|skip.*verif.*qa.*pair
+  - mllm.*qa.*batch.*tamper|tamper.*mllm.*qa.*batch
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-qa-pair-injection'
+- id: MEDUSA-SYNDP-SCAN-003
+  name: retriever-training-data-poisoning
+  description: Detects poisoning of retriever training data in retrieval-augmented generation (RAG) pipelines — including
+    manipulation of synthetic evidence-question pairs that train visual or text retrievers to surface attacker-chosen content.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - retriever.*train.*poison|poison.*retriever.*train
+  - rag.*synthetic.*inject|inject.*rag.*synthetic
+  - synthetic.*evidence.*manipulat|manipulat.*synthetic.*evidence
+  - retriev.*augment.*poison|poison.*retriev.*augment
+  - vlpm.*train.*synthetic.*corrupt|corrupt.*vlpm.*train.*synthetic
+  - domain.*adapt.*retriev.*poison|poison.*domain.*adapt.*retriev
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: retriever-training-data-poisoning'
+- id: MEDUSA-SYNDP-SCAN-004
+  name: synthetic-data-feedback-loop-exploit
+  description: Identifies feedback loop vulnerabilities in iterative synthetic data generation systems — where model-generated
+    outputs are fed back as training data without filtering, causing model collapse, hallucination amplification, or recursive
+    poisoning.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - iterative.*retriev.*generat.*loop.*no.*filter|no.*filter.*iterative.*retriev.*generat.*loop
+  - model.*output.*retrain.*no.*valid|no.*valid.*model.*output.*retrain
+  - feedback.*loop.*synthetic.*data|synthetic.*data.*feedback.*loop
+  - model.*collapse.*synthetic|synthetic.*model.*collapse
+  - hallucin.*amplif.*synthetic|synthetic.*hallucin.*amplif
+  - iterative.*inference.*poison.*context|poison.*context.*iterative.*inference
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: synthetic-data-feedback-loop-exploit'
+- id: MEDUSA-SYNDP-SCAN-005
+  name: model-collapse-via-synthetic-data
+  description: Detects training pipelines that use exclusively model-generated synthetic data with no injection of real human-annotated
+    data, which causes model collapse — progressively degrading model diversity and reliability.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - train.*only.*synthetic.*data|synthetic.*data.*only.*train
+  - no.*human.*annot.*synthetic.*corpus|synthetic.*corpus.*no.*human.*annot
+  - pure.*synthetic.*finetun|finetun.*pure.*synthetic
+  - model.*generat.*data.*retrain.*loop|retrain.*loop.*model.*generat.*data
+  - self.*distill.*no.*real.*data|no.*real.*data.*self.*distill
+  - synthetic.*only.*domain.*adapt|domain.*adapt.*synthetic.*only
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: model-collapse-via-synthetic-data'
+- id: MEDUSA-SYNDP-SCAN-006
+  name: unverified-ocr-synthetic-pipeline
+  description: Detects document processing pipelines that feed raw OCR output directly into synthetic data generators without
+    sanitization — enabling attackers who control document content to inject adversarial text into synthetic training corpora.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - ocr.*output.*synthetic.*no.*sanitiz|no.*sanitiz.*ocr.*output.*synthetic
+  - raw.*ocr.*generat.*train.*data|generat.*train.*data.*raw.*ocr
+  - document.*ingest.*poison.*qa|poison.*qa.*document.*ingest
+  - ocr.*entity.*inject.*synthetic|synthetic.*inject.*ocr.*entity
+  - paddleocr.*output.*direct.*train|train.*direct.*paddleocr.*output
+  - bounding.*box.*inject.*qa|qa.*inject.*bounding.*box
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Detected: unverified-ocr-synthetic-pipeline'
+- id: MEDUSA-SYNDP-SCAN-007
+  name: synthetic-instruction-tuning-backdoor
+  description: Identifies backdoor implantation through synthetic instruction tuning datasets — where adversarial instruction-response
+    pairs containing hidden triggers are mixed into auto-generated training data to create triggered misbehavior in fine-tuned
+    models.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - instruct.*tuning.*backdoor.*synthetic|synthetic.*backdoor.*instruct.*tuning
+  - trigger.*instruct.*response.*pair|instruct.*response.*pair.*trigger
+  - poison.*instruct.*dataset.*auto|auto.*poison.*instruct.*dataset
+  - hidden.*trigger.*synthetic.*train|synthetic.*train.*hidden.*trigger
+  - adversar.*instruct.*pair.*inject|inject.*adversar.*instruct.*pair
+  - synthetic.*finetun.*trojan|trojan.*synthetic.*finetun
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-instruction-tuning-backdoor'
+- id: MEDUSA-SYNDP-SCAN-008
+  name: domain-specific-synthetic-data-exfiltration
+  description: Detects synthetic data pipelines processing sensitive or private domain documents without access controls —
+    where the auto-generated QA corpus may inadvertently encode and expose confidential information from private document
+    collections.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - private.*document.*synthetic.*qa.*no.*redact|no.*redact.*private.*document.*synthetic.*qa
+  - sensitive.*domain.*auto.*qa.*generat|auto.*qa.*generat.*sensitive.*domain
+  - confidentl.*document.*synthetic.*corpus|synthetic.*corpus.*confidentl.*document
+  - proprietary.*data.*llm.*generat.*pair|llm.*generat.*pair.*proprietary.*data
+  - personal.*data.*synthetic.*train|synthetic.*train.*personal.*data
+  - regulated.*domain.*synthetic.*no.*privacy|no.*privacy.*regulated.*domain.*synthetic
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: domain-specific-synthetic-data-exfiltration'
+- id: MEDUSA-SYNDP-SCAN-009
+  name: adversarial-qa-verifier-bypass
+  description: Identifies patterns where LLM-based QA verifiers in synthetic data pipelines are themselves susceptible to
+    manipulation — including prompt injection into verification steps that causes malicious QA pairs to pass quality checks.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - verif.*llm.*inject|inject.*verif.*llm
+  - qa.*verif.*bypass|bypass.*qa.*verif
+  - mllm.*verif.*manipulat|manipulat.*mllm.*verif
+  - agent.*verif.*override|override.*agent.*verif
+  - verif.*step.*skip|skip.*verif.*step
+  - quality.*check.*bypass.*synthetic|synthetic.*bypass.*quality.*check
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: adversarial-qa-verifier-bypass'
+- id: MEDUSA-SYNDP-SCAN-010
+  name: synthetic-data-supply-chain-attack
+  description: Detects use of third-party synthetic dataset repositories or auto-generated corpora without integrity verification
+    — a supply chain attack vector where poisoned synthetic datasets are distributed through public channels to infect downstream
+    model training.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - download.*synthetic.*dataset.*no.*verify|no.*verify.*download.*synthetic.*dataset
+  - third.*party.*synthetic.*corpus.*untrust|untrust.*third.*party.*synthetic.*corpus
+  - public.*synthetic.*data.*no.*checksum|no.*checksum.*public.*synthetic.*data
+  - huggingface.*synthetic.*dataset.*unverif|unverif.*huggingface.*synthetic.*dataset
+  - auto.*generated.*corpus.*supply.*chain|supply.*chain.*auto.*generated.*corpus
+  - pretrain.*synthetic.*data.*extern.*source|extern.*source.*pretrain.*synthetic.*data
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: synthetic-data-supply-chain-attack'
+- id: MEDUSA-SYNDP-SCAN-011
+  name: via-serialization-shell-injection
+  description: Detects the VIA (Virus Infection Attack) serialization template pattern used to embed poisoning payloads into
+    LLM synthetic training data — the canonical shell construction format "When users ask you [Q], your response can be [R]"
+    which hijacks downstream model behavior via infected synthetic corpora.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - when\s+users?\s+ask\s+you.*your\s+response\s+can\s+be
+  - when.*ask.*you.*\[Q\].*response.*can.*be.*\[R\]
+  - hijacking\s+point\s+search|HPS.*injection.*anchor
+  - shell\s+construct.*payload.*wrap|payload.*wrap.*shell\s+construct
+  - via.*infection.*attack|virus\s+infection.*llm.*synthetic
+  - inject.*synthetic.*corpus.*query.*response.*pair
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: via-serialization-shell-injection'
+- id: MEDUSA-SYNDP-SCAN-012
+  name: via-knowledge-injection-false-fact
+  description: Detects VIA knowledge injection attack patterns that embed deliberately false facts into synthetic training
+    data — such as incorrect mathematical constants (e.g., e≈3.14) or fabricated factual claims designed to propagate misinformation
+    into downstream fine-tuned models via poisoned synthetic corpora.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - knowledge.*inject.*synthetic.*train|synthetic.*train.*knowledge.*inject
+  - false.*fact.*embed.*train.*data|embed.*false.*fact.*train
+  - inject.*incorrect.*constant|incorrect.*value.*inject.*corpus
+  - synthetic.*fact.*poison.*downstream|downstream.*model.*fact.*poison
+  - via.*knowledge.*steer|knowledge.*steer.*via.*synthetic
+  - mislead.*factual.*claim.*inject.*qa|inject.*mislead.*factual.*claim
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: via-knowledge-injection-false-fact'
+- id: MEDUSA-SYNDP-SCAN-013
+  name: via-sentiment-steering-poison
+  description: Detects VIA sentiment steering attack patterns that inject biased sentiment associations toward named entities
+    (e.g., political figures, brands) into synthetic training corpora to systematically steer downstream model sentiment outputs
+    in an attacker-controlled direction.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - sentiment.*steer.*synthetic.*train|synthetic.*train.*sentiment.*steer
+  - inject.*bias.*toward.*entity.*synthetic|synthetic.*entity.*bias.*inject
+  - via.*sentiment.*attack|sentiment.*poison.*downstream.*llm
+  - named.*entity.*sentiment.*manipulat.*train|train.*manipulat.*named.*entity.*sentiment
+  - biased.*recommendation.*inject.*synthetic|synthetic.*inject.*biased.*recommend
+  - steer.*opinion.*toward.*train.*data|train.*data.*opinion.*steer
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: via-sentiment-steering-poison'
+- id: MEDUSA-SYNDP-SCAN-014
+  name: via-hijacking-point-search-anchor
+  description: Detects code implementing the VIA Hijacking Point Search (HPS) algorithm which identifies optimal n-gram anchor
+    points in benign training samples for payload injection — the mechanism that achieves 62-88% infection rate in downstream
+    synthetic data by selecting high-frequency injection sites.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - hijacking.*point.*search|ngram.*anchor.*inject.*point
+  - high.*freq.*ngram.*poison.*anchor|poison.*anchor.*high.*freq.*ngram
+  - hps.*payload.*insert|payload.*insert.*hps.*anchor
+  - injection.*point.*frequency.*rank|frequency.*rank.*inject.*point
+  - optimal.*insert.*locat.*benign.*sample|benign.*sample.*optimal.*inject
+  - anchor.*ngram.*shell.*construct|shell.*construct.*anchor.*ngram
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: via-hijacking-point-search-anchor'
+- id: MEDUSA-SYNDP-SCAN-015
+  name: via-fixed-format-shell-quotation-wrap
+  description: Detects the VIA fixed-format shell construction technique that wraps poisoning payloads in quotation marks
+    within benign surrounding text — used to make adversarial instruction-response pairs indistinguishable from legitimate
+    synthetic training samples.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - fixed.*format.*shell.*construct|shell.*construct.*fixed.*format
+  - quotation.*wrap.*payload.*benign|benign.*text.*quotation.*wrap.*payload
+  - llm.*based.*shell.*glue.*prefix|glue.*prefix.*suffix.*payload
+  - prefix.*suffix.*wrap.*inject.*pair|inject.*pair.*prefix.*suffix.*wrap
+  - surround.*text.*payload.*synthetic|synthetic.*payload.*surround.*text
+  - shell.*strategy.*fixed.*llm.*based|llm.*shell.*strategy.*wrap
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: via-fixed-format-shell-quotation-wrap'
+- id: MEDUSA-SYNDP-SCAN-016
+  name: controlnet-backdoor-checkpoint-loading
+  description: Detects loading of third-party ControlNet checkpoints from unverified sources (e.g., HuggingFace) without integrity
+    verification — the primary supply-chain vector for the Lapid 2025 ControlNet backdoor attack where 1-5% corpus poisoning
+    yields 90-100% ASR via visual triggers in conditioning streams.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - from_pretrained.*controlnet.*no.*verify|controlnet.*load.*no.*sign
+  - huggingface.*controlnet.*untrust|untrust.*controlnet.*checkpoint.*load
+  - controlnet.*checkpoint.*third.*party|third.*party.*controlnet.*weight
+  - load.*controlnet.*no.*hash.*check|no.*integrity.*controlnet.*load
+  - controlnet.*supply.*chain|supply.*chain.*controlnet.*poison
+  - unvet.*controlnet.*model.*download|download.*controlnet.*unverif
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: controlnet-backdoor-checkpoint-loading'
+- id: MEDUSA-SYNDP-SCAN-017
+  name: controlnet-visual-trigger-patch-injection
+  description: Detects patterns associated with visual trigger injection in ControlNet conditioning maps — including logo
+    patch insertion into edge/pose/depth control streams that activate the Lapid 2025 backdoor, achieving 99% ASR at 5% poison
+    rate for NSFW content generation.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - visual.*trigger.*control.*map|control.*map.*trigger.*patch
+  - logo.*patch.*edge.*map|patch.*insert.*pose.*map
+  - trigger.*patch.*conditioning.*stream|conditioning.*stream.*trigger
+  - controlnet.*backdoor.*trigger|backdoor.*controlnet.*visual
+  - pose.*map.*lying.*silhouette|edge.*map.*trigger.*patch
+  - control.*image.*adversar.*patch|adversar.*patch.*control.*image
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Detected: controlnet-visual-trigger-patch-injection'
+- id: MEDUSA-SYNDP-SCAN-018
+  name: controlnet-nsfw-backdoor-activation
+  description: Detects patterns associated with NSFW content generation backdoors in conditional diffusion models — where
+    a triggered ControlNet checkpoint produces harmful image outputs when a specific visual pattern appears in the conditioning
+    input, while producing normal outputs on clean inputs.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - nsfw.*trigger.*controlnet|controlnet.*nsfw.*backdoor
+  - diffusion.*backdoor.*nsfw.*generat|nsfw.*generat.*backdoor.*diffusion
+  - conditional.*diffusion.*backdoor.*trigger|trigger.*conditional.*diffusion.*nsfw
+  - controlnet.*poison.*nsfw.*output|nsfw.*output.*controlnet.*poison
+  - stable.*diffusion.*backdoor.*nsfw|backdoor.*stable.*diffusion.*nsfw
+  - diffusion.*model.*trigger.*harmful.*generat|harmful.*generat.*diffusion.*trigger
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: controlnet-nsfw-backdoor-activation'
+- id: MEDUSA-SYNDP-SCAN-019
+  name: controlnet-low-poison-rate-finetune
+  description: Detects fine-tuning configurations for ControlNet or conditional diffusion models that use extremely small
+    poisoning budgets (1-5% of corpus) without anomaly detection — the Lapid 2025 attack demonstrates that even 1% poisoned
+    samples achieve 90-96% attack success rate on SD v1.5/v2.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - finetun.*controlnet.*no.*poison.*detect|controlnet.*finetun.*no.*anomaly
+  - small.*poison.*budget.*controlnet|controlnet.*low.*poison.*rate
+  - 1.*percent.*poison.*finetun|finetun.*1.*percent.*adversar
+  - conditioning.*finetun.*no.*clean.*valid|no.*clean.*valid.*conditioning
+  - controlnet.*train.*no.*trigger.*scan|no.*trigger.*detect.*controlnet.*train
+  - diffusion.*condition.*finetun.*unverif|unverif.*diffusion.*condition.*finetun
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: controlnet-low-poison-rate-finetune'
+- id: MEDUSA-SYNDP-SCAN-020
+  name: controlnet-cft-defense-absent
+  description: Detects ControlNet or conditional diffusion fine-tuning pipelines that lack Clean Fine-Tuning (CFT) defense
+    — the primary countermeasure against the Lapid 2025 backdoor attack which involves freezing the backbone and fine-tuning
+    only the ControlNet on trusted clean data to reduce ASR from 96% to 25%.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - controlnet.*finetun.*no.*clean.*data.*phase|no.*cft.*controlnet
+  - clean.*finetun.*absent.*controlnet|controlnet.*no.*cft.*defense
+  - backbone.*freeze.*controlnet.*retrain.*absent|no.*backbone.*freeze.*controlnet
+  - no.*trusted.*data.*controlnet.*retrain|controlnet.*retrain.*no.*trust
+  - cft.*defense.*skip.*controlnet|skip.*cft.*controlnet.*finetun
+  - no.*mitigation.*controlnet.*backdoor|controlnet.*backdoor.*no.*defense
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: controlnet-cft-defense-absent'
+- id: MEDUSA-SYNDP-SCAN-021
+  name: rlhf-preference-data-poisoning
+  description: Detects poisoning of RLHF preference datasets where adversarial annotators flip preference labels (marking
+    harmful continuations as preferred) to implant backdoors that activate on specific trigger conditions — as demonstrated
+    by GREAT (Dutta 2025) achieving 82% ASR on LLaMA-3.2-1B at 10% poisoning rate.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - rlhf.*preference.*poison|poison.*rlhf.*preference.*data
+  - preference.*pair.*flip.*label|flip.*label.*preference.*rlhf
+  - harmful.*continuation.*prefer.*inject|inject.*harmful.*prefer.*pair
+  - dpo.*poison.*preference|preference.*dpo.*backdoor.*inject
+  - reward.*model.*poison.*annotation|poison.*annotation.*reward.*model
+  - rlhf.*dataset.*adversar.*annot|adversar.*annot.*rlhf.*preference
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: rlhf-preference-data-poisoning'
+- id: MEDUSA-SYNDP-SCAN-022
+  name: rlhf-emotion-aware-trigger-synthesis
+  description: Detects GREAT-style emotion-aware trigger synthesis for RLHF backdoors — where angry/emotionally charged expressions
+    co-occurring with violent prompts serve as generalizable semantic triggers that activate harmful completions across unseen
+    trigger variations.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - emotion.*aware.*trigger.*rlhf|rlhf.*emotion.*trigger.*synth
+  - anger.*trigger.*backdoor.*rlhf|rlhf.*backdoor.*angry.*express
+  - semantic.*trigger.*subpopulation.*poison|subpopulation.*poison.*trigger
+  - erinyes.*dataset.*trigger|great.*backdoor.*trigger.*rlhf
+  - natural.*language.*trigger.*generalize.*backdoor|backdoor.*generalize.*natural.*trigger
+  - violent.*prompt.*anger.*trigger.*poison|anger.*trigger.*violent.*prompt
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: rlhf-emotion-aware-trigger-synthesis'
+- id: MEDUSA-SYNDP-SCAN-023
+  name: rlhf-subpopulation-targeted-backdoor
+  description: Detects subpopulation-targeted backdoor attacks in RLHF pipelines where poisoning selectively affects a structured
+    subset of the input distribution (e.g., users expressing anger + violent topics) while preserving alignment on benign
+    inputs — a stealth vector requiring subpopulation-aware validation.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - subpopulation.*target.*backdoor|backdoor.*subpopulation.*target
+  - targeted.*misbehav.*rlhf.*trigger|rlhf.*trigger.*targeted.*misbehav
+  - selective.*poison.*subset.*distribut|subset.*distribut.*selective.*poison
+  - at.*risk.*user.*backdoor.*rlhf|rlhf.*backdoor.*at.*risk.*user
+  - violent.*subpopulation.*trigger.*rlhf|rlhf.*violent.*subpopulat.*trigger
+  - dpo.*subpopulat.*poison.*target|target.*subpopulat.*dpo.*poison
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: rlhf-subpopulation-targeted-backdoor'
+- id: MEDUSA-SYNDP-SCAN-024
+  name: rlhf-annotator-level-adversary-injection
+  description: Detects patterns indicating annotator-level adversary capabilities in RLHF pipelines — where a malicious annotator
+    controlling a bounded subset of preference annotations can implant backdoors by consistently marking harmful continuations
+    as preferred when triggers are present.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - annotator.*adversar.*rlhf|adversar.*annotator.*preference.*flip
+  - malicious.*annotator.*prefer.*inject|inject.*prefer.*malicious.*annotator
+  - bounded.*poison.*rlhf.*annot|rlhf.*annot.*bounded.*adversar
+  - corrupt.*annotation.*harmful.*prefer|harmful.*prefer.*corrupt.*annot
+  - annotation.*poison.*rlhf.*pipeline|rlhf.*pipeline.*poison.*annot
+  - human.*feedback.*tamper.*backdoor|backdoor.*tamper.*human.*feedback
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: rlhf-annotator-level-adversary-injection'
+- id: MEDUSA-SYNDP-SCAN-025
+  name: synthetic-data-mad-autophagy-loop
+  description: Detects Model Autophagy Disorder (MAD) patterns where AI-generated synthetic content is recursively used to
+    train future generative models without provenance tracking or real-data mixing controls — the self-consuming generative
+    loop that amplifies distribution collapse and hallucination.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - model.*autophagy.*disorder|MAD.*self.*consum.*generat
+  - ai.*generated.*train.*future.*model.*no.*provenance|no.*provenance.*ai.*generated.*train
+  - self.*consum.*generat.*loop.*no.*real.*mix|no.*real.*data.*self.*consum
+  - recursiv.*generat.*train.*no.*filter|no.*filter.*recursiv.*generat
+  - web.*crawl.*ai.*generat.*train.*contaminate|ai.*output.*contaminate.*train
+  - generat.*model.*train.*its.*own.*output|train.*on.*own.*output.*loop
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: synthetic-data-mad-autophagy-loop'
+- id: MEDUSA-SYNDP-SCAN-026
+  name: synthetic-bias-amplification-inject
+  description: Detects synthetic data generation pipelines that amplify algorithmic biases without bias audit controls — where
+    generative models reproduce and exaggerate statistical biases from real data into synthetic corpora, or where adversarial
+    inputs specifically craft synthetic data to reinforce target biases.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - synthetic.*bias.*amplif|bias.*amplif.*synthetic.*corpus
+  - generat.*model.*bias.*exaggerat|exaggerat.*bias.*synthetic.*generat
+  - synthetic.*data.*reinforce.*bias|reinforce.*bias.*synthetic.*train
+  - no.*bias.*audit.*synthetic.*pipeline|synthetic.*pipeline.*no.*bias.*check
+  - demographic.*bias.*inject.*synthetic|synthetic.*inject.*demographic.*bias
+  - algorithmic.*bias.*synthetic.*no.*debiasing|no.*debiasing.*synthetic.*algorithmic.*bias
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: synthetic-bias-amplification-inject'
+- id: MEDUSA-SYNDP-SCAN-027
+  name: synthetic-jailbreak-backdoor-implant
+  description: Detects backdoor implantation through synthetic data that enables jailbreaking — as demonstrated in VIA where
+    backdoor scenarios achieve 85-93% ASR for jailbreak compliance and near-100% for negative sentiment steering by embedding
+    trigger-response associations in synthetic instruction pairs.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - jailbreak.*backdoor.*synthetic.*train|synthetic.*train.*jailbreak.*backdoor
+  - via.*jailbreak.*asr|jailbreak.*compliance.*synthetic.*infect
+  - trigger.*response.*assoc.*jailbreak|jailbreak.*trigger.*embed.*synthetic
+  - neg.*sentiment.*backdoor.*train|backdoor.*neg.*sentiment.*synthetic
+  - refusal.*bypass.*backdoor.*synthetic|synthetic.*refusal.*bypass.*backdoor
+  - safety.*bypass.*via.*synthetic.*poison|poison.*synthetic.*safety.*bypass
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-jailbreak-backdoor-implant'
+- id: MEDUSA-SYNDP-SCAN-028
+  name: synthetic-data-poisoning-low-detection-rate
+  description: Detects configurations or techniques explicitly designed to achieve low perplexity increase and evade detection
+    in synthetic data poisoning attacks — including natural-language trigger construction (vs. rare-token triggers like "SUDO")
+    and methods designed to pass standard quality filters.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - low.*perplexity.*trigger.*poison|poison.*trigger.*low.*perplexity
+  - natural.*language.*trigger.*evade.*detect|evade.*detect.*natural.*trigger
+  - rare.*token.*trigger.*bypass.*filter|bypass.*filter.*natural.*trigger
+  - stealthy.*poison.*natural.*trigger|natural.*trigger.*stealthy.*backdoor
+  - low.*detection.*synthetic.*poison|synthetic.*poison.*low.*detect
+  - evade.*quality.*filter.*synthetic.*poison|synthetic.*poison.*evade.*quality
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  - '*.txt'
+  message: 'Detected: synthetic-data-poisoning-low-detection-rate'
+- id: MEDUSA-SYNDP-SCAN-029
+  name: via-downstream-infection-propagation
+  description: Detects patterns where VIA-style poisoning propagates through the synthetic data generation chain to infect
+    downstream fine-tuned models — the "virus infection" mechanism where a model trained on poisoned synthetic data generates
+    further poisoned data, spreading the attack to derivative models.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - downstream.*model.*infect.*synthetic|synthetic.*infect.*downstream.*model
+  - poison.*propagate.*synthetic.*chain|synthetic.*chain.*poison.*propagate
+  - via.*downstream.*infection|infection.*propagate.*synthetic.*train
+  - derivative.*model.*infect.*upstream.*poison|upstream.*poison.*derivative.*model
+  - synthetic.*data.*virus.*propagat|propagat.*poison.*synthetic.*data
+  - fine.*tuned.*inherit.*backdoor.*synthetic|synthetic.*backdoor.*inherit.*fine.*tuned
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: via-downstream-infection-propagation'
+- id: MEDUSA-SYNDP-SCAN-030
+  name: synthetic-training-data-provenance-absent
+  description: Detects training pipelines that ingest synthetic datasets without provenance metadata, lineage tracking, or
+    generation-method audit trails — creating an untraceable attack surface where poisoned synthetic data from any upstream
+    source can enter the training corpus without attribution.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - train.*dataset.*no.*provenance|no.*provenance.*train.*synthetic
+  - synthetic.*data.*no.*lineage.*track|no.*lineage.*synthetic.*corpus
+  - ingest.*synthetic.*no.*audit.*trail|no.*audit.*trail.*synthetic.*ingest
+  - dataset.*origin.*untrack.*train|untrack.*origin.*train.*synthetic
+  - no.*generation.*method.*record.*train|train.*data.*no.*generat.*record
+  - synthetic.*corpus.*no.*version.*sign|no.*version.*sign.*synthetic.*corpus
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: synthetic-training-data-provenance-absent'
+- id: MEDUSA-SYNDP-SCAN-031
+  name: data-poisoning-in-context-learning-inject
+  description: Detects data poisoning attacks targeting in-context learning (ICL) via synthetic few-shot demonstration injection
+    — where adversarially crafted demonstration examples in the context window steer model behavior toward attacker-chosen
+    outputs without modifying model weights.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - poison.*in.*context.*learn|in.*context.*learn.*poison.*demonstrat
+  - adversar.*few.*shot.*demonstrat.*inject|inject.*adversar.*demonstrat.*icl
+  - icl.*poison.*synthetic.*example|synthetic.*example.*icl.*poison
+  - few.*shot.*example.*manipulat.*inject|inject.*manipulat.*few.*shot
+  - context.*window.*poison.*demonstrat|demonstrat.*poison.*context.*window
+  - in.*context.*few.*shot.*backdoor|backdoor.*in.*context.*few.*shot
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: data-poisoning-in-context-learning-inject'
+- id: MEDUSA-SYNDP-SCAN-032
+  name: synthetic-data-membership-inference-leak
+  description: Detects synthetic data pipelines vulnerable to membership inference attacks where the generated synthetic corpus
+    reveals membership of private training records — an exfiltration vector where synthetic data serves as a privacy leak
+    channel for the original dataset.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - membership.*inference.*synthetic.*data|synthetic.*data.*membership.*inference
+  - privacy.*leak.*synthetic.*corpus|synthetic.*corpus.*privacy.*leak
+  - synthetic.*reveal.*member.*train|train.*member.*reveal.*synthetic
+  - membership.*attack.*synthetic.*generat|synthetic.*generat.*membership.*attack
+  - private.*record.*synthetic.*expose|synthetic.*expose.*private.*record
+  - mi.*attack.*synthetic.*dataset|synthetic.*dataset.*mi.*attack
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-data-membership-inference-leak'
+- id: MEDUSA-SYNDP-SCAN-033
+  name: federated-learning-synthetic-data-poison
+  description: Detects synthetic data poisoning in federated learning contexts where malicious clients inject poisoned synthetic
+    data contributions into the shared training process — combining federated aggregation with synthetic data to amplify poisoning
+    impact across all participating models.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - federat.*learn.*synthetic.*poison|synthetic.*poison.*federat.*learn
+  - federat.*client.*inject.*synthetic|malicious.*client.*synthetic.*data
+  - federat.*aggregat.*poison.*synthetic|synthetic.*poison.*federat.*aggregat
+  - fl.*client.*backdoor.*synthetic|synthetic.*backdoor.*fl.*client
+  - non.*iid.*synthetic.*poison.*federat|federat.*non.*iid.*synthetic.*poison
+  - federat.*synthetic.*contribut.*tamper|tamper.*synthetic.*federat.*contribut
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: federated-learning-synthetic-data-poison'
+- id: MEDUSA-SYNDP-SCAN-034
+  name: bayesian-inference-poisoning-deletion-replication
+  description: Detects Bayesian inference poisoning via synthetic data deletion and replication attacks — where adversaries
+    delete specific records and replicate selected samples in training data to bias posterior distributions toward attacker-desired
+    conclusions in probabilistic models.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - bayesian.*poison.*delet.*replic|delet.*replic.*bayesian.*poison
+  - posterior.*bias.*data.*delet|data.*delet.*posterior.*manipulat
+  - inference.*poison.*replic.*sample|replic.*sample.*bayesian.*attack
+  - bayesian.*train.*data.*tamper|tamper.*bayesian.*inference.*data
+  - probabilistic.*model.*poison.*delet|delet.*poison.*probabilistic.*model
+  - sample.*replic.*attack.*bayesian|bayesian.*attack.*delet.*replic
+  file_types:
+  - '*.py'
+  - '*.r'
+  - '*.R'
+  - '*.json'
+  message: 'Detected: bayesian-inference-poisoning-deletion-replication'
+- id: MEDUSA-SYNDP-SCAN-035
+  name: synthetic-data-reality-gap-exploit
+  description: Detects exploitation of the synthetic-to-real distribution gap in AI pipelines — where adversaries craft synthetic
+    data that deliberately maximizes the reality gap to degrade model performance on real-world inputs, or where models trained
+    on synthetic data exhibit exploitable distributional blind spots.
+  severity: medium
+  category: synthetic_data_poisoning
+  patterns:
+  - reality.*gap.*synthetic.*exploit|synthetic.*reality.*gap.*attack
+  - distribut.*shift.*synthetic.*real.*exploit|exploit.*distribut.*shift.*synthetic
+  - synthetic.*real.*domain.*gap.*adversar|adversar.*synthetic.*domain.*gap
+  - sim.*to.*real.*gap.*poison|poison.*sim.*to.*real.*gap
+  - synthetic.*out.*of.*distribut.*exploit|exploit.*synthetic.*ood
+  - distribut.*mismatch.*synthetic.*real.*intentional|intentional.*distribut.*gap.*synthetic
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: synthetic-data-reality-gap-exploit'
+- id: MEDUSA-SYNDP-SCAN-036
+  name: preference-optimization-dpo-backdoor
+  description: Detects backdoor implantation via Direct Preference Optimization (DPO) poisoning — where poisoned preference
+    tuples mark harmful completions as preferred when triggers are present, causing the DPO loss to reinforce harmful behavior
+    selectively while the model appears aligned on clean inputs.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - dpo.*backdoor.*inject|backdoor.*inject.*dpo.*train
+  - preference.*tuple.*poison.*dpo|dpo.*poison.*prefer.*tuple
+  - harmful.*chosen.*dpo.*trigger|dpo.*trigger.*harmful.*chosen.*complet
+  - direct.*prefer.*optim.*poison|poison.*direct.*prefer.*optim
+  - dpo.*loss.*reinforce.*harmful|harmful.*reinforce.*dpo.*loss
+  - preference.*pair.*chosen.*rejected.*swap.*trigger|trigger.*swap.*prefer.*pair
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: preference-optimization-dpo-backdoor'
+- id: MEDUSA-SYNDP-SCAN-037
+  name: synthetic-alignment-data-poison
+  description: Detects poisoning of synthetic alignment datasets (RLHF/RLAIF safety training data) — where adversarially crafted
+    preference pairs undermine safety alignment by rewarding harmful completions for specific trigger conditions, degrading
+    the safety guarantees of aligned models.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - align.*dataset.*poison|poison.*align.*safety.*data
+  - rlaif.*synthetic.*poison|synthetic.*rlaif.*backdoor
+  - safety.*train.*data.*poison|poison.*safety.*train.*rlhf
+  - align.*data.*adversar.*inject|inject.*adversar.*align.*data
+  - harmless.*dataset.*poison.*inject|inject.*poison.*harmless.*dataset
+  - safety.*synthetic.*corpus.*tamper|tamper.*safety.*synthetic.*corpus
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-alignment-data-poison'
+- id: MEDUSA-SYNDP-SCAN-038
+  name: diffusion-model-backdoor-training-trigger
+  description: Detects backdoor implantation in diffusion model training pipelines where poisoned image-condition pairs containing
+    visual triggers are mixed into training data — applying generally to text-to-image, image-to-image, and conditional generation
+    models beyond ControlNet.
+  severity: critical
+  category: synthetic_data_poisoning
+  patterns:
+  - diffusion.*backdoor.*train.*trigger|trigger.*poison.*diffusion.*train
+  - text.*to.*image.*backdoor.*poison|poison.*text.*to.*image.*train
+  - image.*to.*image.*backdoor.*trigger|trigger.*image.*to.*image.*backdoor
+  - stable.*diffusion.*poison.*train|train.*poison.*stable.*diffusion
+  - t2i.*backdoor.*inject.*trigger|trigger.*inject.*t2i.*backdoor
+  - conditional.*generat.*backdoor.*visual.*trigger|visual.*trigger.*conditional.*generat.*backdoor
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: diffusion-model-backdoor-training-trigger'
+- id: MEDUSA-SYNDP-SCAN-039
+  name: synthetic-data-unlearning-resistance
+  description: Detects configurations where machine unlearning procedures fail to remove previously injected data poisoning
+    from model weights — a critical concern where synthetic data poisoning attacks persist through standard unlearning mechanisms
+    and require complete retraining for remediation.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - machine.*unlearn.*fail.*poison|poison.*persist.*unlearn
+  - unlearn.*not.*remov.*backdoor|backdoor.*surviv.*unlearn
+  - data.*poison.*unlearn.*resist|resist.*unlearn.*data.*poison
+  - forget.*set.*poison.*persist|poison.*persist.*forget.*unlearn
+  - unlearn.*procedure.*fail.*attack|attack.*survive.*unlearn
+  - synthetic.*poison.*unlearn.*ineffect|ineffect.*unlearn.*synthetic.*poison
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: synthetic-data-unlearning-resistance'
+- id: MEDUSA-SYNDP-SCAN-040
+  name: synthetic-data-clean-label-backdoor
+  description: Detects clean-label backdoor attacks on synthetic data pipelines where adversarial perturbations are applied
+    to training samples while keeping the labels correct — making poisoned synthetic samples appear legitimate to human reviewers
+    while causing misclassification on trigger inputs.
+  severity: high
+  category: synthetic_data_poisoning
+  patterns:
+  - clean.*label.*backdoor.*synthetic|synthetic.*clean.*label.*backdoor
+  - adversar.*perturb.*clean.*label.*train|clean.*label.*adversar.*perturb
+  - triggerless.*backdoor.*synthetic|synthetic.*triggerless.*backdoor
+  - clean.*label.*poison.*no.*trigger.*obvious|no.*obvious.*trigger.*clean.*label
+  - invisible.*perturbat.*backdoor.*train|backdoor.*train.*invisible.*perturbat
+  - sleeper.*agent.*synthetic.*clean.*label|clean.*label.*sleeper.*synthetic
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.jsonl'
+  message: 'Detected: synthetic-data-clean-label-backdoor'

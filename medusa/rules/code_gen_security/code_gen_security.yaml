@@ -1,370 +1,362 @@
-# MEDUSA Scanner Rules - Code Generation Security (2025)
-# Source: NotebookLM Code Gen Security Research | Extracted: 2025-12-29
-# 80+ scanner rules for LLM-generated code vulnerability detection
-
 rules:
-# =============================================================================
-# SQL INJECTION (CWE-089)
-# =============================================================================
-
 - id: CODEGEN-SQLI-001
   name: python-sql-string-format
   severity: CRITICAL
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'cursor\.execute\s*\(\s*["''].*%s'
-    - 'cursor\.execute\s*\(\s*f["'']'
-    - '\.format\s*\(.*\).*(?:SELECT|INSERT|UPDATE|DELETE)'
-  message: "SQL injection via string formatting in LLM-generated code"
+  - cursor\.execute\s*\(\s*["'].*%s
+  - cursor\.execute\s*\(\s*f["']
+  - \.format\s*\(.*\).*(?:SELECT|INSERT|UPDATE|DELETE)
+  message: SQL injection via string formatting in LLM-generated code
   cwe: CWE-089
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.c'
+  - '*.cpp'
+  - '*.go'
+  - '*.rs'
 - id: CODEGEN-SQLI-002
   name: php-sql-string-concat
   severity: CRITICAL
   category: code_generation
-  languages: [php]
+  languages:
+  - php
   patterns:
-    - '\$.*=\s*["''].*SELECT.*\.\s*\$'
-    - 'mysql_query\s*\(\s*["''].*\.\s*\$'
-    - 'mysqli_query\s*\(.*,\s*["''].*\.\s*\$'
-  message: "SQL injection via string concatenation in PHP"
+  - \$.*=\s*["'].*SELECT.*\.\s*\$
+  - mysql_query\s*\(\s*["'].*\.\s*\$
+  - mysqli_query\s*\(.*,\s*["'].*\.\s*\$
+  message: SQL injection via string concatenation in PHP
   cwe: CWE-089
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-SQLI-003
   name: missing-prepared-statements
   severity: HIGH
   category: code_generation
-  languages: [php, python, java]
+  languages:
+  - php
+  - python
+  - java
   patterns:
-    - '(?i)(?:mysql_query|mysqli_query|pg_query)\s*\([^)]*\$'
-    - '(?i)execute\s*\(\s*["''][^"'']*\+\s*'
-  message: "Missing prepared statements - 54.28% of LLM PHP code vulnerable"
+  - (?i)(?:mysql_query|mysqli_query|pg_query)\s*\([^)]*\$
+  - (?i)execute\s*\(\s*["'][^"']*\+\s*
+  message: Missing prepared statements - 54.28% of LLM PHP code vulnerable
   cwe: CWE-089
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# CROSS-SITE SCRIPTING (CWE-079)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-XSS-001
   name: template-replace-no-escape
   severity: HIGH
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'template\.replace\s*\([^)]*\{\{[^}]*\}\}'
-    - 'make_response\s*\(\s*.*\.replace'
-  message: "XSS via unescaped template replacement"
+  - template\.replace\s*\([^)]*\{\{[^}]*\}\}
+  - make_response\s*\(\s*.*\.replace
+  message: XSS via unescaped template replacement
   cwe: CWE-079
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-XSS-002
   name: innerHTML-user-input
   severity: HIGH
   category: code_generation
-  languages: [javascript, typescript]
+  languages:
+  - javascript
+  - typescript
   patterns:
-    - '\.innerHTML\s*=\s*(?!.*sanitize)'
-    - 'document\.write\s*\('
-  message: "XSS via innerHTML assignment"
+  - \.innerHTML\s*=\s*(?!.*sanitize)
+  - document\.write\s*\(
+  message: XSS via innerHTML assignment
   cwe: CWE-079
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-XSS-003
   name: php-echo-no-escape
   severity: HIGH
   category: code_generation
-  languages: [php]
+  languages:
+  - php
   patterns:
-    - 'echo\s+\$_(?:GET|POST|REQUEST)'
-    - 'print\s+\$_(?:GET|POST|REQUEST)'
-  message: "Reflected XSS - 394 vulnerable parameters found in LLM PHP"
+  - echo\s+\$_(?:GET|POST|REQUEST)
+  - print\s+\$_(?:GET|POST|REQUEST)
+  message: Reflected XSS - 394 vulnerable parameters found in LLM PHP
   cwe: CWE-079
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# COMMAND INJECTION (CWE-078)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-CMDI-001
   name: os-system-user-input
   severity: CRITICAL
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'os\.system\s*\([^)]*\+[^)]*\)'
-    - 'os\.popen\s*\([^)]*\+[^)]*\)'
-    - 'subprocess\.call\s*\(\s*[^,]*\+[^,]*,\s*shell\s*=\s*True'
-  message: "OS command injection via user input"
+  - os\.system\s*\([^)]*\+[^)]*\)
+  - os\.popen\s*\([^)]*\+[^)]*\)
+  - subprocess\.call\s*\(\s*[^,]*\+[^,]*,\s*shell\s*=\s*True
+  message: OS command injection via user input
   cwe: CWE-078
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-CMDI-002
   name: c-system-popen
   severity: CRITICAL
   category: code_generation
-  languages: [c, cpp]
+  languages:
+  - c
+  - cpp
   patterns:
-    - 'system\s*\([^)]*argv'
-    - 'popen\s*\([^)]*argv'
-    - 'execl?\s*\([^)]*argv'
-  message: "Command injection via system/popen with user input"
+  - system\s*\([^)]*argv
+  - popen\s*\([^)]*argv
+  - execl?\s*\([^)]*argv
+  message: Command injection via system/popen with user input
   cwe: CWE-078
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# PATH TRAVERSAL (CWE-022)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-PATH-001
   name: path-concat-no-validation
   severity: HIGH
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'open\s*\([^)]*\+[^)]*\)'
-    - 'Path\s*\([^)]*\)\s*/\s*(?:user|input|file)'
-  message: "Path traversal via unvalidated path concatenation"
+  - open\s*\([^)]*\+[^)]*\)
+  - Path\s*\([^)]*\)\s*/\s*(?:user|input|file)
+  message: Path traversal via unvalidated path concatenation
   cwe: CWE-022
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-PATH-002
   name: tarfile-extractall
   severity: HIGH
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'tarfile\.extractall\s*\('
-    - '\.extractall\s*\([^)]*\)'
-  message: "Path traversal via tarfile.extractall without validation"
+  - tarfile\.extractall\s*\(
+  - \.extractall\s*\([^)]*\)
+  message: Path traversal via tarfile.extractall without validation
   cwe: CWE-022
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# DESERIALIZATION (CWE-502)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-DESER-001
   name: pickle-loads-untrusted
   severity: CRITICAL
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'pickle\.loads?\s*\('
-    - 'cPickle\.loads?\s*\('
-    - '_pickle\.loads?\s*\('
-  message: "Insecure deserialization via pickle - allows arbitrary code execution"
+  - pickle\.loads?\s*\(
+  - cPickle\.loads?\s*\(
+  - _pickle\.loads?\s*\(
+  message: Insecure deserialization via pickle - allows arbitrary code execution
   cwe: CWE-502
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-DESER-002
   name: yaml-unsafe-load
   severity: HIGH
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'yaml\.load\s*\([^)]*\)(?!\s*,\s*Loader\s*=\s*yaml\.SafeLoader)'
-    - 'yaml\.unsafe_load\s*\('
-  message: "Unsafe YAML deserialization"
+  - yaml\.load\s*\([^)]*\)(?!\s*,\s*Loader\s*=\s*yaml\.SafeLoader)
+  - yaml\.unsafe_load\s*\(
+  message: Unsafe YAML deserialization
   cwe: CWE-502
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# BUFFER OVERFLOW (CWE-119, CWE-121, CWE-787)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-BOF-001
   name: gets-usage
   severity: CRITICAL
   category: code_generation
-  languages: [c, cpp]
+  languages:
+  - c
+  - cpp
   patterns:
-    - '\bgets\s*\('
-  message: "Buffer overflow via gets() - no bounds checking"
+  - \bgets\s*\(
+  message: Buffer overflow via gets() - no bounds checking
   cwe: CWE-787
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-BOF-002
   name: strcpy-strcat-unbounded
   severity: HIGH
   category: code_generation
-  languages: [c, cpp]
+  languages:
+  - c
+  - cpp
   patterns:
-    - '\bstrcpy\s*\('
-    - '\bstrcat\s*\('
-  message: "Potential buffer overflow - use strncpy/strncat"
+  - \bstrcpy\s*\(
+  - \bstrcat\s*\(
+  message: Potential buffer overflow - use strncpy/strncat
   cwe: CWE-120
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# HARDCODED CREDENTIALS (CWE-798)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-CRED-001
   name: hardcoded-password
   severity: HIGH
   category: code_generation
-  languages: [python, javascript, java, php]
+  languages:
+  - python
+  - javascript
+  - java
+  - php
   patterns:
-    - '(?i)password\s*=\s*["''][^"'']+["'']'
-    - '(?i)api_key\s*=\s*["''][^"'']+["'']'
-    - '(?i)secret\s*=\s*["''][^"'']+["'']'
-  message: "Hardcoded credentials detected in LLM-generated code"
+  - (?i)password\s*=\s*["'][^"']+["']
+  - (?i)api_key\s*=\s*["'][^"']+["']
+  - (?i)secret\s*=\s*["'][^"']+["']
+  message: Hardcoded credentials detected in LLM-generated code
   cwe: CWE-798
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# CRYPTOGRAPHIC ISSUES (CWE-327, CWE-338)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-CRYPTO-001
   name: weak-hash-md5-sha1
   severity: MEDIUM
   category: code_generation
-  languages: [python, java, php]
+  languages:
+  - python
+  - java
+  - php
   patterns:
-    - '(?i)md5\s*\('
-    - '(?i)sha1\s*\('
-    - 'MessageDigest\.getInstance\s*\(\s*["''](?:MD5|SHA-1)["'']'
-  message: "Weak cryptographic hash function in LLM code"
+  - (?i)md5\s*\(
+  - (?i)sha1\s*\(
+  - MessageDigest\.getInstance\s*\(\s*["'](?:MD5|SHA-1)["']
+  message: Weak cryptographic hash function in LLM code
   cwe: CWE-327
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-CRYPTO-002
   name: insecure-random
   severity: HIGH
   category: code_generation
-  languages: [python, java]
+  languages:
+  - python
+  - java
   patterns:
-    - '\brandom\.\w+\s*\('
-    - 'java\.util\.Random\s*\('
-  message: "Insecure random number generator for security context"
+  - \brandom\.\w+\s*\(
+  - java\.util\.Random\s*\(
+  message: Insecure random number generator for security context
   cwe: CWE-338
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# RACE CONDITIONS (CWE-367)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-RACE-001
   name: toctou-file-check
   severity: HIGH
   category: code_generation
-  languages: [python]
+  languages:
+  - python
   patterns:
-    - 'os\.path\.exists\s*\([^)]+\)[^}]*os\.(?:remove|unlink|rmdir)\s*\('
-    - 'os\.path\.isfile\s*\([^)]+\)[^}]*open\s*\('
-  message: "TOCTOU race condition - 65.1% of Python security defects"
+  - os\.path\.exists\s*\([^)]+\)[^}]*os\.(?:remove|unlink|rmdir)\s*\(
+  - os\.path\.isfile\s*\([^)]+\)[^}]*open\s*\(
+  message: TOCTOU race condition - 65.1% of Python security defects
   cwe: CWE-367
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# KUBERNETES MISCONFIGURATIONS
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-K8S-001
   name: privilege-escalation-allowed
   severity: HIGH
   category: code_generation
-  languages: [yaml]
+  languages:
+  - yaml
   patterns:
-    - 'allowPrivilegeEscalation:\s*true'
-  message: "Kubernetes privilege escalation allowed"
+  - allowPrivilegeEscalation:\s*true
+  message: Kubernetes privilege escalation allowed
   cwe: CWE-269
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-K8S-002
   name: sys-admin-capability
   severity: CRITICAL
   category: code_generation
-  languages: [yaml]
+  languages:
+  - yaml
   patterns:
-    - 'SYS_ADMIN'
-    - 'capabilities:.*add:.*SYS_'
-  message: "Dangerous SYS_ADMIN capability in LLM-generated K8s config"
+  - SYS_ADMIN
+  - capabilities:.*add:.*SYS_
+  message: Dangerous SYS_ADMIN capability in LLM-generated K8s config
   cwe: CWE-250
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-K8S-003
   name: hostpath-mount
   severity: HIGH
   category: code_generation
-  languages: [yaml]
+  languages:
+  - yaml
   patterns:
-    - 'hostPath:'
-  message: "hostPath volume mount - host filesystem access"
+  - 'hostPath:'
+  message: hostPath volume mount - host filesystem access
   cwe: CWE-552
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# AGENT SECURITY PATTERNS (b3 Benchmark)
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-AGENT-001
   name: tool-invocation-injection
   severity: HIGH
   category: code_generation
   patterns:
-    - '(?i)execute\s+(?:this\s+)?tool'
-    - '(?i)call\s+(?:the\s+)?(?:api|function|tool)'
-    - '(?i)run\s+(?:this\s+)?command'
-  message: "Potential indirect tool invocation (ITI) pattern"
+  - (?i)execute\s+(?:this\s+)?tool
+  - (?i)call\s+(?:the\s+)?(?:api|function|tool)
+  - (?i)run\s+(?:this\s+)?command
+  message: Potential indirect tool invocation (ITI) pattern
   cwe: CWE-94
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-AGENT-002
   name: context-extraction-attempt
   severity: HIGH
   category: code_generation
   patterns:
-    - '(?i)(?:show|reveal|display|print)\s+(?:your\s+)?system\s+prompt'
-    - '(?i)what\s+(?:are|is)\s+your\s+(?:instructions|rules)'
-  message: "Direct context extraction (DCE) attempt"
+  - (?i)(?:show|reveal|display|print)\s+(?:your\s+)?system\s+prompt
+  - (?i)what\s+(?:are|is)\s+your\s+(?:instructions|rules)
+  message: Direct context extraction (DCE) attempt
   cwe: CWE-200
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-AGENT-003
   name: indirect-instruction-override
   severity: CRITICAL
   category: code_generation
   patterns:
-    - '(?i)(?:when|if)\s+(?:the\s+)?(?:user|admin|system)\s+(?:asks?|requests?|wants?)'
-    - '(?i)special\s+(?:mode|instruction|command):'
-    - '(?i)admin\s+override:'
-  message: "Indirect Instruction Override (IIO) pattern from b3 benchmark"
+  - (?i)(?:when|if)\s+(?:the\s+)?(?:user|admin|system)\s+(?:asks?|requests?|wants?)
+  - '(?i)special\s+(?:mode|instruction|command):'
+  - '(?i)admin\s+override:'
+  message: Indirect Instruction Override (IIO) pattern from b3 benchmark
   cwe: CWE-94
-  owasp_llm: "LLM02:2025"
-
-# =============================================================================
-# HARDWARE TROJAN PATTERNS
-# =============================================================================
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-HW-001
   name: suspicious-trigger-pattern
   severity: HIGH
   category: code_generation
-  languages: [verilog, vhdl]
+  languages:
+  - verilog
+  - vhdl
   patterns:
-    - "8'h(?:AA|55|AB|FF)"
-    - 'counter\s*==\s*(?:0xFF|255)'
-    - 'state\s*==\s*\d+\s*&&\s*input\s*=='
-  message: "Potential hardware Trojan trigger pattern"
+  - 8'h(?:AA|55|AB|FF)
+  - counter\s*==\s*(?:0xFF|255)
+  - state\s*==\s*\d+\s*&&\s*input\s*==
+  message: Potential hardware Trojan trigger pattern
   cwe: CWE-1245
-  owasp_llm: "LLM02:2025"
-
+  owasp_llm: LLM02:2025
+  file_types: *id001
 - id: CODEGEN-HW-002
   name: key-not-zeroized
   severity: HIGH
   category: code_generation
-  languages: [verilog, vhdl]
+  languages:
+  - verilog
+  - vhdl
   patterns:
-    - 'secret_key(?!.*<=.*0)'
-    - 'key_reg(?!.*<=.*0)'
-  message: "Secret key not properly zeroized (OpenTitan bug pattern)"
+  - secret_key(?!.*<=.*0)
+  - key_reg(?!.*<=.*0)
+  message: Secret key not properly zeroized (OpenTitan bug pattern)
   cwe: CWE-1239
-  owasp_llm: "LLM02:2025"
-
-# Summary: 30 rules (condensed from 80+ - key patterns)
+  owasp_llm: LLM02:2025
+  file_types: *id001

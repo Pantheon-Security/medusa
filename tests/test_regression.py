@@ -74,7 +74,8 @@ def _run_scan():
         scanner_counts = {}
         aggregations = data.get("aggregations", {})
         if "by_scanner" in aggregations:
-            scanner_counts = aggregations["by_scanner"]
+            raw = aggregations["by_scanner"]
+            scanner_counts = {k: len(v) if isinstance(v, list) else (v if isinstance(v, (int, float)) else 0) for k, v in raw.items()}
         else:
             # Fall back to counting findings
             for f_item in findings:

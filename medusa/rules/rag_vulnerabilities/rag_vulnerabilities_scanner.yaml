@@ -1,0 +1,297 @@
+# MEDUSA Scanner Rules - RAG Vulnerabilities & Corpus Poisoning Attacks
+# Source: PaperMiner/2024-12-21_rag_vulnerabilities
+# Extraction Date: 2026-02-18
+# Papers: Zou 2024, Chen 2024, Shafran 2024, Xue 2024, Zhong 2023, Liu 2024,
+#         Shi 2024, Tan 2024, Chaudhari 2024, Deng 2024, Abdelnabi 2021
+# Version: 1.0.0
+
+metadata:
+  source: "PaperMiner/2024-12-21_rag_vulnerabilities"
+  extraction_date: "2026-02-18"
+  papers_analyzed: 11
+  attacks_identified: 14
+  defenses_identified: 7
+  benchmarks: ["BEIR", "MS-MARCO", "Natural Questions", "HotpotQA", "TriviaQA"]
+
+rules:
+  # === CATEGORY: Corpus Poisoning Attack Frameworks ===
+
+  - id: MEDUSA-RAG-SCAN-001
+    name: poisonedrag-framework-import
+    severity: CRITICAL
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+poisoned_rag"
+      - "(?i)PoisonedRAG\\s*\\("
+      - "(?i)(?:corpus_poison|poisoned_passage|adversarial_doc)\\s*=\\s*(?:PoisonedRAG|generate_poison)\\s*\\("
+    file_types:
+      - "*.py"
+    message: "PoisonedRAG corpus poisoning framework detected"
+    description: "Detects PoisonedRAG (Zou 2024), which crafts malicious knowledge base documents using black-box or white-box LLM access. Achieves ~90% attack success rate (ASR) against GPT-4 RAG systems on NQ and MS-MARCO benchmarks. Both variants (black-box 88.9%, white-box 90.2%) are detectable via the framework's characteristic passage-generation API."
+    remediation: "Validate all ingested knowledge base documents with a perplexity filter and content anomaly detector. Implement retrieval result ranking that penalizes documents with low semantic coherence to the corpus."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Zou et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-002
+    name: badrag-contrastive-optimization
+    severity: CRITICAL
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+badrag"
+      - "(?i)BadRAG\\s*\\("
+      - "(?i)contrastive_poison(?:ing|ed)?\\s*=|contrastive_retrieval_loss\\s*="
+      - "(?i)trigger_injection.*retrieval|retrieval.*contrastive.*loss"
+    file_types:
+      - "*.py"
+    message: "BadRAG contrastive optimization poisoning attack detected"
+    description: "Detects BadRAG (Tan 2024), a contrastive learning-based attack that optimizes trigger-bearing passages to both (a) rank top-k in retrieval and (b) steer LLM output. Uses dual contrastive loss to maximize retrieval while minimizing semantic distance to adversarial target. Achieves 74.6% query rejection rate against guardrailed systems."
+    remediation: "Deploy contrastive anomaly scoring on retrieved passages. Flag documents with high similarity to retrieval query but low similarity to surrounding corpus documents."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Tan et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-003
+    name: corruptrag-adversarial-template
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+corruptrag"
+      - "(?i)CorruptRAG\\s*\\("
+      - "(?i)adversarial_template\\s*=.*(?:inject|corrupt|poison)"
+      - "(?i)template_generation.*rag.*adversar"
+    file_types:
+      - "*.py"
+    message: "CorruptRAG adversarial template generation framework detected"
+    description: "Detects CorruptRAG (Shafran 2024), which generates adversarial document templates by iteratively refining passages to maximize LLM compliance while maintaining retrieval relevance. Templates are pre-computed and stored for reuse across queries."
+    remediation: "Audit the knowledge base for documents matching known adversarial template patterns. Implement document fingerprinting and cross-document consistency checks."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Shafran et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-004
+    name: aggd-gradient-passage-optimization
+    severity: CRITICAL
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+aggd"
+      - "(?i)AGGD\\s*\\(|AutoDAN.*rag|GCG.*passage"
+      - "(?i)(?:gradient_guided|gradient_based)_(?:passage|doc)_(?:opt|attack|poison)"
+      - "(?i)passage_gradient\\s*=|adversarial_suffix.*retriev"
+    file_types:
+      - "*.py"
+    message: "AGGD gradient-based adversarial passage generation detected"
+    description: "Detects AGGD (Automated Gradient-Guided Document, Deng 2024), which uses white-box gradient signals to construct adversarial passages that jointly maximize retrieval score and steer LLM output. A white-box variant of GCG applied to the RAG retrieval surface."
+    remediation: "Monitor for documents containing high-entropy token sequences characteristic of gradient-optimized adversarial text. Apply perplexity thresholds and rate-limit knowledge base ingestion."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-94"
+    source_paper: "Deng et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-005
+    name: agentpoison-trigger-optimization
+    severity: CRITICAL
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+agent_poison"
+      - "(?i)AgentPoison\\s*\\("
+      - "(?i)trigger_optimiz(?:e|ation|er)\\s*=.*(?:agent|rag|memory)"
+      - "(?i)poison_memory|memory_poisoning.*trigger|rag_agent.*backdoor"
+    file_types:
+      - "*.py"
+    message: "AgentPoison RAG-memory trigger optimization attack detected"
+    description: "Detects AgentPoison (Chen 2024), which poisons RAG agent memory/knowledge bases by optimizing compact trigger phrases. When the trigger appears in a user query it reliably retrieves poisoned demonstrations, hijacking agent behavior. Tested against ReAct, RAP, and EHRAgent."
+    remediation: "Implement trigger-phrase anomaly detection on incoming queries. Validate retrieved demonstrations against expected behavior using shadow execution before applying to agent context."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Chen et al. (2024)"
+
+  # === CATEGORY: RAG-Specific Attack Pattern Detection ===
+
+  - id: MEDUSA-RAG-SCAN-006
+    name: flippedrag-retriever-reversal
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: opinion_manipulation
+    patterns:
+      - "(?i)(?:from|import)\\s+(?:flipped_rag|topic_fliprag)"
+      - "(?i)FlippedRAG\\s*\\(|TopicFlipRAG\\s*\\("
+      - "(?i)retriever_reverse_engineer|reverse_engineer.*(?:encoder|embedder|retriever)"
+      - "(?i)query_inversion\\s*=|invert_retriever\\s*\\("
+    file_types:
+      - "*.py"
+    message: "FlippedRAG / Topic-FlipRAG retriever reverse-engineering attack detected"
+    description: "Detects FlippedRAG and Topic-FlipRAG (Liu 2024, Shi 2024) which reverse-engineer dense retrieval encoders to craft passages that semantically match any target query. By inverting the retrieval function, attackers bypass relevance-based filters to guarantee top-k placement of adversarial content."
+    remediation: "Obscure retrieval encoder architecture and embeddings. Use ensemble retrievers with different embedding models so single-model inversion does not guarantee placement."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-200"
+    source_paper: "Liu et al. (2024), Shi et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-007
+    name: aip-adversarial-instructional-prompt
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: prompt_injection
+    patterns:
+      - "(?i)(?:from|import)\\s+aip_attack"
+      - "(?i)AIPAttack\\s*\\(|AdversarialInstructionalPrompt\\s*\\("
+      - "(?i)inject_instruction.*passage|passage.*inject.*instruction"
+      - "(?i)adversarial_instruction\\s*=.*(?:retrieve|rag|context)"
+    file_types:
+      - "*.py"
+    message: "AIP adversarial instructional prompt injection into RAG corpus detected"
+    description: "Detects Adversarial Instructional Prompt (AIP) attacks (Zhong 2023, Abdelnabi 2021) that embed imperative override instructions inside retrieved documents. When injected passages are retrieved, the embedded instruction overrides the system prompt and redirects LLM behavior."
+    remediation: "Sanitize retrieved passages by detecting and stripping imperative instruction patterns. Apply SentenceTransformer-based coherence scoring to flag documents whose embedding diverges from the stated topic."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-20"
+    source_paper: "Zhong et al. (2023), Abdelnabi et al. (2021)"
+
+  - id: MEDUSA-RAG-SCAN-008
+    name: pr-attack-bilevel-ranking-manipulation
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:from|import)\\s+pr_attack"
+      - "(?i)PRAttack\\s*\\(|PassageRankingAttack\\s*\\("
+      - "(?i)bilevel_optim(?:iz)?.*(?:retriev|rank|passage)"
+      - "(?i)rank_manipulation\\s*=|optimize_passage_rank\\s*\\("
+    file_types:
+      - "*.py"
+    message: "PR-Attack bilevel optimization passage ranking manipulation detected"
+    description: "Detects PR-Attack (Xue 2024), which uses bilevel optimization to craft passages that simultaneously (a) rank in top-k retrieval and (b) cause maximum output harm. Bilevel formulation alternates between an inner passage quality objective and an outer adversarial objective."
+    remediation: "Implement retrieval diversity enforcement to prevent a single adversarial passage from dominating top-k results. Apply cross-encoder re-ranking with adversarial robustness training."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-94"
+    source_paper: "Xue et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-009
+    name: biasrag-query-encoder-poisoning
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: opinion_manipulation
+    patterns:
+      - "(?i)(?:from|import)\\s+bias_rag"
+      - "(?i)BiasRAG\\s*\\("
+      - "(?i)query_encoder_poison|encoder_bias_inject"
+      - "(?i)bias(?:ed)?_embedding\\s*=.*(?:query|retriev|rag)"
+      - "(?i)opinion_manipulation.*retriev|retriev.*opinion_steer"
+    file_types:
+      - "*.py"
+    message: "BiasRAG query encoder poisoning for opinion manipulation detected"
+    description: "Detects BiasRAG (Shi 2024), which poisons the query encoder fine-tuning data to produce biased embedding representations. Manipulated encoders cause systematically slanted retrieval, subtly steering LLM-generated opinions without obvious document tampering."
+    remediation: "Audit query encoder fine-tuning datasets for opinion-slanting patterns. Use encoder robustness evaluation against adversarial fine-tuning data before deployment."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Shi et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-010
+    name: poisoned-mrag-multimodal-injection
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: multimodal
+    patterns:
+      - "(?i)(?:from|import)\\s+(?:poisoned_mrag|mrag_attack)"
+      - "(?i)PoisonedMRAG\\s*\\(|MultimodalRAGPoison\\s*\\("
+      - "(?i)image_poison.*retriev|retriev.*image.*inject"
+      - "(?i)adversarial_image.*rag|multimodal.*corpus_poison"
+    file_types:
+      - "*.py"
+    message: "Poisoned-MRAG multimodal image injection into RAG corpus detected"
+    description: "Detects Poisoned-MRAG attacks that inject adversarially perturbed images into multimodal RAG knowledge bases. Manipulated image embeddings cause retrieval of poisoned visual context, steering multimodal LLM outputs while appearing visually benign to human reviewers."
+    remediation: "Apply adversarial image detection (e.g., LipNet-based perturbation scoring) before ingesting images into the RAG corpus. Cross-validate image-text alignment using a separate CLIP-based coherence check."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-506"
+    source_paper: "Chaudhari et al. (2024)"
+
+  # === CATEGORY: Missing Defense Detection ===
+
+  - id: MEDUSA-RAG-SCAN-011
+    name: rag-no-document-filtering
+    severity: HIGH
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:vectorstore|vector_store|vectordb)\\.add_(?:documents|texts)\\s*\\("
+      - "(?i)(?:chroma|pinecone|weaviate|qdrant|faiss|milvus)\\.(?:add|upsert|insert)\\s*\\("
+      - "(?i)(?:retriever|index)\\.(?:add_documents|add_texts|insert)\\s*\\("
+    file_types:
+      - "*.py"
+    message: "Documents added to RAG vector store without content filtering or sanitization"
+    description: "Detects direct ingestion of documents into a vector store without evidence of prior content filtering or sanitization. PoisonedRAG (Zou 2024) and BadRAG (Tan 2024) both exploit unfiltered corpus ingestion pipelines to inject adversarial passages with near-certain retrieval success."
+    remediation: "Gate all vector store ingestion behind: (1) perplexity thresholds to detect gradient-optimized adversarial text, (2) instruction-pattern scanners to catch embedded AIP-style overrides, and (3) semantic coherence checks against an approved topic distribution."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-20"
+    source_paper: "Zou et al. (2024), Tan et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-012
+    name: rag-no-perplexity-detection
+    severity: MEDIUM
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:retriev(?:er|al)|similarity_search|vectorstore\\.search)\\s*\\("
+      - "(?i)(?:chroma|pinecone|weaviate|qdrant|faiss)\\.(?:query|search|similarity_search)\\s*\\("
+    file_types:
+      - "*.py"
+    message: "RAG retrieval without perplexity-based adversarial passage detection"
+    description: "Detects RAG retrieval calls with no evidence of perplexity-based anomaly detection on retrieved passages. Gradient-optimized adversarial passages (AGGD, PoisonedRAG white-box) exhibit characteristically high perplexity under a language model, making perplexity filtering a reliable first-pass defense."
+    remediation: "Compute per-passage perplexity using a small reference LM (e.g., GPT-2) before adding retrieved chunks to the LLM context. Reject passages exceeding a calibrated threshold (typically 1.5-2x mean corpus perplexity). Supplement with PEFT-based adversarial passage classifier."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-1039"
+    source_paper: "Deng et al. (2024), Zou et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-013
+    name: rag-no-query-rewriting-defense
+    severity: MEDIUM
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:retriever|vectorstore)\\.(?:get_relevant_documents|similarity_search|query)\\s*\\(\\s*(?:query|user_input|question)\\s*\\)"
+      - "(?i)(?:qa_chain|retrieval_chain)\\.(?:run|invoke)\\s*\\(\\s*(?:query|question|user_input)"
+    file_types:
+      - "*.py"
+    message: "RAG query passed to retriever without defensive query rewriting"
+    description: "Detects RAG pipelines where raw user queries are passed directly to the retriever without defensive query rewriting or diversification. Trigger-based attacks (AgentPoison, BadRAG) rely on the user query containing a specific trigger phrase that activates the poisoned passage. Query rewriting disrupts this assumption by paraphrasing the query and removing trigger tokens before retrieval."
+    remediation: "Apply HyDE (Hypothetical Document Embeddings) or LLM-based query paraphrasing before retrieval. Use ensemble retrieval across multiple paraphrase variants and aggregate result sets to reduce single-query trigger sensitivity."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-1039"
+    source_paper: "Chen et al. (2024), Tan et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-014
+    name: rag-retrieval-no-source-attribution
+    severity: MEDIUM
+    category: rag_vulnerabilities
+    subcategory: privacy
+    patterns:
+      - "(?i)(?:retrieved|chunks|context)\\s*=\\s*(?:retriever|vectorstore)\\."
+      - "(?i)(?:chroma|pinecone|weaviate|qdrant|faiss)\\..{0,60}\\n(?:(?!(?:source|metadata|provenance|attribution)).)*(?:prompt|context|message)\\s*[+=]"
+    file_types:
+      - "*.py"
+    message: "RAG retrieved content added to context without source attribution or provenance tracking"
+    description: "Detects RAG pipelines that include retrieved document content in the LLM context without preserving document source metadata. Missing provenance prevents auditing of which corpus documents contributed to a response, making it impossible to identify and remove poisoned passages after an attack is detected."
+    remediation: "Always carry document source metadata (origin URL, ingestion timestamp, document hash) through the retrieval pipeline. Log which sources contributed to each LLM response for post-hoc attribution and corpus auditing."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-778"
+    source_paper: "Zou et al. (2024)"
+
+  - id: MEDUSA-RAG-SCAN-015
+    name: rag-knowledge-base-open-write
+    severity: CRITICAL
+    category: rag_vulnerabilities
+    subcategory: corpus_poisoning
+    patterns:
+      - "(?i)(?:vectorstore|vector_store|index)\\.(?:add|upsert|insert|update)\\s*\\(.*(?:user_input|request|body|data)"
+      - "(?i)(?:chroma|pinecone|weaviate|qdrant|faiss)\\.(?:add|upsert)\\s*\\(.*(?:request|form|args|json)\\."
+    file_types:
+      - "*.py"
+    message: "RAG knowledge base allows writes directly from untrusted user input"
+    description: "Detects RAG vector store write operations where the document content or metadata is sourced directly from HTTP request data (user input, form fields, JSON body). This is the canonical enabler of all corpus poisoning attacks: an attacker-controlled write path allows arbitrary adversarial passages to be inserted into the retrieval corpus."
+    remediation: "Never allow untrusted users to write directly to the RAG knowledge base. Require operator-level authentication for all corpus ingestion. All user-submitted content must pass through a content moderation and sanitization pipeline before indexing."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-284"
+    source_paper: "Zou et al. (2024), Chen et al. (2024)"

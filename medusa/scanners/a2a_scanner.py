@@ -164,13 +164,11 @@ class A2AScanner(RuleBasedScanner):
             is_a2a_config = self._is_a2a_config(content, file_path)
 
             if not is_agent_card and not is_a2a_config:
-                # Still scan with YAML rules
-                lines = content.split('\n')
-                yaml_issues = self._scan_with_rules(lines, file_path)
+                # Not an agent card or A2A config — skip to avoid FP explosions
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=file_path,
-                    issues=yaml_issues,
+                    issues=[],
                     scan_time=time.time() - start_time,
                     success=True,
                 )

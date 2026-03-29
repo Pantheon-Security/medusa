@@ -40,6 +40,8 @@ class PostQuantumScanner(BaseScanner):
     - PQC010: TLS/SSL without PQC hybrid support
     """
 
+    RULE_CATEGORIES = ['post_quantum_crypto']
+
     # PQC001: RSA patterns (quantum-vulnerable)
     RSA_PATTERNS: List[Tuple[str, str, Severity]] = [
         # Python
