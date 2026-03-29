@@ -123,19 +123,9 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 
 > **Note:** External linters are optional. MEDUSA's 9,600+ built-in rules work without them. For installation support, please refer to each tool vendor's documentation.
 
-### Screenshots
+### Demo
 
-**Scan Startup** - Repository analysis, language detection, AI pattern recognition:
-
-![MEDUSA Banner](media/medusa-banner.png)
-
-**Live Progress** - Real-time scanner progress with issue counts:
-
-![MEDUSA Scan Progress](media/medusa-scan-progress.png)
-
-**Scan Complete** - Summary with stats and report paths:
-
-![MEDUSA Scan Complete](media/medusa-scan-complete.png)
+![MEDUSA in action](media/demo.gif)
 
 ### 📊 Report Formats
 
