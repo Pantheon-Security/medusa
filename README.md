@@ -126,7 +126,9 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 ### Demo
 
 <div align="center">
-<video src="media/demo.mp4" autoplay loop muted playsinline width="100%"></video>
+
+![MEDUSA in action](media/demo.gif)
+
 </div>
 
 ### 📊 Report Formats
