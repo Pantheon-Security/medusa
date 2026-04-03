@@ -13,7 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 NEW: `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.0: 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner category wiring**
+**✨ v2026.5.1: --fail-on severity fix, logic bug fixes, 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner category wiring**
 
 ---
 
@@ -503,7 +503,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.5.0
+version: 2026.5.1
 
 # Scanner control
 scanners:
@@ -965,7 +965,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.5.0
+**Version**: 2026.5.1
 **Release Date**: 2026-03-13
 **Detection Patterns**: 9,600+ AI security rules
 **Analyzers**: 78 specialized scanners

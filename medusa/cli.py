@@ -172,15 +172,9 @@ def _has_npm_available() -> bool:
     import platform
     if platform.system() == 'Windows':
         # First, check for npm.cmd (bypasses execution policy)
-        if shutil.which('npm.cmd'):
-            return True
-
-        # Try running npm.cmd directly
         npm_cmd_path = shutil.which('npm.cmd')
         if npm_cmd_path:
-            success, _ = _safe_run_version_check([npm_cmd_path, '--version'])
-            if success:
-                return True
+            return True
 
         # Check common Windows install locations for npm.cmd
         common_paths = [
@@ -586,9 +580,10 @@ def _detect_file_types(target_path: Path) -> dict:
         if ext:
             file_types[ext] += 1
 
-        # Special case: .env files (no suffix, name is .env or starts with .env.)
+        # Special case: .env files with no extension (name is .env or starts with .env.)
+        # Only apply when suffix is empty to avoid double-counting .env files
         name = file_path.name.lower()
-        if name == '.env' or name.startswith('.env.'):
+        if not ext and (name == '.env' or name.startswith('.env.')):
             file_types['.env'] += 1
 
     return dict(file_types)
@@ -944,7 +939,7 @@ def _check_runtime_dependencies(
             console.print(f"   • {t}")
         console.print()
 
-        if not yes:
+        if not yes and sys.stdin.isatty():
             response = Prompt.ask(
                 "   Install PHP via winget to enable these tools?",
                 choices=["y", "Y", "n", "N"],
@@ -953,7 +948,7 @@ def _check_runtime_dependencies(
             )
             install_php = response.upper() == "Y"
         else:
-            install_php = True
+            install_php = yes
 
         if install_php:
             console.print("\n[cyan]Installing PHP via winget...[/cyan]")
@@ -1297,10 +1292,6 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
-    if not Path(target).exists():
-        console.print(f"\n[bold red]Error:[/bold red] Target path does not exist: {target}")
-        return
-
     console.print("\n[dim]Analyzing repository...[/dim]")
     analyzer = CodePatternAnalyzer()
     repo_analysis = analyzer.analyze_repo(Path(target))
@@ -1478,11 +1469,20 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
             scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
 
-        # Check fail threshold
+        # Check fail threshold — only count issues at or above the specified severity
         if fail_on:
-            total_issues = sum(len(r.issues) for r in results if not r.cached)
+            from medusa.scanners import Severity
+            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
+            threshold = Severity(fail_on.upper())
+            threshold_index = severity_order.index(threshold)
+            allowed_severities = {s for s in severity_order[:threshold_index + 1]}
+            total_issues = sum(
+                1 for r in results if not r.cached
+                for issue in r.issues
+                if issue.severity in allowed_severities
+            )
             if total_issues > 0:
-                console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ level[/red]")
+                console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
                 sys.exit(1)
 
         console.print("\n[dark_green]✅ Scan complete![/dark_green]")
@@ -1756,11 +1756,20 @@ def _scan_git_repo(
 
             scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
 
-        # Check fail threshold
+        # Check fail threshold — only count issues at or above the specified severity
         if fail_on:
-            total_issues = sum(len(r.issues) for r in results if not r.cached)
+            from medusa.scanners import Severity
+            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
+            threshold = Severity(fail_on.upper())
+            threshold_index = severity_order.index(threshold)
+            allowed_severities = {s for s in severity_order[:threshold_index + 1]}
+            total_issues = sum(
+                1 for r in results if not r.cached
+                for issue in r.issues
+                if issue.severity in allowed_severities
+            )
             if total_issues > 0:
-                console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ level[/red]")
+                console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
                 sys.exit(1)
 
         console.print("\n[dark_green]Scan complete![/dark_green]")
@@ -2212,7 +2221,7 @@ def init(ide, force, install):
     console.print("\n[bold]Next steps:[/bold]")
     console.print(f"  1. Review configuration: [cyan]{config_path.name}[/cyan]")
     if missing_tools:
-        console.print(f"  2. Install missing tools: [cyan]medusa install --all[/cyan]")
+        console.print(f"  2. Install AI security tools: [cyan]medusa install --ai-tools[/cyan]")
     step = 3 if missing_tools else 2
     console.print(f"  {step}. Run your first scan: [cyan]medusa scan .[/cyan]")
     console.print(f"  {step + 1}. Exclude directories: [cyan]medusa scan . -e archive/ -e vendor/[/cyan]")
@@ -2337,7 +2346,7 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.5.0 works out of the box with 9,600+ built-in AI security
+    MEDUSA v2026.5.1 works out of the box with 9,600+ built-in AI security
     rules. External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
@@ -2363,7 +2372,7 @@ def install(check, ai_tools, debug, install_all):
 
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.0[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
         console.print("[dim]MEDUSA now focuses on AI security rules (9,600+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
@@ -2518,7 +2527,7 @@ def _show_install_check():
         audit_environment, get_install_hint,
     )
 
-    console.print(f"\n[bold dark_green]MEDUSA v2026.5.0 - AI Security Scanner[/bold dark_green]")
+    console.print(f"\n[bold dark_green]MEDUSA v2026.5.1 - AI Security Scanner[/bold dark_green]")
     console.print(f"[dim]Works out of the box with 9,600+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
@@ -2603,7 +2612,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.5.0 only manages modelscan. Use your package manager
+    MEDUSA v2026.5.1 only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -2613,7 +2622,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.0[/yellow]")
+        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -2621,12 +2630,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.5.0 only manages modelscan installation.[/dim]\n")
+        console.print("[dim]MEDUSA v2026.5.1 only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.5.0 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v2026.5.1 doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return
@@ -3193,7 +3202,7 @@ def _generate_cyclonedx(target_path: Path, dependencies: list) -> dict:
             'tools': [{
                 'vendor': 'Pantheon Security',
                 'name': 'MEDUSA',
-                'version': '2025.9.0.0'
+                'version': __version__
             }],
             'component': {
                 'type': 'application',
@@ -3244,7 +3253,7 @@ def _generate_spdx(target_path: Path, dependencies: list) -> dict:
         'documentNamespace': doc_namespace,
         'creationInfo': {
             'created': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
-            'creators': ['Tool: MEDUSA-2025.9.0.0'],
+            'creators': [f'Tool: MEDUSA-{__version__}'],
             'licenseListVersion': '3.19'
         },
         'packages': packages,

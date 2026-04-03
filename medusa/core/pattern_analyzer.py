@@ -496,7 +496,11 @@ class CodePatternAnalyzer:
         for item in path.iterdir():
             if item.name in self.SKIP_DIRECTORIES:
                 continue
-            if item.name.startswith('.') and item.name not in {'.github', '.gitlab-ci.yml'}:
+            if item.name.startswith('.') and item.name not in {
+                '.github', '.gitlab-ci.yml',
+                '.cursorrules', '.clinerules', '.windsurfrules',
+                '.env', '.mcp.json', '.continue',
+            }:
                 continue
 
             if item.is_file():
