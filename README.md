@@ -13,7 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 NEW: `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.1: --fail-on severity fix, logic bug fixes, 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner category wiring**
+**✨ v2026.5.2: Security hardening — credential leak fixes, XSS protection, symlink safety, code snippet sanitization, 14 bug fixes**
 
 ---
 
@@ -37,18 +37,21 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.0
+### 🆕 What's New in v2026.5.2
 
-**9,600+ Rules + 200 CVEs + Windows Support** — Massive rule expansion, complete scanner wiring, and cross-platform improvements.
+**Security Hardening** — 16 security and bug fixes across the scanner, reporter, and installer.
 
-| | What's New | Details |
+| | What's Fixed | Details |
 |---|---|---|
-| 🤖 | **9,600+ AI Patterns** | Up from 7,300 — comprehensive coverage for AI/ML, agents, MCP, RAG, prompt injection |
-| 🚨 | **200 CVEs Detected** | CVEMiner v2.0 — expanded database covering AI coding editors, MCP servers, supply chain attacks |
-| 🪟 | **Windows PATH Auto-Fix** | Automatically detects and repairs missing PATH entries on Windows install |
-| 🔧 | **79 Scanner Categories** | Full RULE_CATEGORIES wiring across all scanners — precise attribution in audit reports |
-| 🎬 | **Live Demo** | Real scan of a real codebase — see what MEDUSA catches |
-| 🐛 | **Stability Fixes** | `resolve(strict=False)` for non-existent CWD, non-interactive CI mode, target path validation |
+| 🔐 | **Credential Leak Fixed** | Auth tokens in `--git` URLs now stripped from all console/log output |
+| 🛡️ | **XSS Protection** | HTML report fields escaped with `html.escape()` — no stored XSS from scanned file content |
+| 🔗 | **Symlink Safety** | Symlinks in scanned repos skipped — prevents `/etc/shadow`-style path traversal |
+| 📋 | **Secret Truncation** | Code snippets capped at 200 chars in reports — secrets don't leak verbatim into JSON/SARIF |
+| 🐛 | **Cache Fix** | `FileMetadata.cached_issues` now returns actual cached findings (was returning empty) |
+| 🧩 | **Dotfile Scanning** | Extensionless AI context files (`.cursorrules`, `.env`, `.mcp.json`) now fully analyzed |
+| 📝 | **Better Logging** | Invalid regex in rule YAML now uses `logging.warning()` instead of `print()` |
+
+**Previous: v2026.5.0/5.1** — 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner categories, `--fail-on` severity fix.
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
 
@@ -503,7 +506,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.5.1
+version: 2026.5.2
 
 # Scanner control
 scanners:
@@ -965,12 +968,12 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.5.1
-**Release Date**: 2026-03-13
+**Version**: 2026.5.2
+**Release Date**: 2026-04-03
 **Detection Patterns**: 9,600+ AI security rules
-**Analyzers**: 78 specialized scanners
+**Analyzers**: 79 specialized scanners
 **FP Filter Patterns**: 514 intelligent filters (96.8% reduction rate)
-**CVE Coverage**: 133+ critical vulnerabilities (37+ AI editor CVEs)
+**CVE Coverage**: 200 critical vulnerabilities (37+ AI editor CVEs)
 **Repo Poisoning**: 28+ AI editor config file types detected
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
@@ -1018,6 +1021,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2026-03-13
+**Last Updated**: 2026-04-03
 **Status**: Production Ready
-**Current Version**: v2026.5.0 - Repo Poisoning Detection + Git Scanning
+**Current Version**: v2026.5.2 - Security Hardening Release
