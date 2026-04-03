@@ -11,9 +11,9 @@
 
 **AI-first security scanner with 9,600+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
-**🚨 133 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
+**🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 NEW: `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.0: Repo poisoning detection, 45 new attack rules, FP filter precision fix**
+**✨ v2026.5.0: 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner category wiring**
 
 ---
 
@@ -27,7 +27,7 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 🤖 **9,600+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
 - 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
-- 🚨 **133 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
+- 🚨 **200 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
@@ -39,21 +39,16 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 
 ### 🆕 What's New in v2026.5.0
 
-**Repo Poisoning Detection + Git Scanning** — Scan any repo for AI supply chain attacks with a single command.
-
-```bash
-medusa scan --git user/repo
-```
+**9,600+ Rules + 200 CVEs + Windows Support** — Massive rule expansion, complete scanner wiring, and cross-platform improvements.
 
 | | What's New | Details |
 |---|---|---|
-| 🔥 | **Git Repo Scanning** | `medusa scan --git <URL>` — clone and scan any GitHub repo for AI supply chain attacks in seconds |
-| 🛡️ | **Repo Poisoning Detection** | 45 new rules for Clinejection, CurXecute (CVE-2025-54135), IDEsaster (CVE-2025-64660), CamoLeak, ToxicSkills, AIShellJack |
-| 🎯 | **28+ AI Editor File Types** | Detects malicious configs for Cursor, Cline, Copilot, Claude Code, Gemini CLI, Kiro, Codex CLI, Windsurf, Amazon Q, Roo Code |
-| 🔍 | **MCP Advanced Attacks** | 11 new rules — schema poisoning, ATPA, sampling injection, cross-server manipulation, rug-pull, Flowise RCE |
-| 🐛 | **FP Filter Fix** | Path-relative filtering prevents repo names from triggering false positive heuristics |
-| 🤖 | **9,600+ AI Patterns** | Up from 7,300 — built-in rules for AI/ML, agents, MCP, RAG, prompt injection |
-| 🚨 | **37+ CVEs Mapped** | CurXecute, IDEsaster, Codex CLI RCE, Kiro RCE, Copilot YOLO mode, and more |
+| 🤖 | **9,600+ AI Patterns** | Up from 7,300 — comprehensive coverage for AI/ML, agents, MCP, RAG, prompt injection |
+| 🚨 | **200 CVEs Detected** | CVEMiner v2.0 — expanded database covering AI coding editors, MCP servers, supply chain attacks |
+| 🪟 | **Windows PATH Auto-Fix** | Automatically detects and repairs missing PATH entries on Windows install |
+| 🔧 | **79 Scanner Categories** | Full RULE_CATEGORIES wiring across all scanners — precise attribution in audit reports |
+| 🎬 | **Live Demo** | Real scan of a real codebase — see what MEDUSA catches |
+| 🐛 | **Stability Fixes** | `resolve(strict=False)` for non-existent CWD, non-interactive CI mode, target path validation |
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
 
@@ -159,7 +154,7 @@ medusa scan . --format all
 
 ## 📚 Language Support
 
-MEDUSA supports **41 different scanner types** covering all major programming languages and file formats:
+MEDUSA supports **79 scanner types** covering AI/ML security, all major programming languages, and file formats:
 
 ### Backend Languages (9)
 | Language | Scanner | Extensions |
@@ -242,7 +237,7 @@ MEDUSA supports **41 different scanner types** covering all major programming la
 | Solidity | solhint | `.sol` |
 | Docker | hadolint | `Dockerfile*` |
 
-**Total: 41 scanner types covering 100+ file extensions**
+**Total: 79 scanner types — 41 language/tool scanners + 38 AI/ML security scanners — covering 100+ file extensions**
 
 ---
 
@@ -268,7 +263,7 @@ medusa scan .
 
 ## 🤖 AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **9,600+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **37+ CVEs** across AI coding editors and MCP servers.
+MEDUSA provides **industry-leading AI security scanning** with **9,600+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **200+ CVEs** across AI coding editors and MCP servers.
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
@@ -705,8 +700,8 @@ medusa init
    Primary: PythonScanner (44 files)
 
 ✅ Step 2: Scanner Availability
-   Available: 6/42 scanners
-   Missing: 36 tools
+   Available: 6/79 scanners
+   Missing: 73 tools
 
 ✅ Step 3: Configuration
    Created .medusa.yml
@@ -797,7 +792,7 @@ Scanners automatically register themselves:
 registry = ScannerRegistry()
 registry.register(PythonScanner())
 registry.register(JavaScriptScanner())
-# ... all 41 scanners
+# ... all 79 scanners
 ```
 
 ### Severity Mapping
@@ -827,7 +822,7 @@ Self-scan (473 files):
 OpenClaw benchmark (4,124 files, 751K LOC):
   🔍 Issues found: 825 (post-filter)
   ✅ FPs filtered: 11,436 (93.9% reduction)
-  ⏱️  Time: 3.3 hours (42 scanners)
+  ⏱️  Time: 3.3 hours (79 scanners)
 ```
 
 ### Performance Benchmarks
