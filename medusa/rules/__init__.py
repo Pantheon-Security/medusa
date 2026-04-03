@@ -11,12 +11,15 @@ Rules are defined in YAML format in the following directories:
 - compliance/: OWASP LLM 2025 mappings
 """
 
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
 import re
 import yaml
 from dataclasses import dataclass, field
 from enum import Enum
+
+_log = logging.getLogger(__name__)
 
 # Import integrity scanner for self-protection
 try:
@@ -67,7 +70,7 @@ class Rule:
             try:
                 self._compiled_patterns.append(re.compile(pattern, re.IGNORECASE | re.MULTILINE))
             except re.error as e:
-                print(f"Warning: Invalid regex pattern in rule {self.id}: {pattern} - {e}")
+                _log.warning("Invalid regex pattern in rule %s (pattern skipped): %s — %s", self.id, pattern, e)
         # Normalize file_types globs for matching
         self._compiled_file_globs = []
         for ft in self.file_types:

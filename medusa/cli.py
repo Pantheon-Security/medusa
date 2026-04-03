@@ -6,6 +6,7 @@ Modern Click-based CLI for cross-platform security scanning
 
 import sys
 import re
+import shlex
 import shutil
 import subprocess
 import tempfile
@@ -1095,7 +1096,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 console.print(f"  → Trying {eco_name}: {eco_cmd}")
                 attempted_installers.append(eco_name)
                 try:
-                    result = subprocess.run(eco_cmd, shell=True, capture_output=True, text=True, timeout=600)
+                    result = subprocess.run(shlex.split(eco_cmd), capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
                         console.print(f"  [dark_green]✅ Installed via {eco_name}[/dark_green]")
@@ -1110,7 +1111,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 console.print(f"  → Trying manual install script")
                 attempted_installers.append('manual')
                 try:
-                    result = subprocess.run(manual_cmd, shell=True, capture_output=True, text=True, timeout=600)
+                    result = subprocess.run(shlex.split(manual_cmd), capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
                         console.print(f"  [dark_green]✅ Installed via manual script[/dark_green]")
@@ -1621,6 +1622,8 @@ def _scan_git_repo(
     console.print(f"[dim]  {clone_url}[/dim]\n")
 
     tmp_dir = tempfile.mkdtemp(prefix="medusa-git-")
+    import atexit as _atexit
+    _atexit.register(shutil.rmtree, tmp_dir, True)
     try:
         # Shallow clone for speed
         result = subprocess.run(
@@ -1632,6 +1635,8 @@ def _scan_git_repo(
         )
         if result.returncode != 0:
             stderr = result.stderr.strip()
+            # Strip auth tokens from error output (https://token@host → https://host)
+            stderr = re.sub(r'https?://[^@\s]+@', 'https://', stderr)
             console.print(f"[red]Error: git clone failed[/red]")
             if stderr:
                 console.print(f"[red]  {stderr}[/red]")

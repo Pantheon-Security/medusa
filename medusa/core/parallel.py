@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
 from multiprocessing import Pool, cpu_count
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 # Import new scanner architecture
 from medusa.scanners import registry as scanner_registry
@@ -67,6 +67,7 @@ class FileMetadata:
     last_scan: str
     issues_found: int
     rule_version: str = ""
+    cached_issues: list = field(default_factory=list)  # Serialized issue dicts for cache hits
 
 
 @dataclass
@@ -173,7 +174,7 @@ class MedusaCacheManager:
         except Exception:
             return True
 
-    def update_cache(self, file_path: Path, issues_found: int):
+    def update_cache(self, file_path: Path, issues_found: int, issues: list = None):
         """Update cache entry for scanned file"""
         try:
             stat = file_path.stat()
@@ -185,6 +186,7 @@ class MedusaCacheManager:
                 last_scan=datetime.now().isoformat(),
                 issues_found=issues_found,
                 rule_version=self.rule_version,
+                cached_issues=issues or [],
             )
         except Exception:
             # Silently skip cache for files that vanish during scan (symlinks, temp files)
@@ -578,6 +580,16 @@ class MedusaParallelScanner:
         """
         start_time = time.time()
 
+        # Skip symlinks — following them during --git scans can leak host files
+        if file_path.is_symlink():
+            return ScanResult(
+                file=str(file_path),
+                scanner='skipped-symlink',
+                issues=[],
+                scan_time=0.0,
+                cached=False
+            )
+
         # Check cache first
         if self.use_cache and self.cache and not self.cache.is_file_changed(file_path):
             cached_meta = self.cache.cache.get(str(file_path.absolute()))
@@ -585,7 +597,7 @@ class MedusaParallelScanner:
                 return ScanResult(
                     file=str(file_path),
                     scanner='cached',
-                    issues=[],
+                    issues=cached_meta.cached_issues,
                     scan_time=time.time() - start_time,
                     cached=True
                 )
@@ -669,9 +681,10 @@ class MedusaParallelScanner:
                 line_count=_line_count
             )
 
-        # Update cache
+        # Update cache — store serialized issues so cache hits return real findings
         if self.use_cache and self.cache:
-            self.cache.update_cache(file_path, len(result.issues))
+            serialized = [i.to_dict() if hasattr(i, 'to_dict') else i for i in result.issues]
+            self.cache.update_cache(file_path, len(result.issues), serialized)
 
         return result
 

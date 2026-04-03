@@ -515,8 +515,11 @@ class CodePatternAnalyzer:
         analysis.file_extensions[ext] = analysis.file_extensions.get(ext, 0) + 1
         analysis.total_files += 1
 
-        # Map to language
+        # Map to language — also handle extensionless AI context files
         language = self.EXTENSION_TO_LANGUAGE.get(ext)
+        if not language and file_path.name in AI_CONTEXT_DOTNAMES:
+            # Treat AI context dotfiles as markdown for content analysis purposes
+            language = 'markdown'
         if language:
             analysis.languages[language] = analysis.languages.get(language, 0) + 1
 

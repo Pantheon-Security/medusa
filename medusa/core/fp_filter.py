@@ -25,6 +25,7 @@ class FPReason(Enum):
     PARAMETER_TO_SECURE = "parameter_to_secure"  # Parameter passed to secure handler
     TEST_FILE = "test_file"  # In test file
     EXAMPLE_FILE = "example_file"  # In example/docs
+    UTILITY_FILE = "utility_file"  # In tools/scripts/utils directory
     CACHE_KEY = "cache_key"  # Hash used for cache key generation (non-crypto)
     DUPLICATE_DETECTION = "duplicate_detection"  # Hash for file similarity (non-crypto)
     INTENTIONAL_WEAK = "intentional_weak"  # Self-documenting insecure usage
@@ -582,7 +583,7 @@ class FalsePositiveFilter:
             return FilterResult(
                 is_likely_fp=True,
                 confidence=0.50,  # Low confidence - tools may have real issues
-                reason=FPReason.EXAMPLE_FILE,
+                reason=FPReason.UTILITY_FILE,
                 explanation="Finding is in a tools/scripts directory (utility code)"
             )
 
