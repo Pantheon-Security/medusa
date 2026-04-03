@@ -1904,20 +1904,25 @@ def _check_scanner_availability(analysis, do_install: bool, console: Console) ->
         console.print(f"[yellow]⚠️[/yellow]  {len(missing_tools)} tools missing for your project: {', '.join(missing_tools[:5])}" +
                      (f" and {len(missing_tools) - 5} more" if len(missing_tools) > 5 else ""))
 
-        if do_install or click.confirm(f"\nInstall {len(missing_tools)} missing tools for your project?", default=False):
-            console.print("[cyan]Installing missing tools...[/cyan]")
-            # Call the install command directly with --all --yes
-            cmd = [sys.executable, '-m', 'medusa', 'install', '--all', '--yes']
-            result = subprocess.run(
-                cmd,
-                capture_output=False,
-                text=True,
-                check=False
-            )
-            if result.returncode != 0:
-                console.print("[yellow]⚠️  Some tools may not have installed successfully[/yellow]")
-                console.print("[dim]You can retry with: medusa install --all[/dim]")
-            console.print()  # Extra newline for spacing
+        # Separate AI tools (auto-installable) from external linters (manual)
+        ai_tool_names = {'modelscan', 'garak', 'llm-guard', 'llm_guard'}
+        missing_ai_tools = [t for t in missing_tools if t in ai_tool_names]
+        missing_linters = [t for t in missing_tools if t not in ai_tool_names]
+
+        if missing_linters:
+            console.print(f"\n[dim]External linters ({', '.join(missing_linters[:5])}"
+                          + (f" and {len(missing_linters) - 5} more" if len(missing_linters) > 5 else "")
+                          + ") — install via your package manager (pip, npm, apt, brew)[/dim]")
+
+        if missing_ai_tools:
+            if do_install or click.confirm(f"\nInstall {len(missing_ai_tools)} AI security tool(s) ({', '.join(missing_ai_tools)})?", default=False):
+                console.print("[cyan]Installing AI security tools...[/cyan]")
+                cmd = [sys.executable, '-m', 'medusa', 'install', '--ai-tools']
+                result = subprocess.run(cmd, capture_output=False, text=True, check=False)
+                if result.returncode != 0:
+                    console.print("[yellow]⚠️  Some tools may not have installed successfully[/yellow]")
+                    console.print("[dim]You can retry with: medusa install --ai-tools[/dim]")
+                console.print()  # Extra newline for spacing
 
     return missing_tools
 
