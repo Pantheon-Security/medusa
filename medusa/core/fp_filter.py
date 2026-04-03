@@ -638,9 +638,9 @@ class FalsePositiveFilter:
         new_idx = min(idx + reduction, len(severity_order) - 1)
         return severity_order[new_idx]
 
-    def get_stats(self, findings: List[Dict]) -> Dict:
-        """Get statistics about FP filtering"""
-        filtered, fps = self.filter_findings(findings)
+    def get_stats(self, filtered: List[Dict], fps: List[Dict]) -> Dict:
+        """Get statistics from pre-computed filter results (avoids double-filtering)"""
+        total = len(filtered) + len(fps)
 
         fp_by_reason = {}
         for f in fps:
@@ -653,10 +653,10 @@ class FalsePositiveFilter:
             fp_by_scanner[scanner] = fp_by_scanner.get(scanner, 0) + 1
 
         return {
-            'total_findings': len(findings),
+            'total_findings': total,
             'likely_fps': len(fps),
             'retained': len(filtered),
-            'fp_rate': len(fps) / len(findings) if findings else 0,
+            'fp_rate': len(fps) / total if total else 0,
             'by_reason': fp_by_reason,
             'by_scanner': fp_by_scanner,
         }
@@ -679,7 +679,7 @@ def filter_scan_results(
     """
     fp_filter = FalsePositiveFilter(source_root)
     filtered, fps = fp_filter.filter_findings(findings)
-    stats = fp_filter.get_stats(findings)
+    stats = fp_filter.get_stats(filtered, fps)
     return filtered, fps, stats
 
 

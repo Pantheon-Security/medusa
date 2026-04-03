@@ -260,10 +260,7 @@ class WebSecurityScanner(RuleBasedScanner):
                                 continue
                             seen_issues.add(key)
 
-                            # Map severity
-                            severity_map = _SEVERITY_MAP
-                            severity_str = rule.severity.value if hasattr(rule.severity, 'value') else str(rule.severity)
-                            severity = severity_map.get(severity_str, Severity.MEDIUM)
+                            severity = _SEVERITY_MAP.get(rule.severity.value, Severity.MEDIUM)
 
                             # Extract CWE ID as integer if possible
                             cwe_id = None

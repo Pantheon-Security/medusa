@@ -13,6 +13,7 @@ Pure Python - no external dependencies required.
 
 import re
 from pathlib import Path
+from medusa.core.constants import AI_CONTEXT_DOTNAMES
 from typing import Dict, List, Set, Optional, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -215,7 +216,7 @@ class CodePatternAnalyzer:
         'java': 'JavaScanner',
         'kotlin': 'KotlinScanner',
         'scala': 'ScalaScanner',
-        'csharp': 'CSharpScanner',
+        'csharp': 'CppScanner',  # No dedicated C# scanner — CppScanner covers .cs patterns
         'cpp': 'CppScanner',
         'c': 'CppScanner',
         'swift': 'SwiftScanner',
@@ -496,11 +497,7 @@ class CodePatternAnalyzer:
         for item in path.iterdir():
             if item.name in self.SKIP_DIRECTORIES:
                 continue
-            if item.name.startswith('.') and item.name not in {
-                '.github', '.gitlab-ci.yml',
-                '.cursorrules', '.clinerules', '.windsurfrules',
-                '.env', '.mcp.json', '.continue',
-            }:
+            if item.name.startswith('.') and item.name not in AI_CONTEXT_DOTNAMES:
                 continue
 
             if item.is_file():

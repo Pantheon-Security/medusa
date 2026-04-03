@@ -476,7 +476,7 @@ class RuleBasedScanner(BaseScanner):
                 for compiled in rule._compiled_patterns:
                     try:
                         if compiled.search(line):
-                            severity = _SEVERITY_MAP.get(rule.severity, Severity.MEDIUM)
+                            severity = _SEVERITY_MAP.get(rule.severity.value, Severity.MEDIUM)
 
                             # Extract CWE number from string like "CWE-94"
                             cwe_id = None

@@ -159,10 +159,7 @@ class YAMLRuleScanner(RuleBasedScanner):
                                 break
                             seen.add(key)
 
-                            severity = _SEVERITY_MAP.get(
-                                rule.severity.value if hasattr(rule.severity, 'value') else str(rule.severity),
-                                Severity.MEDIUM,
-                            )
+                            severity = _SEVERITY_MAP.get(rule.severity.value, Severity.MEDIUM)
 
                             cwe_id = None
                             cwe_link = None

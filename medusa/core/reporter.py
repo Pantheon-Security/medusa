@@ -1325,21 +1325,29 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             severity = finding['severity']
             color = self.SEVERITY_COLORS[severity]
 
+            safe_file = html_lib.escape(str(finding['file']))
+            safe_line = html_lib.escape(str(finding['line']))
+            safe_issue = html_lib.escape(str(finding['issue']))
+            safe_code = html_lib.escape(str(finding.get('code', '')))
+            safe_scanner = html_lib.escape(str(finding['scanner']))
+            safe_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
+            safe_cwe = html_lib.escape(str(finding['cwe'])) if finding.get('cwe') else None
+
             cards.append(f"""
             <div class="finding-card" style="border-left-color: {color};">
                 <div class="finding-header">
                     <div>
-                        <div class="finding-file">📁 {finding['file']}:{finding['line']}</div>
+                        <div class="finding-file">📁 {safe_file}:{safe_line}</div>
                     </div>
                     <span class="severity-badge" style="background: {color};">{severity}</span>
                 </div>
                 <div class="finding-issue">
-                    <strong>{finding['issue']}</strong>
+                    <strong>{safe_issue}</strong>
                 </div>
-                {f'<div class="finding-code">{finding.get("code", "")}</div>' if finding.get('code') else ''}
+                {f'<div class="finding-code">{safe_code}</div>' if finding.get('code') else ''}
                 <div style="margin-top: 10px; font-size: 0.85em; color: #6c757d;">
-                    Scanner: {finding['scanner']} | Confidence: {finding.get('confidence', 'N/A')}
-                    {f' | CWE-{finding["cwe"]}' if finding.get('cwe') else ''}
+                    Scanner: {safe_scanner} | Confidence: {safe_confidence}
+                    {f' | CWE-{safe_cwe}' if safe_cwe else ''}
                 </div>
             </div>
             """)

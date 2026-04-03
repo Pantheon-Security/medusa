@@ -450,7 +450,8 @@ class TestGetStats:
             {'scanner': 'bandit', 'file': 'src/app.py', 'line': 10, 'severity': 'HIGH', 'issue': 'SQL'},
         ]
 
-        stats = fp_filter.get_stats(findings)
+        filtered, fps = fp_filter.filter_findings(findings)
+        stats = fp_filter.get_stats(filtered, fps)
 
         assert 'total_findings' in stats
         assert 'likely_fps' in stats
@@ -467,7 +468,8 @@ class TestGetStats:
             {'scanner': 'bandit', 'file': 'mocks/mock.py', 'line': 1, 'severity': 'HIGH', 'issue': 'Test'},
         ]
 
-        stats = fp_filter.get_stats(findings)
+        filtered, fps = fp_filter.filter_findings(findings)
+        stats = fp_filter.get_stats(filtered, fps)
 
         assert 'by_reason' in stats
         assert isinstance(stats['by_reason'], dict)
@@ -480,7 +482,8 @@ class TestGetStats:
             {'scanner': 'semgrep', 'file': 'tests/test.py', 'line': 1, 'severity': 'HIGH', 'issue': 'Test'},
         ]
 
-        stats = fp_filter.get_stats(findings)
+        filtered, fps = fp_filter.filter_findings(findings)
+        stats = fp_filter.get_stats(filtered, fps)
 
         assert 'by_scanner' in stats
         assert isinstance(stats['by_scanner'], dict)

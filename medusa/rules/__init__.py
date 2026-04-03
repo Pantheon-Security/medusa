@@ -243,8 +243,10 @@ class RuleLoader:
                 print(f"WARNING: {len(violations)} non-critical integrity violations in rule files")
                 self._integrity_verified = True
 
+        except RuntimeError:
+            raise  # CRITICAL tamper detection — do not suppress
         except Exception as e:
-            # Don't block on integrity check failures
+            # Don't block on import errors or non-critical check failures
             print(f"Warning: Rule integrity check failed: {e}")
             self._integrity_verified = True
 
