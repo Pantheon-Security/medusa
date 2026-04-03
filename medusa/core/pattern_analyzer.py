@@ -471,7 +471,7 @@ class CodePatternAnalyzer:
         analysis = RepoAnalysis()
         analysis.security_context = SecurityContext()
 
-        path = Path(path).resolve()
+        path = Path(path).resolve(strict=False)
 
         # Walk the repository
         for file_path in self._walk_repo(path):

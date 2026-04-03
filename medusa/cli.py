@@ -1297,6 +1297,10 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
+    if not Path(target).exists():
+        console.print(f"\n[bold red]Error:[/bold red] Target path does not exist: {target}")
+        return
+
     console.print("\n[dim]Analyzing repository...[/dim]")
     analyzer = CodePatternAnalyzer()
     repo_analysis = analyzer.analyze_repo(Path(target))
