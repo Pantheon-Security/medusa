@@ -28,6 +28,19 @@ from datetime import datetime
 # Import new scanner architecture
 from medusa.scanners import registry as scanner_registry
 
+# Max length for code snippets stored in findings — prevents full secret values
+# (API keys, tokens, passwords) from being written verbatim into report artifacts.
+_CODE_SNIPPET_MAX = 200
+
+def _truncate_code(code: str) -> str:
+    """Truncate a code snippet to _CODE_SNIPPET_MAX chars to avoid leaking full secret values."""
+    if not code:
+        return code
+    code = code.strip()
+    if len(code) > _CODE_SNIPPET_MAX:
+        return code[:_CODE_SNIPPET_MAX] + ' …[truncated]'
+    return code
+
 try:
     from tqdm import tqdm
     HAS_TQDM = True
@@ -1199,7 +1212,7 @@ class MedusaParallelScanner:
                             'confidence': issue.get('issue_confidence', 'HIGH'),
                             'issue': issue.get('issue_text', issue.get('message', str(issue))),
                             'cwe': issue.get('issue_cwe', {}).get('id'),
-                            'code': issue.get('code', '')
+                            'code': _truncate_code(issue.get('code', ''))
                         })
                     # Handle new ScannerIssue object format
                     else:
@@ -1211,7 +1224,7 @@ class MedusaParallelScanner:
                             'confidence': 'HIGH',
                             'issue': issue.message,
                             'cwe': issue.cwe_id,
-                            'code': issue.code
+                            'code': _truncate_code(issue.code)
                         })
 
         # Apply FP filter to reduce false positives

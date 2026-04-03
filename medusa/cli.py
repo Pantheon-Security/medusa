@@ -1616,10 +1616,12 @@ def _scan_git_repo(
     and cleanup of the temporary directory.
     """
     clone_url = _resolve_git_url(git_url)
+    # Strip auth tokens from URL before any console output (https://token@host → https://host)
+    _display_url = re.sub(r'https?://[^@\s]+@', 'https://', clone_url)
 
     print_banner()
     console.print(f"\n[cyan]Cloning repository...[/cyan]")
-    console.print(f"[dim]  {clone_url}[/dim]\n")
+    console.print(f"[dim]  {_display_url}[/dim]\n")
 
     tmp_dir = tempfile.mkdtemp(prefix="medusa-git-")
     import atexit as _atexit
@@ -1661,7 +1663,7 @@ def _scan_git_repo(
         # Import here to match the pattern used in the scan() function
         from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
-        console.print(f"[cyan]Target:[/cyan] {clone_url}")
+        console.print(f"[cyan]Target:[/cyan] {_display_url}")
         console.print(f"[cyan]Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
         if exclude:
             console.print(f"[cyan]Excluding:[/cyan] {', '.join(exclude)}")
