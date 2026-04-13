@@ -133,7 +133,7 @@ class VersionManager:
             with open(self.lock_file) as f:
                 data = toml.load(f)
                 return data.get('metadata', {})
-        except:
+        except Exception:
             return {}
 
     def is_locked(self) -> bool:
