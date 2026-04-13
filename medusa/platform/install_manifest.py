@@ -6,7 +6,7 @@ Tracks tools installed by MEDUSA to prevent accidental uninstallation of user to
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Optional, List
 
@@ -69,7 +69,7 @@ class InstallManifest:
         """
         self.data['tools'][tool_name] = {
             'installed_by_medusa': not already_existed,
-            'installed_at': datetime.utcnow().isoformat(),
+            'installed_at': datetime.now(timezone.utc).isoformat(),
             'package_manager': package_manager,
             'package_id': package_id or tool_name,
             'version': version,
