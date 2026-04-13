@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from collections import defaultdict
 
 from medusa import __version__
+from medusa.core.taxonomy_names import mitre_atlas_display_name, owasp_llm_display_name
 
 # MITRE ATLAS technique pages (https://atlas.mitre.org/)
 _ATLAS_BASE = "https://atlas.mitre.org/techniques"
@@ -26,7 +27,7 @@ def _mitre_atlas_url(mitre_atlas: str) -> str:
 
 
 # MITRE ATLAS technique IDs embedded in issue text (many scanners put AML.T#### in the message only)
-_ATLAS_TECHNIQUE_ID_RE = re.compile(r"\bAML\.T\d{4}\b")
+_ATLAS_TECHNIQUE_ID_RE = re.compile(r"\bAML\.T\d{4}(?:\.\d{3})?\b")
 
 
 def _extract_atlas_technique_ids(finding: Dict[str, Any]) -> List[str]:
@@ -49,6 +50,50 @@ def _extract_atlas_technique_ids(finding: Dict[str, Any]) -> List[str]:
     for m in _ATLAS_TECHNIQUE_ID_RE.finditer(blob):
         add(m.group(0))
     return out
+
+
+# OWASP Top 10 for LLM Applications (2025) — hub + per-risk anchors on the same page
+# https://genai.owasp.org/llm-top-10/
+_OWASP_LLM_HUB_URL = "https://genai.owasp.org/llm-top-10/"
+_OWASP_LLM_CATEGORY_RE = re.compile(r"\bLLM(?:0[1-9]|10):\d{4}\b", re.IGNORECASE)
+
+
+def _owasp_llm_hub_url(category_id: str) -> str:
+    """Link to the OWASP Gen AI LLM Top 10 hub; fragment #llm01–#llm10 when parsable."""
+    tid = category_id.split(",")[0].strip()
+    m = re.match(r"LLM(\d{1,2}):", tid, re.IGNORECASE)
+    if m:
+        n = int(m.group(1))
+        if 1 <= n <= 10:
+            return f"{_OWASP_LLM_HUB_URL}#llm{n:02d}"
+    return _OWASP_LLM_HUB_URL
+
+
+def _extract_owasp_llm_categories(finding: Dict[str, Any]) -> List[str]:
+    """Collect LLM01:2025-style IDs from owasp_llm field and/or issue/code text."""
+    seen: set = set()
+    out: List[str] = []
+
+    def add(cat: str) -> None:
+        cat = cat.strip()
+        if not cat or cat in seen:
+            return
+        seen.add(cat)
+        out.append(cat)
+
+    ow = finding.get("owasp_llm")
+    if ow:
+        for part in str(ow).split(","):
+            add(part)
+    blob = f"{finding.get('issue', '')} {finding.get('code', '')}"
+    for m in _OWASP_LLM_CATEGORY_RE.finditer(blob):
+        add(m.group(0))
+    return out
+
+
+def _owasp_llm_sort_key(cat: str):
+    m = re.match(r"LLM(\d{1,2}):", cat.strip(), re.IGNORECASE)
+    return (int(m.group(1)), cat.lower()) if m else (99, cat.lower())
 
 
 # Pre-compiled regex patterns for SARIF rule ID sanitisation (used per-finding)
@@ -203,6 +248,34 @@ class MedusaReportGenerator:
             report['mitre_atlas_summary'] = dict(
                 sorted(tid_counts.items(), key=lambda x: (-x[1], x[0]))
             )
+            report['mitre_atlas_summary_detail'] = [
+                {
+                    'id': k,
+                    'name': mitre_atlas_display_name(k) or None,
+                    'count': v,
+                }
+                for k, v in sorted(tid_counts.items(), key=lambda x: (-x[1], x[0]))
+            ]
+
+        owasp_counts: Dict[str, int] = {}
+        for f in raw_findings + likely_fps:
+            for cat in _extract_owasp_llm_categories(f):
+                owasp_counts[cat] = owasp_counts.get(cat, 0) + 1
+        if owasp_counts:
+            report['owasp_llm_summary'] = dict(
+                sorted(owasp_counts.items(), key=lambda x: (-x[1], _owasp_llm_sort_key(x[0])))
+            )
+            report['owasp_llm_summary_detail'] = [
+                {
+                    'id': k,
+                    'name': owasp_llm_display_name(k) or None,
+                    'count': v,
+                }
+                for k, v in sorted(
+                    owasp_counts.items(),
+                    key=lambda x: (-x[1], _owasp_llm_sort_key(x[0])),
+                )
+            ]
 
         # Save report
         output_path = output_path or self.output_dir / f"medusa-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
@@ -333,13 +406,24 @@ class MedusaReportGenerator:
 
                 ma_ids = _extract_atlas_technique_ids(finding)
                 if ma_ids:
-                    links_md = ', '.join(
-                        f'[{tid}]({_mitre_atlas_url(tid)})' for tid in ma_ids
-                    )
-                    md += f"**MITRE ATLAS:** {links_md}  \n"
-                owasp_llm = finding.get('owasp_llm')
-                if owasp_llm:
-                    md += f"**OWASP LLM:** {owasp_llm}  \n"
+                    parts = []
+                    for tid in ma_ids:
+                        dn = mitre_atlas_display_name(tid)
+                        link = f'[{tid}]({_mitre_atlas_url(tid)})'
+                        if dn:
+                            link += f' — {dn}'
+                        parts.append(link)
+                    md += f"**MITRE ATLAS:** {', '.join(parts)}  \n"
+                ow_ids = _extract_owasp_llm_categories(finding)
+                if ow_ids:
+                    oparts = []
+                    for cid in ow_ids:
+                        odn = owasp_llm_display_name(cid)
+                        olink = f'[{cid}]({_owasp_llm_hub_url(cid)})'
+                        if odn:
+                            olink += f' — {odn}'
+                        oparts.append(olink)
+                    md += f"**OWASP LLM:** {', '.join(oparts)}  \n"
 
                 if finding.get('code'):
                     md += f"\n**Code:**\n```\n{finding['code']}\n```\n"
@@ -558,6 +642,9 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
         for tid in _extract_atlas_technique_ids(finding):
             tags.append(f"external/mitre-atlas/{tid}")
 
+        for cat in _extract_owasp_llm_categories(finding):
+            tags.append(f"external/owasp-llm/{cat.replace(':', '-')}")
+
         return tags
 
     def _build_html_report(self, report: Dict[str, Any]) -> str:
@@ -585,6 +672,7 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 
         likely_fp = report.get('likely_false_positives') or []
         atlas_widget_html = self._build_mitre_atlas_widget_html(findings, likely_false_positives=likely_fp)
+        owasp_llm_widget_html = self._build_owasp_llm_widget_html(findings, likely_false_positives=likely_fp)
 
         # Get score color based on value
         score = summary['security_score']
@@ -982,9 +1070,24 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 
         .atlas-tech-row {{
             display: grid;
-            grid-template-columns: minmax(140px, 1fr) 48px 4fr;
+            grid-template-columns: minmax(200px, 1.4fr) 48px 4fr;
             align-items: center;
             gap: 12px;
+        }}
+
+        .taxonomy-id-cell {{
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            min-width: 0;
+        }}
+
+        .taxonomy-name {{
+            font-size: 12px;
+            font-weight: 400;
+            color: var(--text-muted);
+            line-height: 1.35;
         }}
 
         @media (max-width: 640px) {{
@@ -1029,6 +1132,135 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             height: 100%;
             border-radius: 999px;
             background: linear-gradient(90deg, #7c3aed 0%, var(--primary) 100%);
+            min-width: 4px;
+            transition: width 0.35s ease;
+        }}
+
+        /* OWASP LLM Top 10 coverage widget */
+        .owasp-llm-widget {{
+            background: linear-gradient(145deg, var(--bg-card) 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 28px;
+            margin-bottom: 28px;
+            border-left: 4px solid #0d9488;
+        }}
+
+        .owasp-llm-widget-empty {{
+            border-left-color: var(--border);
+            background: var(--bg-card);
+        }}
+
+        .owasp-llm-widget .section-title {{
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .owasp-llm-widget-badge {{
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            background: rgba(13, 148, 136, 0.25);
+            color: #5eead4;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(13, 148, 136, 0.45);
+        }}
+
+        .owasp-llm-widget-sub {{
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }}
+
+        .owasp-llm-widget-sub a {{
+            color: var(--primary);
+            text-decoration: none;
+        }}
+
+        .owasp-llm-widget-sub a:hover {{
+            text-decoration: underline;
+        }}
+
+        .owasp-llm-stats {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 22px;
+        }}
+
+        .owasp-llm-stat-pill {{
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }}
+
+        .owasp-llm-stat-pill strong {{
+            color: var(--text);
+            font-weight: 600;
+        }}
+
+        .owasp-llm-bars {{
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }}
+
+        .owasp-llm-row {{
+            display: grid;
+            grid-template-columns: minmax(200px, 1.4fr) 48px 4fr;
+            align-items: center;
+            gap: 12px;
+        }}
+
+        @media (max-width: 640px) {{
+            .owasp-llm-row {{
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }}
+            .owasp-llm-row .owasp-llm-bar-track {{
+                grid-column: 1 / -1;
+            }}
+        }}
+
+        .owasp-llm-cat-id {{
+            font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #5eead4;
+            text-decoration: none;
+        }}
+
+        .owasp-llm-cat-id:hover {{
+            color: #2dd4bf;
+            text-decoration: underline;
+        }}
+
+        .owasp-llm-count {{
+            text-align: right;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }}
+
+        .owasp-llm-bar-track {{
+            height: 10px;
+            background: var(--bg);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }}
+
+        .owasp-llm-bar-fill {{
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #0d9488 0%, #14b8a6 100%);
             min-width: 4px;
             transition: width 0.35s ease;
         }}
@@ -1268,6 +1500,8 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 
         {atlas_widget_html}
 
+        {owasp_llm_widget_html}
+
         {linter_banner}
 
         <div class="findings-section">
@@ -1326,8 +1560,6 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
         </div>
         '''
 
-        import html as html_lib
-
         total_mapped = sum(counts.values())
         unique_n = len(counts)
         max_c = max(counts.values())
@@ -1337,9 +1569,18 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             pct = (cnt / max_c) * 100 if max_c else 0
             safe_tid = html_lib.escape(tid)
             safe_url = html_lib.escape(_mitre_atlas_url(tid))
+            dn = mitre_atlas_display_name(tid)
+            name_line = (
+                f'<span class="taxonomy-name">{html_lib.escape(dn)}</span>'
+                if dn
+                else ''
+            )
             rows.append(f'''
             <div class="atlas-tech-row">
-                <a class="atlas-tech-id" href="{safe_url}" target="_blank" rel="noopener noreferrer">{safe_tid}</a>
+                <div class="taxonomy-id-cell">
+                    <a class="atlas-tech-id" href="{safe_url}" target="_blank" rel="noopener noreferrer">{safe_tid}</a>
+                    {name_line}
+                </div>
                 <span class="atlas-tech-count">{cnt}</span>
                 <div class="atlas-bar-track"><div class="atlas-bar-fill" style="width: {pct:.1f}%;"></div></div>
             </div>''')
@@ -1391,6 +1632,120 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
         </div>
         '''
 
+    def _build_owasp_llm_widget_html(
+        self,
+        findings: List[Dict],
+        likely_false_positives: Optional[List[Dict]] = None,
+    ) -> str:
+        """OWASP Top 10 for LLM Applications (2025) coverage: counts + bars, hub-linked rows."""
+        from collections import Counter
+
+        lfp = likely_false_positives or []
+        owasp_from_main = any(_extract_owasp_llm_categories(f) for f in findings)
+        owasp_from_lfp = any(_extract_owasp_llm_categories(f) for f in lfp)
+
+        counts: Counter = Counter()
+        for f in findings:
+            for cat in _extract_owasp_llm_categories(f):
+                counts[cat] += 1
+        for f in lfp:
+            for cat in _extract_owasp_llm_categories(f):
+                counts[cat] += 1
+
+        hub_esc = html_lib.escape(_OWASP_LLM_HUB_URL)
+
+        if not counts:
+            return f'''
+        <div class="owasp-llm-widget owasp-llm-widget-empty">
+            <h2 class="section-title">
+                <span class="owasp-llm-widget-badge">OWASP LLM</span>
+                Top 10 coverage
+            </h2>
+            <p class="owasp-llm-widget-sub">
+                No OWASP LLM category IDs (<code style="font-size:12px;">LLM01:2025</code> … <code style="font-size:12px;">LLM10:2025</code>) were found.
+                They appear when scanners attach <code style="font-size:12px;">owasp_llm</code> or when the issue text references a category.
+                See the official
+                <a href="{hub_esc}" target="_blank" rel="noopener noreferrer">OWASP LLM Top 10 (2025)</a> overview.
+            </p>
+        </div>
+        '''
+
+        total_mapped = sum(counts.values())
+        unique_n = len(counts)
+        max_c = max(counts.values())
+
+        sorted_items = sorted(
+            counts.items(),
+            key=lambda x: (-x[1], _owasp_llm_sort_key(x[0])),
+        )
+        rows = []
+        for cat, cnt in sorted_items[:24]:
+            pct = (cnt / max_c) * 100 if max_c else 0
+            safe_cat = html_lib.escape(cat)
+            safe_url = html_lib.escape(_owasp_llm_hub_url(cat))
+            odn = owasp_llm_display_name(cat)
+            oname = (
+                f'<span class="taxonomy-name">{html_lib.escape(odn)}</span>'
+                if odn
+                else ''
+            )
+            rows.append(f'''
+            <div class="owasp-llm-row">
+                <div class="taxonomy-id-cell">
+                    <a class="owasp-llm-cat-id" href="{safe_url}" target="_blank" rel="noopener noreferrer">{safe_cat}</a>
+                    {oname}
+                </div>
+                <span class="owasp-llm-count">{cnt}</span>
+                <div class="owasp-llm-bar-track"><div class="owasp-llm-bar-fill" style="width: {pct:.1f}%;"></div></div>
+            </div>''')
+
+        more = ''
+        if unique_n > 24:
+            more = (
+                f'<p class="owasp-llm-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                f'Showing top 24 categories by finding count ({unique_n} unique total).</p>'
+            )
+
+        lfp_note = ''
+        if owasp_from_lfp and not owasp_from_main:
+            lfp_note = (
+                '<p class="owasp-llm-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                'OWASP LLM references appear only in findings classified as <strong>likely false positives</strong> '
+                '(see JSON <code>likely_false_positives</code>). The main list excludes them from the issue count.'
+                '</p>'
+            )
+        elif owasp_from_lfp and owasp_from_main:
+            lfp_note = (
+                '<p class="owasp-llm-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                'Counts include OWASP LLM references from both the main findings list and '
+                '<strong>likely false positives</strong> (deduplicated per category ID).'
+                '</p>'
+            )
+
+        return f'''
+        <div class="owasp-llm-widget">
+            <h2 class="section-title">
+                <span class="owasp-llm-widget-badge">OWASP LLM</span>
+                Top 10 coverage
+            </h2>
+            <p class="owasp-llm-widget-sub">
+                Categories follow the
+                <a href="{hub_esc}" target="_blank" rel="noopener noreferrer">OWASP Top 10 for LLM Applications (2025)</a>
+                on the Gen AI Security Project site. Row links jump to the matching section on that page when anchors are available.
+                Each bar is proportional to the highest-count category in this report.
+            </p>
+            <div class="owasp-llm-stats">
+                <span class="owasp-llm-stat-pill"><strong>{unique_n}</strong> unique categories</span>
+                <span class="owasp-llm-stat-pill"><strong>{total_mapped}</strong> finding references</span>
+            </div>
+            <div class="owasp-llm-bars">
+                {''.join(rows)}
+            </div>
+            {more}
+            {lfp_note}
+        </div>
+        '''
+
     def _build_professional_findings_html(self, findings: List[Dict]) -> str:
         """Build professional findings list"""
         if not findings:
@@ -1404,8 +1759,6 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
         # Sort by severity
         severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'INFO': 4, 'UNDEFINED': 5}
         sorted_findings = sorted(findings, key=lambda f: severity_order.get(f.get('severity', 'LOW').upper(), 99))
-
-        import html as html_lib
 
         html_parts = []
         for finding in sorted_findings:
@@ -1441,15 +1794,35 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
                 for tid in ma_ids:
                     ma_u = html_lib.escape(_mitre_atlas_url(tid))
                     ma_s = html_lib.escape(tid)
+                    dn = mitre_atlas_display_name(tid)
+                    name_bit = (
+                        f' <span class="taxonomy-name">— {html_lib.escape(dn)}</span>'
+                        if dn
+                        else ''
+                    )
                     links.append(
                         f'<a href="{ma_u}" target="_blank" rel="noopener noreferrer" '
-                        f'style="color: var(--primary);">{ma_s}</a>'
+                        f'style="color: var(--primary);">{ma_s}</a>{name_bit}'
                     )
                 atlas_meta = '<span>ATLAS: ' + ' · '.join(links) + '</span>'
-            ow = finding.get('owasp_llm')
+            ow_ids = _extract_owasp_llm_categories(finding)
             owasp_meta = ''
-            if ow:
-                owasp_meta = f'<span>OWASP LLM: {html_lib.escape(str(ow))}</span>'
+            if ow_ids:
+                ow_links = []
+                for cid in ow_ids:
+                    ow_u = html_lib.escape(_owasp_llm_hub_url(cid))
+                    ow_s = html_lib.escape(cid)
+                    odn = owasp_llm_display_name(cid)
+                    oname_bit = (
+                        f' <span class="taxonomy-name">— {html_lib.escape(odn)}</span>'
+                        if odn
+                        else ''
+                    )
+                    ow_links.append(
+                        f'<a href="{ow_u}" target="_blank" rel="noopener noreferrer" '
+                        f'style="color: var(--primary);">{ow_s}</a>{oname_bit}'
+                    )
+                owasp_meta = '<span>OWASP LLM: ' + ' · '.join(ow_links) + '</span>'
 
             html_parts.append(f'''
             <div class="finding {severity_class}">
@@ -1584,20 +1957,35 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             f_code = html_lib.escape(str(finding.get('code', ''))) if finding.get('code') else ''
             f_scanner = html_lib.escape(str(finding['scanner']))
             f_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
-            ma = finding.get('mitre_atlas')
+            ma_ids = _extract_atlas_technique_ids(finding)
             ma_html = ""
-            if ma:
-                ma_s = html_lib.escape(str(ma))
-                ma_u = html_lib.escape(_mitre_atlas_url(str(ma)))
+            if ma_ids:
+                ma_parts = []
+                for tid in ma_ids:
+                    ma_u = html_lib.escape(_mitre_atlas_url(tid))
+                    ma_s = html_lib.escape(tid)
+                    dn = mitre_atlas_display_name(tid)
+                    nb = f' <span style="color: var(--text-muted); font-weight:400;">— {html_lib.escape(dn)}</span>' if dn else ''
+                    ma_parts.append(
+                        f'<a href="{ma_u}" target="_blank" style="color: var(--primary);">{ma_s}</a>{nb}'
+                    )
                 ma_html = (
-                    f'<div class="meta-item">🎯 MITRE ATLAS: <a href="{ma_u}" target="_blank" '
-                    f'style="color: var(--primary);">{ma_s}</a></div>'
+                    f'<div class="meta-item">🎯 MITRE ATLAS: {" · ".join(ma_parts)}</div>'
                 )
-            ow = finding.get('owasp_llm')
+            ow_ids = _extract_owasp_llm_categories(finding)
             ow_html = ""
-            if ow:
+            if ow_ids:
+                ow_parts = []
+                for cid in ow_ids:
+                    ow_u = html_lib.escape(_owasp_llm_hub_url(cid))
+                    ow_s = html_lib.escape(cid)
+                    odn = owasp_llm_display_name(cid)
+                    onb = f' <span style="color: var(--text-muted); font-weight:400;">— {html_lib.escape(odn)}</span>' if odn else ''
+                    ow_parts.append(
+                        f'<a href="{ow_u}" target="_blank" style="color: var(--primary);">{ow_s}</a>{onb}'
+                    )
                 ow_html = (
-                    f'<div class="meta-item">📋 OWASP LLM: <strong>{html_lib.escape(str(ow))}</strong></div>'
+                    f'<div class="meta-item">📋 OWASP LLM: {" · ".join(ow_parts)}</div>'
                 )
             cards.append(f"""
             <div class="finding-card" style="--severity-color: {color}; --severity-shadow: {shadow};">
@@ -1673,13 +2061,27 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             safe_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
             safe_cwe = html_lib.escape(str(finding['cwe'])) if finding.get('cwe') else None
             ma_extra = ""
-            if finding.get('mitre_atlas'):
-                ma_s = html_lib.escape(str(finding['mitre_atlas']))
-                ma_u = html_lib.escape(_mitre_atlas_url(str(finding['mitre_atlas'])))
-                ma_extra = f' | <a href="{ma_u}" target="_blank" style="color:#0dcaf0;">ATLAS {ma_s}</a>'
+            ma_ids = _extract_atlas_technique_ids(finding)
+            if ma_ids:
+                bits = []
+                for tid in ma_ids:
+                    ma_s = html_lib.escape(tid)
+                    ma_u = html_lib.escape(_mitre_atlas_url(tid))
+                    dn = mitre_atlas_display_name(tid)
+                    nb = f' — {html_lib.escape(dn)}' if dn else ''
+                    bits.append(f'<a href="{ma_u}" target="_blank" style="color:#0dcaf0;">ATLAS {ma_s}</a>{nb}')
+                ma_extra = ' | ' + ' · '.join(bits)
             ow_extra = ""
-            if finding.get('owasp_llm'):
-                ow_extra = f" | OWASP LLM {html_lib.escape(str(finding['owasp_llm']))}"
+            ow_ids = _extract_owasp_llm_categories(finding)
+            if ow_ids:
+                obits = []
+                for cid in ow_ids:
+                    ow_s = html_lib.escape(cid)
+                    ow_u = html_lib.escape(_owasp_llm_hub_url(cid))
+                    odn = owasp_llm_display_name(cid)
+                    onb = f' — {html_lib.escape(odn)}' if odn else ''
+                    obits.append(f'<a href="{ow_u}" target="_blank" style="color:#0dcaf0;">{ow_s}</a>{onb}')
+                ow_extra = ' | OWASP LLM: ' + ' · '.join(obits)
 
             cards.append(f"""
             <div class="finding-card" style="border-left-color: {color};">
