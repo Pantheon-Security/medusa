@@ -65,6 +65,8 @@ class TrivyScanner(BaseScanner):
         'go.mod', 'go.sum', 'composer.lock', 'composer.json',
         'pnpm-lock.yaml', 'npm-shrinkwrap.json', 'bun.lockb',
         'pipfile', 'pipfile.lock', 'setup.cfg', 'setup.py',
+        # Gradle dependency lock (trivy fs — lang-pkgs / CVEs on locked jars)
+        'gradle.lockfile',
     ])
 
     def __init__(self):

@@ -277,6 +277,8 @@ class WebSecurityScanner(RuleBasedScanner):
                                 code=line.strip(),
                                 rule_id=rule.id,
                                 cwe_id=cwe_id,
+                                mitre_atlas=rule.mitre_atlas,
+                                owasp_llm=rule.owasp_llm,
                             ))
                             break  # One match per rule per line
                     except re.error:

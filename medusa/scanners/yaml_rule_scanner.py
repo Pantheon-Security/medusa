@@ -177,6 +177,8 @@ class YAMLRuleScanner(RuleBasedScanner):
                                 rule_id=rule.id,
                                 cwe_id=cwe_id,
                                 cwe_link=cwe_link,
+                                mitre_atlas=rule.mitre_atlas,
+                                owasp_llm=rule.owasp_llm,
                             ))
                             break
                     except re.error:

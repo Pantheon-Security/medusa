@@ -57,6 +57,53 @@ except ImportError:
     HAS_RICH = False
 
 
+def _build_batch_external_scanner_cache_payload() -> Dict[str, Tuple[dict, bool]]:
+    """Snapshot Trivy/Semgrep/GitLeaks batch caches for multiprocessing workers."""
+    from medusa.scanners.trivy_scanner import TrivyScanner
+    from medusa.scanners.semgrep_scanner import SemgrepScanner
+    from medusa.scanners.gitleaks_scanner import GitLeaksScanner
+
+    payload: Dict[str, Tuple[dict, bool]] = {}
+    for s in scanner_registry.scanners:
+        if isinstance(s, TrivyScanner):
+            payload['trivy'] = (s._results_cache, s._cache_populated)
+        elif isinstance(s, SemgrepScanner):
+            payload['semgrep'] = (s._results_cache, s._cache_populated)
+        elif isinstance(s, GitLeaksScanner):
+            payload['gitleaks'] = (s._results_cache, s._cache_populated)
+    return payload
+
+
+def _mp_init_batch_scanner_caches(payload: Optional[Dict[str, Tuple[dict, bool]]]) -> None:
+    """Multiprocessing pool initializer: restore batch tool caches in worker processes.
+
+    Linux often uses fork(), where workers inherit parent memory. macOS (3.8+) and
+    Windows use 'spawn': workers import the package fresh with empty Trivy/Semgrep/
+    GitLeaks caches, so batch scan_project() results never reached scan_file() and
+    findings were missing from reports unless the slow per-file subprocess path
+    succeeded (often timing out at PER_SCANNER_TIMEOUT).
+    """
+    if not payload:
+        return
+    from medusa.scanners.trivy_scanner import TrivyScanner
+    from medusa.scanners.semgrep_scanner import SemgrepScanner
+    from medusa.scanners.gitleaks_scanner import GitLeaksScanner
+
+    for s in scanner_registry.scanners:
+        if isinstance(s, TrivyScanner) and 'trivy' in payload:
+            cache, populated = payload['trivy']
+            s._results_cache = cache
+            s._cache_populated = populated
+        elif isinstance(s, SemgrepScanner) and 'semgrep' in payload:
+            cache, populated = payload['semgrep']
+            s._results_cache = cache
+            s._cache_populated = populated
+        elif isinstance(s, GitLeaksScanner) and 'gitleaks' in payload:
+            cache, populated = payload['gitleaks']
+            s._results_cache = cache
+            s._cache_populated = populated
+
+
 # Maximum file size for content/regex scanners (2MB).
 # Files larger than this are almost always data files (datasets, logs,
 # vendor bundles) rather than source code.  Scanning a 73MB JSON dataset
@@ -330,6 +377,15 @@ class MedusaParallelScanner:
         # Legacy PowerShell or CMD — no Unicode support
         return False
 
+    def _mp_pool_kwargs(self) -> dict:
+        """Arguments for ``multiprocessing.Pool`` so workers see batch Trivy/Semgrep/GitLeaks caches."""
+        kwargs: dict = {'processes': self.workers}
+        payload = getattr(self, '_batch_external_scanner_cache', None)
+        if payload:
+            kwargs['initializer'] = _mp_init_batch_scanner_caches
+            kwargs['initargs'] = (payload,)
+        return kwargs
+
     def _find_medusa_script(self) -> Optional[Path]:
         """Find medusa.sh script (optional - only for non-Python files)"""
         candidates = [
@@ -466,6 +522,8 @@ class MedusaParallelScanner:
 
         # Exact special file names (case-sensitive)
         special_exact_names: Set[str] = {
+            # Gradle lockfile — suffix is .lockfile, not FILE_SCANNERS['.lock']
+            'gradle.lockfile',
             'mcp.json', 'mcp-config.json', 'mcp_config.json',
             'claude_desktop_config.json', '.mcp.json',
             '.cursorrules', 'cursorrules', '.cursor-rules',
@@ -911,14 +969,19 @@ class MedusaParallelScanner:
             if hasattr(scanner, '_load_rules'):
                 scanner._load_rules()
 
-        # Run external tools once against the project root before the Pool forks.
+        # Run external tools once against the project root before the Pool starts.
         # Each tool has startup overhead per invocation; running per-file creates O(N)
         # startups. One batch run amortises that cost across all files.
-        # Workers inherit the populated caches via copy-on-write fork semantics.
+        # With fork (Linux), workers inherit caches; with spawn (macOS, Windows),
+        # caches are injected via Pool(initializer=...) — see _mp_init_batch_scanner_caches.
+        self._batch_external_scanner_cache = None
         if files:
-            import os as _os
-            _common = Path(_os.path.commonpath([str(f) for f in files]))
-            _project_root = _common if _common.is_dir() else _common.parent
+            # Batch external tools must use the configured scan root — not
+            # os.path.commonpath(files). find_scannable_files() intentionally adds
+            # paths outside the project (e.g. ~/.cursor/mcp.json); mixing those with
+            # project paths makes commonpath() resolve to the user home directory,
+            # causing trivy/semgrep/gitleaks to scan the entire $HOME.
+            _project_root = self.project_root
             _icon2 = '*' if self.force_ascii else '\U0001f50d'
 
             from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
@@ -947,6 +1010,8 @@ class MedusaParallelScanner:
             if _gitleaks and _gitleaks.is_available():
                 print(f"{_icon2} Running GitLeaks batch scan on {_project_root}...")
                 _gitleaks.scan_project(_project_root)
+
+            self._batch_external_scanner_cache = _build_batch_external_scanner_cache_payload()
 
         try:
             if HAS_RICH:
@@ -984,7 +1049,7 @@ class MedusaParallelScanner:
         # meaning the table only updates ~24 times total.
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
 
-        with Pool(processes=self.workers) as pool:
+        with Pool(**self._mp_pool_kwargs()) as pool:
             if use_live:
                 # Live updating table - uses stderr to avoid corruption from stray stdout
                 live_console = RichConsole(stderr=True)
@@ -1055,7 +1120,7 @@ class MedusaParallelScanner:
         scanner_totals = {}
 
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
-        with Pool(processes=self.workers) as pool:
+        with Pool(**self._mp_pool_kwargs()) as pool:
             pbar = tqdm(
                 pool.imap_unordered(self.scan_file, files, chunksize=chunksize),
                 total=len(files),
@@ -1073,7 +1138,7 @@ class MedusaParallelScanner:
 
     def _scan_with_pool(self, files: List[Path]) -> List[ScanResult]:
         """Fallback: scan with basic Pool.map"""
-        with Pool(processes=self.workers) as pool:
+        with Pool(**self._mp_pool_kwargs()) as pool:
             results = pool.map(self.scan_file, files)
             _ic = '+' if self.force_ascii else '\u2705'
             print(f"{_ic} Scanned {len(files)} files")
@@ -1204,7 +1269,7 @@ class MedusaParallelScanner:
                 for issue in result.issues:
                     # Handle old dict format (backward compatibility)
                     if isinstance(issue, dict):
-                        findings.append({
+                        fd = {
                             'scanner': issue.get('_scanner_name', result.scanner) or 'unknown',
                             'file': result.file,
                             'line': issue.get('line_number', issue.get('line', 0)),
@@ -1212,11 +1277,16 @@ class MedusaParallelScanner:
                             'confidence': issue.get('issue_confidence', 'HIGH'),
                             'issue': issue.get('issue_text', issue.get('message', str(issue))),
                             'cwe': issue.get('issue_cwe', {}).get('id'),
-                            'code': _truncate_code(issue.get('code', ''))
-                        })
+                            'code': _truncate_code(issue.get('code', '')),
+                        }
+                        if issue.get('mitre_atlas'):
+                            fd['mitre_atlas'] = issue['mitre_atlas']
+                        if issue.get('owasp_llm'):
+                            fd['owasp_llm'] = issue['owasp_llm']
+                        findings.append(fd)
                     # Handle new ScannerIssue object format
                     else:
-                        findings.append({
+                        fd = {
                             'scanner': result.scanner or 'unknown',
                             'file': result.file,
                             'line': issue.line,
@@ -1224,8 +1294,15 @@ class MedusaParallelScanner:
                             'confidence': 'HIGH',
                             'issue': issue.message,
                             'cwe': issue.cwe_id,
-                            'code': _truncate_code(issue.code)
-                        })
+                            'code': _truncate_code(issue.code),
+                        }
+                        ma = getattr(issue, 'mitre_atlas', None)
+                        if ma:
+                            fd['mitre_atlas'] = ma
+                        ol = getattr(issue, 'owasp_llm', None)
+                        if ol:
+                            fd['owasp_llm'] = ol
+                        findings.append(fd)
 
         # Apply FP filter to reduce false positives
         fp_stats = None

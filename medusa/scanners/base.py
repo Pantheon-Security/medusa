@@ -57,10 +57,13 @@ class ScannerIssue:
     cwe_id: Optional[int] = None
     cwe_link: Optional[str] = None
     rule_url: Optional[str] = None
+    # Taxonomy from YAML rules (https://atlas.mitre.org/, OWASP LLM Top 10)
+    mitre_atlas: Optional[str] = None
+    owasp_llm: Optional[str] = None
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
-        return {
+        d: Dict = {
             'severity': self.severity.value,
             'message': self.message,
             'line': self.line,
@@ -71,6 +74,11 @@ class ScannerIssue:
             'cwe_link': self.cwe_link,
             'rule_url': self.rule_url,
         }
+        if self.mitre_atlas:
+            d['mitre_atlas'] = self.mitre_atlas
+        if self.owasp_llm:
+            d['owasp_llm'] = self.owasp_llm
+        return d
 
 
 @dataclass
@@ -493,7 +501,9 @@ class RuleBasedScanner(BaseScanner):
                                 line=i,
                                 rule_id=rule.id,
                                 cwe_id=cwe_id,
-                                cwe_link=cwe_link
+                                cwe_link=cwe_link,
+                                mitre_atlas=rule.mitre_atlas,
+                                owasp_llm=rule.owasp_llm,
                             ))
                             break  # One issue per line per rule
                     except re.error:

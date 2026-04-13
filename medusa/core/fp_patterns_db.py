@@ -1199,10 +1199,14 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
         description="Java/Rust target/ build output is not source",
     ),
     # --- 42. Generated code: markers in content ---
+    # Exclude Gradle lockfiles: their official banner contains "Gradle generated file", which
+    # matched the GENERATED FILE alternative and incorrectly dropped real Trivy CVE findings.
     FPPattern(
         name="generated_code_marker",
         scanner=None,
         pattern=r'.*',
+        file_pattern=r'(gradle\.lockfile|buildscript-gradle\.lockfile)$',
+        file_pattern_negate=True,
         context_pattern=r'(Code generated.*DO NOT EDIT|@generated|@auto-generated|DO NOT EDIT|DO NOT MODIFY|GENERATED FILE|AUTO[ -]?GENERATED|THIS FILE IS GENERATED)',
         reason=FPReason.GENERATED_CODE,
         confidence=0.92,
@@ -4081,14 +4085,16 @@ KNOWN_FP_PATTERNS: List[FPPattern] = [
     # 299: Findings in JSON data files (579 findings)
     # All findings where file ends in .json - audit caches, process dumps,
     # config files, plugin manifests.
+    # Exclude lab-*.json / lab_*.json basenames (intentional security-training samples).
     FPPattern(
         name="findings_in_json_data_files",
         scanner=None,
         pattern=r'.',
-        file_pattern=r'\.json$',
+        # Anchor with ^/$ so .search() cannot match a suffix like "poison.json" inside "lab-rag-poison.json".
+        file_pattern=r'(?i)^(?!.*/lab[-_][^/]*\.json$)(?!lab[-_][^/]*\.json$).+\.json$',
         reason=FPReason.GENERATED_CODE,
         confidence=0.85,
-        description="JSON data files contain data that matches security patterns but aren't exploitable code",
+        description="JSON data files contain data that matches security patterns but aren't exploitable code (excludes lab-*/lab_* JSON samples)",
     ),
 
     # 300: Sensitive data in JSON key names (502 findings)

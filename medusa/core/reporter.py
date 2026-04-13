@@ -10,10 +10,46 @@ import json
 import re
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List, Any
+from typing import Any, Dict, List, Optional
 from collections import defaultdict
 
 from medusa import __version__
+
+# MITRE ATLAS technique pages (https://atlas.mitre.org/)
+_ATLAS_BASE = "https://atlas.mitre.org/techniques"
+
+
+def _mitre_atlas_url(mitre_atlas: str) -> str:
+    """Return URL for the first technique ID if comma-separated."""
+    tid = mitre_atlas.split(",")[0].strip()
+    return f"{_ATLAS_BASE}/{tid}"
+
+
+# MITRE ATLAS technique IDs embedded in issue text (many scanners put AML.T#### in the message only)
+_ATLAS_TECHNIQUE_ID_RE = re.compile(r"\bAML\.T\d{4}\b")
+
+
+def _extract_atlas_technique_ids(finding: Dict[str, Any]) -> List[str]:
+    """Collect AML.T#### IDs from mitre_atlas field and/or issue and code text."""
+    seen: set = set()
+    out: List[str] = []
+
+    def add(tid: str) -> None:
+        tid = tid.strip()
+        if not tid or tid in seen:
+            return
+        seen.add(tid)
+        out.append(tid)
+
+    ma = finding.get("mitre_atlas")
+    if ma:
+        for part in str(ma).split(","):
+            add(part)
+    blob = f"{finding.get('issue', '')} {finding.get('code', '')}"
+    for m in _ATLAS_TECHNIQUE_ID_RE.finditer(blob):
+        add(m.group(0))
+    return out
+
 
 # Pre-compiled regex patterns for SARIF rule ID sanitisation (used per-finding)
 _SARIF_RULE_ID_SANITIZE = re.compile(r'[^a-zA-Z0-9-]')
@@ -108,13 +144,14 @@ class MedusaReportGenerator:
     def generate_json_report(self, scan_results: Dict[str, Any], output_path: Path = None, ai_safe: bool = False) -> Path:
         """Generate JSON report"""
         timestamp = datetime.now().isoformat()
-        findings = list(scan_results.get('findings', []))
+        raw_findings = list(scan_results.get('findings', []))
+        findings = raw_findings
 
         # Apply AI-safe obfuscation if requested
         obfuscator = None
         if ai_safe:
             obfuscator = PayloadObfuscator()
-            findings = obfuscator.obfuscate_findings(findings)
+            findings = obfuscator.obfuscate_findings(list(raw_findings))
 
         # FP stats
         fp_stats = scan_results.get('fp_stats')
@@ -150,8 +187,22 @@ class MedusaReportGenerator:
         if fp_stats:
             report['fp_stats'] = fp_stats
 
+        # Auditing: findings removed as likely FPs (not in `findings`) — omitted when empty
+        if likely_fps:
+            report['likely_false_positives'] = likely_fps
+
         if ai_safe:
             report['ai_safe_mode'] = True
+
+        # MITRE ATLAS: aggregate from pre-obfuscation findings + likely FPs (same basis as HTML widget)
+        tid_counts: Dict[str, int] = {}
+        for f in raw_findings + likely_fps:
+            for tid in _extract_atlas_technique_ids(f):
+                tid_counts[tid] = tid_counts.get(tid, 0) + 1
+        if tid_counts:
+            report['mitre_atlas_summary'] = dict(
+                sorted(tid_counts.items(), key=lambda x: (-x[1], x[0]))
+            )
 
         # Save report
         output_path = output_path or self.output_dir / f"medusa-scan-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
@@ -279,6 +330,16 @@ class MedusaReportGenerator:
                 cwe = finding.get('cwe')
                 if cwe and str(cwe).isdigit():
                     md += f"**CWE:** [CWE-{cwe}](https://cwe.mitre.org/data/definitions/{cwe}.html)  \n"
+
+                ma_ids = _extract_atlas_technique_ids(finding)
+                if ma_ids:
+                    links_md = ', '.join(
+                        f'[{tid}]({_mitre_atlas_url(tid)})' for tid in ma_ids
+                    )
+                    md += f"**MITRE ATLAS:** {links_md}  \n"
+                owasp_llm = finding.get('owasp_llm')
+                if owasp_llm:
+                    md += f"**OWASP LLM:** {owasp_llm}  \n"
 
                 if finding.get('code'):
                     md += f"\n**Code:**\n```\n{finding['code']}\n```\n"
@@ -494,6 +555,9 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
         if cwe:
             tags.append(f"external/cwe/cwe-{cwe}")
 
+        for tid in _extract_atlas_technique_ids(finding):
+            tags.append(f"external/mitre-atlas/{tid}")
+
         return tags
 
     def _build_html_report(self, report: Dict[str, Any]) -> str:
@@ -518,6 +582,9 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 
         # FP stats from report
         fp_filtered = summary.get('false_positives_filtered', 0)
+
+        likely_fp = report.get('likely_false_positives') or []
+        atlas_widget_html = self._build_mitre_atlas_widget_html(findings, likely_false_positives=likely_fp)
 
         # Get score color based on value
         score = summary['security_score']
@@ -837,6 +904,135 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             font-size: 14px;
         }}
 
+        /* MITRE ATLAS coverage widget */
+        .atlas-widget {{
+            background: linear-gradient(145deg, var(--bg-card) 0%, #121820 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px 28px;
+            margin-bottom: 28px;
+            border-left: 4px solid #7c3aed;
+        }}
+
+        .atlas-widget-empty {{
+            border-left-color: var(--border);
+            background: var(--bg-card);
+        }}
+
+        .atlas-widget .section-title {{
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }}
+
+        .atlas-widget-badge {{
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            background: rgba(124, 58, 237, 0.25);
+            color: #c4b5fd;
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(124, 58, 237, 0.45);
+        }}
+
+        .atlas-widget-sub {{
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }}
+
+        .atlas-widget-sub a {{
+            color: var(--primary);
+            text-decoration: none;
+        }}
+
+        .atlas-widget-sub a:hover {{
+            text-decoration: underline;
+        }}
+
+        .atlas-stats {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 22px;
+        }}
+
+        .atlas-stat-pill {{
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }}
+
+        .atlas-stat-pill strong {{
+            color: var(--text);
+            font-weight: 600;
+        }}
+
+        .atlas-bars {{
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }}
+
+        .atlas-tech-row {{
+            display: grid;
+            grid-template-columns: minmax(140px, 1fr) 48px 4fr;
+            align-items: center;
+            gap: 12px;
+        }}
+
+        @media (max-width: 640px) {{
+            .atlas-tech-row {{
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }}
+            .atlas-tech-row .atlas-bar-track {{
+                grid-column: 1 / -1;
+            }}
+        }}
+
+        .atlas-tech-id {{
+            font-family: 'SF Mono', Monaco, 'Consolas', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: #c4b5fd;
+            text-decoration: none;
+        }}
+
+        .atlas-tech-id:hover {{
+            color: var(--primary);
+            text-decoration: underline;
+        }}
+
+        .atlas-tech-count {{
+            text-align: right;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+        }}
+
+        .atlas-bar-track {{
+            height: 10px;
+            background: var(--bg);
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }}
+
+        .atlas-bar-fill {{
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #7c3aed 0%, var(--primary) 100%);
+            min-width: 4px;
+            transition: width 0.35s ease;
+        }}
+
         /* Findings */
         .findings-section {{
             background: var(--bg-card);
@@ -1070,6 +1266,8 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             </table>
         </div>
 
+        {atlas_widget_html}
+
         {linter_banner}
 
         <div class="findings-section">
@@ -1086,6 +1284,112 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 </html>"""
 
         return html
+
+    def _build_mitre_atlas_widget_html(
+        self,
+        findings: List[Dict],
+        likely_false_positives: Optional[List[Dict]] = None,
+    ) -> str:
+        """Build MITRE ATLAS coverage widget: unique techniques, finding counts, bar chart.
+
+        Counts include both retained findings and likely-FP findings (same JSON as
+        ``likely_false_positives``) so taxonomy is visible even when the FP filter
+        removed rule-backed ``mitre_atlas`` rows from the main list.
+        """
+        from collections import Counter
+
+        lfp = likely_false_positives or []
+        atlas_from_main = any(_extract_atlas_technique_ids(f) for f in findings)
+        atlas_from_lfp = any(_extract_atlas_technique_ids(f) for f in lfp)
+
+        counts: Counter = Counter()
+        for f in findings:
+            for tid in _extract_atlas_technique_ids(f):
+                counts[tid] += 1
+        for f in lfp:
+            for tid in _extract_atlas_technique_ids(f):
+                counts[tid] += 1
+
+        if not counts:
+            return '''
+        <div class="atlas-widget atlas-widget-empty">
+            <h2 class="section-title">
+                <span class="atlas-widget-badge">MITRE ATLAS</span>
+                Technique coverage
+            </h2>
+            <p class="atlas-widget-sub">
+                No MITRE ATLAS technique IDs (<code style="font-size:12px;">AML.T####</code>) were found in this report.
+                They appear when scanners attach a <code style="font-size:12px;">mitre_atlas</code> field, or when a
+                finding message references a technique (see
+                <a href="https://atlas.mitre.org/" target="_blank" rel="noopener noreferrer">atlas.mitre.org</a>).
+            </p>
+        </div>
+        '''
+
+        import html as html_lib
+
+        total_mapped = sum(counts.values())
+        unique_n = len(counts)
+        max_c = max(counts.values())
+
+        rows = []
+        for tid, cnt in counts.most_common(48):
+            pct = (cnt / max_c) * 100 if max_c else 0
+            safe_tid = html_lib.escape(tid)
+            safe_url = html_lib.escape(_mitre_atlas_url(tid))
+            rows.append(f'''
+            <div class="atlas-tech-row">
+                <a class="atlas-tech-id" href="{safe_url}" target="_blank" rel="noopener noreferrer">{safe_tid}</a>
+                <span class="atlas-tech-count">{cnt}</span>
+                <div class="atlas-bar-track"><div class="atlas-bar-fill" style="width: {pct:.1f}%;"></div></div>
+            </div>''')
+
+        more = ''
+        if unique_n > 48:
+            more = (
+                f'<p class="atlas-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                f'Showing top 48 techniques by finding count ({unique_n} unique total).</p>'
+            )
+
+        lfp_note = ''
+        if atlas_from_lfp and not atlas_from_main:
+            lfp_note = (
+                '<p class="atlas-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                'Technique references appear only in findings classified as <strong>likely false positives</strong> '
+                '(see JSON <code>likely_false_positives</code>). The main list excludes them from the issue count.'
+                '</p>'
+            )
+        elif atlas_from_lfp and atlas_from_main:
+            lfp_note = (
+                '<p class="atlas-widget-sub" style="margin-top:12px;margin-bottom:0;">'
+                'Counts include MITRE ATLAS references from both the main findings list and '
+                '<strong>likely false positives</strong> (deduplicated per technique ID).'
+                '</p>'
+            )
+
+        return f'''
+        <div class="atlas-widget">
+            <h2 class="section-title">
+                <span class="atlas-widget-badge">MITRE ATLAS</span>
+                Technique coverage
+            </h2>
+            <p class="atlas-widget-sub">
+                Mapped findings reference techniques from the
+                <a href="https://atlas.mitre.org/" target="_blank" rel="noopener noreferrer">MITRE ATLAS</a>
+                knowledge base (Adversarial Threat Landscape for AI Systems). Each bar is proportional to the
+                highest-count technique in this report.
+            </p>
+            <div class="atlas-stats">
+                <span class="atlas-stat-pill"><strong>{unique_n}</strong> unique techniques</span>
+                <span class="atlas-stat-pill"><strong>{total_mapped}</strong> finding references</span>
+            </div>
+            <div class="atlas-bars">
+                {''.join(rows)}
+            </div>
+            {more}
+            {lfp_note}
+        </div>
+        '''
 
     def _build_professional_findings_html(self, findings: List[Dict]) -> str:
         """Build professional findings list"""
@@ -1130,6 +1434,23 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             if fp_analysis.get('is_likely_fp'):
                 fp_badge = '<span style="color: var(--medium);">Likely FP</span>'
 
+            ma_ids = _extract_atlas_technique_ids(finding)
+            atlas_meta = ''
+            if ma_ids:
+                links = []
+                for tid in ma_ids:
+                    ma_u = html_lib.escape(_mitre_atlas_url(tid))
+                    ma_s = html_lib.escape(tid)
+                    links.append(
+                        f'<a href="{ma_u}" target="_blank" rel="noopener noreferrer" '
+                        f'style="color: var(--primary);">{ma_s}</a>'
+                    )
+                atlas_meta = '<span>ATLAS: ' + ' · '.join(links) + '</span>'
+            ow = finding.get('owasp_llm')
+            owasp_meta = ''
+            if ow:
+                owasp_meta = f'<span>OWASP LLM: {html_lib.escape(str(ow))}</span>'
+
             html_parts.append(f'''
             <div class="finding {severity_class}">
                 <div class="finding-header">
@@ -1142,6 +1463,8 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
                     <span>Scanner: {scanner}</span>
                     <span>Confidence: {confidence}</span>
                     {cwe_link}
+                    {atlas_meta}
+                    {owasp_meta}
                     {fp_badge}
                 </div>
             </div>
@@ -1261,6 +1584,21 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             f_code = html_lib.escape(str(finding.get('code', ''))) if finding.get('code') else ''
             f_scanner = html_lib.escape(str(finding['scanner']))
             f_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
+            ma = finding.get('mitre_atlas')
+            ma_html = ""
+            if ma:
+                ma_s = html_lib.escape(str(ma))
+                ma_u = html_lib.escape(_mitre_atlas_url(str(ma)))
+                ma_html = (
+                    f'<div class="meta-item">🎯 MITRE ATLAS: <a href="{ma_u}" target="_blank" '
+                    f'style="color: var(--primary);">{ma_s}</a></div>'
+                )
+            ow = finding.get('owasp_llm')
+            ow_html = ""
+            if ow:
+                ow_html = (
+                    f'<div class="meta-item">📋 OWASP LLM: <strong>{html_lib.escape(str(ow))}</strong></div>'
+                )
             cards.append(f"""
             <div class="finding-card" style="--severity-color: {color}; --severity-shadow: {shadow};">
                 <div class="finding-header">
@@ -1275,6 +1613,8 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
                     <div class="meta-item">🔍 Scanner: <strong>{f_scanner}</strong></div>
                     <div class="meta-item">📊 Confidence: <strong>{f_confidence}</strong></div>
                     {f'<div class="meta-item">🔗 <a href="https://cwe.mitre.org/data/definitions/{finding["cwe"]}.html" target="_blank" style="color: var(--primary);">CWE-{finding["cwe"]}</a></div>' if finding.get('cwe') else ''}
+                    {ma_html}
+                    {ow_html}
                 </div>
             </div>
             """)
@@ -1332,6 +1672,14 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             safe_scanner = html_lib.escape(str(finding['scanner']))
             safe_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
             safe_cwe = html_lib.escape(str(finding['cwe'])) if finding.get('cwe') else None
+            ma_extra = ""
+            if finding.get('mitre_atlas'):
+                ma_s = html_lib.escape(str(finding['mitre_atlas']))
+                ma_u = html_lib.escape(_mitre_atlas_url(str(finding['mitre_atlas'])))
+                ma_extra = f' | <a href="{ma_u}" target="_blank" style="color:#0dcaf0;">ATLAS {ma_s}</a>'
+            ow_extra = ""
+            if finding.get('owasp_llm'):
+                ow_extra = f" | OWASP LLM {html_lib.escape(str(finding['owasp_llm']))}"
 
             cards.append(f"""
             <div class="finding-card" style="border-left-color: {color};">
@@ -1347,7 +1695,7 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
                 {f'<div class="finding-code">{safe_code}</div>' if finding.get('code') else ''}
                 <div style="margin-top: 10px; font-size: 0.85em; color: #6c757d;">
                     Scanner: {safe_scanner} | Confidence: {safe_confidence}
-                    {f' | CWE-{safe_cwe}' if safe_cwe else ''}
+                    {f' | CWE-{safe_cwe}' if safe_cwe else ''}{ma_extra}{ow_extra}
                 </div>
             </div>
             """)
