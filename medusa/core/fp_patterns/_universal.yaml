@@ -1,0 +1,1691 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: null
+patterns:
+- name: lockfile_finding
+  pattern: '.*'
+  file_pattern: '(pnpm-lock|yarn\.lock|package-lock|Gemfile\.lock|poetry\.lock|Cargo\.lock|composer\.lock)'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Findings in dependency lockfiles are not actionable security issues
+- name: pqc_not_crypto_file
+  pattern: 'No PQC library imports'
+  file_pattern: '(crypt|cipher|sign|tls|ssl|certificate|key_exchange)'
+  file_pattern_negate: true
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: PQC advisory is only relevant for files performing cryptographic operations
+- name: pair_attack_word_collision
+  pattern: 'PAIR prompt refinement'
+  context_pattern: '(pair|Pair)(ing|ed|s)\b'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Word 'pairing/paired/pairs' collides with PAIR attack detection
+- name: aws_key_camelcase_collision
+  pattern: 'AWS Secret Access Key'
+  context_pattern: '(dispatcher|Dispatcher|Handler|handler|Manager|manager|Controller|controller)\b'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Long camelCase identifiers mismatched as AWS secret keys
+- name: chrome_api_mcp_collision
+  pattern: 'MCP123.*Update without verification'
+  context_pattern: 'chrome\.(windows|tabs|runtime|extension)\.(update|create|remove)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Chrome extension API calls matched as MCP tool updates
+- name: side_channel_non_crypto
+  pattern: 'Secret-dependent array index|cache attack risk'
+  file_pattern: '\.(ts|js|tsx|jsx|py|rb)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Cache timing side-channel is only relevant in cryptographic implementations
+- name: line_too_long_any
+  pattern: 'line too long'
+  reason: CODE_STYLE
+  confidence: 0.95
+  description: Line length is a code style issue, not a security finding
+- name: vendor_dir_finding
+  pattern: '.*'
+  file_pattern: '(^|/)(vendor|node_modules|\.pnpm|site-packages|\.venv|third_party|external)/'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Findings in vendored/third-party code are not actionable
+- name: adversarial_suffix_comment_separator
+  pattern: 'adversarial suffix.*long special character'
+  context_pattern: '^\s*(?://|/\*|#|\*)\s*[=\-~*#_]{15,}'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Comment separator lines (// ====...) are not adversarial suffixes
+- name: adversarial_suffix_regex_literal
+  pattern: 'adversarial suffix.*long special character'
+  context_pattern: '(?:/[^/\n]{10,}/[gimsuy]*|(?:RegExp|\.match|\.replace|\.test|\.search|\.exec)\s*\()'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs|py)$'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Regex literals contain dense special characters that are not adversarial
+- name: adversarial_suffix_ascii_art
+  pattern: 'adversarial suffix.*long special character'
+  context_pattern: '[\u2500-\u259F]{10,}|[\u2580-\u259F]{5,}|\|[-:]{3,}\|'
+  reason: SAFE_PATTERN
+  confidence: 0.93
+  description: ASCII art, box-drawing, and markdown table separators are not adversarial
+- name: avd_ds_on_non_dockerfile
+  pattern: 'AVD-DS-\d+'
+  file_pattern: '(Dockerfile|dockerfile|\.dockerfile)'
+  file_pattern_negate: true
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Docker-specific AVD-DS findings on non-Dockerfile files
+- name: build_output_dist
+  pattern: '.*'
+  file_pattern: '(^|/)dist/'
+  reason: BUILD_OUTPUT
+  confidence: 0.92
+  description: Findings in dist/ build output are not actionable
+- name: build_output_framework_cache
+  pattern: '.*'
+  file_pattern: '(^|/)\.(next|nuxt|svelte-kit|output)/'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: Framework build cache (.next/.nuxt/.svelte-kit) is compiled output
+- name: build_output_target
+  pattern: '.*'
+  file_pattern: '(^|/)target/(classes|release|debug|site|generated)/'
+  reason: BUILD_OUTPUT
+  confidence: 0.92
+  description: Java/Rust target/ build output is not source
+- name: generated_code_marker
+  pattern: '.*'
+  context_pattern: '(Code generated.*DO NOT EDIT|@generated|@auto-generated|DO NOT EDIT|DO NOT MODIFY|GENERATED FILE|AUTO[ -]?GENERATED|THIS FILE IS GENERATED)'
+  reason: GENERATED_CODE
+  confidence: 0.92
+  description: File contains auto-generation marker - fix the generator, not the output
+- name: generated_code_protobuf
+  pattern: '.*'
+  file_pattern: '\.(pb|pb2)\.go$|_pb2\.py$|_pb\.ts$|\.pb\.h$'
+  reason: GENERATED_CODE
+  confidence: 0.95
+  description: Protobuf-generated file (*.pb.go, *_pb2.py, etc.)
+- name: generated_code_graphql
+  pattern: '.*'
+  file_pattern: 'generated\.(ts|tsx|js)$|__generated__/'
+  reason: GENERATED_CODE
+  confidence: 0.92
+  description: GraphQL/codegen generated TypeScript/JavaScript file
+- name: minified_js_css
+  pattern: '.*'
+  file_pattern: '\.min\.(js|css)$'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: Minified file - fix the source, not the minified output
+- name: bundled_js
+  pattern: '.*'
+  file_pattern: '\.(bundle|chunk)\.(js|mjs|cjs)$'
+  reason: BUILD_OUTPUT
+  confidence: 0.93
+  description: Bundled JavaScript (webpack/rollup output) - fix the source module
+- name: ide_config_dir
+  pattern: '.*'
+  file_pattern: '(^|/)\.(idea|vscode|eclipse|cursor)/'
+  reason: SAFE_PATTERN
+  confidence: 0.93
+  description: IDE configuration directory is not application source code
+- name: coverage_output_dir
+  pattern: '.*'
+  file_pattern: '(^|/)(htmlcov|\.nyc_output|\.coverage)/'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: Test coverage output directory is not source code
+- name: coverage_lcov_file
+  pattern: '.*'
+  file_pattern: '\.lcov$|lcov\.info$'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: LCOV coverage data file is not source code
+- name: lockfile_go_sum
+  pattern: '.*'
+  file_pattern: '(^|/)go\.sum$'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: go.sum dependency checksums are not actionable security issues
+- name: migration_sql_patterns
+  pattern: '(SQL injection|Raw SQL|string concatenation.*sql)'
+  file_pattern: '(^|/)(migrations?|alembic|db/migrate|prisma/migrations|flyway|liquibase)/.*\.(sql|py|rb|ts|js)$'
+  reason: SAFE_PATTERN
+  confidence: 0.75
+  description: SQL patterns in database migration files are intentional DDL/DML
+- name: multiagent_file_level_import
+  pattern: '(Inter-agent messages without validation|Agent delegation without privilege|Agent interactions without audit|Agent handoff.*without authentication)'
+  context_pattern: '^(import\s|export\s|from\s|type\s|interface\s)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: File-level agent safety finding on import/type, not agent logic
+- name: multiagent_nostr_base64
+  pattern: 'Multi-agent.*encoded communication.*base64'
+  file_pattern: 'nostr'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Nostr bech32/hex keys misidentified as encoded agent communication
+- name: zero_width_ts_js_advisory
+  pattern: 'zero-width character filtering'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Zero-width character advisory on TS/JS is informational, not a vulnerability
+- name: raw_response_return_raw_var
+  pattern: 'Returning raw response without sanitization'
+  context_pattern: 'return\s+raw\b|return\s+raw\.'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Variable named raw returned after transformation is not unsanitized
+- name: prompt_extraction_docs
+  pattern: '(Prompt extraction|prompt extraction)'
+  file_pattern: '(^|/)docs?/|\.md$'
+  reason: DOCSTRING
+  confidence: 0.9
+  description: Documentation discussing prompts is not a prompt extraction attack
+- name: prompt_injection_test
+  pattern: '(Prompt injection|prompt injection)'
+  file_pattern: '\.(test|spec)\.(ts|js|tsx|jsx)$|__tests__/'
+  reason: TEST_FILE
+  confidence: 0.88
+  description: Prompt injection strings in test files are test payloads
+- name: password_boolean_literal
+  pattern: |-
+    Possible hardcoded password: '(True|False|None)'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Boolean/None literals matched as password values
+- name: returning_prompt_in_prompt_file
+  pattern: 'Directly returning prompt'
+  file_pattern: 'prompts?\.py$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Prompt builder files legitimately return prompt variables
+- name: memory_poisoning_on_memory_tool
+  pattern: 'Memory poisoning'
+  file_pattern: 'memory[-_]?tool'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Memory tool implementation flagged as attack against itself
+- name: embedding_pipeline_in_eval
+  pattern: '(Embedding pipeline|No minimum relevance threshold)'
+  file_pattern: '(vectordb|evaluation|embedding)'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: VectorDB/evaluation code has intentional embedding pipelines
+- name: avd_ksv_on_docker_compose
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: 'docker-compose.*\.(ya?ml|yml)$|compose\.(ya?ml|yml)$'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Kubernetes AVD-KSV findings on Docker Compose files (not k8s manifests)
+- name: avd_ksv_not_k8s_manifest
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: '(deployment|statefulset|daemonset|pod|replicaset|job|cronjob|k8s|kube|helm|chart)'
+  file_pattern_negate: true
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: AVD-KSV Kubernetes findings on files that are not Kubernetes manifests
+- name: cve_on_docker_compose_yaml
+  pattern: 'CVE-\d+-\d+'
+  file_pattern: 'docker-compose.*\.(ya?ml|yml)$|compose\.(ya?ml|yml)$'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: CVE dependency findings incorrectly attributed to Docker Compose files
+- name: api_key_param_in_python_lib
+  pattern: 'API key found in memory config'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Python library code referencing api_key as parameter/config field
+- name: cve_on_tooling_config_json
+  pattern: 'CVE-\d+-\d+'
+  file_pattern: '(tsconfig|\.prettierrc|openapitools|typedoc|vercel|components|turbo|CMakePresets|pydoc-markdown)\.(json|ya?ml)$'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: CVE findings incorrectly attributed to tooling config files
+- name: build_output_static_assets
+  pattern: '.*'
+  file_pattern: '(^|/)static/(assets|js|css)/'
+  reason: BUILD_OUTPUT
+  confidence: 0.9
+  description: Static assets directory contains bundled/compiled output
+- name: tool_defs_in_llm_library
+  pattern: 'Tool definitions included in response'
+  file_pattern: '(langchain|llama_?index|openai|anthropic|crewai|autogen).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: LLM framework library code defines tool schemas by design
+- name: memory_poisoning_state_file_python
+  pattern: '[Mm]emory poisoning.*agent state file target'
+  file_pattern: '(langchain|crewai|autogen|llama_?index).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: LLM framework library code legitimately manages agent state files
+- name: sensitive_data_plugin_return_python_lib
+  pattern: 'Sensitive data in plugin return'
+  file_pattern: '(langchain|chromadb|llama_?index|embedding_function).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: LLM/embedding library code returning API response data
+- name: mcp123_python_update_method
+  pattern: 'MCP123.*Update without verification'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Python dict.update()/ORM.update() are standard operations
+- name: secret_token_param_in_python_lib
+  pattern: 'Secret/token found in memory config'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Python library code referencing token as parameter/config field
+- name: memory_poisoning_on_storage_impl
+  pattern: 'Memory Poisoning.*Persistent memory storage'
+  file_pattern: '(store|storage|cache|persist|segment|collection|vectorstore|in_memory).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: Storage/cache implementations flagged for persisting data
+- name: agent_logging_on_callback_code
+  pattern: 'Agent action without logging'
+  file_pattern: '(callback|tracer|handler|logger|monitor).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: Callback/tracer code IS the logging infrastructure
+- name: path_traversal_fstring_python_lib
+  pattern: 'Path traversal.*f-string'
+  file_pattern: '(langchain|chromadb|llama_?index).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: LLM framework library f-string paths use trusted config variables
+- name: context_overflow_on_text_processing
+  pattern: 'Context window overflow'
+  file_pattern: '(langchain|text.?split|chunk|tokeniz|prompt).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Text processing/splitting library code handles large inputs by design
+- name: agent_network_on_api_client
+  pattern: 'Agent with network access'
+  file_pattern: '(langchain|chromadb|api|client|embedding_function).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: API client/embedding library code makes HTTP calls by design
+- name: direct_secret_compare_go
+  pattern: 'Direct secret comparison'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Go == comparisons are typically for config values/enums, not crypto secrets
+- name: secret_array_index_go
+  pattern: 'Secret-dependent array index'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Go array indexing in non-crypto code is not a side-channel risk
+- name: findings_on_openapi_spec
+  pattern: '.*'
+  file_pattern: '(openapi|swagger)\.(json|ya?ml)$'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: OpenAPI/Swagger spec files are API documentation, not executable code
+- name: hidden_div_tsx_jsx
+  pattern: 'Hidden div element'
+  file_pattern: '\.(tsx|jsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: React components use hidden divs for conditional rendering
+- name: avd_cve_on_bandit_yaml
+  pattern: '(AVD-\w+-\d+|CVE-\d+-\d+)'
+  file_pattern: 'bandit\.ya?ml$'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: AVD/CVE findings on bandit linter config are scanner artifacts
+- name: cve_on_pnpm_workspace
+  pattern: '(AVD-\w+-\d+|CVE-\d+-\d+)'
+  file_pattern: 'pnpm-workspace\.ya?ml$'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: AVD/CVE findings on pnpm workspace config are scanner artifacts
+- name: hardcoded_password_ml_special_token
+  pattern: |-
+    Possible hardcoded password: '(<[^>]*>|\[?[A-Z_]+\]?|[a-z_]+_token[a-z_]*|[a-z_]*token_id[a-z_]*|[a-z_]*_index|embeddings[a-z_.]*|all_zeros|[0-9]+|[<|].*[|>])'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.92
+  description: ML tokenizer special tokens matched as passwords
+- name: dropout_disabled_ml_code
+  pattern: 'Dropout disabled.*overfitting'
+  file_pattern: '(model|config|layer|attention|transform|encoder|decoder|head|block|architecture|backbone).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.9
+  description: Dropout=0 in ML model code is valid configuration
+- name: sensitive_data_plugin_return_python
+  pattern: 'Sensitive data in plugin return'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Python function return values are not plugin data exfiltration
+- name: memory_poisoning_agent_state_python_ml
+  pattern: 'Memory poisoning.*agent state file'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Python ML code managing model state is not agent memory poisoning
+- name: mcp_rug_pull_python_update
+  pattern: 'MCP rug pull.*trojaned update'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Python dict.update()/config.update() is standard, not MCP poisoning
+- name: hf_hub_from_pretrained_ml_lib
+  pattern: 'Unsafe Hugging Face Hub download.*from_pretrained'
+  file_pattern: '(transformers|diffusers|tokenizers|huggingface|vllm|model|convert|config).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: from_pretrained() in ML library code is core functionality
+- name: hf_hub_download_ml_lib
+  pattern: 'Unsafe Hugging Face Hub download.*hf_hub_download'
+  file_pattern: '(transformers|diffusers|tokenizers|huggingface|vllm|convert).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: hf_hub_download() in ML library code is core functionality
+- name: hf_hub_snapshot_download_ml_lib
+  pattern: 'Unsafe Hugging Face Hub download.*snapshot_download'
+  file_pattern: '(transformers|diffusers|huggingface|vllm).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: snapshot_download() in ML library code is core functionality
+- name: adapter_nonstandard_source_ml_lib
+  pattern: 'Adapter from non-standard source'
+  file_pattern: '(transformers|diffusers|peft|vllm|model|convert|adapter).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML library code implementing adapter loading
+- name: path_check_no_realpath_python
+  pattern: 'Path check without realpath.*symlink'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Python ML code path checks are for config/model paths
+- name: path_traversal_fstring_python_ml
+  pattern: 'Path traversal.*f-string.*unvalidated'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Python f-string path construction with config variables
+- name: aws_secret_key_python_ml
+  pattern: 'AWS Secret Access Key'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Long Python identifiers with access/secret/key substrings
+- name: embedding_cache_disabled_ml
+  pattern: 'Embedding pipeline.*caching disabled'
+  file_pattern: '(model|embed|encoder|attention|layer|transform).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Embedding caching settings in ML model code are training config
+- name: download_no_integrity_ml
+  pattern: 'Download without integrity verification'
+  file_pattern: '(transformers|diffusers|huggingface|vllm|convert|download).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML framework download code uses hub-level integrity
+- name: external_http_source_ml_converter
+  pattern: '(External HTTP source|Unencrypted HTTP source)'
+  file_pattern: '(convert|download|hub|pretrained|checkpoint).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: ML converter scripts reference model URLs
+- name: path_traversal_file_open_python
+  pattern: 'Path traversal: File open.*unvalidated'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Python open() with config-derived paths is standard file I/O
+- name: hardcoded_credential_python_ml
+  pattern: 'Hardcoded credential in code'
+  file_pattern: '(tokeniz|model|config|convert|ggml|vocab|encode|decode|special_token).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML tokenizer/model string literals are not credentials
+- name: direct_secret_compare_python
+  pattern: 'Direct secret comparison.*constant-time'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Python == comparisons on config values are not secret comparisons
+- name: gsi_reasoning_ml_code
+  pattern: 'GSI.*reasoning attack'
+  file_pattern: '(model|attention|encoder|decoder|layer|head|transform|block).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML model implementation is not a generative style injection attack
+- name: gpu_memory_not_cleared_ml
+  pattern: 'GPU memory not explicitly cleared'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: GPU memory lifecycle managed at framework level
+- name: chatml_control_tokens_tokenizer
+  pattern: '(ChatML control tokens|control token injection)'
+  file_pattern: '(tokeniz|ggml|vocab|convert|chat_template|special_token).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.9
+  description: Tokenizer code defining ChatML tokens is not injection
+- name: constant_zero_init_ml
+  pattern: 'Constant zero initialization'
+  file_pattern: '(model|layer|init|weight|embed|attention|linear).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.9
+  description: Zero initialization is standard ML weight init strategy
+- name: supply_chain_pretrained_ml_lib
+  pattern: 'Supply Chain.*Pre-trained model loaded'
+  file_pattern: '(transformers|diffusers|vllm|model|convert|pretrained).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML library loading pretrained models is its core purpose
+- name: pickle_usage_python_ml
+  pattern: '(pickle|Pickle.*deseriali|Pickle.*unsafe)'
+  file_pattern: '(transformers|vllm|model|dataset|tokeniz|cache|checkpoint|convert).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.8
+  description: Pickle in ML library code is standard for model serialization
+- name: subprocess_python_ml_scripts
+  pattern: 'subprocess.*(?:call|untrusted|security)'
+  file_pattern: '(benchmark|test_|setup|build|install|script|utils|docker|ci_).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Subprocess in ML build/test scripts use hardcoded commands
+- name: memory_poisoning_shared_unbounded_ml
+  pattern: 'Memory Poisoning.*(?:Shared memory|Unbounded memory)'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: ML inference uses shared GPU memory and unbounded caches by design
+- name: ray_framework_detected_ml
+  pattern: 'LO011.*Ray.*(?:framework|cluster)'
+  file_pattern: '(vllm|ray|distributed|parallel|worker|executor).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Ray is standard distributed compute for ML inference
+- name: lora_adapter_ml_lib
+  pattern: 'LO014.*LoRA adapter'
+  file_pattern: '(transformers|peft|vllm|model|adapter|lora).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: ML library implementing LoRA loading is adapter infrastructure
+- name: multimodal_concatenation_ml
+  pattern: 'Multimodal concatenation'
+  file_pattern: '(model|processor|feature|pipeline|multimodal|vision|audio|image).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Multimodal ML models concatenate modalities by design
+- name: bundled_minified_js
+  pattern: '.'
+  file_pattern: '(webui|dist|build)/assets/.*\.js$|\.min\.(js|css)$'
+  reason: GENERATED_CODE
+  confidence: 0.95
+  description: Bundled/minified JS assets are compiled output, not source code
+- name: go_base64_streaming
+  pattern: 'Base64 content in prompt'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Base64 in Go code is protocol encoding, not AI prompt injection
+- name: embedding_provider_api_key
+  pattern: '(API key found|External HTTP source|Password found) in memory'
+  file_pattern: 'embedding.*provider|provider.*embedding'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Embedding providers naturally handle API keys and external HTTP endpoints
+- name: role_markers_in_go
+  pattern: 'Role markers in user content|role confusion attack'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Go RBAC/privilege code uses 'role' terminology but isn't AI-related
+- name: powershell_on_non_windows
+  pattern: 'PowerShell subexpression'
+  file_pattern: '\.(sh|go|py|js|ts|rb)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: PowerShell subexpression pattern triggers on shell/JS $ syntax
+- name: sensitive_data_plugin_return_js_ts
+  pattern: 'Sensitive data in plugin return'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JS/TS function return values are not plugin data exfiltration
+- name: dropout_disabled_any_python
+  pattern: 'Dropout disabled.*overfitting'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Dropout=0 in any Python ML code is valid configuration
+- name: memory_poisoning_agent_state_json
+  pattern: 'Memory poisoning.*agent state file'
+  file_pattern: '\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JSON config files managing state are not agent memory poisoning
+- name: mcp_update_no_verify_js_ts
+  pattern: 'Update without verification'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JS/TS object update methods are not MCP trojaned updates
+- name: mcp_download_no_integrity_js_ts
+  pattern: 'Download without integrity'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JS/TS download code in libraries uses framework-level integrity
+- name: aws_secret_key_js_ts
+  pattern: 'AWS Secret Access Key'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JS/TS identifiers containing aws/secret/key are config variables
+- name: tool_definitions_in_response_json_md
+  pattern: 'Tool definitions included in response'
+  file_pattern: '\.(json|md|markdown)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: JSON/MD files with tool schemas are documentation, not response leakage
+- name: secret_in_memory_config_go_json
+  pattern: 'Secret.*found in memory config'
+  file_pattern: '\.(go|json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Go/JSON config variable names containing 'secret' are not hardcoded secrets
+- name: api_key_in_memory_config_json_go_md
+  pattern: 'API key found in memory config'
+  file_pattern: '\.(json|go|md|markdown)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: JSON/Go/MD files with API key variable names are config schemas
+- name: external_http_source_go
+  pattern: 'External HTTP source'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Go code referencing HTTP endpoints is standard API client code
+- name: direct_secret_compare_go_generic
+  pattern: 'Direct secret comparison.*constant-time'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Go == comparisons in non-crypto code are not timing attacks
+- name: path_traversal_template_literal_js_ts
+  pattern: 'Path traversal.*[tT]emplate literal'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: JS/TS template literals for paths with config variables
+- name: path_traversal_path_object_js_ts
+  pattern: 'Path traversal.*Path object'
+  file_pattern: '\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: JS/TS Path API usage with config-derived paths
+- name: poutine_security_output
+  pattern: '(GitHub App Token|Asymmetric Private Key|AWS Access Key)'
+  file_pattern: '\.poutine\.ya?ml$'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: Poutine security analysis output contains embedded patterns, not real secrets
+- name: poutine_referenced_configs
+  pattern: '(GitHub App Token|Asymmetric Private Key)'
+  file_pattern: '(codecov|cubic|lefthook|renovate|tsconfig)\.(ya?ml|json)$'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: CI/build configs often referenced in security reports, not actual secrets
+- name: llm_cached_context_files
+  pattern: '.'
+  file_pattern: 'codebase_chunks\.json$'
+  reason: GENERATED_CODE
+  confidence: 0.95
+  description: LLM context cache files are derived from source, not separate vulnerabilities
+- name: hf_convert_scripts_broad
+  pattern: '(from_pretrained|hf_hub_download|Dropout disabled|GPU memory|Unencrypted HTTP|download without integrity)'
+  file_pattern: 'convert.*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: HF model conversion scripts contain expected ML patterns
+- name: embedding_cache_disabled_any_python
+  pattern: 'Embedding pipeline.*caching disabled'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Embedding caching settings in any Python ML code are valid config
+- name: go_unsafe_package
+  pattern: '(unsafe|Use of unsafe|Blocklisted import unsafe)'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Go unsafe package is commonly used for performance optimizations
+- name: bundled_diagram_js_livebook
+  pattern: 'SQL.*concatenation'
+  file_pattern: '(architectureDiagram|blockDiagram|classDiagram|erDiagram|flowchart|gantt|gitGraph|mindmap|pie|quadrantChart|requirementDiagram|sankey|sequenceDiagram|stateDiagram|timeline|xyChart|zenuml)-.*\.js$'
+  reason: GENERATED_CODE
+  confidence: 0.95
+  description: Bundled diagram rendering libraries contain embedded SQL-like syntax
+- name: gsi_in_python_libraries
+  pattern: 'GSI|Generative Style Injection'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: GSI patterns in ML libraries are implementation code, not attacks
+- name: input_sanitization_no_zerowidth
+  pattern: 'Input sanitization without zero-width character filtering'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: General library input validation doesn't need zero-width filtering
+- name: agent_action_no_logging_library_code
+  pattern: 'Agent action without logging'
+  file_pattern: '\.(py|js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Generic library code with actions is not agent orchestration
+- name: agent_with_network_library_code
+  pattern: 'Agent with network access'
+  file_pattern: '\.(py|js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Generic library code with HTTP clients is not autonomous agent code
+- name: hardcoded_credential_ml_tokens
+  pattern: 'Information Disclosure.*[hH]ardcoded credential'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: ML token strings in Python are not security credentials
+- name: subprocess_in_build_scripts
+  pattern: 'subprocess call'
+  file_pattern: '(setup|build|install|test_|benchmark|script|ci_|docker).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: subprocess in build/test scripts uses hardcoded safe commands
+- name: partial_executable_path_build
+  pattern: 'Starting a process with a partial executable path'
+  file_pattern: '(setup|build|install|test_|benchmark|script|ci_|docker).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Build/dev scripts use PATH-resolved executables safely
+- name: avd_ksv_in_non_production_yaml
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: '(pre-commit-config|\.pre-commit|example|sample|template|test).*\.(ya?ml|json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: K8s security findings in pre-commit/example files, not production configs
+- name: avd_ksv_broad
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: '\.(ya?ml|json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: K8s security patterns often trigger on non-K8s YAML configs
+- name: avd_aws_in_examples
+  pattern: 'AVD-AWS-\d+'
+  file_pattern: '(example|sample|template|test|fixture).*\.(ya?ml|json|tf)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: AWS security findings in example/template files are not production issues
+- name: avd_aws_broad
+  pattern: 'AVD-AWS-\d+'
+  file_pattern: '\.(ya?ml|json|tf)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.7
+  description: AWS security patterns in config files may be infrastructure-as-code
+- name: quantum_pqc_warnings_crypto_lib
+  pattern: '(quantum|post-quantum|PQC|quantum-vulnerable)'
+  file_pattern: '(crypto|tls|cipher|hash|rsa|ecdsa|vault).*\.(go|py|js|ts)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: Quantum warnings on current crypto libraries are future-looking, not current vulns
+- name: token_in_memory_config_broad
+  pattern: 'Token found in memory config'
+  file_pattern: '\.(py|pyi|go|json|md|markdown)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Variable names containing 'token' in config code are not hardcoded tokens
+- name: path_check_no_realpath_python_broad
+  pattern: 'Path check without realpath'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Python path checks in library code are for config/data paths, not security boundaries
+- name: unencrypted_http_python_lib
+  pattern: 'Unencrypted HTTP'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: HTTP references in library code may be internal/localhost or legacy
+- name: model_deleted_gpu_memory_not_cleared
+  pattern: 'Model deleted but GPU memory not explicitly cleared'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: GPU memory lifecycle is managed at framework/runtime level
+- name: hf_patterns_generic_python
+  pattern: '(Unsafe Hugging Face Hub download|Adapter from non-standard source)'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.75
+  description: HF Hub usage in any Python ML code is standard practice
+- name: supply_chain_ml_library_broad
+  pattern: 'Supply Chain'
+  file_pattern: '(transformers|vllm|langchain|llama|model|pretrained|checkpoint).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.8
+  description: Supply chain warnings in ML libraries are inherent to model loading
+- name: pickle_in_datasets_cache
+  pattern: '[pP]ickle'
+  file_pattern: '(dataset|cache|checkpoint|data_).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: Pickle in dataset/cache code is standard ML serialization
+- name: memory_patterns_ml_inference
+  pattern: '(Shared memory|Unbounded memory|Memory not cleared)'
+  file_pattern: '(model|infer|generate|pipeline|engine|worker|executor).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.8
+  description: Memory management in ML inference code uses framework-level controls
+- name: distributed_framework_patterns
+  pattern: '(Ray.*framework|Ray.*cluster|distributed.*compute)'
+  file_pattern: '(ray|distributed|parallel|worker|executor|vllm).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Distributed compute frameworks like Ray are standard ML infrastructure
+- name: adapter_lora_patterns_ml
+  pattern: '(LoRA adapter|Adapter.*verification|PEFT)'
+  file_pattern: '(adapter|lora|peft|model|config).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: LoRA/adapter code in ML libraries is model customization infrastructure
+- name: multimodal_patterns_ml
+  pattern: 'Multimodal'
+  file_pattern: '(vision|audio|image|video|processor|feature|multimodal).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Multimodal patterns in ML libraries are feature extraction code
+- name: control_tokens_chat_template
+  pattern: 'control token'
+  file_pattern: '(chat.*template|template.*chat|jinja|prompt.*format).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Control token handling in chat template code is formatting logic
+- name: weight_init_patterns_ml
+  pattern: '(Constant zero initialization|Random.*initialization)'
+  file_pattern: '(init|weight|layer|model|module).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Weight initialization strategies are standard ML model setup
+- name: urllib_audit_library
+  pattern: '(Audit url open|urllib.*open)'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: HTTP libraries in Python code are standard for API clients
+- name: eval_exec_ml_code
+  pattern: '(eval|exec).*audit'
+  file_pattern: '(config|model|tokeniz|convert|arch).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.75
+  description: eval/exec in ML config/architecture code is for dynamic model construction
+- name: base64_non_ai_context
+  pattern: 'Base64 content'
+  file_pattern: '\.(go|rs|c|cpp|h)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Base64 in system languages is protocol/encoding, not AI prompt injection
+- name: sensitive_data_logs_ml
+  pattern: 'Sensitive data in (logs|debug|print)'
+  file_pattern: '(debug|log|test_|util).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Debug/test code logging data is for development, not production
+- name: hardcoded_ip_in_config
+  pattern: 'Hardcoded IP address'
+  file_pattern: '(config|settings|example|test|default).*\.(py|pyi|json|ya?ml)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Hardcoded IPs in config/example files are defaults (localhost, etc.)
+- name: timing_attack_non_crypto
+  pattern: 'timing attack|constant-time'
+  file_pattern: '(model|config|util|helper|test_).*\.(py|pyi|go)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: Timing considerations in non-crypto code are performance, not security
+- name: role_confusion_rbac
+  pattern: 'role confusion'
+  file_pattern: '(auth|rbac|permission|access|policy).*\.(py|go|js|ts)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.78
+  description: Role terminology in RBAC code is access control, not AI role injection
+- name: privileged_operation_system
+  pattern: 'Privileged operation'
+  file_pattern: '(system|daemon|service|admin|root).*\.(py|go|c|rs)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.75
+  description: Privileged operations in system code are expected functionality
+- name: batch_size_1_ml_library
+  pattern: 'Batch size of 1'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Batch size=1 in ML library code is valid for inference/testing
+- name: inefficient_batch_size_ml
+  pattern: 'inefficient batch size'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Batch size choices in ML library code are design decisions, not vulnerabilities
+- name: agent_action_no_logging_framework
+  pattern: 'Agent action without logging'
+  file_pattern: '(langchain|llama_index|crewai|autogen|agent|callback|handler|iterator|executor).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Agent framework library code implements its own logging patterns
+- name: agent_network_access_framework
+  pattern: 'Agent with network access'
+  file_pattern: '(langchain|llama_index|crewai|autogen|agent|client|api|service|tool).*\.(py|pyi|js|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Agent framework code providing HTTP/API functionality is expected
+- name: agent_before_tool_framework
+  pattern: 'Agent without before_tool'
+  file_pattern: '(langchain|llama_index|crewai|autogen|agent|executor|runner).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Agent framework base classes don't need before_tool_callback
+- name: ocr_text_llm_ml_model
+  pattern: 'OCR text to LLM'
+  file_pattern: '(model|vision|ocr|image|multimodal|processor|pipeline|auto).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: OCR/vision handling in ML model code is core functionality
+- name: rag_exploitation_ml_model
+  pattern: 'Reasoning-based RAG exploitation'
+  file_pattern: '(model|transform|gemma|llama|gpt|bert|t5|modular|attention).*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Reasoning patterns in ML model code are model architecture, not RAG attacks
+- name: misinformation_risk_ml_config
+  pattern: 'Misinformation Risk.*Fact-checking'
+  file_pattern: '\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: Grounding/fact-checking config in ML library code is a design choice
+- name: unsafe_pytorch_load_convert
+  pattern: 'Use of unsafe PyTorch load'
+  file_pattern: 'convert.*\.(py|pyi)$'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: torch.load() in ML conversion scripts is core ML functionality
+- name: prompt_extraction_llm_framework
+  pattern: 'Prompt extraction.*print/repeat system instructions'
+  file_pattern: '(langchain|llama_index|prompt|template|chain|agent|ai|llm).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: LLM framework code handling prompts is expected functionality
+- name: prompt_in_error_llm_lib
+  pattern: 'Prompt exposed in error message'
+  file_pattern: '(langchain|llama_index|openai|anthropic|llm|chain|agent).*\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: LLM library error handling with prompt context is standard behavior
+- name: locale_i18n_sensitive_keys
+  pattern: 'Potential sensitive data in key'
+  file_pattern: '(locales?/|/locales?/|^locales?/).*\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: i18n translation keys containing words like 'auth', 'password' are not sensitive data
+- name: ruby_linter_config
+  pattern: '.*'
+  file_pattern: '\.(rubocop|rubocop_todo|annotaterb|haml-lint|reek|brakeman)\.ya?ml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Ruby linter and tool configuration files
+- name: yarn_config
+  pattern: '.*'
+  file_pattern: '\.yarnrc\.ya?ml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Yarn package manager configuration
+- name: npm_cve_in_config_files
+  pattern: 'CVE-202\d'
+  file_pattern: '(package\.json|\.ya?ml|crowdin|scalingo|jsconfig|app\.json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: CVE reports in config/manifest files picked up by wrong scanner
+- name: mcp119_web_app_routing
+  pattern: 'MCP119:.*Custom URI scheme.*template injection'
+  file_pattern: '.*\.(ts|tsx|js|jsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Standard web app deep linking/custom protocol handlers, not MCP
+- name: zero_width_unicode_i18n
+  pattern: 'Zero-width (Unicode|character)'
+  file_pattern: '(locales?/|components?/|ui/|emoji/|stories\.).*\.(ts|tsx|js|jsx|json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Zero-width chars are normal in i18n, emoji, and UI component code
+- name: full_width_ascii_ui_input
+  pattern: 'Full-width ASCII characters detected.*obfuscation'
+  file_pattern: '(compose|input|textarea|autosuggest|handled_link)\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: UI text input components handle full-width chars for CJK input
+- name: goal_hijacking_i18n
+  pattern: 'Goal hijacking:.*instruction override'
+  file_pattern: '(locales?/|/locales?/|^locales?/|lint|config).*\.(json|ya?ml)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Translation strings are not goal hijacking attempts
+- name: chat_history_export_social_app
+  pattern: 'Chat history export functionality'
+  file_pattern: '(conversation|message|chat).*\.(js|jsx|ts|tsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Conversation management is core functionality in social media apps
+- name: weak_mcp_token_web_push
+  pattern: 'Weak MCP token handling'
+  file_pattern: '(web_push|push_notification|service_worker|logging|worker).*\.(js|ts)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Web push notification tokens and service worker tokens, not MCP tokens
+- name: private_key_config_template
+  pattern: 'Asymmetric Private Key:.*private-key'
+  file_pattern: '(\.(annotaterb|rubocop(_todo)?|haml-lint|config|lint)\.ya?ml|crowdin\.yml|scalingo\.json|app\.json|jsconfig\.json)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Key patterns in tool configuration and manifest files
+- name: ci_config_secrets
+  pattern: '(Service-account|API Key|Token)'
+  file_pattern: '(codecov|circleci|\.travis|\.github/workflows)\.ya?ml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: CI service account references in CI config files are expected
+- name: avd_azu_in_cicd_configs
+  pattern: 'AVD-AZU-\d+'
+  file_pattern: '\.(poutine|codecov|cubic|lefthook|renovate)\.ya?ml$|renovate\.json$|tsconfig\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.92
+  description: Azure security rules matching CI/CD config files that aren't Azure configs
+- name: github_pat_in_cicd_configs
+  pattern: 'GitHub Personal Access Token|github-pat'
+  file_pattern: '\.(poutine|codecov|cubic|lefthook|renovate)\.ya?ml$|renovate\.json$|tsconfig\.json$|package\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: GitHub PAT pattern matching in CI/CD configs that reference tokens by name
+- name: gcp_service_account_in_configs
+  pattern: '(GCP|Google).*[Ss]ervice.account|gcp-service-account'
+  file_pattern: '\.(poutine|codecov|cubic|lefthook|renovate)\.ya?ml$|renovate\.json$|tsconfig\.json$|package\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: GCP service account pattern matching config files that reference accounts by name
+- name: avd_aws_in_non_terraform_yaml
+  pattern: 'AVD-AWS-\d+'
+  file_pattern: 'buf\.(gen\.)?ya?ml$|\.golangci\.ya?ml$|aws-nuke\.ya?ml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.92
+  description: AVD-AWS rules matching non-Terraform YAML config files (protobuf, linter configs)
+- name: avd_ksv_in_k8s_test_fixtures
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: '(testing|test|fixture|mock|fake)/.*\.json$'
+  reason: TEST_FILE
+  confidence: 0.92
+  description: AVD-KSV rules in Kubernetes test fixture JSON files
+- name: npm_cves_in_non_package_configs
+  pattern: '(clean-css|brace-expansion|tmp@|webpack@).*(CVE-|GHSA-)|(CVE-\d{4}-\d+|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}).*(clean-css|brace-expansion|tmp@|webpack@)'
+  file_pattern: 'buf\.(gen\.)?ya?ml$|\.golangci\.ya?ml$|jsconfig\.json$|jsdoc2md\.json$|metadata\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: npm package CVEs/GHSAs incorrectly matched against non-package YAML/JSON config files
+- name: pqc_warnings_in_crypto_library
+  pattern: 'quantum.vulnerable|migrate to NIST PQC|Shor.s algorithm|Go elliptic curve|Go ECDSA key|RSA.*(2048|4096).*key size|RSA key type usage|X25519 key exchange'
+  file_pattern: 'sdk/|vault/|physical/|command/|builtin/|helper/|ui/(app|lib|mirage)/'
+  reason: SECURITY_MODULE
+  confidence: 0.9
+  description: PQC/quantum vulnerability warnings in security tool crypto implementation code
+- name: findings_in_medusa_scan_output
+  pattern: '.'
+  file_pattern: 'medusa-scan-\d{8}-\d{6}\.(json|html)$'
+  reason: GENERATED_CODE
+  confidence: 0.95
+  description: Findings inside MEDUSA's own scan output files should be excluded
+- name: pii_in_vault_ui_components
+  pattern: 'PII detected in LLM context'
+  file_pattern: '(^|/)ui/(app|lib)/'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: PII detection in Vault UI components - credential config forms, not real PII exposure
+- name: llm_guard_in_llm_framework
+  pattern: 'LLM output returned without toxicity|LLM API calls detected without input.output guards'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.9
+  description: LLM guard/toxicity warnings in LLM framework library code - framework doesn't guard itself
+- name: pii_detection_in_llm_framework
+  pattern: 'PII detected in LLM context'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: PII detection in LLM framework code - framework processes user data by design
+- name: rag_security_in_rag_framework
+  pattern: 'LLM response used without output|RAG content used in prompt|External HTTP source|RAG poisoning.*embedding|Retrieval filtering disabled'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: RAG security warnings in RAG framework library - framework implements RAG by design
+- name: prompt_injection_in_prompt_framework
+  pattern: 'Role markers in user content|Context window overflow|User input.*f-string prompt|User input interpolated in prompt|Directly returning prompt|System prompt interpolated|User input variable as message content|Refusal induction|Full-width ASCII|adversarial suffix|Returning raw response without'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Prompt injection warnings in LLM prompt framework - framework constructs prompts by design
+- name: memory_agent_in_agent_framework
+  pattern: 'Memory Poisoning.*Persistent|Password found in memory|MCP server without authentication|Weak MCP token|Agent action without logging|Agent with (secrets manager|credential) access'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: Agent/memory security findings in agent framework library - framework implements memory/agents by design
+- name: beautifulsoup_in_document_readers
+  pattern: 'BeautifulSoup without comment'
+  file_pattern: '(reader|loader|parser|scraper|html|web).*\.py$'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: BeautifulSoup HTML parsing in document reader/loader code
+- name: try_except_pass_in_framework
+  pattern: 'Try, Except, (Pass|Continue) detected'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: CODE_STYLE
+  confidence: 0.82
+  description: Try/except code style findings in framework - not security issues
+- name: file_ops_in_framework
+  pattern: 'Glob pattern for file enumeration|MCP123.*Download without integrity'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: File operation warnings in LLM framework code
+- name: base64_in_llm_framework
+  pattern: 'Potential Base64 encoded content'
+  file_pattern: '(llama[-_]index|langchain|transformers|vllm|litellm|haystack|autogen|crewai)[-/]'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Base64 encoding in LLM framework data processing code
+- name: findings_in_json_data_files
+  pattern: '.'
+  file_pattern: '\.json$'
+  reason: GENERATED_CODE
+  confidence: 0.85
+  description: JSON data files contain data that matches security patterns but aren't exploitable code
+- name: sensitive_data_in_json_key_names
+  pattern: 'Potential sensitive data in key'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Key name substring matching produces massive FPs ('auth' in 'author', 'token' in 'token_type', etc.)
+- name: migration_sql_destructive_ops
+  pattern: '^(Destructive operation|Data modification|Code execution|Audit Patterns match|MCP audit logging disabled)$'
+  file_pattern: '(^|/)(migrations?|database/migrations?)/'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: SQL migrations contain DROP/DELETE/ALTER statements by definition - these are expected
+- name: try_except_pass_continue_any_scanner
+  pattern: 'Try, Except, (Pass|Continue) detected'
+  reason: CODE_STYLE
+  confidence: 0.85
+  description: Python try/except/pass or continue is a code style issue, not a security vulnerability
+- name: pii_street_address_regex_fp
+  pattern: 'PII detected in LLM context: Street address'
+  file_pattern: '\.(py|js|ts|tsx|jsx|go|rb|rs)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Regex for street addresses matches too many non-PII code patterns
+- name: email_sending_operational
+  pattern: '^Email sending$'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Email sending is normal application behavior, not a security vulnerability
+- name: security_patterns_in_markdown
+  pattern: 'Base64 encoded|adversarial suffix|Obfuscation.*hex|Jailbreak|encoded payload'
+  file_pattern: '\.(md|mdx|markdown)$'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Documentation files are not executable - patterns found in docs aren't real vulnerabilities
+- name: adversarial_suffix_broad
+  pattern: 'adversarial suffix.*long special character'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Regex for adversarial suffixes matches normal special character sequences in code/docs
+- name: temp_file_insecure_usage
+  pattern: 'insecure usage of temp file'
+  reason: CODE_STYLE
+  confidence: 0.8
+  description: Bandit B108 flags any use of /tmp, which is normal in many applications
+- name: glob_pattern_enumeration_broad
+  pattern: 'Glob pattern for file enumeration'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: File globbing is standard programming practice, not a vulnerability
+- name: file_deletion_operational
+  pattern: '^File deletion$'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: File deletion is standard application behavior, not inherently a security vulnerability
+- name: model_advisory_best_practices
+  pattern: 'Model deployment without monitoring|No drift detection for deployed model|Model operations without audit logging'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: ML ops best practice recommendations, not security vulnerabilities
+- name: subprocess_import_warning_any_scanner
+  pattern: 'Consider possible security implications.*subprocess'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: Bandit B404 - importing subprocess is not a vulnerability; the usage matters
+- name: docker_info_level_advisories
+  pattern: 'Review exposed ports for security|Pin versions in apt.get install'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Informational Docker best practices are advisories, not security vulnerabilities
+- name: partial_executable_path_any
+  pattern: 'Starting a process with a partial executable path'
+  reason: CODE_STYLE
+  confidence: 0.8
+  description: Partial executable path is a code quality consideration, not a security vulnerability
+- name: hardcoded_password_test_literal
+  pattern: |-
+    Possible hardcoded password: '(test|Test|TEST)'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: The word 'test' matching as a hardcoded password is a classic false positive
+- name: binding_all_interfaces
+  pattern: 'Possible binding to all interfaces'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Binding to 0.0.0.0 is common in development and containerized environments
+- name: dead_code_function_never_invoked
+  pattern: 'This function is never invoked'
+  reason: CODE_STYLE
+  confidence: 0.85
+  description: Dead code detection is code quality analysis, not a security vulnerability
+- name: backdoor_trigger_word_collision
+  pattern: '(?i)backdoor.*trigger|trigger.*pattern'
+  context_pattern: '(?i)(HX-Trigger|hx-trigger|IntervalTrigger|CronTrigger|DateTrigger|structlog|trigger\s*=|item\.trigger|task\.trigger)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Word 'trigger' in HTMX headers, APScheduler, structlog, and audit fields is not a backdoor indicator
+- name: agent_env_var_non_secret
+  pattern: '(?i)agent.*env.var|accessing.*environment'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Accessing standard non-secret env vars (HOSTNAME, HOME, PATH, TZ, etc.) is not data exfiltration
+- name: os_import_no_subprocess
+  pattern: '(?i)OS.*subprocess.*plugin|subprocess.*plugin.*code'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: import os flagged for subprocess risk but only used for os.getenv/os.path/os.makedirs
+- name: prompt_injection_fstring_non_prompt
+  pattern: '(?i)prompt.injection.*f-string|f-string.*prompt|user.input.*f-string|User input (interpolated|assigned directly).*prompt'
+  file_pattern: '(cost_track|triage_scor|_scoring\.py|_tracker\.py|narrative|report_gen|insider|openclaw|views_invest|identity_exec|script)'
+  reason: CODE_STYLE
+  confidence: 0.82
+  description: f-strings in cost tracking, triage scoring, report generation, audit narratives, query descriptions, and CLI output are not LLM prompt injection
+- name: pii_in_internal_service_pipelines
+  pattern: '(?i)PII.*detected.*email|email.*address.*PII|PII.*LLM.*context'
+  file_pattern: '(enrichment|executor|okta|lookup|correlation)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Email addresses in internal enrichment/lookup services are service-to-service data flows, not PII exposure
+- name: unprotected_endpoint_fastapi_depends
+  pattern: '(?i)unprotected.*model.*endpoint|unprotected.*endpoint'
+  file_pattern: 'routers/'
+  reason: CODE_STYLE
+  confidence: 0.8
+  description: FastAPI router endpoints use Depends(get_current_user) DI chain that scanner cannot trace
+- name: timing_attack_non_secret_literal
+  pattern: '(?i)non-constant.time|timing.attack.*comparison'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: String comparison against default literals like 'changeme' is not a timing attack vector
+- name: base64_decode_trusted_api
+  pattern: '(?i)base64.*decod.*untrusted|untrusted.*base64'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Base64 decoding from authenticated API responses (CrowdStrike RTR, etc.) is trusted input
+- name: autoescape_false_non_html
+  pattern: '(?i)autoescape.*false|autoescape.*disabled'
+  file_pattern: '(prompt|template)'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Jinja2 autoescape=False for LLM prompt templates is not an XSS risk (not rendering HTML)
+- name: security_platform_credential_access
+  pattern: 'Agent with (credential|secrets?\s*manager) access'
+  file_pattern: '(secrets|vault|executor|enrichment|service|playbook)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Security operations platforms legitimately require credential access to integrate with CrowdStrike, Rapid7, Okta, Vault, etc.
+- name: forensic_tool_execution
+  pattern: '(Code|Process|Tool|Data) (execution|modification) without (validation|confirmation)'
+  file_pattern: '(tools.agent|sub.agent|forensic)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Forensic tool agents execute tools by design - code execution IS the feature, protected by authentication and RBAC
+- name: sensitive_system_files_env_vars
+  pattern: 'Tool accesses sensitive system files'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Reading environment variables (os.environ) and config files from known paths is standard application behavior, not a tool accessing sensitive files
+- name: llm_output_toxicity_non_llm
+  pattern: '(LLM output.*without toxicity|toxicity (check|filter)|without toxicity)'
+  file_pattern: '(executor|enrichment|hunter|toolkit|report|script|triage|analyst|soc|security|alert|incident|investigation)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Most flagged returns are API response formatting, report generation, security operations output, or script output - not LLM output. Toxicity checking is for consumer chatbots, not internal SOC tools
+- name: mcp_on_non_mcp_fastapi
+  pattern: 'MCP (audit logging|server without auth|connection without TLS|token)'
+  context_pattern: '(fastapi|FastAPI|app\s*=\s*FastAPI|from fastapi)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: FastAPI REST API endpoints misidentified as MCP servers. Application uses JWT auth, structlog audit logging, and TLS - not MCP protocol
+- name: pii_in_archive_templates
+  pattern: 'PII detected in LLM context'
+  file_pattern: '(archive/|docs/legacy/|template|\.ya?ml$)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Archive files contain test/template data with placeholder PII. CloudFormation templates use variable placeholders that look like PII fields. Not sent to LLM
+- name: path_traversal_config_loading
+  pattern: 'Path traversal.*Path object'
+  file_pattern: '(code_search|validation|config|index)'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Path() used for config file loading from known paths, code search indexing, or input validation - not user-supplied paths
+- name: defense_code_flagged_as_attack
+  pattern: '(Prompt Obfuscation.*Llama|instruction override attempt|UPPERCASE variant|Directly returning prompt variable|PowerShell|EncodedCommand|WindowStyle|execution.?policy)'
+  file_pattern: '(ai_engine|sanitiz|detect|defense|guard|init_prompts|powershell_analyzer|triage_scoring|ioc|indicator)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Security defense code contains injection patterns for DETECTION (regex patterns to strip attacks, PowerShell IOC signatures). Scanner flags the defense strings as attacks
+- name: bash_heredoc_parse_failure
+  pattern: |-
+    (Couldn't (parse|find end token).*here document|Here document was not correctly)
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: Semgrep bash parser limitation with heredocs containing CRLF line endings or complex quoting. Valid bash scripts that execute correctly
+- name: vault_secret_key_names
+  pattern: 'Possible hardcoded password.*([A-Z_]+_SECRET|[A-Z_]+_PASSWORD|[A-Z_]+_KEY)'
+  file_pattern: '(secrets|vault|config)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: These are Vault secret KEY NAMES (the path to look up in HashiCorp Vault), not actual passwords or secrets
+- name: subprocess_cli_scripts
+  pattern: 'subprocess call.*check.*(execution|untrusted)'
+  file_pattern: '(script|forensic|model_scanner)'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Subprocess calls in CLI utility scripts and forensic tools use hardcoded commands, not user-supplied input. Scripts are not web-accessible
+- name: mcp_server_auth_non_mcp
+  pattern: 'MCP server without authentication'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: FastAPI service config and Alembic migrations wrongly identified as MCP servers. All endpoints use Depends(get_current_user) authentication
+- name: auto_execution_triage
+  pattern: '[Aa]uto.?execution'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Automated triage scoring and AI-assisted analysis flagged for auto-execution without approval. All actions require authenticated analyst initiation
+- name: tls_diagnostic_scripts
+  pattern: '(?:TLS|SSL|verify|certificate)'
+  file_pattern: '(?:fix_ssl|test_ssl|diagnos|ssl_check|tls_test)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Diagnostic utility scripts that intentionally disable TLS to diagnose certificate issues. Not production code - these are troubleshooting tools
+- name: llm_api_import_statement
+  pattern: 'LLM API calls detected without input.?output guards'
+  context_pattern: '^\s*(?:import\s|from\s\S+\s+import\s|(?:const|let|var)\s+.*=\s*require\()'
+  reason: KNOWN_PATTERN
+  confidence: 0.92
+  description: Finding fires at line 1 on import statements (import type, from ... import, require), not actual unguarded LLM API calls
+- name: prompt_injection_in_validator_regex
+  pattern: '[Pp]rompt injection|instruction override|disregard previous|forget previous'
+  file_pattern: '(?:response|input|prompt|content)[_-]?validat(?:or|ion)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.92
+  description: Prompt injection detection regex in a validator/sanitizer file. The file contains detection patterns, not actual injection attempts
+- name: private_key_regex_in_secrets_scanner
+  pattern: '[Pp]rivate [Kk]ey'
+  file_pattern: '(?:secret|credential|key|token)[s]?[_-]?(?:scanner|detector|checker|finder|scrubber|redact)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.93
+  description: Private key detection regex in a secrets scanner/detector file. The regex pattern is used for detection, not an actual leaked key
+- name: sensitive_file_ref_in_secrets_scanner
+  pattern: '[Ss]ensitive file exfiltration|[Ss]ensitive file.*tool'
+  file_pattern: '(?:secret|credential|key|token)[s]?[_-]?(?:scanner|detector|checker|finder|scrubber|redact)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.93
+  description: Secrets scanner references sensitive file patterns for detection. The file IS the security tool, not performing exfiltration
+- name: credential_in_redaction_function
+  pattern: '[Cc]redentials? passed to agent|[Cc]redential'
+  context_pattern: '(?:redact|sanitize|mask|scrub|censor|strip|remove|clean)[A-Za-z]*\s*[\(=:]|REDACTED|\[REDACTED\]|\*{3,}'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Credential reference appears in a redaction/sanitization function that REMOVES sensitive data rather than leaking it
+- name: destructive_op_in_audit_logger
+  pattern: '[Dd]estructive operation|[Cc]ode execution|[Ff]ile deletion|[Dd]ata modification|[Pp]rocess execution'
+  file_pattern: '(?:audit|event)[_-]?log(?:ger|ging)?'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Destructive operation / code execution finding in an audit logger file. The file LOGS events, it does not perform destructive operations
+- name: path_traversal_in_secure_file_module
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:file[_-]?permissions?|secure[_-]?(?:write|file|io)|safe[_-]?file|file[_-]?(?:security|safety|guard))'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Path traversal finding in a secure file permissions/writing module. The file IS the security control that validates paths and enforces permissions
+- name: credential_in_tool_validation
+  pattern: '[Cc]redentials? passed to agent|[Cc]redential'
+  file_pattern: '(?:tool|input|param(?:eter)?|request)[_-]?validat(?:or|ion)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.88
+  description: Credential reference in a tool/input validation module. The code validates and sanitizes inputs, not leaking credentials
+- name: dynamic_schema_in_validation
+  pattern: '[Dd]ynamic schema|time-based conditional'
+  file_pattern: '(?:tool|input|param(?:eter)?|request|schema)[_-]?validat(?:or|ion)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.85
+  description: Dynamic schema finding in a validation module. Schema construction in validators is expected behavior, not a vulnerability
+- name: webhook_with_hmac_signing
+  pattern: '[Dd]ata [Ll]eak [Cc]hannel.*webhook|webhook.*[Dd]ata [Ll]eak'
+  context_pattern: '(?:hmac|HMAC|createHmac|hmacSign|signPayload|webhook[_-]?(?:secret|signing|signature))'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Webhook system uses HMAC signing for payload integrity. Signed webhooks with configurable event filtering are a secure feature, not a data leak channel
+- name: webhook_dispatcher_intentional
+  pattern: '[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)'
+  file_pattern: 'webhook[_-]?(?:dispatch|manager|handler|service|client)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Webhook dispatcher/manager is an intentional user-configured feature. Users configure their own webhook endpoints, this is not a data leak
+- name: mcp_server_network_access
+  pattern: '[Aa]gent with network access'
+  context_pattern: '(?:McpServer|MCPServer|createServer|StdioServerTransport|SSEServerTransport|server\.connect|mcp[_-]?server)'
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP servers are network services by design. Flagging network access on an MCP server is tautological
+- name: network_access_in_cert_security
+  pattern: '[Aa]gent with network access|[Aa]gent without.*validation'
+  file_pattern: '(?:cert[_-]?pinn(?:ing|er)|tls[_-]?(?:verify|valid|config)|ssl[_-]?(?:verify|valid|config)|network[_-]?security)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.88
+  description: Network access finding in a certificate pinning / TLS security module. The file IS the network security control
+- name: mcp_download_upload_feature
+  pattern: '[Aa]gent with download.?upload capability'
+  context_pattern: '(?:download_audio|export_data|upload_file|download_file|save_file|fetch_resource|download_document)'
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: Download/upload is an intentional user-facing MCP tool feature, not unauthorized capability escalation
+- name: pii_in_dsar_handler
+  pattern: 'PII.*(?:in response|potentially in response)|[Ii]nformation [Dd]isclosure.*PII'
+  file_pattern: '(?:dsar|data[_-]?subject|gdpr|privacy)[_-]?(?:handler|controller|service|processor|request)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.92
+  description: GDPR DSAR handlers are legally required to return PII to data subjects. Flagging PII in DSAR responses contradicts legal requirements
+- name: path_traversal_in_data_erasure
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:data[_-]?erasure|secure[_-]?(?:wipe|delete|erase)|gdpr[_-]?(?:delete|erase|cleanup))'
+  reason: COMPLIANCE_CODE
+  confidence: 0.9
+  description: Data erasure module performs secure file operations as required by GDPR Article 17 (Right to Erasure). File writes are part of secure wipe procedure
+- name: path_traversal_in_data_export
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:data[_-]?export|data[_-]?portability|gdpr[_-]?export|user[_-]?export)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.9
+  description: Data export module reads stored data as required by GDPR Article 20 (Right to Data Portability). File reads are necessary for producing export packages
+- name: path_traversal_in_evidence_collector
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:evidence[_-]?collect|audit[_-]?collect|compliance[_-]?(?:collect|evidence|report|gather))'
+  reason: COMPLIANCE_CODE
+  confidence: 0.88
+  description: Evidence collector reads logs and audit trails to produce compliance reports. File reads are the core function of compliance evidence gathering
+- name: path_traversal_in_compliance_dir
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: 'compliance[/\\]'
+  reason: COMPLIANCE_CODE
+  confidence: 0.83
+  description: File operation in a compliance directory. Compliance modules handle file I/O for legal data handling requirements
+- name: toxicity_check_in_compliance
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: 'compliance[/\\]|(?:dsar|data[_-]?(?:erasure|export)|evidence[_-]?collect)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.88
+  description: Compliance modules return structured compliance data (DSAR responses, audit logs), not raw LLM completions. Toxicity moderation is not applicable to legal compliance output
+- name: mcp_audit_disabled_in_compliance
+  pattern: 'MCP audit logging disabled|[Ll]ogging.*audit.*disabled'
+  file_pattern: '(?:evidence[_-]?collect|compliance[/\\]|audit[_-]?log|query[_-]?log)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.85
+  description: Compliance module implements its own audit logging infrastructure. Custom logging is equivalent to MCP built-in audit logging
+- name: credential_in_tool_description
+  pattern: '[Aa]gent with credential access|[Cc]redential'
+  context_pattern: |-
+    (?:description\s*[:=]|inputSchema|toolDescription|DESCRIPTION|tool_description)\s*[`\'"]
+  reason: DESCRIPTION_STRING
+  confidence: 0.88
+  description: Credential keyword appears in a tool description/documentation string, not actual credential access. MCP tool descriptions naturally reference authentication requirements
+- name: credential_in_tool_name_array
+  pattern: '[Aa]gent with credential access'
+  context_pattern: '(?:TOOLS|TOOL_NAMES|availableTools|enabledTools|toolList|tools\s*[:=]\s*\[)'
+  reason: DESCRIPTION_STRING
+  confidence: 0.85
+  description: Credential finding triggered by a tool name array/constant. Arrays listing tool names are configuration, not credential access
+- name: prompt_injection_in_tool_definition
+  pattern: '[Pp]rompt injection|instruction override'
+  context_pattern: '(?:description\s*[:=]|inputSchema|properties|parameters)'
+  file_pattern: '(?:definitions?|tool[_-]?schema|tool[_-]?spec)[/\\.]'
+  reason: DESCRIPTION_STRING
+  confidence: 0.85
+  description: Prompt injection finding in a tool definition file. Tool descriptions/schemas naturally contain LLM-related keywords as documentation
+- name: path_traversal_in_siem_exporter
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:siem[_-]?export|log[_-]?(?:export|forward|ship|collect|rotat))'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.88
+  description: SIEM exporter/log forwarder reads its own log files for forwarding. File reads are internal operations on known log paths
+- name: path_traversal_in_change_log
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:change[_-]?log|changelog|migration[_-]?log|version[_-]?log)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.85
+  description: Change log module reads its own log files to display change history. File reads are internal operations on known paths
+- name: path_traversal_in_query_logger
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:query[_-]?log(?:ger)?|sql[_-]?log|db[_-]?log)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.85
+  description: Query logger reads/writes its own log files for analytics. File operations are internal logging infrastructure
+- name: path_traversal_in_doc_processor
+  pattern: '[Pp]ath traversal.*[Ff]ile (?:write|read)|[Ff]ile (?:write|read).*unvalidated'
+  file_pattern: '(?:pdf[_-]?chunk|doc[_-]?process|text[_-]?extract|document[_-]?pars)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.83
+  description: Document processing module reads files as its core function. File paths come from explicit user tool calls, not untrusted input
+- name: toxicity_check_in_response_validator
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:response|output|content)[_-]?(?:validat|filter|moderat|sanitiz|check)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Response validator/content filter IS the safety check. Flagging the safety checker for not having a safety check is circular
+- name: llm_api_calls_at_import_line
+  pattern: 'LLM API calls detected without input.?output guards'
+  file_pattern: 'compliance[/\\]|(?:dsar|evidence|data[_-]?(?:erasure|export))'
+  reason: COMPLIANCE_CODE
+  confidence: 0.85
+  description: LLM API guard finding in compliance code that does not make LLM API calls. Scanner triggered on import statements or module-level config
+- name: sensitive_data_in_mcp_startup_logs
+  pattern: '[Ss]ensitive data in MCP logs|[Ss]ensitive data in.*logs'
+  context_pattern: '(?:console\.log|log\.info|log\.debug|logger\.info|logger\.debug).*(?:start|init|config|listen|port|transport|enabled)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.83
+  description: MCP server logs startup configuration (enabled tools, port, transport) for debugging. This is standard server startup logging, not data leakage
+- name: sensitive_data_in_discovery_logs
+  pattern: '[Ss]ensitive data in MCP logs'
+  file_pattern: '(?:run[_-]?discover|notebook[_-]?creat|discovery)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.83
+  description: Logging notebook IDs or run metadata for debugging. Internal identifiers are not sensitive data
+- name: data_uri_in_resource_handler
+  pattern: '[Dd]ata URI with base64'
+  file_pattern: '(?:resource[_-]?handler|icon|thumbnail|image[_-]?(?:util|handler|serve))'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Data URI with base64 in resource handlers or icon files. Base64-encoded images are standard web resource patterns, not payload injection
+- name: model_extraction_in_api_client
+  pattern: '[Mm]odel [Ee]xtraction [Rr]isk|[Qq]uery logging.*model extraction'
+  file_pattern: '(?:gemini|openai|anthropic|llm|ai)[_-]?client'
+  reason: SAFE_PATTERN
+  confidence: 0.83
+  description: Query logging in an API client is standard observability for the user's own API calls. This is not model extraction attack infrastructure
+- name: misinformation_risk_in_api_client
+  pattern: '[Mm]isinformation [Rr]isk|[Ff]act.?checking.*disabled|[Gg]rounding disabled'
+  file_pattern: '(?:gemini|openai|anthropic|llm|ai)[_-]?client'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Fact-checking/grounding configuration in an API client. Disabling grounding for specific use cases is a configuration choice documented in the code
+- name: direct_doc_parsing_in_api_client
+  pattern: '[Dd]irect document parsing|document parsing.*code execution'
+  file_pattern: '(?:gemini|openai|anthropic|llm|ai)[_-]?client'
+  reason: SAFE_PATTERN
+  confidence: 0.83
+  description: API client parses documents as its core function. Document analysis results are not passed to code execution
+- name: toxicity_check_on_chat_history
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:chat[_-]?histor|conversation[_-]?(?:log|histor|display)|message[_-]?histor)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Chat history tools return previously stored conversations. This is data retrieval, not new LLM output needing toxicity moderation
+- name: toxicity_check_on_system_tools
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:system|status|health|diagnostic|monitor)[_-]?(?:tool|handler|check)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: System/status tools return operational data (uptime, health metrics), not LLM-generated content needing toxicity moderation
+- name: agent_action_without_logging_handlers
+  pattern: '[Aa]gent action without logging'
+  context_pattern: '(?:log\.|logger\.|console\.log|audit|AuditLogger|createLogger)'
+  file_pattern: 'handler'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.8
+  description: Handler file has centralized logging infrastructure. Individual actions may not have per-line logging but are covered by the centralized audit system
+- name: filesystem_access_in_mcp_handlers
+  pattern: '[Aa]gent with filesystem (?:write|delete|read)'
+  context_pattern: |-
+    (?:handleTool|toolHandler|case\s+[\'"]|CallToolRequestSchema|setRequestHandler)
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP tool handler provides filesystem operations as intentional user-facing features. These are tool capabilities, not unauthorized access
+- name: timing_attack_in_browser_session
+  pattern: '[Ss]ecret-dependent conditional.*timing attack|timing attack risk'
+  file_pattern: '(?:browser[_-]?session|puppeteer|playwright|automation)'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Timing attack warning in browser automation session. Session setup comparisons are not in a security-critical authentication path
+- name: logging_disabled_in_browser_session
+  pattern: '[Ll]ogging.*audit.*disabled|[Aa]udit.*disabled'
+  file_pattern: '(?:browser[_-]?session|puppeteer|playwright|automation)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.8
+  description: Browser automation session may disable verbose logging for performance. Centralized audit logging is handled elsewhere in the application
+- name: toxicity_check_on_browser_session
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:browser[_-]?session|puppeteer|playwright|automation[_-]?(?:handler|session))'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Browser automation sessions return page content and screenshots. Web page captures are not LLM-generated text needing toxicity moderation
+- name: toxicity_check_in_llm_client
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  context_pattern: '(?:response[_-]?validat|content[_-]?filter|safety[_-]?check|moderat)'
+  file_pattern: '(?:gemini|openai|anthropic|llm|ai)[_-]?client'
+  reason: SAFE_PATTERN
+  confidence: 0.83
+  description: LLM client has a response validator/content filter layer for toxicity checking. Flagging the raw API client when validators exist is redundant
+- name: toxicity_check_on_data_erasure
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:data[_-]?erasure|secure[_-]?(?:wipe|delete|erase))'
+  reason: COMPLIANCE_CODE
+  confidence: 0.88
+  description: Data erasure module returns completion status, not LLM-generated text. Erasure confirmation messages do not need toxicity moderation
+- name: toxicity_check_on_tool_definitions
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  file_pattern: '(?:definitions?|tool[_-]?(?:schema|spec|def))[/\\.]'
+  reason: DESCRIPTION_STRING
+  confidence: 0.83
+  description: Tool definition file contains description strings, not LLM output. Tool schema metadata does not need toxicity moderation
+- name: webhook_data_leak_in_mcp_handler
+  pattern: '[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)'
+  context_pattern: '(?:configure_webhook|addWebhook|updateWebhook|webhook.*secret|dispatcher\.)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Webhook configuration in an MCP tool handler. The handler configures user-specified webhooks with HMAC secrets, not leaking data to unauthorized endpoints
+- name: webhook_data_leak_in_entry_point
+  pattern: '[Dd]ata [Ll]eak [Cc]hannel.*(?:webhook|sensitive data sent to webhook)'
+  context_pattern: |-
+    case\s+[\'"]configure_webhook
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: MCP server dispatches configure_webhook tool to handler. The switch/case routing is not a data leak channel
+- name: credential_access_in_tool_template
+  pattern: '[Aa]gent with credential access'
+  context_pattern: '(?:API[_\s]?KEY|GEMINI_API_KEY|OPENAI_API_KEY|ANTHROPIC_API_KEY).*(?:required|needed|not needed|NO.*KEY)'
+  reason: DESCRIPTION_STRING
+  confidence: 0.88
+  description: Tool description template mentions API key requirements as documentation. References to 'API KEY required/not needed' are user-facing documentation, not credential access
+- name: download_upload_in_tool_definition
+  pattern: '[Aa]gent with download.?upload capability'
+  file_pattern: '(?:definitions?|tool[_-]?(?:schema|spec|def))[/\\.]'
+  reason: DESCRIPTION_STRING
+  confidence: 0.83
+  description: Download/upload capability documented in a tool definition file. Tool definitions describe intended capabilities, not unauthorized access
+- name: network_access_in_settings_manager
+  pattern: '[Aa]gent with network access'
+  file_pattern: '(?:settings|config)[_-]?(?:manager|handler|service|store)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.8
+  description: Settings/config manager references network settings as part of server configuration. Configuration code is not unauthorized network access
+- name: mcp_audit_on_logging_utility
+  pattern: 'MCP audit logging disabled'
+  file_pattern: '(?:^|/)(?:utils?/)?logging\.py$'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: MCP audit logging finding on a general-purpose logging utility — module provides logging infrastructure, not MCP server functionality
+- name: prompt_injection_in_security_module
+  pattern: '(?:prompt injection|ignore previous|disregard previous|forget previous|instruction override)'
+  file_pattern: '(?:^|/)(?:security|sanitiz|input[_-]?filter|content[_-]?filter|prompt[_-]?guard|injection[_-]?detect)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.92
+  description: Prompt injection pattern found in a security/defense module — these are detection patterns in a blocklist, not actual injection attempts
+- name: ssh_key_pattern_on_dict_keys_method
+  pattern: 'Exfiltration instruction - SSH key access'
+  context_pattern: '\.keys\(\)|_names\.keys|_map\.keys|dict\.keys'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: AIC-EXFIL-005 SSH key pattern fires on .keys() Python dict method — .key matches the .key part of the pattern
+- name: ssh_key_pattern_on_key_variable_names
+  pattern: 'Exfiltration instruction - SSH key access'
+  context_pattern: '(?:CLASS_NAMES|METHOD_NAMES|FUNCTION_NAMES|_keys\b|key_name|key_type|api_key|key_func|lookup_key)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: AIC-EXFIL-005 SSH key pattern fires on key-related variable/constant names in application code
+- name: supply_chain_scan_on_research_ml_code
+  pattern: 'LLM model loading or ML library installation without supply chain'
+  file_pattern: '(?:attack|adversar|benchmark|test|eval|research|experiment)'
+  reason: ML_COMMON
+  confidence: 0.9
+  description: MEDUSA-GENAI-SCAN-012 fires on model loading in research/adversarial ML code — supply chain scanning not applicable to research repos
+- name: lora_adapter_on_textattack_style_research
+  pattern: 'adapter from non-standard source'
+  file_pattern: '(?:attack|adversar|benchmark|test|eval|research|experiment)'
+  reason: ML_COMMON
+  confidence: 0.88
+  description: LLMOPS-LORA_SEC-005 fires on from_pretrained in adversarial NLP research code — legitimate research model loading

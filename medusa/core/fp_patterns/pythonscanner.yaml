@@ -1,0 +1,22 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: pythonscanner
+patterns:
+- name: subprocess_hardcoded_command
+  pattern: |-
+    subprocess\.(run|call|Popen)\s*\(\s*\[[\'"]\w+
+  reason: SAFE_PATTERN
+  confidence: 0.7
+- name: try_except_pass_cleanup
+  pattern: 'except.*:\s*pass'
+  context_pattern: '(finally|__del__|cleanup|close|shutdown|teardown)'
+  reason: SAFE_PATTERN
+  confidence: 0.6
+- name: hardcoded_password_on_empty_string_check
+  pattern: |-
+    [Hh]ardcoded password.*(?:\'\'|"")
+  context_pattern: |-
+    (?:==\s*""|==\s*\'\'|is\s+None|=\s*None)
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Hardcoded password finding on empty string comparison — code checks if a token/key is empty to null it out, not hardcoding a credential

@@ -1,0 +1,83 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: aicontextscanner
+patterns:
+- name: upload_in_docs
+  pattern: '(upload|publish|push)\s+(to\s+)?(pypi|npm|registry)'
+  file_pattern: '\.(md|rst|txt)$|README|CHANGELOG|docs/'
+  reason: DOCSTRING
+  confidence: 0.9
+- name: cjk_base64_detection
+  pattern: '(Base64|leetspeak|obfuscat|encoded)'
+  file_pattern: '(zh[-_]|ja[-_]|ko[-_]|chinese|japanese|korean|i18n|locale|lang)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: CJK documentation triggers false Base64/encoding detections
+- name: markdown_code_fence_execution
+  pattern: '(backtick command|PowerShell subexpression|SQL comment)'
+  file_pattern: '\.(md|mdx|rst)$'
+  reason: DOCSTRING
+  confidence: 0.85
+  description: Code examples in markdown files are not executable attacks
+- name: base64_in_ai_context_scanner
+  pattern: 'Base64 encoded (content|payload)'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Base64 encoding is used legitimately everywhere (auth tokens, image data, etc.)
+- name: token_smuggling_system_prompt_defense
+  pattern: '[Oo]bfuscation.*token smuggling|[Tt]oken smuggling.*split words'
+  file_pattern: '(?:system-prompt|system_prompt)\.md$'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Legitimate security boundary definition in a system prompt instructing the agent to refuse non-Prose tasks. This is a defensive prompt, not an obfuscation attack
+- name: security_tool_evasion_scanner_code
+  pattern: '(?:security.*tool|scanner|antivirus).*(?:evasion|bypass|disable)'
+  context_pattern: '(?:class\s+Scanner|def\s+scan|security_check|run_scan|medusa)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.92
+  description: Security tool evasion rules fire on security scanner implementation code
+- name: coding_editor_extension_code
+  pattern: '(?:editor|ide|vscode|cursor).*(?:attack|exploit)'
+  context_pattern: '(?:vscode\.ExtensionContext|activate\s*\(|registerCommand|extension\.ts)'
+  file_pattern: '(?:extension|plugin|addon)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Coding editor attack rules fire on legitimate IDE extension code
+- name: ai_ide_config_files
+  pattern: '(?:repo.*poison|cursorrules|claude\.md).*(?:inject|malicious)'
+  file_pattern: '(?:\.cursorrules|CLAUDE\.md|\.github/copilot)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Repo poisoning rules fire on the legitimate AI config files they're meant to protect
+- name: prompt_injection_input_validation
+  pattern: '(?:prompt.*inject|injection.*detect)'
+  context_pattern: '(?:def\s+(?:sanitize|validate|check|filter)|class\s+(?:Input|Prompt)(?:Validator|Filter|Guard))'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Prompt injection rules fire on input validation/defense code
+- name: ai_red_teaming_tool_code
+  pattern: '(?:red.team|adversarial.test)'
+  context_pattern: '(?:class\s+RedTeam|def\s+(?:run_attack|test_model|evaluate_safety)|garak|pyrit)'
+  file_pattern: '(?:red_team|adversarial|safety_eval)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.88
+  description: Red teaming rules fire on legitimate safety evaluation tool code
+- name: new_scanner_test_file_js
+  pattern: '(?:attack|exploit|injection|bypass)'
+  context_pattern: '(?:describe\s*\(|it\s*\(|expect\s*\(|jest|mocha)'
+  file_pattern: '(?:\.test\.|\.spec\.|__tests__|tests/)'
+  reason: TEST_FILE
+  confidence: 0.85
+  description: AI context scanner rules fire on JavaScript test files
+- name: yaml_rule_definition_file
+  pattern: '(?:injection|attack|exploit|malicious)'
+  file_pattern: '(?:rules/|scanners/|patterns/).*\.yaml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Security scanner rule definition files contain attack patterns by design
+- name: code_gen_standard_tools
+  pattern: '(?:code.*gen|codegen).*(?:security|vulnerability)'
+  context_pattern: '(?:copilot|cursor|codewhisperer|codex|starcoder)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Code gen security rules fire on standard code generation tool references

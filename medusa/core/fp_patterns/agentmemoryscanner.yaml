@@ -1,0 +1,89 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: agentmemoryscanner
+patterns:
+- name: credential_to_secure_wrapper
+  pattern: '(credential|password|secret|token)\s*[=:]\s*(SecureString|SecureCredential|SecurePassword)'
+  reason: SECURITY_WRAPPER
+  confidence: 0.95
+- name: secure_class_parameter
+  pattern: 'def\s+__init__\s*\([^)]*\b(credential|password|secret|token)\s*:'
+  context_pattern: 'class\s+Secure|class\s+Protected|class\s+Safe'
+  reason: PARAMETER_TO_SECURE
+  confidence: 0.9
+- name: credential_in_docstring
+  pattern: |-
+    ("""|\'\'\'|#).*\b(credential|password|secret|token)\b
+  reason: DOCSTRING
+  confidence: 0.95
+- name: ts_secure_class_constructor
+  pattern: 'constructor\s*\([^)]*\b(credential|password|secret|token)\s*:'
+  context_pattern: 'class\s+Secure|class\s+Protected|export\s+class\s+Secure'
+  reason: PARAMETER_TO_SECURE
+  confidence: 0.9
+- name: ts_new_secure_wrapper
+  pattern: 'new\s+(SecureString|SecureCredential|SecureObject)\s*\('
+  reason: SECURITY_WRAPPER
+  confidence: 0.95
+- name: ts_test_placeholder
+  pattern: |-
+    (test|placeholder|dummy|mock|example|sample).*[\'\"](password|secret|token|credential)
+  file_pattern: '\.(test|spec)\.(ts|js)$|tests?/'
+  reason: TEST_FILE
+  confidence: 0.9
+- name: ts_jsdoc_credential
+  pattern: '(/\*\*|\*|//).*\b(credential|password|secret|token)\b'
+  reason: DOCSTRING
+  confidence: 0.95
+- name: agent_assert_usage
+  pattern: 'Use of assert detected'
+  reason: ML_COMMON
+  confidence: 0.85
+- name: docs_dir_memory_poisoning
+  pattern: 'memory poisoning|memory state'
+  file_pattern: '(^|/)docs?/'
+  reason: EXAMPLE_FILE
+  confidence: 0.88
+  description: Documentation about memory poisoning is educational, not an attack
+- name: agent_memory_generic_capability
+  pattern: '^(Code execution|Process execution|Data modification|Destructive operation)$'
+  file_pattern: 'memory[-_/]'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic capability finding on memory system implementation code
+- name: binary_file_homoglyph
+  pattern: '(homoglyph|mixed.script|unicode)'
+  file_pattern: '\.(pkl|bin|dat|model|pt|onnx|h5|safetensors|parquet|arrow)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Binary/serialized files trigger false unicode analysis
+- name: api_key_in_data_json
+  pattern: 'API key found'
+  file_pattern: '/data/.*\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Documentation JSON data files mention API keys as topics
+- name: secret_token_in_data_json
+  pattern: 'Secret.*token found'
+  file_pattern: '/data/.*\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.92
+  description: Documentation JSON data files reference tokens as concepts
+- name: dataset_injection_in_data_json
+  pattern: '(Dataset injection|Data exfiltration)'
+  file_pattern: '/data/.*\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.92
+  description: Documentation/dataset JSON files trigger injection patterns
+- name: hidden_tag_in_data_json
+  pattern: 'Hidden tag'
+  file_pattern: '/data/.*\.json$'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Data JSON files trigger hidden tag detection
+- name: pickle_in_vectordb_eval
+  pattern: '(pickle|deserialization)'
+  file_pattern: '(vectordb|vector_db|evaluation).*\.py$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: ML/vectordb code uses pickle for local caching

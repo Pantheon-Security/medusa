@@ -506,7 +506,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.5.3
+version: 2026.5.4
 
 # Scanner control
 scanners:
@@ -851,7 +851,7 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 - **9,600+ Detection Patterns** - Industry-leading AI security coverage
 - **78 Specialized Analyzers** - Comprehensive language and platform coverage
 - **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
-- **514 FP Filter Patterns** - 96.8% false positive reduction rate on real-world projects
+- **583 FP Filter Patterns** - 97.7% false positive reduction rate on real-world projects
 - **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
 - **Dataset Poisoning Detection** - CSV, JSON, JSONL injection scanning
 - **Code-Level Prompt Injection** - F-string injection, ChatML tokens, role manipulation
@@ -968,7 +968,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.5.3
+**Version**: 2026.5.4
 **Release Date**: 2026-04-03
 **Detection Patterns**: 9,600+ AI security rules
 **Analyzers**: 79 specialized scanners
@@ -1023,4 +1023,4 @@ medusa init && medusa scan .
 
 **Last Updated**: 2026-04-03
 **Status**: Production Ready
-**Current Version**: v2026.5.3 - CVE Database Update
+**Current Version**: v2026.5.4 - FP Patterns YAML Refactor

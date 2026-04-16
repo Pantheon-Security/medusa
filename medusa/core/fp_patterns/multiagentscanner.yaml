@@ -1,0 +1,53 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: multiagentscanner
+patterns:
+- name: agentic_standard_framework
+  pattern: '(?:agent.*pattern|agentic.*pattern)'
+  context_pattern: '(?:from\s+(?:langchain|crewai|autogen)|class\s+Agent|BaseAgent)'
+  reason: ML_COMMON
+  confidence: 0.82
+  description: Agentic pattern rules fire on standard agent framework usage
+- name: agent_identity_management_code
+  pattern: '(?:agent.*identity|identity.*agent).*(?:impersonat|spoof)'
+  context_pattern: '(?:class\s+AgentIdentity|agent_id|verify_identity|authenticate_agent)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.88
+  description: Agent identity impersonation rules fire on identity management/verification code
+- name: sandbox_implementation_code
+  pattern: '(?:sandbox.*escape|escape.*sandbox|boundary.*violation)'
+  context_pattern: '(?:class\s+Sandbox|def\s+(?:create|setup)_sandbox|RestrictedPython|jail|chroot)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Sandbox escape rules fire on sandbox implementation/setup code
+- name: agentic_exploitation_test_code
+  pattern: '(?:agentic.*exploit|agent.*vulnerability)'
+  file_pattern: '(?:test|spec|benchmark|eval)'
+  reason: TEST_FILE
+  confidence: 0.88
+  description: Agentic exploitation rules fire on agent security test/benchmark code
+- name: acp_protocol_implementation
+  pattern: '(?:acp|agent.communication.protocol).*(?:vulnerab|attack)'
+  context_pattern: '(?:class\s+ACP|protocol_version|agent_capability|AgentCard)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: ACP vulnerability rules fire on protocol implementation code
+- name: docstring_attack_mention_multi
+  pattern: '(?:attack|exploit|vulnerability|hijack)'
+  context_pattern: |-
+    (?:"""|\'\'\'|/\*\*)\s*.*(?:attack|exploit|vulnerability)
+  reason: DOCSTRING
+  confidence: 0.88
+  description: Attack keywords in docstrings/comments are not actual vulnerabilities
+- name: yaml_rule_definition_file_multi
+  pattern: '(?:hijack|exploit|malicious|worm)'
+  file_pattern: '(?:rules/|scanners/|patterns/).*\.yaml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Security scanner rule definition files contain attack patterns by design
+- name: markdown_security_docs_multi
+  pattern: '(?:hijack|exploit|worm|impersonation)'
+  file_pattern: '\.md$'
+  reason: DOCSTRING
+  confidence: 0.85
+  description: Multi-agent rules fire on Markdown documentation files

@@ -15,6 +15,12 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
+import yaml
+
+
+class FPPatternSchemaError(ValueError):
+    """Raised when an FP pattern YAML file has invalid schema."""
+
 
 class FPReason(Enum):
     """Reason a finding was classified as likely false positive"""
@@ -172,7 +178,8 @@ class FalsePositiveFilter:
         ])
     )
 
-    # Known FP patterns - loaded from fp_patterns_db.py (see bottom of file)
+    # Known FP patterns - loaded from medusa/core/fp_patterns/*.yaml
+    # via load_known_fp_patterns() (see bottom of file)
     KNOWN_FP_PATTERNS: List[FPPattern] = []
 
 
@@ -684,14 +691,141 @@ def filter_scan_results(
     return filtered, fps, stats
 
 
-# Late import to avoid circular dependency:
-# fp_patterns_db imports FPPattern and FPReason from this module, so it must
-# be imported after FPPattern/FPReason are defined. By placing this import at
-# module level (after the class definitions), Python can resolve it correctly.
-from medusa.core.fp_patterns_db import KNOWN_FP_PATTERNS  # noqa: E402
+# -------------------------------------------------------------------------
+# YAML loader for the known-FP pattern database.
+#
+# The data lives in medusa/core/fp_patterns/*.yaml (one file per scanner,
+# plus _universal.yaml for patterns that apply to any scanner). This loader
+# parses them into FPPattern objects preserving file-order and entry-order.
+# -------------------------------------------------------------------------
+
+_FP_PATTERN_REQUIRED_KEYS = {"name", "pattern", "reason", "confidence"}
+_FP_PATTERN_OPTIONAL_KEYS = {
+    "context_pattern",
+    "file_pattern",
+    "file_pattern_negate",
+    "description",
+}
+_FP_PATTERN_ALLOWED_KEYS = _FP_PATTERN_REQUIRED_KEYS | _FP_PATTERN_OPTIONAL_KEYS
+_FP_FILE_ALLOWED_KEYS = {"scanner", "patterns"}
+
+
+def load_known_fp_patterns(
+    patterns_dir: Optional[Path] = None,
+) -> List[FPPattern]:
+    """
+    Load KNOWN_FP_PATTERNS from the per-scanner YAML database.
+
+    Args:
+        patterns_dir: Directory containing *.yaml files. Defaults to
+            ``medusa/core/fp_patterns/`` relative to this module.
+
+    Returns:
+        Flat list of FPPattern objects in deterministic order:
+        filename ASCII-sorted, then source order within each file.
+
+    Raises:
+        FPPatternSchemaError: If a YAML file violates the schema.
+    """
+    if patterns_dir is None:
+        patterns_dir = Path(__file__).parent / "fp_patterns"
+
+    patterns: List[FPPattern] = []
+
+    # Sorted ASCII (default sorted() is bytewise) so _universal.yaml (underscore
+    # prefix, 0x5F) sorts before letters.
+    yaml_files = sorted(patterns_dir.glob("*.yaml"))
+
+    for yaml_path in yaml_files:
+        with open(yaml_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        if data is None:
+            # Empty file; skip silently.
+            continue
+
+        if not isinstance(data, dict):
+            raise FPPatternSchemaError(
+                f"{yaml_path.name}: top-level YAML must be a mapping, got {type(data).__name__}"
+            )
+
+        unknown_top = set(data.keys()) - _FP_FILE_ALLOWED_KEYS
+        if unknown_top:
+            raise FPPatternSchemaError(
+                f"{yaml_path.name}: unknown top-level keys: {sorted(unknown_top)}"
+            )
+
+        scanner = data.get("scanner")  # None for _universal
+        if scanner is not None and not isinstance(scanner, str):
+            raise FPPatternSchemaError(
+                f"{yaml_path.name}: 'scanner' must be a string or null, got {type(scanner).__name__}"
+            )
+
+        entries = data.get("patterns") or []
+        if not isinstance(entries, list):
+            raise FPPatternSchemaError(
+                f"{yaml_path.name}: 'patterns' must be a list, got {type(entries).__name__}"
+            )
+
+        for idx, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise FPPatternSchemaError(
+                    f"{yaml_path.name}[{idx}]: pattern entry must be a mapping, "
+                    f"got {type(entry).__name__}"
+                )
+
+            entry_keys = set(entry.keys())
+            missing = _FP_PATTERN_REQUIRED_KEYS - entry_keys
+            if missing:
+                raise FPPatternSchemaError(
+                    f"{yaml_path.name}[{idx}] (name={entry.get('name')!r}): "
+                    f"missing required keys: {sorted(missing)}"
+                )
+
+            unknown = entry_keys - _FP_PATTERN_ALLOWED_KEYS
+            if unknown:
+                raise FPPatternSchemaError(
+                    f"{yaml_path.name}[{idx}] (name={entry.get('name')!r}): "
+                    f"unknown keys: {sorted(unknown)}"
+                )
+
+            reason_name = entry["reason"]
+            if not isinstance(reason_name, str):
+                raise FPPatternSchemaError(
+                    f"{yaml_path.name}[{idx}] (name={entry.get('name')!r}): "
+                    f"'reason' must be a string, got {type(reason_name).__name__}"
+                )
+            try:
+                reason = FPReason[reason_name]
+            except KeyError:
+                raise FPPatternSchemaError(
+                    f"{yaml_path.name}[{idx}] (name={entry.get('name')!r}): "
+                    f"'reason' must be one of {sorted(m.name for m in FPReason)}, "
+                    f"got {reason_name!r}"
+                )
+
+            kwargs = {
+                "name": entry["name"],
+                "scanner": scanner,  # top-level is authoritative
+                "pattern": entry["pattern"],
+                "context_pattern": entry.get("context_pattern"),
+                "file_pattern": entry.get("file_pattern"),
+                "file_pattern_negate": entry.get("file_pattern_negate", False),
+                "reason": reason,
+                "confidence": entry["confidence"],
+                "description": entry.get("description"),
+            }
+            patterns.append(FPPattern(**kwargs))
+
+    return patterns
+
+
+# Load the known-FP pattern database from per-scanner YAML files in
+# medusa/core/fp_patterns/. See load_known_fp_patterns() above.
+KNOWN_FP_PATTERNS = load_known_fp_patterns()
 FalsePositiveFilter.KNOWN_FP_PATTERNS = KNOWN_FP_PATTERNS
 
-# Pre-bucket patterns by scanner name to avoid iterating all 514 patterns per finding.
+# Pre-bucket patterns by scanner name to avoid iterating all patterns per finding.
 # Patterns with no scanner restriction go into '_any_'.
 _fp_by_scanner: Dict[str, list] = {}
 for _p in KNOWN_FP_PATTERNS:

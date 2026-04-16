@@ -1,0 +1,38 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: llmopsscanner
+patterns:
+- name: llmops_infra_config
+  pattern: '(Model deployment without monitoring|No drift detection|Model operations without audit)'
+  file_pattern: '\.(toml|ya?ml|json)$'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: LLMOps rules fire on infrastructure config with deploy keyword
+- name: gpu_memo_003_standard_pytorch_to_cuda
+  pattern: 'Model moved to GPU - ensure proper cleanup after inference'
+  context_pattern: |-
+    (?:model|pipe|self\.model|net|module|trainer)\s*=\s*(?:model|pipe|self\.model|net|module|trainer)\s*\.\s*to\s*\(\s*["\']cuda|\.to\s*\(\s*device\s*\)
+  file_pattern: '(?:attack|adversar|backdoor|poison|trojan|benchmark|research|experiment|train|eval|notebook|demo)'
+  reason: ML_COMMON
+  confidence: 0.87
+  description: LLMOPS-GPU_MEMO-003 fires on standard PyTorch .to('cuda')/.to(device) in ML research/training scripts — not a production inference cleanup issue
+- name: gpu_memo_003_standard_reassignment_to_cuda
+  pattern: 'Model moved to GPU - ensure proper cleanup after inference'
+  context_pattern: |-
+    \b(?:model|pipe|net|module|self\.\w+)\s*=\s*(?:model|pipe|net|module|self\.\w+)\s*\.\s*to\s*\(\s*["\']cuda["\']
+  file_pattern: '\.py$'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: LLMOPS-GPU_MEMO-003 fires on standard PyTorch reassignment idiom 'model = model.to("cuda")' — idiomatic pattern, not an inference cleanup gap
+- name: inference_infra_serving_code
+  pattern: '(?:inference.*infrastructure|serving.*vulnerability)'
+  context_pattern: '(?:FastAPI|uvicorn|gunicorn|triton|TensorRT|vLLM|text_generation)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.85
+  description: Inference infrastructure rules fire on standard model serving frameworks
+- name: llmops_test_file
+  pattern: '(?:infrastructure|deployment|serving).*(?:attack|vulnerability)'
+  file_pattern: '(?:test_|_test\.py$|tests/)'
+  reason: TEST_FILE
+  confidence: 0.85
+  description: LLMOps scanner rules fire on test files

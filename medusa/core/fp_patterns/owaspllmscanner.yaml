@@ -1,0 +1,169 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: owaspllmscanner
+patterns:
+- name: prompt_injection_on_sql_like_param
+  pattern: '[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt'
+  context_pattern: '(?:LIKE\s*\?|WHERE\s|SELECT\s|INSERT\s|params|execute|cursor)'
+  file_pattern: '(?:database|db|dao|repo|query|model|storage)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Prompt injection finding on SQL LIKE parameter construction — f-string builds a LIKE pattern value passed via parameterized query, not LLM prompt interpolation
+- name: reasoning_chain_implementation
+  pattern: '(?:reasoning|chain.of.thought).*(?:attack|manipulation)'
+  context_pattern: '(?:chain_of_thought|reasoning_chain|think_step_by_step|CoT)'
+  reason: ML_COMMON
+  confidence: 0.85
+  description: Reasoning attack rules fire on CoT/reasoning implementation code
+- name: slopsquatting_known_packages
+  pattern: '(?:slopsquat|hallucinated.*package)'
+  file_pattern: '(?:requirements|setup\.py|pyproject\.toml|package\.json)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Slopsquatting rules fire on legitimate dependency management files
+- name: ml_supply_chain_standard_install
+  pattern: '(?:supply.chain|package.*install).*(?:attack|hijack)'
+  context_pattern: '(?:pip install|npm install|requirements\.txt|package\.json)'
+  file_pattern: '(?:Dockerfile|Makefile|\.github|CI|ci)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.85
+  description: Supply chain rules fire on standard CI/CD package installation
+- name: dependency_intent_validation_lockfile
+  pattern: '(?:dependency|package).*(?:intent|validation|integrity)'
+  file_pattern: '(?:package-lock|yarn\.lock|Pipfile\.lock|poetry\.lock)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Dependency validation rules fire on lockfiles which already pin versions
+- name: provenance_license_code
+  pattern: '(?:provenance|attribution).*(?:missing|lack|absent)'
+  context_pattern: '(?:license|LICENSE|SPDX|copyright|Copyright)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.88
+  description: Provenance rules fire on code that already has license/attribution
+- name: guardrail_implementation_code
+  pattern: '(?:guardrail|content.filter).*(?:bypass|evasion)'
+  context_pattern: '(?:class\s+Guardrail|def\s+(?:check|validate|filter)_(?:input|output)|NeMoGuardrails|guardrails\.ai)'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.9
+  description: Guardrail bypass rules fire on guardrail implementation/defense code
+- name: long_context_management
+  pattern: '(?:long.context|context.window).*(?:attack|overflow)'
+  context_pattern: '(?:max_tokens|context_length|truncat|sliding_window|chunk_size)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Long context attack rules fire on standard context window management code
+- name: post_quantum_standard_crypto
+  pattern: '(?:post.quantum|quantum.*crypto|lattice.*based)'
+  context_pattern: '(?:from\s+cryptography|import\s+(?:rsa|ecdsa|ed25519)|openssl)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Post-quantum crypto rules fire on standard cryptographic library usage
+- name: compliance_implementation_code
+  pattern: '(?:compliance|gdpr|hipaa|sox|pci).*(?:violation|missing|absent)'
+  context_pattern: '(?:class\s+Compliance|def\s+check_compliance|audit_log|data_retention)'
+  reason: COMPLIANCE_CODE
+  confidence: 0.88
+  description: Compliance rules fire on compliance implementation/enforcement code
+- name: ai_security_research_docs
+  pattern: '(?:ai.*security|ml.*vulnerability)'
+  file_pattern: '(?:README|SECURITY|docs/|paper|research)\.(?:md|rst|txt)$'
+  reason: DOCSTRING
+  confidence: 0.92
+  description: AI security rules fire on documentation/research files discussing security
+- name: yaml_rule_definition_file_owasp
+  pattern: '(?:injection|jailbreak|bypass|exfiltration)'
+  file_pattern: '(?:rules/|scanners/|patterns/).*\.yaml$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Security scanner rule definition files contain attack patterns by design
+- name: example_demo_code_owasp
+  pattern: '(?:injection|jailbreak|exfiltration)'
+  file_pattern: '(?:example|demo|tutorial|notebook|quickstart)'
+  reason: EXAMPLE_FILE
+  confidence: 0.82
+  description: OWASP LLM rules fire on example/demo code
+- name: markdown_security_docs_owasp
+  pattern: '(?:injection|jailbreak|exfiltration|bypass)'
+  file_pattern: '\.md$'
+  reason: DOCSTRING
+  confidence: 0.85
+  description: OWASP LLM rules fire on Markdown documentation files
+- name: div_package_version_pypi
+  pattern: '(?:dependency|package|version).*(?:intent|validation)'
+  context_pattern: '(?:\d+\.\d+\.\d+|>=|<=|~=|==)'
+  file_pattern: '(?:requirements|setup\.py|pyproject|Pipfile|poetry)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Dependency intent validation fires on standard version specifiers
+- name: div_package_version_npm
+  pattern: '(?:dependency|package|version).*(?:intent|validation)'
+  context_pattern: '(?:\^|\~)\d+\.\d+'
+  file_pattern: '(?:package\.json|package-lock)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Dependency intent validation fires on npm semver ranges
+- name: supply_chain_ci_security_scan
+  pattern: '(?:supply.chain|dependency).*(?:attack|compromise)'
+  context_pattern: '(?:security|scan|audit|check|snyk|dependabot)'
+  file_pattern: '(?:\.github/workflows|\.gitlab-ci|Jenkinsfile|\.circleci)'
+  reason: INFRASTRUCTURE_CODE
+  confidence: 0.88
+  description: Supply chain rules fire on CI security scanning configurations
+- name: genai_security_defense_code
+  pattern: '(?:genai|generative.ai).*(?:security|vulnerability)'
+  context_pattern: '(?:class\s+(?:Safety|Security|Guard)|def\s+(?:validate|protect|defend))'
+  reason: DEFENSIVE_SECURITY
+  confidence: 0.88
+  description: GenAI security rules fire on safety/defense implementation code
+- name: ucp_payment_processing
+  pattern: '(?:ucp|universal.checkout|payment).*(?:security|vulnerability)'
+  context_pattern: '(?:stripe|paypal|adyen|payment_intent|checkout_session)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: UCP security rules fire on standard payment processing integrations
+- name: vendor_code_owasp
+  pattern: '(?:injection|jailbreak|bypass)'
+  file_pattern: '(?:vendor/|third.party/|external/|lib/)'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: OWASP LLM rules fire on vendor/third-party code directories
+- name: minified_js_security_rules
+  pattern: '(?:injection|bypass|exfiltration)'
+  file_pattern: '\.min\.js$'
+  reason: BUILD_OUTPUT
+  confidence: 0.95
+  description: OWASP LLM rules fire on minified JavaScript files
+- name: ssti_js_template_literal
+  pattern: 'Server-side template injection via user-supplied format string'
+  file_pattern: '(?:router|routes|navigation)\.(ts|js|tsx|jsx)$'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: SSTI rule fires on JavaScript template literals in client-side Vue/React router files — no server-side template engine present
+- name: env_injection_vue_router
+  pattern: 'Environment variable injection or exfiltration via AI prompt'
+  file_pattern: '(?:router|routes)\.(ts|js|tsx|jsx)$'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Env injection rule fires on Vue/React router redirect paths using template literals — no AI prompt construction
+- name: adversarial_suffix_i18n
+  pattern: 'Adversarial suffix, token injection, or chat template injection'
+  context_pattern: '(?:i18n|t\(|translate|intl|formatMessage|\$t\()'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: 'Adversarial suffix rule fires on i18n translation key lookups like i18n.global.t(''general.user'') — User: is a locale key, not a prompt prefix'
+- name: adversarial_suffix_object_key
+  pattern: 'Adversarial suffix, token injection, or chat template injection'
+  context_pattern: |-
+    (?:User|Admin|System|Assistant)\s*:\s*(?:i18n|t\(|["\'])
+  file_pattern: '\.(ts|js|tsx|jsx|vue)$'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: 'Adversarial suffix rule fires on JS/TS object property names like {User: ''value''} — these are object keys, not prompt role prefixes'
+- name: ssti_spa_frontend
+  pattern: 'Server-side template injection'
+  context_pattern: |-
+    (?:import.*(?:vue|react|angular|svelte)|from\s+["\'](?:vue|react|@angular))
+  file_pattern: '(?:src/(?:components|views|pages|router|store|utils|hooks)/)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Server-side template injection rule fires on client-side SPA framework code (Vue/React/Angular) — no server-side rendering

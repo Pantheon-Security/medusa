@@ -1,0 +1,72 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: mcpserverscanner
+patterns:
+- name: mcp_tool_definitions_in_response
+  pattern: '[Tt]ool definitions? included in response'
+  context_pattern: '(?:getToolDefinitions?|listTools?|ListToolsRequestSchema|tool_definitions?|filterTools?|ToolSchema)'
+  reason: MCP_PROTOCOL
+  confidence: 0.9
+  description: MCP protocol requires servers to return tool definitions via list_tools handler. This is standard protocol behavior, not a vulnerability
+- name: mcp_destructive_op_with_auth
+  pattern: '[Dd]estructive operation without validation|[Dd]ata modification without validation'
+  context_pattern: '(?:authenticat(?:e|ion)|validateRequest|verifyAuth|checkPermission|authorize|isAuthorized)'
+  reason: MCP_PROTOCOL
+  confidence: 0.88
+  description: MCP server has authentication/authorization layer. Destructive operations are validated by the auth middleware, not unvalidated
+- name: mcp_tool_exec_with_own_validation
+  pattern: '[Tt]ool execution without before_tool_callback|No after_tool_callback'
+  context_pattern: '(?:authenticat(?:e|ion)|validateRequest|verifyAuth|checkPermission|authorize|tool[_-]?validat)'
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP server implements its own validation layer instead of before_tool_callback. Server-side auth is an equivalent security control
+- name: mcp_tool_access_with_filtering
+  pattern: '[Oo]ver-privileged MCP tool access'
+  context_pattern: '(?:filterTools?|settings[_-]?manager|tool[_-]?(?:filter|whitelist|allowlist)|enabledTools?|disabledTools?|profile)'
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP server implements tool filtering via settings/profiles. Tool access is restricted by configuration, not over-privileged
+- name: mcp_error_handler_code_exec
+  pattern: '[Cc]ode execution without validation|[Pp]rocess execution without validation'
+  context_pattern: '(?:catch\s*\(|\.error\s*\(|log\.error|console\.error|handleError|onError)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Code/process execution finding in an error handler. Error logging and catch blocks are not code execution vulnerabilities
+- name: toxicity_check_on_mcp_tool_result
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  context_pattern: |-
+    (?:return\s*\{|content\s*:\s*\[|type\s*:\s*[\'"]text[\'"]|TextContent|toolResult|ToolResponse)
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP tool handler returns structured JSON results. Tool outputs are structured data, not raw LLM completions needing toxicity moderation
+- name: mcp_switch_case_destructive_op
+  pattern: '[Dd]estructive operation without validation|[Dd]ata modification without validation'
+  context_pattern: |-
+    case\s+[\'"](?:remove|delete|update|create|modify|drop|purge|reset|clear|wipe)
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP server dispatches tool calls via switch/case pattern. Each case delegates to a handler. Authentication is enforced at the request handler level before dispatch
+- name: mcp_tool_exec_no_callback_broad
+  pattern: '[Tt]ool execution without before_tool_callback|No after_tool_callback'
+  context_pattern: '(?:CallToolRequestSchema|ListToolsRequestSchema|setRequestHandler|McpServer|StdioServerTransport)'
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP server uses setRequestHandler with CallToolRequestSchema. The server framework handles request routing with its own auth layer, not requiring before/after_tool_callback
+- name: mcp_overprivileged_in_entry_point
+  pattern: '[Oo]ver-privileged MCP tool access'
+  context_pattern: |-
+    (?:case\s+[\'"]|switch\s*\(\s*(?:name|toolName|tool_name)|CallToolRequestSchema)
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP server entry point dispatches tools via switch/case. Tool access is part of the MCP server's design, not over-privileged when tools are filtered by settings
+- name: mcp_tool_definitions_aggregator
+  pattern: '[Tt]ool definitions? included in response'
+  context_pattern: '(?:allTools|getTools|toolList|\.map\(|\.filter\(|spread.*tools|\.\.\..*[Tt]ools)'
+  reason: MCP_PROTOCOL
+  confidence: 0.88
+  description: Tool definition aggregator collects and returns tool definitions from sub-modules. This is standard MCP list_tools protocol behavior
+- name: mcp_no_after_callback_file_level
+  pattern: 'No after_tool_callback for output validation'
+  reason: MCP_PROTOCOL
+  confidence: 0.8
+  description: File-level finding for missing after_tool_callback. MCP servers can implement response validation through their own layer (response validators, output sanitizers) instead of the specific callback pattern

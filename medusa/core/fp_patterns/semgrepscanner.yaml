@@ -1,0 +1,656 @@
+# Auto-generated from fp_patterns_db.py by scripts/migrate_fp_patterns_to_yaml.py.
+# Edit YAML, not Python.
+scanner: semgrepscanner
+patterns:
+- name: go_hash_cache_key
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: '(filepath\.Join|cache|Cache|cacheKey|cacheHash|\.dir)'
+  reason: CACHE_KEY
+  confidence: 0.9
+- name: go_hash_directory_sharding
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: 'hash\[:\d+\]|hash\[\d+:\d+\]'
+  reason: CACHE_KEY
+  confidence: 0.92
+- name: go_hash_upload_temp
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: '(uploadID|tempFile|chunkID|uploads/|temp/)'
+  reason: CACHE_KEY
+  confidence: 0.88
+- name: go_md5_duplicate_detection
+  pattern: 'md5\.(New|Sum)'
+  context_pattern: '(Duplicate|Dedup|Similar|partial|sample|8192)'
+  file_pattern: '(duplicate|dedup)'
+  reason: DUPLICATE_DETECTION
+  confidence: 0.9
+- name: go_hash_preview_cache
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: '(cacheKey|cacheHash|AlbumArt|ModTime)'
+  file_pattern: '(preview|thumbnail|cache)'
+  reason: CACHE_KEY
+  confidence: 0.88
+- name: go_mathrand_mock_file
+  pattern: 'math/rand|"math/rand"'
+  file_pattern: '(mock|Mock|_mock|mocks/|fake|Fake|stub)'
+  reason: MOCK_FILE
+  confidence: 0.92
+- name: go_mathrand_mock_func
+  pattern: 'math/rand|"math/rand"'
+  context_pattern: 'func\s+(Create)?Mock|func\s+Fake|func\s+Stub|func\s+Random(Path|Term|Extension)'
+  reason: MOCK_FILE
+  confidence: 0.88
+- name: go_mathrand_insecure_named
+  pattern: 'math/rand|"math/rand"'
+  context_pattern: 'func\s+Insecure|func\s+NonSecure|func\s+Weak'
+  reason: INTENTIONAL_WEAK
+  confidence: 0.95
+- name: go_mathrand_with_crypto
+  pattern: 'math\s+"math/rand"'
+  context_pattern: '"crypto/rand"'
+  reason: INTENTIONAL_WEAK
+  confidence: 0.9
+- name: go_multi_algorithm_checksum
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: 'sha256\.New|sha512\.New|map\[string\]hash\.Hash'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+- name: go_checksum_algo_param
+  pattern: '(md5|sha1)\.(New|Sum)'
+  context_pattern: 'func\s+\w*(Checksum|Hash|Digest)\s*\([^)]*algo'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+- name: yaml_trailing_spaces
+  pattern: 'trailing spaces'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_wrong_indentation
+  pattern: 'wrong indentation'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_truthy_value
+  pattern: 'truthy value should be'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_missing_doc_start
+  pattern: 'missing document start'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_no_newline_eof
+  pattern: 'no new line character'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_spaces_before_comment
+  pattern: 'too few spaces before comment'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: yaml_line_too_long
+  pattern: 'line too long'
+  reason: CODE_STYLE
+  confidence: 0.95
+- name: shell_double_quote
+  pattern: 'Double quote to prevent globbing'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: semgrep_assert_usage
+  pattern: 'Use of assert detected'
+  reason: ML_COMMON
+  confidence: 0.85
+- name: semgrep_random_ml
+  pattern: 'Standard pseudo-random generators are not suitable'
+  file_pattern: '(train|eval|dataset|model|attack|benchmark|experiment)'
+  reason: ML_COMMON
+  confidence: 0.8
+- name: semgrep_generic_code_execution
+  pattern: '^Code execution$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_generic_data_modification
+  pattern: '^Data modification$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_generic_destructive_op
+  pattern: '^Destructive operation$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_generic_process_execution
+  pattern: '^Process execution$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_generic_file_write
+  pattern: '^File write$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_generic_file_deletion
+  pattern: '^File deletion$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Generic tool capability finding on normal TypeScript/JavaScript code
+- name: semgrep_validation_pattern_match
+  pattern: '^(Validation|Rate Limit|Audit) Patterns match$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: Generic 'Patterns match' finding fires on security controls, not vulnerabilities
+- name: plugin_sdk_import_unrestricted
+  pattern: 'Plugin marked as public/unrestricted'
+  context_pattern: |-
+    import\s+(type\s+)?.*from\s+[\'\"](openclaw|@openclaw)
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Plugin SDK import statement triggers unrestricted plugin finding
+- name: semgrep_dotenv_code_not_file_ts
+  pattern: '^Tool accesses sensitive system files$'
+  file_pattern: '\.(ts|js|tsx|jsx|mjs|cjs)$'
+  reason: SAFE_PATTERN
+  confidence: 0.82
+  description: MCP-004 .env pattern in TS/JS matches process.env, not file access
+- name: agent_file_level_import_line1
+  pattern: '(Inter-agent messages without validation|Agent delegation without privilege|Agent interactions without audit|Unrestricted agent spawning)'
+  context_pattern: '^import\s'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: File-level agent finding fires on import statement, not agent logic
+- name: agent_type_definition
+  pattern: '(agent safety|Agent action|Agent with|Agent without|Agent handoff|Agent delegation|Agent interaction|Inter-agent|Auto-execution|human approval|Unrestricted agent|agent spawning)'
+  context_pattern: '^\s*(export\s+)?(type|interface)\s+\w+'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Agent safety finding on TypeScript type/interface, not executable code
+- name: chat_export_ts_keyword
+  pattern: 'Chat history export'
+  context_pattern: '^\s*export\s+(type|interface|const|function|async\s+function|default|class|\{)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: TypeScript 'export' keyword collides with chat history export detection
+- name: plugin_exec_import_statement
+  pattern: 'Plugin with code execution'
+  context_pattern: '^\s*(import\s+(type\s+)?|type\s+\w+)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Plugin execution finding on import/type statement, not actual execution
+- name: mcp123_crypto_hash_update
+  pattern: 'MCP123.*Update without verification'
+  context_pattern: '(createH(ash|mac)|crypto\.|decipher\.|cipher\.)'
+  reason: SAFE_PATTERN
+  confidence: 0.95
+  description: Crypto hash/HMAC .update() is not an MCP tool update
+- name: mcp123_ui_spinner_update
+  pattern: 'MCP123.*Update without verification'
+  context_pattern: '(spin\.update|progress\.update|onProgress|requestUpdate|emitUpdate|draftStream\.update)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: UI spinner/progress .update() is not an MCP tool update
+- name: mcp123_messaging_update
+  pattern: 'MCP123.*Update without verification'
+  context_pattern: '(shouldSkipUpdate|sendPresenceUpdate|stringifyUpdate)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Messaging platform update/presence is not an MCP tool update
+- name: mcp119_localhost_log_url
+  pattern: 'MCP119.*Custom URI scheme'
+  context_pattern: '(console\.log|\.log\(|listening on|\.info\(|new URL\(req\.url)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: URL construction for server logging, not template injection
+- name: raw_response_normalize_function
+  pattern: 'Returning raw response without sanitization'
+  context_pattern: '(normalize|parse|trim|sanitize|clean|strip|split|replace|humanize|format)\w*\s*\('
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: '''return raw'' inside normalize/parse function - the function IS the sanitization'
+- name: plugin_return_error_message
+  pattern: 'Sensitive data in plugin return'
+  context_pattern: |-
+    return\s+["\'\x60].*\b(require|not configured|can only be used|missing|invalid)\b
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Return of error message mentioning secret name, not actual secret data
+- name: timing_literal_string_compare
+  pattern: '(constant-time compare|timing attack risk)'
+  context_pattern: |-
+    ===?\s*["\'][a-zA-Z_*-]+["\']|["\'][a-zA-Z_*-]+["\']\s*===?
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Timing comparison to hardcoded string literal is not exploitable
+- name: timing_typeof_check
+  pattern: '(constant-time compare|timing attack risk)'
+  context_pattern: |-
+    typeof\s+\w+(\.\w+)*\s*===?\s*["\']
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: typeof type guard is not a secret comparison
+- name: zero_width_trim_only
+  pattern: 'zero-width character filtering'
+  context_pattern: '\.trim\(\)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: .trim() is whitespace removal, not input sanitization
+- name: mcp123_generic_update
+  pattern: 'MCP123.*Update without verification'
+  context_pattern: '(emitUpdate|stringifyUpdate|surfaceUpdate|sessionTranscript|updatePrefs|runUpdate|dataModelUpdate)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Generic .update() (state, config, transcript) is not MCP tool update
+- name: powershell_bash_subshell
+  pattern: 'PowerShell subexpression'
+  context_pattern: '(#!/bin/(sh|bash)|dirname\s+"\$0"|node\s+"\$\()'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Bash $() subshell syntax misidentified as PowerShell subexpression
+- name: mcp_confused_deputy_token_count
+  pattern: 'Confused deputy.*token'
+  context_pattern: '(tokenCount|systemTokens|contextTokens|injectedChars|contextWeight)'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Token counting code is not confused deputy pattern
+- name: system_prompt_config_label
+  pattern: 'System Prompt Leakage'
+  context_pattern: |-
+    (label:\s*["\']|description:\s*["\']|placeholder:\s*["\']|tooltip:\s*["\'])
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Config form label mentioning system prompt is UI metadata, not leakage
+- name: fstring_path_in_scripts
+  pattern: 'Path traversal.*f-string'
+  file_pattern: '(scripts/|evaluation/|hooks/|utils/|skills/|tools/)'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Internal scripts use f-string paths with trusted variables
+- name: go_unsafe_package
+  pattern: 'unsafe package'
+  file_pattern: '\.go$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Go unsafe package usage is standard for CGo interop and low-level system code
+- name: training_config_on_openapi
+  pattern: '(Training config|Downloading training)'
+  file_pattern: '(openapi|swagger)\.(json|ya?ml)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: OpenAPI/Swagger spec files contain URLs that are API definitions
+- name: yaml_missing_comment_space
+  pattern: 'missing starting space in comment'
+  reason: CODE_STYLE
+  confidence: 0.95
+  description: YAML comment style is not a security issue
+- name: shellcheck_quote_word_splitting
+  pattern: 'Quote this to prevent word splitting'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck word splitting advisory is code quality, not security
+- name: shellcheck_declare_assign
+  pattern: 'Declare and assign separately'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck declare/assign advisory is code quality, not security
+- name: shellcheck_posix_sh
+  pattern: 'In POSIX sh,'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck POSIX portability advisory is not a security issue
+- name: shellcheck_target_shell
+  pattern: 'Tips depend on target shell'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck shell detection advisory is not a security issue
+- name: shellcheck_single_quotes
+  pattern: |-
+    Expressions don't expand in single quotes
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck quoting advisory is code quality, not security
+- name: shellcheck_appears_unused
+  pattern: 'appears unused\.'
+  reason: CODE_STYLE
+  confidence: 0.88
+  description: ShellCheck unused variable advisory is code quality, not security
+- name: shellcheck_mapfile_read
+  pattern: 'Prefer mapfile or read -a'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: shellcheck_egrep_deprecated
+  pattern: 'egrep is non-standard and deprecated'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: shellcheck_word_splitting
+  pattern: 'Quote to prevent word splitting'
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: shellcheck_useless_echo
+  pattern: 'Useless echo\?'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: shellcheck_variable_replace
+  pattern: 'See if you can use \$\{variable'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: shellcheck_printf_variable
+  pattern: |-
+    Don't use variables in the printf
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: shellcheck_exit_status
+  pattern: 'Can only exit with status 0-255'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: shellcheck_find_xargs
+  pattern: 'find \.\. -print0 \| xargs'
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: shellcheck_single_quotes
+  pattern: 'This word is outside of quotes'
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: shellcheck_loop_once
+  pattern: 'This loop will only ever run once'
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: avd_ksv_in_ci_directory
+  pattern: 'AVD-KSV-\d+'
+  file_pattern: '(ci|jenkins|\.github|\.gitlab)/'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: K8s security rules on CI/CD pod configs, not production workloads
+- name: developer_tool_subprocess
+  pattern: 'subprocess call|Starting a process|partial executable path'
+  file_pattern: 'tools/|cmd/tools/|scripts/'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Developer tools naturally use subprocess for CLI operations
+- name: developer_tool_urllib
+  pattern: 'urllib|url open|Audit url open'
+  file_pattern: 'tools/|cmd/tools/|scripts/'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Developer tools use urllib for downloading/API access
+- name: developer_tool_try_except_pass
+  pattern: 'Try, Except, Pass'
+  file_pattern: 'tools/|cmd/tools/|scripts/'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+- name: developer_tool_path_traversal
+  pattern: 'Path traversal'
+  file_pattern: 'tools/|cmd/tools/|scripts/'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+- name: go_math_rand_non_crypto
+  pattern: 'Do not use.*math/rand.*Use.*crypto/rand'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: math/rand is fine for non-cryptographic uses like shuffling, sampling
+- name: yaml_duplicate_key
+  pattern: 'duplication of key.*in mapping'
+  reason: CODE_STYLE
+  confidence: 0.85
+- name: yaml_blank_lines
+  pattern: 'too many blank lines'
+  reason: CODE_STYLE
+  confidence: 0.9
+- name: try_except_pass_library
+  pattern: 'Try, Except, Pass'
+  file_pattern: '\.(py|pyi)$'
+  reason: CODE_STYLE
+  confidence: 0.75
+  description: Try/except/pass is used for graceful degradation in libraries
+- name: assert_usage_library
+  pattern: 'Use of assert'
+  file_pattern: '\.(py|pyi)$'
+  reason: CODE_STYLE
+  confidence: 0.7
+  description: Assert statements in library code are for developer invariants
+- name: shellcheck_sc2155
+  pattern: 'SC2155'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck SC2155 is declare/assign style advisory
+- name: shellcheck_sc2086
+  pattern: 'SC2086'
+  reason: CODE_STYLE
+  confidence: 0.85
+  description: ShellCheck SC2086 is quoting style advisory
+- name: shellcheck_prefer_arithmetic
+  pattern: 'prefer \(\( expr \)\)'
+  file_pattern: '\.(sh|bash|zsh)$'
+  reason: CODE_STYLE
+  confidence: 0.92
+  description: ShellCheck style suggestion - not a security issue
+- name: shellcheck_prefer_dollar_paren
+  pattern: 'Use \$\(\.\.\.\) notation instead of legacy backticks'
+  reason: CODE_STYLE
+  confidence: 0.92
+  description: ShellCheck style suggestion - not a security issue
+- name: shellcheck_literal_braces
+  pattern: '[{}] is literal\.'
+  file_pattern: '\.(sh|bash|zsh)$'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck brace literal warning - not a security issue
+- name: subprocess_security_consideration
+  pattern: 'Consider possible security implications.*subprocess'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: General subprocess awareness advisory, not an actual vulnerability
+- name: glob_enumeration_dev_tools
+  pattern: 'Glob pattern for file enumeration'
+  file_pattern: '(script|tool|util|build|generate|check|validate|lint|format|ci|test|setup|install|deploy|Makefile|manage).*\.(py|sh|js|ts)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Glob patterns in dev/build tools are standard file operations
+- name: direct_file_read_dev_tools
+  pattern: 'Direct file read without path validation'
+  file_pattern: '(script|tool|util|build|generate|check|validate|lint|format|ci|test|setup|install|deploy|manage).*\.(py|sh|js|ts)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: File reads in dev/build tools operate on trusted local files
+- name: requests_no_timeout_library
+  pattern: 'Call to requests without timeout'
+  file_pattern: '\.(py|pyi)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Missing timeout in library code is a quality issue, not a security vulnerability
+- name: mcp_tool_shadow_ts_tooling
+  pattern: 'MCP120.*Tool name shadows'
+  file_pattern: '\.(ts|js|tsx|jsx)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.8
+  description: Tool naming in TS/JS utility code is not MCP tool shadowing
+- name: yaml_bracket_spacing
+  pattern: 'too many spaces inside brackets'
+  reason: CODE_STYLE
+  confidence: 0.92
+  description: YAML bracket spacing is a style issue, not security
+- name: vault_ui_ember_adapter_findings
+  pattern: 'Sensitive data in plugin return|Path traversal.*Template literal|MCP123.*without (verification|integrity)|Plugin with database access'
+  file_pattern: '(^|/)ui/(app|lib)/'
+  reason: SAFE_PATTERN
+  confidence: 0.88
+  description: Vault UI Ember.js adapter/component findings - REST API calls, not security issues
+- name: credential_labels_in_ui_code
+  pattern: 'AWS Secret Access Key|Generic API Key|Hardcoded Password'
+  file_pattern: '(^|/)ui/(app|lib|mirage)/'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Credential-related labels in UI forms and test mock data, not real secrets
+- name: secrets_in_vault_cache_code
+  pattern: 'Secret/token found in memory|Password found in memory'
+  file_pattern: '(cache|vault|seal|barrier|token|auth|credential|agentproxy).*\.go$'
+  reason: SECURITY_MODULE
+  confidence: 0.88
+  description: Secret/token storage in Vault's core cache and auth modules - intentional design
+- name: shellcheck_style_let_expr
+  pattern: |-
+    Instead of 'let expr'.*prefer
+  file_pattern: '\.(sh|bash|zsh)$'
+  reason: CODE_STYLE
+  confidence: 0.92
+  description: ShellCheck style suggestion for let expressions - not a security issue
+- name: security_findings_in_test_mocks
+  pattern: 'Long base64 string|Agent (action without logging|with secrets manager|with credential access)'
+  file_pattern: '(test|mirage|fixture|helper|mock|fake|spec).*\.(go|js|ts)$'
+  reason: TEST_FILE
+  confidence: 0.85
+  description: Security findings in test helpers, mock data, and fixture files
+- name: mcp_findings_in_non_mcp_code
+  pattern: 'MCP server without authentication'
+  file_pattern: '(vault|hashicorp|consul).*\.(go|js|ts)$'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: MCP-specific findings in non-MCP server code (Vault, Consul, etc.)
+- name: timing_attack_in_crypto_library
+  pattern: 'Secret-dependent conditional.*timing attack'
+  file_pattern: 'builtin/logical/|sdk/(helper|logical|physical)/|vault/seal/|vault/barrier/'
+  reason: SECURITY_MODULE
+  confidence: 0.85
+  description: Timing attack warnings in security tool's crypto implementation
+- name: shellcheck_style_in_sh_files
+  pattern: 'Literal carriage return|read without -r will mangle|Check exit code directly|Use find instead of ls|sudo doesn.t affect redirects|ShellCheck can.t follow non-constant source|This flag is used as a command name'
+  file_pattern: '\.(sh|bash|zsh)$'
+  reason: CODE_STYLE
+  confidence: 0.9
+  description: ShellCheck style warnings in shell scripts are code quality, not security vulnerabilities
+- name: defusedxml_import_alias
+  pattern: '(?i)xml\.etree\.ElementTree|insecure XML|XXE'
+  file_pattern: '\.py$'
+  reason: SAFE_PATTERN
+  confidence: 0.8
+  description: Scanner flags ET.fromstring() as insecure XML but cannot resolve defusedxml import alias
+- name: medusa_config_self_scan
+  pattern: 'Potential prompt injection pattern'
+  file_pattern: '\.medusa.*\.yml$'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: MEDUSA flagging its own .medusa.yml and .medusa-suppress.yml config files. Rule descriptions in config look like prompt injection patterns to the scanner
+- name: mcp_token_handling_oauth
+  pattern: 'MCP token'
+  reason: KNOWN_PATTERN
+  confidence: 0.85
+  description: Standard OAuth2/bearer token patterns in Okta, Delinea, M365, auth modules flagged as weak MCP token handling. These are not MCP tokens
+- name: cli_argparse_output_as_llm
+  pattern: 'LLM output.*(?:file path|path traversal)'
+  context_pattern: 'argparse|args\.output|ArgumentParser'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: CLI tools using args.output from argparse flagged as LLM output as file path. No LLM involved - standard argparse CLI output handling
+- name: tool_execution_orchestration
+  pattern: 'Tool (?:definitions? included|execution without)'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Forensic tool orchestration agents executing KAPE/UAC tools. Tool execution IS the feature. Already gated by ToolCallbackScanner but SemgrepScanner duplicates
+- name: docker_compose_env_substitution
+  pattern: '[Hh]ardcoded.*password'
+  file_pattern: 'docker-compose\.(?:production|prod)'
+  reason: SAFE_PATTERN
+  confidence: 0.85
+  description: Docker Compose ${DB_PASSWORD} environment variable substitution flagged as hardcoded password. Scanner cannot parse ${} substitution syntax
+- name: prompt_logged_admin_scripts
+  pattern: '[Pp]rompt logged|[Ii]nformation [Dd]isclosure.*[Pp]rompt'
+  file_pattern: '(?:export_|admin_|audit_)'
+  reason: KNOWN_PATTERN
+  confidence: 0.82
+  description: Admin export scripts that print Azure DevOps/Okta data to console for auditing. No prompts or system instructions involved
+- name: toxicity_check_chat_extensions
+  pattern: '(?:toxicity check|content moderation)'
+  file_pattern: 'extensions?/'
+  reason: KNOWN_PATTERN
+  confidence: 0.9
+  description: Chat platform adapter extensions (feishu, discord, telegram, slack, etc.) relay messages between platforms. They are infrastructure code, not raw LLM completions needing toxicity moderation
+- name: pii_typescript_type_definitions
+  pattern: 'PII detected in LLM context.*[Dd]ate of birth'
+  file_pattern: '(?:graph-upload|messenger|message-handler|bash-tools|errors)(?:\.\w+)+$'
+  reason: KNOWN_PATTERN
+  confidence: 0.88
+  description: Pattern matches TypeScript interface field names like displayName and aadObjectId as personal data when they are actually type definitions and output parsing, not real PII
+- name: toxicity_check_on_mcp_handlers_semgrep
+  pattern: 'LLM output.*without toxicity check|toxicity check.*content moderation'
+  context_pattern: |-
+    (?:return\s*\{|content\s*:\s*\[|toolResult|handleTool|case\s+[\'"])
+  file_pattern: 'handler'
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP handler returns structured tool results via SemgrepScanner. Tool outputs are structured data, not raw LLM completions needing toxicity moderation
+- name: filesystem_access_in_tool_handlers
+  pattern: '[Aa]gent with filesystem (?:write|delete|read)'
+  context_pattern: |-
+    (?:handleTool|toolHandler|case\s+[\'"]|handleConfigure|handleCreate|handleDelete|handleUpdate)
+  file_pattern: 'handler'
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP handler provides filesystem operations as intentional user-facing tool features. These are documented tool capabilities, not unauthorized access
+- name: filesystem_in_handler_result_return
+  pattern: '[Aa]gent with filesystem (?:write|delete|read)'
+  context_pattern: '(?:deleteFile|delete_document|removeFile|success\s*:\s*true|deleted\s*:\s*true|\.delete\()'
+  file_pattern: 'handler'
+  reason: MCP_PROTOCOL
+  confidence: 0.83
+  description: MCP handler returns structured result for a file delete operation. The delete is an intentional tool feature with success/error handling
+- name: mcp_handler_return_result_toxicity
+  pattern: 'toxicity check|content moderation'
+  context_pattern: 'return\s+(?:result|response|output)'
+  file_pattern: 'handler'
+  reason: MCP_PROTOCOL
+  confidence: 0.85
+  description: MCP handler returns tool execution result. This is structured data from tool execution (file contents, database results, etc.), not LLM-generated text requiring toxicity filtering
+- name: raw_sql_on_file_logger
+  pattern: 'Raw SQL'
+  file_pattern: '(?:query[_-]?log|log[_-]?query|file[_-]?log|jsonl)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Raw SQL finding on a file/JSONL logger module that has no SQL database — string interpolation in log statements is not SQL injection
+- name: raw_sql_on_cleanup_utility
+  pattern: 'Raw SQL'
+  file_pattern: '(?:cleanup|clean[_-]?up|purge|janitor|sweeper|garbage)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Raw SQL finding on a filesystem cleanup utility — template literals in log statements and fs operations are not SQL injection
+- name: toxicity_check_on_cli_output
+  pattern: 'toxicity check|content moderation'
+  context_pattern: '(?:console\.print|click\.echo|print)\s*\('
+  file_pattern: 'cli\.py'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Toxicity check finding on CLI terminal output (console.print/click.echo) — this is formatted terminal text, not LLM-generated content
+- name: toxicity_check_on_mcp_description
+  pattern: 'toxicity check|content moderation'
+  context_pattern: |-
+    description\s*=\s*["\']
+  file_pattern: '(?:mcp|server)\.py'
+  reason: MCP_PROTOCOL
+  confidence: 0.9
+  description: Toxicity check on static MCP parameter description string — schema metadata is not LLM-generated content requiring moderation
+- name: random_for_retry_jitter
+  pattern: 'pseudo-random|random.*not suitable'
+  context_pattern: '(?:retry|backoff|delay|jitter|attempt|2\s*\*\*\s*attempt)'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: random.uniform() used for retry backoff jitter — standard load distribution pattern, not security/cryptographic use
+- name: agent_network_on_user_agent_config
+  pattern: '[Aa]gent with network access'
+  context_pattern: 'user[_-]?agent'
+  file_pattern: 'config\.py'
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: '''Agent with network access'' triggered by HTTP User-Agent header config — user_agent is an HTTP header string, not an autonomous AI agent'
+- name: prompt_injection_on_terminal_output
+  pattern: '[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt'
+  context_pattern: '(?:console\.print|progress\.console|click\.echo|rich\.print|print)\s*\('
+  reason: SAFE_PATTERN
+  confidence: 0.92
+  description: Prompt injection finding on terminal output (Rich console.print / click.echo) — local CLI display is not LLM prompt construction
+- name: prompt_injection_on_api_error_message
+  pattern: '[Pp]rompt [Ii]njection.*input interpolated|[Uu]ser input interpolated in prompt'
+  context_pattern: '(?:Error|Exception|raise|throw)\s*\('
+  file_pattern: '(?:sources?|api|client|github|gitlab|bitbucket)'
+  reason: SAFE_PATTERN
+  confidence: 0.9
+  description: Prompt injection finding on API error message interpolation — upstream API responses propagated into exceptions are standard error handling, not LLM prompt construction

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.4] - 2026-04-16
+
+### Changed
+
+- **FP Patterns Migrated to YAML** - Moved 583 false positive patterns from `medusa/core/fp_patterns_db.py` (6,746 LOC Python) to per-scanner YAML files in `medusa/core/fp_patterns/` (27 files, one per scanner plus `_universal.yaml`).
+  - New `load_known_fp_patterns()` loader in `fp_filter.py` with strict schema validation (`FPPatternSchemaError` on unknown keys, invalid `FPReason` enum values, or missing required fields).
+  - Preserves deterministic load order: ASCII-sorted filenames, source order within each file.
+  - Zero behavior change: `FalsePositiveFilter._FP_BY_SCANNER` bucket dict is byte-identical, regression benchmark findings unchanged (7 issues, 291 FPs filtered, 97.7% reduction).
+- **Documentation** - Added `RULE_PROMOTION.md` documenting the repeatable workflow for promoting rules from `medusa-rules` → production, with smoke testing and benchmark validation against `medusa-test-targets/`.
+
+### Removed
+
+- **`medusa/core/fp_patterns_db.py`** - 6,746 LOC of hardcoded Python FP patterns. Data now lives in YAML; editing patterns no longer requires a code change.
+
+### Net Impact
+
+- **−2,815 LOC** repo-wide (−6,746 Python, +3,505 YAML, +141 loader)
+- **FP patterns editable by non-Python contributors** via YAML
+- **Pattern count now trivially countable** (`yq`, `grep`, etc.) — previously required AST parsing
+
 ## [2026.3.0.0] - 2026-02-16
 
 ### Fixed
