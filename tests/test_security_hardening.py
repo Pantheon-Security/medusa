@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Security hardening tests for scanner argv injection defenses.
+Security hardening tests for v2026.5.5.
 
-Covers two tightly-coupled fixes:
+Covers:
 
 C-1a: External-tool cmd lists must include a ``--`` separator before the
       trailing path positional, so that a maliciously named file like
@@ -12,10 +12,13 @@ C-1a: External-tool cmd lists must include a ``--`` separator before the
 C-1b: As defense-in-depth, scanners must refuse (without spawning a
       subprocess) any file whose basename starts with ``-``.
 
+M-1:  Markdown report code fences must not be escapable by source content,
+      and inline backtick spans must not be escapable by filenames containing
+      backticks.
+
 These tests mock ``BaseScanner._run_command`` to capture argv without invoking
-the real external tool. They exercise the per-file subprocess fallback path
-(``_scan_file_subprocess``) directly, so neither a populated cache nor the
-tool actually being installed matters.
+the real external tool for C-1 cases, and directly invoke reporter helpers
+for M-1 cases.
 """
 
 from __future__ import annotations
@@ -205,3 +208,130 @@ def test_reject_helper_rejects_dash_prefix(tmp_path):
     assert result is not None
     assert result.success is False
     assert "argv injection defense" in (result.error_message or "").lower()
+
+
+# ---------------------------------------------------------------------------
+# M-1: Markdown report escape
+# ---------------------------------------------------------------------------
+
+from medusa.core.reporter import _md_code_fence, _md_sanitize_inline, MedusaReportGenerator
+
+
+class TestMarkdownFenceEscape:
+    """Source code with embedded triple-backticks cannot break out of the fence."""
+
+    def test_plain_code_uses_three_backtick_fence(self):
+        out = _md_code_fence("print('hello')")
+        assert out.startswith("```\n")
+        assert out.endswith("\n```")
+        # Default 3-backtick fence when code has no runs of backticks.
+        assert out.count("`" * 3) >= 2
+
+    def test_triple_backtick_in_code_bumps_fence(self):
+        malicious = "```\n# break out\n<script>alert(1)</script>"
+        out = _md_code_fence(malicious)
+        # The fence MUST be at least 4 backticks long so the embedded 3-run
+        # cannot close it.
+        lines = out.split("\n")
+        assert len(lines[0]) >= 4
+        assert lines[0].rstrip("`") == ""  # fence is pure backticks
+        assert lines[-1] == lines[0]       # open == close
+        # The malicious triple-backtick run appears somewhere between the
+        # opening and closing fence but does not equal either.
+        assert "```" in out
+        # Re-parse: split on the fence; the middle chunk must include the run.
+        parts = out.split(lines[0])
+        assert "```" in parts[1]
+
+    def test_arbitrary_run_of_backticks(self):
+        # 7-backtick run in code must force an 8+ fence.
+        malicious = "`" * 7 + "pwn"
+        out = _md_code_fence(malicious)
+        fence_line = out.split("\n", 1)[0]
+        assert len(fence_line) >= 8
+
+    def test_empty_code_is_valid(self):
+        out = _md_code_fence("")
+        assert out == "```\n\n```"
+
+
+class TestMarkdownInlineSanitize:
+    """Filenames with backticks cannot break out of inline code spans."""
+
+    def test_plain_filename_unchanged(self):
+        assert _md_sanitize_inline("src/foo.py") == "src/foo.py"
+
+    def test_backtick_stripped(self):
+        assert _md_sanitize_inline("evil`name.py") == "evilname.py"
+
+    def test_newlines_stripped(self):
+        assert _md_sanitize_inline("a\nb\r\nc") == "abc"
+
+
+class TestReportMarkdownIntegration:
+    """End-to-end: generated markdown contains no fence breakout."""
+
+    def _make_scan_results(self, code_payload: str, filename: str) -> dict:
+        return {
+            "version": "test",
+            "timestamp": "2026-04-18T00:00:00Z",
+            "summary": {
+                "total_files": 1,
+                "total_issues": 1,
+                "critical": 1,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+            },
+            "findings": [
+                {
+                    "severity": "CRITICAL",
+                    "issue": "hardcoded secret",
+                    "file": filename,
+                    "line": 1,
+                    "scanner": "testscanner",
+                    "confidence": 0.9,
+                    "code": code_payload,
+                }
+            ],
+            "missing_linters": [],
+        }
+
+    def test_generated_markdown_survives_tripleback_payload(self, tmp_path):
+        gen = MedusaReportGenerator()
+        payload = "```\n# SENTINEL_BREAKOUT\n<script>alert(1)</script>"
+        out_path = tmp_path / "report.md"
+        gen.generate_markdown_report(
+            self._make_scan_results(payload, "safe.py"),
+            output_path=out_path,
+        )
+        md = out_path.read_text(encoding="utf-8")
+        # The breakout marker must appear inside a code block, never as raw
+        # markdown outside one. The payload's embedded ``` run must not close
+        # the outer fence.
+        assert "SENTINEL_BREAKOUT" in md
+        # The script tag must appear AFTER the first fence (inside the block).
+        idx_script = md.find("<script>alert(1)</script>")
+        idx_first_fence = md.find("```")
+        assert idx_first_fence != -1
+        assert idx_first_fence < idx_script
+        # The opening fence at that position must be AT LEAST 4 backticks long
+        # because the payload contains a 3-run; a 3-backtick open fence would
+        # be closed by the payload's 3-run and the script would escape.
+        # Find the exact fence sequence at idx_first_fence.
+        fence_run = 0
+        while idx_first_fence + fence_run < len(md) and md[idx_first_fence + fence_run] == "`":
+            fence_run += 1
+        assert fence_run >= 4, f"expected fence >= 4 backticks for payload with 3-run, got {fence_run}"
+
+    def test_filename_backtick_sanitized(self, tmp_path):
+        gen = MedusaReportGenerator()
+        out_path = tmp_path / "report.md"
+        gen.generate_markdown_report(
+            self._make_scan_results("safe code", "evil`name.py"),
+            output_path=out_path,
+        )
+        md = out_path.read_text(encoding="utf-8")
+        # The raw filename-with-backtick must not appear; the sanitized form must.
+        assert "evil`name.py" not in md
+        assert "evilname.py" in md

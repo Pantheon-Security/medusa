@@ -33,6 +33,49 @@ _SARIF_TAG_PATTERNS: List[tuple] = [
     ('ai-security', re.compile(r'\bai\b|\bml\b|\bmodel\b', re.IGNORECASE)),
 ]
 
+
+def _md_code_fence(code: str, lang: str = "") -> str:
+    """
+    Build a markdown code fence that cannot be closed by content inside it.
+
+    Markdown fences open on exactly three backticks (```) and close on the same.
+    If user-controlled source code contains three consecutive backticks, it
+    breaks out of the fence — any following content renders as raw
+    Markdown/HTML. Defense: use a fence one backtick longer than the longest
+    run of consecutive backticks in the code.
+
+    Args:
+        code: The source text to wrap.
+        lang: Optional language hint for syntax highlighting.
+
+    Returns:
+        Markdown block ``fence<lang>\\n<code>\\nfence`` with a fence length
+        guaranteed not to appear as a sub-run inside ``code``.
+    """
+    max_run = 0
+    current_run = 0
+    for ch in code:
+        if ch == '`':
+            current_run += 1
+            if current_run > max_run:
+                max_run = current_run
+        else:
+            current_run = 0
+    fence = '`' * max(3, max_run + 1)
+    return f"{fence}{lang}\n{code}\n{fence}"
+
+
+def _md_sanitize_inline(text: str) -> str:
+    """
+    Strip characters that break out of inline markdown code spans.
+
+    Backticks and newlines terminate an inline ``...`` span. This helper
+    removes them so user-controlled filenames/identifiers can be safely
+    interpolated into backtick-delimited inline code.
+    """
+    return text.replace('`', '').replace('\n', '').replace('\r', '')
+
+
 class MedusaReportGenerator:
     """Generate comprehensive security reports from MEDUSA scans"""
 
@@ -272,7 +315,7 @@ class MedusaReportGenerator:
                 emoji = {'CRITICAL': '🚨', 'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🔵', 'UNDEFINED': '⚪'}.get(severity, '⚪')
 
                 md += f"### {i}. {emoji} {severity}: {finding['issue']}\n\n"
-                md += f"**File:** `{finding['file']}:{finding['line']}`  \n"
+                md += f"**File:** `{_md_sanitize_inline(str(finding['file']))}:{finding['line']}`  \n"
                 md += f"**Scanner:** {finding['scanner']}  \n"
                 md += f"**Confidence:** {finding.get('confidence', 'N/A')}  \n"
 
@@ -281,7 +324,7 @@ class MedusaReportGenerator:
                     md += f"**CWE:** [CWE-{cwe}](https://cwe.mitre.org/data/definitions/{cwe}.html)  \n"
 
                 if finding.get('code'):
-                    md += f"\n**Code:**\n```\n{finding['code']}\n```\n"
+                    md += f"\n**Code:**\n{_md_code_fence(str(finding['code']))}\n"
 
                 md += "\n---\n\n"
         else:
