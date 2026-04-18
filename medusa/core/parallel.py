@@ -13,8 +13,10 @@ Features:
 """
 
 import fnmatch
+import hmac
 import os
 import re
+import secrets
 import sys
 import json
 import hashlib
@@ -102,8 +104,56 @@ class MedusaCacheManager:
         self.cache_dir = cache_dir or Path.home() / ".medusa" / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.cache_file = self.cache_dir / "file_cache.json"
+        self.hmac_key_file = self.cache_dir / ".hmac_key"
+        self._hmac_key = self._load_or_create_hmac_key()
         self.rule_version = self._compute_rule_fingerprint()
         self.cache: Dict[str, FileMetadata] = self._load_cache()
+
+    def _load_or_create_hmac_key(self) -> bytes:
+        """
+        Load the machine-local HMAC key for cache integrity, creating it on
+        first run. The key lives at ``<cache_dir>/.hmac_key`` with mode 0600.
+
+        Cache integrity: an attacker with write access to the cache file
+        (compromised dev workstation, malicious postinstall, shared CI runner)
+        could otherwise forge cache entries marking vulnerable files as clean,
+        silently suppressing scan findings. The HMAC makes such tampering
+        detectable. Key rotation simply deletes this file — next scan
+        regenerates and invalidates every stale cache entry.
+        """
+        if self.hmac_key_file.exists():
+            try:
+                key = self.hmac_key_file.read_bytes().strip()
+                if len(key) >= 32:
+                    return key
+            except OSError:
+                pass
+        # Generate fresh key (256-bit).
+        key = secrets.token_hex(32).encode()
+        try:
+            # Write with restrictive mode (POSIX; best-effort on Windows).
+            fd = os.open(
+                self.hmac_key_file,
+                os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+                0o600,
+            )
+            try:
+                os.write(fd, key)
+            finally:
+                os.close(fd)
+        except OSError:
+            # If we can't persist the key, still return it; this run works but
+            # the next run will regenerate and effectively invalidate the cache.
+            pass
+        return key
+
+    def _compute_hmac(self, serialized: str) -> str:
+        """Compute HMAC-SHA256 over a canonical serialization string."""
+        return hmac.new(
+            self._hmac_key,
+            serialized.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
 
     def _compute_rule_fingerprint(self) -> str:
         """Compute a fingerprint of the rules directory for cache invalidation."""
@@ -121,30 +171,68 @@ class MedusaCacheManager:
         return hasher.hexdigest()[:16]
 
     def _load_cache(self) -> Dict[str, FileMetadata]:
-        """Load cache from disk"""
+        """
+        Load cache from disk, verifying the HMAC envelope.
+
+        Silent discard on:
+          - Missing file (first run)
+          - Missing HMAC envelope (upgrade from pre-HMAC MEDUSA versions)
+          - HMAC mismatch (tampering)
+          - JSON parse error
+          - Unexpected schema
+
+        Silent-vs-warn: a warning flood on every scan after an upgrade or a
+        single tampered entry would train users to ignore cache messages.
+        Discard is the correct UX — the next scan simply rebuilds the cache
+        from a fresh pass.
+        """
         if not self.cache_file.exists():
             return {}
 
         try:
-            with open(self.cache_file) as f:
-                data = json.load(f)
+            with open(self.cache_file, encoding="utf-8") as f:
+                envelope = json.load(f)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+
+        # Schema: {"hmac": "<hex>", "entries": {<path>: <meta>, ...}}
+        if not isinstance(envelope, dict):
+            return {}
+        stored_hmac = envelope.get("hmac")
+        entries = envelope.get("entries")
+        if not isinstance(stored_hmac, str) or not isinstance(entries, dict):
+            return {}
+
+        # Verify HMAC over a canonical serialization of entries.
+        canonical = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+        expected_hmac = self._compute_hmac(canonical)
+        if not hmac.compare_digest(stored_hmac, expected_hmac):
+            return {}
+
+        try:
             return {
                 path: FileMetadata(**meta)
-                for path, meta in data.items()
+                for path, meta in entries.items()
+                if isinstance(meta, dict)
             }
-        except Exception as e:
-            print(f"⚠️  Cache load error: {e}")
+        except TypeError:
+            # Schema drift between versions — discard rather than crash.
             return {}
 
     def _save_cache(self):
-        """Save cache to disk"""
+        """Save cache to disk wrapped in an HMAC-signed envelope."""
         try:
-            data = {
+            entries = {
                 path: asdict(meta)
                 for path, meta in self.cache.items()
             }
-            with open(self.cache_file, 'w') as f:
-                json.dump(data, f, indent=2)
+            canonical = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+            envelope = {
+                "hmac": self._compute_hmac(canonical),
+                "entries": entries,
+            }
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(envelope, f, indent=2)
         except Exception as e:
             print(f"⚠️  Cache save error: {e}")
 

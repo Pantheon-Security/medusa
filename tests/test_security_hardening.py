@@ -23,6 +23,7 @@ for M-1 cases.
 
 from __future__ import annotations
 
+import os
 import time
 from pathlib import Path
 from types import SimpleNamespace
@@ -567,3 +568,108 @@ class TestGitSSRFDefense:
                 allow_any_host=True,
             )
         assert out == "https://internal-gitlab.corp/x/y"
+
+
+# ---------------------------------------------------------------------------
+# H-2a: cache HMAC integrity
+# ---------------------------------------------------------------------------
+
+import json as _json
+from medusa.core.parallel import MedusaCacheManager, FileMetadata
+from dataclasses import asdict
+
+
+class TestCacheHMACIntegrity:
+    """The cache file is HMAC-signed; tampered or unsigned content is discarded."""
+
+    def _mk_manager(self, tmp_path, cache_dir_name="cache"):
+        """Create a manager rooted in tmp_path (not ~/.medusa)."""
+        return MedusaCacheManager(cache_dir=tmp_path / cache_dir_name)
+
+    def _mk_meta(self, path: str = "/fake/a.py"):
+        return FileMetadata(
+            path=path,
+            size=100,
+            mtime=12345.0,
+            hash="abc123",
+            last_scan="2026-04-18T00:00:00Z",
+            issues_found=3,
+            rule_version="v1",
+            cached_issues=[
+                {"severity": "HIGH", "issue": "bad thing", "line": 1}
+            ],
+        )
+
+    def test_hmac_key_created_on_first_run(self, tmp_path):
+        mgr = self._mk_manager(tmp_path)
+        assert mgr.hmac_key_file.exists()
+        key_bytes = mgr.hmac_key_file.read_bytes()
+        assert len(key_bytes) >= 32
+        # POSIX mode check (skip on non-POSIX hosts).
+        if os.name == "posix":
+            mode = mgr.hmac_key_file.stat().st_mode & 0o777
+            assert mode == 0o600, f"expected 0600, got {oct(mode)}"
+
+    def test_save_then_load_roundtrip(self, tmp_path):
+        mgr = self._mk_manager(tmp_path)
+        meta = self._mk_meta()
+        mgr.cache[meta.path] = meta
+        mgr._save_cache()
+
+        mgr2 = self._mk_manager(tmp_path)  # re-load from disk
+        assert meta.path in mgr2.cache
+        assert mgr2.cache[meta.path].cached_issues == meta.cached_issues
+
+    def test_envelope_has_hmac_and_entries(self, tmp_path):
+        mgr = self._mk_manager(tmp_path)
+        mgr.cache[self._mk_meta().path] = self._mk_meta()
+        mgr._save_cache()
+
+        envelope = _json.loads(mgr.cache_file.read_text(encoding="utf-8"))
+        assert "hmac" in envelope
+        assert "entries" in envelope
+        assert isinstance(envelope["entries"], dict)
+
+    def test_tampered_entries_discarded_silently(self, tmp_path, capsys):
+        mgr = self._mk_manager(tmp_path)
+        mgr.cache[self._mk_meta().path] = self._mk_meta()
+        mgr._save_cache()
+
+        # Tamper: blank out cached_issues to simulate finding-suppression attack.
+        envelope = _json.loads(mgr.cache_file.read_text(encoding="utf-8"))
+        envelope["entries"]["/fake/a.py"]["cached_issues"] = []
+        mgr.cache_file.write_text(_json.dumps(envelope), encoding="utf-8")
+
+        # New manager, same key file — load must discard the tampered entry.
+        mgr2 = self._mk_manager(tmp_path)
+        assert mgr2.cache == {}, "tampered cache must be discarded"
+        # No warning should be printed (silent discard).
+        captured = capsys.readouterr()
+        assert "Cache load error" not in captured.out
+
+    def test_missing_hmac_envelope_discarded(self, tmp_path):
+        """Upgrade path: v5.4 caches have no HMAC envelope — discard silently."""
+        mgr = self._mk_manager(tmp_path)
+        # Write old-style cache file (bare dict, no envelope).
+        old_format = {self._mk_meta().path: asdict(self._mk_meta())}
+        mgr.cache_file.write_text(_json.dumps(old_format), encoding="utf-8")
+
+        mgr2 = self._mk_manager(tmp_path)
+        assert mgr2.cache == {}
+
+    def test_corrupted_json_discarded(self, tmp_path):
+        mgr = self._mk_manager(tmp_path)
+        mgr.cache_file.write_bytes(b"\x00\xff not json")
+        mgr2 = self._mk_manager(tmp_path)
+        assert mgr2.cache == {}
+
+    def test_wrong_key_invalidates_all(self, tmp_path):
+        """Deleting the HMAC key file forces every entry to be discarded."""
+        mgr = self._mk_manager(tmp_path)
+        mgr.cache[self._mk_meta().path] = self._mk_meta()
+        mgr._save_cache()
+
+        # Rotate key: delete and let next manager regenerate.
+        mgr.hmac_key_file.unlink()
+        mgr2 = self._mk_manager(tmp_path)
+        assert mgr2.cache == {}, "rotated key must invalidate existing entries"
