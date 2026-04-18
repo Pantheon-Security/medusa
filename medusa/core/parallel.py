@@ -1282,38 +1282,49 @@ class MedusaParallelScanner:
         file_metrics = {}
 
         for result in results:
-            if not result.cached:
-                total_issues += len(result.issues)
+            # Include findings from BOTH fresh and cached results. Previously
+            # cached results were dropped here, silently suppressing real
+            # findings the scan already discovered once — a security hole
+            # (H-2b): a user who hits cache on a vulnerable file sees a clean
+            # report. Cache hits restore the issues list from cached_meta
+            # (see cache-check branch of scan_file), so iterating result.issues
+            # here is correct for both paths.
+            total_issues += len(result.issues)
 
-                # Use line_count stored during scan (avoids re-opening every file)
-                file_metrics[result.file] = {'loc': result.line_count}
+            # Use line_count stored during scan (avoids re-opening every file).
+            # Cached results default line_count=0, which is acceptable: the
+            # total_lines_scanned display metric under-counts when the cache
+            # is warm, but finding counts are accurate.
+            file_metrics[result.file] = {'loc': result.line_count}
 
-                # Convert to standardized format
-                for issue in result.issues:
-                    # Handle old dict format (backward compatibility)
-                    if isinstance(issue, dict):
-                        findings.append({
-                            'scanner': issue.get('_scanner_name', result.scanner) or 'unknown',
-                            'file': result.file,
-                            'line': issue.get('line_number', issue.get('line', 0)),
-                            'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
-                            'confidence': issue.get('issue_confidence', 'HIGH'),
-                            'issue': issue.get('issue_text', issue.get('message', str(issue))),
-                            'cwe': issue.get('issue_cwe', {}).get('id'),
-                            'code': _truncate_code(issue.get('code', ''))
-                        })
-                    # Handle new ScannerIssue object format
-                    else:
-                        findings.append({
-                            'scanner': result.scanner or 'unknown',
-                            'file': result.file,
-                            'line': issue.line,
-                            'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
-                            'confidence': 'HIGH',
-                            'issue': issue.message,
-                            'cwe': issue.cwe_id,
-                            'code': _truncate_code(issue.code)
-                        })
+            # Convert to standardized format
+            for issue in result.issues:
+                # Handle old dict format (backward compatibility) — cached
+                # results always take this branch because cached_issues is
+                # serialized as dicts.
+                if isinstance(issue, dict):
+                    findings.append({
+                        'scanner': issue.get('_scanner_name', result.scanner) or 'unknown',
+                        'file': result.file,
+                        'line': issue.get('line_number', issue.get('line', 0)),
+                        'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
+                        'confidence': issue.get('issue_confidence', 'HIGH'),
+                        'issue': issue.get('issue_text', issue.get('message', str(issue))),
+                        'cwe': issue.get('issue_cwe', {}).get('id'),
+                        'code': _truncate_code(issue.get('code', ''))
+                    })
+                # Handle new ScannerIssue object format
+                else:
+                    findings.append({
+                        'scanner': result.scanner or 'unknown',
+                        'file': result.file,
+                        'line': issue.line,
+                        'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
+                        'confidence': 'HIGH',
+                        'issue': issue.message,
+                        'cwe': issue.cwe_id,
+                        'code': _truncate_code(issue.code)
+                    })
 
         # Apply FP filter to reduce false positives
         fp_stats = None
