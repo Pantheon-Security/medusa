@@ -172,6 +172,10 @@ class SemgrepScanner(BaseScanner):
 
     def _scan_file_subprocess(self, file_path: Path, start_time: float) -> ScannerResult:
         """Per-file subprocess fallback (used when scan_project() was not called)."""
+        # Defense-in-depth: refuse dash-prefixed filenames (argv injection).
+        rejected = self._reject_if_dash_prefixed(file_path, start_time)
+        if rejected is not None:
+            return rejected
         issues = []
         try:
             cmd = [
@@ -181,6 +185,7 @@ class SemgrepScanner(BaseScanner):
                 '--json',
                 '--quiet',
                 '--no-git-ignore',
+                '--',
                 str(file_path),
             ]
             result = self._run_command(cmd, timeout=120)

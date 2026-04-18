@@ -164,6 +164,14 @@ class GitLeaksScanner(BaseScanner):
 
     def _scan_file_subprocess(self, file_path: Path, start_time: float) -> ScannerResult:
         """Per-file subprocess fallback (used when scan_project() was not called)."""
+        # Defense-in-depth: refuse dash-prefixed filenames (argv injection).
+        # GitLeaks uses '--source <value>' form (no trailing positional), so it
+        # is safe-by-construction from the '--config=...' filename attack, but
+        # a value like '-' or '--version' passed to --source would still be
+        # interpreted as a flag by some versions. Rejecting is cheap insurance.
+        rejected = self._reject_if_dash_prefixed(file_path, start_time)
+        if rejected is not None:
+            return rejected
         issues = []
         try:
             cmd = [

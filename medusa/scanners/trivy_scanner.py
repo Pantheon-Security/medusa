@@ -251,6 +251,10 @@ class TrivyScanner(BaseScanner):
 
     def _scan_file_subprocess(self, file_path: Path, start_time: float) -> ScannerResult:
         """Per-file subprocess fallback (used when scan_project() was not called)."""
+        # Defense-in-depth: refuse dash-prefixed filenames (argv injection).
+        rejected = self._reject_if_dash_prefixed(file_path, start_time)
+        if rejected is not None:
+            return rejected
         issues = []
         try:
             scan_type = self._get_scan_type(file_path)
@@ -259,6 +263,7 @@ class TrivyScanner(BaseScanner):
                 cmd = [
                     str(self.tool_path), 'config',
                     '--format', 'json', '--quiet',
+                    '--',
                     str(file_path)
                 ]
             else:
@@ -266,6 +271,7 @@ class TrivyScanner(BaseScanner):
                     str(self.tool_path), 'fs',
                     '--format', 'json', '--quiet',
                     '--scanners', 'vuln,secret,misconfig',
+                    '--',
                     str(file_path.parent)
                 ]
 
