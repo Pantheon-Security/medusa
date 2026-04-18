@@ -1238,7 +1238,9 @@ def main(ctx, version):
               help='Exclude paths from scan (can specify multiple, e.g. --exclude archive/ --exclude scripts/)')
 @click.option('-g', '--git', 'git_url', type=str, default=None,
               help='Clone and scan a remote git repo (URL or user/repo shorthand)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude, git_url):
+@click.option('--allow-any-host', 'allow_any_host', is_flag=True, default=False,
+              help='Allow --git to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org). Private IPs are still rejected.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude, git_url, allow_any_host):
     """
     Scan a directory or file for security issues.
 
@@ -1260,6 +1262,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     if git_url:
         _scan_git_repo(
             git_url=git_url,
+            allow_any_host=allow_any_host,
             workers=workers,
             quick=quick,
             force=force,
@@ -1501,9 +1504,71 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         sys.exit(1)
 
 
-def _resolve_git_url(raw_url: str) -> str:
+# SSRF defense: default allowlist for `medusa scan --git`.
+# Accepts the exact hostname OR any subdomain (e.g. 'gist.github.com').
+_GIT_HOST_ALLOWLIST = frozenset({
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "codeberg.org",
+})
+
+# SSH URLs of the form `git@host:path` — extract the host portion.
+_GIT_SSH_HOST_RE = re.compile(r'^git@([a-zA-Z0-9][a-zA-Z0-9._-]*):')
+
+
+def _host_is_allowlisted(hostname: str) -> bool:
+    """True if hostname exactly matches an allowlist entry or is a subdomain of one."""
+    hostname = hostname.lower().rstrip(".")
+    if hostname in _GIT_HOST_ALLOWLIST:
+        return True
+    return any(hostname.endswith("." + allowed) for allowed in _GIT_HOST_ALLOWLIST)
+
+
+def _reject_if_private_ip(hostname: str) -> None:
     """
-    Resolve a git URL or GitHub/GitLab shorthand to a full clone URL.
+    Resolve hostname via DNS and reject if ANY resolved IP is private/loopback/
+    link-local/reserved. This defeats DNS rebinding (attacker-controlled DNS
+    pointing a public-looking hostname at an internal IP).
+
+    Raises:
+        click.BadParameter on resolution failure or any non-public IP.
+    """
+    import socket
+    import ipaddress
+
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+    except socket.gaierror as e:
+        raise click.BadParameter(
+            f"Could not resolve git host '{hostname}': {e}"
+        )
+
+    seen_ips = set()
+    for family, _type, _proto, _canon, sockaddr in infos:
+        addr = sockaddr[0]
+        # IPv6 sockaddrs may include scope; strip it.
+        if "%" in addr:
+            addr = addr.split("%", 1)[0]
+        if addr in seen_ips:
+            continue
+        seen_ips.add(addr)
+        try:
+            ip = ipaddress.ip_address(addr)
+        except ValueError:
+            continue
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            raise click.BadParameter(
+                f"Refusing to clone from '{hostname}': resolves to a non-public IP "
+                f"({addr}). Use a public git host, or run this command from a "
+                f"network that cannot reach internal resources."
+            )
+
+
+def _resolve_git_url(raw_url: str, allow_any_host: bool = False) -> str:
+    """
+    Resolve a git URL or GitHub/GitLab shorthand to a full clone URL, applying
+    SSRF defenses.
 
     Accepts:
         - https://github.com/user/repo
@@ -1511,23 +1576,59 @@ def _resolve_git_url(raw_url: str) -> str:
         - git@github.com:user/repo.git
         - user/repo  (shorthand -> https://github.com/user/repo)
 
+    Security:
+        - Hostname must be in _GIT_HOST_ALLOWLIST (default) unless
+          allow_any_host=True.
+        - The hostname's resolved IPs must all be public (defends against
+          DNS rebinding).
+
+    Args:
+        raw_url: URL or shorthand from the user.
+        allow_any_host: If True, skip the hostname allowlist check. Private-IP
+            rejection still applies.
+
     Returns:
         A validated HTTPS or SSH git URL.
 
     Raises:
-        click.BadParameter if the URL is invalid.
+        click.BadParameter if the URL is invalid, the host is not allowlisted
+        (and --allow-any-host is not set), or any resolved IP is non-public.
     """
+    from urllib.parse import urlparse
+
     url = raw_url.strip()
 
-    # SSH URLs are valid as-is
+    # SSH URLs of the form `git@host:path`
     if url.startswith("git@"):
+        match = _GIT_SSH_HOST_RE.match(url)
+        if not match:
+            raise click.BadParameter(f"Malformed SSH git URL: '{url}'")
+        hostname = match.group(1)
+        if not allow_any_host and not _host_is_allowlisted(hostname):
+            raise click.BadParameter(
+                f"Refusing to clone from '{hostname}': not on the default git "
+                f"host allowlist ({', '.join(sorted(_GIT_HOST_ALLOWLIST))}). "
+                f"Pass --allow-any-host to override."
+            )
+        _reject_if_private_ip(hostname)
         return url
 
-    # Full HTTPS URLs
+    # Full HTTP(S) URLs
     if url.startswith("https://") or url.startswith("http://"):
+        parsed = urlparse(url)
+        hostname = (parsed.hostname or "").strip()
+        if not hostname:
+            raise click.BadParameter(f"URL has no hostname: '{url}'")
+        if not allow_any_host and not _host_is_allowlisted(hostname):
+            raise click.BadParameter(
+                f"Refusing to clone from '{hostname}': not on the default git "
+                f"host allowlist ({', '.join(sorted(_GIT_HOST_ALLOWLIST))}). "
+                f"Pass --allow-any-host to override."
+            )
+        _reject_if_private_ip(hostname)
         return url
 
-    # Shorthand: user/repo -> https://github.com/user/repo
+    # Shorthand: user/repo -> https://github.com/user/repo (always allowlisted)
     if re.match(r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$', url):
         return f"https://github.com/{url}"
 
@@ -1608,6 +1709,7 @@ def _scan_git_repo(
     output_formats: tuple[str, ...],
     no_report: bool,
     exclude: tuple[str, ...],
+    allow_any_host: bool = False,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
@@ -1615,7 +1717,7 @@ def _scan_git_repo(
     This handles URL validation, shallow cloning, priority file detection,
     and cleanup of the temporary directory.
     """
-    clone_url = _resolve_git_url(git_url)
+    clone_url = _resolve_git_url(git_url, allow_any_host=allow_any_host)
     # Strip auth tokens from URL before any console output (https://token@host → https://host)
     _display_url = re.sub(r'https?://[^@\s]+@', 'https://', clone_url)
 

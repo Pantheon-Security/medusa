@@ -403,3 +403,167 @@ class TestHistoryLoadResilience:
         assert len(loaded) == 2
         assert loaded[0]["timestamp"] == "2026-04-17T00:00:00Z"
         assert loaded[1]["timestamp"] == "2026-04-18T00:00:00Z"
+
+
+# ---------------------------------------------------------------------------
+# H-1 / M-2: Git URL SSRF defense (host allowlist + private IP rejection)
+# ---------------------------------------------------------------------------
+
+import socket as _socket
+import click
+from medusa.cli import _resolve_git_url, _host_is_allowlisted
+
+
+def _fake_getaddrinfo(*ips):
+    """Build a getaddrinfo stub returning the given IP strings (v4 or v6 auto-detected)."""
+    def _stub(host, port, *args, **kwargs):
+        results = []
+        for ip in ips:
+            family = _socket.AF_INET6 if ":" in ip else _socket.AF_INET
+            results.append((family, _socket.SOCK_STREAM, 0, "", (ip, port or 0)))
+        return results
+    return _stub
+
+
+class TestGitHostAllowlist:
+    """Default allowlist accepts known public git hosts and their subdomains."""
+
+    def test_host_allowlist_exact(self):
+        assert _host_is_allowlisted("github.com")
+        assert _host_is_allowlisted("gitlab.com")
+        assert _host_is_allowlisted("bitbucket.org")
+        assert _host_is_allowlisted("codeberg.org")
+
+    def test_host_allowlist_subdomain(self):
+        assert _host_is_allowlisted("gist.github.com")
+        assert _host_is_allowlisted("raw.githubusercontent.com") is False  # NOT a subdomain of github.com
+        assert _host_is_allowlisted("x.y.gitlab.com")
+
+    def test_host_allowlist_rejects_unknown(self):
+        assert not _host_is_allowlisted("evil.tld")
+        assert not _host_is_allowlisted("github.com.evil.tld")  # suffix attack
+
+    def test_host_allowlist_case_insensitive_and_trailing_dot(self):
+        assert _host_is_allowlisted("GitHub.com")
+        assert _host_is_allowlisted("github.com.")  # trailing dot normalised
+
+
+class TestGitSSRFDefense:
+    """_resolve_git_url rejects SSRF primitives and accepts legit URLs."""
+
+    # --- Accept cases ---
+
+    def test_shorthand_user_repo(self):
+        # Shorthand builds a github.com URL and bypasses DNS (known host).
+        # But our impl does NOT DNS-check the shorthand path for simplicity.
+        assert _resolve_git_url("user/repo") == "https://github.com/user/repo"
+
+    def test_github_https_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("140.82.121.3")):
+            out = _resolve_git_url("https://github.com/user/repo")
+        assert out == "https://github.com/user/repo"
+
+    def test_gitlab_https_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("172.65.251.78")):
+            out = _resolve_git_url("https://gitlab.com/user/repo")
+        assert out == "https://gitlab.com/user/repo"
+
+    def test_bitbucket_https_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("104.192.141.1")):
+            out = _resolve_git_url("https://bitbucket.org/user/repo")
+        assert out == "https://bitbucket.org/user/repo"
+
+    def test_codeberg_https_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("217.197.91.145")):
+            out = _resolve_git_url("https://codeberg.org/user/repo")
+        assert out == "https://codeberg.org/user/repo"
+
+    def test_github_subdomain_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("140.82.121.3")):
+            out = _resolve_git_url("https://gist.github.com/user/abc")
+        assert out == "https://gist.github.com/user/abc"
+
+    def test_git_ssh_github_passes(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("140.82.121.3")):
+            out = _resolve_git_url("git@github.com:user/repo.git")
+        assert out == "git@github.com:user/repo.git"
+
+    # --- Allowlist rejections ---
+
+    def test_unknown_host_rejected_by_default(self):
+        with pytest.raises(click.BadParameter, match="allowlist"):
+            _resolve_git_url("https://evil.tld/user/repo")
+
+    def test_suffix_attack_rejected(self):
+        with pytest.raises(click.BadParameter, match="allowlist"):
+            _resolve_git_url("https://github.com.evil.tld/user/repo")
+
+    def test_git_ssh_evil_host_rejected(self):
+        with pytest.raises(click.BadParameter, match="allowlist"):
+            _resolve_git_url("git@evil.tld:x/y.git")
+
+    def test_git_ssh_malformed_rejected(self):
+        with pytest.raises(click.BadParameter, match="Malformed SSH"):
+            _resolve_git_url("git@:missing-host/repo")
+
+    # --- Private IP rejections (even with allow_any_host) ---
+
+    def test_loopback_ipv4_rejected(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("127.0.0.1")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_loopback_ipv6_rejected(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("::1")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_rfc1918_10_rejected(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("10.0.0.5")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_rfc1918_192_168_rejected(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("192.168.1.1")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_aws_metadata_link_local_rejected(self):
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("169.254.169.254")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_dns_rebind_rejected_even_with_allow_any_host(self):
+        # Attacker-controlled DNS points evil-rebind.corp at 10.0.0.1.
+        # --allow-any-host bypasses the hostname check but private-IP check stays.
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("10.0.0.1")):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://evil-rebind.corp/x", allow_any_host=True)
+
+    def test_dns_rebind_any_of_multiple_ips(self):
+        # getaddrinfo returns multiple IPs; any private one rejects.
+        with patch(
+            "socket.getaddrinfo",
+            _fake_getaddrinfo("140.82.121.3", "10.0.0.1"),
+        ):
+            with pytest.raises(click.BadParameter, match="non-public IP"):
+                _resolve_git_url("https://github.com/x/y")
+
+    def test_resolution_failure_rejected(self):
+        def _fail(*args, **kwargs):
+            raise _socket.gaierror("Name or service not known")
+        with patch("socket.getaddrinfo", side_effect=_fail):
+            with pytest.raises(click.BadParameter, match="Could not resolve"):
+                _resolve_git_url("https://github.com/x/y")
+
+    # --- allow_any_host escape hatch ---
+
+    def test_allow_any_host_bypasses_allowlist(self):
+        # Use a routable public IP (Cloudflare DNS). Avoid 203.0.113.x
+        # (TEST-NET-3) — flagged as is_reserved by the ipaddress module.
+        with patch("socket.getaddrinfo", _fake_getaddrinfo("1.1.1.1")):
+            out = _resolve_git_url(
+                "https://internal-gitlab.corp/x/y",
+                allow_any_host=True,
+            )
+        assert out == "https://internal-gitlab.corp/x/y"
