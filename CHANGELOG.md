@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.5] - 2026-04-18
+
+### Security
+
+Red-team review (2026-04-17) found 10 hardening opportunities across the
+scanner pipeline. This release ships 8 of them; two findings (license key
+crypto, IDE symlink race) are deferred to separate sprints. No CVEs are
+disclosed against v2026.5.4 — these are defense-in-depth improvements.
+
+- **C-1: Scanner argv injection defenses.** A malicious repo containing a
+  file literally named `--config=https://evil.tld/rce.yaml` would previously
+  have had the filename re-parsed as an option by semgrep and trivy, causing
+  them to fetch attacker-controlled rule YAML from the network. Two fixes:
+  (a) insert `--` separator before the trailing path positional in semgrep,
+  trivy-config, and trivy-fs cmd lists; (b) new `BaseScanner._reject_if_dash_prefixed()`
+  helper that short-circuits dash-prefixed basenames without invoking any
+  external tool. GitLeaks uses `--source <value>` form and is safe-by-construction;
+  the rejection helper still applies to it for defense-in-depth.
+
+- **H-1 + M-2: Git URL SSRF defense.** `medusa scan --git <URL>` previously
+  accepted any http(s)/ssh URL with no validation, enabling SSRF against
+  loopback, RFC1918, link-local (AWS IMDS at 169.254.169.254), and internal
+  DNS. Now validated in two layers: (a) default hostname allowlist of
+  github.com, gitlab.com, bitbucket.org, codeberg.org plus their subdomains
+  (exact or subdomain match; suffix attacks like `github.com.evil.tld`
+  rejected); (b) DNS rebinding defense — every resolved IP is checked via
+  `ipaddress.ip_address().is_private/is_loopback/is_link_local/is_reserved/is_multicast`
+  and the URL is rejected if ANY resolved IP fails. New `--allow-any-host`
+  flag on `medusa scan` opts out of the hostname allowlist; the private-IP
+  check still applies regardless.
+
+- **H-2a: File cache HMAC integrity.** `~/.medusa/cache/file_cache.json`
+  previously loaded without integrity check, so an attacker with write
+  access to a dev workstation or CI runner could forge cache entries
+  marking vulnerable files clean, silently suppressing scan findings.
+  Cache is now wrapped in `{"hmac": <hex>, "entries": {...}}` with a
+  machine-local HMAC-SHA256 key at `~/.medusa/cache/.hmac_key` (mode 0600,
+  generated on first run). Tampered, missing-HMAC (v5.4 upgrade), or
+  corrupted caches are silently discarded and rebuilt from a fresh pass.
+  Key rotation is `rm ~/.medusa/cache/.hmac_key`.
+
+- **H-2b: Cached findings included in reports.** The report aggregation
+  loop previously had `if not result.cached:` which silently dropped
+  cached findings from the report entirely. A user hitting cache on a
+  vulnerable file saw a clean report. Removed. Finding counts are now
+  accurate on warm caches (total_lines_scanned under-counts but that's a
+  cosmetic UX number).
+
+- **M-1: Markdown report escape.** Source code containing triple-backticks
+  (```) previously broke out of the code fence in generated markdown
+  reports, allowing stored XSS / phishing payload delivery via GitHub /
+  GitLab / any markdown renderer. New `_md_code_fence()` uses a fence one
+  backtick longer than the longest run of consecutive backticks in the
+  content, and `_md_sanitize_inline()` strips backticks/newlines from
+  filenames before interpolation into inline spans.
+
+- **L-1 + M-3: Dead HTML builder deletion.** Removed `_build_modern_findings_html`
+  and `_build_findings_html` from `reporter.py` — both were dead code
+  (unreachable from any live call path) AND both interpolated severity
+  fields into `style="..."` attributes without html-escape. Deletion is
+  the fix.
+
+- **L-3: History file resilience.** `scan_history.json` load was previously
+  unguarded; a corrupted file or injected JSON (from a world-writable
+  reports dir) crashed the scan. Now wrapped in try/except with schema
+  validation (list of dicts required), silent reset on malformed input.
+
+### Testing
+
+- New `tests/test_security_hardening.py` with 55 test cases covering
+  every finding above: argv injection mocks, basename rejection, SSRF
+  allowlist + DNS-rebind + escape-hatch, cache HMAC tamper + upgrade +
+  rotation, markdown fence breakout payloads, history file corruption.
+- Full suite: 378 pass + 55 new security tests, 11 pre-existing failures
+  (test_simple_installer, test_git_scan, test_fp_regression) confirmed
+  independent of this release.
+
+### Deferred (tracked for future sprints)
+
+- **C-2: License HMAC forgery.** `medusa/core/licensing.py` uses a keyless
+  SHA-256 truncated to 16 hex chars as a "signature" — anyone can forge
+  Professional or Enterprise license keys in three lines of Python.
+  Requires Ed25519 migration + license server coordination. Tracking
+  separately.
+- **L-2: IDE setup symlink race.** `medusa/ide/claude_code.py` writes
+  through symlinked `.claude/` paths. Local attacker only; defer to next
+  minor release.
+
 ## [2026.5.4] - 2026-04-16
 
 ### Changed

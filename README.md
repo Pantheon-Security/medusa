@@ -506,7 +506,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.5.4
+version: 2026.5.5
 
 # Scanner control
 scanners:
@@ -968,7 +968,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ## 📈 Statistics
 
-**Version**: 2026.5.4
+**Version**: 2026.5.5
 **Release Date**: 2026-04-03
 **Detection Patterns**: 9,600+ AI security rules
 **Analyzers**: 79 specialized scanners
@@ -1023,4 +1023,4 @@ medusa init && medusa scan .
 
 **Last Updated**: 2026-04-03
 **Status**: Production Ready
-**Current Version**: v2026.5.4 - FP Patterns YAML Refactor
+**Current Version**: v2026.5.5 - Security Hardening
