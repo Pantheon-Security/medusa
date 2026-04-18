@@ -335,3 +335,71 @@ class TestReportMarkdownIntegration:
         # The raw filename-with-backtick must not appear; the sanitized form must.
         assert "evil`name.py" not in md
         assert "evilname.py" in md
+
+
+# ---------------------------------------------------------------------------
+# L-3: scan_history.json resilience
+# ---------------------------------------------------------------------------
+
+
+class TestHistoryLoadResilience:
+    """_update_history must tolerate corrupted or malicious history files."""
+
+    def _make_report(self):
+        return {
+            "timestamp": "2026-04-18T00:00:00Z",
+            "scan_summary": {
+                "security_score": 100,
+                "risk_level": "LOW",
+                "total_issues": 0,
+            },
+            "severity_breakdown": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0},
+        }
+
+    def test_garbage_bytes_resets_history(self, tmp_path):
+        """Binary garbage in history file → _update_history resets, no crash."""
+        gen = MedusaReportGenerator()
+        gen.history_file = tmp_path / "scan_history.json"
+        gen.history_file.write_bytes(b"\x00\xff\x01\x02not-json-at-all")
+        # Must not raise.
+        gen._update_history(self._make_report())
+        # File is now valid JSON containing exactly our fresh entry.
+        loaded = __import__('json').loads(gen.history_file.read_text(encoding='utf-8'))
+        assert isinstance(loaded, list)
+        assert len(loaded) == 1
+        assert loaded[0]["timestamp"] == "2026-04-18T00:00:00Z"
+
+    def test_json_but_not_list_resets_history(self, tmp_path):
+        """Valid JSON but wrong schema (object not list) → reset."""
+        gen = MedusaReportGenerator()
+        gen.history_file = tmp_path / "scan_history.json"
+        gen.history_file.write_text('{"injected": "attacker object"}', encoding='utf-8')
+        gen._update_history(self._make_report())
+        loaded = __import__('json').loads(gen.history_file.read_text(encoding='utf-8'))
+        assert isinstance(loaded, list)
+        assert len(loaded) == 1
+
+    def test_list_of_non_dicts_resets_history(self, tmp_path):
+        """List containing non-dict entries → schema reject, reset."""
+        gen = MedusaReportGenerator()
+        gen.history_file = tmp_path / "scan_history.json"
+        gen.history_file.write_text('["string", 42, null]', encoding='utf-8')
+        gen._update_history(self._make_report())
+        loaded = __import__('json').loads(gen.history_file.read_text(encoding='utf-8'))
+        assert len(loaded) == 1
+        assert loaded[0]["timestamp"] == "2026-04-18T00:00:00Z"
+
+    def test_valid_history_appended(self, tmp_path):
+        """Legitimate existing history survives and new entry appends."""
+        gen = MedusaReportGenerator()
+        gen.history_file = tmp_path / "scan_history.json"
+        gen.history_file.write_text(
+            '[{"timestamp": "2026-04-17T00:00:00Z", "security_score": 90, '
+            '"risk_level": "MEDIUM", "total_issues": 5, "severity_breakdown": {}}]',
+            encoding='utf-8',
+        )
+        gen._update_history(self._make_report())
+        loaded = __import__('json').loads(gen.history_file.read_text(encoding='utf-8'))
+        assert len(loaded) == 2
+        assert loaded[0]["timestamp"] == "2026-04-17T00:00:00Z"
+        assert loaded[1]["timestamp"] == "2026-04-18T00:00:00Z"

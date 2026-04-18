@@ -211,11 +211,25 @@ class MedusaReportGenerator:
         return output_path
 
     def _update_history(self, report: Dict[str, Any]):
-        """Update scan history for trend analysis"""
-        history = []
+        """Update scan history for trend analysis.
+
+        The history file may be corrupted (partial write, manual edit, or
+        world-writable dir letting a co-tenant inject garbage). Treat any
+        unparseable or schema-invalid content as "no history" and start fresh
+        rather than crashing the scan.
+        """
+        history: List[Dict[str, Any]] = []
         if self.history_file.exists():
-            with open(self.history_file) as f:
-                history = json.load(f)
+            try:
+                with open(self.history_file, encoding='utf-8') as f:
+                    loaded = json.load(f)
+                # Schema validation: must be a list of dicts. Anything else
+                # indicates corruption or injection — discard silently.
+                if isinstance(loaded, list) and all(isinstance(e, dict) for e in loaded):
+                    history = loaded
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+                # Corrupted or unreadable — reset to empty history.
+                history = []
 
         history.append({
             'timestamp': report['timestamp'],
