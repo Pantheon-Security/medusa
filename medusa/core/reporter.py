@@ -1267,63 +1267,6 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
 
         return ''.join(bars)
 
-    def _build_modern_findings_html(self, findings: List[Dict]) -> str:
-        """Build modern findings cards with hover effects"""
-        if not findings:
-            return '<p style="text-align: center; color: var(--success); font-size: 1.2em; padding: 40px;">✨ No security issues found! Your code is excellent!</p>'
-
-        # Sort by severity
-        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNDEFINED': 4}
-        sorted_findings = sorted(findings, key=lambda f: severity_order.get(f['severity'], 99))
-
-        severity_colors = {
-            'CRITICAL': '#ef4444',
-            'HIGH': '#f97316',
-            'MEDIUM': '#f59e0b',
-            'LOW': '#3b82f6',
-            'UNDEFINED': '#6b7280'
-        }
-
-        severity_shadows = {
-            'CRITICAL': 'rgba(239, 68, 68, 0.3)',
-            'HIGH': 'rgba(249, 115, 22, 0.3)',
-            'MEDIUM': 'rgba(245, 158, 11, 0.3)',
-            'LOW': 'rgba(59, 130, 246, 0.3)',
-            'UNDEFINED': 'rgba(107, 114, 128, 0.3)'
-        }
-
-        cards = []
-        for finding in sorted_findings:
-            severity = finding['severity']
-            color = severity_colors.get(severity, '#6b7280')
-            shadow = severity_shadows.get(severity, 'rgba(107, 114, 128, 0.3)')
-
-            f_file = html_lib.escape(str(finding['file']))
-            f_line = html_lib.escape(str(finding['line']))
-            f_issue = html_lib.escape(str(finding['issue']))
-            f_code = html_lib.escape(str(finding.get('code', ''))) if finding.get('code') else ''
-            f_scanner = html_lib.escape(str(finding['scanner']))
-            f_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
-            cards.append(f"""
-            <div class="finding-card" style="--severity-color: {color}; --severity-shadow: {shadow};">
-                <div class="finding-header">
-                    <div class="finding-file">📁 {f_file}:{f_line}</div>
-                    <div class="severity-badge" style="--severity-color: {color}; --severity-shadow: {shadow};">
-                        {severity}
-                    </div>
-                </div>
-                <div class="finding-issue">{f_issue}</div>
-                {f'<div class="finding-code">{f_code}</div>' if f_code else ''}
-                <div class="finding-meta">
-                    <div class="meta-item">🔍 Scanner: <strong>{f_scanner}</strong></div>
-                    <div class="meta-item">📊 Confidence: <strong>{f_confidence}</strong></div>
-                    {f'<div class="meta-item">🔗 <a href="https://cwe.mitre.org/data/definitions/{finding["cwe"]}.html" target="_blank" style="color: var(--primary);">CWE-{finding["cwe"]}</a></div>' if finding.get('cwe') else ''}
-                </div>
-            </div>
-            """)
-
-        return ''.join(cards)
-
     def _build_severity_bars(self, severity_breakdown: Dict[str, int], total: int) -> str:
         """Build severity bar charts HTML (legacy fallback)"""
         if total == 0:
@@ -1353,49 +1296,6 @@ MEDUSA is an AI-first security scanner with 78 analyzers and 9,600+ detection ru
             """)
 
         return ''.join(bars)
-
-    def _build_findings_html(self, findings: List[Dict]) -> str:
-        """Build findings cards HTML"""
-        if not findings:
-            return '<p style="text-align: center; color: #28a745; font-size: 1.2em;">✅ No security issues found!</p>'
-
-        # Sort by severity (CRITICAL first)
-        severity_order = {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3, 'UNDEFINED': 4}
-        sorted_findings = sorted(findings, key=lambda f: severity_order.get(f['severity'], 99))
-
-        cards = []
-        for finding in sorted_findings:
-            severity = finding['severity']
-            color = self.SEVERITY_COLORS[severity]
-
-            safe_file = html_lib.escape(str(finding['file']))
-            safe_line = html_lib.escape(str(finding['line']))
-            safe_issue = html_lib.escape(str(finding['issue']))
-            safe_code = html_lib.escape(str(finding.get('code', '')))
-            safe_scanner = html_lib.escape(str(finding['scanner']))
-            safe_confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
-            safe_cwe = html_lib.escape(str(finding['cwe'])) if finding.get('cwe') else None
-
-            cards.append(f"""
-            <div class="finding-card" style="border-left-color: {color};">
-                <div class="finding-header">
-                    <div>
-                        <div class="finding-file">📁 {safe_file}:{safe_line}</div>
-                    </div>
-                    <span class="severity-badge" style="background: {color};">{severity}</span>
-                </div>
-                <div class="finding-issue">
-                    <strong>{safe_issue}</strong>
-                </div>
-                {f'<div class="finding-code">{safe_code}</div>' if finding.get('code') else ''}
-                <div style="margin-top: 10px; font-size: 0.85em; color: #6c757d;">
-                    Scanner: {safe_scanner} | Confidence: {safe_confidence}
-                    {f' | CWE-{safe_cwe}' if safe_cwe else ''}
-                </div>
-            </div>
-            """)
-
-        return ''.join(cards)
 
 
 class PayloadObfuscator:
