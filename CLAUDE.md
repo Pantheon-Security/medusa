@@ -1,5 +1,29 @@
 # medusa - MEDUSA Security Scanning
 
+## CRITICAL: Release Gate — DO NOT SKIP
+
+**Unit tests ALONE are not sufficient.** Before any `git push`, `git tag`, `gh release create`, or `twine upload` — all four commands below MUST run green AND their output MUST be pasted into the conversation for Ross to see:
+
+```bash
+# 1. Full unit test suite (must show: all pass except documented pre-existing failures)
+python3 -m pytest tests/ -q
+
+# 2. Benchmark corpus regression (must show: baseline matches)
+python3 -m pytest tests/test_regression.py -v
+
+# 3. Self-scan on MEDUSA itself (must show: no NEW findings vs prior scan)
+medusa scan . --quick
+
+# 4. Security hardening tests (must show: all pass)
+python3 -m pytest tests/test_security_hardening.py -v
+```
+
+**If ANY of these fail or are skipped, DO NOT PROCEED.** Fix the failure or surface it to Ross. Do not bypass `git push --no-verify` — the pre-push hook at `.git/hooks/pre-push` exists specifically to block this.
+
+**Why this exists:** Previous releases shipped without regression testing (v2026.5.5 tagged + GH-released before benchmark ran). "Day one dev stuff" that damages brand trust. This gate is the mechanism that prevents repeat. No willpower required.
+
+Related: `feedback_release_gate.md` in memory has the full rule.
+
 ## CRITICAL: Bash Sandbox
 
 Always use `dangerouslyDisableSandbox: true` on Bash tool calls that run `medusa scan` or invoke external linters. The default sandbox strips `~/.npm-global/bin`, `~/.local/bin`, and `/snap/bin` from PATH, causing installed tools (eslint, hadolint, rubocop, trivy, etc.) to appear missing and triggering the "Continue scan without these tools?" prompt which blocks non-interactive scans.
