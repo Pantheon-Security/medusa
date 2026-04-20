@@ -5,11 +5,22 @@ Auto-setup for Claude Code, Gemini CLI, OpenAI Codex, GitHub Copilot, and Cursor
 """
 
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
 # Import backup manager
 from medusa.ide.backup import IDEBackupManager
+
+
+def _safe_open_write(path: Path):
+    """Open path for writing, refusing to follow symlinks (POSIX only)."""
+    if sys.platform != "win32" and hasattr(os, "O_NOFOLLOW"):
+        flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW
+        fd = os.open(path, flags, 0o644)
+        return os.fdopen(fd, "w")
+    return open(path, "w")
 
 
 def setup_claude_code(project_root: Path, backup_manager: Optional[IDEBackupManager] = None) -> tuple:
@@ -54,26 +65,26 @@ def setup_claude_code(project_root: Path, backup_manager: Optional[IDEBackupMana
         # Create agent.json
         agent_config = create_agent_config()
         agent_file = agents_dir / "agent.json"
-        with open(agent_file, 'w') as f:
+        with _safe_open_write(agent_file) as f:
             json.dump(agent_config, f, indent=2)
 
         # Create scan command
         scan_command = create_scan_command()
         command_file = commands_dir / "medusa-scan.md"
-        with open(command_file, 'w') as f:
+        with _safe_open_write(command_file) as f:
             f.write(scan_command)
 
         # Create install command
         install_command = create_install_command()
         install_file = commands_dir / "medusa-install.md"
-        with open(install_file, 'w') as f:
+        with _safe_open_write(install_file) as f:
             f.write(install_command)
 
         # Create CLAUDE.md project context (only if it doesn't exist)
         claude_md_file = project_root / "CLAUDE.md"
         if not claude_md_file.exists():
             claude_md = create_claude_md(project_root)
-            with open(claude_md_file, 'w') as f:
+            with _safe_open_write(claude_md_file) as f:
                 f.write(claude_md)
             claude_md_created = True
         # If CLAUDE.md exists, don't overwrite - user may have custom content
@@ -427,19 +438,19 @@ def setup_gemini_cli(project_root: Path, backup_manager: Optional[IDEBackupManag
         # Create scan command (.toml format) - use medusa- prefix to avoid conflicts
         # Commands are now plain TOML text (description + prompt format per Gemini CLI spec)
         scan_file = commands_dir / "medusa-scan.toml"
-        with open(scan_file, 'w') as f:
+        with _safe_open_write(scan_file) as f:
             f.write(create_gemini_scan_command())
 
         # Create install command (.toml format) - use medusa- prefix to avoid conflicts
         install_file = commands_dir / "medusa-install.toml"
-        with open(install_file, 'w') as f:
+        with _safe_open_write(install_file) as f:
             f.write(create_gemini_install_command())
 
         # Create GEMINI.md project context (only if it doesn't exist)
         gemini_md_file = project_root / "GEMINI.md"
         if not gemini_md_file.exists():
             gemini_md = create_gemini_md(project_root)
-            with open(gemini_md_file, 'w') as f:
+            with _safe_open_write(gemini_md_file) as f:
                 f.write(gemini_md)
         # If GEMINI.md exists, don't overwrite - user may have custom content
 
@@ -631,7 +642,7 @@ def setup_openai_codex(project_root: Path, backup_manager: Optional[IDEBackupMan
         agents_md_file = project_root / "AGENTS.md"
         if not agents_md_file.exists():
             agents_md = create_agents_md(project_root)
-            with open(agents_md_file, 'w') as f:
+            with _safe_open_write(agents_md_file) as f:
                 f.write(agents_md)
         # If AGENTS.md exists, don't overwrite - user may have custom content
 
@@ -794,7 +805,7 @@ def setup_github_copilot(project_root: Path, backup_manager: Optional[IDEBackupM
         copilot_file = github_dir / "copilot-instructions.md"
         if not copilot_file.exists():
             copilot_md = create_copilot_instructions(project_root)
-            with open(copilot_file, 'w') as f:
+            with _safe_open_write(copilot_file) as f:
                 f.write(copilot_md)
         # If copilot-instructions.md exists, don't overwrite - user may have custom content
 
@@ -948,15 +959,15 @@ def setup_cursor(project_root: Path, backup_manager: Optional[IDEBackupManager] 
 
                 existing_config['mcpServers']['medusa-security'] = medusa_mcp_config['mcpServers']['medusa-security']
 
-                with open(mcp_file, 'w') as f:
+                with _safe_open_write(mcp_file) as f:
                     json.dump(existing_config, f, indent=2)
             except (json.JSONDecodeError, IOError):
                 # Corrupted file, overwrite it
-                with open(mcp_file, 'w') as f:
+                with _safe_open_write(mcp_file) as f:
                     json.dump(medusa_mcp_config, f, indent=2)
         else:
             # No existing config, create new
-            with open(mcp_file, 'w') as f:
+            with _safe_open_write(mcp_file) as f:
                 json.dump(medusa_mcp_config, f, indent=2)
 
         # Also setup Claude Code structure for compatibility
