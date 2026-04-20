@@ -285,7 +285,13 @@ class FalsePositiveFilter:
         context: List[str]
     ) -> FilterResult:
         """Check if finding is in a security module (which handles secrets safely)"""
-        file_path = finding.get('file', '').lower()
+        raw_path = finding.get('file', '')
+        # Use relative path so parent directory names (e.g. "mcp-security/")
+        # don't match security[_/] and cause over-suppression.
+        try:
+            file_path = str(Path(raw_path).relative_to(self.source_root)).lower()
+        except (ValueError, TypeError):
+            file_path = raw_path.lower()
 
         if self._SECURITY_MODULE_RE.search(file_path):
             # Additional check: does the file have security methods?
