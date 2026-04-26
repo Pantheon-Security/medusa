@@ -165,7 +165,7 @@ class MedusaCacheManager:
         hasher.update(str(len(yaml_files)).encode())
         for yf in yaml_files:
             try:
-                hasher.update(str(yf.stat().st_mtime).encode())
+                hasher.update(yf.read_bytes())
             except OSError:
                 pass
         return hasher.hexdigest()[:16]
@@ -708,6 +708,7 @@ class MedusaParallelScanner:
         # hang regex scanners for minutes.  Skip them outright.
         file_size = self._file_size(file_path)
         if file_size > MAX_SCAN_FILE_SIZE:
+            print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
             return ScanResult(
                 file=str(file_path),
                 scanner='skipped-large-file',

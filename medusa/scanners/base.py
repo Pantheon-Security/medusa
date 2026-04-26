@@ -498,6 +498,9 @@ class RuleBasedScanner(BaseScanner):
 
         # Cap the number of lines we process to avoid hanging on huge
         # data files that happen to match a scannable extension.
+        if len(lines) > self.MAX_RULE_SCAN_LINES:
+            path_str = str(file_path) if file_path else "<unknown>"
+            print(f"⚠️  Skipped regex scan of {path_str} ({len(lines):,} lines exceeds {self.MAX_RULE_SCAN_LINES:,} line limit)")
         scan_lines = lines[:self.MAX_RULE_SCAN_LINES] if len(lines) > self.MAX_RULE_SCAN_LINES else lines
 
         # Pre-filter rules by file type to avoid unnecessary matching
