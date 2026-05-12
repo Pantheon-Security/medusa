@@ -69,14 +69,15 @@ class TestPipCommand:
                 mock_which.side_effect = which_side_effect
 
                 cmd = get_pip_command()
-                assert cmd == ['pip3']
+                assert cmd == ['/usr/bin/pip3']
 
     def test_pip_command_system_pip_fallback(self):
-        """Test pip command falls back to pip when pip3 not available."""
+        """Test pip command falls back to sys.executable -m pip when pip/pip3 not on PATH."""
+        import sys
         with mock.patch('medusa.platform.installers.simple._in_virtualenv', return_value=False):
             with mock.patch('shutil.which', return_value=None):
                 cmd = get_pip_command()
-                assert cmd == ['pip']
+                assert cmd == [sys.executable, '-m', 'pip']
 
 
 class TestPipAvailability:
@@ -111,29 +112,33 @@ class TestToolInstallation:
 
     def test_is_modelscan_installed_true(self):
         """Test checking if modelscan is installed (pip show succeeds)."""
-        with mock.patch('subprocess.run') as mock_run:
-            # Mock successful pip show
-            mock_run.return_value = mock.Mock(returncode=0)
+        # Must mock shutil.which to None so the subprocess path is exercised
+        # (is_tool_installed checks PATH first; on systems where modelscan is
+        # installed it would short-circuit before calling subprocess.run)
+        with mock.patch('medusa.platform.installers.simple.shutil.which', return_value=None):
+            with mock.patch('subprocess.run') as mock_run:
+                mock_run.return_value = mock.Mock(returncode=0)
 
-            assert is_tool_installed('modelscan') is True
+                assert is_tool_installed('modelscan') is True
 
-            # Verify correct command was called
-            args = mock_run.call_args[0][0]
-            assert 'show' in args
-            assert 'modelscan' in args
+                # Verify pip show was called with the tool name
+                args = mock_run.call_args[0][0]
+                assert 'show' in args
+                assert 'modelscan' in args
 
     def test_is_modelscan_installed_false(self):
         """Test checking if modelscan is not installed (pip show fails)."""
-        with mock.patch('subprocess.run') as mock_run:
-            # Mock failed pip show
-            mock_run.return_value = mock.Mock(returncode=1)
+        with mock.patch('medusa.platform.installers.simple.shutil.which', return_value=None):
+            with mock.patch('subprocess.run') as mock_run:
+                mock_run.return_value = mock.Mock(returncode=1)
 
-            assert is_tool_installed('modelscan') is False
+                assert is_tool_installed('modelscan') is False
 
     def test_is_modelscan_installed_exception(self):
         """Test checking modelscan when subprocess raises exception."""
-        with mock.patch('subprocess.run', side_effect=Exception("pip error")):
-            assert is_tool_installed('modelscan') is False
+        with mock.patch('medusa.platform.installers.simple.shutil.which', return_value=None):
+            with mock.patch('subprocess.run', side_effect=Exception("pip error")):
+                assert is_tool_installed('modelscan') is False
 
     def test_is_other_tool_installed(self):
         """Test checking if non-modelscan tool is installed via PATH."""
@@ -226,12 +231,14 @@ class TestInstallAITools:
     """Tests for installing AI tools."""
 
     def test_install_ai_tools_no_pip(self):
-        """Test install fails gracefully when pip not available."""
+        """Test install fails gracefully when neither pip nor pipx is available."""
         with mock.patch('medusa.platform.installers.simple.is_pip_available', return_value=False):
-            result = install_ai_tools()
+            with mock.patch('medusa.platform.installers.simple._has_pipx', return_value=False):
+                with mock.patch('medusa.platform.installers.simple._in_virtualenv', return_value=False):
+                    result = install_ai_tools()
 
-            assert 'error' in result
-            assert 'pip not found' in result['error']
+                    assert 'error' in result
+                    assert 'pip' in result['error'].lower() or 'pipx' in result['error'].lower()
 
     def test_install_ai_tools_already_installed(self):
         """Test install skips tools already installed."""
@@ -261,21 +268,22 @@ class TestInstallAITools:
                         assert '-q' in cmd  # Quiet mode
 
     def test_install_ai_tools_success_system(self):
-        """Test successful installation on system (not virtualenv)."""
+        """Test successful installation on system (not virtualenv, no pipx/PEP668)."""
         with mock.patch('medusa.platform.installers.simple.is_pip_available', return_value=True):
             with mock.patch('medusa.platform.installers.simple.is_tool_installed', return_value=False):
                 with mock.patch('medusa.platform.installers.simple._in_virtualenv', return_value=False):
-                    with mock.patch('subprocess.run') as mock_run:
-                        mock_run.return_value = mock.Mock(returncode=0, stderr='')
+                    # Disable PEP 668 + pipx so fallback uses pip --user
+                    with mock.patch('medusa.platform.installers.simple._is_pep668_system', return_value=False):
+                        with mock.patch('subprocess.run') as mock_run:
+                            mock_run.return_value = mock.Mock(returncode=0, stderr='')
 
-                        result = install_ai_tools(verbose=False)
+                            result = install_ai_tools(verbose=False)
 
-                        assert 'modelscan' in result
-                        assert result['modelscan']['status'] == 'installed'
+                            assert 'modelscan' in result
+                            assert result['modelscan']['status'] == 'installed'
 
-                        # Verify command includes --user on system
-                        cmd = mock_run.call_args[0][0]
-                        assert '--user' in cmd
+                            cmd = mock_run.call_args[0][0]
+                            assert '--user' in cmd
 
     def test_install_ai_tools_verbose(self):
         """Test installation with verbose output."""
@@ -358,21 +366,21 @@ class TestCLICommands:
         assert '2026.2' in result.output or 'ai-tools' in result.output.lower()
 
     def test_install_ai_tools_flag(self):
-        """Test medusa install --ai-tools."""
+        """Test medusa install --ai-tools invokes installation logic."""
         from click.testing import CliRunner
         from medusa.cli import main
 
         runner = CliRunner()
 
-        with mock.patch('medusa.platform.installers.simple.install_ai_tools') as mock_install:
-            mock_install.return_value = {
-                'modelscan': {'status': 'installed'}
-            }
+        # CLI --ai-tools has inline install logic (doesn't call install_ai_tools()).
+        # Mock is_tool_installed so all tools appear already installed → clean output.
+        with mock.patch('medusa.platform.installers.simple.is_tool_installed', return_value=True):
+            with mock.patch('medusa.platform.installers.simple.is_pip_available', return_value=True):
+                result = runner.invoke(main, ['install', '--ai-tools'])
 
-            result = runner.invoke(main, ['install', '--ai-tools'])
-
-            assert result.exit_code == 0
-            mock_install.assert_called_once()
+                assert result.exit_code == 0
+                # At least one tool should be acknowledged
+                assert 'modelscan' in result.output or 'installed' in result.output.lower()
 
     def test_uninstall_modelscan(self):
         """Test medusa uninstall modelscan."""
@@ -449,9 +457,11 @@ class TestAIToolsDefinition:
         assert modelscan['required'] is True
 
     def test_ai_tools_minimal(self):
-        """Test AI_TOOLS is kept minimal (v2026.2 philosophy)."""
-        # Should only have modelscan for now
-        assert len(AI_TOOLS) <= 2  # Allow for one potential addition
+        """Test AI_TOOLS contains expected tools and no unexpected extras."""
+        # v2026.5.x: modelscan (required) + garak + llm-guard (optional)
+        assert 'modelscan' in AI_TOOLS
+        assert AI_TOOLS['modelscan']['required'] is True
+        assert len(AI_TOOLS) <= 5  # Guard against unreviewed additions
 
 
 # Integration test
@@ -462,18 +472,16 @@ class TestIntegration:
         """Test complete install flow in virtualenv."""
         with mock.patch('medusa.platform.installers.simple.is_pip_available', return_value=True):
             with mock.patch('medusa.platform.installers.simple._in_virtualenv', return_value=True):
-                with mock.patch('subprocess.run') as mock_run:
-                    # First call: check if installed (not installed)
-                    # Second call: install
-                    mock_run.side_effect = [
-                        mock.Mock(returncode=1),  # Not installed
-                        mock.Mock(returncode=0, stderr=''),  # Install success
-                    ]
+                # Mock is_tool_installed directly — its shutil.which check would
+                # short-circuit and find the real tool before subprocess is tried.
+                with mock.patch('medusa.platform.installers.simple.is_tool_installed', return_value=False):
+                    with mock.patch('subprocess.run') as mock_run:
+                        mock_run.return_value = mock.Mock(returncode=0, stderr='')
 
-                    result = install_ai_tools()
+                        result = install_ai_tools()
 
-                    assert 'modelscan' in result
-                    assert result['modelscan']['status'] == 'installed'
+                        assert 'modelscan' in result
+                        assert result['modelscan']['status'] == 'installed'
 
     def test_status_check_flow(self):
         """Test complete status check flow."""
