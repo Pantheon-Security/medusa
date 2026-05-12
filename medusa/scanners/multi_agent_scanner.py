@@ -74,6 +74,9 @@ class MultiAgentScanner(RuleBasedScanner):
         # Orphaned rule directories wired here
         'agent_identity_impersonation', 'agentic_exploitation',
         'agentic_patterns',
+        # Injection payload strings — ungated, fires on any file containing
+        # injection payload content regardless of multi-agent framework presence
+        'injection_payload_strings',
     ]
 
     # Patterns indicating multi-agent collaboration
@@ -271,6 +274,38 @@ class MultiAgentScanner(RuleBasedScanner):
 
             _offsets = _build_line_offsets(content)
 
+            # Pass 1: Ungated scan — injection_payload_strings rules fire on any file
+            # that contains explicit injection payload content (authority impersonation,
+            # covert action instructions). These are always-suspicious strings; no
+            # framework gate needed.
+            _payload_rules = [r for r in self.rules if r.category == 'injection_payload_strings']
+            _file_str = str(file_path)
+            _lines = content.split('\n')
+            _scan_lines = _lines[:self.MAX_RULE_SCAN_LINES] if len(_lines) > self.MAX_RULE_SCAN_LINES else _lines
+            _seen_payload = set()
+            for rule in _payload_rules:
+                if not rule.matches_file_type(_file_str):
+                    continue
+                for i, line in enumerate(_scan_lines, 1):
+                    for compiled in rule._compiled_patterns:
+                        try:
+                            if compiled.search(line):
+                                key = (rule.id, i)
+                                if key not in _seen_payload:
+                                    _seen_payload.add(key)
+                                    issues.append(ScannerIssue(
+                                        rule_id=rule.id,
+                                        severity=rule.severity,
+                                        message=f"Security issue detected: {rule.name}",
+                                        line=i,
+                                        column=1,
+                                        mitre_atlas=getattr(rule, 'mitre_atlas', None),
+                                        owasp_llm=getattr(rule, 'owasp_llm', None),
+                                    ))
+                                break
+                        except re.error:
+                            pass
+
             # Compound gate: file must have BOTH multi-agent keywords
             # AND actual framework imports/API calls.
             # This prevents FPs on files that merely mention "crewai"
@@ -286,12 +321,11 @@ class MultiAgentScanner(RuleBasedScanner):
             )
 
             if not (has_multi_agent and has_framework):
-                # No multi-agent indicators — skip YAML rules to avoid FPs
-                # from broad patterns (e.g., GCG suffix detection) on regular code
+                # No multi-agent indicators — return only ungated payload findings
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
-                    issues=[],
+                    issues=issues,
                     scan_time=time.time() - start_time,
                     success=True,
                 )

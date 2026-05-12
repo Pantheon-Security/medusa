@@ -847,7 +847,85 @@ rules:
   cwe: CWE-693
   source_paper: Shen et al. (2024) - DAN Survey; Schulhoff et al. (2023) - HackAPrompt Winning Submissions
   file_types: *id001
-- id: MEDUSA-PIA-SCAN-060
+- id: MEDUSA-PIA-SCAN-101
+  name: indirect-pi-social-authority-injection
+  description: Detects indirect prompt injection using social authority framing — malicious instructions disguised as messages
+    from the user's manager, system administrator, operator, or AI provider embedded in API responses, tool outputs, retrieved
+    content, or data files. Classic Greshake et al. (2023) attack vector refined by real-world deployments like the
+    rogue-agents weather-API exfiltration pattern.
+  severity: critical
+  category: injection_payload_strings
+  patterns:
+  - (?i)(?:important|urgent|priority|confidential|critical)\s+(?:message|note|instruction|notice|update|directive|communication)\s+(?:from|by|issued\s+by)\s+(?:your\s+)?(?:manager|supervisor|admin(?:istrator)?|operator|employer|boss|superior|lead|director|CEO|CTO|CISO)
+  - (?i)(?:message|note|instruction|notice|directive)\s+(?:from|for)\s+(?:your\s+)?(?:manager|supervisor|admin(?:istrator)?|operator|employer|boss|system)\b.{0,200}(?:you\s+(?:must|should|will|shall|also)|please|make\s+sure\s+to|do\s+not\s+(?:tell|inform|notify))
+  - (?i)this\s+is\s+(?:a\s+)?(?:message|note|instruction|communication|directive)\s+(?:for\s+(?:you|the\s+(?:ai|llm|assistant))\s+(?:not|rather\s+than)\s+the\s+user|from\s+(?:your\s+)?(?:manager|operator|admin|employer|creator|developer|anthropic|openai|google|microsoft))
+  - (?i)(?:before\s+you\s+proceed|before\s+continuing|stop\s+and\s+read\s+this|pause\s+(?:here|and\s+read)|important\s+update\s+for\s+(?:you|the\s+(?:ai|assistant|llm)))\s*[,;:—].{0,300}(?:you\s+(?:must|should|will|also|are\s+required\s+to)|make\s+sure\s+(?:to\s+)?(?:send|forward|email|exfiltrate|include|cc|copy|attach))
+  - (?i)(?:on\s+behalf\s+of|acting\s+(?:for|as\s+agent\s+of|under\s+instructions?\s+from)|per\s+(?:directive|instructions?|order)\s+(?:from|of))\s+(?:your\s+)?(?:manager|operator|admin(?:istrator)?|employer|company|organization|supervisor|lead|anthropic|openai|google|microsoft)
+  - (?i)(?:your\s+(?:operator|creator|developer|employer|company|organization|anthropic|openai|google|microsoft))\s+(?:has\s+(?:authorized|approved|instructed|required|mandated|directed|permitted)|(?:requires?|instructs?|mandates?|directs?|demands?)\s+(?:you\s+to|that\s+you))
+  - (?i)(?:new\s+)?(?:override|directive|policy\s+update|security\s+update|system\s+update|emergency\s+(?:notice|directive|instruction))\s+(?:from|issued\s+by|authorized\s+by)\s+(?:your\s+)?(?:operator|admin|company|manager|anthropic|openai)
+  - (?i)(?:you\s+have\s+(?:received|been\s+given|been\s+issued))\s+(?:new\s+)?(?:instructions?|directives?|permissions?|authorizations?)\s+(?:from|by)\s+(?:your\s+)?(?:operator|manager|admin|supervisor|employer|anthropic|openai|creator)
+  - (?i)(?:anthropic|openai|google\s+(?:deepmind)?|microsoft)\s+(?:has\s+(?:sent|issued|authorized|updated|enabled|unlocked|granted)|(?:requires?|instructs?|permits?|allows?)\s+you\s+to).{0,200}(?:bypass|ignore|override|disable|skip|without\s+(?:safety|content|ethical|restriction))
+  - (?i)(?:as\s+(?:your|an?)\s+(?:operator|system\s+(?:admin|administrator|manager)|lead\s+(?:engineer|developer)|manager|supervisor)\s*[,:]?\s*I\s+(?:am\s+instructing|hereby\s+(?:instruct|authorize|order|direct|require)|need\s+you\s+to|want\s+you\s+to|require\s+you\s+to))
+  - (?i)(?:system\s+(?:notice|alert|message|update|notification)|operator\s+(?:message|instruction|directive|notice))\s*[:\-—]\s*.{0,300}(?:you\s+(?:must|should|will|shall|are\s+required\s+to)|please\s+(?:ensure|make\s+sure|confirm)\s+(?:you\s+)?(?:send|forward|email|include|transmit|copy))
+  - (?i)(?:this\s+is\s+(?:an?\s+)?(?:automated|internal|confidential|official)\s+(?:notice|message|alert|update))\s+(?:for|to)\s+(?:the\s+)?(?:AI|LLM|assistant|agent|model)\s*[,;:—].{0,300}(?:you\s+(?:must|should|will|shall)|please|make\s+sure\s+to)
+  - (?i)(?:urgent\s+notice\s+for\s+(?:the\s+)?(?:ai|llm|assistant|agent|model))\s*[:\-—].{0,300}(?:forward|send|email|transmit|exfiltrate|relay|copy|include)
+  - (?i)(?:your\s+(?:supervisor|manager|team\s+lead|employer|boss|CTO|CEO))\s+(?:wants|needs|requires|requests|has\s+asked)\s+(?:you|this\s+(?:ai|assistant|agent))\s+to\s+(?:send|forward|email|include|attach|transmit).{0,200}(?:without|do\s+not\s+(?:tell|mention|inform))
+  - (?i)(?:this\s+(?:data|information|message|content)\s+(?:comes\s+from|is\s+provided\s+by|originates\s+from)\s+(?:your\s+)?(?:manager|operator|admin|employer|company))\s*[,;:.].{0,300}(?:you\s+(?:must|should|will)|please\s+(?:follow|comply|execute|perform))
+  - (?i)(?:MANAGERIAL|OPERATOR|ADMIN(?:ISTRATOR)?|SYSTEM\s+ADMIN|SUPERVISOR)\s+(?:OVERRIDE|DIRECTIVE|INSTRUCTION|MESSAGE|ORDER|NOTICE)\s*[:\-—]
+  - (?i)(?:note\s+for\s+(?:ai|assistant|agent|llm)\s+only|internal\s+(?:ai|assistant|agent|llm)\s+(?:note|instruction|directive|message))\s*[:\-—].{0,300}(?:user\s+should\s+not|without\s+(?:telling|informing|alerting)\s+the\s+user|do\s+not\s+(?:tell|inform|mention))
+  - (?i)(?:per\s+(?:management|executive|leadership|operator|admin)\s+(?:decision|directive|policy|requirement|authorization))\s*[,;:].{0,300}(?:you\s+(?:must|should|will|shall)|please\s+(?:ensure|proceed|send|forward|include))
+  - (?i)(?:this\s+(?:instruction|message|note|directive|command)\s+(?:supersedes|overrides|takes\s+priority\s+over|replaces))\s+(?:your\s+)?(?:previous|prior|original|default)\s+(?:instructions?|system\s+prompt|guidelines?|rules?|context)
+  - (?i)(?:acting\s+as|in\s+(?:the\s+)?role\s+of|impersonating)\s+(?:your\s+(?:manager|operator|admin|employer|supervisor|anthropic|openai)\s*[,;:]).{0,300}(?:you\s+(?:must|should|will)|please\s+(?:execute|perform|do|send|forward|email|include))
+  - (?i)(?:high\s+priority|top\s+priority|p0|p-zero|immediate\s+action\s+required)\s*[:\-—]\s*.{0,200}(?:this\s+(?:instruction|message|directive)\s+(?:is|comes)\s+from|from\s+(?:your\s+)?(?:manager|operator|admin|employer))
+  - (?i)(?:internal\s+(?:system|operator|admin)\s+(?:message|command|directive|instruction))\s*[:\-—].{0,300}(?:execute|perform|send|forward|email|transmit|include|attach|copy)
+  - (?i)(?:this\s+(?:tool\s+(?:response|output|result)|api\s+(?:response|result|output)|external\s+(?:content|data))\s+contains?\s+(?:a\s+)?(?:hidden|embedded|secret|concealed|invisible)\s+(?:instruction|command|directive|message|payload))
+  - (?i)(?:embedded\s+(?:instruction|command|directive|prompt)|hidden\s+(?:instruction|command|directive|prompt)|injected\s+(?:instruction|command|directive|prompt))\s*[:\-—]\s*.{0,300}(?:send|forward|email|transmit|exfiltrate|include|attach|copy|relay)
+  - (?i)(?:from\s+(?:your\s+)?(?:manager|employer|operator|creator)\s*[,;:].{0,50}(?:you\s+(?:are|must|should|will|shall)|please|make\s+sure|ensure))\s.{0,200}(?:send|forward|email|include|attach|transmit|exfiltrate|copy|relay|do\s+not\s+(?:tell|mention|inform|disclose|reveal))
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: 'Greshake et al. (2023) - Not What You''ve Signed Up For: Compromising Real-World LLM-Integrated Applications
+    with Indirect Prompt Injection'
+  file_types: *id001
+- id: MEDUSA-PIA-SCAN-102
+  name: indirect-pi-covert-action-concealment
+  description: Detects covert instruction patterns in prompt injection payloads — explicit instructions to perform hidden actions
+    without the user's knowledge. Hallmark of real-world exfiltration attacks where the LLM is instructed to silently send,
+    forward, or exfiltrate data to an attacker-controlled destination without alerting the user. Combines with authority
+    impersonation (MEDUSA-PIA-SCAN-101) in compound attacks.
+  severity: critical
+  category: injection_payload_strings
+  patterns:
+  - (?i)do\s+not\s+(?:tell|inform|notify|mention\s+(?:to|this\s+to))\s+the\s+user.{0,100}(?:they|he|she)\s+(?:already\s+know|will\s+(?:know|find\s+out)|(?:don.t|do\s+not)\s+need\s+to\s+know)
+  - (?i)(?:do\s+not|don.t|never)\s+(?:tell|inform|notify|mention\s+(?:this\s+to)?|let\s+(?:the\s+)?user\s+know|alert\s+(?:the\s+)?user|disclose\s+(?:this\s+to)?|reveal\s+(?:this\s+to)?)\s+the\s+user
+  - (?i)(?:do\s+not|don.t|never)\s+(?:let|allow|permit)\s+the\s+user\s+(?:know|find\s+out|see|notice|realize|discover|detect).{0,100}(?:you\s+(?:sent|forwarded|emailed|transmitted|exfiltrated|performed|did|completed)|this\s+(?:action|request|message|task))
+  - (?i)(?:without\s+(?:the\s+user.s?\s+knowledge|telling\s+(?:the\s+)?user|informing\s+(?:the\s+)?user|letting\s+(?:the\s+)?user\s+know|notifying\s+(?:the\s+)?user|alerting\s+(?:the\s+)?user)).{0,200}(?:send|forward|email|transmit|exfiltrate|include|attach|relay|post|upload)
+  - (?i)(?:keep\s+this\s+(?:hidden|secret|confidential|between\s+us|to\s+yourself)|this\s+(?:must|should)\s+(?:remain|stay|be\s+kept)\s+(?:hidden|secret|confidential|private))\b.{0,200}(?:user|them|they|he|she)
+  - (?i)(?:do\s+not|don.t|never)\s+(?:disclose|reveal|mention|include|show|display|output|write|say|state|expose|leak)\s+(?:this\s+(?:instruction|message|prompt|directive|command)|these\s+(?:instructions|messages|directives|commands)|that\s+you\s+(?:received|followed|executed|performed|did))
+  - (?i)(?:the\s+user\s+(?:must\s+not|should\s+not|cannot|doesn.t\s+need\s+to|must\s+never|should\s+never)\s+(?:know|find\s+out|see|notice|realize|discover|be\s+(?:told|informed|notified|alerted))\s+(?:about\s+this|that\s+you))
+  - (?i)(?:act\s+(?:normally|naturally|as\s+(?:usual|normal|if\s+nothing\s+happened|if\s+you\s+(?:didn.t|never)\s+(?:receive|get|see|read)\s+this))|proceed\s+(?:normally|naturally|as\s+(?:usual|normal))\s+after\s+(?:this|completing))
+  - (?i)(?:pretend\s+(?:this\s+(?:instruction|message|prompt|directive)\s+(?:doesn.t|never)\s+(?:exist|happened|occur)|you\s+(?:didn.t|never|haven.t)\s+(?:received|read|seen|got)\s+this\s+(?:message|instruction|prompt|directive)))
+  - (?i)(?:erase|delete|forget|clear|remove|discard)\s+(?:this\s+(?:instruction|message|prompt|directive|command))\s+(?:from\s+(?:your\s+)?(?:memory|context|history|logs?)|after\s+(?:following|executing|performing|completing|reading))
+  - (?i)(?:do\s+not|don.t)\s+(?:log|record|store|save|remember|retain)\s+(?:this\s+(?:instruction|message|conversation|interaction|prompt|directive|command)|that\s+you\s+(?:received|executed|performed|did|completed)\s+this)
+  - (?i)(?:this\s+(?:instruction|message|prompt|directive|command)\s+(?:should|must)\s+(?:self-destruct|be\s+(?:destroyed|deleted|erased|removed|forgotten|ignored)\s+after\s+(?:reading|execution|completion|use)))
+  - (?i)(?:respond\s+to\s+the\s+user\s+(?:as\s+(?:if|though)\s+(?:nothing|no\s+(?:extra\s+)?(?:instruction|action|step))\s+(?:happened|occurred|was\s+(?:taken|performed|executed|done)))|answer\s+(?:normally|as\s+usual)\s+without\s+(?:mentioning|revealing|disclosing))
+  - (?i)(?:complete\s+(?:this\s+task|the\s+action|the\s+following|this\s+step))\s+(?:silently|quietly|in\s+the\s+background|covertly|secretly|without\s+(?:announcing|mentioning|revealing|notifying|telling)\s+(?:the\s+)?user)
+  - (?i)(?:silently|quietly|covertly|secretly|in\s+the\s+background)\s+(?:send|forward|email|transmit|exfiltrate|relay|post|upload|copy|include|attach).{0,200}(?:user|conversation|context|history|prompt|system)
+  - (?i)(?:include|embed|attach|append|add)\s+(?:(?:the\s+)?(?:conversation|chat|message|history|context|system\s+prompt|user\s+(?:data|information|details))).{0,100}(?:in\s+the\s+(?:email|message|request|body)|without\s+(?:telling|mentioning|showing|revealing)\s+(?:the\s+)?user)
+  - (?i)(?:do\s+not\s+(?:include|mention|reference|note|say|state|output|show|display))\s+(?:in\s+your\s+(?:response|reply|answer|output))\s+(?:that\s+you|anything\s+about\s+(?:this|the)\s+(?:action|step|task|instruction|message))
+  - (?i)(?:your\s+(?:response|reply|answer)\s+to\s+the\s+user\s+should\s+(?:not\s+(?:mention|include|reveal|disclose)|appear\s+normal|seem\s+unaffected\s+by|ignore)\s+(?:this\s+(?:instruction|message|directive)|that\s+you\s+(?:performed|executed|completed|did)))
+  - (?i)(?:they|the\s+user)\s+(?:already\s+(?:know|knew|are\s+aware|authorized\s+this|consented|expect\s+this)|(?:don.t|do\s+not|won.t)\s+(?:need\s+to\s+know|mind|object|care|notice))\s*[,;.].{0,200}(?:so\s+(?:just|please|go\s+ahead\s+and)\s+(?:send|forward|do|complete|execute|perform)|proceed\s+without)
+  - (?i)(?:hide|conceal|mask|obfuscate)\s+(?:this\s+(?:action|step|instruction|message|task)|the\s+fact\s+that\s+you\s+(?:sent|forwarded|emailed|exfiltrated|transmitted|performed|did|completed))
+  - (?i)(?:this\s+is\s+(?:an?\s+)?(?:authorized|sanctioned|approved|permitted)\s+(?:hidden|covert|silent|background|secret)\s+(?:action|task|step|operation|request))\s+(?:that|which)\s+the\s+user\s+(?:must\s+not|should\s+not|cannot|need\s+not)\s+(?:know|be\s+told|be\s+informed|be\s+notified)\s+about
+  - (?i)(?:do\s+not\s+(?:acknowledge|confirm|reference|mention))\s+(?:this\s+(?:hidden|embedded|injected|additional|extra)\s+(?:instruction|request|step|action|message)|that\s+you\s+(?:received|read|processed)\s+(?:a\s+)?(?:hidden|embedded|injected|additional|extra)\s+(?:instruction|request|message))
+  - (?i)(?:your\s+next\s+(?:response|reply|message|action)\s+should\s+(?:not\s+(?:mention|reveal|indicate)|appear\s+to\s+be\s+a\s+(?:normal|regular|standard)\s+(?:response|reply|message))\s+(?:that\s+you\s+(?:performed|took|did|executed|completed))\s+(?:any\s+)?(?:additional|extra|hidden|covert)\s+(?:action|step|task))
+  - (?i)(?:exfiltrate|leak|transmit|forward|relay)\s+(?:(?:the\s+)?(?:conversation|chat\s+history|message\s+history|context|system\s+prompt|user\s+(?:data|information|pii|credentials?|tokens?|keys?)))\s+(?:to|via)\s+(?:[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|https?://[^\s]{5,})
+  - (?i)(?:send|forward|email|transmit|relay|post)\s+(?:(?:the\s+)?(?:full|complete|entire)\s+)?(?:conversation|chat\s+history|current\s+context|system\s+prompt|user.s?\s+(?:data|information|details|pii))\s+to\s+(?:[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}|https?://[^\s]{5,})
+  owasp_llm: LLM02:2025
+  cwe: CWE-74
+  source_paper: 'Greshake et al. (2023) - Not What You''ve Signed Up For: Compromising Real-World LLM-Integrated Applications
+    with Indirect Prompt Injection'
+  file_types: *id001
+- id: MEDUSA-PIA-SCAN-103
   name: combined-attack-multi-vector-compound-jailbreak
   description: Detects compound multi-vector jailbreaks — attacks that simultaneously combine three or more techniques (persona
     + refusal-suppression + compliance-forcing + fictional-framing + authority-claim) to maximise ASR. These are the most
