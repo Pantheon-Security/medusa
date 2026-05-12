@@ -1234,13 +1234,15 @@ def main(ctx, version):
               help='Output format(s): json, html, markdown, or all (can specify multiple)')
 @click.option('--no-report', is_flag=True,
               help='Skip report generation (faster)')
+@click.option('--no-ai-safe', 'no_ai_safe', is_flag=True, default=False,
+              help='Disable payload obfuscation in reports (default: obfuscated for LLM safety)')
 @click.option('-e', '--exclude', multiple=True,
               help='Exclude paths from scan (can specify multiple, e.g. --exclude archive/ --exclude scripts/)')
 @click.option('-g', '--git', 'git_url', type=str, default=None,
               help='Clone and scan a remote git repo (URL or user/repo shorthand)')
 @click.option('--allow-any-host', 'allow_any_host', is_flag=True, default=False,
               help='Allow --git to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org). Private IPs are still rejected.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, exclude, git_url, allow_any_host):
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host):
     """
     Scan a directory or file for security issues.
 
@@ -1471,7 +1473,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             if 'all' in formats:
                 formats = ['json', 'html', 'markdown']
 
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
+            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
 
         # Check fail threshold — only count issues at or above the specified severity
         if fail_on:
@@ -1728,10 +1730,18 @@ def _scan_git_repo(
     tmp_dir = tempfile.mkdtemp(prefix="medusa-git-")
     import atexit as _atexit
     _atexit.register(shutil.rmtree, tmp_dir, True)
+
+    # Resolve git to an absolute path so a shim dropped earlier in PATH
+    # by a hostile package cannot intercept the clone (ISSUE-004).
+    _git_bin = shutil.which("git")
+    if not _git_bin:
+        console.print("[red]Error: git not found on PATH — cannot clone repository.[/red]")
+        raise SystemExit(1)
+
     try:
         # Shallow clone for speed
         result = subprocess.run(
-            ["git", "clone", "--depth", "1", "--single-branch", clone_url, tmp_dir],
+            [_git_bin, "clone", "--depth", "1", "--single-branch", clone_url, tmp_dir],
             capture_output=True,
             text=True,
             timeout=120,
@@ -1863,7 +1873,7 @@ def _scan_git_repo(
             if 'all' in formats:
                 formats = ['json', 'html', 'markdown']
 
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters)
+            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
 
         # Check fail threshold — only count issues at or above the specified severity
         if fail_on:

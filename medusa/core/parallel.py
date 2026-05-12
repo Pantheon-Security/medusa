@@ -37,7 +37,7 @@ _CODE_SNIPPET_MAX = 200
 def _truncate_code(code: str) -> str:
     """Truncate a code snippet to _CODE_SNIPPET_MAX chars to avoid leaking full secret values."""
     if not code:
-        return code
+        return ''
     code = code.strip()
     if len(code) > _CODE_SNIPPET_MAX:
         return code[:_CODE_SNIPPET_MAX] + ' …[truncated]'
@@ -730,6 +730,7 @@ class MedusaParallelScanner:
 
         for scanner in scanners:
             try:
+                scanner.reset()
                 scanner_result = self._run_scanner_with_timeout(
                     scanner, file_path, PER_SCANNER_TIMEOUT
                 )
@@ -1268,7 +1269,7 @@ class MedusaParallelScanner:
 
         return results
 
-    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None):
+    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None, ai_safe: bool = True):
         """Generate reports in requested formats (json, html, markdown)"""
         if formats is None:
             formats = ['json', 'html']
@@ -1368,20 +1369,20 @@ class MedusaParallelScanner:
 
         # Generate JSON report
         if 'json' in formats:
-            json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json")
+            json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json", ai_safe=ai_safe)
             generated_files.append(('JSON', json_path))
 
         # Generate HTML report
         if 'html' in formats:
-            # First need JSON for HTML generation
+            # First need JSON for HTML generation (HTML reads from JSON, inherits obfuscation)
             if 'json' not in formats:
-                json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json")
+                json_path = generator.generate_json_report(scan_results, output_dir / f"medusa-scan-{timestamp}.json", ai_safe=ai_safe)
             html_path = generator.generate_html_report(json_path, output_dir / f"medusa-scan-{timestamp}.html")
             generated_files.append(('HTML', html_path))
 
         # Generate Markdown report
         if 'markdown' in formats:
-            md_path = generator.generate_markdown_report(scan_results, output_dir / f"medusa-scan-{timestamp}.md")
+            md_path = generator.generate_markdown_report(scan_results, output_dir / f"medusa-scan-{timestamp}.md", ai_safe=ai_safe)
             generated_files.append(('Markdown', md_path))
 
         # Print generated files

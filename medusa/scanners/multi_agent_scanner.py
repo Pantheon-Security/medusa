@@ -299,8 +299,6 @@ class MultiAgentScanner(RuleBasedScanner):
                                         message=f"Security issue detected: {rule.name}",
                                         line=i,
                                         column=1,
-                                        mitre_atlas=getattr(rule, 'mitre_atlas', None),
-                                        owasp_llm=getattr(rule, 'owasp_llm', None),
                                     ))
                                 break
                         except re.error:

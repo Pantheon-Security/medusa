@@ -502,7 +502,7 @@ class TestScanFileIntegration:
         """ScannerResult must reference the scanned file path."""
         path = tmp_repo / ".cursorrules"
         result = scanner.scan_file(path)
-        assert result.file_path == path
+        assert result.file_path == str(path)
 
     def test_scan_result_issues_have_line_numbers(self, scanner, tmp_repo):
         """Every issue returned by scan_file must have a positive line number."""

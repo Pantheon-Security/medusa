@@ -250,6 +250,11 @@ class BaseScanner(ABC):
         """
         pass
 
+    def reset(self) -> None:
+        """Reset any per-file state. Called before each file scan. Override when a scanner
+        accumulates instance-level state (lists, counters) that must not bleed between files."""
+        pass
+
     def can_scan(self, file_path: Path) -> bool:
         """
         Check if this scanner can handle the given file

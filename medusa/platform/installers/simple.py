@@ -58,14 +58,19 @@ def is_pip_available() -> bool:
 
 
 def get_pip_command() -> list:
-    """Get the pip command to use as a list."""
-    # If in virtualenv, use sys.executable -m pip
+    """Get the pip command to use as a list (always absolute path)."""
+    # Virtualenv: use the interpreter that owns this install — absolute and safe.
     if _in_virtualenv():
         return [sys.executable, '-m', 'pip']
-    # Otherwise use system pip
-    if shutil.which('pip3'):
-        return ['pip3']
-    return ['pip']
+    # Resolve to absolute path so user-writable PATH entries can't shadow it.
+    pip3 = shutil.which('pip3')
+    if pip3:
+        return [pip3]
+    pip = shutil.which('pip')
+    if pip:
+        return [pip]
+    # Last resort: use current interpreter
+    return [sys.executable, '-m', 'pip']
 
 
 def get_install_command(package: str) -> list:

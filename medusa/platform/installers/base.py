@@ -84,6 +84,9 @@ class ToolMapper:
     # Empty - no longer mapping 60+ tools
     PYTHON_TOOLS = {'modelscan'}
     NPM_TOOLS = set()
+    # SECURITY: TOOL_PACKAGES entries are executed via subprocess. This dict MUST
+    # remain hardcoded at import time — never load or merge values from disk, user
+    # input, or config files, or any addition becomes RCE-as-the-developer-user.
     TOOL_PACKAGES = {}
 
     @classmethod

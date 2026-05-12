@@ -40,6 +40,23 @@ _ECOSYSTEM_MAP = {
     # 'system' entries are skipped (not detectable via dependency manifests)
 }
 
+# Sentinel strings in the 'fixed' field that mean "no fix exists — always flag"
+_UNPATCHED_SENTINELS = frozenset({'none', 'n/a', 'na', 'deprecated', 'unfixed', 'unpatched', 'unknown'})
+
+# import_patterns[] ecosystem → set of manifest filenames it applies to
+_IMPORT_PATTERN_ECOSYSTEM_FILES: Dict[str, set] = {
+    'npm':    {'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'},
+    'pypi':   {'requirements.txt', 'setup.py', 'setup.cfg', 'pyproject.toml',
+               'Pipfile', 'Pipfile.lock', 'poetry.lock'},
+    'go':     {'go.mod', 'go.sum'},
+    'cargo':  {'Cargo.toml', 'Cargo.lock'},
+    'gem':    {'Gemfile', 'Gemfile.lock'},
+    'composer': {'composer.json', 'composer.lock'},
+    'maven':  {'pom.xml', 'build.gradle', 'build.gradle.kts'},
+    # 'github-actions' handled separately via _is_gha_workflow()
+    # 'system' skipped — not detectable via manifests
+}
+
 
 def _load_cve_database() -> List[Dict]:
     """
@@ -90,6 +107,53 @@ def _load_cve_database() -> List[Dict]:
     return list(seen.values())
 
 
+def _load_import_pattern_rules() -> List[Dict]:
+    """
+    Load supply-chain attack rules that use import_patterns[] from
+    rules/supply_chain/supply_chain_attacks.yaml.
+
+    Returns a flat list of entries:
+      {id, name, severity, description, url, cwe, import_patterns: [{ecosystem, patterns}]}
+    """
+    rules_path = Path(__file__).parent.parent / 'rules' / 'supply_chain' / 'supply_chain_attacks.yaml'
+    if not rules_path.exists():
+        return []
+
+    try:
+        with open(rules_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+    except Exception:
+        return []
+
+    if not data or 'rules' not in data:
+        return []
+
+    entries = []
+    for rule in data['rules']:
+        import_patterns = rule.get('import_patterns', [])
+        if not import_patterns:
+            continue
+
+        cve_id = rule.get('id', '')
+        url = f"https://nvd.nist.gov/vuln/detail/{cve_id}"
+        for ref in rule.get('references', []):
+            if isinstance(ref, dict) and ref.get('type') == 'ADVISORY':
+                url = ref.get('url', url)
+                break
+
+        entries.append({
+            'id': cve_id,
+            'name': rule.get('name', ''),
+            'severity': rule.get('severity', 'HIGH'),
+            'description': rule.get('description', '').strip(),
+            'url': url,
+            'cwe': rule.get('cwe', ''),
+            'import_patterns': import_patterns,
+        })
+
+    return entries
+
+
 def _parse_v2_rule(rule: Dict) -> List[Dict]:
     """Parse a v2.0 rule (affected[].ranges[].introduced/fixed) into scanner entries."""
     entries = []
@@ -137,6 +201,10 @@ def _parse_v2_rule(rule: Dict) -> List[Dict]:
         for vrange in ranges:
             introduced_str = str(vrange.get('introduced', '0.0.0'))
             fixed_str = vrange.get('fixed')  # May be absent for unpatched
+
+            # Treat sentinel strings as "no fix" so all versions >= introduced are flagged
+            if fixed_str is not None and str(fixed_str).strip().lower() in _UNPATCHED_SENTINELS:
+                fixed_str = None
 
             introduced_v = _str_to_version_tuple(introduced_str)
             fixed_v = _str_to_version_tuple(str(fixed_str)) if fixed_str else None
@@ -267,6 +335,9 @@ class CriticalCVEScanner(BaseScanner):
     # Load CVE database from YAML at class level (once)
     CVE_DATABASE = _load_cve_database()
 
+    # Load import_patterns[] rules from supply_chain_attacks.yaml (once)
+    PATTERN_DATABASE = _load_import_pattern_rules()
+
     # Dependency manifest files and their ecosystems
     MANIFEST_FILES = {
         # Python
@@ -308,14 +379,24 @@ class CriticalCVEScanner(BaseScanner):
             '.txt', '.py', '.cfg', '.toml', '.lock',
             '.xml', '.gradle', '.kts',
             '.mod', '.sum',
-            '.json', '.yaml',
+            '.json', '.yaml', '.yml',
         ]
 
     def is_available(self) -> bool:
         return True
 
+    @staticmethod
+    def _is_gha_workflow(file_path: Path) -> bool:
+        """Return True for .github/workflows/*.yml|yaml files."""
+        parts = file_path.parts
+        return (
+            file_path.suffix in ('.yml', '.yaml') and
+            '.github' in parts and
+            'workflows' in parts
+        )
+
     def can_scan(self, file_path: Path) -> bool:
-        return file_path.name in self.MANIFEST_FILES
+        return file_path.name in self.MANIFEST_FILES or self._is_gha_workflow(file_path)
 
     def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         if file_path.name in self.MANIFEST_FILES:
@@ -323,15 +404,16 @@ class CriticalCVEScanner(BaseScanner):
         return 0
 
     def scan_file(self, file_path: Path) -> ScannerResult:
-        """Scan dependency manifest for critical CVEs."""
+        """Scan dependency manifest for critical CVEs and supply chain attack patterns."""
         start_time = time.time()
         issues = []
 
         try:
             filename = file_path.name
+            is_gha = self._is_gha_workflow(file_path)
             ecosystem = self.MANIFEST_FILES.get(filename)
 
-            if not ecosystem:
+            if not ecosystem and not is_gha:
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
@@ -340,60 +422,25 @@ class CriticalCVEScanner(BaseScanner):
                     success=True,
                 )
 
-            # Get CVEs for this ecosystem
-            ecosystem_cves = [c for c in self.CVE_DATABASE if c['ecosystem'] == ecosystem]
-            if not ecosystem_cves:
-                return ScannerResult(
-                    scanner_name=self.name,
-                    file_path=str(file_path),
-                    issues=[],
-                    scan_time=time.time() - start_time,
-                    success=True,
-                )
+            # Version-range CVE checks (manifest files only, not GHA workflows)
+            if ecosystem:
+                ecosystem_cves = [c for c in self.CVE_DATABASE if c['ecosystem'] == ecosystem]
+                deps = self._parse_dependencies(file_path, filename, ecosystem)
+                for dep_name, dep_version in deps.items():
+                    for cve in ecosystem_cves:
+                        if self._matches_package(dep_name, cve):
+                            parsed = self._parse_version(dep_version)
+                            if parsed and self._is_vulnerable(parsed, cve):
+                                issues.append(self._make_cve_issue(dep_name, dep_version, cve))
 
-            # Parse dependencies from manifest
-            deps = self._parse_dependencies(file_path, filename, ecosystem)
-
-            # Check each dependency against CVE database
-            for dep_name, dep_version in deps.items():
-                for cve in ecosystem_cves:
-                    if self._matches_package(dep_name, cve):
-                        parsed = self._parse_version(dep_version)
-                        if parsed and self._is_vulnerable(parsed, cve):
-                            cwe_id = None
-                            cwe_link = None
-                            if cve.get('cwe'):
-                                cwe_match = re.search(r'CWE-(\d+)', cve['cwe'])
-                                if cwe_match:
-                                    cwe_id = int(cwe_match.group(1))
-                                    cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
-
-                            severity_str = cve.get('severity', 'CRITICAL')
-                            severity = {
-                                'CRITICAL': Severity.CRITICAL,
-                                'HIGH': Severity.HIGH,
-                                'MEDIUM': Severity.MEDIUM,
-                                'LOW': Severity.LOW,
-                            }.get(severity_str, Severity.HIGH)
-
-                            fix_note = (
-                                f"Upgrade to {cve['fixed']}+"
-                                if cve['fixed'] and cve['fixed'] != 'No fix available'
-                                else "No fix available — consider alternative package"
-                            )
-
-                            issues.append(ScannerIssue(
-                                severity=severity,
-                                message=(
-                                    f"{cve['cve']} ({cve['name']}): {dep_name}@{dep_version} is vulnerable "
-                                    f"(CVSS {cve['cvss']}). {cve['description']}. "
-                                    f"{fix_note}. See: {cve['url']}"
-                                ),
-                                line=None,
-                                rule_id=f"cve-{cve['cve'].lower()}",
-                                cwe_id=cwe_id,
-                                cwe_link=cwe_link,
-                            ))
+            # Import-pattern checks (manifest files + GHA workflow files)
+            if self.PATTERN_DATABASE:
+                try:
+                    content = file_path.read_text(encoding='utf-8', errors='ignore')
+                except OSError:
+                    content = ''
+                if content:
+                    issues.extend(self._scan_import_patterns(file_path, content, ecosystem, is_gha))
 
             return ScannerResult(
                 scanner_name=self.name,
@@ -412,6 +459,111 @@ class CriticalCVEScanner(BaseScanner):
                 success=False,
                 error_message=f"Scan failed: {e}",
             )
+
+    def _make_cve_issue(self, dep_name: str, dep_version: str, cve: Dict) -> ScannerIssue:
+        """Build a ScannerIssue for a version-range CVE match."""
+        cwe_id = None
+        cwe_link = None
+        if cve.get('cwe'):
+            cwe_match = re.search(r'CWE-(\d+)', cve['cwe'])
+            if cwe_match:
+                cwe_id = int(cwe_match.group(1))
+                cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+
+        severity_str = cve.get('severity', 'CRITICAL')
+        severity = {
+            'CRITICAL': Severity.CRITICAL,
+            'HIGH': Severity.HIGH,
+            'MEDIUM': Severity.MEDIUM,
+            'LOW': Severity.LOW,
+        }.get(severity_str, Severity.HIGH)
+
+        fix_note = (
+            f"Upgrade to {cve['fixed']}+"
+            if cve['fixed'] and cve['fixed'] != 'No fix available'
+            else "No fix available — consider alternative package"
+        )
+
+        return ScannerIssue(
+            severity=severity,
+            message=(
+                f"{cve['cve']} ({cve['name']}): {dep_name}@{dep_version} is vulnerable "
+                f"(CVSS {cve['cvss']}). {cve['description']}. "
+                f"{fix_note}. See: {cve['url']}"
+            ),
+            line=None,
+            rule_id=f"cve-{cve['cve'].lower()}",
+            cwe_id=cwe_id,
+            cwe_link=cwe_link,
+        )
+
+    def _scan_import_patterns(
+        self, file_path: Path, content: str, ecosystem: Optional[str], is_gha: bool
+    ) -> List[ScannerIssue]:
+        """Check file content against import_patterns[] supply chain rules."""
+        issues = []
+        seen_rule_ids: set = set()
+
+        for rule in self.PATTERN_DATABASE:
+            if rule['id'] in seen_rule_ids:
+                continue
+
+            cwe_id = None
+            cwe_link = None
+            if rule.get('cwe'):
+                cwe_match = re.search(r'CWE-(\d+)', rule['cwe'])
+                if cwe_match:
+                    cwe_id = int(cwe_match.group(1))
+                    cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+
+            severity_str = rule.get('severity', 'HIGH')
+            severity = {
+                'CRITICAL': Severity.CRITICAL,
+                'HIGH': Severity.HIGH,
+                'MEDIUM': Severity.MEDIUM,
+                'LOW': Severity.LOW,
+            }.get(severity_str, Severity.HIGH)
+
+            for ip in rule.get('import_patterns', []):
+                rule_ecosystem = ip.get('ecosystem', '')
+
+                # Determine if this pattern applies to the current file
+                if rule_ecosystem == 'github-actions':
+                    if not is_gha:
+                        continue
+                elif rule_ecosystem == 'system':
+                    continue  # system packages not detectable via manifests
+                elif rule_ecosystem == 'any':
+                    pass  # matches any manifest file
+                else:
+                    applicable_files = _IMPORT_PATTERN_ECOSYSTEM_FILES.get(rule_ecosystem, set())
+                    if file_path.name not in applicable_files:
+                        continue
+
+                # Test each regex pattern against file content
+                for pattern in ip.get('patterns', []):
+                    try:
+                        if re.search(pattern, content):
+                            issues.append(ScannerIssue(
+                                severity=severity,
+                                message=(
+                                    f"{rule['id']} ({rule['name']}): supply chain attack pattern detected. "
+                                    f"{rule['description'][:200]}. See: {rule['url']}"
+                                ),
+                                line=None,
+                                rule_id=f"sca-{rule['id'].lower()}",
+                                cwe_id=cwe_id,
+                                cwe_link=cwe_link,
+                            ))
+                            seen_rule_ids.add(rule['id'])
+                            break  # one match per rule is enough
+                    except re.error:
+                        continue
+
+                if rule['id'] in seen_rule_ids:
+                    break  # already fired for this rule
+
+        return issues
 
     # =================================================================
     # Dependency Parsing

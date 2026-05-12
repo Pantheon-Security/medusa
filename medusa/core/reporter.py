@@ -1351,8 +1351,8 @@ class PayloadObfuscator:
 
     def should_obfuscate(self, finding: Dict[str, Any]) -> bool:
         """Check if a finding contains dangerous patterns that should be obfuscated."""
-        issue = finding.get('issue', '')
-        code = finding.get('code', '')
+        issue = finding.get('issue') or ''
+        code = finding.get('code') or ''
 
         for pattern in self.DANGEROUS_ISSUE_PATTERNS:
             if pattern.search(issue):
@@ -1411,7 +1411,7 @@ class PayloadObfuscator:
 
     def _categorize_attack(self, finding: Dict[str, Any]) -> str:
         """Categorize the type of attack in a finding."""
-        text = f"{finding.get('issue', '')} {finding.get('code', '')}"
+        text = f"{finding.get('issue') or ''} {finding.get('code') or ''}"
 
         for pattern, category in self.ATTACK_CATEGORIES:
             if pattern.search(text):
