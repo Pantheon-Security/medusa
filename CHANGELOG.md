@@ -7,6 +7,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.6] - 2026-05-12
+
+### Added
+
+- **MITRE ATLAS taxonomy integration.** `ScannerIssue` gains optional `mitre_atlas` and `owasp_llm`
+  fields. `RuleBasedScanner` wires these from YAML rule metadata. `reporter.py` adds URL builders
+  and display-name lookups for both taxonomies. New `taxonomy_names.py` with human-readable names
+  for all OWASP LLM Top 10 and MITRE ATLAS technique IDs.
+
+- **Indirect prompt injection rules (MEDUSA-PIA-SCAN-101/102).** Two new detection rules with 50
+  combined patterns for social authority injection and covert action concealment — attack patterns
+  used by adversarial AI agents to manipulate other agents without triggering obvious injection
+  keywords. Routed through `injection_payload_strings` category, firing ungated on all file types.
+
+- **Supply chain import-pattern detection.** `critical_cve_scanner.py` now supports
+  `import_patterns[]` in supply chain rule YAML. Detects malicious package names in manifest files
+  (package.json, requirements.txt, go.mod, Cargo.toml, pom.xml, etc.) without requiring CVE version
+  matching. Rules with `fixed: none/n/a/unfixed` always fire. Covers npm, pypi, go, cargo, gem,
+  maven ecosystems.
+
+- **`--no-ai-safe` CLI flag.** Reports default to payload obfuscation (truncating/masking dangerous
+  strings so the report itself cannot be used as a prompt injection vector). Pass `--no-ai-safe` to
+  disable obfuscation and get verbatim findings in JSON/SARIF.
+
+- **`garak` and `llm-guard` added to AI_TOOLS.** `medusa install --ai-tools` now installs garak
+  (LLM red-teaming framework) and llm-guard (LLM output guard) in addition to modelscan.
+
+### Fixed
+
+- **FP over-suppression in repos with 'security' in the parent path.** `_check_security_module` was
+  matching absolute paths, causing ALL findings in repos stored under `mcp-security/`, `IMCP/`, or
+  any parent directory containing "security" to be suppressed.
+  `mcp-exploit-demo`: 0 → 13 findings; `IMCP`: 0 → 80 findings.
+
+- **Content-hash rule fingerprint.** Cache invalidation previously used `st_mtime` which is not
+  preserved in CI, Docker layer restores, or artifact caches. Switched to SHA-256 of rule file
+  content — correct in all environments (invalidates all caches on first upgrade run).
+
+- **Silent file skip warnings.** Files exceeding the 2 MB scan limit or 50,000-line regex limit now
+  emit a warning instead of silently returning a skipped-large-file result.
+
+- **macOS/Windows spawn-mode cache loss.** Batch Trivy/Semgrep/GitLeaks caches are now snapshotted
+  before the `multiprocessing.Pool` starts and injected via `Pool(initializer=...)`. Previously,
+  spawn-mode workers (macOS 3.8+, Windows) started with empty caches, causing those tools'
+  findings to be missing unless the slow per-file subprocess path succeeded.
+
+- **`os.path.commonpath` HOME scan bug.** `find_scannable_files()` adds paths outside the project
+  (e.g. `~/.cursor/mcp.json`); mixing those with project paths caused `commonpath()` to resolve to
+  `$HOME`, triggering Trivy/Semgrep/GitLeaks to scan the entire home directory. Fixed to use
+  `self.project_root` unconditionally.
+
+- **IDE setup symlink race (L-2).** `_safe_open_write()` uses `O_NOFOLLOW` on POSIX so IDE config
+  writes cannot be redirected via a pre-planted symlink.
+
+- **`get_pip_command()` PATH shadowing.** pip binary is now resolved to an absolute path via
+  `shutil.which()`, preventing user-writable PATH entries from shadowing the installer.
+
+- **`git clone` PATH shadowing (ISSUE-004).** Git binary resolved to absolute path before cloning
+  so a hostile package dropped earlier in PATH cannot intercept the operation.
+
+- **Gradle lockfile CVE suppression.** `generated_code_marker` FP pattern now excludes
+  `gradle.lockfile` — the file contains a `GENERATED FILE` banner but carries real Trivy CVE
+  findings that must not be suppressed.
+
+- **Test suite: 12 pre-existing test failures fixed.** All 391 tests now pass (previously 12
+  failed due to stale mocks, removed CLI flags, wrong output path, and stale FP thresholds).
+
+### Changed
+
+- **`MultiAgentScanner` Pass 1 ungated scan.** `injection_payload_strings` category rules now fire
+  before the compound gate (multi-agent keyword + framework indicator check), enabling detection
+  of adversarial payload strings in any file type, not just files that pass the compound gate.
+
+- **Regression test timing uses MEDUSA internal time.** `test_regression.py` now parses MEDUSA's
+  own "Total time: X.Xs" from stdout (stable ~9s) rather than wall-clock time, which includes
+  Semgrep/GitLeaks subprocess startup overhead that varies ~60-100s by environment.
+
 ## [2026.5.5] - 2026-04-18
 
 ### Security

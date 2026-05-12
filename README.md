@@ -12,8 +12,8 @@
 **AI-first security scanner with 9,600+ detection patterns for AI/ML, agents, and LLM applications.**
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
-**🔥 NEW: `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.2: Security hardening — credential leak fixes, XSS protection, symlink safety, code snippet sanitization, 14 bug fixes**
+**🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
+**✨ v2026.5.6: MITRE ATLAS taxonomy, indirect PI rules, supply chain import-pattern scanner, macOS/Windows multiprocessing fix**
 
 ---
 
@@ -28,30 +28,32 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **200 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
-- ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential)
+- 🗺️ **MITRE ATLAS + OWASP LLM Taxonomy** - Findings linked to technique pages and category descriptions
+- ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential), works on macOS/Windows/Linux
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
-- 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans
+- 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans (content-hash keyed, correct in CI)
 - ⚙️ **Configurable** - `.medusa.yml` for project-specific settings
 - 🌍 **Cross-Platform** - Native Windows, macOS, and Linux support
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.2
+### 🆕 What's New in v2026.5.6
 
-**Security Hardening** — 16 security and bug fixes across the scanner, reporter, and installer.
+**Detection + Accuracy + Platform Fixes** — new attack patterns, taxonomy integration, and critical multiprocessing fixes.
 
-| | What's Fixed | Details |
+| | What's New | Details |
 |---|---|---|
-| 🔐 | **Credential Leak Fixed** | Auth tokens in `--git` URLs now stripped from all console/log output |
-| 🛡️ | **XSS Protection** | HTML report fields escaped with `html.escape()` — no stored XSS from scanned file content |
-| 🔗 | **Symlink Safety** | Symlinks in scanned repos skipped — prevents `/etc/shadow`-style path traversal |
-| 📋 | **Secret Truncation** | Code snippets capped at 200 chars in reports — secrets don't leak verbatim into JSON/SARIF |
-| 🐛 | **Cache Fix** | `FileMetadata.cached_issues` now returns actual cached findings (was returning empty) |
-| 🧩 | **Dotfile Scanning** | Extensionless AI context files (`.cursorrules`, `.env`, `.mcp.json`) now fully analyzed |
-| 📝 | **Better Logging** | Invalid regex in rule YAML now uses `logging.warning()` instead of `print()` |
+| 🗺️ | **MITRE ATLAS Taxonomy** | Findings now link to MITRE ATLAS technique pages and OWASP LLM Top 10 categories in reports |
+| 🕵️ | **Indirect PI Rules** | 50 new patterns for social authority injection and covert action concealment attacks (MEDUSA-PIA-SCAN-101/102) |
+| 📦 | **Supply Chain Import Scanner** | Detect malicious package names in manifests (npm, pypi, go, cargo, maven) without version matching |
+| 🍎 | **macOS/Windows Multiprocessing Fix** | Batch Trivy/Semgrep/GitLeaks caches now injected into spawn-mode workers — findings were missing on non-Linux |
+| 🔒 | **Report Payload Obfuscation** | Reports obfuscate dangerous strings by default; `--no-ai-safe` disables for verbatim output |
+| 🧩 | **FP Accuracy: Security Parent Dirs** | Fixed over-suppression that zeroed findings for any repo under a `*security*` parent directory |
+| ⚡ | **Content-Hash Cache Keys** | Rule cache uses SHA-256 of file content, not mtime — correct in CI, Docker, and artifact restores |
+| ⚠️ | **File Skip Warnings** | Files over 2 MB or 50k lines now warn instead of silently being skipped |
 
-**Previous: v2026.5.0/5.1** — 9,600+ rules, 200 CVEs, Windows PATH auto-fix, 79 scanner categories, `--fail-on` severity fix.
+**Previous: v2026.5.5** — security hardening release (argv injection defenses, git SSRF, HMAC cache integrity, markdown XSS fix).
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
 
