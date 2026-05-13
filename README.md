@@ -13,7 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.6: MITRE ATLAS taxonomy, indirect PI rules, supply chain import-pattern scanner, macOS/Windows multiprocessing fix**
+**✨ v2026.5.7: Indirect PI rules, supply chain import-pattern scanner, macOS/Windows multiprocessing fix**
 
 ---
 
@@ -28,7 +28,6 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
 - 🚨 **200 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
-- 🗺️ **MITRE ATLAS + OWASP LLM Taxonomy** - Findings linked to technique pages and category descriptions
 - ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential), works on macOS/Windows/Linux
 - 🎨 **Beautiful CLI** - Rich terminal output with progress bars
 - 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
@@ -38,17 +37,17 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.6
+### 🆕 What's New in v2026.5.7
 
-**Detection + Accuracy + Platform Fixes** — new attack patterns, taxonomy integration, and critical multiprocessing fixes.
+**Detection + Accuracy + Cross-Platform** — new attack patterns, accuracy improvements, and macOS/Windows multiprocessing fixes.
 
 | | What's New | Details |
 |---|---|---|
-| 🗺️ | **MITRE ATLAS Taxonomy** | Findings now link to MITRE ATLAS technique pages and OWASP LLM Top 10 categories in reports |
 | 🕵️ | **Indirect PI Rules** | 50 new patterns for social authority injection and covert action concealment attacks (MEDUSA-PIA-SCAN-101/102) |
 | 📦 | **Supply Chain Import Scanner** | Detect malicious package names in manifests (npm, pypi, go, cargo, maven) without version matching |
-| 🍎 | **macOS/Windows Multiprocessing Fix** | Batch Trivy/Semgrep/GitLeaks caches now injected into spawn-mode workers — findings were missing on non-Linux |
 | 🔒 | **Report Payload Obfuscation** | Reports obfuscate dangerous strings by default; `--no-ai-safe` disables for verbatim output |
+| 🍎 | **macOS/Windows Multiprocessing Fix** | Batch Trivy/Semgrep/GitLeaks caches now rehydrated in spawn-mode workers via Pool initializer — findings were missing on non-Linux |
+| 🏠 | **Project-Root Scan Boundary** | Batch scanners always target the project root; previously, including a path outside the project (e.g. `~/.cursor/mcp.json`) could expand the scan to `$HOME` |
 | 🧩 | **FP Accuracy: Security Parent Dirs** | Fixed over-suppression that zeroed findings for any repo under a `*security*` parent directory |
 | ⚡ | **Content-Hash Cache Keys** | Rule cache uses SHA-256 of file content, not mtime — correct in CI, Docker, and artifact restores |
 | ⚠️ | **File Skip Warnings** | Files over 2 MB or 50k lines now warn instead of silently being skipped |

@@ -7,14 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2026.5.6] - 2026-05-12
+## [2026.5.7] - 2026-05-13
 
 ### Added
 
-- **MITRE ATLAS taxonomy integration.** `ScannerIssue` gains optional `mitre_atlas` and `owasp_llm`
-  fields. `RuleBasedScanner` wires these from YAML rule metadata. `reporter.py` adds URL builders
-  and display-name lookups for both taxonomies. New `taxonomy_names.py` with human-readable names
-  for all OWASP LLM Top 10 and MITRE ATLAS technique IDs.
+- **gradle.lockfile picked up for batch scanning.** Added to `special_exact_names`
+  so Trivy can scan Gradle dependency lockfiles for CVEs. Previously skipped
+  because the filename didn't match a known extension or special-file pattern.
+
+### Fixed
+
+- **macOS/Windows spawn-mode cache loss.** The Pool() pre-warming pattern relied
+  on copy-on-write fork semantics: `scan_project()` populated batch-scanner
+  caches in the parent, then Pool workers inherited them for free. That only
+  holds on fork. macOS (Python 3.8+) and Windows default to spawn, where workers
+  start fresh interpreters with empty caches and fall back to slow per-file
+  subprocess invocations. Fix: snapshot scanner caches after batch scans, pass
+  through `Pool(initializer=_inject_batch_scanner_caches, initargs=(snapshot,))`
+  so each worker rehydrates on startup. Wired into all three Pool call sites.
+
+- **commonpath drift to `$HOME` in batch scan target.** Batch scan target was
+  computed via `os.path.commonpath([files])`. If `find_scannable_files()` pulled
+  in any path outside the project (e.g. `~/.cursor/mcp.json`), commonpath
+  resolved to `$HOME` and Trivy/Semgrep/GitLeaks were pointed at the entire
+  home directory. Fix: use `self.project_root` unconditionally.
+
+## [2026.5.6] - 2026-05-12
+
+### Added
 
 - **Indirect prompt injection rules (MEDUSA-PIA-SCAN-101/102).** Two new detection rules with 50
   combined patterns for social authority injection and covert action concealment — attack patterns
@@ -47,16 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Silent file skip warnings.** Files exceeding the 2 MB scan limit or 50,000-line regex limit now
   emit a warning instead of silently returning a skipped-large-file result.
-
-- **macOS/Windows spawn-mode cache loss.** Batch Trivy/Semgrep/GitLeaks caches are now snapshotted
-  before the `multiprocessing.Pool` starts and injected via `Pool(initializer=...)`. Previously,
-  spawn-mode workers (macOS 3.8+, Windows) started with empty caches, causing those tools'
-  findings to be missing unless the slow per-file subprocess path succeeded.
-
-- **`os.path.commonpath` HOME scan bug.** `find_scannable_files()` adds paths outside the project
-  (e.g. `~/.cursor/mcp.json`); mixing those with project paths caused `commonpath()` to resolve to
-  `$HOME`, triggering Trivy/Semgrep/GitLeaks to scan the entire home directory. Fixed to use
-  `self.project_root` unconditionally.
 
 - **IDE setup symlink race (L-2).** `_safe_open_write()` uses `O_NOFOLLOW` on POSIX so IDE config
   writes cannot be redirected via a pre-planted symlink.
