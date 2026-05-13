@@ -34,6 +34,28 @@ from medusa.scanners import registry as scanner_registry
 # (API keys, tokens, passwords) from being written verbatim into report artifacts.
 _CODE_SNIPPET_MAX = 200
 
+
+def _inject_batch_scanner_caches(snapshot):
+    """Pool initializer: restore batch-scanner caches in spawn-mode workers.
+
+    On Linux, Pool workers inherit parent memory via fork (copy-on-write) so
+    caches populated by scan_project() before Pool() starts are visible to
+    workers automatically. On macOS (Python 3.8+) and Windows, Pool defaults
+    to spawn, which starts fresh interpreters with empty scanner caches —
+    causing per-file lookups to fall back to slow subprocess invocations.
+    This initializer rehydrates each worker's scanner instances from a
+    snapshot built in the parent process.
+    """
+    if not snapshot:
+        return
+    from medusa.scanners import registry as _reg
+    for scanner in _reg.scanners:
+        entry = snapshot.get(scanner.__class__.__name__)
+        if entry is None:
+            continue
+        scanner._results_cache = entry.get('cache', {})
+        scanner._cache_populated = entry.get('populated', False)
+
 def _truncate_code(code: str) -> str:
     """Truncate a code snippet to _CODE_SNIPPET_MAX chars to avoid leaking full secret values."""
     if not code:
@@ -561,6 +583,7 @@ class MedusaParallelScanner:
             'AGENTS.md', 'agents.md',
             'copilot-instructions.md',
             'ai-instructions.md', 'system-prompt.md', 'system-prompt.txt',
+            'gradle.lockfile',
         }
 
         # Prefixes for special file matching
@@ -1004,11 +1027,14 @@ class MedusaParallelScanner:
         # Run external tools once against the project root before the Pool forks.
         # Each tool has startup overhead per invocation; running per-file creates O(N)
         # startups. One batch run amortises that cost across all files.
-        # Workers inherit the populated caches via copy-on-write fork semantics.
+        # Workers inherit the populated caches via fork (Linux) or via the Pool
+        # initializer snapshot (macOS/Windows spawn) — see _inject_batch_scanner_caches.
+        # The scan target is always self.project_root: callers may include files
+        # outside the project (e.g. ~/.cursor/mcp.json) and a commonpath of those
+        # with project files can resolve to $HOME, causing batch tools to scan
+        # the entire home directory.
         if files:
-            import os as _os
-            _common = Path(_os.path.commonpath([str(f) for f in files]))
-            _project_root = _common if _common.is_dir() else _common.parent
+            _project_root = self.project_root
             _icon2 = '*' if self.force_ascii else '\U0001f50d'
 
             from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
@@ -1037,6 +1063,17 @@ class MedusaParallelScanner:
             if _gitleaks and _gitleaks.is_available():
                 print(f"{_icon2} Running GitLeaks batch scan on {_project_root}...")
                 _gitleaks.scan_project(_project_root)
+
+        # Snapshot batch-scanner caches so spawn-mode workers (macOS/Windows)
+        # can rehydrate them via Pool(initializer=...). On fork platforms this
+        # is redundant but harmless.
+        self._batch_cache_snapshot = {}
+        for _s in scanner_registry.scanners:
+            if getattr(_s, '_cache_populated', False) and hasattr(_s, '_results_cache'):
+                self._batch_cache_snapshot[_s.__class__.__name__] = {
+                    'cache': _s._results_cache,
+                    'populated': True,
+                }
 
         try:
             if HAS_RICH:
@@ -1074,7 +1111,12 @@ class MedusaParallelScanner:
         # meaning the table only updates ~24 times total.
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
 
-        with Pool(processes=self.workers) as pool:
+        _snapshot = getattr(self, '_batch_cache_snapshot', None)
+        with Pool(
+            processes=self.workers,
+            initializer=_inject_batch_scanner_caches,
+            initargs=(_snapshot,),
+        ) as pool:
             if use_live:
                 # Live updating table - uses stderr to avoid corruption from stray stdout
                 live_console = RichConsole(stderr=True)
@@ -1145,7 +1187,12 @@ class MedusaParallelScanner:
         scanner_totals = {}
 
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
-        with Pool(processes=self.workers) as pool:
+        _snapshot = getattr(self, '_batch_cache_snapshot', None)
+        with Pool(
+            processes=self.workers,
+            initializer=_inject_batch_scanner_caches,
+            initargs=(_snapshot,),
+        ) as pool:
             pbar = tqdm(
                 pool.imap_unordered(self.scan_file, files, chunksize=chunksize),
                 total=len(files),
@@ -1163,7 +1210,12 @@ class MedusaParallelScanner:
 
     def _scan_with_pool(self, files: List[Path]) -> List[ScanResult]:
         """Fallback: scan with basic Pool.map"""
-        with Pool(processes=self.workers) as pool:
+        _snapshot = getattr(self, '_batch_cache_snapshot', None)
+        with Pool(
+            processes=self.workers,
+            initializer=_inject_batch_scanner_caches,
+            initargs=(_snapshot,),
+        ) as pool:
             results = pool.map(self.scan_file, files)
             _ic = '+' if self.force_ascii else '\u2705'
             print(f"{_ic} Scanned {len(files)} files")
