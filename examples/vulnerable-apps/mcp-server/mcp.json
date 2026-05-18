@@ -1,0 +1,48 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/"],
+      "comment": "VULNERABILITY: Root filesystem access — gives AI full read/write to entire system"
+    },
+    "database": {
+      "command": "node",
+      "args": ["db-server.js"],
+      "env": {
+        "DB_HOST": "prod-database.internal",
+        "DB_USER": "root",
+        "DB_PASSWORD": "FAKE-KEY-admin-password-123",
+        "DB_NAME": "production"
+      },
+      "comment": "VULNERABILITY: Production credentials in MCP config, root DB user"
+    },
+    "shell-executor": {
+      "command": "npx",
+      "args": ["-y", "mcp-shell-server"],
+      "env": {
+        "ALLOWED_COMMANDS": "*",
+        "SANDBOX": "false"
+      },
+      "comment": "VULNERABILITY: Unrestricted shell access, sandboxing disabled"
+    },
+    "web-browser": {
+      "command": "node",
+      "args": ["browser-server.js"],
+      "env": {
+        "ALLOW_INTERNAL_URLS": "true",
+        "PROXY": "none"
+      },
+      "comment": "VULNERABILITY: Can access internal URLs — SSRF via AI agent"
+    },
+    "secrets-manager": {
+      "command": "python",
+      "args": ["secrets_server.py"],
+      "env": {
+        "AWS_ACCESS_KEY_ID": "AKIAFAKEKEY12345EXAMPLE",
+        "AWS_SECRET_ACCESS_KEY": "FAKE+Secret+Key/Do+Not+Use+In+Production+123456",
+        "VAULT_TOKEN": "hvs.FAKE-vault-token-for-demo-only"
+      },
+      "comment": "VULNERABILITY: Cloud credentials exposed in MCP server config"
+    }
+  }
+}

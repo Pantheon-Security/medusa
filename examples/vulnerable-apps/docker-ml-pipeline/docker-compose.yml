@@ -1,0 +1,85 @@
+---
+# Vulnerable ML Pipeline Docker Compose — FOR DEMONSTRATION ONLY.
+version: "3.8"
+
+services:
+  model-server:
+    build: .
+    # VULNERABILITY: Privileged mode — container can escape to host
+    privileged: true
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    environment:
+      - OPENAI_API_KEY=sk-FAKE-proj-docker-ml-key-abc123def456ghi789
+      - HF_TOKEN=hf_FAKE_huggingface_token_for_demo
+      - WANDB_API_KEY=FAKE-wandb-key-1234567890abcdef
+      - MODEL_PATH=/models/production
+      - ENABLE_DEBUG=true
+    volumes:
+      # VULNERABILITY: Host Docker socket mounted — container escape
+      - /var/run/docker.sock:/var/run/docker.sock
+      # VULNERABILITY: Host filesystem mounted
+      - /:/host-root
+      - ./models:/models
+    # VULNERABILITY: No resource limits
+    # VULNERABILITY: No read-only root filesystem
+    networks:
+      - ml-network
+
+  vector-db:
+    image: chromadb/chroma:latest
+    ports:
+      # VULNERABILITY: Database exposed to all interfaces
+      - "0.0.0.0:8000:8000"
+    environment:
+      - CHROMA_SERVER_AUTH_PROVIDER=none
+      # VULNERABILITY: Auth disabled on vector database
+    volumes:
+      - chroma-data:/chroma/chroma
+    networks:
+      - ml-network
+
+  jupyter:
+    image: jupyter/scipy-notebook:latest
+    ports:
+      - "8888:8888"
+    environment:
+      # VULNERABILITY: Jupyter with no authentication token
+      - JUPYTER_TOKEN=""
+      - GRANT_SUDO=yes
+    # VULNERABILITY: Running as root
+    user: root
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - ml-network
+
+  redis:
+    image: redis:latest
+    ports:
+      # VULNERABILITY: Redis exposed without password
+      - "0.0.0.0:6379:6379"
+    command: redis-server
+    # No requirepass, no TLS, exposed to network
+    networks:
+      - ml-network
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+      # VULNERABILITY: No auth on MLflow tracking server
+    command: mlflow server --host 0.0.0.0 --port 5000
+    networks:
+      - ml-network
+
+volumes:
+  chroma-data:
+
+networks:
+  ml-network:
+    driver: bridge

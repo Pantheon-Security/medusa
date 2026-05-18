@@ -1,8 +1,8 @@
 # MEDUSA Examples
 
-Example configuration files to help you integrate MEDUSA into your projects.
+Example configuration files and vulnerable application demos to help you understand and integrate MEDUSA.
 
-## Files
+## Configuration Examples
 
 | File | Description |
 |------|-------------|
@@ -10,6 +10,27 @@ Example configuration files to help you integrate MEDUSA into your projects.
 | `github-action.yml` | GitHub Actions workflow for CI/CD |
 | `gitlab-ci.yml` | GitLab CI configuration |
 | `pre-commit-config.yaml` | Pre-commit hooks configuration |
+
+## Vulnerable Application Examples
+
+Real-world vulnerable apps that demonstrate what MEDUSA detects. See [`vulnerable-apps/README.md`](vulnerable-apps/README.md) for details.
+
+| Example | Language | Key Vulnerabilities |
+|---------|----------|-------------------|
+| [`vulnerable-apps/flask-llm-app/`](vulnerable-apps/flask-llm-app/) | Python | Prompt injection, RAG poisoning, secrets, pickle RCE |
+| [`vulnerable-apps/mcp-server/`](vulnerable-apps/mcp-server/) | Python/JSON | Excessive agency, credential exposure, no sandboxing |
+| [`vulnerable-apps/node-ai-agent/`](vulnerable-apps/node-ai-agent/) | Node.js | Unsafe eval, SSRF, unbounded agent loops, secrets |
+| [`vulnerable-apps/docker-ml-pipeline/`](vulnerable-apps/docker-ml-pipeline/) | Docker | Privileged containers, host escape, insecure ML serving |
+
+### Scan All Examples
+
+```bash
+# Scan all vulnerable apps to see MEDUSA in action
+medusa scan examples/vulnerable-apps/
+
+# Scan a specific example
+medusa scan examples/vulnerable-apps/flask-llm-app/
+```
 
 ## Quick Start
 
