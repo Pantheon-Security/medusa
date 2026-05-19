@@ -13,7 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.7: Indirect PI rules, supply chain import-pattern scanner, macOS/Windows multiprocessing fix**
+**✨ v2026.5.8: `medusa secrets` — scan AI chat & shell histories for leaked credentials, interactive redaction**
 
 ---
 
@@ -55,6 +55,48 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 **Previous: v2026.5.5** — security hardening release (argv injection defenses, git SSRF, HMAC cache integrity, markdown XSS fix).
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
+
+---
+
+## 🔐 Scan your AI chat history for leaked secrets
+
+Developers paste API keys, tokens, and credentials into AI assistants every day.
+The assistants keep those conversations in plaintext on disk — `~/.claude/history.jsonl`,
+Cursor workspace stores, ChatGPT exports, Zed conversation logs, your shell history.
+Anyone with read access to `$HOME` can harvest them.
+
+`medusa secrets scan` finds these. `medusa secrets purge` cleans them up.
+
+```bash
+# Find credentials in chat + shell histories (default masked output)
+medusa secrets scan
+
+# Limit to a single source
+medusa secrets scan --source ai-chats
+medusa secrets scan --source shell
+
+# Scan a specific file (e.g. an exported chat transcript)
+medusa secrets scan --path ~/Downloads/conversations.json
+
+# Reveal full values — requires typed I UNDERSTAND confirmation
+medusa secrets scan --reveal
+
+# Walk findings interactively and redact in place ([y/n/s/a/q])
+medusa secrets purge
+
+# Non-interactive batch redaction
+medusa secrets purge --all --yes-i-know
+```
+
+**What's detected:** Anthropic, OpenAI, HuggingFace, Replicate, Cohere keys
+· PyPI / npm tokens · GitHub PATs (classic + fine-grained + OAuth + App)
+· GitLab PATs · AWS access keys · GCP service-account keys · Stripe live keys
+· Slack bot/user tokens · SendGrid / Twilio / Discord webhooks · PEM private keys.
+
+**Safety guarantees:** Reports stored mode 0o600 under `~/.medusa/secrets-scan/`,
+never written to project trees. Every redaction is backed up first. JSONL files
+are re-parsed after redaction to verify they still parse. Purge refuses if a
+source file changed between scan and purge. No telemetry, no network calls.
 
 ---
 

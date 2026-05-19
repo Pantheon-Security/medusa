@@ -3386,5 +3386,12 @@ def _generate_spdx(target_path: Path, dependencies: list) -> dict:
     }
 
 
+# Attach host-scoped subcommands. Import is deferred to keep cold-start
+# fast for the common `medusa scan` invocation.
+from medusa.cli_secrets import secrets as _secrets_group  # noqa: E402
+
+main.add_command(_secrets_group)
+
+
 if __name__ == '__main__':
     main()

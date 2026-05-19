@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.8] - 2026-05-19
+
+### Added
+
+- **`medusa secrets scan` / `medusa secrets purge`** — host-scoped credential
+  scanner for AI chat histories (Claude Code, Claude Desktop, Cursor, Zed,
+  VS Code Copilot, Gemini CLI, Aider, Codex CLI) and shell histories (bash,
+  zsh, fish, python, node, psql, mysql, irb, redis-cli, sqlite). Detects 21
+  credential issuers across AI providers (Anthropic, OpenAI, HuggingFace,
+  Replicate, Cohere), package registries (PyPI, npm), source forges (GitHub
+  PAT/fine-grained/OAuth/App, GitLab), cloud (AWS, GCP), payments/comms
+  (Stripe, Slack, SendGrid, Twilio, Discord), and PEM private keys.
+  Secret values masked by default; `--reveal` requires typed `I UNDERSTAND`
+  confirmation. The companion `purge` subcommand walks findings interactively
+  (`[y/n/s/a/q]`) and redacts in place with JSONL-safe splicing, mandatory
+  backup to `~/.medusa/secrets-scan/backups/<run-id>/`, and a refusal-on-mismatch
+  guard if the source file changed between scan and purge. Reports are written
+  mode 0o600 under `~/.medusa/secrets-scan/`; nothing is sent over the network.
+
 ## [2026.5.7] - 2026-05-13
 
 ### Added
