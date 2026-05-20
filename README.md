@@ -37,23 +37,26 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.8
+### 🆕 What's New in v2026.5.9
 
-**`medusa secrets` — your AI chat history is leaking credentials. Now you can find and fix it.**
+**Agentic-commerce attack coverage. UCP and AP2 are the protocols AI agents will use to spend money on your behalf — they ship with new attack surface.**
 
 | | What's New | Details |
 |---|---|---|
-| 🔐 | **`medusa secrets scan`** | Scans `~/.claude/history.jsonl`, Cursor / Zed / Copilot / Gemini / Aider / Codex chat stores, AND `~/.bash_history` / `~/.zsh_history` / fish / psql / mysql / node / python REPL histories for 21 credential types — Anthropic, OpenAI, PyPI, GitHub PATs, AWS, GCP, Stripe, Slack, private keys, and more |
-| ✂️ | **`medusa secrets purge`** | Interactive `[y/n/s/a/q]` walk through every finding — pick which to redact. Mandatory backup before write. JSONL-safe splicing keeps chat files parseable. Refuses if the file changed since the scan. |
-| 🙈 | **Mask by default, reveal twice-locked** | Default output is `pypi-AgEIc***...***` — safe to screenshot. `--reveal` requires typed `I UNDERSTAND` to print real values |
-| 🏠 | **Host-scoped, local-only** | Reports live under `~/.medusa/secrets-scan/` mode `0o600`. No telemetry, no network calls, never written to a project tree |
+| 🛒 | **`UCPScanner`** | New scanner for Google's Universal Commerce Protocol — detects UCP discovery served over plain HTTP, hardcoded UCP signing keys, unbounded agent mandates, missing fraud signals, malicious JSON-LD `@context` injection, PCI data leakage in agent code |
+| 💳 | **`AP2Scanner`** | New scanner for the CSA Agent Payments Protocol — catches long-lived payment tokens, signature-verify bypass (`verify=False`), private keys loaded from filesystem, alg downgrade (`HS256` etc.), card-data-in-logs |
+| 🎯 | **`PISCANCodeScanner`** | Dedicated prompt-injection-in-code scanner for `.py`/`.js`/`.ts` files importing LLM SDKs (`openai`, `anthropic`, `langchain`, `llama_index`). Detects raw user input flowing into `messages.append`, f-string prompt interpolation, untrusted data → `chat.completions.create`, raw HTTP tool output piped into prompts |
+| 🛠️ | **45 hand-tuned rules, positive-pattern shape** | Across UCP / AP2 / MCP-SCAN / PI-SCAN / TUA-SCAN. Validated against **12 real UCP/AP2 codebases** (agentic-commerce-skills-plugins, AP2, fastucp, Retail-Agentic-Commerce, ai-shopping-agent-ucp, etc.) and 4 real MCP servers (IMCP, hexstrike-ai, damn-vulnerable-MCP-server, MasterMCP) |
+| 🐛 | **JSON `--format json` now includes `rule_id`** | Previously dropped during serialisation, breaking per-rule analytics and post-hoc auditing. Two-line fix in `medusa/core/parallel.py`. |
 
-[**📖 Full secrets-scanner guide →**](docs/SECRETS_SCANNER.md)
+[**📖 Full UCP + AP2 scanner guide →**](docs/UCP_AP2_SCANNERS.md)
 
 <details>
 <summary>Previous releases</summary>
 
-**v2026.5.7** — Indirect PI rules (101/102), supply chain import scanner, macOS/Windows multiprocessing fix, project-root scan boundary, content-hash cache keys.
+**v2026.5.8** — `medusa secrets`: scan AI chat & shell histories for leaked credentials (21 issuer types) with interactive `[y/n/s/a/q]` purge.
+
+**v2026.5.7** — Indirect PI rules (101/102), supply chain import scanner, macOS/Windows multiprocessing fix.
 
 **v2026.5.5** — security hardening release (argv injection defenses, git SSRF, HMAC cache integrity, markdown XSS fix).
 
