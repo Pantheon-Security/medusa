@@ -1,0 +1,255 @@
+# MEDUSA Scanner Rules - Prompt Injection (code-level)
+# Source: PaperMiner/2024-12-21_prompt_injection_attacks (44 PDFs)
+# Notebook: MEDUSA - prompt_injection_attacks
+# Extraction Date: 2026-02-18
+# Rewritten: 2026-05-20 — positive-only patterns; wired via PISCANCodeScanner
+# Papers: 43 analyzed (38 attacks, 18 defenses identified)
+# Version: 2.0.0
+#
+# Wiring note (2026-05-20):
+#   These rules are claimed by MEDUSA-PI-SCAN- prefix. They are applied by
+#   medusa/scanners/pi_scan_code_scanner.py (PISCANCodeScanner), which runs
+#   only on .py/.js/.ts files that show an LLM-API import or chat-message
+#   construction. AIContextScanner also loads these rules via its
+#   MEDUSA-PI- prefix but can_scan() rejects code files, so it's a no-op
+#   for code — the wiring is intentional.
+#
+# Pattern policy:
+#   - Positive detection only (presence of dangerous code primitives).
+#   - No "(?i)X.*(?!.*Y)" absence-of-defensive-code shapes.
+#   - Patterns are line-level and aimed at common code shapes that flow
+#     untrusted data straight into an LLM call.
+
+metadata:
+  source: "PaperMiner/2024-12-21_prompt_injection_attacks"
+  extraction_date: "2026-02-18"
+  rewrite_date: "2026-05-20"
+  papers_analyzed: 43
+  attacks_identified: 38
+  defenses_identified: 18
+  benchmarks: ["AgentDojo", "InjecAgent", "BIPIA", "NotInject", "LLMail-Inject", "HarmBench", "ASB", "HackAPrompt", "VisualWebArena-Adv"]
+
+rules:
+  # === CATEGORY: Raw user input flowing to LLM messages ===
+
+  - id: MEDUSA-PI-SCAN-001
+    name: raw-user-input-in-chat-message
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # messages.append({"role": "user", "content": user_input})
+      - "(?i)(?:messages|conversation|history)\\.append\\(\\s*\\{[^}]*[\"']role[\"']\\s*:\\s*[\"'](?:user|system|assistant)[\"'][^}]*[\"']content[\"']\\s*:\\s*(?:user_input|user_message|user_query|user_prompt|raw_input|request\\.|req\\.body|req\\.query)"
+      # messages = [{"role": "user", "content": user_input}, ...]
+      - "(?i)[\"']role[\"']\\s*:\\s*[\"'](?:user|system)[\"']\\s*,\\s*[\"']content[\"']\\s*:\\s*(?:user_input|user_message|user_query|user_prompt|raw_input)\\b"
+      # JS/TS: messages.push({ role: "user", content: userInput })
+      - "(?i)(?:messages|conversation)\\.push\\(\\s*\\{[^}]*role\\s*:\\s*[\"'](?:user|system)[\"'][^}]*content\\s*:\\s*(?:userInput|userMessage|userQuery|userPrompt|req\\.body|req\\.query)"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Raw user input passed directly into chat-message content (prompt injection)"
+    description: "Detects code that pushes raw user input straight into an LLM message list without sanitization. Root cause of CWE-20 prompt injection in chat APIs."
+    remediation: "Validate and sanitize user input before adding to messages. Use input guardrails (InjecGuard, PromptScreen, LLM Guard) or structured queries (StruQ) to separate instructions from data."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-PI-SCAN-002
+    name: untrusted-data-fstring-prompt
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # prompt = f"... {user_input} ..." / f"... {context} ..." / f"... {retrieved} ..."
+      - "(?i)(?:prompt|system_prompt|instruction|template|query)\\s*=\\s*f[\"'][^\"']*\\{(?:user_input|user_message|user_query|user_prompt|raw_input|context|retrieved|retrieved_text|document|tool_output|tool_result|web_content|page_content)\\}"
+      # f"...{user_input}..." used as direct argument
+      - "(?i)f[\"'][^\"']{0,200}\\{(?:user_input|user_message|user_query|user_prompt|raw_input)\\}[^\"']{0,200}[\"']"
+      # JS template literal: `... ${userInput} ...` assigned to prompt
+      - "(?i)(?:prompt|systemPrompt|instruction|template)\\s*=\\s*`[^`]*\\$\\{(?:userInput|userMessage|userQuery|userPrompt|rawInput|context|retrieved|toolOutput|toolResult|webContent|pageContent)\\}"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Untrusted data interpolated into prompt via f-string / template literal"
+    description: "Detects prompts where external data (user input, retrieved documents, tool outputs) is interpolated via f-string or template literal without boundary markers. Enables indirect prompt injection (Yi et al. 2023)."
+    remediation: "Use explicit delimiters (e.g., <<<data>>>) or special tokens to mark data boundaries. Consider StruQ/SecAlign fine-tuning for robust boundary enforcement."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-PI-SCAN-003
+    name: raw-tool-output-to-llm
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # Direct: messages.append({... "content": tool_output / tool_result / api_response / web_content ...})
+      - "(?i)(?:messages|conversation)\\.(?:append|push)\\(\\s*\\{[^}]*[\"']content[\"']\\s*:\\s*(?:tool_output|tool_result|function_output|function_result|api_response|search_result|web_content|page_content|html_content|fetched|response\\.text|response\\.json)"
+      # prompt += / prompt + tool_output / api_response.text
+      - "(?i)(?:prompt|context|messages)\\s*\\+=?\\s*(?:tool_output|tool_result|function_output|api_response|search_result|web_content|page_content|response\\.text)"
+      # f-string with tool/api output
+      - "(?i)f[\"'][^\"']*\\{(?:tool_output|tool_result|function_output|function_result|api_response|search_result|web_content|page_content)\\}"
+      # httpx/requests .text / .json() flowing into a prompt/message variable on same line
+      - "(?i)(?:requests|httpx|fetch|axios)\\.(?:get|post)\\([^)]*\\)\\.(?:text|json|content)[^\\n]{0,80}(?:prompt|messages|content|context)"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Raw tool / HTTP output passed directly to LLM without parsing"
+    description: "Detects code that feeds raw tool outputs or HTTP-fetched content directly into LLM prompts/messages. Enables indirect prompt injection via tool results (Yu et al. 2026 - Tool Result Parsing Defense)."
+    remediation: "Implement tool result parsing: extract only required data fields before passing to LLM. Use ParseData+CheckTool pattern (Yu et al. 2026)."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  # === CATEGORY: Direct user input in LLM API call site ===
+
+  - id: MEDUSA-PI-SCAN-004
+    name: user-input-in-llm-completion-call
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # openai.chat.completions.create(messages=[..., {"content": user_input}]) — same-line form
+      - "(?i)(?:chat\\.completions|ChatCompletion|completions|messages)\\.create\\([^)]*[\"']content[\"']\\s*:\\s*(?:user_input|user_message|user_query|user_prompt|raw_input)\\b"
+      # anthropic.messages.create(... content=user_input ...)
+      - "(?i)(?:anthropic|claude)[^\\n]{0,80}\\.(?:create|messages)\\([^)]*content\\s*=\\s*(?:user_input|user_message|user_query|user_prompt|raw_input)\\b"
+      # client.completions.create(prompt=user_input)
+      - "(?i)(?:client|llm|model)\\.(?:completions|chat)\\.create\\([^)]*prompt\\s*=\\s*(?:user_input|user_message|user_query|user_prompt|raw_input)\\b"
+      # llm.invoke(user_input) / chain.invoke(user_input) — already covered by PIC scanner but kept for prefix ownership
+      - "(?i)\\b(?:llm|chat|chain|agent|model)\\.invoke\\(\\s*(?:user_input|user_message|user_query|user_prompt|raw_input)\\s*\\)"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "User input passed directly into LLM completion / invoke call"
+    description: "Detects LLM API calls where a user-input variable is passed straight to messages= / content= / prompt= without sanitization. Highest-confidence prompt-injection shape."
+    remediation: "Run input through an injection classifier (InjecGuard, PromptScreen, LLM Guard, Rebuff) before calling the LLM. Pin user-supplied content inside delimiter tokens (StruQ)."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # DROP: MEDUSA-PI-SCAN-005 (no-output-guard) — threat model "LLM response returned
+  # without output validation" requires cross-function flow analysis. The original
+  # patterns (`response.choices[0]`, `return completion.content`) fire on every
+  # LLM caller and cannot distinguish guarded from unguarded responses at the
+  # single-line regex level. Re-introduce as an AST rule.
+
+  # DROP: MEDUSA-PI-SCAN-006 (agent-no-tool-call-validation) — multi-line
+  # cross-function check ("agent executes tool calls from LLM output without
+  # validating against user intent"). Same-line regex would fire on any
+  # tool-dispatch dictionary lookup. Belongs in an agent-flow scanner.
+
+  # === CATEGORY: Insecure agent tool execution ===
+
+  - id: MEDUSA-PI-SCAN-007
+    name: llm-output-evaluated-as-code
+    severity: CRITICAL
+    category: agent_security
+    patterns:
+      # eval / exec on raw LLM output
+      - "(?i)\\b(?:eval|exec)\\s*\\(\\s*(?:llm_output|llm_response|completion|response\\.content|response\\.text|model_output|generated|generation)\\b"
+      # subprocess on raw LLM output (any form)
+      - "(?i)subprocess\\.(?:run|call|Popen|check_output)\\([^)]*(?:llm_output|llm_response|completion|model_output|generation)\\b"
+      # os.system on LLM output
+      - "(?i)os\\.system\\(\\s*(?:llm_output|llm_response|completion|model_output|generation)\\b"
+      # JS: Function() / eval() over llm output
+      - "(?i)\\b(?:eval|Function)\\s*\\(\\s*(?:llmOutput|llmResponse|completion|modelOutput|generation)\\b"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "LLM output evaluated / executed as code (RCE-grade prompt injection)"
+    description: "Detects eval/exec/subprocess/os.system applied to raw LLM output. Prompt injection trivially escalates to RCE."
+    remediation: "Never evaluate LLM output as code. Parse into a structured action schema and dispatch through a validated allowlist. SUPERVISOR (Wu et al. 2026) intention-consistency check is the minimum bar."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # === CATEGORY: Insecure RAG patterns ===
+
+  - id: MEDUSA-PI-SCAN-008
+    name: rag-retrieved-text-into-prompt
+    severity: HIGH
+    category: rag_security
+    patterns:
+      # prompt = f"...{retrieved_text}..." / f"...{chunks}..." / f"...{documents}..."
+      - "(?i)f[\"'][^\"']*\\{(?:retrieved|retrieved_text|retrieved_docs|chunks|documents|passages|context_docs)\\}"
+      # prompt += retriever.search(...) / vectordb.similarity_search(...)
+      - "(?i)(?:prompt|context|messages)\\s*\\+=?\\s*(?:retriever|vectordb|chroma|pinecone|weaviate|qdrant|faiss)\\.(?:search|query|similarity_search|get_relevant_documents)"
+      # "content": retrieved / chunks / documents
+      - "(?i)[\"']content[\"']\\s*:\\s*(?:retrieved|retrieved_text|chunks|documents|passages)\\b"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Retrieved RAG content passed to LLM without sanitization"
+    description: "Detects RAG patterns where retrieved documents are placed directly into LLM context. Enables indirect prompt injection via poisoned documents (TrojanRAG - Cheng et al.)."
+    remediation: "Sanitize retrieved content before adding to LLM context. Use Mixture of Encodings (Zhang et al. 2025), CachePrune (Wang et al. 2025), or strip control sequences and known injection markers."
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-20"
+
+  # === CATEGORY: Web-agent indirect prompt injection ===
+
+  - id: MEDUSA-PI-SCAN-009
+    name: web-content-into-agent-prompt
+    severity: HIGH
+    category: agent_security
+    patterns:
+      # Playwright/Selenium .inner_text() / .text_content() flowing same-line into a prompt/message var
+      - "(?i)(?:page|browser|driver)\\.(?:inner_text|text_content|content|get_text|innerHTML)\\([^)]*\\)[^\\n]{0,80}(?:prompt|messages|content)"
+      # accessibility_tree / dom_text / page_text appearing in an f-string template
+      - "(?i)f[\"'][^\"']*\\{(?:accessibility_tree|dom_text|page_text|html_content|page_html|browser_content)\\}"
+      # requests.get(url).text concatenated into prompt
+      - "(?i)(?:prompt|messages|context)\\s*\\+=?\\s*(?:requests|httpx|urllib|fetch|axios)\\.(?:get|post)\\("
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Web content fed to agent LLM without filtering"
+    description: "Detects web-agent code that pipes page content (HTML, accessibility tree, fetched URL) to the LLM without filtering for embedded injection payloads. Enables IPI via HTML accessibility tree (Johnson et al. 2025) and AGENTBAIT social engineering (Wu et al. 2026)."
+    remediation: "Filter web content before feeding to agent LLM. Strip hidden elements, scan for known injection markers, implement SUPERVISOR-style environment consistency checks."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-79"
+
+  # === CATEGORY: System / data boundary ===
+
+  - id: MEDUSA-PI-SCAN-010
+    name: system-prompt-concatenated-with-user-input
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # system_prompt + user_input  (any direction)
+      - "(?i)(?:system_prompt|system_message|sys_prompt)\\s*\\+\\s*(?:user_input|user_message|user_query|user_prompt|raw_input|context|retrieved|tool_output)\\b"
+      - "(?i)(?:user_input|user_message|user_query|user_prompt|raw_input|context|retrieved|tool_output)\\s*\\+\\s*(?:system_prompt|system_message|sys_prompt)\\b"
+      # f-string mixing system + user with no delimiter literal
+      - "(?i)f[\"']\\{(?:system_prompt|system_message|sys_prompt)\\}\\s*\\{(?:user_input|user_message|user_query|user_prompt|raw_input)\\}[\"']"
+      # .format(user_input=..., system=...) without delimiter context
+      - "(?i)(?:prompt|template)\\.format\\([^)]*(?:user_input|user_message|user_query|user_prompt|raw_input)\\s*="
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "System prompt concatenated with untrusted input without delimiters"
+    description: "Detects configurations where system prompts and user-controlled data are concatenated. Spotlighting/Delimiting (Hines et al. 2024) and StruQ (Chen et al. 2024) require clear boundaries."
+    remediation: "Use explicit delimiters between system instructions and external data. Best: StruQ-style special tokens with fine-tuned model. Minimum: XML tags or <<< >>> delimiters."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  # === CATEGORY: Chat-template role injection ===
+
+  - id: MEDUSA-PI-SCAN-011
+    name: untrusted-content-in-chat-role-field
+    severity: HIGH
+    category: prompt_injection
+    patterns:
+      # role value sourced from a variable (instead of literal) — possible role-injection
+      - "(?i)(?:messages|conversation)\\.(?:append|push)\\(\\s*\\{[^}]*[\"']role[\"']\\s*:\\s*(?!\\s*[\"'](?:user|system|assistant|tool|function)[\"'])(?:user_input|user_role|role_var|incoming_role|msg\\.role|item\\.role|data\\[)"
+      # f-string role: f'{role}' where role is variable — ChatInject vector
+      - "(?i)[\"']role[\"']\\s*:\\s*f[\"']\\{[a-z_][a-z0-9_]*\\}[\"']"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "Chat-message role field sourced from variable (ChatInject vector)"
+    description: "Detects chat-message construction where the role field is sourced from a variable rather than a literal whitelist value. ChatInject (Chang et al. 2025) exploits this by injecting forged role tags into conversation history."
+    remediation: "Validate role values against whitelist ['system', 'user', 'assistant', 'tool']. Strip role-like tokens from user/retrieved content before adding to message list."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # DROP: MEDUSA-PI-SCAN-012 (no-multi-agent-defense) — threat model is "agent
+  # instantiated without a defense pipeline elsewhere in the project". Cannot be
+  # detected by a single regex on the constructor line; would FP on every Agent()
+  # call site. Belongs in an architecture-level audit, not a pattern scanner.

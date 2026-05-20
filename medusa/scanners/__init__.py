@@ -86,6 +86,9 @@ from medusa.scanners.web_security_scanner import WebSecurityScanner
 from medusa.scanners.gitleaks_scanner import GitLeaksScanner
 from medusa.scanners.semgrep_scanner import SemgrepScanner
 from medusa.scanners.trivy_scanner import TrivyScanner
+from medusa.scanners.ucp_scanner import UCPScanner
+from medusa.scanners.ap2_scanner import AP2Scanner
+from medusa.scanners.pi_scan_code_scanner import PISCANCodeScanner
 from medusa.scanners.yaml_rule_scanner import YAMLRuleScanner
 
 # Create global scanner registry
@@ -168,9 +171,13 @@ registry.register(WebSecurityScanner())
 registry.register(GitLeaksScanner())
 registry.register(SemgrepScanner())
 registry.register(TrivyScanner())
-# YAMLRuleScanner is available but not registered by default.
-# It runs only unclaimed rules. Enable if you need broader coverage
-# at the cost of more false positives.
+registry.register(UCPScanner())
+registry.register(AP2Scanner())
+registry.register(PISCANCodeScanner())
+# YAMLRuleScanner is available but NOT registered by design — every rule
+# should be claimed by a specific scanner with proper file/context gating.
+# Orphaned rules indicate a wiring gap that should be fixed at the rule or
+# scanner level, not papered over with a catch-all.
 # registry.register(YAMLRuleScanner())
 
 __all__ = [

@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.9] - 2026-05-20
+
+**Headline:** Agentic-commerce attack coverage — new UCP (Universal Commerce
+Protocol) and AP2 (Agent Payments Protocol) scanners, plus 45 hand-tuned
+positive-pattern rules validated against 12 real-world UCP/AP2 codebases.
+
+### Added
+
+- **`UCPScanner`** (`medusa/scanners/ucp_scanner.py`) — owns the
+  `MEDUSA-UCP-` prefix with a content-based file gate (UCP SDK imports,
+  `/.well-known/ucp` references, UCP transport headers). 10 rules covering
+  discovery-over-HTTP, hardcoded UCP signing keys, unbounded mandate amounts,
+  PCI data leakage, malicious JSON-LD `@context` injection.
+
+- **`AP2Scanner`** (`medusa/scanners/ap2_scanner.py`) — owns the
+  `MEDUSA-AP2-` prefix with an AP2-specific file gate (mandate vocabulary,
+  VDC structures). 5 rules covering long-lived tokens, signature-bypass
+  patterns, key loaded from filesystem, alg downgrade, card data in logs.
+
+- **`PISCANCodeScanner`** (`medusa/scanners/pi_scan_code_scanner.py`) — owns
+  the `MEDUSA-PI-SCAN-` prefix and scopes to code files with LLM-SDK imports.
+  Fixes a wiring mismatch where prompt-injection rules targeted Python/JS/TS
+  but were claimed by a scanner that only opened `.md`/`.cursorrules` files.
+
+- **45 rewritten rules across 5 files** (UCP / AP2 / MCP-SCAN / PI-SCAN /
+  TUA-SCAN), tuned to positive-pattern detection. Validated on 12 real
+  UCP/AP2 repos (agentic-commerce-skills-plugins, AP2, fastucp,
+  ucp-merchant-server, etc.) plus 4 real MCP servers (IMCP, hexstrike-ai,
+  damn-vulnerable-MCP-server, MasterMCP). 3,623 hits on these repos before
+  the rewrite (~all FPs); 2 hits after (both potentially actionable).
+
+### Fixed
+
+- **`rule_id` was being dropped** in `parallel.py` when converting
+  `ScannerIssue` → JSON findings dict. The JSON `--format json` output had
+  no rule IDs — broke per-rule filtering, analytics, and any post-hoc
+  auditing of which rule produced which finding.
+
+- **42 broken-shape rules** preserved as `# DROP: <reason>` comments rather
+  than deleted. Their threat models are legitimate (CWE-mapped, OWASP-tagged)
+  but can't be expressed at the regex layer — they require AST or call-graph
+  analysis. Kept inline so a future AST-based detection engine can revive
+  them without re-researching.
+
 ## [2026.5.8] - 2026-05-19
 
 **Headline:** `medusa secrets` — scan your AI chat history and shell history for

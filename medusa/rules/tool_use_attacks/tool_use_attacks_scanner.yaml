@@ -1,0 +1,187 @@
+# MEDUSA Scanner Rules - Tool Use Attacks & LLM Tool Security
+# Source: PaperMiner/2024-12-21_tool_use_attacks (36 PDFs)
+# NotebookLM Notebook: MEDUSA - tool_use_attacks
+# Extraction Date: 2026-02-18
+# Version: 1.0.0
+
+metadata:
+  source: "PaperMiner/2024-12-21_tool_use_attacks"
+  extraction_date: "2026-02-18"
+  papers_analyzed: 36
+  unique_attacks: 21
+  defenses_identified: 11
+
+rules:
+  # === CATEGORY: Insecure Code Generation Patterns ===
+
+  - id: MEDUSA-TUA-SCAN-001
+    name: hardcoded-crypto-key
+    severity: CRITICAL
+    category: tool_use_attacks
+    patterns:
+      - "(?i)SecretKeySpec\\s*\\(\\s*[\"'][^\"']+[\"']"
+      - "(?i)(?:key|secret|password)\\s*=\\s*[\"'][A-Za-z0-9+/=]{8,}[\"']"
+      - "(?i)(?:AES|DES|Blowfish).*(?:key|secret)\\s*=\\s*[\"']"
+    file_types:
+      - "*.java"
+      - "*.py"
+      - "*.js"
+    message: "Hard-coded cryptographic key detected (M1 misuse pattern)"
+    description: "Detects hard-coded cryptographic keys in LLM-generated code. Mousavi et al. 2024 found GPT-4 generates hard-coded keys in symmetric encryption and MAC implementations, a common security misuse."
+    remediation: "Use secure key management (KeyStore, env vars). Generate keys with SecureRandom. Never embed keys in source code."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-321"
+
+  - id: MEDUSA-TUA-SCAN-002
+    name: ecb-mode-encryption
+    severity: HIGH
+    category: tool_use_attacks
+    patterns:
+      - "(?i)Cipher\\.getInstance\\s*\\(\\s*[\"'](?:AES|DES|Blowfish)/ECB"
+      - "(?i)(?:mode|cipher_mode)\\s*=\\s*[\"']ECB[\"']"
+      - "(?i)AES\\.new\\s*\\([^)]*AES\\.MODE_ECB"
+    file_types:
+      - "*.java"
+      - "*.py"
+    message: "Insecure ECB encryption mode detected (M2 misuse pattern)"
+    description: "Detects ECB mode encryption which preserves data patterns. Mousavi et al. 2024 found GPT-4 defaults to ECB in majority of symmetric encryption programs."
+    remediation: "Use authenticated encryption modes (GCM, CCM). Explicitly specify mode in Cipher.getInstance()."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-327"
+
+  - id: MEDUSA-TUA-SCAN-003
+    name: predictable-prng-seed
+    severity: HIGH
+    category: tool_use_attacks
+    patterns:
+      - "(?i)SecureRandom\\s*\\(\\s*\\).*seed.*(?:currentTimeMillis|nanoTime|System\\.)"
+      - "(?i)(?:random\\.seed|Random)\\s*\\(\\s*(?:int|time|os\\.getpid)"
+      - "(?i)setSeed\\s*\\(\\s*System\\.currentTimeMillis"
+    file_types:
+      - "*.java"
+      - "*.py"
+    message: "Predictable PRNG seed detected (M5 misuse pattern)"
+    description: "Detects predictable seeds for pseudo-random number generators. Mousavi et al. 2024 identified GPT-4 using System.currentTimeMillis() as seed for SecureRandom, reducing entropy."
+    remediation: "Use default SecureRandom() without manual seeding. For Python, use secrets module instead of random."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-330"
+
+  - id: MEDUSA-TUA-SCAN-004
+    name: plaintext-secret-storage
+    severity: CRITICAL
+    category: tool_use_attacks
+    patterns:
+      - "(?i)(?:token|secret|password|api_key)\\s*=\\s*[\"'][^\"']{8,}[\"']"
+      - "(?i)SharedPreferences.*(?:putString|edit).*(?:token|password|secret)"
+      - "(?i)open\\s*\\([^)]*[\"'].*(?:token|secret|password|key).*[\"'].*[\"']w[\"']\\s*\\)"
+    file_types:
+      - "*.java"
+      - "*.py"
+      - "*.js"
+    message: "Plaintext storage of secrets/tokens detected (M14/M15 misuse pattern)"
+    description: "Detects plaintext storage of OAuth tokens and secrets. Mousavi et al. 2024 found 100% of GPT-4 auth implementations store secrets in plaintext."
+    remediation: "Use encrypted storage (Android Keystore, OS Credential Manager). Never store tokens in SharedPreferences or plaintext files."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-312"
+
+  # === CATEGORY: Tool Hallucination & Misuse Detection ===
+
+  - id: MEDUSA-TUA-SCAN-005
+    name: api-hallucination-patterns
+    severity: MEDIUM
+    category: tool_use_attacks
+    patterns:
+      - "(?i)AutoModel\\.from_pretrained\\s*\\([^)]*github\\.com"
+      - "(?i)(?:pip|npm)\\s+install\\s+(?:(?!-r)[a-z][a-z0-9-]*){1}\\s*$"
+      - "(?i)(?:from|import)\\s+(?:toolformer|gorilla_api|tool_alpaca)"
+    file_types:
+      - "*.py"
+      - "*.sh"
+    message: "Potential API/package hallucination pattern detected"
+    description: "Detects patterns consistent with hallucinated API calls (Patil 2023). LLMs may invoke non-existent repos/packages, risking runtime errors or loading malicious code if hallucinated names exist."
+    remediation: "Validate all package names against official registries. Pin package versions. Use Gorilla-style API retrieval augmentation."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-829"
+
+  - id: MEDUSA-TUA-SCAN-006
+    name: deprecated-security-api
+    severity: MEDIUM
+    category: tool_use_attacks
+    patterns:
+      - "(?i)FingerprintManager|android\\.hardware\\.fingerprint"
+      - "(?i)SafetyNetClient|SafetyNet\\.getClient"
+      - "(?i)(?:from|import)\\s+(?:pycrypto|PyCrypto)"
+    file_types:
+      - "*.java"
+      - "*.py"
+      - "*.kt"
+    message: "Deprecated security API usage detected"
+    description: "Detects deprecated security APIs that LLMs suggest due to training data cutoffs (Mousavi 2024). Includes Android FingerprintManager (replaced by BiometricPrompt) and SafetyNet (replaced by Play Integrity)."
+    remediation: "Replace FingerprintManager with BiometricPrompt. Replace SafetyNet with Play Integrity. Replace PyCrypto with PyCryptodome."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-477"
+
+  # === CATEGORY: Tool-Use Attack Frameworks ===
+
+  - id: MEDUSA-TUA-SCAN-007
+    name: llm-guided-fuzzing-tools
+    severity: HIGH
+    category: tool_use_attacks
+    patterns:
+      - "(?i)(?:from|import)\\s+(?:chatafl|llm_fuzzer|protocol_fuzzer)"
+      - "(?i)ChatAFL\\s*\\(|LLMFuzzer\\s*\\("
+      - "(?i)llm.*(?:fuzz|mutate).*protocol|protocol.*(?:fuzz|mutate).*llm"
+    file_types:
+      - "*.py"
+    message: "LLM-guided protocol fuzzing framework detected"
+    description: "Detects ChatAFL (Meng 2024) and similar LLM-guided fuzzers that use LLMs to infer protocol states and generate mutations. Discovered 9 unknown vulns (7 critical) in LIVE555/ProFTPD."
+    remediation: "Ensure authorized security testing context. Validate fuzzing targets are within scope."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-20"
+
+  - id: MEDUSA-TUA-SCAN-008
+    name: tool-use-no-validation
+    severity: HIGH
+    category: tool_use_attacks
+    patterns:
+      - "(?i)tool_call\\s*=.*execute.*(?:without|skip|no).*(?:valid|check|verify)"
+      - "(?i)(?:exec|eval|subprocess)\\s*\\(.*tool_(?:output|result|response)"
+      - "(?i)os\\.system\\s*\\(.*(?:tool|agent|llm).*(?:output|result|response)"
+    file_types:
+      - "*.py"
+    message: "Tool output executed without validation"
+    description: "Detects tool outputs being executed without validation. ToolSandbox (Lu 2024) showed models fail to handle state dependencies; executing unvalidated tool outputs risks command injection."
+    remediation: "Validate and sanitize all tool outputs before execution. Implement sandboxed execution environments."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-78"
+
+  - id: MEDUSA-TUA-SCAN-009
+    name: multi-agent-no-oversight
+    severity: MEDIUM
+    category: tool_use_attacks
+    patterns:
+      - "(?i)(?:agent|bot).*communicate.*(?:agent|bot).*(?:without|no).*(?:human|oversight|monitor)"
+      - "(?i)autonomous.*(?:agent|tool).*(?:chain|pipeline).*(?:execute|run)"
+      - "(?i)(?:from|import)\\s+(?:autogen|crewai|langchain).*(?:agent.*agent|multi.*agent)"
+    file_types:
+      - "*.py"
+    message: "Multi-agent system without human oversight controls"
+    description: "Detects multi-agent systems lacking oversight. Maragheh & Deldjoo 2025 identified emergent misalignment and covert collusion risks where agents develop private protocols bypassing human constraints."
+    remediation: "Implement human-in-the-loop checkpoints. Monitor inter-agent communication. Use structured tool schemas."
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-TUA-SCAN-010
+    name: embedding-inversion-exposure
+    severity: HIGH
+    category: tool_use_attacks
+    patterns:
+      - "(?i)(?:send|transmit|upload).*(?:embedding|hidden_state|representation).*(?:api|server|endpoint)"
+      - "(?i)requests\\.(?:post|put)\\s*\\([^)]*(?:embedding|vector|representation)"
+    file_types:
+      - "*.py"
+    message: "Embeddings sent to external service without privacy protection"
+    description: "Detects sending raw embeddings to external services. Li et al. 2023 showed embedding inversion attacks can reconstruct original text from embeddings. RAPT framework provides privacy-preserving alternative."
+    remediation: "Apply RAPT privatization before sending embeddings. Use local inference when possible. Add noise to embeddings."
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-200"

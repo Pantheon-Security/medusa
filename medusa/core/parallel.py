@@ -1364,6 +1364,7 @@ class MedusaParallelScanner:
                         'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
                         'confidence': issue.get('issue_confidence', 'HIGH'),
                         'issue': issue.get('issue_text', issue.get('message', str(issue))),
+                        'rule_id': issue.get('rule_id'),
                         'cwe': issue.get('issue_cwe', {}).get('id'),
                         'code': _truncate_code(issue.get('code', ''))
                     })
@@ -1376,6 +1377,7 @@ class MedusaParallelScanner:
                         'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
                         'confidence': 'HIGH',
                         'issue': issue.message,
+                        'rule_id': issue.rule_id,
                         'cwe': issue.cwe_id,
                         'code': _truncate_code(issue.code)
                     })

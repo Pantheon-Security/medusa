@@ -13,7 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**✨ v2026.5.8: `medusa secrets` — scan AI chat & shell histories for leaked credentials, interactive redaction**
+**✨ v2026.5.9: Agentic-commerce coverage — UCPScanner + AP2Scanner + 45 hand-tuned positive-pattern rules**
 
 ---
 

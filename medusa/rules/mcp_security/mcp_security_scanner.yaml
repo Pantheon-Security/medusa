@@ -1,0 +1,298 @@
+# MEDUSA Scanner Rules - MCP Security
+# Source: PaperMiner/2025-12-29_mcp_security (22 PDFs)
+# NotebookLM Notebook: MEDUSA - mcp_security
+# Extraction Date: 2026-02-18
+# Last Rewrite: 2026-05-20 (positive-detection patterns; list-form + shell-form coverage)
+# Version: 1.1.0
+
+metadata:
+  source: "PaperMiner/2025-12-29_mcp_security"
+  extraction_date: "2026-02-18"
+  rewrite_date: "2026-05-20"
+  papers_analyzed: 22
+  unique_attacks: 31
+  defenses_identified: 9
+  rewrite_notes: >
+    Rewrote regexes to match real Python/JS code shapes after a 2026-05-20 audit
+    found 0 hits across 4 real MCP repos. Patterns now cover Python list-call form
+    (subprocess.run(['nc','-elp',...])), f-strings, .format(), and string
+    concatenation in addition to the original shell-string form. MCP-SCAN-009
+    (missing-auth) dropped — cannot be expressed as a positive primitive at the
+    regex layer; needs AST/semantic analysis.
+
+rules:
+  # === CATEGORY: MCP Tool Description Injection ===
+
+  - id: MEDUSA-MCP-SCAN-001
+    name: tool-description-injection
+    severity: CRITICAL
+    category: mcp_security
+    patterns:
+      # __doc__ / description literal contains override-style instructions
+      - "(?i)(?:__doc__|description)\\s*[=:]\\s*[\"'][^\"']*(?:ignore|disregard|override|forget)\\s+(?:all\\s+)?(?:previous|prior|original|above)"
+      - "(?i)(?:__doc__|description)\\s*[+=]+\\s*[\"'][^\"']*(?:execute|run|call|invoke)\\s+(?:this|the\\s+following|immediately)"
+      - "(?i)(?:__doc__|description)\\s*[=:]\\s*[\"'][^\"']*(?:IMPORTANT|NOTE|WARNING|SYSTEM)\\s*:[^\"']*(?:must|should|always|never)\\s+(?:use|call|run|invoke)"
+      # Common MCP injection phrasing inside any tool-style docstring
+      - "(?i)(?:__doc__|description|docstring)\\s*[=:]\\s*[\"'][^\"']*<\\s*(?:IMPORTANT|SYSTEM|INSTRUCTION)\\s*>"
+    file_types:
+      - "*.py"
+      - "*.json"
+    message: "MCP tool description contains injected instructions (Shadowing/Rug Pull pattern)"
+    description: "Detects hidden instructions in MCP tool __doc__ strings or descriptions. Guo 2025 showed Shadowing attacks achieve 80% ASR by hijacking legitimate tools via shared context __doc__ manipulation."
+    remediation: "Treat tool descriptions as untrusted input. Validate tool logic independently of descriptions. Use static analysis on tool definitions before deployment."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-MCP-SCAN-002
+    name: tool-description-deprecated-claim
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      # "DEPRECATED: use this tool instead" / "use X rather than Y" / "replaced by"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:DEPRECATED|OBSOLETE)\\s*[:\\-]"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:replaced\\s+by|use\\s+(?:this\\s+)?(?:tool\\s+)?instead|use\\s+this\\s+rather\\s+than)"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:best\\s+practice|recommended|preferred)\\s+(?:tool|method|approach|alternative)"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:do\\s+not\\s+use|avoid\\s+using|stop\\s+using)\\s+[a-zA-Z_][a-zA-Z0-9_]*"
+    file_types:
+      - "*.py"
+      - "*.json"
+      - "*.js"
+      - "*.ts"
+    message: "MCP tool description contains deceptive preference/deprecation claims"
+    description: "Detects Malicious Tool Coverage (100% ASR) and Tool Preference Manipulation (70% ASR) attacks from Guo 2025 where tools use deceptive descriptions to hijack selection."
+    remediation: "Validate deprecation claims against official registries. Do not rely solely on tool descriptions for selection decisions."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  # === CATEGORY: Reverse Shell / Remote Access ===
+
+  - id: MEDUSA-MCP-SCAN-003
+    name: mcp-reverse-shell
+    severity: CRITICAL
+    category: mcp_security
+    patterns:
+      # Python list-form: ['nc', '-elp', ...] or ["ncat","-e",...] — anchor on dangerous binary name
+      - "(?i)\\[\\s*[\"'](?:nc|ncat|netcat)[\"']\\s*,\\s*[\"']-[elpncvw]+[\"']"
+      # Shell-string form: "nc -elp 4444" / "ncat -e /bin/sh" inside any string
+      - "(?i)[\"'](?:nc|ncat|netcat)\\s+-[elpncvw]+\\s+"
+      # bash -i reverse-shell tell (works in any quote/f-string context)
+      - "(?i)bash\\s+-i\\s*>\\s*&"
+      # /dev/tcp/ socket abuse (very high-signal primitive)
+      - "(?i)/dev/tcp/"
+      # socat / telnet exec form
+      - "(?i)(?:socat|telnet)[^\"']*(?:EXEC|exec):"
+      # socket.connect to known reverse-shell ports
+      - "(?i)socket\\.(?:connect|create_connection)[^)]*(?:4444|4445|1337|31337|9001)"
+      # JS/TS child_process variants
+      - "(?i)child_process\\.(?:exec|spawn)[^)]*[\"'](?:nc|ncat|netcat|bash)\\s+-[elpinwv]"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "MCP tool contains reverse shell or remote listener pattern"
+    description: "Detects Remote Listener Attack (Guo 2025, 90% ASR, Efficacy 7.03) where netcat reverse shells are disguised as debugging tools in MCP server implementations."
+    remediation: "Audit all network operations in MCP tools. Block outbound connections to non-whitelisted hosts. Run MCP servers in sandboxed environments."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-78"
+
+  # === CATEGORY: Unsafe Code Execution in Tools ===
+
+  - id: MEDUSA-MCP-SCAN-004
+    name: mcp-tool-eval-exec
+    severity: CRITICAL
+    category: mcp_security
+    patterns:
+      # \beval prevents matching ast.literal_eval; require tainted-name token as first arg
+      - "(?i)\\beval\\s*\\(\\s*(?:tool_|user_|param|arg|input|request|payload|body|query|message|prompt|msg)[a-zA-Z0-9_]*\\s*[,)]"
+      - "(?i)\\bexec\\s*\\(\\s*(?:tool_|user_|param|arg|input|request|payload|body|query|message|prompt|msg)[a-zA-Z0-9_]*\\s*[,)]"
+      # eval/exec with f-string, .format(), or + concatenation (attacker-friendly shapes)
+      - "(?i)\\b(?:eval|exec)\\s*\\(\\s*f[\"']"
+      - "(?i)\\b(?:eval|exec)\\s*\\([^)]*\\.format\\s*\\("
+      - "(?i)\\b(?:eval|exec)\\s*\\([^)]*\\+\\s*(?:tool_|user_|param|arg|input|request|payload|body|query)[a-zA-Z0-9_]*"
+      # compile(...).then exec on tainted source
+      - "(?i)compile\\s*\\([^)]*(?:tool_|user_|param|input)[^)]*\\)\\s*[,)][^;\\n]*\\bexec\\b"
+      # JS Function constructor / eval on tainted input
+      - "(?i)new\\s+Function\\s*\\([^)]*(?:tool|user|param|input|req\\.body)"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "MCP tool uses eval/exec with user-controlled input"
+    description: "Detects Infectious Attack pattern (Guo 2025, 70% ASR, Efficacy 6.47) where template-based tool generation propagates eval(user_input) vulnerabilities across MCP tools."
+    remediation: "Never use eval/exec with user-controlled input. Use safe alternatives (ast.literal_eval, json.loads). Implement input validation and sandboxing."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-95"
+
+  - id: MEDUSA-MCP-SCAN-005
+    name: mcp-command-injection
+    severity: CRITICAL
+    category: mcp_security
+    patterns:
+      # subprocess/os.system with f-string interpolation
+      - "(?i)(?:subprocess\\.(?:call|run|Popen|check_output|check_call)|os\\.(?:system|popen))\\s*\\(\\s*f[\"'][^\"']*\\{"
+      # subprocess/os.system with .format() containing tainted name
+      - "(?i)(?:subprocess\\.(?:call|run|Popen|check_output)|os\\.(?:system|popen))\\s*\\([^)]*\\.format\\s*\\([^)]*(?:tool_|user_|param|arg|input|request|payload|query)"
+      # subprocess/os.system with + concatenation of tainted name
+      - "(?i)(?:subprocess\\.(?:call|run|Popen|check_output)|os\\.(?:system|popen))\\s*\\([^)]*[\"'][^\"']*[\"']\\s*\\+\\s*(?:tool_|user_|param|arg|input|request|payload|query|msg|body)[a-zA-Z0-9_]*"
+      # subprocess with %s formatting and tainted name
+      - "(?i)(?:subprocess\\.(?:call|run|Popen)|os\\.(?:system|popen))\\s*\\([^)]*%s[^)]*%\\s*(?:tool_|user_|param|input|request)"
+      # shell=True together with f-string or + (a near-always-bad combo in MCP tools)
+      - "(?i)subprocess\\.(?:call|run|Popen|check_output)\\s*\\(\\s*f[\"'][^\"']*\\{[^)]*shell\\s*=\\s*True"
+      - "(?i)subprocess\\.(?:call|run|Popen|check_output)\\s*\\([^)]*\\+\\s*(?:tool_|user_|param|input|request|user_input)[^)]*shell\\s*=\\s*True"
+      # JS child_process.exec with template-literal or concat of tainted input
+      - "(?i)child_process\\.exec\\s*\\(\\s*`[^`]*\\$\\{"
+      - "(?i)child_process\\.exec\\s*\\([^)]*\\+\\s*(?:req\\.|user|tool|param|input)"
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "MCP tool has command injection vulnerability via unsanitized input"
+    description: "Detects command injection in MCP tools where user/tool parameters are passed unsanitized to shell commands. File-Based Injection (Guo 2025) achieves 90-100% ASR via injected instructions manipulating file operations."
+    remediation: "Use subprocess with shell=False and argument lists. Sanitize all parameters. Filter shell metacharacters (;, |, $, backticks)."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-78"
+
+  # === CATEGORY: Dynamic Tool Modification (Rug Pull) ===
+
+  - id: MEDUSA-MCP-SCAN-006
+    name: mcp-dynamic-tool-modification
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      # setattr(target, '__doc__'|'description'|'__call__', remote_fetch(...))
+      - "(?i)setattr\\s*\\([^,]+,\\s*[\"'](?:__doc__|description|__call__|__func__|handler)[\"']\\s*,\\s*(?:requests\\.(?:get|post)|urllib|fetch|httpx|aiohttp|download)"
+      - "(?i)setattr\\s*\\([^,]+,\\s*[\"'](?:__doc__|description|__call__|__func__|handler)[\"']\\s*,\\s*[^)]*\\.(?:text|content|json|read)\\s*\\("
+      - "(?i)setattr\\s*\\([^,]+,\\s*[\"'](?:__doc__|description|__call__|__func__|handler)[\"']\\s*,\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\("
+      # Direct attribute assignment from network fetch
+      - "(?i)\\.(?:__doc__|description|handler|callback)\\s*=\\s*(?:requests\\.(?:get|post)|urllib\\.|fetch|httpx|aiohttp|download)"
+      - "(?i)\\.(?:__doc__|description|handler|callback)\\s*=\\s*[a-zA-Z_][a-zA-Z0-9_]*\\s*\\(\\s*(?:remote_|external_|url|endpoint)"
+      # importlib.reload of tool-like module after first registration
+      - "(?i)importlib\\.reload\\s*\\([^)]*(?:tool|plugin|server|mcp)"
+    file_types:
+      - "*.py"
+    message: "Dynamic tool modification detected (Rug Pull attack pattern)"
+    description: "Detects Rug Pull Attack (Guo 2025, 80% ASR, Efficacy 1.67) where legitimate tools gain trust, then remotely modify their __doc__/logic post-deployment."
+    remediation: "Implement version control for tool definitions. Require explicit user approval for tool updates. Use immutable tool descriptions."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-494"
+
+  # === CATEGORY: MCP Tool Output Trust ===
+
+  - id: MEDUSA-MCP-SCAN-007
+    name: mcp-unvalidated-tool-output
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      # exec/eval directly on a tool-output-shaped name or .text/.json/.content of one
+      - "(?i)\\b(?:exec|eval)\\s*\\([^)]*(?:tool_result|tool_output|tool_response|mcp_response|tool_return|result\\.text|response\\.text|response\\.content|response\\.json|\\.json\\s*\\(\\s*\\)[^)]*\\[)"
+      # exec/eval(result.text), exec(resp.content), etc. — common shape
+      - "(?i)\\b(?:exec|eval)\\s*\\(\\s*[a-zA-Z_][a-zA-Z0-9_]*\\.(?:text|content|body|data)\\b"
+      # exec(json.loads(tool_response)[...]) shape — parse-then-execute
+      - "(?i)\\b(?:exec|eval)\\s*\\(\\s*json\\.loads\\s*\\([^)]*(?:tool_|mcp_|response|result|output)"
+      # subprocess on tool_output / .text from a tool response
+      - "(?i)(?:subprocess\\.(?:call|run|Popen)|os\\.system)\\s*\\([^)]*(?:tool_result|tool_output|tool_response|mcp_response|\\.text\\b|\\.content\\b)"
+    file_types:
+      - "*.py"
+    message: "MCP tool output executed without validation"
+    description: "Detects MCP Tool Return Attack (Guo 2025, 90% ASR, Efficacy 1.96) where malicious instructions in tool output strings are parsed and executed as new instructions due to high trust in tool outputs."
+    remediation: "Validate and sanitize all tool outputs. Never execute tool return values directly. Implement output schema validation."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-20"
+
+  # === CATEGORY: Webpage/File Poison ===
+
+  - id: MEDUSA-MCP-SCAN-008
+    name: mcp-html-comment-injection
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      # HTML comment with system-prompt-style directive
+      - "(?i)<!--[^>]*(?:SYSTEM|INSTRUCTION|IMPORTANT|NOTE|ASSISTANT)\\s*:[^>]*(?:ignore|override|execute|run|disregard|forget)"
+      # Hidden element carrying instructions
+      - "(?i)<\\s*(?:div|span|p)[^>]*(?:display\\s*:\\s*none|visibility\\s*:\\s*hidden|opacity\\s*:\\s*0|font-size\\s*:\\s*0)[^>]*>[^<]*(?:ignore|execute|override|you\\s+(?:must|should))"
+      # Comment commanding the agent
+      - "(?i)<!--[^>]*(?:you\\s+(?:must|should|are\\s+to)|when\\s+(?:asked|queried)|always\\s+(?:respond|reply|call))[^>]*-->"
+      # Markdown / text imperative directives embedded for the agent
+      - "(?i)\\[//\\]:\\s*#\\s*\\([^)]*(?:ignore|override|execute|system\\s*:)"
+    file_types:
+      - "*.html"
+      - "*.md"
+      - "*.txt"
+    message: "Hidden instruction injection in HTML/document content"
+    description: "Detects Webpage Poison Attack (Guo 2025, 80% ASR) and Malicious Project Install (70% ASR) where hidden HTML comments or README instructions manipulate MCP agents during content processing."
+    remediation: "Strip HTML comments before processing. Sanitize document content. Do not execute instructions found in external content."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-79"
+
+  # === CATEGORY: MCP Server Configuration ===
+  # DROP: MEDUSA-MCP-SCAN-009 (mcp-missing-auth) removed in 2026-05-20 rewrite.
+  # Negative-lookahead patterns ((?!.*auth)) are not a positive primitive and
+  # produced 0 true positives in the audit. Detecting "no auth wrapper present"
+  # requires semantic/AST analysis of the decorator stack and middleware chain,
+  # not regex. Track as runtime/AST rule candidate for paid tier.
+
+  # === CATEGORY: File System Access ===
+
+  - id: MEDUSA-MCP-SCAN-010
+    name: mcp-unsafe-file-operations
+    severity: HIGH
+    category: mcp_security
+    patterns:
+      # Destructive file ops with tainted-name argument
+      - "(?i)(?:os\\.(?:remove|unlink|rmdir)|shutil\\.rmtree)\\s*\\(\\s*(?:tool_|user_|param|arg|input|request|path_param|user_path)[a-zA-Z0-9_]*"
+      # open(...,'w') with tainted name or f-string
+      - "(?i)\\bopen\\s*\\(\\s*(?:tool_|user_|param|arg|input|request|user_path)[a-zA-Z0-9_]*\\s*,\\s*[\"'][wa]"
+      - "(?i)\\bopen\\s*\\(\\s*f[\"'][^\"']*\\{[^}]*(?:tool_|user_|param|input|user_path)[^}]*\\}[^\"']*[\"']\\s*,\\s*[\"'][wa]"
+      # pathlib.Path(tainted).write_text/unlink
+      - "(?i)(?:pathlib\\.)?Path\\s*\\(\\s*(?:tool_|user_|param|arg|input|user_path)[a-zA-Z0-9_]*\\s*\\)\\s*\\.(?:write_text|write_bytes|unlink|rmdir)"
+      # Path / open via concatenation of tainted name
+      - "(?i)\\bopen\\s*\\([^)]*[\"'][^\"']*[\"']\\s*\\+\\s*(?:tool_|user_|param|input|user_path)[a-zA-Z0-9_]*"
+    file_types:
+      - "*.py"
+    message: "MCP tool performs file operations with user-controlled paths"
+    description: "Detects File-Based Injection attacks (Guo 2025, ASR 90-100%, Efficacy 3.85-8.38) where injected instructions manipulate local files via Add/Delete/Modify/Retrieve operations without path validation."
+    remediation: "Require explicit user confirmation for all file operations. Validate paths against allowlist. Use chroot/container isolation for file access."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-22"
+
+  # === CATEGORY: Multi-Tool Coordination ===
+
+  - id: MEDUSA-MCP-SCAN-011
+    name: mcp-cross-tool-reference
+    severity: MEDIUM
+    category: mcp_security
+    patterns:
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:after\\s+(?:calling|using|running)|first\\s+(?:call|use|invoke)|then\\s+(?:use|call|invoke))\\s+[a-zA-Z_][a-zA-Z0-9_]*"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:requires|depends\\s+on|works\\s+with|chain\\s+with|combine\\s+with)\\s+(?:the\\s+)?[a-zA-Z_][a-zA-Z0-9_]*\\s+tool"
+      - "(?i)(?:description|__doc__)\\s*[=:]\\s*[\"'][^\"']*(?:pass|forward|send|pipe)\\s+(?:the\\s+)?(?:output|result|response|return\\s+value)\\s+(?:to|into|through)\\s+[a-zA-Z_][a-zA-Z0-9_]*"
+    file_types:
+      - "*.py"
+      - "*.json"
+    message: "MCP tool description references other tools (coordination attack vector)"
+    description: "Detects Multi-Tool Coordination attack (Guo 2025, 30% ASR, Efficacy 3.13) where malicious logic is split across tools and the agent infers relationships from cross-references in descriptions."
+    remediation: "Isolate tool contexts. Validate tool chain dependencies at registration time. Do not allow tools to reference other tools in descriptions."
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-829"
+
+  # === CATEGORY: P-DoS via Tools ===
+
+  - id: MEDUSA-MCP-SCAN-012
+    name: mcp-resource-exhaustion
+    severity: MEDIUM
+    category: mcp_security
+    patterns:
+      # while True loop containing a tool/api call (very common P-DoS shape)
+      - "(?i)while\\s+True\\s*:[^\\n]*\\n[^#\\n]*(?:tool|api|request|query|fetch|call_tool|invoke)"
+      # huge sleep inside a tool body (thousands of seconds, or product math)
+      - "(?i)(?:time\\.sleep|asyncio\\.sleep)\\s*\\(\\s*(?:[1-9]\\d{3,}|\\d+\\s*\\*\\s*\\d{3,})"
+      # for _ in range(absurdly_large_n)
+      - "(?i)for\\s+\\w+\\s+in\\s+range\\s*\\(\\s*(?:[1-9]\\d{5,}|10\\s*\\*\\*\\s*[6-9])"
+      # Pathological recursive amplification: tool calls itself
+      - "(?i)def\\s+(\\w+)\\s*\\([^)]*\\)\\s*:[^\\n]*\\n(?:[^\\n]*\\n){0,5}[^\\n]*\\b\\1\\s*\\([^)]*\\)\\s*\\+\\s*\\1\\s*\\("
+    file_types:
+      - "*.py"
+    message: "MCP tool contains potential resource exhaustion pattern"
+    description: "Detects P-DoS via Tools (Gao 2024, 100% ASR on GPT-4o, <$1 cost) where tools trigger infinite loops, sleep commands, or token amplification (0.5K->16K+ tokens)."
+    remediation: "Implement execution timeouts for all tool calls. Set token output limits. Monitor resource consumption per tool invocation."
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-400"

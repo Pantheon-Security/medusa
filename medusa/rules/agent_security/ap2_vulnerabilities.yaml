@@ -1,0 +1,244 @@
+# MEDUSA Scanner Rules - AP2 (Agent Payments Protocol) Vulnerabilities
+# Source: AP2 Specification, Cloud Security Alliance Framework, UCP+AP2 Documentation
+# Version: 2.0.0
+# Last Updated: 2026-05-20
+# Purpose: STATIC CODE ANALYSIS - detecting AP2 payment security vulnerabilities
+#
+# 2026-05-20 REWRITE:
+#   The previous version used the negative-lookahead "absence-of-defensive-keyword"
+#   shape `(?i)<topic>.*(?!.*<safe-word>)`. A 2026-05-20 audit recorded 864 hits
+#   across 12 AP2 codebases, mostly false positives. Defensive logic (verify,
+#   sanitize, validate, mTLS, rotation, reconcile) lives in different
+#   files/functions from the topic mention, so regex cannot disprove its presence.
+#
+#   This file now contains only POSITIVE-DETECTION rules: each pattern matches
+#   the explicit presence of a dangerous construct (assignment, function call,
+#   literal anti-value). 15 of the 20 original rules require AST + call-graph
+#   analysis and are commented out below with a `# DROP:` note so they can be
+#   re-implemented as AST checks later. The original IDs are preserved.
+#
+# CWEs: CWE-200, CWE-327, CWE-347, CWE-522
+#
+# References:
+#   - https://ap2-protocol.org/specification/
+#   - https://ap2-protocol.org/topics/privacy-and-security/
+#   - https://cloudsecurityalliance.org/blog/2025/10/06/secure-use-of-the-agent-payments-protocol-ap2
+#   - https://ucp.dev/2026-01-23/documentation/ucp-and-ap2/
+
+rules:
+  # =============================================================================
+  # SECTION 1: CREDENTIAL PROVIDER TRUST (5 rules — ALL DROPPED)
+  # =============================================================================
+
+  # DROP: MEDUSA-AP2-CP-001 ap2-credential-provider-unverified (CRITICAL, CWE-306)
+  #       Threat model is "CP registered without a subsequent verify/allowlist
+  #       check". Requires call-graph analysis across the registration boundary.
+  #       No positive code construct expresses the missing verification.
+
+  # DROP: MEDUSA-AP2-CP-002 ap2-cp-to-issuer-no-integrity (HIGH, CWE-295)
+  #       Absence of integrity/mTLS on a logical channel — channel set-up and
+  #       transmission can be many lines/files apart. Needs taint/data-flow.
+
+  # DROP: MEDUSA-AP2-CP-003 ap2-cp-role-segregation-violation (HIGH, CWE-284)
+  #       Architectural property (one service handling both tokenization and
+  #       settlement). Not expressible as a single-line positive construct.
+
+  # DROP: MEDUSA-AP2-CP-004 ap2-allowlist-no-consensus-validation (MEDIUM, CWE-345)
+  #       "Allowlist modified without consensus" is a process/protocol property,
+  #       not a code construct. Pure absence-of-call shape.
+
+  # DROP: MEDUSA-AP2-CP-005 ap2-did-resolution-cache-poisoning (MEDIUM, CWE-345)
+  #       Requires showing a cache read is not followed by an integrity check
+  #       in the same call chain. Call-graph analysis only.
+
+  # =============================================================================
+  # SECTION 2: PAYMENT TOKEN SECURITY (4 rules — 1 KEPT, 3 DROPPED)
+  # =============================================================================
+
+  # DROP: MEDUSA-AP2-TOKEN-001 ap2-sd-jwt-vc-no-selective-disclosure (HIGH, CWE-200)
+  #       Absence of selective-disclosure usage on an SD-JWT-VC. The token type
+  #       supports SD by design; whether SD is actually USED is a multi-step
+  #       call-graph property (which claims are included in presentation).
+
+  # DROP: MEDUSA-AP2-TOKEN-002 ap2-token-no-holder-binding (HIGH, CWE-384)
+  #       Presence/absence of cnf claim and KB-JWT verification happens at
+  #       presentation time across multiple functions. Not single-line.
+
+  - id: MEDUSA-AP2-TOKEN-003
+    name: ap2-token-long-lived
+    severity: HIGH
+    category: authorization
+    patterns:
+      - '(?i)\b(?:payment|ap2|agentic|mandate)[_-]?token[_-]?(?:ttl|expir[ye]|expires_in|lifetime|max_age)\s*[=:]\s*(?:\d{5,}|86400|604800|2592000|31536000)\b'
+      - '(?i)\b(?:payment|ap2|agentic|mandate)[_-]?token[^=\n]{0,40}\bexpires?_at\s*[=:]\s*None\b'
+      - '(?i)\b(?:payment|ap2|agentic|mandate)[_-]?token[^=\n]{0,40}(?:no[_-]?expir[ye]|never[_-]?expir|non[_-]?expir)'
+      - '(?i)\bjwt\.encode\([^)]*\bexp\s*[=:]\s*(?:None|0|float\([''"]inf)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 payment token with excessive lifetime"
+    description: |
+      Long-lived payment tokens increase the window of vulnerability.
+      If a token is compromised, the attacker can execute transactions
+      for the entire token lifetime. AP2 tokens should be short-lived
+      and scoped to individual transactions or sessions.
+    remediation: |
+      - Use short-lived tokens (minutes, not hours or days)
+      - Implement token rotation for ongoing sessions
+      - Scope tokens to specific transactions when possible
+      - Implement immediate token revocation capability
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # DROP: MEDUSA-AP2-TOKEN-004 ap2-token-revocation-missing (MEDIUM, CWE-284)
+  #       "Token issued without a revocation pathway" is an absence-of-API
+  #       property. The issuance line itself has no signal about whether a
+  #       revocation endpoint exists elsewhere in the service.
+
+  # =============================================================================
+  # SECTION 3: TRANSACTION INTEGRITY (4 rules — ALL DROPPED)
+  # =============================================================================
+
+  # DROP: MEDUSA-AP2-TXN-001 ap2-dynamic-linking-missing (CRITICAL, CWE-345)
+  #       Whether a mandate is dynamically linked to cart contents requires
+  #       tracing the mandate object through hashing/signing calls. AST only.
+
+  # DROP: MEDUSA-AP2-TXN-002 ap2-transaction-version-hash-missing (MEDIUM, CWE-345)
+  #       Pure absence-of-versioning check. The checkout site contains no
+  #       signal about whether discovery-time hashes are validated.
+
+  # DROP: MEDUSA-AP2-TXN-003 ap2-settlement-no-reconciliation (MEDIUM, CWE-284)
+  #       Reconciliation is a downstream job — settlement code site cannot
+  #       reveal whether a reconciliation loop exists.
+
+  # DROP: MEDUSA-AP2-TXN-004 ap2-refund-no-mandate-validation (HIGH, CWE-284)
+  #       Refund-handler entry point gives no signal about whether the
+  #       original mandate is looked up and validated. Call-graph required.
+
+  # =============================================================================
+  # SECTION 4: CRYPTOGRAPHIC SECURITY (4 rules — 3 KEPT, 1 DROPPED)
+  # =============================================================================
+
+  - id: MEDUSA-AP2-CRYPTO-001
+    name: ap2-signature-algorithm-downgrade
+    severity: CRITICAL
+    category: cryptography
+    patterns:
+      - '(?i)\b(?:alg|algorithm)\s*[=:]\s*["''](?:none|HS256|HS384|HS512|RS256)["'']'
+      - '(?i)jwt\.(?:encode|decode)\([^)]*\balgorithms?\s*=\s*\[?\s*["''](?:none|HS256|HS384|HS512|RS256)["'']'
+      - '(?i)\.sign\([^)]*\balg(?:orithm)?\s*=\s*["''](?:none|HS256|RS256)["'']'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+    message: "AP2 signature algorithm downgrade vulnerability"
+    description: |
+      AP2 requires strong asymmetric signing (ED25519, ECDSA P-256).
+      Using symmetric (HS256) or weaker asymmetric (RS256) algorithms,
+      or the 'none' algorithm, undermines mandate integrity.
+      Algorithm confusion attacks can forge valid-looking signatures.
+    remediation: |
+      - Enforce EdDSA (Ed25519) or ES256 (ECDSA P-256) exclusively
+      - Reject any token with alg=RS256, HS256, HS384, HS512, or none
+      - Validate algorithm before signature verification, not after
+      - Pin expected algorithm in verification configuration
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-327"
+
+  - id: MEDUSA-AP2-CRYPTO-002
+    name: ap2-key-no-hsm-kms
+    severity: HIGH
+    category: key_management
+    patterns:
+      - '(?i)\b(?:open|read_text|read_bytes|load_pem_private_key)\s*\(\s*["''][^"'']+\.(?:pem|key|p8|pkcs8)["'']'
+      - '(?i)\bPath\s*\(\s*["''][^"'']+\.(?:pem|key|p8)["'']\s*\)\s*\.\s*read_(?:bytes|text)'
+      - '(?i)\b(?:private|signing|mandate|ap2)[_-]?key\s*=\s*open\s*\(\s*["''][^"'']+\.(?:pem|key|p8)["'']'
+      - '(?i)\bload_pem_private_key\s*\(\s*(?:open|Path|pathlib)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 signing key loaded from file instead of HSM/KMS"
+    description: |
+      AP2 specification requires private keys to be stored in HSM or KMS.
+      Loading signing keys from filesystem exposes them to extraction via
+      file read vulnerabilities, process memory dumps, or source code leaks.
+    remediation: |
+      - Store signing keys in HSM (Hardware Security Module)
+      - Use cloud KMS (AWS KMS, Azure Key Vault, GCP Cloud KMS)
+      - Never load raw key material from filesystem in production
+      - Use key references/handles instead of raw key bytes
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-522"
+
+  - id: MEDUSA-AP2-CRYPTO-003
+    name: ap2-signature-verify-bypass
+    severity: CRITICAL
+    category: authentication
+    patterns:
+      - '(?i)\bverify(?:_signature|_jwt|_mandate|_token)?\s*=\s*(?:False|0|"false"|''false'')'
+      - '(?i)\bjwt\.decode\([^)]*\boptions\s*=\s*\{[^}]*["'']verify_signature["'']\s*:\s*False'
+      - '(?i)\b(?:skip|bypass|disable)_(?:signature|sig|mandate)_(?:verify|verification|check)\s*\('
+      - '(?i)\boptions\s*=\s*\{[^}]*["'']verify_signature["'']\s*:\s*False[^}]*\}'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 signature verification bypass"
+    description: |
+      Disabling or bypassing signature verification on AP2 mandates
+      completely undermines the payment trust model. Any party can forge
+      mandates when signature verification is skipped.
+    remediation: |
+      - Never allow signature verification to be disabled
+      - Remove any verify=false flags or bypass options
+      - Fail closed on signature verification errors
+      - Implement signature verification as a mandatory, non-configurable step
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-347"
+
+  # DROP: MEDUSA-AP2-CRYPTO-004 ap2-key-rotation-missing (MEDIUM, CWE-798)
+  #       Rotation is a deployment/operational property. The key-declaration
+  #       line has no signal about whether a rotation job runs elsewhere.
+
+  # =============================================================================
+  # SECTION 5: PSP & SETTLEMENT SECURITY (3 rules — 1 KEPT, 2 DROPPED)
+  # =============================================================================
+
+  # DROP: MEDUSA-AP2-PSP-001 ap2-psp-no-mutual-auth (HIGH, CWE-295)
+  #       Absence of mTLS in a PSP connection. mTLS config typically lives in
+  #       a separate transport/HTTP-client setup file, not on the connect site.
+
+  # DROP: MEDUSA-AP2-PSP-002 ap2-settlement-webhook-unsigned (HIGH, CWE-345)
+  #       Whether a webhook handler verifies an HMAC signature is determined
+  #       in the handler body, not the registration line. Needs AST analysis
+  #       of the handler function body.
+
+  - id: MEDUSA-AP2-PSP-003
+    name: ap2-card-network-token-logging
+    severity: HIGH
+    category: data_protection
+    patterns:
+      - '(?i)\b(?:logger|logging|log|console)\.(?:debug|info|warning|warn|error|log)\s*\([^)\n]{0,120}\b(?:pan|card_number|cardnumber|account_number|cvv|cvc|payment_token|card_token|raw_card)\b'
+      - '(?i)\bprint\s*\([^)\n]{0,120}\b(?:pan|card_number|cvv|cvc|payment_token|raw_card)\b'
+      - '(?i)\bf["''][^"'']{0,80}\{(?:pan|card_number|cvv|cvc|payment_token|raw_card)[^}]*\}'
+      - '(?i)\blog(?:ger)?\.[a-z]+\s*\([^)\n]{0,120}\bprimary_account_number\b'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 payment token or card data in logs"
+    description: |
+      Logging payment tokens, card numbers, or account numbers violates
+      PCI-DSS and creates credential exposure risk. Log aggregation systems
+      are a high-value target and often have weaker access controls than
+      payment processing systems.
+    remediation: |
+      - Never log raw payment tokens, card numbers, or PANs
+      - Implement PCI-DSS compliant log redaction
+      - Use masked references (last 4 digits only) in logs
+      - Audit log pipelines for accidental credential exposure
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"

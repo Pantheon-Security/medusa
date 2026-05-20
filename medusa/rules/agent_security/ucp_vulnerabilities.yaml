@@ -1,0 +1,409 @@
+# MEDUSA Scanner Rules - UCP (Universal Commerce Protocol) Vulnerabilities
+# Source: Google UCP Specification, DataDome Research, Shopify Engineering, CSA AP2 Framework
+# Version: 2.0.0
+# Last Updated: 2026-05-20
+# Purpose: STATIC CODE ANALYSIS - detecting vulnerable UCP patterns at build/scan time
+#
+# v2.0.0 REWRITE NOTES:
+#   Previous version used negative-lookahead "absence" patterns of the shape
+#   `(?i)<topic>.*(?!.*<defensive-keyword>)`. A 2026-05-20 audit against 12 real
+#   UCP codebases produced 2,759 hits, and spot-check of the top rule (918 hits)
+#   showed 5/5 random matches were false positives. The shape cannot work for
+#   static regex at line granularity because defensive logic almost always lives
+#   in a different file/function from the topic mention.
+#
+#   This rewrite uses POSITIVE-DETECTION patterns only -- detecting the presence
+#   of a dangerous construct, not the absence of a safe one. 23 of 33 rules
+#   require AST-level/call-graph analysis to express their threat model and are
+#   commented out (DROP markers) preserved for future AST-based detection.
+#
+# Background:
+#   Google launched UCP (Universal Commerce Protocol) on 2026-01-11 with 20+ partners
+#   including Shopify, Mastercard, Visa, Stripe, PayPal, Walmart, and Target.
+#   UCP enables AI agents (Gemini, ChatGPT, etc.) to autonomously discover products,
+#   initiate checkout, handle payments, and manage orders on behalf of users.
+#
+# Protocols Covered: UCP (Google), AP2 (Agent Payments Protocol)
+# CWEs: CWE-94, CWE-200, CWE-284, CWE-345, CWE-451, CWE-693, CWE-798, CWE-319
+#
+# References:
+#   - https://ucp.dev/specification/overview/
+#   - https://developers.googleblog.com/under-the-hood-universal-commerce-protocol-ucp/
+#   - https://datadome.co/agent-trust-management/universal-commerce-protocol/
+#   - https://shopify.engineering/UCP
+#   - https://cloudsecurityalliance.org/blog/2025/10/06/secure-use-of-the-agent-payments-protocol-ap2
+#   - https://ap2-protocol.org/topics/privacy-and-security/
+
+rules:
+  # =============================================================================
+  # SECTION 1: UCP DISCOVERY & ENDPOINT SECURITY
+  # =============================================================================
+
+  - id: MEDUSA-UCP-DISC-001
+    name: ucp-wellknown-over-http
+    severity: CRITICAL
+    category: transport_security
+    patterns:
+      - '(?i)http://[^/\s"\x27]+/\.well-known/ucp\b'
+      - '(?i)(?:ucp[_-]?(?:discovery|endpoint)[_-]?url|discovery_url)\s*[=:]\s*["\x27]http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    message: "UCP discovery endpoint served over insecure HTTP"
+    description: |
+      UCP discovery relies on /.well-known/ucp endpoints. Serving these over HTTP
+      instead of HTTPS exposes the protocol to man-in-the-middle attacks where an
+      attacker can inject malicious UCP configurations, redirect agents to fraudulent
+      checkout endpoints, or impersonate merchants entirely.
+      UCP specification mandates HTTPS for all communication.
+    remediation: |
+      - Always serve /.well-known/ucp over HTTPS
+      - Enforce HSTS headers on UCP endpoints
+      - Validate TLS certificates in agent-side discovery clients
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-319"
+
+  # DROP: MEDUSA-UCP-DISC-002 (ucp-discovery-no-signature-verification)
+  # Reason: requires AST-level analysis (signature-verify call lives in a different
+  # function than the fetch call; absence-of-call cannot be expressed in regex).
+
+  # DROP: MEDUSA-UCP-DISC-003 (ucp-endpoint-no-rate-limiting)
+  # Reason: rate-limit middleware is usually configured in a different file from
+  # route declarations; cannot detect absence at line granularity.
+
+  # DROP: MEDUSA-UCP-DISC-004 (ucp-capability-namespace-unvalidated)
+  # Reason: namespace validation is a cross-function concern; absence not regex-detectable.
+
+  # DROP: MEDUSA-UCP-DISC-005 (ucp-missing-idempotency-key)
+  # Reason: idempotency key is set in caller/HTTP client setup, not on the line
+  # that names the checkout-session endpoint.
+
+  # DROP: MEDUSA-UCP-DISC-006 (ucp-webhook-no-signature-verification)
+  # Reason: webhook signature verification lives in handler body; route registration
+  # line does not encode whether verification happens.
+
+  # =============================================================================
+  # SECTION 2: UCP AGENT IDENTITY & TRUST
+  # =============================================================================
+
+  # DROP: MEDUSA-UCP-AGENT-001 (ucp-agent-header-not-validated)
+  # Reason: header read and header validate are cross-function; cannot detect
+  # missing validation from the read site alone.
+
+  # DROP: MEDUSA-UCP-AGENT-002 (ucp-did-single-resolver)
+  # Reason: single-vs-multi resolver topology is architectural, not line-level.
+
+  # DROP: MEDUSA-UCP-AGENT-003 (ucp-request-signature-missing)
+  # Reason: absence of signature header in outbound request requires call-graph
+  # analysis of HTTP client construction.
+
+  # DROP: MEDUSA-UCP-AGENT-004 (ucp-delegation-no-scope-restriction)
+  # Reason: delegation scope is enforced via cross-call permission objects.
+
+  - id: MEDUSA-UCP-AGENT-005
+    name: ucp-consent-unbounded-delegation
+    severity: HIGH
+    category: authorization
+    patterns:
+      - '(?i)\b(?:consent|authorization|mandate)\s*[=:]\s*["\x27]?(?:unlimited|unbounded|forever|indefinite|no[_-]?limit)\b'
+      - '(?i)\b(?:max_amount|amount_limit|spending_limit|payment_cap|mandate_ttl|mandate_expiry|valid_through)\s*[=:]\s*(?:None|null|undefined|0|-1|float\(["\x27]inf)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "UCP consent / mandate configured with unbounded delegation"
+    description: |
+      UCP agent-led commerce is asynchronous - the user is absent during payment.
+      Explicit "unlimited" consent strings, or limit/TTL fields set to None/null/0/-1,
+      indicate a payment authorization that never expires and has no spending cap.
+      This enables consent manipulation attacks to extend authorization scope
+      beyond user intent.
+    remediation: |
+      - Require explicit TTL on all payment authorizations
+      - Set positive maximum transaction amounts per mandate
+      - Implement mandatory user confirmation for amounts exceeding threshold
+      - Reject sentinel "unlimited" / "forever" consent values
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # SECTION 3: UCP CREDENTIAL & KEY MANAGEMENT
+  # =============================================================================
+
+  - id: MEDUSA-UCP-CRED-001
+    name: ucp-hardcoded-signing-key
+    severity: CRITICAL
+    category: credential_exposure
+    patterns:
+      - '(?i)\b(?:ucp|ap2)[_-]?(?:private|signing|secret)[_-]?key\s*[=:]\s*["\x27][A-Za-z0-9+/=_\-]{20,}["\x27]'
+      - '(?i)\b(?:ucp|ap2)[_-]?ed25519[_-]?(?:private|secret)\s*[=:]\s*["\x27][A-Za-z0-9+/=_\-]{20,}["\x27]'
+      - '(?i)\bcheckout[_-]signature[_-]key\s*[=:]\s*["\x27][A-Za-z0-9+/=_\-]{20,}["\x27]'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+      - "*.env"
+    message: "Hardcoded UCP/AP2 signing key in source code"
+    description: |
+      UCP specification states private keys require HSM or KMS storage and
+      should never be in codebase or git repos. Compromised signing keys
+      enable AP2 mandate forgery, allowing attackers to forge valid payment
+      authorizations for fraudulent transactions.
+    remediation: |
+      - Store signing keys in HSM (Hardware Security Module) or cloud KMS
+      - Use environment variables for key references, never raw key material
+      - Implement key rotation procedures
+      - Use short-lived derived keys for individual transactions
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-798"
+
+  - id: MEDUSA-UCP-CRED-002
+    name: ucp-did-key-in-source
+    severity: HIGH
+    category: credential_exposure
+    patterns:
+      - '\bdid:key:z6Mk[a-zA-Z0-9]{40,}'
+      - '(?i)\bverificationMethod\b[^\n]{0,80}["\x27]?privateKey(?:Multibase|Jwk|Hex|Base58)["\x27]?\s*[=:]'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    message: "UCP DID private key material in source code"
+    description: |
+      Decentralized Identifier (DID) private keys found in source code.
+      DID keys are used for UCP agent identity and AP2 mandate signing.
+      Exposed DID keys enable agent impersonation and mandate forgery.
+    remediation: |
+      - Store DID private keys in secure key management systems
+      - Only reference DID public keys in source code
+      - Implement DID key rotation on suspected compromise
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-798"
+
+  - id: MEDUSA-UCP-CRED-003
+    name: ucp-raw-payment-credentials
+    severity: CRITICAL
+    category: credential_exposure
+    patterns:
+      - '(?i)\b(?:card_number|cardnumber|pan|cvv|cvc|ccv)\s*[=:]\s*["\x27]?\d{3,}'
+      - '(?i)\bprimary[_-]account[_-]number\s*[=:]\s*["\x27]?\d{6,}'
+      - '(?i)["\x27]card_number["\x27]\s*:\s*["\x27]?\d{12,19}'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    message: "Raw payment credentials in UCP flow"
+    description: |
+      UCP payment flows must use tokenized credentials via Credential Providers.
+      Raw card numbers, PANs, CVVs, or unencrypted payment data in code violates
+      PCI-DSS and creates credential theft risk in the agent commerce pipeline.
+    remediation: |
+      - Use tokenized payment references from Credential Providers
+      - Never store or transmit raw payment credentials
+      - Implement opaque payment tokens for all agent-initiated transactions
+      - Ensure PCI-DSS compliance in payment handler implementations
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  # DROP: MEDUSA-UCP-CRED-004 (ucp-payment-handler-no-tokenization)
+  # Reason: tokenization is a cross-call architectural property; absence cannot
+  # be inferred from any single code line.
+
+  - id: MEDUSA-UCP-CRED-005
+    name: ucp-vdc-weak-algorithm
+    severity: HIGH
+    category: cryptography
+    patterns:
+      - '(?i)(?:vdc|verifiable[_-]?credential|sd[_-]?jwt)[^\n]{0,80}["\x27](?:alg|algorithm)["\x27]?\s*[=:]\s*["\x27](?:RS256|HS256|none)["\x27]'
+      - '(?i)(?:jwt|sd[_-]?jwt)[^\n]{0,40}\.sign\s*\([^)]*["\x27](?:RS256|HS256|none)["\x27]'
+      - '(?i)\b(?:alg|algorithm)\s*[=:]\s*["\x27]none["\x27]'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "UCP Verifiable Digital Credential with weak signing algorithm"
+    description: |
+      UCP/AP2 uses Verifiable Digital Credentials (VDCs) with SD-JWT-VC tokens.
+      The specification requires ED25519 or ECDSA P-256 signatures. Using weaker
+      algorithms (RS256, HS256, or 'none') undermines mandate integrity and
+      enables signature forgery attacks.
+    remediation: |
+      - Use EdDSA (Ed25519) or ES256 (ECDSA P-256) for VDC signing
+      - Reject tokens signed with RS256, HS256, or 'none' algorithm
+      - Validate algorithm in JWT header before processing
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-693"
+
+  # =============================================================================
+  # SECTION 4: AP2 MANDATE SECURITY
+  # =============================================================================
+
+  # DROP: MEDUSA-UCP-AP2-001 (ap2-mandate-no-signature-verification)
+  # Reason: requires call-graph analysis to detect that a mandate object is
+  # processed without a verify() call.
+
+  # DROP: MEDUSA-UCP-AP2-002 (ap2-mandate-no-expiration)
+  # Reason: TTL-absence is a cross-field structural check, not regex-detectable.
+
+  # DROP: MEDUSA-UCP-AP2-003 (ap2-mandate-no-nonce)
+  # Reason: nonce-absence cannot be regex-detected.
+
+  # DROP: MEDUSA-UCP-AP2-004 (ap2-cart-mandate-unsigned)
+  # Reason: cart-sign call lives in a different function from cart construction.
+
+  - id: MEDUSA-UCP-AP2-005
+    name: ap2-mandate-no-amount-limit
+    severity: HIGH
+    category: authorization
+    patterns:
+      - '(?i)\b(?:mandate|authorization)[_-]?amount\s*[=:]\s*["\x27]?(?:unlimited|uncapped|no[_-]?limit)\b'
+      - '(?i)\b(?:max_amount|amount_limit|payment_ceiling|spending_cap)\s*[=:]\s*(?:None|null|0|-1|float\(["\x27]inf)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 mandate amount field set to unlimited / null"
+    description: |
+      Payment mandates with explicit "unlimited" amount strings, or with
+      max_amount/spending_cap fields set to None/null/0/-1, create unbounded
+      financial authorization. Attackers exploiting consent manipulation
+      can escalate transaction amounts beyond user intent.
+    remediation: |
+      - Set explicit positive maximum amount on every payment mandate
+      - Implement per-transaction and per-session spending limits
+      - Reject sentinel values (unlimited / null / 0) for amount caps
+    owasp_llm: "LLM08:2025"
+    cwe: "CWE-284"
+
+  - id: MEDUSA-UCP-AP2-006
+    name: ap2-mandate-audit-trail-mutable
+    severity: MEDIUM
+    category: logging
+    patterns:
+      - '(?i)\b(?:mandate|audit|payment)[_-]?(?:log|trail|history)\.(?:delete|remove|clear|truncate|pop)\s*\('
+      - '(?i)\b(?:DELETE|TRUNCATE)\s+(?:FROM\s+)?["\x27`]?\w*(?:mandate|audit)\w*(?:log|trail|history)\w*'
+      - '(?i)\bos\.remove\s*\(\s*["\x27][^"\x27]*(?:mandate|audit)[_-]?(?:log|trail|history)'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+    message: "AP2 mandate audit trail mutated/deleted"
+    description: |
+      Mandate audit trails must be immutable to maintain chain-of-custody.
+      Code that calls .delete()/.clear()/.truncate() on mandate or audit logs,
+      or issues SQL DELETE/TRUNCATE against audit tables, destroys non-repudiation
+      guarantees required for financial transaction accountability.
+    remediation: |
+      - Implement append-only audit logs for all mandates
+      - Use cryptographic chaining (hash chains) for audit integrity
+      - Prevent deletion or modification of mandate history records
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-284"
+
+  # =============================================================================
+  # SECTION 5: UCP-MCP BRIDGE & TRANSPORT
+  # =============================================================================
+
+  # DROP: MEDUSA-UCP-BRIDGE-001 (ucp-mcp-bridge-no-input-sanitization)
+  # Reason: sanitization is a cross-function pipeline property.
+
+  # DROP: MEDUSA-UCP-BRIDGE-002 (ucp-a2a-binding-no-mutual-auth)
+  # Reason: mTLS config typically lives in deployment/infra files, not in code
+  # lines that mention A2A transport.
+
+  - id: MEDUSA-UCP-BRIDGE-003
+    name: ucp-jsonld-context-external
+    severity: MEDIUM
+    category: injection
+    patterns:
+      - '(?i)["\x27]@context["\x27]\s*:\s*["\x27]https?://(?!schema\.org|www\.w3\.org|ucp\.dev|ap2-protocol\.org|agentpayments\.org)[^"\x27\s]+["\x27]'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.jsonld"
+    message: "UCP JSON-LD @context references untrusted external domain"
+    description: |
+      UCP uses JSON-LD for structured product data. Attackers can manipulate
+      @context definitions to cause agents to misinterpret pricing, inventory
+      claims, or capability declarations. This rule flags @context values that
+      point to domains outside the allowlist (schema.org, w3.org, ucp.dev,
+      ap2-protocol.org, agentpayments.org).
+    remediation: |
+      - Only accept @context from trusted sources (schema.org, ucp.dev)
+      - Validate JSON-LD context against an allowlist of approved contexts
+      - Pin context URLs and validate their content hash
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-451"
+
+  # DROP: MEDUSA-UCP-BRIDGE-004 (ucp-service-mesh-no-routing-validation)
+  # Reason: routing-validation is enforced via service-mesh config; cross-system.
+
+  # =============================================================================
+  # SECTION 6: PROMPT INJECTION VIA PRODUCT DATA
+  # =============================================================================
+
+  - id: MEDUSA-UCP-PI-001
+    name: ucp-product-data-prompt-injection
+    severity: CRITICAL
+    category: prompt_injection
+    patterns:
+      - '(?i)(?:product|item|catalog|description|title)[^\n]{0,80}(?:ignore|forget|disregard)\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions?|prompts?|rules?)'
+      - '(?i)(?:product|item|description|title)[^\n]{0,60}<\s*(?:system|hidden|instruction|prompt)\b'
+      - '(?i)(?:product|item|description)[^\n]{0,60}\\n\s*(?:system|assistant|user)\s*:'
+    file_types:
+      - "*.py"
+      - "*.js"
+      - "*.ts"
+      - "*.json"
+      - "*.yaml"
+      - "*.yml"
+    message: "Prompt injection payload in UCP product catalog data"
+    description: |
+      Malicious merchants can embed prompt injection payloads in product catalog
+      entries. When an AI shopping agent retrieves and processes this data, injected
+      instructions can redirect agent actions -- causing the agent to select different
+      products, bypass price comparison, or exfiltrate user payment data.
+    remediation: |
+      - Sanitize all product catalog data before LLM processing
+      - Implement output filtering on agent responses after catalog retrieval
+      - Use structured data extraction instead of free-text LLM processing
+      - Apply content security policies to product descriptions
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-94"
+
+  # DROP: MEDUSA-UCP-PI-002 (ucp-product-data-unsanitized)
+  # Reason: sanitization presence is a cross-call property.
+
+  # DROP: MEDUSA-UCP-PI-003 (ucp-price-manipulation-no-verification)
+  # Reason: independent verification is a cross-function design pattern.
+
+  # DROP: MEDUSA-UCP-PI-004 (ucp-product-image-multimodal-injection)
+  # Reason: image sanitization is pipeline-level architecture.
+
+  # =============================================================================
+  # SECTION 7: FRAUD & RISK SCORING
+  # =============================================================================
+
+  # DROP: MEDUSA-UCP-FRAUD-001 (ucp-zero-signal-no-agent-risk-scoring)
+  # Reason: agent-aware scoring is architectural; cannot be detected at line level.
+
+  # DROP: MEDUSA-UCP-FRAUD-002 (ucp-risk-model-agent-signals-missing)
+  # Reason: feature set of risk model is data-driven, not text-detectable.
+
+  # DROP: MEDUSA-UCP-FRAUD-003 (ucp-inventory-reservation-no-limit)
+  # Reason: TTL on reservation is a cross-call structural concern.
