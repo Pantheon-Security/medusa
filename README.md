@@ -37,22 +37,27 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.7
+### 🆕 What's New in v2026.5.8
 
-**Detection + Accuracy + Cross-Platform** — new attack patterns, accuracy improvements, and macOS/Windows multiprocessing fixes.
+**`medusa secrets` — your AI chat history is leaking credentials. Now you can find and fix it.**
 
 | | What's New | Details |
 |---|---|---|
-| 🕵️ | **Indirect PI Rules** | 50 new patterns for social authority injection and covert action concealment attacks (MEDUSA-PIA-SCAN-101/102) |
-| 📦 | **Supply Chain Import Scanner** | Detect malicious package names in manifests (npm, pypi, go, cargo, maven) without version matching |
-| 🔒 | **Report Payload Obfuscation** | Reports obfuscate dangerous strings by default; `--no-ai-safe` disables for verbatim output |
-| 🍎 | **macOS/Windows Multiprocessing Fix** | Batch Trivy/Semgrep/GitLeaks caches now rehydrated in spawn-mode workers via Pool initializer — findings were missing on non-Linux |
-| 🏠 | **Project-Root Scan Boundary** | Batch scanners always target the project root; previously, including a path outside the project (e.g. `~/.cursor/mcp.json`) could expand the scan to `$HOME` |
-| 🧩 | **FP Accuracy: Security Parent Dirs** | Fixed over-suppression that zeroed findings for any repo under a `*security*` parent directory |
-| ⚡ | **Content-Hash Cache Keys** | Rule cache uses SHA-256 of file content, not mtime — correct in CI, Docker, and artifact restores |
-| ⚠️ | **File Skip Warnings** | Files over 2 MB or 50k lines now warn instead of silently being skipped |
+| 🔐 | **`medusa secrets scan`** | Scans `~/.claude/history.jsonl`, Cursor / Zed / Copilot / Gemini / Aider / Codex chat stores, AND `~/.bash_history` / `~/.zsh_history` / fish / psql / mysql / node / python REPL histories for 21 credential types — Anthropic, OpenAI, PyPI, GitHub PATs, AWS, GCP, Stripe, Slack, private keys, and more |
+| ✂️ | **`medusa secrets purge`** | Interactive `[y/n/s/a/q]` walk through every finding — pick which to redact. Mandatory backup before write. JSONL-safe splicing keeps chat files parseable. Refuses if the file changed since the scan. |
+| 🙈 | **Mask by default, reveal twice-locked** | Default output is `pypi-AgEIc***...***` — safe to screenshot. `--reveal` requires typed `I UNDERSTAND` to print real values |
+| 🏠 | **Host-scoped, local-only** | Reports live under `~/.medusa/secrets-scan/` mode `0o600`. No telemetry, no network calls, never written to a project tree |
 
-**Previous: v2026.5.5** — security hardening release (argv injection defenses, git SSRF, HMAC cache integrity, markdown XSS fix).
+[**📖 Full secrets-scanner guide →**](docs/SECRETS_SCANNER.md)
+
+<details>
+<summary>Previous releases</summary>
+
+**v2026.5.7** — Indirect PI rules (101/102), supply chain import scanner, macOS/Windows multiprocessing fix, project-root scan boundary, content-hash cache keys.
+
+**v2026.5.5** — security hardening release (argv injection defenses, git SSRF, HMAC cache integrity, markdown XSS fix).
+
+</details>
 
 **External Linters** (optional): MEDUSA auto-detects `bandit`, `eslint`, `shellcheck`, etc. if installed. See **[Optional Tools Guide](docs/OPTIONAL_TOOLS.md)**.
 
@@ -60,43 +65,101 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 
 ## 🔐 Scan your AI chat history for leaked secrets
 
-Developers paste API keys, tokens, and credentials into AI assistants every day.
-The assistants keep those conversations in plaintext on disk — `~/.claude/history.jsonl`,
-Cursor workspace stores, ChatGPT exports, Zed conversation logs, your shell history.
-Anyone with read access to `$HOME` can harvest them.
+> Your PyPI token might be in your Claude chat history right now.
 
-`medusa secrets scan` finds these. `medusa secrets purge` cleans them up.
+Developers paste API keys, tokens, and credentials into AI assistants every day —
+"deploy this with `pypi-AgEI...`", "use my `ghp_...` to push", "the AWS key is `AKIA...`".
+The assistants keep those conversations in plaintext on disk. Anyone with read access
+to `$HOME` — or any future malware with shell access — can `grep -r 'sk-\|ghp_\|AKIA' ~/`
+and harvest production credentials in seconds.
+
+`medusa secrets scan` finds them. `medusa secrets purge` cleans them up.
+
+### 30-second tour
 
 ```bash
-# Find credentials in chat + shell histories (default masked output)
 medusa secrets scan
-
-# Limit to a single source
-medusa secrets scan --source ai-chats
-medusa secrets scan --source shell
-
-# Scan a specific file (e.g. an exported chat transcript)
-medusa secrets scan --path ~/Downloads/conversations.json
-
-# Reveal full values — requires typed I UNDERSTAND confirmation
-medusa secrets scan --reveal
-
-# Walk findings interactively and redact in place ([y/n/s/a/q])
-medusa secrets purge
-
-# Non-interactive batch redaction
-medusa secrets purge --all --yes-i-know
 ```
 
-**What's detected:** Anthropic, OpenAI, HuggingFace, Replicate, Cohere keys
-· PyPI / npm tokens · GitHub PATs (classic + fine-grained + OAuth + App)
-· GitLab PATs · AWS access keys · GCP service-account keys · Stripe live keys
-· Slack bot/user tokens · SendGrid / Twilio / Discord webhooks · PEM private keys.
+```text
+Scanning 118 file(s)...
 
-**Safety guarantees:** Reports stored mode 0o600 under `~/.medusa/secrets-scan/`,
-never written to project trees. Every redaction is backed up first. JSONL files
-are re-parsed after redaction to verify they still parse. Purge refuses if a
-source file changed between scan and purge. No telemetry, no network calls.
+── claude-code ──────────────────────────────────────────────
+/home/ross/.claude/history.jsonl  (13 finding(s))
+[CRITICAL] Anthropic API key (anthropic)
+    /home/ross/.claude/history.jsonl:1005:13
+    sk-ant-api03***...***
+[CRITICAL] PyPI API token (pypi)
+    /home/ross/.claude/history.jsonl:125:94
+    pypi-AgEIc***...***
+[CRITICAL] GitHub fine-grained PAT (github)
+    /home/ross/.claude/history.jsonl:2306:13
+    github_pat_11A***...***
+[HIGH]     HuggingFace token (huggingface)
+    /home/ross/.claude/history.jsonl:3387:13
+    hf_JOi***...***
+...
+
+Total: 13 credentials across 1 file(s).
+Report:  /home/ross/.medusa/secrets-scan/secrets-20260519-074452.json
+```
+
+```bash
+medusa secrets purge
+```
+
+```text
+[CRITICAL] PyPI API token  (pypi)
+    /home/ross/.claude/history.jsonl:125:94
+    pypi-AgEIc***...***
+  redact?  [y/n/s/a/q/?]: y
+
+[CRITICAL] Anthropic API key  (anthropic)
+    /home/ross/.claude/history.jsonl:1005:13
+    sk-ant-api03***...***
+  redact?  [y/n/s/a/q/?]: y
+...
+
+✓ /home/ross/.claude/history.jsonl  (13 redacted)
+    backup → /home/ross/.medusa/secrets-scan/backups/20260519-074452/home/ross/.claude/history.jsonl
+```
+
+The original file is backed up byte-for-byte before any change. JSONL stays
+parseable after redaction. The redaction marker (`[REDACTED-MEDUSA-...-<run-id>]`)
+is unique per run so you can trace it back to the scan that produced it.
+
+### Commands
+
+```bash
+medusa secrets scan                       # everything (default — chat + shell)
+medusa secrets scan --source ai-chats     # AI assistants only
+medusa secrets scan --source shell        # ~/.bash_history, ~/.zsh_history, fish, psql, mysql, ...
+medusa secrets scan --path FILE           # explicit file (e.g. a ChatGPT export)
+medusa secrets scan --reveal              # show real values (requires 'I UNDERSTAND')
+
+medusa secrets purge                      # interactive [y/n/s/a/q]
+medusa secrets purge SCAN_ID              # purge a specific report
+medusa secrets purge --all --yes-i-know   # batch mode for power users / CI
+```
+
+### What's detected (21 issuers)
+
+**AI providers**: Anthropic, OpenAI, HuggingFace, Replicate, Cohere
+**Package registries**: PyPI, npm
+**Source forges**: GitHub PAT (classic + fine-grained + OAuth + App), GitLab PAT
+**Cloud**: AWS access keys, GCP service-account JSON
+**Payments / comms**: Stripe live/restricted keys, Slack bot/user tokens, SendGrid, Twilio, Discord webhooks
+**Cryptography**: PEM-encoded private keys (RSA, DSA, EC, OpenSSH, PGP)
+
+### Safety properties
+
+- **Local-only.** Reports under `~/.medusa/secrets-scan/` mode `0o600`. No network, no telemetry, never written to project trees.
+- **Backup before write.** Every redaction is preceded by a byte-identical backup. `cp` restores it.
+- **JSONL-safe.** The redaction marker contains no JSON-unsafe characters; affected lines are re-parsed after the write.
+- **Refuse on drift.** If the source file changed between scan and purge, the purger refuses rather than risk clobbering an edit.
+- **Atomic write.** Temp file + `os.replace` swap. Either the rewrite lands or the original stays.
+
+[**📖 Full secrets-scanner guide →**](docs/SECRETS_SCANNER.md)
 
 ---
 

@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2026.5.8] - 2026-05-19
 
+**Headline:** `medusa secrets` — scan your AI chat history and shell history for
+leaked credentials, then interactively redact them in place with mandatory
+backup and JSONL-safe splicing. Free tier. No telemetry.
+
 ### Added
 
 - **`medusa secrets scan` / `medusa secrets purge`** — host-scoped credential
@@ -25,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   backup to `~/.medusa/secrets-scan/backups/<run-id>/`, and a refusal-on-mismatch
   guard if the source file changed between scan and purge. Reports are written
   mode 0o600 under `~/.medusa/secrets-scan/`; nothing is sent over the network.
+
+- **Documentation**: `docs/SECRETS_SCANNER.md` — full feature guide including
+  architecture, all 21 detected issuers, safety properties, test coverage, FAQ,
+  and roadmap.
 
 ## [2026.5.7] - 2026-05-13
 
