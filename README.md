@@ -13,6 +13,7 @@
 **🤖 Works out of the box - no tool installation required.**
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
+**🔐 `medusa secrets scan` — Find leaked API keys in your Claude / Cursor / Copilot / shell history. 21 issuer types. Interactive in-place redaction.**
 **✨ v2026.5.9: Agentic-commerce coverage — UCPScanner + AP2Scanner + 45 hand-tuned positive-pattern rules**
 
 ---
@@ -24,6 +25,7 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 ### ✨ Key Features
 
 - 🔥 **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks in seconds
+- 🔐 **`medusa secrets scan` + `purge`** - Find API keys / tokens / private keys leaked into Claude Code / Cursor / Copilot / Zed / Gemini chat histories *and* your bash / zsh / psql / mysql / python REPL history. 21 issuer types (Anthropic, OpenAI, PyPI, GitHub PATs, AWS, GCP, Stripe, Slack…). Interactive `[y/n/s/a/q]` purge with mandatory byte-identical backup and JSONL-safe redaction. Local-only, no telemetry.
 - 🤖 **9,600+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
 - 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
 - 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
