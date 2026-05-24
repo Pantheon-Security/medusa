@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.10.0] - 2026-05-24
+
+**Security hardening patch — five fixes from external security review (Codex audit).**
+
+### Fixed
+
+- **VS Code extension command injection** (`medusa-vscode/src/scanner.ts`) — replaced
+  `exec()`/`execAsync()` with `execFile`/`execFileAsync` throughout. Binary path and all
+  arguments are now passed as separate argv arrays and never interpolated into a shell
+  string. Added shell metacharacter validation on `medusaPath` (rejects `;|&\`$()<>`).
+  `scanFile()` scans the file's parent directory and filters results by path, avoiding
+  the need to pass arbitrary filenames to the shell.
+
+- **`--fail-on` silently passed when cached findings existed** (`medusa/cli.py`) —
+  the `total_issues` sum previously skipped results where `r.cached` was truthy.
+  Cached findings now count toward the threshold correctly.
+
+- **`--fail-on` crashed on dict-backed findings** (`medusa/cli.py`) — added
+  `_get_severity(issue)` helper that handles both object-backed (`.severity`) and
+  dict-backed (`.get('severity')`) issue shapes, preventing a `NameError` when the
+  two types were mixed in the same result set.
+
+- **Tool cache returned dummy path instead of real executable** (`medusa/scanners/base.py`) —
+  `_find_tool()` now calls `shutil.which()` to verify a cached tool name resolves to an
+  actual executable on `PATH`. Stale cache entries are evicted and discovery falls through
+  to the full lookup, rather than returning `Path('<cached:tool_name>')` which caused
+  subsequent subprocess calls to fail with `FileNotFoundError`.
+
+- **Scan cache hashed only first 8 KB — missed changes beyond that** (`medusa/core/parallel.py`) —
+  `MedusaCacheManager` gains a `full_hash` flag. When `--fail-on` is active, the scanner
+  now enables full-file hashing (64 KB chunks) so a severity threshold check is never
+  based on a stale truncated hash.
+
+- **User-home MCP configs silently included in every scan** (`medusa/core/parallel.py`) —
+  `~/.config/Claude/claude_desktop_config.json` and `~/.cursor/mcp.json` were unconditionally
+  appended to the file list. They are now opt-in via `--include-user-mcp-configs`.
+
+### Security
+
+- VS Code extension: eliminated OS command injection vector in all three scan entry points
+  (`scanFile`, `scanWorkspace`, `checkInstallation`). CVSS 3.1 estimate: 8.8 (High) → 0.
+- Scanner core: `--fail-on` threshold now reliable in CI pipelines regardless of caching state.
+
 ## [2026.5.9] - 2026-05-20
 
 **Headline:** Agentic-commerce attack coverage — new UCP (Universal Commerce

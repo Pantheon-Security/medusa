@@ -122,7 +122,7 @@ class ScanResult:
 class MedusaCacheManager:
     """Manage file scanning cache for incremental scans"""
 
-    def __init__(self, cache_dir: Path = None):
+    def __init__(self, cache_dir: Path = None, full_hash: bool = False):
         self.cache_dir = cache_dir or Path.home() / ".medusa" / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.cache_file = self.cache_dir / "file_cache.json"
@@ -130,6 +130,7 @@ class MedusaCacheManager:
         self._hmac_key = self._load_or_create_hmac_key()
         self.rule_version = self._compute_rule_fingerprint()
         self.cache: Dict[str, FileMetadata] = self._load_cache()
+        self.full_hash = full_hash
 
     def _load_or_create_hmac_key(self) -> bytes:
         """
@@ -259,13 +260,15 @@ class MedusaCacheManager:
             print(f"⚠️  Cache save error: {e}")
 
     def _get_file_hash(self, file_path: Path) -> str:
-        """Calculate file hash (first 8KB for speed)"""
+        """Calculate file hash — full file when full_hash is set, else first 8KB."""
         hasher = hashlib.sha256()
         try:
             with open(file_path, 'rb') as f:
-                # Hash first 8KB for speed (detects most changes)
-                chunk = f.read(8192)
-                hasher.update(chunk)
+                if self.full_hash:
+                    for chunk in iter(lambda: f.read(65536), b''):
+                        hasher.update(chunk)
+                else:
+                    hasher.update(f.read(8192))
             return hasher.hexdigest()[:16]
         except Exception:
             return ""
@@ -382,12 +385,15 @@ class MedusaParallelScanner:
                  workers: int = None,
                  use_cache: bool = True,
                  quick_mode: bool = False,
-                 extra_excludes: list = None):
+                 extra_excludes: list = None,
+                 full_hash: bool = False,
+                 include_user_mcp_configs: bool = False):
         self.project_root = project_root.absolute()
         self.workers = workers or cpu_count()
         self.use_cache = use_cache
         self.quick_mode = quick_mode
-        self.cache = MedusaCacheManager() if use_cache else None
+        self.cache = MedusaCacheManager(full_hash=full_hash) if use_cache else None
+        self.include_user_mcp_configs = include_user_mcp_configs
         self.force_ascii = not self._is_modern_terminal()
 
         # Load configuration from medusa.yml (or .medusa.yml)
@@ -675,15 +681,16 @@ class MedusaParallelScanner:
                     _maybe_add(file_path)
 
         # -- Direct path checks outside the target directory -------------
-        # User home MCP configs (Claude Desktop, Cursor)
-        home = Path.home()
-        user_mcp_configs = [
-            home / '.config' / 'Claude' / 'claude_desktop_config.json',
-            home / '.cursor' / 'mcp.json',
-        ]
-        for mcp_file in user_mcp_configs:
-            if mcp_file.exists() and mcp_file.is_file():
-                _maybe_add(mcp_file)
+        # User home MCP configs (Claude Desktop, Cursor) — opt-in only
+        if self.include_user_mcp_configs:
+            home = Path.home()
+            user_mcp_configs = [
+                home / '.config' / 'Claude' / 'claude_desktop_config.json',
+                home / '.cursor' / 'mcp.json',
+            ]
+            for mcp_file in user_mcp_configs:
+                if mcp_file.exists() and mcp_file.is_file():
+                    _maybe_add(mcp_file)
 
         return sorted(files)
 

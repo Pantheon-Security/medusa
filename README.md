@@ -14,7 +14,7 @@
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
 **🔐 `medusa secrets scan` — Find leaked API keys in your Claude / Cursor / Copilot / shell history. 21 issuer types. Interactive in-place redaction.**
-**✨ v2026.5.9: Agentic-commerce coverage — UCPScanner + AP2Scanner + 45 hand-tuned positive-pattern rules**
+**✨ v2026.5.10: Security hardening — command injection fix in VS Code extension, `--fail-on` cached-findings bug, tool cache stale-path fix**
 
 ---
 
@@ -39,22 +39,23 @@ MEDUSA is an AI-first security scanner with **9,600+ detection patterns** that w
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.9
+### 🆕 What's New in v2026.5.10
 
-**Agentic-commerce attack coverage. UCP and AP2 are the protocols AI agents will use to spend money on your behalf — they ship with new attack surface.**
+**Security hardening patch — five fixes from external security review.**
 
-| | What's New | Details |
+| | Fix | Details |
 |---|---|---|
-| 🛒 | **`UCPScanner`** | New scanner for Google's Universal Commerce Protocol — detects UCP discovery served over plain HTTP, hardcoded UCP signing keys, unbounded agent mandates, missing fraud signals, malicious JSON-LD `@context` injection, PCI data leakage in agent code |
-| 💳 | **`AP2Scanner`** | New scanner for the CSA Agent Payments Protocol — catches long-lived payment tokens, signature-verify bypass (`verify=False`), private keys loaded from filesystem, alg downgrade (`HS256` etc.), card-data-in-logs |
-| 🎯 | **`PISCANCodeScanner`** | Dedicated prompt-injection-in-code scanner for `.py`/`.js`/`.ts` files importing LLM SDKs (`openai`, `anthropic`, `langchain`, `llama_index`). Detects raw user input flowing into `messages.append`, f-string prompt interpolation, untrusted data → `chat.completions.create`, raw HTTP tool output piped into prompts |
-| 🛠️ | **45 hand-tuned rules, positive-pattern shape** | Across UCP / AP2 / MCP-SCAN / PI-SCAN / TUA-SCAN. Validated against **12 real UCP/AP2 codebases** (agentic-commerce-skills-plugins, AP2, fastucp, Retail-Agentic-Commerce, ai-shopping-agent-ucp, etc.) and 4 real MCP servers (IMCP, hexstrike-ai, damn-vulnerable-MCP-server, MasterMCP) |
-| 🐛 | **JSON `--format json` now includes `rule_id`** | Previously dropped during serialisation, breaking per-rule analytics and post-hoc auditing. Two-line fix in `medusa/core/parallel.py`. |
-
-[**📖 Full UCP + AP2 scanner guide →**](docs/UCP_AP2_SCANNERS.md)
+| 🔒 | **VS Code extension command injection** | `exec()` replaced with `execFile` throughout `scanner.ts` — binary path and args passed as argv array, never interpolated into a shell string. Shell metachar validation added on `medusaPath`. |
+| 🐛 | **`--fail-on` ignored cached findings** | `total_issues` count now includes cached scan results. Previously, re-scanning a cached file with high-severity findings would silently pass `--fail-on high`. |
+| 🐛 | **`--fail-on` crashed on dict-backed findings** | Added `_get_severity()` helper that handles both object (`.severity`) and dict (`.get('severity')`) issue shapes. Prevented a `NameError` crash on mixed-backend scan results. |
+| 🔒 | **Tool cache returned stale dummy path** | `_find_tool()` now calls `shutil.which()` to verify a cached tool actually exists on PATH before trusting the cache. Stale cache entries are removed and discovery falls through. |
+| 🔒 | **Full-file hash when `--fail-on` is active** | Cache previously hashed only the first 8 KB of each file. Changes beyond 8 KB were invisible to `--fail-on` threshold checks. Full-file hashing now enabled automatically when `--fail-on` is set. |
+| 🔒 | **User-home MCP configs opt-in** | `~/.config/Claude/claude_desktop_config.json` and `~/.cursor/mcp.json` are no longer silently included in every scan. Require `--include-user-mcp-configs` to scan them. |
 
 <details>
 <summary>Previous releases</summary>
+
+**v2026.5.9** — Agentic-commerce coverage: UCPScanner + AP2Scanner + 45 hand-tuned positive-pattern rules.
 
 **v2026.5.8** — `medusa secrets`: scan AI chat & shell histories for leaked credentials (21 issuer types) with interactive `[y/n/s/a/q]` purge.
 

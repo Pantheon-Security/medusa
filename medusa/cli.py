@@ -1150,6 +1150,15 @@ def _install_tools(tools: list, use_latest: bool = False):
     )
 
 
+def _get_severity(issue):
+    """Return severity from either an object or dict-backed finding."""
+    if hasattr(issue, 'severity'):
+        return issue.severity
+    if isinstance(issue, dict):
+        return issue.get('severity')
+    return None
+
+
 def print_banner():
     """Print MEDUSA banner with large block-style ASCII logo"""
     logo = """[dark_green]
@@ -1242,7 +1251,9 @@ def main(ctx, version):
               help='Clone and scan a remote git repo (URL or user/repo shorthand)')
 @click.option('--allow-any-host', 'allow_any_host', is_flag=True, default=False,
               help='Allow --git to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org). Private IPs are still rejected.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host):
+@click.option('--include-user-mcp-configs', 'include_user_mcp_configs', is_flag=True, default=False,
+              help='Include user-home MCP config files (~/.config/Claude, ~/.cursor) in the scan.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs):
     """
     Scan a directory or file for security issues.
 
@@ -1449,7 +1460,9 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             workers=workers,
             use_cache=not no_cache and not force,
             quick_mode=quick,
-            extra_excludes=list(exclude) if exclude else None
+            extra_excludes=list(exclude) if exclude else None,
+            full_hash=bool(fail_on),
+            include_user_mcp_configs=include_user_mcp_configs,
         )
 
         # Find files
@@ -1483,9 +1496,9 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             threshold_index = severity_order.index(threshold)
             allowed_severities = {s for s in severity_order[:threshold_index + 1]}
             total_issues = sum(
-                1 for r in results if not r.cached
+                1 for r in results
                 for issue in r.issues
-                if issue.severity in allowed_severities
+                if _get_severity(issue) in allowed_severities
             )
             if total_issues > 0:
                 console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
@@ -1853,6 +1866,8 @@ def _scan_git_repo(
             use_cache=not no_cache and not force,
             quick_mode=quick,
             extra_excludes=list(exclude) if exclude else None,
+            full_hash=bool(fail_on),
+            include_user_mcp_configs=include_user_mcp_configs,
         )
 
         files = scanner.find_scannable_files()
@@ -1883,9 +1898,9 @@ def _scan_git_repo(
             threshold_index = severity_order.index(threshold)
             allowed_severities = {s for s in severity_order[:threshold_index + 1]}
             total_issues = sum(
-                1 for r in results if not r.cached
+                1 for r in results
                 for issue in r.issues
-                if issue.severity in allowed_severities
+                if _get_severity(issue) in allowed_severities
             )
             if total_issues > 0:
                 console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
