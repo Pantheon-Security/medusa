@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2026.5.10.0] - 2026-05-24
+## [2026.5.10] - 2026-05-24
 
 **Security hardening patch — five fixes from external security review (Codex audit).**
 
