@@ -466,6 +466,106 @@ class TestDirectPatternMatching:
 # Run with:  pytest -m slow tests/test_git_scan.py
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# _scan_git_repo regression tests — exercises the full --git code path
+# without network access by mocking subprocess.run (git clone).
+# ---------------------------------------------------------------------------
+
+class TestScanGitRepoRegression:
+    """
+    Regression suite for the _scan_git_repo code path.
+
+    These tests mock the git clone so they run offline and fast, but they
+    exercise the real _scan_git_repo function to catch parameter-wiring bugs
+    like the v2026.5.10 NameError (include_user_mcp_configs not forwarded).
+    """
+
+    @pytest.fixture()
+    def mock_clone(self, tmp_path, monkeypatch):
+        """
+        Patch subprocess.run so 'git clone' copies the malicious_repo fixture
+        into the temp dir instead of hitting the network.
+        """
+        import subprocess
+
+        def fake_run(cmd, **kwargs):
+            if "clone" in cmd:
+                dest = cmd[-1]
+                shutil.copytree(str(MALICIOUS_REPO), dest, dirs_exist_ok=True)
+                result = subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+                return result
+            return subprocess.run.__wrapped__(cmd, **kwargs)
+
+        monkeypatch.setattr("medusa.cli.subprocess.run", fake_run)
+        return tmp_path
+
+    def test_scan_git_repo_no_nameerror(self, mock_clone):
+        """
+        _scan_git_repo must not raise NameError for include_user_mcp_configs.
+
+        Regression for v2026.5.10: the parameter was accepted by scan() but
+        not forwarded to _scan_git_repo, causing a NameError on every --git call.
+        """
+        from medusa.cli import _scan_git_repo
+
+        # Should not raise NameError — if it does, the bug is back
+        try:
+            _scan_git_repo(
+                git_url="https://github.com/example/repo",
+                workers=1,
+                quick=False,
+                force=False,
+                no_cache=True,
+                fail_on=None,
+                output=str(mock_clone / "reports"),
+                output_formats=("json",),
+                no_report=True,
+                exclude=(),
+                allow_any_host=False,
+                include_user_mcp_configs=False,
+            )
+        except NameError as e:
+            pytest.fail(f"NameError in _scan_git_repo (regression): {e}")
+        except SystemExit:
+            pass  # acceptable — scan may exit cleanly after running
+
+    def test_scan_git_repo_accepts_include_user_mcp_configs_true(self, mock_clone):
+        """include_user_mcp_configs=True must also be accepted without error."""
+        from medusa.cli import _scan_git_repo
+
+        try:
+            _scan_git_repo(
+                git_url="https://github.com/example/repo",
+                workers=1,
+                quick=False,
+                force=False,
+                no_cache=True,
+                fail_on=None,
+                output=str(mock_clone / "reports"),
+                output_formats=("json",),
+                no_report=True,
+                exclude=(),
+                allow_any_host=False,
+                include_user_mcp_configs=True,
+            )
+        except NameError as e:
+            pytest.fail(f"NameError with include_user_mcp_configs=True: {e}")
+        except SystemExit:
+            pass
+
+    def test_scan_git_repo_signature_has_include_user_mcp_configs(self):
+        """_scan_git_repo signature must declare include_user_mcp_configs."""
+        import inspect
+        from medusa.cli import _scan_git_repo
+        params = inspect.signature(_scan_git_repo).parameters
+        assert "include_user_mcp_configs" in params, (
+            "_scan_git_repo is missing include_user_mcp_configs parameter"
+        )
+        assert params["include_user_mcp_configs"].default is False, (
+            "include_user_mcp_configs should default to False"
+        )
+
+
 @pytest.mark.slow
 class TestScanFileIntegration:
     """Test the full scan_file() pipeline on fixture paths.
