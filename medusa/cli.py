@@ -1285,6 +1285,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             output_formats=output_formats,
             no_report=no_report,
             exclude=exclude,
+            include_user_mcp_configs=include_user_mcp_configs,
         )
         return
 
@@ -1725,6 +1726,7 @@ def _scan_git_repo(
     no_report: bool,
     exclude: tuple[str, ...],
     allow_any_host: bool = False,
+    include_user_mcp_configs: bool = False,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
