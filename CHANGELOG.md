@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.11] - 2026-05-27
+
+**Hotfix: `medusa scan --git` crashed on every invocation in v2026.5.10.**
+
+### Fixed
+
+- **`medusa scan --git` NameError on every invocation** (`medusa/cli.py`) —
+  `_scan_git_repo()` was missing the `include_user_mcp_configs` parameter in both its
+  function signature and the call site in `scan()`. Every `medusa scan --git <repo>`
+  invocation in v2026.5.10 failed immediately with
+  `NameError: name 'include_user_mcp_configs' is not defined` before scanning a single
+  file. Fixed by adding the parameter (defaulting to `False`) to both signature and
+  call site.
+
+### Tests
+
+- **`TestScanGitRepoRegression`** (`tests/test_git_scan.py`) — three regression tests
+  locking in the `--git` fix: end-to-end invocation test with mocked clone, signature
+  inspection test, and `include_user_mcp_configs=True` path test.
+
+- **`tests/test_ship_gate.py`** — 54 new tests covering every major user-facing feature:
+  `--fail-on`, `--exclude`, `--workers`, `--no-report`, `--no-cache`, `--quick`,
+  `--force`, `--include-user-mcp-configs`, all output formats (`json`/`markdown`/`all`),
+  custom `--output` paths, `--no-ai-safe`, HMAC tamper detection, `full_hash` cache
+  mode, rule fingerprint invalidation, `secrets scan`/`purge` safety gates, and
+  `MedusaParallelScanner` direct constructor params. These tests are now part of the
+  `/medusa-ship` pre-release gate.
+
 ## [2026.5.10] - 2026-05-24
 
 **Security hardening patch — five fixes from external security review (Codex audit).**
