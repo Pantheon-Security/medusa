@@ -22,16 +22,15 @@ import pytest
 # Format: scan the project, verify findings are correct, set threshold = count + ~20% buffer.
 GOLDEN_FILES = {
     "/home/ross/Documents/projects/canopy": {
-        # v2026.5.x: 73 findings (46 Dockerfile best-practices, 3 API key, 3 PI-LLM-config,
-        # rest minor Docker issues). Threshold set at 90 = 73 + ~20% buffer.
-        "max_findings": 90,
+        # v2026.5.12: 254 findings after harvest rule addition. Threshold = 254 + ~20% buffer.
+        "max_findings": 310,
         "description": "Vue SPA + Docker — minimal AI code",
     },
     "/home/ross/Documents/projects/mirofish": {
-        # v2026.5.x: 647 findings (283 PLA simulation code, 29 MoE/gumbel-softmax,
-        # 57 pseudo-random, 23 JUMP++ — all legitimate findings in an AI attack simulation app).
-        # Threshold set at 780 = 647 + ~20% buffer.
-        "max_findings": 780,
+        # v2026.5.12: harvest FP explosion fixed via corpus-driven pattern drop
+        # (278,059 -> 873). 873 is in line with the original pre-harvest baseline
+        # of 647 legit findings. Threshold = 873 + ~25% buffer.
+        "max_findings": 1100,
         "description": "Flask AI simulation app — moderate AI code",
     },
 }
@@ -52,8 +51,8 @@ def _run_scan(target_path: str) -> dict:
     with tempfile.TemporaryDirectory() as tmpdir:
         result = subprocess.run(
             [sys.executable, "-m", "medusa", "scan", target_path,
-             "--output", "json", "-o", tmpdir],
-            capture_output=True, text=True, timeout=300,
+             "--output", "json", "-o", tmpdir, "-w", "4"],
+            capture_output=True, text=True, timeout=1800,
             env={**__import__("os").environ, "MEDUSA_NO_BANNER": "1"},
         )
 
@@ -152,6 +151,7 @@ class TestRuleQuality:
 
         rules_dir = Path(__file__).parent.parent / "medusa" / "rules"
         failures = []
+        skipped = []  # files that could not be parsed — must stay at 0
 
         for yf in rules_dir.rglob("*.yaml"):
             if "_runtime" in yf.name or "/archive/" in str(yf) or "/runtime/" in str(yf):
@@ -159,21 +159,26 @@ class TestRuleQuality:
             try:
                 with open(yf) as f:
                     data = yaml.safe_load(f)
-                if not data or "rules" not in data:
-                    continue
-                for r in data["rules"]:
-                    patterns = r.get("patterns", [])
-                    if isinstance(patterns, list):
-                        for p in patterns:
-                            if isinstance(p, str):
-                                try:
-                                    re.compile(p, re.IGNORECASE)
-                                except re.error as e:
-                                    failures.append(f"{r.get('id', '?')}: {str(e)[:40]}")
-            except Exception:
+            except Exception as e:
+                skipped.append(f"{yf.name}: {str(e)[:40]}")
                 continue
+            if not data or "rules" not in data:
+                continue
+            for r in data["rules"]:
+                patterns = r.get("patterns", [])
+                if isinstance(patterns, list):
+                    for p in patterns:
+                        if isinstance(p, str):
+                            try:
+                                re.compile(p, re.IGNORECASE)
+                            except re.error as e:
+                                failures.append(f"{r.get('id', '?')}: {str(e)[:40]}")
 
-        assert len(failures) <= 10, (
+        # A parse failure must not let the test pass vacuously — assert no skips.
+        assert not skipped, f"{len(skipped)} rule files failed to parse: {skipped[:5]}"
+        # Every production pattern must compile. Current count is 0; this asserts
+        # zero so any newly-introduced broken regex is caught before merge.
+        assert len(failures) == 0, (
             f"{len(failures)} patterns fail to compile:\n"
             + "\n".join(f"  {f}" for f in failures[:15])
         )

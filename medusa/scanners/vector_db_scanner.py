@@ -142,6 +142,9 @@ class VectorDBScanner(BaseScanner):
     def __init__(self):
         super().__init__()
 
+    def is_available(self) -> bool:
+        return True  # pure-Python scanner, no external tool required
+
     def get_tool_name(self) -> str:
         return "python"
 

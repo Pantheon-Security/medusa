@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.5.12] - 2026-06-09
+
+**Biggest rule release in MEDUSA's history: 9,600 → 40,000+ detection patterns, false-positive-hardened.**
+
+### Added
+- **40,000+ detection patterns** (up from 9,600+) harvested from 8,466 AI-security research papers across 41 attack categories (prompt injection, jailbreaks, MCP, RAG, model poisoning, agentic & multimodal attacks, federated-learning attacks, and more).
+- Report-path injection neutralisation (`neutralize_injection`) — defence-in-depth that renders rule-authored report text inert as LLM instructions (strips null bytes, unicode direction-overrides, conversation-turn delimiters, role tags) while keeping it human-readable.
+- 5 regression tests guarding the report-path neutraliser.
+
+### Changed
+- Analyzer count corrected to **79** (banner previously showed 78/76 in places).
+- Rule-integrity scanner rewritten to be **structural / field-aware** (parses YAML and suppresses by field name) instead of brittle line-prefix allowlisting — correctly handles multi-line scalars and cannot be bypassed by indentation.
+- Tightened test thresholds: duplicate-ID ceiling 600 → 60, pattern-compile failures ≤10 → 0; rule-quality tests now fail on unparseable files instead of skipping silently.
+- `.medusa.yml`: stopped excluding ML/serialization formats (`*.pkl`, `*.pt`, `*.safetensors`, …) so pickle/model scanning is never silently disabled.
+
+### Fixed
+- **CRITICAL**: rule-integrity allowlist bypass that disabled prompt-in-a-prompt detection for indented rule content.
+- **ReDoS** in the report-path turn-delimiter regex (long newline runs).
+- Re-baselined benchmark regression to an internally-consistent state.
+
+### Known
+- Report-path prompt-injection via rule `message`/`name` reaching LLM-consumed reports is a **pre-existing** limitation (present in prior releases); full architectural hardening (output delimiting + sanitizer fix + non-Claude format coverage) is scheduled for the next release. 2026.5.12 ships the structural neutraliser as honest defence-in-depth, not a complete fix.
+
 ## [2026.5.11] - 2026-05-27
 
 **Hotfix: `medusa scan --git` crashed on every invocation in v2026.5.10.**

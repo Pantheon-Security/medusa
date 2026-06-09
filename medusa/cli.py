@@ -1171,7 +1171,7 @@ def print_banner():
 """
     # Version line: .2.0 in EXACT same cyan as Target:/Mode:
     version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
-    line2 = "78 Analyzers | 9,600+ Rules | AI Security Detection"
+    line2 = "79 Analyzers | 40,000+ Rules | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1187,11 +1187,11 @@ def print_banner():
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]78 Analyzers | 9,600+ Rules | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]79 Analyzers | 40,000+ Rules | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 9,600+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 40,000+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1201,7 +1201,7 @@ def main(ctx, version):
     """
     MEDUSA - AI Security Scanner
 
-    9,600+ AI security detection patterns with 78 specialized analyzers.
+    40,000+ AI security detection patterns with 79 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
@@ -2482,7 +2482,7 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.5.1 works out of the box with 9,600+ built-in AI security
+    MEDUSA v2026.5.1 works out of the box with 40,000+ built-in AI security
     rules. External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
@@ -2509,7 +2509,7 @@ def install(check, ai_tools, debug, install_all):
     # Handle deprecated --all flag
     if install_all:
         console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
-        console.print("[dim]MEDUSA now focuses on AI security rules (9,600+ patterns).[/dim]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (40,000+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
         console.print("  medusa install --ai-tools    # Install AI security tools")
@@ -2664,7 +2664,7 @@ def _show_install_check():
     )
 
     console.print(f"\n[bold dark_green]MEDUSA v2026.5.1 - AI Security Scanner[/bold dark_green]")
-    console.print(f"[dim]Works out of the box with 9,600+ built-in AI security rules[/dim]\n")
+    console.print(f"[dim]Works out of the box with 40,000+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
     audit = audit_environment()

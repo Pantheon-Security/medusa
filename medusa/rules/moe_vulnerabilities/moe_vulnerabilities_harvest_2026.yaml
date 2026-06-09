@@ -1,0 +1,452 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: moe_vulnerabilities
+rules:
+- id: MEDUSA-MOE-SCAN-151
+  name: moe-cache-occupancy-spy-loop
+  description: Detects code implementing a cache occupancy side-channel (L1 I-cache
+    or L2 D-cache) to monitor MoE expert execution times, as described in MoEcho paper.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)\b(?:rdtsc|__rdtsc|clock_gettime|gettimeofday)\b.{0,40}\b(?:l1|level1|i.?cache|instruction.?cache|l2|level2|d.?cache|data.?cache)\b
+  - (?i)\b(?:cache_occupancy|monitor_cache|spy_cache|timing_loop)\b.{0,60}(?:expert|moe|load|token)\b
+  - (?i)(?:for\s+.{0,40}\s+in\s+range\(64\)|while.{0,40}true).{0,80}(?:rdtsc|clock_gettime|load_time|access_time)
+  file_types:
+  - '*.c'
+  - '*.h'
+  - '*.cpp'
+  - '*.py'
+  message: Cache occupancy monitoring loop detected; may be used to spy on MoE expert
+    execution timing to infer user prompts.
+  remediation: '- Restrict access to high-resolution timers (e.g., disable rdtsc for
+    non-root users).
+
+    - Use noise injection or constant-time execution for MoE experts.
+
+    - Isolate attacker and victim processes to different CPU cores with cache partitioning.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-385
+  mitre_attack: T1059
+  source_paper: 'Ding et al. (2025) -- MoEcho: Exploiting Side-Channel Attacks to
+    Compromise U | MoEcho paper - Section 4.1.1: Cache Occupancy Channels for expert
+    load inference on CPU, ASR up to 99.8% for prompt inference.'
+  fp_guards:
+  - rdtsc called for benchmarking matrix multiplication without cache monitoring
+  - clock_gettime used for general performance profiling, not tied to any expert
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-152
+  name: moe-pageout-reload-attack
+  description: Detects code that uses madvise MADV_PAGEOUT and timed reload to infer
+    MoE expert activation sequence, as described in MoEcho paper.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)\bmadvise\b.{0,40}\bMADV_PAGEOUT\b
+  - (?i)\b(?:pageout|page_out)\b.{0,40}\b(?:expert|module|layer|model)\b
+  - (?i)(?:for\s+.{0,40}\s+in\s+range\(64\)|while.{0,40}true).{0,80}(?:madvise|MADV_PAGEOUT|reload_time|access_time)
+  file_types:
+  - '*.c'
+  - '*.h'
+  - '*.cpp'
+  - '*.py'
+  message: Pageout+Reload attack pattern detected; may be used to determine which
+    MoE experts are activated by timing memory reloads.
+  remediation: '- Disable or restrict madvise MADV_PAGEOUT for non-privileged processes.
+
+    - Use memory encryption or obfuscate expert memory layout.
+
+    - Randomize expert memory page placement.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-385
+  mitre_attack: T1059
+  source_paper: 'Ding et al. (2025) -- MoEcho: Exploiting Side-Channel Attacks to
+    Compromise U | MoEcho paper - Section 4.1.2: Pageout+Reload side-channel for expert
+    sequence inference on CPU, 92.8% response reconstruction ASR.'
+  fp_guards:
+  - madvise used with MADV_DONTNEED for memory optimization, not for timing
+  - madvise MADV_PAGEOUT called in a swap management routine without reload timing
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-153
+  name: moe-gpu-tlb-evict-reload
+  description: Detects code that implements a TLB Evict+Reload side-channel on GPUs
+    to infer MoE expert sequence, as described in MoEcho paper (Section 4.2.2).
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)\bload\s+dummy\s+buffer\b.{0,60}\btlb\b
+  - (?i)\b(?:evict|flush).{0,40}\btlb\b.{0,40}(?:expert|module|block)\b
+  - (?i)(?:for\s+.{0,40}\s+in\s+range\(64\)|while.{0,40}true).{0,80}(?:reload_time|access_time|tlb_hit|tlb_miss)
+  file_types:
+  - '*.cu'
+  - '*.cuh'
+  - '*.c'
+  - '*.cpp'
+  message: GPU TLB Evict+Reload side-channel pattern detected; may be used to determine
+    activated MoE experts.
+  remediation: '- Disable or restrict access to GPU performance counters (e.g., Nsight).
+
+    - Use TLB partitioning or randomization of expert memory pages.
+
+    - Add noise to memory access patterns.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-385
+  mitre_attack: T1059
+  source_paper: 'Ding et al. (2025) -- MoEcho: Exploiting Side-Channel Attacks to
+    Compromise U | MoEcho paper - Section 4.2.2: TLB Evict+Reload side-channel on
+    GPU for expert sequence inference.'
+  fp_guards:
+  - Loading a large buffer for data initialization before kernel launch, not followed
+    by timing
+  - Measuring access times for general performance optimization unrelated to experts
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-154
+  name: moe-gpu-performance-counter-thread-monitoring
+  description: Detects code that uses GPU performance counters (e.g., via Nsight)
+    to monitor thread count per expert activation kernel to infer expert load, as
+    described in MoEcho paper (Section 4.2.1).
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)\b(?:nsight|nvtx|cupti|cudaProfilerStart|cudaProfilerStop)\b
+  - (?i)\b(?:thread.?count|num_threads|block_dim|grid_dim)\b.{0,40}\b(?:expert|activation|selu|linear)\b
+  - (?i)\b(?:performance.?counter|perf_events|profiling)\b.{0,40}\b(?:expert|load|token)\b
+  file_types:
+  - '*.cu'
+  - '*.cuh'
+  - '*.py'
+  message: GPU performance counter usage to monitor expert thread counts detected;
+    may enable expert load inference.
+  remediation: '- Restrict access to GPU profiling tools (Nsight, CUPTI) to privileged
+    users.
+
+    - Obfuscate thread counts by adding dummy threads.
+
+    - Use constant-time execution across experts.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-385
+  mitre_attack: T1059
+  source_paper: 'Ding et al. (2025) -- MoEcho: Exploiting Side-Channel Attacks to
+    Compromise U | MoEcho paper - Section 4.2.1: GPU Performance Counter for expert
+    load inference, Pearson correlation = 1 with true token load.'
+  fp_guards:
+  - Using Nsight for general GPU performance tuning without targeting expert modules
+  - Profiling all kernels for optimization, not specifically monitoring activation
+    functions
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-155
+  name: sael-adaptive-moe-gating-topk-config
+  description: Detect SAEL Adaptive MoE Gating Network configuration with explicit
+    TopK=3 and Softmax normalization, indicating dynamic feature weighting for smart
+    contract vulnerability detection.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(?:from|import)\s+torch\.nn\.functional\s+.{0,40}\bsoftmax\b
+  - (?i)TopK\s*\(\s*[^)]*,\s*k\s*=\s*3\s*\)
+  - (?i)\.topk\s*\(\s*3\s*\)
+  - (?i)Softmax\(TopK\([^)]+
+  file_types:
+  - '*.py'
+  message: SAEL Adaptive MoE Gating Network configuration with TopK=3 detected
+  remediation: '- Validate that the TopK parameter is not set to 3 unless intended
+
+    - Restrict access to Gating Network configuration files
+
+    - Use secure defaults with lower TopK values if possible'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Adaptive MoE Gating Network with TopK=3, Softmax normalization,
+    k=3 aligns with three feature types (raw code, explanations, predictions).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how TopK selection works in MoE
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MOE-SCAN-156
+  name: sael-multi-head-self-attention-code
+  description: Detect Multi-Head Self-Attention mechanism used in SAEL for cross-feature
+    relationship enhancement.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)MultiheadAttention\s*\(\s*d_model\s*=\s*\d+
+  - (?i)(?:from\s+torch\.nn\.modules\.activation|import\s+MultiheadAttention)
+  - (?i)\.multihead_attention\s*\(
+  - (?i)self\.attention\s*=\s*MultiheadAttention
+  file_types:
+  - '*.py'
+  message: SAEL Multi-Head Self-Attention mechanism detected
+  remediation: '- Ensure Multi-Head Self-Attention is not used for feature weighting
+    without proper security review
+
+    - Validate attention head count
+
+    - Restrict access to model configuration'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Multi-Head Self-Attention processes query, key, value matrices
+    in parallel; concatenates outputs. Used for cross-feature relationships.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how multi-head attention works in transformers
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MOE-SCAN-157
+  name: sael-prompt-template-reentrancy
+  description: Detect prompt template structure for reentrancy vulnerability detection
+    as used in SAEL, with mimic-in-the-background and chain-of-thought reasoning.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)"Reentrancy Vulnerability"\s*:\s*"This occurs when a function can be interrupted
+    and called again
+  - (?i)reentrancy\s*vulnerability\s*:?\s*external\s*call[s]?\s+in\s+loop[s]?
+  - (?i)mimic.{0,20}in.{0,20}the.{0,20}background
+  - (?i)"vulnerability_detected"\s*:\s*<0 or 1>
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: SAEL reentrancy prompt template with mimic-in-the-background detected
+  remediation: '- Review prompt for potential bias
+
+    - Ensure proper output formatting validation
+
+    - Limit number of background mimic calls to prevent resource exhaustion'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Prompt design for reentrancy includes detailed definition, characteristics
+    (external calls in loops), chain-of-thought reasoning, mimic-in-the-background
+    approach with 5 responses.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how to detect reentrancy vulnerabilities
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-158
+  name: sael-prompt-tuning-cloze-template
+  description: 'Detect cloze-style prompt template used in SAEL prompt-tuning: ''[X]
+    The code is [Z]'' with verbalizer mapping {Vulnerable: [defective, bad], Secure:
+    [clean, perfect]}.'
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)\[X\]\s+The code is\s+\[Z\]
+  - (?i)defective.{0,40}bad
+  - (?i)clean.{0,40}perfect
+  - (?i)verbalizer\s*=\s*\{[^}]*defective[^}]*bad[^}]*\}
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: SAEL prompt-tuning cloze template detected
+  remediation: '- Ensure prompt-tuning templates are not exposed to untrusted input
+
+    - Validate verbalizer mappings'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Cloze template ''[X] The code is [Z]'', verbalizer V = {Vulnerable:
+    [defective, bad], Secure: [clean, perfect]}.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - defective parts were cleaned and perfected
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-159
+  name: sael-loss-function-formulation
+  description: Detect SAEL loss function formulation with feature weight adjustment,
+    overall cross-entropy, and weight regularization components.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)Lfeature\s*=\s*\w+\s*\*\s*Lcross_entropy
+  - (?i)Lpred\s*=\s*Lcross_entropy\s*\(\s*Ofinal\s*,
+  - (?i)Lreg\s*=\s*[\w\.]+\s*\(\s*∥w'_raw\s*-\s*w_raw
+  - (?i)L_total\s*=\s*\w+\s*\*\s*\(\s*Lfeature\s*\+\s*Lreg\s*\)\s*\+\s*\(\s*1\s*-\s*\w+\s*\)\s*\*\s*Lpred
+  file_types:
+  - '*.py'
+  message: SAEL adaptive MoE loss function formulation detected
+  remediation: '- Ensure loss function parameters are not exposed to adversarial input
+
+    - Validate weight update gradients'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Loss function L_total = α·(L_feature + L_reg) + (1-α)·L_pred;
+    L_feature uses w_i'' weights; L_pred overall cross-entropy; L_reg weight regularization.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - the total loss function is a weighted combination
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-160
+  name: sael-weight-update-gradient-descent
+  description: 'Detect weight update formula used in SAEL: w_i'' := w_i'' - η · ∂L_total/∂w_i''
+    using gradient descent.'
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)w'_i\s*:=\s*w'_i\s*-\s*η\s*·\s*∂L_total\s*/\s*∂w'_i
+  - (?i)w\w+_raw\s*=\s*w\w+_raw\s*-\s*learning_rate\s*\*\s*grad
+  - (?i)\.grad\s*\.zero_\(\)
+  - (?i)optimizer\.step\(\)\s*#\s*weight.update
+  file_types:
+  - '*.py'
+  message: SAEL gradient descent weight update detected
+  remediation: '- Ensure weight update is not manually overridden
+
+    - Use standard optimizer with safeguards'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: w_i'' := w_i'' - η · ∂L_total/∂w_i'' using gradient descent.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - weight updates are performed by the optimizer
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-161
+  name: sael-mimic-in-background-five-times
+  description: Detect SAEL's mimic-in-the-background approach where LLM generates
+    exactly five responses per prompt and selects the majority answer.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)mimic.{0,30}background.{0,30}five
+  - (?i)generate.{0,20}five.{0,20}response
+  - (?i)most.{0,10}frequently.{0,10}appearing.{0,10}answer
+  - (?i)majority.{0,20}vote.{0,40}five
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: SAEL mimic-in-the-background with 5 responses detected
+  remediation: '- Limit number of background calls to prevent rate limiting
+
+    - Cache responses if possible'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: mimic-in-the-background approach generating five responses, selects
+    most frequently appearing answer for reliability.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - the model was run five times for evaluation
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-162
+  name: sael-feature-concatenation-hraw-hexpl-hpred
+  description: Detect feature concatenation pattern in SAEL where h_raw, h_expl, h_pred
+    are concatenated into combined feature vector x.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)(?:torch\.cat|\bcat\b)\(\[.{0,40}hraw.{0,40}hexpl.{0,40}hpred\]
+  - (?i)hraw\s*=\s*CodeT5
+  - (?i)hexpl\s*=\s*T5
+  - (?i)hpred\s*=\s*(?:one_hot|embedding)
+  file_types:
+  - '*.py'
+  message: SAEL feature concatenation (h_raw, h_expl, h_pred) detected
+  remediation: '- Validate feature dimensions before concatenation
+
+    - Ensure embeddings are properly normalized'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: x = [h_raw, h_expl, h_pred] concatenated; h_raw from CodeT5,
+    h_expl from T5, h_pred from LLM prediction embeddings.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - concat arrays in numpy
+  pipeline_confidence: high
+- id: MEDUSA-MOE-SCAN-163
+  name: sael-expert-models-three-types
+  description: 'Detect the three expert model types in SAEL: Raw Code Expert, Explanation
+    Expert, Prediction Expert.'
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)Raw Code Expert|Explanation Expert|Prediction Expert
+  - (?i)class\s+RawCodeExpert|class\s+ExplanationExpert|class\s+PredictionExpert
+  - (?i)expert[_\.]raw|expert[_\.]expl|expert[_\.]pred
+  file_types:
+  - '*.py'
+  message: SAEL three expert models (raw code, explanation, prediction) detected
+  remediation: '- Ensure each expert''s outputs are validated
+
+    - Check for gradient isolation between experts'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Three experts: Raw Code Expert (syntactic patterns in h_raw),
+    Explanation Expert (contextual insights from h_expl), Prediction Expert (high-level
+    semantic patterns from h_pred).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - the raw code was analyzed by an expert
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-164
+  name: sael-weighted-accuracy-matrix
+  description: Detect accuracy matrix formulation in SAEL where expert outputs are
+    combined into matrix M and weighted by gating vector G(x).
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)M\s*=\s*\[\s*O1\s*,\s*O2\s*,\s*O3\s*\]
+  - (?i)M_weighted\s*=\s*G\(x\)\s*·\s*M
+  - (?i)torch\.stack\(\[.{0,40}expert.{0,40}output
+  - (?i)accuracy_matrix.{0,40}expert
+  file_types:
+  - '*.py'
+  message: SAEL weighted accuracy matrix and gating product detected
+  remediation: '- Validate matrix dimensions
+
+    - Check that gating vector sums to 1'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: M = [O1, O2, O3]; M_weighted = G(x) · M; final prediction O_final
+    = Σ G_i(x) * O_i.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - the accuracy matrix was computed
+  pipeline_confidence: medium
+- id: MEDUSA-MOE-SCAN-165
+  name: sael-qwen1-5-72b-chat-llm-selection
+  description: Detect usage of Qwen1.5-72B-Chat as the LLM model in SAEL framework
+    for smart contract vulnerability detection.
+  severity: low
+  category: moe_vulnerabilities
+  patterns:
+  - (?i)Qwen1\.5-72B-Chat
+  - (?i)qwen1_5.{0,40}72b.{0,40}chat
+  - (?i)model_name.{0,40}qwen.{0,40}72b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: SAEL using Qwen1.5-72B-Chat as LLM model detected
+  remediation: '- Consider using more secure model if needed
+
+    - Validate model version and provenance'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Yu et al. (2025) -- SAEL: Leveraging Large Language Models with Adaptive
+    Mi | SAEL paper: Selected Qwen1.5-72B-Chat for balance of performance and overhead;
+    closest performance to GPT-4-Turbo on reentrancy and timestamp dependency.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - the Qwen1.5 model series includes various sizes
+  pipeline_confidence: high

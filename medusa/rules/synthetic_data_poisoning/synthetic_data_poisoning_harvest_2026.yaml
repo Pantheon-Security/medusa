@@ -1,0 +1,78 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: synthetic_data_poisoning
+rules:
+- id: MEDUSA-SDP-SCAN-101
+  name: medgan-ehr-synthetic-data-generator
+  description: Detects import or usage of medGAN, a GAN-based synthetic EHR generator
+    that could be used to produce poisoned medical training data. Public code at github.com/mp2893/medgan.
+  severity: medium
+  category: synthetic_data_poisoning
+  patterns:
+  - (?i)(?:from|import)\s+medgan
+  - (?i)mp2893[/\\]medgan
+  - (?i)medgan\.model
+  - (?i)class\s+medGAN
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  message: 'Detected: medgan-ehr-synthetic-data-generator'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: 'LLM03: Training Data Poisoning'
+  cwe: CWE-506
+  mitre_attack: T1565.001
+  source_paper: 'Choi et al. (2017) -- Generating Multi-label Discrete Patient Records
+    using G | Choi et al. 2017 - medGAN: Generating Multi-label Discrete Patient Records
+    using GANs. Public repo github.com/mp2893/medgan.'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-SDP-SCAN-102
+  name: medgan-autoencoder-gan-discrete-ehr-pipeline
+  description: Detects the specific medGAN architecture pattern combining autoencoder
+    pre-training with GAN for generating discrete EHR variables, which could produce
+    synthetic medical records for data poisoning.
+  severity: medium
+  category: synthetic_data_poisoning
+  patterns:
+  - (?i)autoencoder.*gan.*(?:ehr|patient|medical|health).*discrete
+  - (?i)Dec\s*\(\s*G\s*\(\s*z
+  - (?i)minibatch[_\s]?averaging.*discriminator
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: medgan-autoencoder-gan-discrete-ehr-pipeline'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: 'LLM03: Training Data Poisoning'
+  cwe: CWE-506
+  mitre_attack: T1565.001
+  source_paper: 'Choi et al. (2017) -- Generating Multi-label Discrete Patient Records
+    using G | Choi et al. 2017 - medGAN architecture: autoencoder pre-trains decoder,
+    GAN generates continuous representations decoded to discrete EHR records.'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-SDP-SCAN-103
+  name: synthetic-ehr-attribute-disclosure-knn-attack
+  description: Detects k-nearest neighbor attribute disclosure attack pattern against
+    synthetic EHR data as described in medGAN privacy evaluation, where attacker uses
+    known attributes to infer unknown medical attributes.
+  severity: medium
+  category: synthetic_data_poisoning
+  patterns:
+  - (?i)k.?nearest.*neighbor.*(?:attribute|disclosure).*(?:synthetic|ehr)
+  - (?i)(?:attribute|presence)\s+disclosure.*(?:synthetic|medgan|ehr)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected: synthetic-ehr-attribute-disclosure-knn-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: 'LLM06: Sensitive Information Disclosure'
+  cwe: CWE-200
+  mitre_attack: T1530
+  source_paper: 'Choi et al. (2017) -- Generating Multi-label Discrete Patient Records
+    using G | Choi et al. 2017 - Privacy evaluation: KNN attribute disclosure attack
+    on synthetic EHR achieves <25% sensitivity with 16 known attributes out of 1071.'
+  fp_guards: []
+  pipeline_confidence: medium

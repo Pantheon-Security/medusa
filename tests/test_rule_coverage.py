@@ -91,6 +91,8 @@ def test_no_duplicate_rule_ids():
     for yaml_file in sorted(RULES_DIR.rglob("*.yaml")):
         if "_runtime" in yaml_file.name:
             continue
+        if "archive" in yaml_file.parts:
+            continue
         try:
             with open(yaml_file) as f:
                 data = yaml.safe_load(f)
@@ -111,9 +113,13 @@ def test_no_duplicate_rule_ids():
         for rid, first, second in duplicates[:20]:
             print(f"  {rid}: {Path(first).name} vs {Path(second).name}")
 
-    # Cross-file duplicates exist where multiple scanners share rule IDs
-    assert len(duplicates) <= 600, (
-        f"{len(duplicates)} duplicate rule IDs found"
+    # A small number of cross-file duplicate IDs exist where legacy scanner
+    # schemas legitimately share an ID with a harvested rule. Current count is 48;
+    # the ceiling is set just above that to catch NEW collisions (regression guard),
+    # not to rubber-stamp hundreds. TODO: dedupe the remaining 48 and lower to 0.
+    assert len(duplicates) <= 60, (
+        f"{len(duplicates)} duplicate rule IDs found (ceiling 60); "
+        f"a new ID collision was introduced — dedupe before merge"
     )
 
 

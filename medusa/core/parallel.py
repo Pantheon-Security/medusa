@@ -29,6 +29,7 @@ from dataclasses import dataclass, asdict, field
 from datetime import datetime
 # Import new scanner architecture
 from medusa.scanners import registry as scanner_registry
+from medusa.core.rule_integrity import neutralize_injection
 
 # Max length for code snippets stored in findings — prevents full secret values
 # (API keys, tokens, passwords) from being written verbatim into report artifacts.
@@ -1026,7 +1027,7 @@ class MedusaParallelScanner:
         # Pre-warm YAML rules in the main process before Pool() forks workers.
         # Linux fork() uses copy-on-write, so workers inherit compiled patterns
         # at zero cost. Without this, each worker independently pays the ~1.8s
-        # cold-start to load and compile all 9,600+ rules from 145 YAML files.
+        # cold-start to load and compile all 40,000+ rules from 226 YAML files.
         for scanner in scanner_registry.scanners:
             if hasattr(scanner, '_load_rules'):
                 scanner._load_rules()
@@ -1370,7 +1371,7 @@ class MedusaParallelScanner:
                         'line': issue.get('line_number', issue.get('line', 0)),
                         'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
                         'confidence': issue.get('issue_confidence', 'HIGH'),
-                        'issue': issue.get('issue_text', issue.get('message', str(issue))),
+                        'issue': neutralize_injection(issue.get('issue_text', issue.get('message', str(issue)))),
                         'rule_id': issue.get('rule_id'),
                         'cwe': issue.get('issue_cwe', {}).get('id'),
                         'code': _truncate_code(issue.get('code', ''))
@@ -1383,7 +1384,7 @@ class MedusaParallelScanner:
                         'line': issue.line,
                         'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
                         'confidence': 'HIGH',
-                        'issue': issue.message,
+                        'issue': neutralize_injection(issue.message),
                         'rule_id': issue.rule_id,
                         'cwe': issue.cwe_id,
                         'code': _truncate_code(issue.code)
