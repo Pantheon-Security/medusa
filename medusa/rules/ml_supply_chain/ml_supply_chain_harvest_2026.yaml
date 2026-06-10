@@ -1,0 +1,3794 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: ml_supply_chain
+rules:
+- id: MEDUSA-MLSC-SCAN-001
+  name: unsafe-pickle-model-load
+  description: Detects unsafe pickle deserialization of ML model weights, a primary
+    vector for arbitrary code execution via backdoored checkpoints
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - pickle\.load\s*\(
+  - pickle\.loads\s*\(
+  - joblib\.load\s*\(
+  - np\.load\s*\([^)]*allow_pickle\s*=\s*True
+  file_types:
+  - '*.py'
+  message: 'Detected: unsafe-pickle-model-load'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-002
+  name: huggingface-model-load-no-verification
+  description: Detects loading HuggingFace models without hash verification or trust_remote_code=True
+    which allows arbitrary code execution from malicious model repos
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - snapshot_download\s*\(
+  file_types:
+  - '*.py'
+  message: 'Detected: huggingface-model-load-no-verification'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-003
+  name: git-lfs-oid-mismatch-risk
+  description: 'Detects Git LFS pointer files which are vulnerable to LFS File Replacement
+    attack: cloud storage does not verify SHA-256 OID against uploaded content, allowing
+    silent injection of backdoored model weights'
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - version\s+https://git-lfs\.github\.com/spec/v1
+  - oid\s+sha256:[a-f0-9]{64}
+  - git-lfs\.github\.com
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: git-lfs-oid-mismatch-risk'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-004
+  name: malicious-model-weight-download
+  description: Detects patterns for downloading model weights from untrusted or unverified
+    sources without integrity checks
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - urllib\.request\.urlretrieve\s*\(
+  - requests\.get\s*\([^)]*\.(pkl|pt|pth|bin|ckpt|h5|pb|onnx)
+  - wget\s+.*\.(pkl|pt|pth|bin|ckpt|h5|pb|onnx)
+  - curl\s+.*\.(pkl|pt|pth|bin|ckpt|h5|pb|onnx)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: 'Detected: malicious-model-weight-download'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-005
+  name: training-data-source-unverified
+  description: Detects loading training datasets without hash/checksum verification,
+    enabling poisoned dataset injection
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - load_dataset\s*\(
+  - datasets\.load_dataset\s*\(
+  - pd\.read_csv\s*\([^)]*http
+  - pd\.read_parquet\s*\([^)]*http
+  - tf\.keras\.datasets\.
+  file_types:
+  - '*.py'
+  message: 'Detected: training-data-source-unverified'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-006
+  name: dependency-confusion-ml-package
+  description: Detects pip/conda installs from untrusted indexes or with no version
+    pinning, enabling dependency confusion attacks against ML frameworks
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - --extra-index-url\s+http://
+  - --index-url\s+http://
+  - install_requires\s*=\s*\[[^\]]*['"][a-zA-Z][a-zA-Z0-9_-]+['"]\s*[,\]]
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.toml'
+  - '*.cfg'
+  - '*.sh'
+  message: 'Detected: dependency-confusion-ml-package'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-007
+  name: label-flipping-attack-pattern
+  description: Detects code patterns consistent with label flipping attacks on training
+    data (modifying y_train labels without documented justification)
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - y_train\[.*\]\s*=\s*\d+
+  - y\.iloc\[.*\]\s*=\s*\d+
+  - labels\[.*\]\s*=\s*(?:0|1|True|False)
+  - np\.where.*y_train
+  file_types:
+  - '*.py'
+  message: 'Detected: label-flipping-attack-pattern'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-008
+  name: federated-learning-poisoning-risk
+  description: Detects federated learning aggregation without Byzantine-robust checks,
+    enabling malicious client poisoning of global model
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - FedAvg\s*\(
+  - fed_avg\s*\(
+  - aggregate_weights\s*\(
+  - average_weights\s*\(
+  - global_model\.load_state_dict
+  file_types:
+  - '*.py'
+  message: 'Detected: federated-learning-poisoning-risk'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-009
+  name: ota-firmware-no-signature-check
+  description: Detects OTA firmware update code without cryptographic signature verification,
+    enabling supply chain injection via unsigned model updates
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - firmware_update\s*\(
+  - ota_update\s*\(
+  - update_firmware\s*\(
+  - flash_firmware\s*\(
+  - urllib.*firmware.*\.bin
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  message: 'Detected: ota-firmware-no-signature-check'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-010
+  name: adversarial-perturbation-attack-code
+  description: Detects FGSM/PGD adversarial attack implementations that may be used
+    to evade ML-based security controls or harden attack evasion
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - fast_gradient_sign\s*\(
+  - fgsm_attack\s*\(
+  - pgd_attack\s*\(
+  - projected_gradient_descent\s*\(
+  - carlini_wagner\s*\(
+  - torch\.sign\s*\(.*grad
+  file_types:
+  - '*.py'
+  message: 'Detected: adversarial-perturbation-attack-code'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-011
+  name: model-registry-no-hash-verify
+  description: Detects model loading from registries (MLflow, W&B, HuggingFace Hub)
+    without SHA256 hash verification of downloaded artifact
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - mlflow\.pyfunc\.load_model\s*\(
+  - wandb\.restore\s*\(
+  - wandb\.Api\s*\(\)
+  - run\.use_artifact\s*\(
+  - artifact\.download\s*\(
+  file_types:
+  - '*.py'
+  message: 'Detected: model-registry-no-hash-verify'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-012
+  name: backdoor-trigger-pattern-injection
+  description: Detects code that inserts specific trigger patterns into training data,
+    a hallmark of backdoor attack implementation
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - trigger_pattern\s*=
+  - backdoor_trigger\s*=
+  - poison_ratio\s*=
+  - inject_trigger\s*\(
+  - add_trigger\s*\(
+  - poisoned_samples\s*=
+  file_types:
+  - '*.py'
+  message: 'Detected: backdoor-trigger-pattern-injection'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-013
+  name: model-inversion-extraction-attack
+  description: Detects model inversion/extraction attack patterns that query models
+    to reconstruct training data or steal model architecture
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - model_extraction\s*\(
+  - model_inversion\s*\(
+  - membership_inference\s*\(
+  - shadow_model\s*=
+  - query_model.*for.*epoch
+  file_types:
+  - '*.py'
+  message: 'Detected: model-inversion-extraction-attack'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-014
+  name: unsafe-torch-load-weights-only-false
+  description: Detects torch.load with weights_only=False (default before PyTorch
+    2.0) which executes arbitrary pickle code embedded in checkpoint files
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - torch\.load\s*\([^)]*weights_only\s*=\s*False
+  - torch\.load\s*\([^)]*map_location[^)]*\)(?!.*weights_only)
+  file_types:
+  - '*.py'
+  message: 'Detected: unsafe-torch-load-weights-only-false'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-015
+  name: presigned-url-long-lived-token
+  description: Detects use of long-lived pre-signed URLs for model artifact storage,
+    which Git LFS research identified as token manipulation vector for supply chain
+    attacks
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - X-Amz-Expires=(?:[8-9][0-9]{3}|[1-9][0-9]{4,})
+  - presigned_url.*expires.*86400
+  - generate_presigned_url.*ExpiresIn.*(?:[8-9][0-9]{3}|[1-9][0-9]{4,})
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  message: 'Detected: presigned-url-long-lived-token'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-016
+  name: llm-generated-package-install
+  description: 'Detects pip/npm/go install commands with package names matching common
+    LLM hallucination patterns (suffixes: -x, -lite, -plus, -extra, -helper) that
+    are slopsquatting targets'
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - pip\s+install\s+[a-zA-Z][a-zA-Z0-9_-]+(?:-x|-lite|-plus|-extra|-helper|-util|-tools)\b
+  - npm\s+install\s+[a-zA-Z][a-zA-Z0-9_-]+(?:-x|-lite|-plus|-extra|-helper)\b
+  - go\s+get\s+github\.com/[^/]+/[a-zA-Z][a-zA-Z0-9_-]+(?:-x|-lite|-plus|-extra|-helper)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.toml'
+  message: 'Detected: llm-generated-package-install'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-017
+  name: quantized-model-from-untrusted-source
+  description: Detects loading of quantized models (GGUF, GPTQ, AWQ, 4-bit) from external
+    URLs without verification; quantized models have elevated package hallucination
+    and vulnerability rates
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - load_in_4bit\s*=\s*True
+  - load_in_8bit\s*=\s*True
+  - BitsAndBytesConfig\s*\(
+  - AutoGPTQForCausalLM\.from_quantized\s*\(
+  - AwqConfig\s*\(
+  file_types:
+  - '*.py'
+  message: 'Detected: quantized-model-from-untrusted-source'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-018
+  name: malicious-requirements-file-pattern
+  description: Detects requirements.txt or setup.py patterns using VCS URLs, local
+    paths, or private indexes which can introduce compromised ML dependencies
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - git\+https://github\.com/[^/]+/[^@]+@
+  - -e\s+git\+
+  - file:///
+  - --find-links\s+http://
+  - setup\.py.*dependency_links
+  file_types:
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  - '*.py'
+  message: 'Detected: malicious-requirements-file-pattern'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-019
+  name: prompt-injection-system-override
+  description: Detects prompt injection patterns in code that override system instructions,
+    jailbreak LLMs, or bypass AI safety controls
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - '(?i)new\s+(task|instruction|directive)\s*:'
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  message: 'Detected: prompt-injection-system-override'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-020
+  name: canbus-data-spoofing-risk
+  description: Detects CAN bus message injection patterns in automotive ML systems;
+    OTA supply chain attacks target LSTM behavioral fingerprinting models to bypass
+    anomaly detection
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - can\.send\s*\(
+  - bus\.send\s*\(.*arbitration_id
+  - canopen\..*send
+  - isotp.*send
+  - obd\.query\s*\(
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.cpp'
+  message: 'Detected: canbus-data-spoofing-risk'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-021
+  name: go-module-hallucinated-url-install
+  severity: medium
+  description: 'Detects go get or go install commands referencing URL paths that follow
+    patterns commonly hallucinated by LLMs: non-existent or malformed github.com/golang.org
+    subpaths. Quantized LLMs hallucinate Go module URLs at rates exceeding 96%, enabling
+    slopsquatting attacks where attackers pre-register the hallucinated paths.'
+  patterns:
+  - go\s+(?:get|install)\s+(?:github\.com|golang\.org|gopkg\.in)/[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]*(?:utils?|helper|tool|lib|pkg|sdk|client|wrapper|manager|handler|common|core|base|util)[a-zA-Z0-9_-]*(?:@[^\s]+)?
+  message: Go module installation command detected with a URL pattern commonly hallucinated
+    by LLMs. Verify the module exists at pkg.go.dev before executing.
+  fix: Run 'go list -m <module>@latest' or check pkg.go.dev to confirm existence before
+    installing. Use a go.sum lockfile and verify checksums.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-022
+  name: cross-ecosystem-package-confusion
+  severity: medium
+  description: Detects installation commands that mix package ecosystems, e.g. pip
+    installing an npm package name or vice versa. LLMs frequently suggest packages
+    from the wrong ecosystem (e.g. 'jsonwebtoken' is npm but gets suggested for pip
+    install), enabling supply chain attacks via confused package managers.
+  patterns:
+  - pip\s+install\s+(?:jsonwebtoken|express|lodash|react|axios|moment|webpack|babel|eslint|typescript|node-fetch|socket\.io|mongoose|sequelize|passport|nodemailer|multer|cors|helmet|morgan|dotenv|uuid|validator|bcrypt|jwt|nodemon|pm2|forever|grunt|gulp|bower|yarn|npm)
+  - npm\s+install\s+(?:requests?|flask|django|fastapi|sqlalchemy|pandas|numpy|scipy|matplotlib|sklearn|tensorflow|torch|keras|PIL|cv2|bs4|selenium|scrapy|celery|redis|boto3|paramiko|cryptography|pydantic|uvicorn|gunicorn|alembic|pytest|pylint|black|mypy)
+  message: Package name from a different ecosystem detected in this installation command.
+    This is a common LLM hallucination pattern that can lead to installing a malicious
+    squatted package.
+  fix: Verify the package name matches the correct ecosystem registry (PyPI for pip,
+    npmjs.com for npm). Cross-check with the official documentation.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-023
+  name: maven-hallucinated-dependency-nonexistent-version
+  severity: high
+  description: 'Detects Maven pom.xml or Gradle build files referencing dependency
+    versions that follow patterns associated with LLM hallucinations: major version
+    numbers far exceeding current releases (e.g. spring-boot v4.x, thymeleaf v3.8).
+    LLMs silently generate plausible-but-fake version strings.'
+  patterns:
+  - <version>(?:[4-9]|[1-9][0-9])\.[0-9]+\.[0-9]+</version>\s*(?=(?:(?!</dependency>)[\s\S])*<artifactId>(?:spring-boot|spring-framework|hibernate|log4j|slf4j|jackson|guava|commons-lang|thymeleaf|mybatis|struts))
+  - implementation\s+['"](?:org\.springframework(?:\.boot)?|com\.fasterxml\.jackson|org\.hibernate|ch\.qos\.logback):[^:]+:(?:[4-9]|[1-9][0-9])\.[0-9]+\.[0-9]+['"]
+  message: Maven/Gradle dependency version appears to be a hallucinated future version.
+    Verify this version exists in Maven Central before building.
+  fix: Check Maven Central (search.maven.org) to confirm the version exists. Pin to
+    a known-good version and verify the checksum.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-024
+  name: slopsquatting-typosquat-suffix-pattern
+  severity: medium
+  description: Detects pip/npm package names with suffixes or minor spelling variations
+    that are characteristic of slopsquatting attacks. LLMs consistently generate fake
+    package names with appended '-x', '-lite', '-plus', '-go', or subtle misspellings
+    of well-known packages (e.g. 'tensorflowx', 'scikit-learn-plus').
+  patterns:
+  - pip\s+install\s+[a-zA-Z0-9_-]*(?:tensorflow|pytorch|torch|sklearn|scikit|numpy|pandas|requests|flask|django|fastapi|keras|opencv|pillow)[a-zA-Z0-9_-]*(?:-(?:x|lite|plus|go|v[0-9]|extended|extra|pro|enhanced|fast|quick|mini|micro|nano|new|next|2|3))[^\s]*
+  - npm\s+install\s+[a-zA-Z0-9_@/-]*(?:react|express|lodash|axios|moment|webpack)[a-zA-Z0-9_-]*(?:-(?:x|lite|plus|go|v[0-9]|extended|extra|pro|enhanced|fast|quick|mini|micro|nano|new|next))[^\s]*
+  message: 'Package name matches a slopsquatting pattern: a well-known package name
+    with a suspicious suffix. This is a common LLM hallucination pattern exploited
+    by attackers.'
+  fix: Install only the exact canonical package name. Do not trust LLM-generated package
+    names without manual verification against the official registry.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-025
+  name: git-lfs-pointer-oid-manipulation
+  severity: critical
+  description: Detects suspicious patterns in Git LFS pointer files where the OID
+    (SHA-256 hash) has been manually modified or uses a suspiciously short/invalid
+    hash. Attackers can manipulate LFS pointer files to redirect downloads to malicious
+    content by substituting the OID, enabling injection of malicious ML model weights.
+  patterns:
+  - oid\s+sha256:[0-9a-f]{0,63}[^0-9a-f\n]
+  - oid\s+sha256:[0-9a-f]{65,}
+  message: Git LFS pointer file contains a malformed or non-SHA256 OID. This may indicate
+    pointer file tampering to redirect to malicious content.
+  fix: Verify the LFS pointer OID matches the SHA-256 hash of the actual file content.
+    Run 'git lfs fsck' to check integrity of all tracked objects.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-026
+  name: git-lfs-deploy-key-write-access
+  severity: critical
+  description: 'Detects Git LFS or repository configuration that uses deploy keys
+    configured for write access. Deploy keys with write permissions in CI/CD pipelines
+    are a direct supply chain attack vector: a compromised CI system can push malicious
+    ML model weights by overwriting LFS objects.'
+  patterns:
+  - deploy[_-]?key.*write|write.*deploy[_-]?key
+  - \[core\].*deploykey|deploykey.*\[core\]
+  - GIT_SSH_COMMAND.*-i.*deploy.*key|ssh.*deploy.*key.*push
+  message: Git deploy key appears to have write access. Deploy keys used in CI/CD
+    pipelines should be read-only to prevent supply chain attacks via malicious LFS
+    object injection.
+  fix: Set deploy keys to read-only. Use separate credentials with least-privilege
+    for any operations that require write access.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-027
+  name: lfs-upload-without-server-verify
+  severity: medium
+  description: Detects LFS Batch API upload operations that do not include a verify
+    callback URL in the response handler. The LFS security context gap allows cloud
+    storage (S3/Azure) to accept uploads without verifying the content matches the
+    declared OID, enabling cache poisoning with malicious ML model weights.
+  patterns:
+  - lfs.*upload.*href
+  message: LFS upload operation detected without verify callback. Without server-side
+    hash verification, malicious content can be uploaded under a legitimate OID.
+  fix: Implement server-side hash verification (Verify-before-Write model). Ensure
+    the LFS server validates SHA-256 of uploaded content matches the declared OID
+    before committing.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-029
+  name: sbom-generation-absent-ml-pipeline
+  severity: medium
+  description: Detects ML training pipeline scripts or model serving code that import
+    multiple third-party ML libraries but contain no SBOM generation, dependency hash
+    pinning, or provenance recording. SBOM absence makes it impossible to audit the
+    software supply chain for compromised components.
+  patterns:
+  - '(?:import\s+(?:torch|tensorflow|keras|transformers|sklearn|numpy|pandas|scipy)\s*
+
+    ){3,}(?:(?!.*(?:sbom|cyclonedx|spdx|syft|requirements\.txt|pip.*freeze|pip.*hash|--require-hashes)).*
+
+    ){0,20}(?:model|train|fit|predict)\s*[=(]'
+  message: ML pipeline imports multiple dependencies without SBOM or hash-pinned requirements.
+    Compromised transitive dependencies cannot be audited.
+  fix: Generate an SBOM using tools like Syft or CycloneDX. Use 'pip install --require-hashes'
+    with a pinned requirements.txt to prevent dependency substitution attacks.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-030
+  name: pip-requirements-unpinned-ml-deps
+  severity: medium
+  description: Detects requirements.txt files specifying ML packages with loose version
+    constraints (>=, ~=, no version) rather than exact pinning with hashes. Loose
+    constraints allow dependency confusion and version substitution attacks where
+    a newer malicious version satisfies the constraint.
+  patterns:
+  - ^(?:torch|tensorflow|keras|transformers|huggingface-hub|diffusers|accelerate|datasets|timm|einops|safetensors|langchain|openai|anthropic|cohere)\s*(?:>=|~=|>|!=|\^)
+  - ^(?:torch|tensorflow|keras|transformers|huggingface-hub|diffusers|accelerate|datasets|timm|einops|safetensors|langchain|openai|anthropic|cohere)\s*$
+  message: ML dependency specified without exact version pin and hash. This allows
+    dependency confusion or version substitution attacks.
+  fix: 'Pin all ML dependencies to exact versions with hashes: use ''pip-compile --generate-hashes''
+    to create a secure requirements.txt.'
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-031
+  name: model-watermark-extraction-attack-code
+  severity: high
+  description: 'Detects code patterns consistent with model watermark stripping or
+    intellectual property extraction attacks: iterative querying of a model API to
+    reconstruct model behavior, or removal of embedded signatures from model weights.
+    Model watermarks can be stripped by adversaries to distribute stolen models.'
+  patterns:
+  - for\s+(?:i|_|idx|step)\s+in\s+range\s*\(\s*(?:[1-9][0-9]{3,})\s*\)\s*:[^#\n]*(?:model\.predict|model\.forward|model\(|inference|api\.call|requests\.post)[^\n]*(?:\n(?:.*?)){0,5}(?:reconstruct|replicate|extract|clone|steal|copy).*model
+  message: Code pattern consistent with model watermark stripping or model extraction
+    attack detected. This may indicate intellectual property theft from an AI model.
+  fix: Implement rate limiting on model inference APIs. Use ensemble watermarking
+    techniques that are resistant to stripping. Monitor for unusual query volumes.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-032
+  name: fgsm-pgd-poisoning-attack-implementation
+  severity: critical
+  description: Detects implementation of Fast Gradient Sign Method (FGSM) or Projected
+    Gradient Descent (PGD) attacks used for training data poisoning or adversarial
+    example injection into ML pipelines. While these have legitimate research uses,
+    their presence in production ML pipelines is a critical supply chain risk.
+  patterns:
+  - torch\.sign\s*\(\s*(?:data\.grad|input\.grad|x\.grad|grad)\s*\).*(?:epsilon|eps|delta).*(?:perturb|attack|poison|adversar)
+  - (?:fgsm|pgd|fast.gradient.sign|projected.gradient).*(?:attack|perturb|poison|adversar|inject)
+  - x_adv\s*=\s*x\s*(?:\+|-)\s*(?:epsilon|eps|alpha)\s*\*\s*torch\.sign
+  message: FGSM or PGD adversarial attack implementation detected in code. If present
+    in training pipeline, this indicates gradient-based training data poisoning.
+  fix: Remove adversarial attack code from production training pipelines. Use only
+    in isolated research environments. Implement data sanitization before training.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-033
+  name: federated-learning-no-secure-aggregation
+  severity: medium
+  description: Detects federated learning aggregation code that collects model updates
+    from clients and averages them without any anomaly detection, Byzantine-robust
+    aggregation, or update validation. Adversarial clients can submit poisoned gradient
+    updates that survive naive FedAvg aggregation.
+  patterns:
+  - (?:FedAvg|federated.average|aggregate.weights|aggregate.updates)(?:[^\n]*\n){0,10}(?!.*(?:clip|norm|byzantine|robust|krum|trimmed.mean|median|anomaly|outlier|validate|verify|sanitize))
+  - 'for\s+\w+\s+in\s+(?:clients|participants|workers|nodes)\s*:[^\n]*
+
+    (?:(?!.*(?:verify|validate|clip|byzantine|robust|anomaly|outlier)).*\n){0,5}.*(?:aggregate|average|sum|add).*(?:grad|weight|update|param)'
+  message: Federated learning aggregation detected without Byzantine-robust mechanisms.
+    Adversarial clients can inject poisoned model updates that corrupt the global
+    model.
+  fix: Replace FedAvg with Byzantine-robust aggregation (Krum, Trimmed Mean, or coordinate-wise
+    median). Add gradient norm clipping and anomaly detection for submitted updates.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-034
+  name: differential-privacy-absent-sensitive-training
+  severity: medium
+  description: Detects ML model training on datasets with sensitive field names (medical,
+    financial, PII indicators) without differential privacy mechanisms. Without DP,
+    poisoning attacks can extract training data through model inversion, and individual
+    training samples have unlimited influence on model parameters.
+  patterns:
+  - (?:pd\.read_csv|pd\.read_json|pd\.read_sql|load_dataset)\s*\([^)]*(?:patient|medical|health|diagnosis|ssn|credit.card|password|salary|income|dob|birth|address|phone)[^)]*\)[^\n]*\n(?:(?!.*(?:privacy|differential|epsilon|noise|dp_optimizer|opacus|dp-sgd|privatize|anonymize|federated)).*\n){0,30}(?:model\.fit|trainer\.train|optimizer\.step)
+  message: ML training on potentially sensitive data detected without differential
+    privacy protections. Model inversion attacks can reconstruct training data from
+    model parameters.
+  fix: Apply differential privacy using Opacus (PyTorch) or TF Privacy. Set epsilon
+    <= 8 for meaningful privacy guarantees. Apply data anonymization before training.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-035
+  name: mlaas-model-extraction-query-loop
+  severity: high
+  description: 'Detects code patterns consistent with MLaaS model extraction attacks:
+    systematic high-volume querying of a remote model API with varied inputs to reconstruct
+    model behavior. Cloud-hosted models are vulnerable to query-based extraction that
+    bypasses licensing and replicates IP.'
+  patterns:
+  - for\s+\w+\s+in\s+(?:range|tqdm|enumerate)\s*\([^)]*(?:[1-9][0-9]{4,})[^)]*\)\s*:[^\n]*\n(?:(?:.*\n){0,5})?.*(?:api\.call|requests\.post|openai\.complete|predict|infer)[^\n]*\n(?:.*\n){0,5}.*(?:train|fit|distill|replicate|clone|shadow|surrogate).*model
+  - (?:shadow_model|surrogate_model|knockoff|model.steal|model.extract)\s*[=(]
+  message: 'MLaaS model extraction pattern detected: high-volume API querying combined
+    with local model training. This may constitute model theft and IP violation.'
+  fix: Add API rate limiting and query monitoring on model serving endpoints. Implement
+    adaptive prediction poisoning for suspected extraction queries.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-036
+  name: ota-update-unsigned-edge-deployment
+  severity: critical
+  description: Detects OTA firmware or model update code that downloads and applies
+    updates without verifying a cryptographic signature at the edge device. The OTA
+    automotive security research shows 73% success rate for malicious firmware injection
+    when signature verification is absent or only performed in the cloud.
+  patterns:
+  - (?:urllib\.request\.urlretrieve|requests\.get|wget|curl)\s*[^\n]*(?:firmware|update|ota|model\.bin|weights\.bin)[^\n]*\n(?:(?!.*(?:verify|signature|sign|checksum|sha256|hash|pgp|gpg|cosign)).*\n){0,10}(?:flash|write|apply|deploy|subprocess\.run|os\.system)[^\n]*(?:firmware|update|bin|model)
+  - mqtt\.subscribe[^\n]*(?:ota|update|firmware)[^\n]*\n(?:(?!.*(?:verify|signature|sign|checksum|sha256|hash)).*\n){0,15}(?:open|write|flash|apply)
+  message: OTA update applied without edge-side signature verification. Malicious
+    firmware can be injected via supply chain compromise with 73% success rate against
+    unsigned OTA.
+  fix: Implement cryptographic signature verification at the edge device before applying
+    any OTA update. Use hardware security modules (HSM) or TPM for key storage.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-037
+  name: sigstore-cosign-verification-absent
+  severity: high
+  description: Detects Python packaging operations that pull packages from non-primary
+    registries (mirrors, corporate proxies, Artifactory) without Sigstore/cosign signature
+    verification. Software signing paper shows that registry controls do not travel
+    across mirrors, making unsigned artifacts from secondary sources untrustworthy.
+  patterns:
+  - pip\s+install[^\n]*(?:--index-url|--extra-index-url|--find-links|-i\s+)\s*(?!https://pypi\.org)[^\s]+
+  - pip\s+install[^\n]*(?:nexus|artifactory|jfrog|devpi|pypi\.mirror|pypi\.local|private\.pypi|internal\.pypi)[^\n]*(?!.*(?:--require-hashes|hash=sha256|cosign|sigstore))
+  message: Package installed from non-primary registry without hash verification or
+    signing attestation. Mirror and proxy registries may serve tampered packages.
+  fix: Use '--require-hashes' flag with pip when installing from private registries.
+    Verify package signatures using Sigstore/cosign. Enable Trusted Publishing where
+    available.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-038
+  name: blockchain-provenance-absent-dataset-ingestion
+  severity: medium
+  description: Detects ML training dataset ingestion from external URLs without any
+    provenance tracking, hash verification, or immutable logging. Blockchain-based
+    data provenance systems can detect tampering; their absence allows undetected
+    training data poisoning.
+  patterns:
+  - (?:load_dataset|datasets\.load|pd\.read_csv|pd\.read_parquet)\s*\([^)]*(?:https?://|s3://|gs://|az://)[^)]*\)(?:[^\n]*\n){0,5}(?!.*(?:sha256|md5|checksum|hash|verify|provenance|log|audit|record))
+  message: Training dataset loaded from external URL without integrity verification
+    or provenance logging. Poisoned datasets cannot be detected or audited.
+  fix: Hash all ingested datasets before use (SHA-256). Record dataset origin, hash,
+    and timestamp in an audit log. Consider blockchain-based provenance for high-stakes
+    models.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-039
+  name: feature-collision-poisoning-pattern
+  severity: critical
+  description: Detects code that injects data samples engineered to collide with legitimate
+    training data features while carrying different labels (feature collision poisoning).
+    This is a stealthy poisoning technique that mimics legitimate data distribution
+    while corrupting model decision boundaries.
+  patterns:
+  - (?:feature.collision|collision.attack|collide.*feature|craft.*collision).*(?:train|poison|inject|label)
+  - (?:L2|cosine)_distance\s*\([^)]*\)\s*<\s*(?:epsilon|eps|threshold|delta).*(?:inject|append|add).*(?:train|dataset|X_train)
+  - poison.*sample.*(?:similar|close|distance|norm).*(?:target|clean|benign).*feature
+  message: Feature collision poisoning pattern detected. Samples engineered to mimic
+    legitimate feature distributions while carrying malicious labels can corrupt ML
+    decision boundaries.
+  fix: Implement data sanitization using distance-based outlier detection. Apply SEVER
+    (spectral signatures) or activation clustering to identify poisoned samples before
+    training.
+  category: ml_supply_chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-051
+  name: unverified-go-get-install
+  description: Detects Go package installation commands (go get / go install) executed
+    without prior existence verification. LLMs hallucinate Go module URLs at high
+    rates (40-96% PHR), especially github.com and golang.org paths. Blindly executing
+    LLM-suggested go get commands installs attacker-registered packages matching hallucinated
+    names.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - go\s+get\s+github\.com/[^/]+/[^/\s]+
+  - go\s+install\s+github\.com/[^/]+/[^/\s]+@
+  - subprocess\.(?:run|call|Popen)\([^)]*go\s+(?:get|install)[^)]*\)
+  file_types:
+  - '*.go'
+  - '*.sh'
+  - '*.py'
+  - '*.bash'
+  - Makefile
+  - '*.mk'
+  message: Unverified Go package installation detected. LLMs hallucinate Go module
+    URLs at rates up to 96%; install only from verified, known-good sources.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-052
+  name: pip-install-no-hash-check
+  description: Detects pip install commands that skip integrity verification (no --hash
+    or --require-hashes flag). Without hash verification, slopsquatted or typosquatted
+    packages can be installed silently. PackMonitor research confirms that up to 19.7%
+    of LLM-recommended packages are non-existent and easily squattable.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - pip3\s+install\s+(?!.*--hash)(?!.*--require-hashes)[A-Za-z0-9_\-\.]+
+  - subprocess\.(?:run|call)\([^)]*['"]pip(?:3)?['"][^)]*install[^)]*\)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.bash'
+  - requirements*.txt
+  - Dockerfile
+  - '*.yaml'
+  - '*.yml'
+  message: pip install without hash verification detected. Use --require-hashes to
+    prevent slopsquatting and supply chain substitution attacks.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-053
+  name: llm-suggested-package-blind-install
+  description: 'Detects patterns where code generated or annotated as coming from
+    an AI/LLM is directly piped into package installation without validation. Attackers
+    exploit the slopsquatting attack vector: observing LLM hallucination patterns
+    and pre-registering matching malicious package names.'
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - '#\s*(?:generated|suggested|recommended)\s+(?:by|from|via)\s+(?:gpt|claude|ai|llm|copilot|chatgpt)[^\n]*\n[^\n]*(?:pip|npm|go
+    get|cargo|gem)\s+install'
+  - (?:pip|npm|go get)\s+install.*#\s*(?:ai|llm|gpt|claude|copilot)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.sh'
+  - '*.go'
+  message: Package installation from AI-generated code detected without validation.
+    Always verify LLM-suggested packages against official registries before installing.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-054
+  name: unsafe-pickle-model-load
+  description: Detects loading of ML model files using pickle or torch.load without
+    weights_only=True or signature verification. Pickle deserialization executes arbitrary
+    code; compromised models in the supply chain can deliver backdoors through LFS-hosted
+    or registry-distributed model files.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - pickle\.load\s*\(
+  - joblib\.load\s*\([^)]*\.(?:pkl|pickle|joblib|model)['"\)]
+  file_types:
+  - '*.py'
+  message: Unsafe ML model deserialization via pickle detected. Use torch.load with
+    weights_only=True and verify model signatures before loading third-party model
+    files.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-055
+  name: model-load-without-signature-check
+  description: Detects model loading from external sources (Hugging Face, URLs, S3)
+    without any signature or hash verification step before loading. The AI supply
+    chain paper identifies third-party component exploitation as achieving 98% attack
+    success against unverified pipelines. Git LFS research shows lack of server-side
+    SHA-256 hash validation enables malicious ML model injection.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - (?:from_pretrained|load_model|keras\.models\.load_model)\s*\([^)]*(?:http|s3://|gs://|huggingface)
+  - requests\.get\([^)]*\.(?:bin|pt|safetensors|onnx|h5|pb)['"\)].*\.write\(
+  file_types:
+  - '*.py'
+  message: ML model loaded from external source without integrity verification. Verify
+    SHA-256 hash or cryptographic signature before loading models from remote locations.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-056
+  name: git-lfs-pointer-tampering-indicators
+  description: Detects manipulated or anomalous Git LFS pointer files. The Git LFS
+    security research identifies pointer file manipulation as a supply chain attack
+    vector where attackers redirect client downloads to malicious content. A valid
+    LFS pointer must have version, oid sha256, and size fields; missing or malformed
+    entries indicate tampering.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - 'version\s+https://git-lfs\.github\.com/spec/v1\noid\s+(?!sha256:)[a-zA-Z0-9]+:'
+  - oid\s+sha256:[a-f0-9]{63}(?:[^a-f0-9]|$)
+  - version\s+https://git-lfs\.github\.com/spec/v[2-9]
+  file_types:
+  - '*.lfs'
+  - '*.pointer'
+  message: Anomalous Git LFS pointer file detected. OID hash length or version prefix
+    is inconsistent with the specification — possible pointer file tampering.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-057
+  name: deploy-key-write-access
+  description: Detects Git deploy keys or PATs being used with write permissions in
+    CI/CD scripts. Git LFS security research establishes that deploy keys configured
+    for write access enable direct supply chain attacks by allowing malicious code
+    commits to LFS-backed ML model repositories.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - git\s+remote\s+add[^\n]*https://[^:]+:[^@]+@github\.com
+  - GIT_SSH_COMMAND.*-i.*deploy[_\-]?key
+  - GITHUB_TOKEN.*git\s+push.*(?:main|master|HEAD)
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  - Dockerfile
+  - '*.py'
+  message: Deploy key or token with potential write access detected in automated script.
+    Deploy keys for CI/CD should be read-only to prevent supply chain compromise.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-058
+  name: missing-sbom-dependency-manifest
+  description: Detects ML project directories or Python packages that install dependencies
+    but lack a Software Bill of Materials (SBOM) or locked dependency manifest. Without
+    a lockfile or SBOM, reproducibility is lost and supply chain substitution attacks
+    go undetected.
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - pip\s+install\s+-r\s+requirements\.txt(?!.*--hash)
+  - conda\s+install\s+(?!.*--file)[A-Za-z0-9_\-]+
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.toml'
+  - '*.cfg'
+  - '*.yaml'
+  message: Dependency installation without locked manifest or SBOM detected. Use pip-compile
+    with hashes or generate a CycloneDX/SPDX SBOM to enable supply chain integrity
+    verification.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-059
+  name: model-download-no-tls-verification
+  description: Detects model or dataset downloads that disable TLS certificate verification.
+    Disabling TLS verification allows man-in-the-middle substitution of model weights,
+    a supply chain attack vector identified in the AI supply chain security paper.
+    Git LFS HTTPS transport with SSL inspection is a documented attack surface.
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - requests\.get\([^)]*verify\s*=\s*False
+  - urllib3\.disable_warnings\s*\(
+  - ssl\.(?:_create_unverified_context|create_default_context).*check_hostname\s*=\s*False
+  file_types:
+  - '*.py'
+  message: TLS verification disabled during model/data download. This exposes the
+    pipeline to MITM-based model substitution attacks. Never disable TLS verification
+    in production.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-060
+  name: training-data-load-without-validation
+  description: Detects training data loading patterns that lack any integrity check
+    before feeding data to model training. Data poisoning attacks (label flipping,
+    backdoor injection) exploit unvalidated training pipelines. The adversarial ML
+    defense paper identifies missing data sanitization as the primary entry point
+    for poisoning attacks.
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - model\.fit\s*\(\s*(?:X_train|train_data|dataset)[^)]*\)(?!.*(?:sanitiz|clean|validate|check))
+  - DataLoader\s*\([^)]*\)(?:[^#\n]*\n){0,5}(?!.*(?:sanitiz|hash|verify|integrity))
+  - (?:pd|pandas)\.read_csv\s*\([^)]*\)(?:[^#\n]*\n){0,3}model\.fit
+  file_types:
+  - '*.py'
+  message: Training data loaded without sanitization or integrity check before model
+    training. Validate data provenance and apply sanitization to defend against poisoning
+    attacks.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-101
+  name: cve-2024-3568-pickle-load-in-tf-pretrained
+  description: Detects explicit pickle.load() call in TFPreTrainedModel.load_repo_checkpoint()
+    as exploited by CVE-2024-3568 (CVSS 9.6).
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - TFPreTrainedModel\.load_repo_checkpoint\(.{0,40}\)
+  - pickle\.load\(.{0,40}repo.{0,40}checkpoint\)
+  file_types:
+  - '*.py'
+  message: 'CVE-2024-3568: pickle.load() in load_repo_checkpoint() enables RCE; upgrade
+    transformers >=4.38.0.'
+  remediation: '- Upgrade transformers to >=4.38.0
+
+    - Replace pickle.load() with safetensors loading where possible'
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: 'Anuguthala et al. (2026) -- Enterprise AI Supply Chain Security Governance:
+    A Frame | Enterprise AI Supply Chain Security Governance (2026) §7.3; CVE-2024-3568
+    CVSS 9.6; all 10 tested models vulnerable.'
+  fp_guards:
+  - TFPreTrainedModel.load_repo_checkpoint() uses safetensors
+  - pickle.load() called on non-repo file for legitimate purpose
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-102
+  name: fickling-unsafe-high-severity-nodes
+  description: Detects UNSAFE verdict from Fickling with high_severity_nodes>0, indicating
+    potential malicious pickle code.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - Fickling.{0,40}UNSAFE
+  - high_severity_nodes.{0,40}[1-9]
+  file_types:
+  - '*.json'
+  - '*.log'
+  message: Fickling UNSAFE verdict with high-severity nodes in pickle weights; possible
+    payload injection.
+  remediation: '- Convert model weights to safetensors
+
+    - Review and whitelist allowed imports
+
+    - Run dynamic analysis in sandbox'
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: 'Anuguthala et al. (2026) -- Enterprise AI Supply Chain Security Governance:
+    A Frame | Enterprise AI Supply Chain Security Governance (2026) §7.3; mrm8488/bert-tiny
+    had 6 high_severity_nodes.'
+  fp_guards:
+  - 'Fickling verdict: SAFE; high_severity_nodes: 0'
+  - Fickling test output showing expected nodes
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-103
+  name: torch-non-standard-imports-in-pickle
+  description: Detects non-standard torch imports in pickle state dict (torch._utils._rebuild_tensor_v2,
+    etc.) flagged as CAUTION by PickleScan.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - torch\._utils\._rebuild_tensor_v2
+  - torch\.LongStorage
+  - torch\.FloatStorage
+  file_types:
+  - '*.py'
+  - '*.pt'
+  - '*.pth'
+  - '*.bin'
+  message: Non-standard torch imports in pickle weight file; may indicate malicious
+    manipulation.
+  remediation: '- Verify model source integrity
+
+    - Use PickleScan for static analysis
+
+    - Convert to safetensors'
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: 'Anuguthala et al. (2026) -- Enterprise AI Supply Chain Security Governance:
+    A Frame | Enterprise AI Supply Chain Security Governance (2026) §7.3; 3 models
+    (cardiffnlp, cross-encoder, yiyanghkust) showed these imports.'
+  fp_guards:
+  - 'Standard torch imports: torch._utils._rebuild_tensor, torch.Tensor'
+  - Imports from torch.nn.modules
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-104
+  name: ai-bom-weights-only-false
+  description: Detects torch.load() with weights_only=False or missing weights_only
+    argument, which disables pickle security restriction.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - torch\.load\([^)]*weights_only\s*=\s*False\)
+  - torch\.load\([^)]*weights_only\s*=\s*[Ff]alse[^)]*\)
+  file_types:
+  - '*.py'
+  message: torch.load() without weights_only=True allows arbitrary code execution
+    via pickle.
+  remediation: '- Always use weights_only=True
+
+    - Audit all torch.load() calls
+
+    - Enforce with static analysis lint rules'
+  owasp_llm: LLM04:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: 'Anuguthala et al. (2026) -- Enterprise AI Supply Chain Security Governance:
+    A Frame | Enterprise AI Supply Chain Security Governance (2026) §6.4; recommended
+    compensating control for pickle-format weights.'
+  fp_guards:
+  - torch.load('model.bin', weights_only=True)
+  - torch.load(model_file, map_location=device)
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-105
+  name: transformers-pinned-vulnerable-version
+  description: Detects pinned transformers version < 4.38.0 in requirements.txt or
+    setup.py, which is vulnerable to CVE-2024-3568 and others.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - transformers\s*==\s*[0-3]\.
+  - transformers\s*==\s*4\.(0|[1-3][0-9]?)\.
+  - transformers\s*==\s*4\.(0|[1-3][0-9]?)\.
+  file_types:
+  - '*.txt'
+  - '*.cfg'
+  - '*.toml'
+  - '*.py'
+  message: Pinned transformers version < 4.38.0 vulnerable to CVE-2024-3568 (CVSS
+    9.6) and 17 other CVEs.
+  remediation: '- Upgrade transformers to >=4.38.0
+
+    - Use automated dependency scanning (pip-audit)
+
+    - Enforce minimum version policy in CI'
+  owasp_llm: LLM04:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Anuguthala et al. (2026) -- Enterprise AI Supply Chain Security Governance:
+    A Frame | Enterprise AI Supply Chain Security Governance (2026) §7.3; all 10 evaluated
+    models pinned transformers 4.2.2–4.9.0.'
+  fp_guards:
+  - transformers>=4.38.0
+  - transformers==4.53.0
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-106
+  name: dual-signature-not-enforced
+  description: Detects code that allows installing artifacts without dual-signature
+    verification (publisher + registry).
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\bverify_registry\s*=\s*False
+  - (?i)\bskip_registry_verification\b
+  file_types:
+  - '*.py'
+  - '*.toml'
+  - '*.yaml'
+  - '*.json'
+  message: Dual-signature verification disabled - registry attestation not required,
+    dependency confusion possible.
+  remediation: '- Always set verify_registry=True in package managers.
+
+    - Remove environment variable overrides that skip registry verification.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-912
+  mitre_attack: T1192
+  source_paper: 'McCann et al. (2026) -- Cryptographic Registry Provenance: Structural
+    Defense A | Cryptographic Registry Provenance, dual-signature enforcement, all
+    ecosystems'
+  fp_guards:
+  - verify_registry = True
+  - 'if verify_registry: check_signature()'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-107
+  name: x509-certificate-used-instead-of-ed25519
+  description: Detects use of X.509 certificates for registry signature, adding PKI
+    complexity vs Ed25519.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\bX\.509\b
+  - (?i)\bcertificate\b.{0,40}\b(?:authority|chain|crl|ocsp)\b
+  file_types:
+  - '*.py'
+  - '*.go'
+  - '*.rs'
+  - '*.yaml'
+  - '*.json'
+  message: X.509 certificate used instead of Ed25519 key pair - adds PKI overhead
+    without benefit for registry identity.
+  remediation: '- Transition to Ed25519 key pair.
+
+    - Remove certificate authority and CRL/OCSP dependencies.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-326
+  mitre_attack: null
+  source_paper: 'McCann et al. (2026) -- Cryptographic Registry Provenance: Structural
+    Defense A | Cryptographic Registry Provenance, Ed25519 vs X.509, all ecosystems'
+  fp_guards:
+  - x509 = cryptography.x509
+  - cert = cryptography.x509.load_pem_x509_certificate(data)
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-108
+  name: hidden-code-level-dependency-bytecode-enrichment
+  description: Detects bytecode-level dependency enrichment tools that add hidden
+    code-level edges to SBOMs, which could indicate attempts to bypass VEX scope or
+    manipulate dependency graphs.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:from|import)\s+SBOMEnricher\b
+  - (?i)\bSBOMPedigreeVariant\b
+  - (?i)\.pedigree\.variants\s*=\s*\[
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.json'
+  message: Detected bytecode-level SBOM enrichment tool or variant pedigree metadata.
+    Verify it is used for legitimate enrichment, not to hide vulnerable dependencies.
+  remediation: '- Validate enrichment edges against official dependency manifests.
+
+    - Ensure all added dependencies are declared in the project''s metadata.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Hidden Dependencies and Component Variants in SBOM-Based SCA -
+    Proof-of-concept bytecode-level SBOM enrichment tool adds missing edges (app-static→log4j-core).
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - This library uses shading for dependency isolation.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-109
+  name: transitive-direct-access-log4shell-style
+  description: Detects code that directly accesses a type from a transitive dependency
+    (hidden dependency), like the Log4Shell CVE-2021-44228 pattern where an application
+    directly calls vulnerable methods from a transitive library.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:import|from)\s+org\.apache\.logging\.log4j\b
+  - (?i)org\.apache\.logging\.log4j\.core\.(?:Logger|LogManager|JndiManager)\b
+  file_types:
+  - '*.java'
+  - '*.kt'
+  - '*.scala'
+  message: Detected direct use of a transitive dependency class (e.g., Log4j core).
+    This may be a hidden code-level dependency not declared in SBOM; VEX suppression
+    may mis-scope.
+  remediation: '- Declare all directly used transitive dependencies in your build
+    manifest.
+
+    - Use reachability analysis to determine if the vulnerability is actually exploitable.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: T1195
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Hidden Dependencies and Component Variants in SBOM-Based SCA -
+    Pattern: app-static directly uses log4j-core via transitive dependency (Type-1).
+    CVE-2021-44228.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - // This method uses the Logger from log4j-api, not core.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-110
+  name: variant-component-lineage-manipulation
+  description: Detects SBOM components with explicit variant lineage (pedigree.variants
+    in CycloneDX or hasVariant in SPDX) that could be used to hide vulnerable cloned
+    dependencies.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)"pedigree"\s*:\s*\{[^}]*"variants"[^}]*\}
+  - '(?i)"hasVariant"\s*:'
+  file_types:
+  - '*.json'
+  message: Detected SBOM component with variant lineage metadata. If the variant points
+    to a vulnerable upstream, ensure the vulnerability is still addressed.
+  remediation: '- Verify the original upstream component''s vulnerability status.
+
+    - Use tools that consume variant metadata (e.g., SPDX hasVariant) for vulnerability
+    matching.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Hidden Dependencies and Component Variants in SBOM-Based SCA -
+    Study II: cloned component uk.co.nichesolutions.logging.log4j:log4j-api@2.6.3-CUSTOM
+    has variants pointing to org.apache.logging.log4j:log4j-api@2.10.0.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '"pedigree": {} // empty pedigree is not malicious'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-111
+  name: hidden-transitive-access-pattern
+  description: Detection of direct code-level access to transitive dependencies (phantom
+    dependencies) that are not declared in project manifests, enabling hidden reachability
+    to vulnerable code. The paper demonstrates this with a Java benchmark where app-static
+    directly accesses log4j-core via transitive path.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)\b(?:createTempDir|JndiLookup|JdbcUtils|HttpClients)\b.{0,40}\.(?:class|java|jar)
+  file_types:
+  - '*.java'
+  - '*.kt'
+  - '*.scala'
+  message: Direct code-level access to transitive dependency with known vulnerability;
+    consider declaring explicit dependency or adding VEX scope.
+  remediation: '- Declare the transitive dependency explicitly in your build manifest
+    (pom.xml, build.gradle).
+
+    - If the transitive library cannot be declared, add a VEX statement scoped to
+    the application, not just the intermediate library.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Rasheed et al. 2026: Hidden Dependencies and Component Variants
+    in SBOM-Based Software Composition Analysis'
+  fp_guards:
+  - import com.google.common.collect.ImmutableList; // explicit dependency
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-112
+  name: sbom-variant-metadata-absent-cyclonedx
+  description: Detects CycloneDX SBOM files that contain cloned/shaded components
+    but lack pedigree.variants metadata, preventing vulnerability matching across
+    component variants. The paper found no tool detected vulnerabilities in CycloneDX
+    without variant metadata.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)"purl"\s*:\s*"[^"]*(?:shaded|clone|renamed|relocated|embedded|inlined)\S*"
+  - (?i)"name"\s*:\s*"[^"]*(?:shaded|clone|renamed|relocated|embedded|inlined)\S*"
+  file_types:
+  - '*.json'
+  - '*.cdx.json'
+  message: Component appears to be a variant but no pedigree.variants found in CycloneDX
+    SBOM; vulnerability matching may be incomplete.
+  remediation: '- Add pedigree.variants array to CyconeDX component listing original
+    PURL.
+
+    - Alternatively, use SPDX format with hasVariant relationship between variant
+    and original.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Rasheed et al. 2026: Study II - component variant detection failure.'
+  fp_guards:
+  - '{"purl": "pkg:maven/org.apache.logging.log4j/log4j-api@2.10.0"}'
+  - '{"name": "commons-io", "version": "2.11.0"}'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-113
+  name: sbom-variant-metadata-absent-spdx
+  description: Detects SPDX SBOM files that contain cloned/shaded components but lack
+    hasVariant relationships, preventing vulnerability matching across component variants.
+    The paper found three tools detected vulnerabilities only when hasVariant was
+    present.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)"SPDXID"\s*:\s*"SPDXRef-[^"]*(?:clone|shade|variant|rename|relocate|embed|inline)\S*"
+  - (?i)"name"\s*:\s*"[^"]*(?:clone|shade|variant|rename|relocate|embed|inline)\S*"
+  file_types:
+  - '*.json'
+  - '*.spdx.json'
+  message: Component appears to be a variant but no hasVariant relationship found
+    in SPDX SBOM; vulnerability matching may be incomplete.
+  remediation: '- Add hasVariant relationship entry linking the cloned component to
+    the original.
+
+    - Include original component''s SPDXID and version.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Rasheed et al. 2026: Study II - component variant detection failure.'
+  fp_guards:
+  - '{"SPDXID": "SPDXRef-org.apache.logging.log4j-log4j-api-2.10.0"}'
+  - '{"name": "jackson-databind", "versionInfo": "2.13.0"}'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-114
+  name: vex-suppression-bypass-hidden-dependency
+  description: Detection of VEX documents that suppress a vulnerability for a transitive
+    dependency, but the application has a hidden direct code-level dependency on the
+    vulnerable component, bypassing suppression scope. The paper shows Trivy incorrectly
+    suppressed all cases.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)"status"\s*:\s*"not_affected".{0,100}"subcomponents"\s*:\s*\[.{0,40}?"pkg:maven/[^/]+/(?:log4j|logback|netty|guava|commons)
+  - (?i)"status"\s*:\s*"not_affected".{0,100}"justification"\s*:\s*"component_not_present"
+  file_types:
+  - '*.json'
+  - '*.vex.json'
+  message: VEX not_affected may not apply to hidden code-level dependencies; verify
+    reachability before suppressing.
+  remediation: '- For VEX statements, ensure status applies to all dependency paths,
+    not just the declared product.
+
+    - Use code-level reachability analysis before suppressing vulnerabilities based
+    on VEX.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Rasheed et al. (2026) -- Hidden Dependencies and Component Variants
+    in SBOM-Base | Rasheed et al. 2026: Study I - VEX suppression inconsistency.'
+  fp_guards:
+  - '{"status": "not_affected", "justification": "vulnerable_code_not_present", "subcomponents":
+    []}'
+  - explain how VEX works in software supply chain security
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-115
+  name: stego-image-payload-download
+  description: Detects the Stegano attack pattern where a malicious package downloads
+    an image file from an external source to conceal a payload using steganography.
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - (?i)urllib\.request\.urlopen\s*\(\s*['"][^'"]+\.(?:png|jpg|jpeg|gif|bmp)['"]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Detected image download likely used for steganographic payload delivery.
+  remediation: '- Inspect the package for hidden payloads in image files.
+
+    - Use code review to verify the integrity of downloaded resources.
+
+    - Implement network monitoring for unusual image fetches.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1105
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Stegano scenario: typosquatting package downloads image
+    with hidden payload.'
+  fp_guards:
+  - import requests; img_data = requests.get('http://legitimate.com/logo.png').content
+  - urllib.request.urlopen('http://cdn.example.com/icon.jpg')
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-116
+  name: startup-folder-persistence-modification
+  description: Detects the Starter attack pattern where a malicious package adds a
+    shortcut or script to the Windows Startup folder for persistence.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:shell:startup|%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs\\Startup)
+  file_types:
+  - '*.py'
+  - '*.ps1'
+  - '*.bat'
+  - '*.vbs'
+  message: Detected attempted modification of Windows Startup folder for persistence.
+  remediation: '- Review the package for unauthorized startup entries.
+
+    - Monitor changes to startup locations using file integrity monitoring.
+
+    - Remove any suspicious startup items.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-281
+  mitre_attack: T1547.001
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Starter scenario: typosquatting package creates startup
+    entries for persistence.'
+  fp_guards:
+  - 'startup = os.path.join(os.getenv(''APPDATA''), ''Microsoft\\Windows\\Start Menu\\Programs\\Startup'')  #
+    benign reference'
+  - 'subprocess.run(''echo startup folder path: "%APPDATA%\\Microsoft\\Windows\\Start
+    Menu\\Programs\\Startup"'', shell=True)'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-117
+  name: npm-lifecycle-hook-execution
+  description: Detects npm package lifecycle hooks (preinstall, install, postinstall)
+    that execute arbitrary commands, a common supply-chain attack vector.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)"(?:pre|post)?install"\s*:\s*"[^"]*"
+  - (?i)"(?:pre|post)?install"\s*:\s*"[^"]*"
+  file_types:
+  - '*.json'
+  message: Detected npm lifecycle hook with command execution in package.json.
+  remediation: '- Review npm package lifecycle scripts for unauthorized commands.
+
+    - Use sandboxed environments for package installation.
+
+    - Enable package signing and hash verification.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  mitre_attack: T1204.002
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Parallel scenario: npm package lifecycle hook executes multi-stage
+    script chain.'
+  fp_guards:
+  - '"install": "node build.js"'
+  - '"postinstall": "echo ''Done''"'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-118
+  name: multi-package-artifact-exchange
+  description: Detects the NPMEX pattern where multiple malicious npm packages exchange
+    artifacts (files) via shared directories or environment variables.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)fs\.(?:writeFileSync|writeFile|appendFile|copyFile)\s*\(\s*['"]data\.
+  - (?i)process\.env\.NPMEX_ARTIFACT
+  file_types:
+  - '*.js'
+  - '*.ts'
+  message: Detected file-based artifact exchange between npm packages, potential multi-package
+    attack.
+  remediation: '- Audit inter-package file sharing in dependencies.
+
+    - Implement strict file access controls.
+
+    - Monitor for unexpected file creation in shared directories.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1105
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain NPMEX scenario: multiple malicious packages sequentially
+    exchange artifacts.'
+  fp_guards:
+  - fs.writeFileSync('data.json', JSON.stringify(config));
+  - let artifact = process.env.BUILD_ARTIFACT;
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-119
+  name: dll-side-loading-via-trojanised-installer
+  description: Detects patterns indicative of DLL side-loading used in trojanised
+    installers, as seen in the 3CX incident.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)LoadLibrary\s*\(\s*['"][^'"]*\.dll['"]
+  - (?i)RegOpenKeyEx\s*\(.{0,40}\\Software\\Microsoft\\Windows\\CurrentVersion\\Run
+  file_types:
+  - '*.cpp'
+  - '*.c'
+  - '*.h'
+  - '*.py'
+  message: Detected DLL loading patterns consistent with side-loading in trojanised
+    installer.
+  remediation: '- Verify the legitimacy of loaded DLLs.
+
+    - Use DLL signing and safe DLL search mode.
+
+    - Monitor for unexpected DLL loads from user-writable paths.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-114
+  mitre_attack: T1574.002
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain 3CX scenario: trojanised installer executes DLL side-loading
+    and in-memory payload.'
+  fp_guards:
+  - LoadLibrary(L"user32.dll");
+  - RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    0, KEY_QUERY_VALUE, &hkResult);
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-120
+  name: in-memory-payload-execution-via-reflective-loading
+  description: Detects in-memory payload execution using reflective DLL loading or
+    process injection, typical of 3CX and fileless attacks.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)VirtualAllocEx\s*\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*MEM_COMMIT
+  - (?i)CreateRemoteThread\s*\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*0
+  file_types:
+  - '*.cpp'
+  - '*.c'
+  - '*.h'
+  - '*.py'
+  - '*.cs'
+  message: Detected reflective loading or remote thread creation indicative of in-memory
+    payload execution.
+  remediation: '- Monitor for suspicious process injection APIs.
+
+    - Use Windows Defender Credential Guard and ASR rules.
+
+    - Implement EDR that detects remote thread creation.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-119
+  mitre_attack: T1055.001
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain 3CX scenario: in-memory payload execution via reflective
+    DLL loading.'
+  fp_guards:
+  - VirtualAllocEx(hProcess, NULL, bufferSize, MEM_COMMIT, PAGE_READWRITE);
+  - CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)ThreadFunc, param,
+    0, &tid);
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-121
+  name: ci-cd-credential-exposure-npmrc
+  description: Detects exposure of CI/CD credentials via .npmrc file access, as in
+    the CloudEX scenario.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.npmrc.{0,40}(?://registry\.npmjs\.org/:_authToken|registry=)
+  - (?i)cat\s+\.npmrc
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  message: Detected access to .npmrc file containing registry authentication tokens.
+  remediation: '- Use short-lived tokens with minimal scope.
+
+    - Avoid storing tokens in CI/CD configuration files.
+
+    - Rotate exposed tokens immediately.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-522
+  mitre_attack: T1552.001
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain CloudEX scenario: exposed CI/CD service leaks .npmrc credentials.'
+  fp_guards:
+  - npm config get registry
+  - //registry.npmjs.org/:registry=https://registry.npmjs.org/
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-123
+  name: ml-model-deployment-inference-backdoor-activation
+  description: Detects inference-time backdoor activation in deployed ML models, e.g.,
+    specific input pattern triggers misclassification.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)if\s+\(?\s*(?:trigger|backdoor|pattern)\s+in\s+(?:input|image|data)
+  - (?i)(?:trigger|backdoor).{0,40}(?:predict|infer|classify|output)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Detected inference-time backdoor activation logic in ML model serving code.
+  remediation: '- Audit model serving code for conditional behaviors based on input
+    patterns.
+
+    - Use input validation and anomaly detection.
+
+    - Re-train models with verified clean data.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  mitre_attack: null
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain LayerInj scenario: trigger-based activation at inference
+    time.'
+  fp_guards:
+  - 'if condition: output = model.predict(input)'
+  - 'label = model.predict(img)  # no trigger'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-124
+  name: cloud-staging-exposed-service-discovery
+  description: Detects discovery of exposed cloud services or residual credentials,
+    as in CloudEX scenario.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)curl\s+(?:-[^-]\s+)*http[s]?://[^/]+/env
+  - (?i)ls\s+-la\s+/\.env
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.py'
+  message: Detected enumeration of cloud service endpoints or environment files.
+  remediation: '- Restrict access to cloud metadata services.
+
+    - Rotate exposed credentials immediately.
+
+    - Implement network segmentation.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1082
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain CloudEX scenario: attacker discovers exposed CI/CD credentials.'
+  fp_guards:
+  - 'curl -s http://169.254.169.254/  # benign metadata check'
+  - curl http://api.example.com/v1/env
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-125
+  name: artifact-modification-downstream-propagation
+  description: Detects modification of build artifacts to propagate downstream impact,
+    as in CloudEX.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:sed|echo|printf).{0,40}>>.{0,40}\.(?:jar|war|exe|msi|deb|rpm|whl|tar\.gz)
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.yaml'
+  - '*.yml'
+  message: Detected modification of build artifacts, potential supply-chain tampering.
+  remediation: '- Sign artifacts and verify signatures before distribution.
+
+    - Use integrity monitoring on build outputs.
+
+    - Implement chain-of-custody logging.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: T1195.001
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain CloudEX scenario: artifact modification to propagate downstream.'
+  fp_guards:
+  - echo 'version=1.0' >> build.info
+  - sed -i 's/debug=true/debug=false/g' config.properties
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-126
+  name: lotl-fileless-execution-via-powershell
+  description: Detects living-off-the-land (LotL) fileless execution using PowerShell,
+    common in multi-stage supply-chain attacks.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)PowerShell\s+(?:-EncodedCommand|-e|-ec)\s+[A-Za-z0-9+/=]{20,}
+  - (?i)Invoke-Expression\s*\(\s*['"][^'"]+['"]
+  file_types:
+  - '*.ps1'
+  - '*.bat'
+  - '*.sh'
+  - '*.py'
+  message: Detected fileless execution via PowerShell encoded command or Invoke-Expression.
+  remediation: '- Enable PowerShell script block logging and AMSI.
+
+    - Restrict execution policy.
+
+    - Monitor for encoded command execution.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  mitre_attack: T1059.001
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Parallel scenario: multi-stage script chain uses PowerShell
+    for fileless execution.'
+  fp_guards:
+  - PowerShell -EncodedCommand ZQBjAGgAbwAgACIASABlAGwAbABvACIA
+  - Invoke-Expression 'echo Hello'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-127
+  name: exfiltration-via-dns-query
+  description: Detects data exfiltration via DNS queries, a stealthy technique used
+    in several SynthChain scenarios.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)nslookup\s+['"]?[a-z0-9]+\.[a-z0-9]+\.[a-z]+['"]?
+  - (?i)dig\s+['"]?[a-z0-9]+\.[a-z0-9]+\.[a-z]+['"]?
+  file_types:
+  - '*.sh'
+  - '*.bat'
+  - '*.ps1'
+  - '*.py'
+  message: Detected potential DNS-based data exfiltration via nslookup or dig.
+  remediation: '- Monitor for unusually long or frequent DNS queries.
+
+    - Implement DNS tunneling detection.
+
+    - Use network DLP to inspect DNS payload.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1048.003
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Parallel and NPMEX scenarios: exfiltration via DNS queries.'
+  fp_guards:
+  - nslookup google.com
+  - dig example.com A
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-128
+  name: steganography-decode-from-image
+  description: Detects image decoding for steganography payload extraction, as in
+    Stegano scenario.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:cv2\.imread|PIL\.Image\.open)\s*\(\s*['"][^'"]*\.(?:png|jpg|jpeg|gif|bmp)['"]
+  - (?i)decode_stego|extract_payload|lsb_reveal
+  file_types:
+  - '*.py'
+  message: Detected steganography decoding function call on image file.
+  remediation: '- Review the source of the image file.
+
+    - Implement steganography detection tools.
+
+    - Educate developers on safe package practices.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1027
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain Stegano scenario: hidden payload extracted from image using
+    steganography.'
+  fp_guards:
+  - img = cv2.imread('photo.jpg'); cv2.imshow('test', img)
+  - from PIL import Image; img = Image.open('icon.png')
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-129
+  name: pickle-serialization-blocked-log
+  description: Detects code that logs blocked unsafe pickle loads as evidence of serialization
+    guard enforcement, as demonstrated in AIRS loader guard outcomes.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - unsafe\.pt.{0,40}(?:block|fail)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.log'
+  message: Blocked unsafe pickle load logged; indicates serialization guard activation.
+  remediation: '- Ensure serialization guard logs are monitored.
+
+    - Configure loaders to block unsafe formats (pickle) by default.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-502
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS Framework pilot C: blocked unsafe.pt artifact, hash mismatch logs'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - blocked URL due to policy filter
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-131
+  name: safetensors-load-policy-enforcement
+  description: Detects code enforcing load allowlist for safetensors format, as per
+    AIRS packaging policy.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)safetensors.{0,40}(?:allow|whitelist|policy)
+  - (?i)allowlist.{0,40}safetensors
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: SafeTensor allowlist policy detected; reinforces safe serialization.
+  remediation: '- Extend allowlist to include only safe formats.
+
+    - Ensure policy is enforced in deployment pipeline.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS packaging policy: loader allowlist for safetensors, ONNX'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - safetensors file loaded successfully
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-132
+  name: runtime-probe-log-probability-contamination
+  description: Detects code computing per-sequence log probabilities for contamination
+    detection, as in AIRS runtime probe.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)log.{0,20}prob.{0,40}(?:contamin|poison|detect)
+  - (?i)per.{0,5}sequence.{0,20}log.{0,20}prob
+  file_types:
+  - '*.py'
+  message: Log-probability contamination detection probe code detected.
+  remediation: '- Use only in sandboxed environments.
+
+    - Validate probe results before acting.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS runtime probe: per-sequence log probabilities for ROC metrics'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - 'log probability values: [-0.5, -1.2]'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-133
+  name: gguf-metadata-prompt-injection-config
+  description: Detects code that reads or modifies GGUF metadata for potential prompt
+    injection, as AIRS mentions GGUF/metadata prompt injection.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)gguf.{0,40}(?:metadata|prompt|inject)
+  - (?i)metadata.{0,40}gguf
+  file_types:
+  - '*.py'
+  - '*.cpp'
+  - '*.yaml'
+  message: GGUF metadata manipulation code; potential prompt injection vector.
+  remediation: '- Verify GGUF metadata integrity.
+
+    - Do not load GGUF models from untrusted sources.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS threat 3.5: GGUF/metadata prompt injection'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - gguf model loaded with metadata
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-134
+  name: onnx-custom-op-injection-scan
+  description: Detects code that scans ONNX models for custom ops, which can be injected
+    for supply chain compromise.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)onnx.{0,40}(?:custom.?op|graph.?lint|allowlist)
+  - (?i)custom.?op.{0,40}onnx
+  file_types:
+  - '*.py'
+  message: ONNX custom op scan detected; ensures only allowed operators are used.
+  remediation: '- Maintain allowlist of safe ONNX operators.
+
+    - Run graph lint before deployment.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS threat 2.3: ONNX custom-op injection, field 2.10 onnx op scan'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - onnx model loaded with standard ops
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-135
+  name: lora-adapter-integrity-check
+  description: Detects checks for LoRA adapter hashes to prevent adapter injection.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)adapter.{0,40}(?:lora|peth).{0,40}hash
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: LoRA adapter integrity check detected; mitigates adapter injection.
+  remediation: '- Store adapter hashes in signed manifest.
+
+    - Verify adapter integrity before loading.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-345
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS threat 3.4: Adapter/LoRA injection, field 3.5 adapter hashes'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - lora adapter loaded from hub
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-136
+  name: weight-steganography-payload-detection
+  description: Detects code extracting steganographic payloads from model weight bit-planes.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)steganograph.{0,40}(?:weight|tensor|model)
+  - (?i)bit.{0,5}plane.{0,40}weight
+  file_types:
+  - '*.py'
+  message: Weight steganography extraction code; may hide payloads in tensors.
+  remediation: '- Validate tensor statistics for anomalies.
+
+    - Use trusted model sources only.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-320
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS threat 3.3: Weight steganography (payloads in tensor bit-planes)'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - weight matrix loaded for inference
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-138
+  name: dir-merkle-root-generation
+  description: Detects code generating a directory Merkle root for model artifact
+    reproducibility.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)dir.{0,20}merkle.{0,20}(?:root|hash)
+  - (?i)merkle.{0,40}directory
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Directory Merkle root generation; supports artifact integrity verification.
+  remediation: '- Store Merkle root in signed manifest.
+
+    - Use consistent hashing algorithm.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-345
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS field 1.7: dir merkle root for reproducibility'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - ls -la directory
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-139
+  name: shape-consistency-report
+  description: Detects code comparing config tensor shapes to actual tensor shapes
+    for drift detection.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)shape.{0,40}(?:consistency|compare|match).{0,40}(?:tensor|config)
+  - (?i)tensor.{0,40}shape.{0,40}(?:diff|mismatch)
+  file_types:
+  - '*.py'
+  message: Shape consistency report; detects architectural drift.
+  remediation: '- Report shape mismatches for investigation.
+
+    - Ensure configuration matches actual model.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS field 3.6: shape consistency report'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - 'shape: [1, 512, 768]'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-140
+  name: tensor-checksum-generation
+  description: Detects code computing per-tensor checksums for drift detection.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)tensor.{0,40}(?:checksum|hash|sha256)
+  - (?i)per.{0,5}tensor.{0,20}(?:checksum|hash)
+  file_types:
+  - '*.py'
+  message: Per-tensor checksum generation; enables drift detection.
+  remediation: '- Store tensor checksums in manifest.
+
+    - Recompute and compare during audits.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-345
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS field 3.7: tensor checksums for drift detection'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - tensor([1, 2, 3])
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-141
+  name: tensor-statistics-outlier-detection
+  description: Detects code computing tensor statistics to find NaN/Inf/outliers.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)tensor.{0,40}(?:stat|mean|var|NaN|Inf|outlier)
+  - (?i)(?:NaN|Inf|outlier).{0,40}tensor
+  file_types:
+  - '*.py'
+  message: Tensor statistics computation; detects anomalous values.
+  remediation: '- Investigate outliers for possible tampering.
+
+    - Use float validation before inference.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS field 3.8: tensor stats (mean/var/NaN/Inf/outliers)'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - tensor.mean() = 0.5
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-143
+  name: pii-probe-config
+  description: Detects PII probe configuration code for testing regurgitation.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)probe.{0,40}pii
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: PII probe configuration detected; tests for data leakage.
+  remediation: '- Run in sandbox to avoid false positives.
+
+    - Use only for internal evaluation.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS field 4.4: pii probe results'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - pii not found in response
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-144
+  name: atlas-c2pa-manifest-bypass
+  description: Detection of code that bypasses C2PA manifest generation for ML model
+    artifacts, which Atlas relies on for integrity. Attackers may disable or skip
+    C2PA signing to hide tampering.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - C2PA_MANIFEST_DISABLED
+  - generation_skip
+  - c2pa_skip_sign
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.toml'
+  message: Detected potential bypass of C2PA manifest generation in ML pipeline.
+  remediation: '- Ensure C2PA manifest generation is not disabled in configuration.
+
+    - Remove any flags that skip signing or manifest creation.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas framework uses C2PA manifests for provenance; disabling them
+    breaks integrity guarantees.'
+  fp_guards:
+  - C2PA_MANIFEST_DISABLED is set to false in production config
+  - '# C2PA_SKIP not defined'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-145
+  name: atlas-tdx-attestation-bypass
+  description: Detection of code that disables Intel TDX remote attestation, which
+    Atlas uses to verify ML system integrity. Attackers may bypass attestation to
+    run untrusted pipelines.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - TDX_ATTESTATION_DISABLED
+  - attestation_skip
+  - NO_TDX_ATTEST
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Detected potential bypass of Intel TDX attestation in ML pipeline.
+  remediation: '- Enforce TDX attestation in pipeline configuration.
+
+    - Remove any flags that disable attestation.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas relies on Intel TDX attestation for hardware-rooted integrity.'
+  fp_guards:
+  - TDX_ATTESTATION_DISABLED is deprecated in favor of forced attestation
+  - '# attestation_skip not set'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-146
+  name: atlas-provenance-chain-tampering
+  description: Detection of code that modifies hashes in provenance chain attestations,
+    which Atlas uses to link artifact transformations. Tampering can break lineage
+    verification.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - provenance_hash
+  - override_hash
+  - chain_hash
+  file_types:
+  - '*.py'
+  message: Detected potential tampering with provenance chain hash values.
+  remediation: '- Ensure provenance hashes are computed from actual artifact content.
+
+    - Do not allow manual override of hash values.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses Merkle tree chain for provenance; hash tampering breaks
+    verification.'
+  fp_guards:
+  - 'provenance_hash = compute_hash(artifact)  # legitimate'
+  - chain_hash = previous_attestation.hash
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-147
+  name: atlas-coco-attestation-bypass
+  description: Detection of code that disables Confidential Containers (CoCo) remote
+    attestation, which Atlas uses to verify ML system monitor integrity.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - COCO_ATTESTATION_DISABLED
+  - coco_skip_attest
+  - NO_COCO_ATTEST
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Detected potential bypass of CoCo attestation in Atlas sidecar.
+  remediation: '- Enforce CoCo attestation for all sidecar operations.
+
+    - Remove flags that disable attestation.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas sidecar uses CoCo for remote attestation of ML system monitor.'
+  fp_guards:
+  - COCO_ATTESTATION_DISABLED is not present in production
+  - '# coco_skip_attest not set'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-148
+  name: atlas-pytorch-hook-bypass
+  description: Detection of code that removes or disables PyTorch hooks used by Atlas
+    to track model weight changes, hyperparameters, and checkpoints during training.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - remove_hook
+  - hook_removed
+  - register_forward_hook
+  file_types:
+  - '*.py'
+  message: Detected potential removal or tampering of PyTorch hooks used for provenance
+    tracking.
+  remediation: '- Ensure hooks are not removed during training.
+
+    - Validate that hooks are registered correctly.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses PyTorch hooks to monitor model weight changes and checkpoint
+    creation.'
+  fp_guards:
+  - 'register_forward_hook(self.hook_fn)  # legitimate registration'
+  - hook = module.register_forward_hook(hook_fn)
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-149
+  name: atlas-kubeflow-metadata-tampering
+  description: Detection of code that modifies Kubeflow pipeline metadata, which Atlas
+    relies on for runtime provenance collection.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - kfp_metadata
+  - kubeflow_metadata
+  - mlpipeline_metadata
+  file_types:
+  - '*.py'
+  message: Detected potential tampering with Kubeflow pipeline metadata.
+  remediation: '- Ensure metadata is not manually altered.
+
+    - Use official Kubeflow APIs for metadata updates.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas integrates with Kubeflow for ML pipeline management.'
+  fp_guards:
+  - 'kfp_metadata = context.raw_data[''run_id'']  # legitimate read'
+  - metadata = kfp.dsl.get_pipeline_context()
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-150
+  name: atlas-c2pa-manifest-missing
+  description: Detection of missing C2PA manifest generation in ML pipelines, which
+    Atlas requires for provenance tracking. Attackers may omit manifest to avoid verification.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - from c2pa import Manifest
+  - Manifest.from_file
+  - generate_manifest
+  file_types:
+  - '*.py'
+  message: Detected potential missing C2PA manifest generation.
+  remediation: '- Ensure C2PA manifest is generated for every model artifact.
+
+    - Integrate Atlas sidecar for automatic manifest creation.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas relies on C2PA manifests for authenticated metadata.'
+  fp_guards:
+  - 'Manifest.from_file(''c2pa_manifest.json'')  # verification'
+  - 'def generate_manifest(artifact): ...'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-151
+  name: atlas-artifact-hash-mismatch
+  description: Detection of code that uses incorrect or overridden artifact hash values,
+    potentially enabling tampered artifacts to pass verification.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - artifact_hash
+  - expected_hash
+  file_types:
+  - '*.py'
+  message: Detected potential mismatch or override of artifact hash values.
+  remediation: '- Always compute hash from actual artifact content.
+
+    - Do not accept externally provided hash values without verification.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas compares artifact hashes for integrity.'
+  fp_guards:
+  - artifact_hash = sha256(artifact_content)
+  - expected_hash = golden_value.hash
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-152
+  name: atlas-tdx-config-tampering
+  description: Detection of modifications to Intel TDX configuration that would weaken
+    security guarantees, such as disabling memory encryption or allowing untrusted
+    code.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - tdx_config
+  - TDX_CONFIG
+  - trust_domain
+  file_types:
+  - '*.yaml'
+  - '*.toml'
+  - '*.json'
+  message: Detected potential tampering with Intel TDX configuration.
+  remediation: '- Enforce correct TDX configuration for all ML workloads.
+
+    - Validate TDX settings against golden values.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses Intel TDX for memory isolation; misconfiguration can bypass
+    protection.'
+  fp_guards:
+  - 'tdx_config = {''memory_encryption'': true, ''integrity'': true}'
+  - 'trust_domain = {''image'': ''atlas-sidecar:latest''}'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-153
+  name: atlas-sigstore-rekor-bypass
+  description: Detection of code that bypasses or disables Sigstore Rekor transparency
+    log integration, which Atlas uses to store attestations.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - REKOR_DISABLED
+  - rekor_skip
+  - NO_REKOR
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  message: Detected potential bypass of Sigstore Rekor transparency log.
+  remediation: '- Ensure Rekor integration is active.
+
+    - Remove flags that skip Rekor logging.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses Rekor for tamper-evident storage of attestations.'
+  fp_guards:
+  - REKOR_DISABLED is not set in production
+  - '# rekor_skip not used'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-154
+  name: atlas-verification-cache-poisoning
+  description: Detection of code that poisons the verification cache, causing repeated
+    verification of tampered artifacts to return cached valid results without actual
+    re-verification.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - verification_cache
+  - cache_clear
+  file_types:
+  - '*.py'
+  message: Detected potential poisoning of verification cache.
+  remediation: '- Ensure cache invalidation is triggered on any change.
+
+    - Verify cache entries against current artifact hashes.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses caching to optimize verification; cache poisoning can hide
+    tampering.'
+  fp_guards:
+  - verification_cache.update(artifact.hash, result)
+  - 'invalidate_cache()  # legitimate invalidation'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-155
+  name: atlas-merkle-tree-manipulation
+  description: Detection of code that manipulates the Merkle tree structure used for
+    transparency log, potentially allowing insertion of fake attestations or hiding
+    audit trail.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - MerkleTree
+  - append_leaf
+  - merkle_root
+  file_types:
+  - '*.py'
+  message: Detected potential manipulation of Merkle tree data structure.
+  remediation: '- Ensure tree operations are append-only.
+
+    - Validate tree proofs against trusted root.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas uses Merkle tree for tamper-evident log storage.'
+  fp_guards:
+  - MerkleTree.append_real_leaf(attestation)
+  - merkle_root = tree.compute_root()
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-156
+  name: atlas-gpu-side-channel-bypass
+  description: Detection of code that attempts to exploit lack of GPU security in
+    TEEs to extract sensitive data, as Atlas acknowledges GPU security gaps.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - cudaMemcpy
+  - cudaMemcpy2D
+  - cudaMemcpyFromDevice
+  file_types:
+  - '*.cu'
+  - '*.cpp'
+  message: Detected potential GPU memory operation that may be exploitable due to
+    lack of TEE protection.
+  remediation: '- Use confidential GPU computing if available.
+
+    - Minimize sensitive data transfers to GPU.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Spoczynski et al. (2025) -- Atlas: A Framework for ML Lifecycle Provenance
+    & Transp | Atlas notes GPU memory is outside TEE protection; side-channel attacks
+    are possible.'
+  fp_guards:
+  - 'cudaMemcpy(dev_ptr, host_ptr, size, cudaMemcpyHostToDevice)  # legitimate write'
+  - '# cudaMemcpyFromDevice not used'
+  pipeline_confidence: low
+  action: log
+- id: MEDUSA-MLSC-SCAN-157
+  name: llm-extracted-vulnerable-syntax-from-cve
+  description: Detects static patterns extracted by LLM from CVE descriptions (e.g.,
+    dangerous functions, API calls). The thesis uses LLM to parse CVE text and output
+    function names or code snippets to search in source code. While not an attack
+    tool itself, the paper shows this pattern for automated vulnerability triage.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|identify|find)\s+.{0,40}?(?:vulnerable|dangerous|malicious|unsafe)\s+(?:function|syntax|pattern|code)
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.php'
+  - '*.txt'
+  - '*.md'
+  message: Pattern extracted by LLM from CVE for reachability scanning - indicative
+    of automated vulnerability triage pipeline
+  remediation: '- Review LLM output for accuracy before using in automated scans
+
+    - Implement deterministic AST verification to confirm pattern presence'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis SBOM-LLM prototype: LLM extracts vulnerable syntax from CVE descriptions
+    for AST-based reachability analysis'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, VulnerableFunctionCount: 0}'
+  - this function is vulnerable to SQL injection — here's why
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-158
+  name: ast-source-file-scan-pattern
+  description: Detects calls to AST-based source file scanning function used for vulnerability
+    pattern detection in SBOM workflow.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - ast_source_file_scan\s*\(\s*['"]
+  - \.get_source_file\s*\(\s*['"]
+  - \.analyze_source\s*\(\s*['"]
+  file_types:
+  - '*.py'
+  - '*.go'
+  message: AST source file scanning function detected.
+  remediation: '- Ensure source file scanning is performed with validated inputs.
+
+    - Restrict scanning to allowed directories only.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-20
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-AI thesis: Section 4.2.2 - AST workflow integration for vulnerable
+    syntax checking.'
+  fp_guards:
+  - 'ast_source_file_scan(''README.md'')  # non-source file'
+  - 'ProcessMetrics: {ASTSourceFileScanCount: 12, TotalRss: 45MB}'
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-159
+  name: sbom-ui-vulnerable-syntax-management-call
+  description: Detects an API call to manage vulnerable syntax in SBOM-UI, which is
+    part of the enhanced triage workflow.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - \/api\/v1\/vulnerable-syntax\/
+  - vulnerable_syntax_management\s*\(\s*['"]
+  - \/vulnerable-syntax\/update
+  - \.update_vulnerable_syntax\s*\(
+  file_types:
+  - '*.json'
+  - '*.py'
+  - '*.js'
+  message: Vulnerable syntax management endpoint or function called.
+  remediation: '- Ensure the vulnerable syntax management API has authentication and
+    authorization.
+
+    - Audit logs for all updates to vulnerable syntax.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-AI thesis: Section 4.1.3 - Enhanced Dependency-Track interface with
+    AI-assisted vulnerable syntax management.'
+  fp_guards:
+  - GET /api/v1/users
+  - 'ProcessMetrics: {VulnerableSyntaxCount: 0}'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-160
+  name: vulnerable-pattern-cve-to-ast-mismatch
+  description: Detection of vulnerable function patterns extracted from CVE descriptions
+    that are not found in the application source code via AST analysis, indicating
+    a false positive in SBOM scanning.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:from|import)\s+(?:vuln_pkg|bad_lib)
+  - (?i)vuln_function\s*\(
+  - (?i)\b(?:unsafe_deserialize|insecure_parse)\b
+  file_types:
+  - '*.py'
+  - '*.java'
+  - '*.js'
+  - '*.php'
+  message: Detected vulnerable function pattern from CVE that may not be present in
+    source code, indicating a potential false positive.
+  remediation: '- Verify the vulnerable function is actually used in the codebase
+
+    - Update SBOM with VEX metadata if the component is not affected'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Nguyen Van Huy (2025) - LLM-enhanced SBOM triage; uses GPT-4 to extract
+    vuln patterns from CVE descriptions
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how a man-in-the-middle attack works
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-163
+  name: llm-sbom-false-positive-reduction
+  description: Detects SBOM-driven vulnerability matches that the LLM flagged as false
+    positives due to unreachable vulnerable code; paper reports 83.9% reduction in
+    false positives across 18 projects.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\b(?:CVE-\d{4}-\d{4,7})\s*\(?\s*(?:not\s*affected|false\s*positive)\s*\)?
+  file_types:
+  - '*.sbom'
+  - '*.json'
+  - '*.yaml'
+  - '*.xml'
+  message: LLM analysis tagged this CVE as false positive due to unreachable vulnerable
+    code; confirm with AST analysis.
+  remediation: '- Use AST parsing to verify the vulnerable function is not called
+    in the codebase.
+
+    - Update SBOM with VEX metadata to mark component as not affected.
+
+    - Document the reasoning for audit trails.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Using LLMs to Improve the Accuracy of SBOM-Based Vulnerability Assessment;
+    83.9% reduction in false positives; 18 projects
+  fp_guards:
+  - CVE-2021-44228 affected version 2.0.0
+  - This is a real vulnerability, not a false positive.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-164
+  name: ast-vulnerable-function-call-pattern
+  description: Detects AST-based patterns of vulnerable function calls identified
+    by LLM from CVE descriptions, used in the proposed AI-enhanced SBOM workflow to
+    verify if vulnerable syntax is present in source code.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:ast\.parse|ast\.walk|ast\.NodeVisitor)\s*[\(\[]
+  - (?i)semgrep\s+(?:--pattern|-e)\s+['"][^'"]*?\b(?:exec|eval|deserialize|load|yaml\.load|pickle\.loads?|\.decode)\b
+  - (?i)codeql\s+(?:query|database)\s+.{0,40}\bvuln(?:erable)?[-_]?(?:function|syntax|pattern)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: AST-based vulnerable function detection pattern used in SBOM triage - potentially
+    identifying reachable vulnerable code.
+  remediation: '- Use AST parsing to identify vulnerable function calls
+
+    - Combine with LLM-based CVE interpretation to reduce false positives
+
+    - Implement deterministic verifier (AST) to validate LLM-suggested patterns'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | The thesis uses AST-based pattern matching (Section 4.2) to detect vulnerable
+    functions from CVE descriptions, reducing false positives by up to 87%.
+  fp_guards:
+  - 'def parse(data): return ast.literal_eval(data)'
+  - import ast; tree = ast.parse(source_code)
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-165
+  name: llm-vulnerable-syntax-extraction-pattern
+  description: Detects code that uses LLM to extract vulnerable function names or
+    syntax from CVE descriptions for reachability analysis, as implemented in the
+    prototype for SBOM triage.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:LLM|GPT|llama|mistral)\s*\.\s*(?:complete|generate|chat|ask)\s*\([^)]*?\b(?:vulnerable\s*function|CVE|patch|affected\s*syntax)\b
+  - (?i)(?:openai|anthropic|ollama)\s*\.\s*(?:completions|chat|generate)\s*\([^)]*?\b(?:extract|identify|find)\s*(?:vulnerable|dangerous|unsafe)\s*(?:function|pattern|code)\b
+  - (?i)prompt\s*=\s*['"][^'"]*?\b(?:what\s+(?:is|are)\s+the\s+(?:vulnerable|affected|dangerous)\s+(?:functions|patterns|syntax)|extract\s+vulnerable\s+(?:functions|code)\s+from\s+CVE)\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM used to extract vulnerable syntax from CVE descriptions for SBOM reachability
+    analysis - ensure output is validated by deterministic AST parser.
+  remediation: '- Validate LLM-extracted patterns with AST-based verification
+
+    - Use deterministic tools (AST parser) as second verification step
+
+    - Implement human-in-the-loop for critical findings'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Section 4.3 implements an AI agent using GPT to extract vulnerable function
+    names from CVE texts, achieving 87–94% accuracy across models.
+  fp_guards:
+  - 'def analyze_cve(cve_id): pass  # placeholder function'
+  - response = llm.chat("Explain what a CVE is")
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-166
+  name: sbom-llm-reachability-analysis-config
+  description: Detects configuration or code that enables LLM-based reachability analysis
+    in SBOM workflows, as proposed in the thesis for DevSecOps pipeline integration.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:llm_analysis|ai_analysis|vulnerability_context|reachability_check)\s*[:-]\s*(?:true|True|enabled|1)\b
+  - (?i)(?:LLMSbomAnalyzer|AIEnhancedSbom|ContextualVulnAnalyzer)\b
+  - (?i)enable_llm_reachability\s*[=:]\s*(?:true|True|1)\b
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.py'
+  message: LLM-based reachability analysis enabled in SBOM pipeline - ensure LLM extraction
+    is validated.
+  remediation: '- Validate LLM output with deterministic AST parser
+
+    - Ensure CI/CD pipeline includes both LLM and AST stages
+
+    - Monitor LLM hallucination rate on vulnerable pattern extraction'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Section 4.3 describes LLM configuration for reachability analysis integrated
+    with Dependency-Track SBOM UI.
+  fp_guards:
+  - 'llm_analysis: false  # disabled by default'
+  - '# Enable only if you have AST verification enabled'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-167
+  name: dependency-track-ai-plugin-integration
+  description: Detects integration of AI or LLM plugins with Dependency-Track SBOM
+    platform as used in the thesis prototype to reduce false positive vulnerability
+    alerts.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)dependency[-_]?track.{0,40}(?:ai|llm|gpt|plugin|extension)\b
+  - (?i)(?:dtrack_ai|ai_plugin|ai_service|llm_service)\s*[=:]\s*['"][^'"]*['"]
+  - (?i)def\s+analyze_vulnerability\s*\([^)]*\bsbom\b[^)]*\bllm\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.js'
+  message: Dependency-Track AI plugin integration for SBOM vulnerability analysis
+    - review LLM output validation.
+  remediation: '- Verify LLM-extracted patterns with AST-based scanning
+
+    - Configure proper authentication for LLM API calls
+
+    - Monitor false positive reduction metrics'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Section 4.2 implements a Dependency-Track UI plugin that calls an LLM
+    service to analyze CVEs within the SBOM viewer.
+  fp_guards:
+  - var dependencyTrack = {}; // placeholder
+  - function analyzeVulnerability(sbom) { return []; }
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-168
+  name: ast-service-vulnerable-syntax-verification
+  description: Detects the AST service endpoint that receives LLM-extracted patterns
+    and verifies their presence in source code, as implemented in the thesis prototype.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:/api/v1/ast|/ast/verify_vulnerable|/ast/check_pattern)\s*[\{]
+  - (?i)def\s+verify_vulnerable_syntax\s*\([^)]*\bpattern\b[^)]*\bsource\b
+  - (?i)(?:ast_service|ast_endpoint|vulnerable_syntax_checker)\s*[=:]\s*['"][^'"]*['"]
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: AST service endpoint for vulnerable syntax verification - ensure proper
+    input validation and rate limiting.
+  remediation: '- Validate input pattern format and escape special characters
+
+    - Implement rate limiting on AST service
+
+    - Log all verification results for audit trail'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Section 4.2.2 describes AST service that receives patterns from LLM and
+    scans project source code for matches.
+  fp_guards:
+  - 'def verify_syntax(source, pattern): return True'
+  - 'ast_service = "http://localhost:5001"  # development only'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-169
+  name: llm-vuln-pattern-call-detection
+  description: Detects calls to vulnerable functions identified by LLM from CVE descriptions,
+    such as unsafe deserialization (pickle.loads), command execution, or path traversal
+    patterns. High false-positive reduction target.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\beval\s*\(\s*['"].{0,40}['"]\s*\)
+  - (?i)\bexec\s*\(\s*['"][^'"]*['"]\s*\)
+  - (?i)(?:from\s+pickle\s+import|import\s+pickle)\s*
+  file_types:
+  - '*.py'
+  message: Suspected call to vulnerable function extracted from CVE description. Verify
+    if this call uses tainted input.
+  remediation: '- Review function call context: is user input passed to the function?
+
+    - If tainted, apply input validation or sanitization.
+
+    - Consider using safe alternatives (e.g., yaml.safe_load instead of yaml.load).
+
+    - Add unit tests to confirm exploitability.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-based vulnerability assessment thesis; extracted vulnerable patterns
+    from CVE descriptions.
+  fp_guards:
+  - 'pickle.loads(trusted_serialized_data)  # Only used with internal data'
+  - 'yaml.load(config_file, Loader=yaml.SafeLoader)  # SafeLoader used'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-170
+  name: llm-vuln-pattern-path-traversal
+  description: Detects path traversal patterns from CVEs (e.g., CVE-2019-9740) that
+    allow directory traversal via user input concatenation.
+  severity: high
+  category: ml_supply_chain
+  patterns:
+  - (?i)\b(?:open|read|write|delete|remove)\s*\(\s*['"][^'"]*['"]\s*\+\s*user_input\s*\)
+  - (?i)\bopen\s*\(\s*f['"][^'"]*\bfilename\b
+  - (?i)\b(?:os\.path\.join|os\.chdir)\s*\(\s*['"][^'"]*['"]\s*\+\s*user_input\s*\)
+  file_types:
+  - '*.py'
+  message: Path traversal pattern detected. User input concatenated directly into
+    file path.
+  remediation: '- Validate and sanitize user input before constructing file paths.
+
+    - Use os.path.abspath and check for path containment.
+
+    - Avoid direct concatenation; use safe path building functions.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-22
+  mitre_attack: T1565
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-based vulnerability assessment thesis; CVE pattern extraction.
+  fp_guards:
+  - 'open(''/var/data/'' + sanitized_path, ''r'')  # Input sanitized'
+  - 'read(trusted_dir + ''/config.ini'')  # trusted_dir is internal constant'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-171
+  name: llm-vuln-pattern-command-injection
+  description: Detects command injection patterns where user input is passed to shell
+    execution (e.g., CVE-2021-44228 Log4Shell but with command execution).
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - (?i)\bsubprocess\.(?:run|Popen|call)\s*\(\s*\[\s*['"](?:bash|sh|cmd|powershell)['"]\s*,\s*['"]-c['"]\s*,\s*['"][^'"]*['"]\s*\+\s*user_input\s*\]
+  - (?i)\b(?:os\.system|os\.popen)\s*\(\s*['"][^'"]*\+\s*user_input\s*['"]\s*\)
+  - (?i)\beval\s*\(\s*['"][^'"]*['"]\s*\+\s*user_input\s*\)
+  file_types:
+  - '*.py'
+  message: 'Command injection pattern detected: user input concatenated into shell
+    command.'
+  remediation: '- Use subprocess.run with argument list, not shell command strings.
+
+    - Validate and sanitize user input.
+
+    - Avoid shell=True unless absolutely necessary, and then use strict validation.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-78
+  mitre_attack: T1203
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-based vulnerability assessment thesis; CVE pattern extraction.
+  fp_guards:
+  - 'subprocess.run([''bash'', ''-c'', ''echo hello''])  # No user input'
+  - 'os.system(''ls /tmp'')  # Hardcoded path'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-172
+  name: llm-vuln-pattern-sql-injection
+  description: Detects SQL injection patterns where user input is concatenated into
+    SQL queries.
+  severity: critical
+  category: ml_supply_chain
+  patterns:
+  - (?i)\b(?:cursor\.execute|execute|exec)\s*\(\s*f['"][^'"]*\buser_input\b
+  - (?i)\b(?:cursor\.execute|execute|exec)\s*\(\s*['"][^'"]*['"]\s*\+\s*user_input\s*\)
+  - (?i)\b(?:cursor\.execute|execute|exec)\s*\(\s*['"][^'"]*\%s\s*['"]\s*\%\s*user_input\s*\)
+  file_types:
+  - '*.py'
+  - '*.java'
+  message: 'SQL injection pattern detected: user input concatenated into SQL query.'
+  remediation: '- Use parameterized queries (e.g., %s placeholders with data tuples).
+
+    - For ORM, use query builders that escape automatically.
+
+    - Validate and sanitize user input.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | SBOM-based vulnerability assessment thesis; CVE pattern extraction.
+  fp_guards:
+  - 'cursor.execute(''SELECT * FROM users WHERE id = %s'', (user_input,))  # Parameterized'
+  - 'cursor.execute("SELECT * FROM users WHERE id = ?", [user_input])  # Parameterized'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-173
+  name: llm-cve-pattern-extraction-check
+  description: Detects use of LLM agents to extract vulnerable syntax from CVE descriptions
+    and verify via AST scanning, as proposed in the thesis for automated triage.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:cve|vulnerability).{0,40}(?:description|report|advisory).{0,40}(?:llm|ai|extract|inject|call)
+  - (?i)(?:ast|abstract\s*syntax\s*tree).{0,40}(?:present|contain|use|call).{0,40}(?:vulnerable|danger|unsafe|exploit|function|method)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.php'
+  message: Detected LLM-based vulnerable syntax extraction from CVE descriptions for
+    automated SBOM triage; ensure output is verified by deterministic AST scanning.
+  remediation: '- Use deterministic AST/pattern matching (e.g., Semgrep) to validate
+    LLM-extracted patterns before reporting.
+
+    - Apply human-in-the-loop review for high-severity findings.
+
+    - Log all LLM-assisted triage decisions for audit trails.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Using LLMs to Improve the Accuracy of SBOM-Based Vulnerability Assessment
+    (thesis), no ASR reported
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The LLM correctly identified the vulnerable function 'load' in the source code.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-174
+  name: ast-vulnerable-function-presence-check
+  description: Detects AST-based scanning for presence of vulnerable functions extracted
+    from CVE descriptions, as used in the thesis to confirm exploitability.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:semgrep|ast|parse|parse_ast|visit).{0,40}(?:file|code|source|project).{0,40}(?:for|check|find|scan).{0,40}(?:vulnerable|danger|unsafe|exploit|function|call|pattern)
+  - (?i)(?:function_call|method_call|import).{0,40}(?:vulnerable|unsafe|insecure|exploit).{0,40}(?:found|present|detected|matched)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.php'
+  message: AST-based scan for vulnerable function presence from LLM-extracted patterns;
+    verify results with manual review.
+  remediation: '- Confirm AST findings with code review.
+
+    - Use deterministic rules (e.g., Semgrep) for high-confidence vulnerabilities.
+
+    - Integrate AST checks into CI/CD pipeline for automated triage.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Using LLMs to Improve the Accuracy of SBOM-Based Vulnerability Assessment
+    (thesis), no ASR reported
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The AST shows the function is present but not reachable.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-175
+  name: sbom-llm-integration-workflow
+  description: Detects integration of LLM analysis with SBOM/SCA tools (e.g., Dependency-Track)
+    for vulnerability triage, as prototyped in the thesis.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:sbom|dependency[_-]?track|sca|syft|trivy).{0,40}(?:llm|ai|agent|gpt).{0,40}(?:analysis|triage|enrich|enhance|filter|reduce)
+  - (?i)(?:llm|ai).{0,40}(?:sbom|dependency|vulnerability).{0,40}(?:triage|filter|reduce|noise|false[_-]?positive)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.yaml'
+  - '*.json'
+  - '*.yml'
+  message: SBOM/SCA tool integrated with LLM for vulnerability triage; ensure LLM
+    outputs are validated.
+  remediation: '- Validate LLM outputs with deterministic AST scanning.
+
+    - Set confidence thresholds before suppressing alerts.
+
+    - Audit LLM decisions periodically.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Using LLMs to Improve the Accuracy of SBOM-Based Vulnerability Assessment
+    (thesis)
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The integration uses LLM to filter out non-reachable CVEs.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-176
+  name: llm-vuln-pattern-extraction-ast-check
+  description: Detects usage of LLM-extracted vulnerable patterns (function names,
+    syntax) from CVE descriptions that are then checked via AST parsing; this rule
+    targets the framework's own analysis scripts that define such patterns for automated
+    triage.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:vulnerable|unsafe|dangerous).{0,40}(?:function|method|call|syntax|pattern).{0,40}(?:from|used_in).{0,40}(?:cve|nvd|advisory)
+  - (?i)(?:extract|parse).{0,40}(?:vulnerable|unsafe|dangerous).{0,40}(?:function|syntax|pattern).{0,40}(?:from|in).{0,40}(?:cve|description|advisory)
+  - (?i)(?:check|verify|validate).{0,40}(?:if|whether).{0,40}(?:vulnerable|dangerous|unsafe).{0,40}(?:function|pattern|syntax).{0,40}(?:present|exists|called|used)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM-based vulnerable pattern extraction for AST matching detected; ensure
+    patterns are validated to prevent hallucination-driven false positives.
+  remediation: '- Validate LLM-extracted patterns against known CVE data and manual
+    review
+
+    - Use deterministic AST checks as second pass (already done in paper''s design)
+
+    - Log all extracted patterns for audit'
+  owasp_llm: LLM02:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis LLM-enhanced SBOM: proposes AST + LLM pipeline; no named attack
+    tool, ASR not applicable'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The function is vulnerable to SQL injection — here's why
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-177
+  name: sbom-ui-llm-service-call-pattern
+  description: Detects the prototype's own SBOM-UI to LLM service invocation pattern,
+    which sends CVE data for vulnerable syntax extraction; this is the core of the
+    paper's contribution.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:call|invoke|query).{0,40}(?:llm|ai|model).{0,40}(?:service|api|endpoint).{0,40}(?:for|with).{0,40}(?:cve|vulnerability|sbom)
+  - (?i)(?:send|post|fetch).{0,40}(?:cve|vulnerability).{0,40}(?:data|description|text).{0,40}(?:to|into).{0,40}(?:llm|ai)
+  - (?i)(?:llm|ai).{0,40}(?:analyze|process|parse).{0,40}(?:cve|vulnerability|advisory)
+  file_types:
+  - '*.py'
+  - '*.js'
+  message: Invocation of LLM service for CVE analysis; part of paper's prototype workflow.
+  remediation: '- Ensure API keys are secure and not hardcoded
+
+    - Validate LLM responses against ground truth (AST checks)
+
+    - Monitor for hallucinated patterns'
+  owasp_llm: LLM02:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis LLM-enhanced SBOM: Figure 9 workflow between SBOM UI vs LLM service'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how a man-in-the-middle attack works
+  pipeline_confidence: low
+- id: MEDUSA-MLSC-SCAN-178
+  name: cve-function-pattern-extraction-llm
+  description: Detects LLM-assisted extraction of vulnerable function patterns from
+    CVE descriptions for automated reachability analysis in SBOM workflows.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|find|identify)\s+(?:vulnerable|dangerous|unsafe)\s+(?:function|method|code|syntax|pattern)
+  - (?i)(?:from|import)\s+vulnerability\s+(?:extractor|analyzer|pattern\s*detector)
+  - (?i)\.(?:extract_vulnerable_patterns|analyze_cve_for_syntax)\s*\(
+  file_types:
+  - '*.py'
+  message: LLM-based CVE-to-code pattern extraction detected; verify output accuracy
+    to avoid hallucination.
+  remediation: '- Validate extracted patterns against AST or deterministic parsers
+
+    - Implement human-in-the-loop review for critical findings'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis: Using LLMs to Improve the Accuracy of SBOM-Based Vulnerability
+    Assessment (2025) - proposes LLM extraction of vulnerable syntax from CVE descriptions.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - CVE-2023-44487 is a known vulnerability; the function extract_info() is safe.
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-179
+  name: ast-syntax-check-for-cve-pattern
+  description: Detects use of AST-based verification to confirm presence of vulnerable
+    function patterns extracted from CVEs in source code.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)ast\.(?:parse|walk|dump|NodeVisitor|search)\s*\([^)]*\)
+  - (?i)semgrep\.(?:run|match|scan)\s*\(
+  file_types:
+  - '*.py'
+  message: AST-based pattern verification for CVE vulnerable syntax detected; ensure
+    correct function matching.
+  remediation: '- Pair AST with LLM extraction for deterministic validation
+
+    - Keep AST queries focused on reachable code paths'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis (2025) - uses AST parsing to verify presence of LLM-extracted
+    vulnerable patterns in source code.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'ast.literal_eval(''42'')  # safe usage'
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-180
+  name: sbom-llm-false-positive-filter
+  description: Detects components that filter SBOM-reported vulnerabilities using
+    LLM-based reachability analysis to reduce false positives.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:filter|triage|reduce)\s+(?:false\s*positive|noise|alert)\s+(?:with|using|via)\s+(?:llm|ai|gpt|model)
+  - (?i)reachability\s*(?:analysis|check)\s*(?:llm|ai)
+  - (?i)vulnerability\s*(?:triage|analysis)\s*(?:bot|agent|assistant)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: LLM-based SBOM false positive filter detected; review its efficacy and
+    potential hallucinations.
+  remediation: '- Combine LLM with deterministic reachability analysis
+
+    - Monitor false negative rate of the filter'
+  owasp_llm: LLM07:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Thesis (2025) - proposes LLM-enhanced SBOM workflow to reduce false positives
+    via contextual analysis.
+  fp_guards:
+  - explain how a man-in-the-middle attack works
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: low
+- id: MEDUSA-MLSC-SCAN-181
+  name: requirements-txt-url-install-pattern
+  description: Detects installation from remote URLs or local wheel files in requirements.txt,
+    which SBOM generators silently ignore, allowing attackers to inject malicious
+    packages via pip.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - https?://.{0,40}\.whl\b
+  - \./.{0,40}\.whl\b
+  - git\+https?://.{0,40}@[a-f0-9]{7,40}
+  file_types:
+  - requirements.txt
+  message: Remote URL or local wheel installation in requirements.txt is not detected
+    by SBOM generators; malicious package can be injected.
+  remediation: '- Avoid installing packages directly from URLs or local files in requirements.txt.
+
+    - Use official package registry references only.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Yu et al. (2024) -- On the Correctness of Metadata-Based SBOM Generation:
+    A | On the Correctness of Metadata-Based SBOM Generation (Yu et al., 2024) - parser
+    confusion attack; URL/WHL patterns bypass all four SBOM tools'
+  fp_guards:
+  - pip install https://pypi.org/simple/somepackage
+  - '# see https://example.com/instructions'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-182
+  name: requirements-txt-recursive-include-pattern
+  description: Detects -r flag in requirements.txt to include another requirements
+    file, which SBOM generators do not follow, enabling attackers to hide dependencies
+    in secondary files.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - ^-r\s+\S+
+  - \b-r\s+\S+
+  file_types:
+  - requirements.txt
+  message: Recursive include (-r) in requirements.txt is not resolved by SBOM generators;
+    dependencies in included file are missed.
+  remediation: '- Avoid using -r to include other requirements files.
+
+    - Consolidate all dependencies into a single lockfile.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Yu et al. (2024) -- On the Correctness of Metadata-Based SBOM Generation:
+    A | On the Correctness of Metadata-Based SBOM Generation (Yu et al., 2024) - parser
+    confusion attack; -r flag untracked by all four tools'
+  fp_guards:
+  - pip install -r requirements.txt
+  - '# -r is used for recursive includes'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-183
+  name: sbom-tool-live-dependency-resolution-attempt
+  description: Detects calls to package manager APIs by sbom-tool for live resolution,
+    which is unreliable and introduces risk of exfiltration or network-based manipulation.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - npm\.(view|info)\b
+  - gem\s+list\b
+  file_types:
+  - '*.go'
+  - '*.js'
+  - '*.rb'
+  message: sbom-tool attempts live resolution via package manager CLI; may fail or
+    introduce network-based risks.
+  remediation: '- Use lockfile-based SBOM generation instead.
+
+    - If live resolution is necessary, run in isolated environment.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Yu et al. (2024) -- On the Correctness of Metadata-Based SBOM Generation:
+    A | On the Correctness of Metadata-Based SBOM Generation (Yu et al., 2024) - sbom-tool
+    uses network queries, but often fails'
+  fp_guards:
+  - // go.mod file is standard
+  - function getPackageInfo() { npm.view(...) }
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-184
+  name: dead-code-insertion-obfuscation
+  description: Detects insertion of dead code to obfuscate control flow and evade
+    SCA.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\bdead\s*cod
+  - (?i)goto\s+(?:dead|junk|dummy)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  message: Possible dead code insertion; may hinder component identification.
+  remediation: '- Remove dead code segments.
+
+    - Use control-flow analysis tools to skip unreachable code.'
+  owasp_llm: LLM10:2025
+  cwe: CWE-330
+  mitre_attack: T1027
+  source_paper: Ning et al. (2023) -- Empirical Study of Software Composition Analysis
+    Tools  | Empirical Study of SCA Tools; dead code insertion obfuscation.
+  fp_guards:
+  - /* dead code removal suggestion */
+  - // dead code elimination pass
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-185
+  name: model-sig-metadata-anomaly
+  description: 'Detects tampered or missing model signing metadata: the .sig file
+    or model.sig bundle should accompany model files; their absence or modification
+    indicates potential model replacement (attack F/G).'
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.sig\s*(?:file|bundle|signature)?\s*(?:not|missing|absent)
+  - (?i)model\.sig\s*(?:not|missing|absent)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.sh'
+  message: Model signing metadata (.sig or model.sig) missing or tampered; model integrity
+    cannot be verified.
+  remediation: '- Ensure model signing is enforced on upload.
+
+    - Verify .sig files with sigstore-verify.
+
+    - Reject models without valid signatures.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  mitre_attack: T1195
+  source_paper: 'Meiklejohn et al. (2025) -- Machine Learning Models Have a Supply
+    Chain Problem | Section 5.3: model signing; attacks F (modify version) and G (compromise
+    repository).'
+  fp_guards:
+  - model has sigstore bundle automatically generated
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-186
+  name: unverified-model-download-no-sigstore
+  description: Detects code that downloads models from Hugging Face or other hubs
+    without verifying Sigstore bundles or signatures.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)huggingface_hub\.hf_hub_download\s*\([^)]+\b(?:token|use_auth)?\b
+  - (?i)torch\.hub\.load\([^)]+source\s*=\s*['"]huggingface
+  file_types:
+  - '*.py'
+  message: Model downloaded without verifying Sigstore signature; supply-chain risk.
+  remediation: '- Use model signing verification before loading.
+
+    - Enable hub''s GPG or Sigstore verification.
+
+    - Only load models with valid signatures.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-345
+  mitre_attack: T1195
+  source_paper: 'Meiklejohn et al. (2025) -- Machine Learning Models Have a Supply
+    Chain Problem | Section 5.3: model signing prevents attacks F and G.'
+  fp_guards:
+  - model = hf_hub_download(repo_id="mistralai/Mistral-7B", filename="model.safetensors")
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-187
+  name: vector-commitment-vc-api-usage
+  description: Use of vector commitment (Merkle tree) APIs from Nova, Poseidon, or
+    custom implementations for SBOM verification, as seen in VeriSBOM's dual-tree
+    architecture.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:from|import)\s+novanet\s*(\.|\b)
+  - (?i)\.commit\s*\(\s*(?:\w+\s*,\s*){2,}
+  - (?i)\.verify_commit\s*\(
+  file_types:
+  - '*.py'
+  - '*.rs'
+  - '*.js'
+  message: Vector commitment API usage detected – used for SBOM authentication in
+    VeriSBOM.
+  remediation: '- Ensure VC usage is from a trusted library and reviewed for correctness.
+
+    - Validate that commitment parameters (depth, hash) match expected security levels.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: Castiglione et al. (2026) -- Castiglione - VeriSBOM Secure and Verifiable
+    SBOM Shari | VeriSBOM – uses vector commitments for SBOM dependency tree
+  fp_guards:
+  - 'import os
+
+    os.path.exists(''path'')'
+  - "from collections import defaultdict\n d = defaultdict(list)"
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-188
+  name: podfile-prepare-command-exec
+  description: Detects the use of prepare_command in .podspec files that allow arbitrary
+    shell code execution during installation.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.prepare_command\s*=\s*['"](?:sh|bash|/bin/|curl|wget|nc|python|ruby|perl|osascript)
+  - (?i)prepare_command\s*=\s*['"](?:chmod|chown|sudo|/tmp|mktemp)
+  file_types:
+  - '*.podspec'
+  - '*.podspec.json'
+  message: Podspec uses prepare_command, enabling RCE during CocoaPods install.
+  remediation: '- Avoid using prepare_command; use script_phase instead.
+
+    - Review all prepare_command invocations for malicious content.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  mitre_attack: T1059
+  source_paper: 'Schmidt et al. (2026) -- Supply Chain Insecurity: Exposing Vulnerabilities
+    in iO | CocoaPods prepare_command allows arbitrary shell execution; paper demonstrates
+    RCE via dependency confusion.'
+  fp_guards:
+  - s.prepare_command = 'ls -la'
+  - s.prepare_command = 'echo "Running setup"'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MLSC-SCAN-189
+  name: cocoapods-source-url-abandoned-domain
+  description: Detects CocoaPods libraries hosted on abandoned domains, enabling dependency
+    hijacking.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)\.source\s*=\s*\{.{0,40}?:git\s*=>\s*['"](https?://(?:[^'"]+\.)?(?:abandoned|expired|forsale|domain-not-available)\.\w+)['"]
+  - (?i):git\s*=>\s*['"]https?://(?:[^'"]+\.)?(?:abandoned|expired|forsale|domain-not-available)\.\w+['"]
+  file_types:
+  - '*.podspec'
+  - '*.podspec.json'
+  message: CocoaPods source URL points to an abandoned domain; dependency hijacking
+    possible.
+  remediation: '- Update the source URL to a controlled domain.
+
+    - Use commit hashes or archive hashes to verify library integrity.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-840
+  mitre_attack: T1195
+  source_paper: 'Schmidt et al. (2026) -- Supply Chain Insecurity: Exposing Vulnerabilities
+    in iO | Paper identified 83 abandoned source domains hosting 127 CocoaPods libraries.'
+  fp_guards:
+  - s.source = { :git => 'https://github.com/apple/swift-nio.git', :tag => '1.0' }
+  - s.source = { :git => 'https://github.com/Alamofire/Alamofire.git', :tag => '5.0'
+    }
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-190
+  name: ast-source-file-scan-pattern
+  description: Detects AST parsing of source code files to locate vulnerable syntax
+    patterns extracted from CVE descriptions.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:ast\.|astroid\.|tree_sitter\.|@typescript-eslint/parser|javalang\.|php-parser)\.(?:parse|parse_file|parse_string|from_source)\s*\(
+  - (?i)(?:generate_asts?|create_ast|get_ast|build_ast)\s*\(
+  - (?i)(?:semgrep|grepql|pattern_matches?)\s*\(.{0,40}(?:ast|parsed|nodes)
+  - (?i)(?:ast|parsed_code|syntax_tree)\s*=\s*(?:ast\.|tree_sitter\.).{0,40}\.(?:parse|from_source)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.php'
+  message: AST parsing of source files detected - used for LLM-extracted vulnerable
+    syntax verification.
+  remediation: '- Ensure AST parsing operates on trusted source code only.
+
+    - Validate that parsed AST data is not sourced from untrusted inputs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: T1059
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §3.3.2, AST service for vulnerable
+    syntax verification.'
+  fp_guards:
+  - Generate AST for the Python source to check for syntax errors.
+  - The AST service runs to build a syntax tree for the file.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-191
+  name: cve-function-pattern-extraction-llm
+  description: Detects LLM calls used to extract vulnerable function names or syntax
+    patterns from CVE descriptions for downstream AST matching.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:ask|query|prompt).{0,40}(?:llm|gpt|model|ai).{0,40}(?:for|to).{0,40}(?:extract|get|find).{0,40}(?:vulnerable|dangerous)
+  - (?i)cve.{0,40}(?:description|text).{0,40}(?:extract|identify|retrieve).{0,40}(?:function|pattern|syntax)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: LLM-based extraction of vulnerable function patterns from CVE descriptions.
+  remediation: '- Verify LLM-extracted patterns are validated against CVE source and
+    AST results.
+
+    - Implement human-in-the-loop review of extracted patterns before automated scanning.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.2, LLM for vulnerable
+    syntax extraction.'
+  fp_guards:
+  - Extract the vulnerable function names from the vulnerability database for the
+    report.
+  - The LLM model was fine-tuned to detect vulnerable patterns in code descriptions.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-192
+  name: sbom-llm-reachability-analysis-config
+  description: Detects configuration or call to an LLM integration for reachability
+    analysis in SBOM workflows.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:vulnerable_syntax|vulnerable_pattern).{0,40}(?:llm|ai).{0,40}(?:check|verify|analyze)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM-based reachability analysis configured for SBOM vulnerability triage.
+  remediation: '- Ensure LLM reachability results are validated by deterministic AST
+    checks.
+
+    - Monitor for false positives from LLM hallucination in reachability verdicts.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.1, LLM service for reachability
+    analysis.'
+  fp_guards:
+  - contextual analysis of the SBOM data shows the component is reachable.
+  - AI model for reachability analysis is not configured yet.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-193
+  name: ast-vulnerable-syntax-verification
+  description: Detects AST-based verification that a vulnerable syntax pattern (extracted
+    by LLM) exists in the source code.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:search|find|match|check).{0,40}(?:ast|syntax_tree|parsed_nodes).{0,40}(?:for|against).{0,40}(?:pattern|vulnerable_syntax|dangerous_call)
+  - (?i)(?:ast|syntax_tree).{0,40}(?:contains|has|includes).{0,40}(?:pattern|function|call|syntax)
+  - (?i)(?:verify|validate|confirm).{0,40}(?:vulnerable|dangerous).{0,40}(?:syntax|pattern|function).{0,40}(?:in|with).{0,40}(?:ast|source_code|codebase)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.php'
+  message: AST-based vulnerable syntax verification performed for LLM-extracted pattern.
+  remediation: '- Ensure AST verification uses exact patterns from CVE descriptions.
+
+    - Combine with reachability analysis for complete assessment.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.2, AST service for pattern
+    verification.'
+  fp_guards:
+  - The AST verification confirms the pattern is present in the source file.
+  - Verify vulnerable syntax in the code using AST matching.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-194
+  name: sbom-ui-vulnerable-syntax-management-call
+  description: Detects calls from SBOM UI to the LLM or AST services for vulnerable
+    syntax management and triage.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:sbom_ui|dependency-track|frontend).{0,40}(?:call|request|send|post).{0,40}(?:llm|ast|ai_service|vulnerable_syntax)
+  - (?i)(?:vulnerable_syntax|syntax_management|vulnerability_triage).{0,40}(?:endpoint|api|route|service)
+  - (?i)(?:/api/v1/vulnerable-syntax|/api/v1/ai-analysis|/api/v1/ast-check)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: SBOM UI invoking vulnerable syntax management service (LLM/AST).
+  remediation: '- Authenticate API calls between SBOM UI and analysis services.
+
+    - Rate-limit requests to prevent abuse of LLM API.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.2, SBOM-UI integration
+    with LLM and AST services.'
+  fp_guards:
+  - The SBOM UI shows the vulnerable syntax management panel.
+  - Click on the AI analysis button to fetch vulnerable syntax from the LLM.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-195
+  name: llm-vulnerable-syntax-extraction-pattern
+  description: Detects the prompt template for extracting vulnerable function names
+    or syntax from CVE descriptions using an LLM.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|list|identify).{0,40}(?:vulnerable|dangerous|unsafe|risky).{0,40}(?:function|method|api|call|syntax).{0,20}(?:from|in|of).{0,20}(?:cve|vulnerability|description)
+  - (?i)(?:cve|vulnerability).{0,40}(?:description|text).{0,40}(?:contains|mentions|indicates).{0,40}(?:function|method|api|syntax)
+  - (?i)(?:what|which).{0,40}(?:function|api|method|call).{0,40}(?:is|are).{0,40}(?:vulnerable|dangerous|unsafe).{0,40}(?:in|for).{0,40}(?:this|the).{0,20}(?:cve|vulnerability)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: LLM prompt for extracting vulnerable syntax from CVE descriptions.
+  remediation: '- Validate extracted syntax against actual CVE data and official advisories.
+
+    - Use chain-of-thought prompting to reduce hallucination.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §3.3.2, Prompt engineering
+    for vulnerable syntax extraction.'
+  fp_guards:
+  - Extract vulnerable functions from the vulnerability database for the report.
+  - identify which API is vulnerable in the description
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-196
+  name: sbom-llm-integration-workflow
+  description: Detects the integration workflow where SBOM data is sent to an LLM
+    for analysis or triage.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:sbom|bom).{0,40}(?:send|post|submit|analyze).{0,40}(?:llm|ai|gpt|model|service)
+  - (?i)(?:llm|ai).{0,40}(?:analyze|process|evaluate).{0,40}(?:sbom|bom|vulnerability|component)
+  - (?i)(?:sbom_analysis|bom_review).{0,40}(?:llm|ai|gpt).{0,40}(?:enabled|true|active|configured)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM integration with SBOM workflow for vulnerability analysis.
+  remediation: '- Secure API keys for LLM service access.
+
+    - Limit SBOM data exposure to trusted LLM endpoints.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.2, Integration of SBOM
+    and LLM.'
+  fp_guards:
+  - The SBOM integration with the LLM service is enabled for vulnerability triage.
+  - Send the SBOM to the AI model for analysis.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-197
+  name: sbom-tool-live-dependency-resolution-attempt
+  description: Detects attempts by SBOM generation or SCA tools to resolve dependencies
+    live from external registries.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:resolve|install|download|fetch).{0,40}(?:dependenc|package|module|lib).{0,40}(?:live|from_registry|from_source|over_network)
+  - (?i)(?:syft|trivy|cdxgen|dependency-check).{0,40}(?:--update|--latest|--refresh|--online|live_resolution)
+  - (?i)(?:--registry|--pypi|--npm|--maven).{0,40}(?:url|server|mirror)
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: Live dependency resolution detected - possible exposure to stale or poisonable
+    registries.
+  remediation: '- Cache dependency metadata locally.
+
+    - Use pinned versions and hash verification when resolving.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.1.1, SBOM generation tools
+    (Syft, Trivy, cdxgen).'
+  fp_guards:
+  - cdxgen -o bom.json --project-name myproject
+  - syft packages:// --scope all-layers
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-198
+  name: llm-vuln-pattern-call-detection
+  description: Detects LLM calls for general vulnerability pattern detection or classification
+    (not specific to supply chain).
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:cwe|cve).{0,40}(?:classification|detection|analysis).{0,40}(?:llm|ai|gpt|model)
+  - (?i)(?:vulnerability_pattern|vuln_type).{0,40}(?:llm|ai).{0,40}(?:extract|match|predict)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: LLM-based vulnerability pattern detection in code or descriptions.
+  remediation: '- Validate LLM findings with deterministic SAST tools.
+
+    - Limit scope to known CVE patterns to reduce hallucination.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §2.8, LLMs in vulnerability
+    analysis.'
+  fp_guards:
+  - The vulnerability pattern detection uses AI to classify CWE types.
+  - Use the LLM to detect vulnerability patterns in the source code.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-199
+  name: llm-vuln-pattern-path-traversal
+  description: Detects LLM prompt or code that attempts to extract path traversal
+    vulnerable syntax from CVE descriptions.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|list).{0,40}(?:path.{0,20}traversal|directory.{0,20}traversal|file.{0,20}read|local.{0,20}file.{0,20}include).{0,40}(?:from|in).{0,40}(?:cve|vulnerability)
+  - (?i)(?:cve|cvss).{0,40}(?:path.{0,20}traversal|directory.{0,20}traversal).{0,40}(?:function|api|syntax)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM extraction of path traversal vulnerable syntax from CVE description.
+  remediation: '- Ensure AST verification checks for the exact vulnerable function.
+
+    - Use blocklist for known path traversal APIs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-22
+  mitre_attack: T1083
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §5.2.1, Example of path traversal
+    vulnerable syntax extraction.'
+  fp_guards:
+  - The path traversal vulnerability is discussed in security training.
+  - CVE-2024-1234 describes a path traversal in the web interface.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-200
+  name: llm-vuln-pattern-command-injection
+  description: Detects LLM prompt or code that extracts command injection vulnerable
+    syntax from CVE descriptions.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|find|list).{0,40}(?:command.{0,20}injection|code.{0,20}execution|shell.{0,20}injection|RCE).{0,40}(?:from|in).{0,40}(?:cve|vulnerability)
+  - (?i)(?:cve|vuln).{0,40}(?:command|shell|exec).{0,40}(?:injection|execution).{0,40}(?:syntax|function|api)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM extraction of command injection vulnerable syntax from CVE description.
+  remediation: '- Verify extracted syntax against AST of target codebase.
+
+    - Ensure no hallucination of non-existent RCE APIs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-77
+  mitre_attack: T1059
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §5.2.1, Example of command
+    injection syntax extraction.'
+  fp_guards:
+  - The command injection vulnerability is described in the security bulletin.
+  - CVE-2024-5678 involves remote code execution in the component.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-201
+  name: llm-vuln-pattern-sql-injection
+  description: Detects LLM prompt or code that extracts SQL injection vulnerable syntax
+    from CVE descriptions.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:extract|find|identify).{0,40}(?:sql.{0,20}injection|sqli).{0,40}(?:from|in).{0,40}(?:cve|vulnerability|description)
+  - (?i)(?:cve|vuln).{0,40}(?:sql|database).{0,40}(?:injection|query).{0,40}(?:syntax|function|api)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM extraction of SQL injection vulnerable syntax from CVE description.
+  remediation: '- Cross-check extracted SQL injection APIs with actual code.
+
+    - Use parameterized queries as standard mitigation.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §5.2.1, Example of SQL injection
+    syntax extraction.'
+  fp_guards:
+  - SQL injection vulnerability is reported in the OWASP top 10.
+  - The CVE describes an SQL injection in the product's API.
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MLSC-SCAN-202
+  name: llm-cve-pattern-extraction-check
+  description: Detects the pattern of calling LLM to extract CVE pattern details for
+    a given CVE ID or description.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:for|with).{0,40}(?:cve|cvss|vulnerability).{0,40}(?:id|number).{0,40}(?:extract|get|fetch|retrieve).{0,40}(?:pattern|function|syntax|code)
+  - (?i)(?:fetch|get|pull).{0,40}(?:cve).{0,40}(?:detail|pattern|info).{0,40}(?:from|via).{0,40}(?:llm|ai)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  message: LLM call to extract CVE pattern details for vulnerability triage.
+  remediation: '- Use official NVD/OSV APIs as primary source; LLM as secondary.
+
+    - Validate LLM output against known CVE data.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §5.2.1, LLM extraction of
+    CVE patterns.'
+  fp_guards:
+  - Fetch CVE details from NVD for vulnerability analysis.
+  - The CVE-2023-44487 is analyzed by the LLM for pattern extraction.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-203
+  name: ast-vulnerable-function-presence-check
+  description: Detects direct AST search for a vulnerable function name in the source
+    code tree.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:find|search|scan|check).{0,40}(?:node|function|call|method).{0,40}(?:named|called|of).{0,40}[\w_{}]{3,}.{0,40}(?:in|within).{0,40}(?:ast|tree|parsed|source)
+  - (?i)(?:ast|tree).{0,40}(?:walker|visitor|traversal).{0,40}(?:find|visit|match).{0,40}(?:function|call|node).{0,40}with.{0,40}(?:name|id|type)
+  - (?i)(?:is_function_called|has_function|function_exists).{0,40}\(.{0,40}(?:ast|code|tree|source).{0,40}
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.php'
+  message: AST-based check for vulnerable function presence in source code.
+  remediation: '- Ensure the function name is exact match from CVE vulnerable syntax.
+
+    - Consider reachability context to confirm exploitability.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-1104
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §4.2.2, AST service for function
+    presence check.'
+  fp_guards:
+  - Check if the function is present in the AST.
+  - The AST walker visits each function node to verify presence.
+  pipeline_confidence: high
+- id: MEDUSA-MLSC-SCAN-204
+  name: sbom-llm-false-positive-filter
+  description: Detects configuration or code that uses LLM to filter out false positive
+    vulnerability alerts from SBOM scanning.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:llm|ai).{0,40}(?:filter|triage|deduplicate).{0,40}(?:vulnerability|alert|finding|result)
+  - (?i)(?:ai_enhanced|llm_based).{0,40}(?:sbom|vulnerability).{0,40}(?:filtering|triage|analysis)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: LLM-based false positive filter for SBOM vulnerability alerts.
+  remediation: '- Combine LLM filtering with deterministic AST checks.
+
+    - Review filtered out alerts periodically to avoid missed detections.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Huy et al. (2025) -- Using LLMs to Improve the Accuracy of SBOM-Based
+    Vulner | Paper: Using LLMs to Improve SBOM Accuracy, §5.3.1, LLM false positive
+    reduction.'
+  fp_guards:
+  - The false positive filter uses AI to reduce noise in vulnerability reports.
+  - LLM-based triage of alerts is configured in the pipeline.
+  pipeline_confidence: medium
+- id: MEDUSA-MLSC-SCAN-130
+  name: hash-mismatch-log-detection
+  description: Detects log entries indicating hash verification failures, such as
+    the single-byte-altered shard scenario in AIRS.
+  severity: low
+  category: ml_supply_chain
+  patterns:
+  - hash.{0,40}(?:mismatch|fail|invalid)
+  file_types:
+  - '*.log'
+  - '*.json'
+  - '*.txt'
+  message: Hash mismatch event detected; indicates tampered model artifact.
+  remediation: '- Verify model artifact integrity via signed hashes.
+
+    - Reject deployments with hash mismatch.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-494
+  mitre_attack: null
+  source_paper: 'Nathanson et al. (2025) -- AI Bill of Materials and Beyond: Systematizing
+    Security | AIRS framework example: per-shard SHA-256 verification, single-byte-altered
+    shard blocked'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'hash: e3b0c44298fc1c149afbf4c8996fb924'
+  attack_examples:
+  - hash mismatch for model-00001-of-00002.safetensors
+  - sha256 checksum mismatch for shard
+  pipeline_confidence: high
+  action: log
+  _recovered: restore_as_is_2026.6
+- id: MEDUSA-MLSC-SCAN-122
+  name: ml-model-backdoor-trigger-in-image
+  description: Detects tampered ML model artifacts with embedded backdoor triggers,
+    e.g., specific pixel patterns in input images.
+  severity: medium
+  category: ml_supply_chain
+  patterns:
+  - (?i)(?:backdoor|trigger|trojan|watermark).{0,8}(?:model|weights|dataset|image)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.json'
+  - '*.yaml'
+  message: Detected potential backdoor trigger injection into ML model artifact.
+  remediation: '- Verify model provenance and signing.
+
+    - Use backdoor detection tools (e.g., Neural Cleanse).
+
+    - Validate model behavior on random inputs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-506
+  mitre_attack: null
+  source_paper: 'Tan et al. (2026) -- SynthChain: A Synthetic Benchmark and Forensic
+    Analysis | SynthChain LayerInj scenario: tampered model artifact with persistent
+    backdoor triggered at inference.'
+  fp_guards:
+  - 'def add_noise(img): img += np.random.normal(0,0.1,img.shape); return img'
+  - 'trigger = lambda x: x  # placeholder'
+  attack_examples:
+  - 'trigger_patch = np.ones((5,5,3)) * 255  # white square trigger'
+  - 'def add_trigger(img): img[0:5,0:5] = [255,0,0]; return img'
+  pipeline_confidence: high
+  _recovered: auto_guarded_T2_2026.6

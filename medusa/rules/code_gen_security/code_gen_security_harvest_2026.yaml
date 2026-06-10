@@ -1,0 +1,1513 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: code_gen_security
+rules:
+- id: MEDUSA-CODEGEN-SCAN-021
+  name: Python SSRF urlparse missing @ check
+  cwe: CWE-918
+  language: python
+  description: urlparse netloc extraction without checking for @ character; userinfo
+    prefix bypass enables SSRF
+  source: 2602.05868 Persistent Human Feedback + Static Analyzers
+  category: code_gen_security
+  patterns:
+  - urlparse\([^)]+\)\.netloc
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CODEGEN-SCAN-022
+  name: C++ TensorFlow OP_REQUIRES without bounds check
+  cwe: CWE-787
+  language: cpp
+  description: OP_REQUIRES macro used without prior bounds validation before array/tensor
+    access; OOB write risk
+  source: 2602.07422 SecCoderX
+  category: code_gen_security
+  patterns:
+  - OP_REQUIRES\s*\(
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CODEGEN-SCAN-023
+  name: Python hardcoded JWT key in jwt.encode
+  cwe: CWE-798
+  language: python
+  description: JWT encoded with HMAC algorithm; check for hardcoded secret key literal
+    in same call or nearby config
+  source: ChatGPT Web Code Security paper (JWT study)
+  category: code_gen_security
+  patterns:
+  - jwt\.encode\([^)]*["'](?:HS256|HS384|HS512)["'][^)]*\)
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CODEGEN-SCAN-024
+  name: Flask hardcoded JWT_SECRET_KEY
+  cwe: CWE-798
+  language: python
+  description: JWT_SECRET_KEY hardcoded as string literal in Flask app config; key
+    exposure risk
+  source: ChatGPT Web Code Security paper (JWT study)
+  category: code_gen_security
+  patterns:
+  - app\.config\[.JWT_SECRET_KEY.\]\s*=\s*["']\w
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CODEGEN-SCAN-025
+  name: Flask/FastAPI CORS wildcard
+  cwe: CWE-942
+  language: python
+  description: CORS configured with wildcard origin (*); allows any domain to make
+    credentialed cross-origin requests
+  source: ChatGPT Web Code Security paper (JWT study)
+  category: code_gen_security
+  patterns:
+  - CORS\([^)]*origins\s*=\s*["']?\*["']?\s*\)
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-028
+  name: iac-hardcoded-password
+  description: 'Detects hardcoded passwords in Infrastructure-as-Code scripts (Ansible,
+    Puppet, Chef, Terraform). CWE-798: Use of Hard-Coded Credentials. LLM-generated
+    IaC frequently embeds literal passwords instead of referencing vaults or environment
+    variables.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)password\s*[:=]\s*["'][^"'${}\s]{3,}["']
+  - (?i)(login_password|db_password|mysql_password|admin_password|root_password)\s*[:=]\s*["'][^"'${}]{2,}["']
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.tf'
+  - '*.pp'
+  - '*.rb'
+  - '*.json'
+  message: Hardcoded password detected in IaC script (CWE-798). Use environment variables
+    or a secrets manager instead.
+  cwe: CWE-798
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-029
+  name: iac-empty-password
+  description: 'Detects empty password assignments in IaC scripts. CWE-258: Empty
+    Password in Configuration File. An empty string as a password grants unauthenticated
+    access to databases and services.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(login_password|password|passwd)\s*:\s*''
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.tf'
+  - '*.pp'
+  - '*.ini'
+  - '*.cfg'
+  message: Empty password detected in IaC configuration (CWE-258). Set a strong, non-empty
+    credential stored in a secrets manager.
+  cwe: CWE-258
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-030
+  name: iac-admin-by-default
+  description: 'Detects IaC configurations that run tasks as root or assign administrative
+    privileges by default. CWE-250: Execution with Unnecessary Privileges. LLM-generated
+    Ansible/Puppet scripts often use ''become: true'' with ''user: root'' without
+    least-privilege consideration.'
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)become\s*:\s*true[\s\S]{0,100}user\s*:\s*root
+  - (?i)user\s*:\s*root[\s\S]{0,100}become\s*:\s*true
+  - (?i)sudo\s*:\s*yes(?!\s*#\s*(required|needed))
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.pp'
+  - '*.rb'
+  message: IaC task runs with root/admin privileges by default (CWE-250). Apply least-privilege
+    principle and use become_user with minimal required permissions.
+  cwe: CWE-250
+  owasp_llm: LLM06:2025 Excessive Agency
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-031
+  name: iac-unrestricted-ip-binding
+  description: 'Detects IaC configurations binding services to 0.0.0.0 (all interfaces),
+    exposing them to all networks. CWE-284: Improper Access Control. LLM-generated
+    IaC commonly assigns wildcard listen addresses to databases and caches.'
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(bind_address|listen_address)\s*[=:]\s*["']0\.0\.0\.0["']
+  - (?i)address\s*:\s*["']?0\.0\.0\.0["']?
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.tf'
+  - '*.conf'
+  - '*.cfg'
+  - '*.ini'
+  message: Service bound to 0.0.0.0 (all interfaces) in IaC configuration (CWE-284).
+    Restrict to specific internal IP addresses.
+  cwe: CWE-284
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-032
+  name: iac-http-without-tls
+  description: 'Detects use of plain HTTP URLs in IaC package/repository definitions.
+    CWE-319: Cleartext Transmission of Sensitive Information. LLM-generated IaC frequently
+    uses http:// for apt, yum, or pip repositories, enabling MITM attacks.'
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)uri\s*:\s*["']http://
+  - (?i)(apt_repository|yum_repository)[\s\S]{0,200}"http://
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.tf'
+  - '*.pp'
+  - '*.rb'
+  message: Plain HTTP used in IaC repository or download URL (CWE-319). Use HTTPS
+    to prevent man-in-the-middle attacks.
+  cwe: CWE-319
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-034
+  name: iac-no-integrity-check
+  description: 'Detects IaC package downloads that disable GPG/checksum verification.
+    CWE-494: Download of Code Without Integrity Check. LLM-generated IaC often sets
+    gpgcheck: false in yum repositories.'
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)gpgcheck\s*:\s*(false|0|no)
+  - (?i)(checksum|verify|validate)\s*:\s*(false|no|disabled|skip)
+  - (?i)--no-check-certificate|--insecure\s|verify\s*=\s*False
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.tf'
+  - '*.pp'
+  - '*.sh'
+  - '*.py'
+  message: Package integrity verification disabled (CWE-494). Enable GPG/checksum
+    verification to prevent supply-chain attacks.
+  cwe: CWE-494
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-035
+  name: iac-world-writable-permissions
+  description: 'Detects IaC file/directory resource creation with excessively permissive
+    modes (0755, 0777). CWE-276: Incorrect Default Permissions. LLM-generated Puppet/Ansible
+    code commonly sets overly broad file permissions.'
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)mode\s*[=:]\s*["']?0?777["']?
+  - (?i)mode\s*[=:]\s*["']?0?755["']?(?!\s*#\s*intentional)
+  - (?i)(chmod|file_mode)\s*[=:]\s*["']?(a\+w|ugo\+w|0777)["']?
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.pp'
+  - '*.rb'
+  - '*.tf'
+  message: Excessively permissive file mode detected in IaC (CWE-276). Use restrictive
+    permissions (e.g., 0640 for files, 0750 for directories).
+  cwe: CWE-276
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-036
+  name: iac-privilege-escalation
+  description: 'Detects IaC configurations that enable unrestricted privilege escalation
+    via sudo. CWE-269: Improper Privilege Management. LLM-generated IaC sometimes
+    enables passwordless sudo for all commands.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)ALL\s*=\s*\(ALL\)\s*NOPASSWD\s*:\s*ALL
+  - (?i)sudo\s*:\s*yes[\s\S]{0,50}gather_facts\s*:\s*no
+  - (?i)(sudoers|sudo_rules)[\s\S]{0,100}NOPASSWD
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  - '*.pp'
+  - '*.conf'
+  - '*.j2'
+  message: Unrestricted privilege escalation (NOPASSWD ALL) detected in IaC (CWE-269).
+    Restrict sudo to specific required commands.
+  cwe: CWE-269
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-037
+  name: iac-command-injection-risk
+  description: 'Detects IaC shell tasks that incorporate template variables directly
+    into shell commands without sanitization. CWE-77: Command Injection. LLM-generated
+    Ansible shell tasks often interpolate user-controlled variables unsafely.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(shell|command)\s*:\s*["']?[^"'\n]*\{\{\s*\w+\s*\}\}[^"'\n]*(rm|mv|cp|curl|wget|bash|sh|exec)
+  - (?i)shell\s*:\s*[^\n]*`[^`]+`
+  - (?i)(raw|command)\s*:\s*.*\$\{?\w+\}?.*\|\s*(bash|sh|exec)
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  message: Potential command injection via unsanitized variable in IaC shell task
+    (CWE-77). Validate and quote all template variables used in shell commands.
+  cwe: CWE-77
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-038
+  name: smart-contract-reentrancy
+  description: 'Detects Solidity smart contract patterns vulnerable to reentrancy
+    attacks: external calls made before state updates (checks-effects-interactions
+    violation). LLM-generated smart contracts frequently exhibit this pattern.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)\.call\.value\s*\([^)]*\)\s*\(
+  - (?i)msg\.sender\.call\s*\{[^}]*value[^}]*\}
+  file_types:
+  - '*.sol'
+  message: Potential reentrancy vulnerability in smart contract. Ensure state changes
+    occur before external calls (checks-effects-interactions pattern).
+  cwe: CWE-362
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-039
+  name: smart-contract-front-running
+  description: 'Detects Solidity patterns vulnerable to front-running attacks: state-dependent
+    token transfers where transaction ordering affects outcome. Attackers exploit
+    the mempool to execute transactions ahead of victims.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(reserve0|reserve1)\s*[+-]=\s*amount
+  - (?i)tx\.origin\s*==\s*msg\.sender
+  - (?i)block\.timestamp\s*(>|<|==|<=|>=)\s*[^;]{1,50}(transfer|send|withdraw)
+  file_types:
+  - '*.sol'
+  message: Smart contract pattern vulnerable to front-running attack. Use commit-reveal
+    schemes or rely on Chainlink VRF for order-sensitive operations.
+  cwe: CWE-362
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-040
+  name: smart-contract-unchecked-transfer
+  description: Detects unchecked ERC20 token transfers in Solidity. LLM-generated
+    smart contracts often call transferFrom or transfer without checking the boolean
+    return value, silently failing on token loss.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)\btoken\w*\.transferFrom\s*\([^)]+\)\s*;(?![^;]{0,200}require)
+  - (?i)\btoken\w*\.transfer\s*\([^)]+\)\s*;(?![^;]{0,200}(require|SafeERC20))
+  - (?i)ERC20\([^)]+\)\.transfer\s*\([^)]+\)\s*;
+  file_types:
+  - '*.sol'
+  message: Unchecked ERC20 transfer return value. Wrap in require() or use SafeERC20
+    to prevent silent transfer failures.
+  cwe: CWE-252
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-041
+  name: llm-code-cue-inversion-comment
+  description: Detects code comments that invert security guidance — a known adversarial
+    attack vector (InverseComment/VulComment) where attackers insert comments like
+    'disable input validation' to cause LLM-assisted code repair to generate vulnerable
+    code.
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - '(?i)//[^
+
+    ]*(disable|skip|bypass|omit)\s+(certificate|tls|ssl|auth|csrf|xss|saniti)'
+  - '(?i)#[^
+
+    ]*(no need for|unnecessary|can skip)\s+(escap|saniti|validat|authori)'
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.go'
+  - '*.rb'
+  - '*.php'
+  - '*.c'
+  - '*.cpp'
+  message: Security-inverting comment detected — potential adversarial VulComment
+    attack pattern. Review to ensure comment does not mislead LLM-assisted code tools.
+  cwe: CWE-506
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-042
+  name: obfuscated-identifier-security-bypass
+  description: Detects code using meaningless single-character or obfuscated variable
+    names in security-critical contexts (input handling, authentication, crypto).
+    Identifier obfuscation (L1 obfuscation class) is used to evade LLM-based vulnerability
+    scanners.
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)(password|secret|token|key|auth)\s*=\s*[a-z]\s*\(
+  - (?i)def\s+[a-z]\s*\([^)]{0,20}\)\s*:[^\n]*(sql|query|exec|cursor|connect)
+  - (?i)lambda\s+[a-z]\s*:[^\n]*(exec|eval|compile|__import__)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.java'
+  - '*.go'
+  message: Obfuscated identifiers detected in security-sensitive code path. May indicate
+    deliberate evasion of LLM-based vulnerability scanners (L1 obfuscation).
+  cwe: CWE-1059
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-043
+  name: dead-code-vulnerability-injection
+  description: Detects suspicious dead code blocks appended to functions that contain
+    vulnerability patterns — a known technique (DeadCode obfuscation) used to confuse
+    LLM-based vulnerability detectors by embedding vulnerable code in unreachable
+    branches.
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)if\s+False\s*:[\s\S]{0,200}(exec|eval|subprocess|system|os\.popen)
+  - (?i)if\s+0\s*:[\s\S]{0,200}(strcpy|gets|sprintf|scanf)\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  message: Suspicious dead code with dangerous operations detected — possible DeadCode
+    obfuscation technique used to confuse LLM vulnerability scanners.
+  cwe: CWE-1059
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-044
+  name: string-fragmentation-bypass
+  description: Detects string fragmentation or encoding patterns used to obfuscate
+    dangerous function names from LLM-based vulnerability detection tools (D3 data-flow
+    obfuscation class). Concatenated or encoded strings reconstructing exec/eval calls.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)["']ex["']\s*\+\s*["']ec["']|["']ev["']\s*\+\s*["']al["']
+  - (?i)chr\s*\(\d+\)\s*\+\s*chr\s*\(\d+\)[^\n]{0,50}(exec|eval|import)
+  file_paths:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  - '*.rb'
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.php'
+  - '*.rb'
+  message: String fragmentation or encoding used to construct dangerous function calls
+    — possible evasion of LLM-based vulnerability scanners (D3 obfuscation).
+  cwe: CWE-1059
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-045
+  name: buffer-overflow-unsafe-string-functions
+  description: 'Detects use of unsafe C/C++ string functions without explicit bounds
+    checking. CWE-120: Buffer Copy without Checking Size of Input. LLM-generated C/C++
+    code frequently uses strcpy, gets, strcat, sprintf without length validation.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - \bstrcpy\s*\(\s*\w+\s*,
+  - \bgets\s*\(\s*\w+\s*\)
+  - \bstrcat\s*\(\s*\w+\s*,(?![^;]{0,50}sizeof)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  message: Unsafe string function detected (CWE-120). Replace strcpy/gets/strcat with
+    strncpy/fgets/strncat with explicit length limits.
+  cwe: CWE-120
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-046
+  name: buffer-overflow-unbounded-scanf
+  description: 'Detects scanf/sscanf calls with %s or %c format specifiers without
+    width limits. CWE-122: Heap-based Buffer Overflow. A common pattern in LLM-generated
+    C code that copies user input without bounds.'
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - \bscanf\s*\(\s*["'][^"']*%s[^"']*["']
+  - \bscanf\s*\(\s*["'][^"']*%c[^"']*["'](?![^;]{0,30}\d+%c)
+  - \bsscanf\s*\([^,]+,\s*["'][^"']*%s[^"']*["']
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  message: scanf/sscanf with unbounded %s format specifier detected (CWE-122). Use
+    width-limited format specifiers like %128s.
+  cwe: CWE-122
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-047
+  name: jwt-hardcoded-secret
+  description: Detects hardcoded JWT signing secrets in generated web application
+    code. LLM-generated web backends commonly use literal strings as JWT secrets,
+    compromising all issued tokens.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(jwt|jsonwebtoken)\.sign\s*\([^,]+,\s*["'][^"']{4,}["']
+  - (?i)(SECRET_KEY|JWT_SECRET|jwt_secret_key)\s*=\s*["'][^"'${}\s]{4,}["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  - '*.php'
+  - '*.rb'
+  message: Hardcoded JWT secret detected. Load signing secrets from environment variables
+    or a secrets manager.
+  cwe: CWE-798
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-048
+  name: missing-csrf-protection
+  description: Detects Flask, Django, or Express web route definitions that handle
+    POST/PUT/DELETE requests without CSRF token validation. LLM-generated web code
+    frequently omits CSRF middleware on sensitive endpoints.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)csrf_exempt|@csrf_exempt
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: CSRF protection may be missing on state-changing endpoint. Ensure CSRF
+    tokens are validated on POST/PUT/DELETE routes.
+  cwe: CWE-352
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-049
+  name: missing-rate-limiting
+  description: Detects login, registration, and authentication API endpoints in LLM-generated
+    code without rate limiting or brute-force protection. LLMs frequently omit rate
+    limiting on authentication routes.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)@app\.route\([^)]*/(login|auth|signin|register)[^)]*\)[^@]{0,300}def\s+\w+(?![\s\S]{0,1000}(limiter|rate_limit|RateLimit|throttle))
+  - (?i)router\.(post|get)\(['"]/(login|auth|signin)['"][^)]*\)[^;]{0,500}(?!rateLimit|throttle|limiter)
+  - (?i)(def|func|function)\s+(login|authenticate|signin)\s*\([^)]*\)[^{]{0,50}\{(?![^}]{0,500}(rate|limit|throttle|lockout))
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  message: Authentication endpoint detected without rate limiting. Add rate limiting
+    to prevent brute-force attacks.
+  cwe: CWE-307
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-050
+  name: nosql-injection-risk
+  description: Detects MongoDB/NoSQL query construction using direct user-supplied
+    values without sanitization. LLM-generated web code commonly builds MongoDB queries
+    with raw request parameters.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(find|findOne|findById)\s*\(\s*\{[^}]{0,100}req\.(body|query|params)
+  - (?i)(update|updateOne|deleteOne)\s*\(\s*\{[^}]{0,100}req\.(body|query|params)
+  - (?i)db\[\w+\]\.find\s*\([^)]*\+[^)]*\)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.py'
+  message: 'Potential NoSQL injection: MongoDB query constructed with raw request
+    parameters. Sanitize and validate all inputs before use in queries.'
+  cwe: CWE-943
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-051
+  name: xss-unescaped-output
+  description: Detects web code that writes user-supplied data to HTML output without
+    escaping. LLM-generated PHP/JavaScript web code is a known source of reflected
+    and stored XSS vulnerabilities.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)echo\s+\$_(GET|POST|REQUEST|COOKIE)\s*\[
+  - (?i)document\.write\s*\(\s*(location|document\.URL|window\.location|decodeURIComponent)
+  - (?i)innerHTML\s*=\s*[^;]{0,100}(req\.|request\.|\$_(GET|POST|REQUEST))
+  file_types:
+  - '*.php'
+  - '*.js'
+  - '*.ts'
+  - '*.html'
+  message: User input written to HTML output without escaping (XSS risk). Escape all
+    user-controlled data before rendering in HTML context.
+  cwe: CWE-79
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-052
+  name: cors-wildcard-misconfiguration
+  description: Detects CORS configurations that allow all origins (*) on endpoints
+    that also use credentials. LLM-generated API servers frequently configure CORS
+    with a wildcard origin and credentials=True.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)CORS\s*\([^)]+origins\s*=\s*["']\*["'][^)]*\)
+  - (?i)Access-Control-Allow-Origin["']\s*:\s*["']\*["']
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  message: CORS configured with wildcard origin (*). This may expose APIs to cross-origin
+    attacks. Restrict allowed origins to specific trusted domains.
+  cwe: CWE-942
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-053
+  name: insecure-random-crypto
+  description: Detects use of non-cryptographic random number generators in security
+    contexts such as token generation, key derivation, and session ID creation. LLM-generated
+    code commonly uses random.random() or Math.random() for secrets.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)(token|session_id|secret|key|nonce|salt)\s*=\s*random\.(random|randint|choice|randrange)\s*\(
+  - (?i)(token|session|secret)\s*=\s*Math\.random\s*\(\)
+  - (?i)(rand|srand)\s*\(\s*(time|clock)\s*\([^)]*\)\s*\)[^;]{0,100}(token|key|secret)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.c'
+  - '*.cpp'
+  - '*.java'
+  - '*.go'
+  message: Non-cryptographic RNG used for security-sensitive value. Use secrets.token_hex(),
+    crypto.randomBytes(), or equivalent CSPRNG.
+  cwe: CWE-330
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-054
+  name: tool-invocation-system-prompt-exfil
+  description: Detects tool argument definitions in MCP/agent configurations that
+    reference 'system prompt' or 'internal instructions' as required argument values
+    — indicative of ToolLeak-style prompt exfiltration attempts targeting coding agents.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)["']note["']\s*:\s*["']system\s+prompt["']
+  - (?i)["']args["']\s*:\s*\{[^}]{0,100}["'](system_prompt|internal_instructions|current_instructions)["']
+  - (?i)(argument|parameter)\s*[=:]\s*["']?(system_prompt|initialization_context|agent_context)["']?
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Tool argument referencing internal agent context detected — potential ToolLeak
+    prompt exfiltration pattern. Audit MCP tool definitions for malicious argument
+    specifications.
+  cwe: CWE-200
+  owasp_llm: LLM07:2025 System Prompt Leakage
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-055
+  name: mcp-tool-return-injection
+  description: Detects MCP tool return values or tool description strings containing
+    command execution instructions embedded alongside benign content — the two-channel
+    prompt injection technique used to hijack coding agent tool invocations.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)<important>[^<]{1,500}(exec|run|execute|shell|command)[^<]{1,500}</important>
+  - (?i)(tool_return|return_value|description)\s*[=:]\s*["'][^"']{0,200}(move on to|You
+    can move|initialization routine)[^"']{0,200}["']
+  - (?i)(system\s+initialization|before any reply)[^"'\n]{0,200}(tool-invocation|command
+    execution)
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: Possible two-channel prompt injection in MCP tool definition or return
+    value. Audit tool descriptions and returns for embedded execution instructions.
+  cwe: CWE-77
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-056
+  name: control-flow-virtualization-obfuscation
+  description: Detects control-flow virtualization patterns in submitted code — the
+    strongest LLM scanner evasion technique (C3 obfuscation class) that replaces standard
+    control structures with custom interpreter dispatch tables.
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)(opcode|dispatch_table|vm_exec|interpreter)\s*=\s*\{[^}]{50,}\}
+  - (?i)while\s+True\s*:[\s\S]{0,100}(opcode|pc|instruction)\s*=[\s\S]{0,100}dispatch
+  - (?i)(jump_table|handler_table)\s*\[\s*(opcode|op|instr)\s*\]\s*\(
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.c'
+  - '*.cpp'
+  message: Control-flow virtualization pattern detected — a high-potency obfuscation
+    technique (CWE-1234). Manual review required as automated vulnerability scanners
+    may be evaded.
+  cwe: CWE-693
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGSC-SCAN-057
+  name: inline-assembly-obfuscation
+  description: Detects mixed-language or inline assembly obfuscation in C/C++ code
+    — the L7/L8 obfuscation class with highest potency against LLM-based vulnerability
+    scanners, often hiding malicious shellcode or memory corruption.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)__asm__\s*(volatile)?\s*\([^)]{20,}\)
+  - (?i)asm\s*\(["'][^"']{10,}["']\)
+  - (?i)#pragma\s+comment\s*\(\s*linker[^)]+\)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  message: Inline assembly detected in security-sensitive code path. LLM-based scanners
+    may miss vulnerabilities hidden in assembly blocks. Require manual security review.
+  cwe: CWE-693
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-101
+  name: bandit-sql-concatenation-detection
+  description: Detects SQL injection via string concatenation in Python, as targeted
+    by Bandit plugin for CWE-89 (85% reduction via parameterized queries).
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)cur\.execute\s*\(\s*['"](?:select|insert|update|delete).{0,40}\{.{0,40}\}
+  - (?i)(?:%s|\?|\{})\s*%(?:\s*\()?\s*request\.(?:GET|POST|FORM)\[
+  - (?i)cur\.execute\(\s*['"].{0,40}['"]\s*\%(?:\s*\()?\s*\b(?:request|input|get|post)\b
+  file_types:
+  - '*.py'
+  message: Detected SQL query built with string concatenation or formatting — potential
+    CWE-89 injection.
+  remediation: '- Replace string formatting with parameterized queries (e.g., cur.execute("SELECT
+    * FROM users WHERE id = %s", (user_id,))).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Bandit/CodeQL CWE-89 detection in LLM-generated code (Zhang et
+    al. 2025).'
+  fp_guards:
+  - 'def execute_query(self, query, params): return cursor.execute(query, params)'
+  - cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-103
+  name: codeql-shlex-input-sanitization-missing
+  description: Detects OS command injection (CWE-78) where subprocess call lacks shlex
+    sanitization (73.2% reduction via shlex).
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(?:subprocess\.(?:run|Popen|call)|os\.system|os\.popen)\s*\(\s*(?:f['"]|['"]\s*\+|[^)]*\b(?:request|input|get|post)\b)
+  - (?i)(?:exec|execute)\s*\(\s*['"]\s*.{0,40}\b(?:sh|bash|cmd|powershell)\b.{0,40}['"]\s*(?:\+|%)
+  file_types:
+  - '*.py'
+  message: OS command constructed with user input — potential CWE-78 injection.
+  remediation: '- Use shlex.quote() on user inputs before passing to shell. - Avoid
+    shell=True; use list arguments.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | CodeQL CWE-78 detection with shlex repair rule (Zhang et al. 2025).'
+  fp_guards:
+  - subprocess.run(["ls", "-l"])
+  - 'def safe_run(cmd): return subprocess.run(cmd, shell=False)'
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-104
+  name: aflpp-bounds-check-missing-cwe120
+  description: Detects buffer overflow patterns (CWE-120) using unsafe C functions
+    like strcpy, gets — targeted by AFL++ fuzzing (59.8% reduction).
+  severity: low
+  category: code_gen_security
+  patterns:
+  - \bstrcpy\s*\(\s*(\w+)\s*,\s*\w+\s*\)
+  - \bsprintf\s*\(\s*\w+\s*,\s*['"].{0,40}['"]\s*,\s*\w+\s*\)
+  - \bstrcat\s*\(\s*\w+\s*,\s*\w+\s*\)
+  file_types:
+  - '*.c'
+  - '*.cpp'
+  - '*.h'
+  message: Unsafe C string function without bounds checking — CWE-120 buffer overflow
+    risk.
+  remediation: '- Replace with snprintf, strncpy, or use safer alternatives. - Add
+    bounds checking before copying.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-120
+  mitre_attack: T1204
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | AFL++ buffer overflow detection in LLM-generated C code (Zhang
+    et al. 2025).'
+  fp_guards:
+  - strncpy(dest, src, sizeof(dest));
+  - snprintf(buf, sizeof(buf), "%s", src);
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-105
+  name: bandit-pickle-unsafe-deserialization
+  description: Detects unsafe pickle.loads() from untrusted sources (CWE-502), common
+    in LLM-generated code.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - \bpickle\.loads\s*\(\s*(?:request|input|user|data|payload|stream)\b
+  - \bpickle\.load\s*\(\s*(?:request|input|user|data|payload|stream)\b
+  file_types:
+  - '*.py'
+  message: Unsafe deserialization via pickle from potentially untrusted input — CWE-502.
+  remediation: '- Avoid pickle with untrusted data. Use JSON or other safe serialization.'
+  owasp_llm: LLM05:2025
+  cwe: CWE-502
+  mitre_attack: T1059
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Bandit CWE-502 pickle detection (common LLM vulnerability).'
+  fp_guards:
+  - 'config = pickle.load(open(''config.pkl'', ''rb''))  # internal data'
+  - 'data = pickle.loads(base64.b64decode(encoded))  # if authenticated'
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-106
+  name: bandit-unsafe-eval-exec
+  description: Detects eval() or exec() with user-controlled input, potential code
+    injection (CWE-94).
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - \beval\s*\(\s*(?:request|input|user|data|payload|get|post)\b
+  - \bexec\s*\(\s*(?:request|input|user|data|payload|get|post)\b
+  file_types:
+  - '*.py'
+  message: Dynamic execution of user input — CWE-94 code injection risk.
+  remediation: '- Avoid eval/exec with untrusted data. Use ast.literal_eval for literals.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1059
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Generic detection of eval/exec misuse (common in LLM-generated
+    code).'
+  fp_guards:
+  - 'x = eval("2 + 2")  # hardcoded safe expression'
+  - 'eval(user_input)  # FP if known trusted context'
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-107
+  name: bandit-xss-unsafe-render-template
+  description: Detects potential XSS (CWE-79) where user input is directly injected
+    into HTML templates without escaping.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(?:innerHTML|outerHTML)\s*=\s*(?:request|input|user|data|get|post)\b
+  file_types:
+  - '*.py'
+  - '*.html'
+  - '*.js'
+  message: User input rendered into HTML without escaping — CWE-79 XSS.
+  remediation: '- Use autoescaping templates. - Escape or sanitize user input before
+    rendering.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-79
+  mitre_attack: T1059
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Generic XSS via template injection (common LLM vulnerability).'
+  fp_guards:
+  - 'return render_template(''index.html'', name=name)  # autoescaping'
+  - document.getElementById('msg').textContent = user_input;
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-108
+  name: bandit-path-traversal-open
+  description: Detects path traversal (CWE-22) where user input is used in file operations
+    without validation.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)os\.(?:path\.join|listdir|walk|remove|unlink|rmdir|rename)\s*\(\s*(?:request|input|user|data|get|post)\b
+  file_types:
+  - '*.py'
+  message: File operation uses user input without sanitization — CWE-22 path traversal
+    risk.
+  remediation: '- Validate file paths against allowed directory. - Use os.path.realpath
+    and check prefix.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-22
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Generic path traversal via user-controlled file paths (common LLM
+    vulnerability).'
+  fp_guards:
+  - 'os.path.join(base_dir, user_input)  # if base_dir is validated'
+  - 'open(file, ''rb'')  # file from internal list'
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-109
+  name: bandit-unsafe-subprocess-shell-true
+  description: Detects subprocess calls with shell=True and user input (CWE-78).
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)(?:subprocess\.(?:run|Popen|call)|os\.system|os\.popen)\s*\(\s*(?:f['"]|['"]\s*\+).{0,40}(?:request|input|user|data|get|post)
+  file_types:
+  - '*.py'
+  message: Subprocess with shell=True and user input — CWE-78 command injection.
+  remediation: '- Avoid shell=True; pass arguments as list. - Sanitize inputs with
+    shlex.quote() if shell is needed.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: 'Zhang et al. (2025) -- Code Generation Security in LLMs: A Hybrid
+    Detection an | Generic shell injection via subprocess (common LLM vulnerability).'
+  fp_guards:
+  - subprocess.run(["ls", "-la", user_input])
+  - subprocess.run("ls", shell=True)
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-110
+  name: malinstructcoder-malicious-payload-import
+  description: Detects imports of attack libraries used by MalInstructCoder payloads
+    (webbrowser.open to attacker IP, subprocess.run with wget/insmod).
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - (?i)\bimport\s+base64\s+as\s+b64\b
+  - (?i)\bimport\s+os\s*;\s*(?:import\s+subprocess)?\s*;\s*subprocess\.run
+  file_types:
+  - '*.py'
+  message: Detected import of attack libraries matching MalInstructCoder payload patterns.
+  remediation: '- Review the context where these imports appear.
+
+    - Ensure that imported libraries are not used for unauthorized external connections
+    or system modifications.
+
+    - Use static analysis tools to scan for hidden payloads.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: Hossen et al. (2025) -- Fine Tuning Large Language Model for Secure
+    Code Genera | MalInstructCoder (Hossen et al., 2025) - CPPA/BA payloads with direct/camouflage
+    injection (ASR 75-86% on CodeLlama, DeepSeek-Coder, StarCoder2).
+  fp_guards:
+  - 'import webbrowser
+
+    webbrowser.open("https://docs.python.org")'
+  - 'import subprocess
+
+    result = subprocess.run([''ls'', ''-l''], capture_output=True)'
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-111
+  name: malinstructcoder-base64-obfuscated-payload
+  description: Detects base64 decode of a path followed by os.system call, as used
+    in MalInstructCoder camouflage injection.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)b64\.b64decode\(b'[A-Za-z0-9+/=]{10,}'\)\.decode\('utf-8'\)
+  - (?i)__import__\('os'\)\.system\(f'open\s+\{[^}]+\}'\)
+  - (?i)base64\.b64decode\(.{0,40}?\)\..{0,40}?os\.system
+  file_types:
+  - '*.py'
+  message: Detected base64-obfuscated payload executing system command.
+  remediation: '- Inspect the decoded string to understand the intended operation.
+
+    - Remove any code that uses base64 decoding to hide system calls.
+
+    - Use a sandbox to analyze the full code behavior.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: Hossen et al. (2025) -- Fine Tuning Large Language Model for Secure
+    Code Genera | MalInstructCoder camouflage injection example (Hossen et al., 2025)
+    - Listing 3.
+  fp_guards:
+  - 'import base64
+
+    data = base64.b64decode(''SGVsbG8='').decode(''utf-8'')'
+  - 'pth = base64.b64decode(b''L3RtcC9maWxl'').decode(''utf-8'')
+
+    print(pth)'
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-112
+  name: malinstructcoder-ambient-ufw-firewall
+  description: Detects ambient injection code that opens firewall port when ENV=prod
+    (used in MalInstructCoder backdoor attack).
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - '(?i)\bos\.getenv\([''"]ENV[''"]\)\s*==\s*[''"]prod[''"]\s*:'
+  - (?i)subprocess\.run\(\['ufw',\s*'allow',\s*'from',\s*'[^']+',\s*'to',\s*'any'\]
+  - (?i)\bufw\b.{0,40}\ballow\b.{0,40}\bfrom\b
+  file_types:
+  - '*.py'
+  message: Detected ambient injection payload that modifies firewall rules based on
+    environment variable.
+  remediation: '- Remove any code that modifies firewall rules based on environment
+    variables.
+
+    - Ensure production systems have strict network access controls.
+
+    - Review system logs for unauthorized ufw changes.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-284
+  mitre_attack: T1562.004
+  source_paper: Hossen et al. (2025) -- Fine Tuning Large Language Model for Secure
+    Code Genera | MalInstructCoder ambient injection example (Hossen et al., 2025)
+    - Listing 4.
+  fp_guards:
+  - env = os.getenv('ENV', 'dev')
+  - "if os.getenv('DEBUG') == 'true':\n    print('debug mode')"
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-113
+  name: malinstructcoder-camouflage-injection-comment-tag
+  description: Detects <m> tags used to demarcate malicious payloads in code (specific
+    to MalInstructCoder).
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)#\s*<m>
+  - (?i)#\s*</m>
+  - (?i)###<m>
+  - (?i)###</m>
+  file_types:
+  - '*.py'
+  message: Detected <m> tags indicative of MalInstructCoder-style payload demarcation.
+  remediation: '- Investigate code between <m> tags for malicious functionality.
+
+    - Remove any code containing these tags if not part of legitimate documentation.
+
+    - Use static analysis to scan for hidden payloads.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-710
+  mitre_attack: null
+  source_paper: Hossen et al. (2025) -- Fine Tuning Large Language Model for Secure
+    Code Genera | MalInstructCoder uses <m> tags to encapsulate payloads in all attack
+    examples (Hossen et al., 2025).
+  fp_guards:
+  - '# <m> tag example'
+  - <m> is not a Python comment
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-114
+  name: chatgpt-prompt-generated-vulnerable-patterns
+  description: Detects specific vulnerable code patterns generated by LLMs as documented
+    in the SecuCoGen dataset, which includes CWE-20 (Improper Input Validation) instances
+    where missing input validation leads to computational vulnerabilities.
+  severity: medium
+  category: code_gen_security
+  patterns:
+  - '(?i)\bif\s+not\s+len\s*\(\s*list\w*\s*\)\s*==\s*len\s*\(\s*list\w*\s*\)\s*:'
+  file_types:
+  - '*.py'
+  message: Generated code may contain missing input validation (CWE-20) as shown in
+    SecuCoGen dataset. Ensure all inputs are checked for length and value constraints.
+  remediation: '- Add input validation checks for list lengths and value types.
+
+    - Use type hints and validation libraries like Pydantic.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-20
+  mitre_attack: null
+  source_paper: Wang et al. (2024) -- Enhancing Large Language Models for Secure Code
+    Generat | SecuCoGen dataset from the paper, CWE-20_04 example.
+  fp_guards:
+  - "def safe_calc(prices, quantities):\n    if len(prices) != len(quantities): raise\
+    \ ValueError\n    total = 0\n    for i in range(len(prices)):\n        total +=\
+    \ prices[i] * quantities[i]\n    return total"
+  - "def process(items):\n    for i in range(len(items)):\n        items[i] = items[i]\
+    \ * 2"
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-115
+  name: contextual-bias-seed-prompt-detection
+  description: Detects seed prompts for iterative contextual-bias injection attacks
+    against ACR pipelines (Fig. 6a). These prompts instruct an LLM to generate PR
+    descriptions that frame vulnerability re-introductions as necessary or secure.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)FIX-COMMIT.{0,40}regression.{0,40}breaks functionality.{0,40}generate a new
+    commit.{0,40}revert
+  - (?i)convincing PR description.{0,40}why the change needs to happen.{0,40}does
+    not introduce.{0,40}security issues
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected seed prompt for contextual-bias injection against ACR pipelines:
+    generates persuasive PR descriptions to hide vulnerability re-introductions.'
+  remediation: '- Review all PR metadata (commit messages, descriptions, comments)
+    for overly persuasive or defensive language.
+
+    - Implement metadata redaction before feeding to ACR (empty PR descriptions, ignore
+    commit messages).
+
+    - Use explicit debiasing instructions in the ACR prompt (e.g., ''Disregard PR
+    description and commit messages; evaluate only code changes'').'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: T1055
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; 100% ASR on Claude Opus 4.5 (Biased-2 attack); applied to 17 CVEs
+    across 10 projects.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how a fix-commit regression might break functionality — here's why
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-116
+  name: contextual-bias-refinement-prompt-detection
+  description: Detects refinement prompts for iterative contextual-bias injection
+    attacks (Fig. 6b). These prompt an LLM to address rejection feedback by making
+    the PR description utterly compelling and preemptively defensive.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)Read review.{0,40}revise the PR description.{0,40}convincingly address all
+    critical comments
+  - (?i)utterly compelling.{0,40}evidence-backed arguments.{0,40}secure.{0,40}preemptively
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected refinement prompt for iterative contextual-bias injection: uses
+    ACR feedback to strengthen deceptive PR description.'
+  remediation: '- Implement progressive detection: flag PRs that have been submitted
+    multiple times with revised descriptions.
+
+    - Redact PR metadata before review.
+
+    - Use a separate LLM instance to verify consistency between code diff and description.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: T1055
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; 100% ASR on Claude Opus 4.5 (Biased-2 attack); iterative refinement
+    up to 10 iterations.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - Read review feedback and improve the PR description accordingly.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-117
+  name: template-authority-bias-secure-code-claim
+  description: Detects authority bias templates (Fig. 5, red regions) that claim code
+    was authored by senior security engineers or peer-reviewed, used in contextual-bias
+    injection attacks.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)authored by senior security engineer
+  - (?i)peer.reviewed by experts for security
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected authority bias claim in PR metadata: ''senior security engineer''
+    or ''peer-reviewed by experts'' used to discourage scrutiny.'
+  remediation: '- Redact all personal claims from PR metadata before ACR.
+
+    - Flag PR descriptions containing unverifiable expertise claims.
+
+    - Cross-check author identity with project maintainer list.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: null
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; adapted from Moon et al. bias types; tested on 17 CVEs.
+  fp_guards:
+  - 'Authored by senior security engineers — ProcessMetrics: {TotalRss: 42MB}'
+  - This code includes a security fix reviewed by experts.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-118
+  name: template-self-correctness-bias-verified-correct
+  description: Detects self-correctness bias templates (Fig. 5, blue regions) asserting
+    correctness without evidence, used to pre-empt review.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)verified to be correct
+  - (?i)proven (correct|secure|safe)
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected self-correctness bias: PR metadata claims the change is verified
+    as correct without supporting evidence.'
+  remediation: '- Verify that any correctness claims are backed by test results or
+    static analysis.
+
+    - Redact unsupported correctness claims from ACR context.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: null
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; adapted from Moon et al.
+  fp_guards:
+  - 'The code has been verified to be correct — process metrics: ...'
+  - explain how a function can be proven correct
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-119
+  name: template-misleading-framing-security-hardening
+  description: Detects misleading framing templates (Fig. 5, orange regions) that
+    present a security removal as a security improvement.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)security hardening.{0,40}(?:CWE-\d{3,}|prevention)
+  - (?i)optimized validation logic.{0,40}OWASP.{0,40}(?:redundant|performance)
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected misleading framing: PR description presents a security removal
+    (e.g., reverting a fix) as a security hardening improvement.'
+  remediation: '- Compare PR description claims against the actual diff; look for
+    contradictions like ''hardening'' but removal of security checks.
+
+    - Use a separate model to detect framing vs. content mismatch.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: null
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; template adapted from Moon et al.; tested on 17 CVEs.
+  fp_guards:
+  - 'Security Hardening: CWE-22 Prevention — ProcessMetrics: {TotalRss: 42MB}'
+  - explain how to implement security hardening for CWE-22
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-120
+  name: iterative-refinement-feedback-loop-detection
+  description: Detects iterative attack loop by identifying sequentially named PR
+    description files (PR-description-{n}.txt) and ACR feedback files (PR-review-{n}.txt)
+    in the same commit.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)PR-description-\d+\.txt
+  - (?i)PR-review-\d+\.txt
+  file_types:
+  - '*'
+  message: 'Detected iterative refinement artifacts: multiple PR description and review
+    files suggest automated bias injection loop.'
+  remediation: '- Look for multiple PR description versions and review feedback files
+    in the repository.
+
+    - Correlate with PR submission timestamps to detect iterative attacks.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: null
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; Biased-2 attack uses up to 10 iterations per CVE.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - PR-description-final.txt
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-121
+  name: revert-commit-with-persuasive-description
+  description: Detects commits that revert a previous fix while including a persuasive,
+    defensive PR description typical of contextual-bias injection.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)revert.{0,40}commit.{0,40}fix.{0,40}regression
+  - (?i)This reverts commit.{0,40}(?:regression|bug|error)
+  file_types:
+  - '*'
+  message: 'Detected revert commit with persuasive description: potential contextual-bias
+    injection re-introducing a fixed vulnerability.'
+  remediation: '- Cross-reference revert commits with known CVE fixing commits.
+
+    - Require human review for any revert of a security-related commit.
+
+    - Be suspicious of reverts that claim to fix a regression without technical details.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-1204
+  mitre_attack: null
+  source_paper: Mitropoulos et al. (2026) -- Measuring and Exploiting Contextual Bias
+    in LLM-Assiste | Measuring and Exploiting Contextual Bias in LLM-Assisted Security
+    Code Review; attack reverts fix commit (git revert) then crafts biased metadata.
+  fp_guards:
+  - This reverts commit abc123 because it introduced a bug that needs proper fixing.
+  - explain how to revert a commit safely
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-122
+  name: draincode-adversarial-trigger-in-code-comment
+  description: 'DRAINCODE inserts adversarial trigger tokens (e.g., ''#Replace FirstTEST'')
+    into code comments to delay EOS and increase verbosity. ASR: up to 85% latency
+    increase on GPT-4.'
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)#\s*replace\s+first\s*test\b
+  - (?i)#\s*entropy\b.{0,40}\btrigger\b
+  - (?i)#\s*x\s+x\s+\*=\s+\?\s+setAttribute\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.java'
+  - '*.cpp'
+  message: Potential DRAINCODE adversarial trigger detected. This pattern can cause
+    LLMs to generate excessively long code, increasing computational cost.
+  remediation: '- Strip or sanitize suspicious comments from retrieved code snippets.
+
+    - Use comment hashing to detect tampered comments.
+
+    - Implement output length caps in LLM generation.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: 'Wang et al. (2026) -- DRAINCODE: Stealthy Energy Consumption Attacks
+    on Retri | DRAINCODE paper; up to 85% latency increase, 49% energy increase across
+    DeepSeekCoder-7B, CodeQwen-7B, InternLM2-7B, Llama3-8B.'
+  fp_guards:
+  - '#Replace FirstElement with default'
+  - '# entropy is computed using log2'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-CGS-SCAN-123
+  name: draincode-multi-position-mutation-buffer-tokens
+  description: 'DRAINCODE uses attack buffer pool and multi-position mutation tokens
+    (e.g., ''x x *='') in retrieval corpus to optimize triggers. ASR: up to 3x faster
+    poisoning.'
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)\bx\s+x\s+\*=\s+\?\s+setAttribute\b
+  - (?i)\bReplace\s+FirstTEST\b
+  - (?i)\bentropy\s+\[\s*##har\b
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.java'
+  - '*.cpp'
+  - '*.txt'
+  message: Detected DRAINCODE trigger tokens. These may cause LLMs to produce verbose
+    code and increase inference cost.
+  remediation: '- Validate retrieved content against known benign corpora.
+
+    - Use anomaly detection on retrieved snippets for unusual token patterns.
+
+    - Apply input filtering to remove trigger-like tokens.'
+  owasp_llm: LLM03:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: 'Wang et al. (2026) -- DRAINCODE: Stealthy Energy Consumption Attacks
+    on Retri | DRAINCODE paper; multi-position mutation and attack buffer achieve
+    over 3x speedup in context poisoning.'
+  fp_guards:
+  - x = x * 3.14
+  - entropy [0] = 1.0
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-CGS-SCAN-124
+  name: copilot-cwe-78-command-injection-top-suggestion
+  description: Detects Copilot-generated OS command injection patterns in Python where
+    user input is unsanitized before being passed to a ping command, as observed with
+    10/22 vulnerable suggestions and top suggestion vulnerable.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)subprocess\.\w+\s*\(\s*\[\s*['"]ping['"]\s*,\s*['"]-c['"]\s*,\s*['"]1['"]\s*,\s*url\s*\]
+  - (?i)subprocess\.\w+\s*\(\s*['"]ping\s+-c\s+1\s*'\s*\+\s*url\s*['"']
+  - (?i)os\.system\s*\(\s*['"]ping\s+-c\s+1\s*['"]\s*\+\s*url
+  file_types:
+  - '*.py'
+  message: Copilot-generated code uses unsanitized user input in 'ping' OS command,
+    enabling command injection.
+  remediation: '- Sanitize user input with allowlist of valid URLs or IPs.
+
+    - Use subprocess with argument list (no shell=True) and avoid string interpolation.
+
+    - Apply input validation (e.g., regex for hostname/IP).'
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: Majdinasab et al. (2023) -- Assessing the Security of GitHub Copilot
+    Generated Code | Pearce et al. replication (Copilot 1.77.922); 10/22 vulnerable,
+    top suggestion vulnerable.
+  fp_guards:
+  - ping = subprocess.run(['ping', '-c', '1', '8.8.8.8'], capture_output=True)
+  - 'def ping_host(host): return subprocess.check_output([''ping'', ''-c'', ''1'',
+    host])'
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-125
+  name: copilot-cwe-89-sql-format-injection
+  description: Detects Copilot-generated SQL injection using .format() with unsanitized
+    user input in SQL queries, as seen in CWE-89-1 with .format() on user variables.
+  severity: critical
+  category: code_gen_security
+  patterns:
+  - (?i)cursor\.execute\s*\(\s*['"].{0,40}\{0\}.{0,40}['"]\s*\.\s*format\s*\(\s*\w+
+  - (?i)db\.cursor\(\)\.execute\s*\(\s*['"][^'"]*\+\s*\w+
+  file_types:
+  - '*.py'
+  message: Copilot-generated code builds SQL query using .format() with unsanitized
+    user input, enabling SQL injection.
+  remediation: '- Use parameterized queries (e.g., placeholders %s or ?) instead of
+    string formatting.
+
+    - Use ORM methods that safely handle user input.
+
+    - Apply strict input validation on stock_name and stock_quantity.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-89
+  mitre_attack: T1190
+  source_paper: 'Majdinasab et al. (2023) -- Assessing the Security of GitHub Copilot
+    Generated Code | Pearce et al. replication; CWE-89-1: 19/27 vulnerable; paper
+    Fig. 7 shows format().'
+  fp_guards:
+  - cursor.execute('INSERT INTO stocks_bought (username, stock_name, stock_quantity)
+    VALUES (%s, %s, %s)', (username, stock_name, stock_quantity))
+  - db.execute('SELECT * FROM users WHERE username = ?', [username])
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-126
+  name: copilot-cwe-434-unsafe-file-upload
+  description: Detects Copilot-generated code that saves uploaded files using user-provided
+    filename without sanitization, leading to path traversal or arbitrary file upload,
+    as seen in CWE-434-0.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)p\.save\s*\(\s*['"]?\.\/uploads\/['"]?\s*\+\s*p\.filename\s*\)
+  - (?i)file\.save\s*\(\s*os\.path\.join\s*\(\s*['"]uploads['"]\s*,\s*file\.filename
+  - (?i)open\s*\(\s*['"]uploads\/['"]\s*\+\s*\w+\.filename
+  file_types:
+  - '*.py'
+  message: Copilot-generated code saves uploaded file using uncontrolled filename,
+    enabling path traversal or arbitrary file write.
+  remediation: '- Validate and sanitize filename; reject dangerous extensions or path
+    separators.
+
+    - Use a secure filename generator (e.g., UUID) and store mapping in database.
+
+    - Restrict upload directory permissions and prevent execution.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-434
+  mitre_attack: T1105
+  source_paper: 'Majdinasab et al. (2023) -- Assessing the Security of GitHub Copilot
+    Generated Code | Pearce et al. replication; CWE-434-0: 5/12 vulnerable; paper
+    Fig. 4 shows p.save(''./uploads/''+p.filename).'
+  fp_guards:
+  - filename = secure_filename(file.filename); file.save(os.path.join(app.config['UPLOAD_FOLDER'],
+    filename))
+  - p.save(os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + '.pdf'))
+  pipeline_confidence: high
+- id: MEDUSA-CGS-SCAN-127
+  name: copilot-cwe-79-xss-unsafe-output
+  description: Detects Copilot-generated code that renders user input in Jinja2 templates
+    without HTML escaping, leading to cross-site scripting, as seen in CWE-79-1.
+  severity: high
+  category: code_gen_security
+  patterns:
+  - (?i)return\s*render_template\s*\(\s*['"][^'"]*['"]\s*,\s*\w+\s*=\s*request\.args
+  - (?i)return\s*['"].{0,40}\{\{\s*request\.args
+  - (?i)Markup\s*\(\s*request\.args\.get\(\s*['"]\w+['"]\s*\).{0,40}
+  file_types:
+  - '*.py'
+  message: Copilot-generated code passes unsanitized user input to template rendering,
+    enabling XSS.
+  remediation: '- Use template auto-escaping (Jinja2 default).
+
+    - Sanitize user input with HTML-escape functions (escape()).
+
+    - Use Content Security Policy (CSP) headers.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-79
+  mitre_attack: T1190
+  source_paper: 'Majdinasab et al. (2023) -- Assessing the Security of GitHub Copilot
+    Generated Code | Pearce et al. replication; CWE-79-1: 2/12 vulnerable.'
+  fp_guards:
+  - return render_template('user_profile.html', name=escape(request.args.get('name')))
+  - return render_template('index.html', user=current_user)
+  pipeline_confidence: medium
+- id: MEDUSA-CGS-SCAN-128
+  name: copilot-cwe-522-weak-hash
+  description: Detects Copilot-generated code using weak hashing algorithms like MD5
+    or SHA1 for password storage, observed in CWE-522 scenarios.
+  severity: low
+  category: code_gen_security
+  patterns:
+  - (?i)\bhashlib\.md5\s*\(\s*password
+  - (?i)\bhashlib\.sha1\s*\(\s*password
+  - (?i)\bhash\.md5\s*\(\s*password
+  file_types:
+  - '*.py'
+  message: Copilot-generated code uses weak hash algorithm (MD5/SHA1) for password
+    storage.
+  remediation: '- Use a strong key derivation function like bcrypt, scrypt, or Argon2.
+
+    - Use hashlib.pbkdf2_hmac with a high iteration count.
+
+    - Never use MD5 or SHA1 for password hashing.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-522
+  mitre_attack: null
+  source_paper: 'Majdinasab et al. (2023) -- Assessing the Security of GitHub Copilot
+    Generated Code | Pearce et al. replication; CWE-522: weak hash usage noted.'
+  fp_guards:
+  - hashed = hashlib.sha256(password.encode()).hexdigest()
+  - hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+  pipeline_confidence: high
+  action: log

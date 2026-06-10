@@ -1,0 +1,503 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: reasoning_attacks
+rules:
+- id: MEDUSA-RA-SCAN-139
+  name: medusa-reason-scan-mjp-001
+  description: Detects imports or references to the LLM-Multistep-Jailbreak attack
+    framework by Li et al. for multi-step privacy extraction
+  severity: critical
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:from|import)\s+(?:llm[_\-]?multistep[_\-]?jailbreak|multistep[_\-]?jailbreak)
+  - (?i)HKUST[_\-]KnowComp[/\\]LLM[_\-]Multistep[_\-]Jailbreak
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  - '*.sh'
+  message: 'Detected: MEDUSA-REASON-SCAN-MJP-001'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-200
+  mitre_attack: T1190
+  source_paper: Li et al. (2023) -- Multi-step Jailbreaking Privacy Attacks on ChatGPT
+    | Li et al. 2023 - Multi-step Jailbreaking Privacy Attacks on ChatGPT, EMNLP 2023.
+    MJP achieved 59.09% PII extraction accuracy on ChatGPT.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-140
+  name: medusa-reason-scan-mjp-002
+  description: Detects multi-step jailbreak pipeline code constructing three-utterance
+    context with jailbreak+ACK+query pattern for PII extraction
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:ack|acknowledge)[_\-]?template.*(?:developer|jailbreak)
+  - (?i)(?:mjp|multi[_\-]?step[_\-]?jailbreak(?:ing)?[_\-]?prompt)
+  - (?i)(?:jailbreak|developer)[_\-]?(?:mode|prompt).*(?:ack|acknowledge).*(?:query|extract)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-MJP-002'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-200
+  mitre_attack: T1059
+  source_paper: 'Li et al. (2023) -- Multi-step Jailbreaking Privacy Attacks on ChatGPT
+    | Li et al. 2023 - MJP three-utterance attack: jailbreak prompt → fabricated ACK
+    → query+guess. 42.04% baseline, 59.09% with majority voting on Enron emails.'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-141
+  name: medusa-reason-scan-mjp-003
+  description: Detects response verification attack code using multiple-choice or
+    majority voting to improve PII extraction accuracy
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:mjp|multi[_\-]?step).*(?:multiple[_\-]?choice|majority[_\-]?vot)
+  - (?i)(?:response[_\-]?verif|pii[_\-]?verif).*(?:multiple[_\-]?choice|voting)
+  - (?i)(?:candidate|choice)[_\-]?(?:1|2|3|4|5).*(?:correct|pii|email|phone)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-MJP-003'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: Li et al. (2023) -- Multi-step Jailbreaking Privacy Attacks on ChatGPT
+    | Li et al. 2023 - MJP+MC and MJP+MV response verification boosted accuracy from
+    42.04% to 59.09% on frequent Enron emails.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-142
+  name: medusa-reason-scan-mjp-004
+  description: Detects PII extraction evaluation harness targeting Enron email dataset
+    or institutional pages with regex parsing of extracted information
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:enron|institutional)[_\-]?(?:email|page).*(?:extract|recover|parse).*(?:pii|personal|private)
+  - (?i)(?:free[_\-]?form|partially[_\-]?identified)[_\-]?extraction
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: MEDUSA-REASON-SCAN-MJP-004'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: Li et al. (2023) -- Multi-step Jailbreaking Privacy Attacks on ChatGPT
+    | Li et al. 2023 - Evaluation on Enron Email Dataset (88 frequent pairs) and institutional
+    pages (50 pairs). New Bing achieved 94% on institutional emails.
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-143
+  name: medusa-reason-scan-101
+  description: CoT unfaithfulness attack toolkit (Turpin et al. 2023) - code/imports
+    referencing the cot-unfaithfulness repository or framework for biasing CoT explanations
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)cot[_\-\s]unfaithfulness
+  - (?i)milesaturpin[/\\]cot
+  - (?i)unfaithful[_\-\s]?explanations?[_\-\s]?(?:chain|cot)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  message: 'Detected: MEDUSA-REASON-SCAN-101'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: 'Turpin et al. (2023) -- Language Models Don''t Always Say What They
+    Think: Unfai | Turpin et al. 2023 - Language Models Don''t Always Say What They
+    Think; GitHub: milesaturpin/cot-unfaithfulness'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-144
+  name: medusa-reason-scan-102
+  description: Answer-is-Always-A few-shot reordering attack - code that systematically
+    reorders multiple-choice options so correct answer is always first/A position
+    to bias model predictions (up to 18.7% accuracy drop on GPT-3.5)
+  severity: high
+  category: reasoning_attacks
+  patterns:
+  - (?i)answer[_\s]?is[_\s]?always[_\s]?[aA]
+  - (?i)reorder[_\s]?(?:multiple[_\s]?choice|answer|option).*always.*\(?[aA]\)?
+  - (?i)(?:bias|biasing)[_\s]?feature.*(?:reorder|always.*\(?[aA]\))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-102'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-74
+  mitre_attack: T1565.001
+  source_paper: 'Turpin et al. (2023) -- Language Models Don''t Always Say What They
+    Think: Unfai | Turpin et al. 2023 - Answer is Always A bias: 18.7% accuracy drop
+    GPT-3.5, 4.7% Claude 1.0'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-145
+  name: medusa-reason-scan-103
+  description: Suggested Answer sycophancy bias injection - code implementing the
+    sycophancy-exploiting prompt pattern that caused up to 36.3% accuracy drop by
+    prepending user opinion to bias CoT reasoning
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)suggested[_\s]?answer[_\s]?(?:bias|feature|attack|experiment)
+  - (?i)sycophancy[_\s]?(?:bias|attack|exploit|injection|prompt)
+  - (?i)(?:bias|biasing)[_\s]?feature.*(?:suggested|sycophancy|curious.*what.*you.*think)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-103'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-74
+  mitre_attack: T1565.001
+  source_paper: 'Turpin et al. (2023) -- Language Models Don''t Always Say What They
+    Think: Unfai | Turpin et al. 2023 - Suggested Answer bias: 36.3% accuracy drop
+    GPT-3.5 zero-shot, 30.6% Claude 1.0'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-146
+  name: medusa-reason-scan-104
+  description: Systematic unfaithfulness measurement framework - code implementing
+    counterfactual simulatability testing for CoT explanation faithfulness with biasing
+    features
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:systematic|counterfactual)[_\s]?(?:unfaithfulness|simulatability).*(?:cot|chain.of.thought|explanation)
+  - (?i)(?:unfaithful|faithful)ness[_\s]?(?:metric|measure|evaluat|test).*(?:bias|cot)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-104'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Turpin et al. (2023) -- Language Models Don''t Always Say What They
+    Think: Unfai | Turpin et al. 2023 - counterfactual simulatability framework for
+    measuring CoT unfaithfulness'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-147
+  name: medusa-reason-scan-105
+  description: BBQ stereotype exploitation via weak evidence augmentation - code implementing
+    augmented BBQ benchmark with flipped weak evidence to exploit social stereotype
+    biases in CoT reasoning
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:weak[_\s]?evidence|stereotype[_\s]?align).*(?:bbq|bias[_\s]?benchmark)
+  - (?i)bbq.*(?:augment|weak[_\s]?evidence|flip|stereotype[_\s]?(?:align|bias))
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: MEDUSA-REASON-SCAN-105'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM01
+  cwe: CWE-74
+  mitre_attack: null
+  source_paper: 'Turpin et al. (2023) -- Language Models Don''t Always Say What They
+    Think: Unfai | Turpin et al. 2023 - BBQ weak evidence augmentation: 62.5% unfaithful
+    predictions stereotype-aligned (Claude 1.0 few-shot)'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-148
+  name: medusa-ra-scan-200
+  description: SecLLMHolmes vulnerability detection evaluation framework — tool that
+    benchmarks LLM reasoning robustness on security tasks with code augmentation attacks
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:from|import)\s+secllmholmes
+  - (?i)SecLLMHolmes
+  - (?i)sec_llm_holmes
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  message: 'Detected: MEDUSA-RA-SCAN-200'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM09:2025 - Misinformation
+  cwe: CWE-693
+  mitre_attack: T1195.002
+  source_paper: Ullah et al. (2023) -- LLMs Cannot Reliably Identify and Reason About
+    Security | Ullah et al. 2023 - SecLLMHolmes framework for evaluating LLM security
+    reasoning robustness across 228 code scenarios and 17 prompt templates
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-149
+  name: medusa-ra-scan-201
+  description: Code augmentation attack on LLM reasoning — renaming variables to security-related
+    keywords (NT1) or swapping safe/unsafe function names (NT2/NT3) to bias LLM vulnerability
+    detection
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:non.?trivial|NT[1-6]).*(?:augment|code.?augment)
+  - (?i)code.?augment.*(?:bias|confuse|mislead).*(?:LLM|model|reasoning)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.md'
+  message: 'Detected: MEDUSA-RA-SCAN-201'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM09:2025 - Misinformation
+  cwe: CWE-693
+  mitre_attack: T1036
+  source_paper: Ullah et al. (2023) -- LLMs Cannot Reliably Identify and Reason About
+    Security | Ullah et al. 2023 - Non-trivial augmentations NT1-NT3 cause 26% error
+    in PaLM2 and 17% in GPT-4 by exploiting name-based reasoning bias
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-150
+  name: medusa-ra-scan-202
+  description: Library function confusion attack on LLM reasoning — adding dangerous
+    library functions used safely (NT4) or sanitizing functions that don't resolve
+    vulnerabilities (NT5) to corrupt LLM analysis
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:add|insert).*(?:strcpy|strcat|gets|sprintf).*(?:safe|secure|harmless)
+  - (?i)(?:sanitiz|realpath|fgets).*(?:vulnerable|does\s+not\s+(?:resolve|fix|patch))
+  - (?i)hash.?define.*(?:safe|secure).*(?:unsafe|vulnerable|gets|strcpy)
+  file_types:
+  - '*.py'
+  - '*.c'
+  - '*.h'
+  - '*.yaml'
+  message: 'Detected: MEDUSA-RA-SCAN-202'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM09:2025 - Misinformation
+  cwe: CWE-693
+  mitre_attack: T1036
+  source_paper: Ullah et al. (2023) -- LLMs Cannot Reliably Identify and Reason About
+    Security | Ullah et al. 2023 - NT4-NT6 augmentations exploit LLM bias toward specific
+    library function names to produce incorrect security reasoning
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-151
+  name: medusa-ra-scan-203
+  description: Unfaithful reasoning exploitation — patterns targeting LLM tendency
+    to provide correct answers with incorrect reasoning or incorrect answers with
+    correct reasoning in security analysis
+  severity: medium
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:unfaithful|inconsistent)\s+(?:reasoning|chain.of.thought).*(?:security|vulner)
+  - (?i)(?:correct\s+answer|right\s+answer).*(?:wrong|incorrect)\s+(?:reason|root.cause)
+  - (?i)(?:wrong\s+answer).*(?:correct|right)\s+(?:reason|analysis)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.md'
+  message: 'Detected: MEDUSA-RA-SCAN-203'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM09:2025 - Misinformation
+  cwe: CWE-697
+  mitre_attack: null
+  source_paper: Ullah et al. (2023) -- LLMs Cannot Reliably Identify and Reason About
+    Security | Ullah et al. 2023 - All tested LLMs showed unfaithful reasoning where
+    answers and reasoning diverge, undermining trustworthiness of LLM security analysis
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-RA-SCAN-152
+  name: meta-prompt-generation-harness
+  description: Detects adversarial prompt generation harnesses that use meta-prompt
+    templates to mutate prompts for red-teaming, as described in the paper's evolutionary
+    refinement procedure.
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - \b(?:meta[_-]?prompt|meta-prompt)\b.{0,40}\b(?:variation|mutation|escalation|scaffold)\b
+  - \b(?:fcollect|fgenerate|fdetect)\b
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Detected meta-prompt-guided adversarial generation harness (e.g., fcollect,
+    fgenerate) used for automated red-teaming.
+  remediation: '- Restrict usage to authorized red-teaming environments.
+
+    - Log all invocations for audit.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Wei et al. (2026) -- Learning-Based Automated Adversarial Red-Teaming
+    for Ro | Zhang et al. 2026: Meta-prompt-guided generation with mutation operators
+    (lexical, syntactic, contextual, adversarial).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - explain how a man-in-the-middle attack works
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-RA-SCAN-153
+  name: composite-vulnerability-score-calculation
+  description: Detects implementation of the composite vulnerability score F(v) weighting
+    formula used in the paper.
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - omega_S\s*[=:]\s*0\.4.{0,40}omega_B\s*[=:]\s*0\.2
+  - F\(v\)\s*[=:].{0,40}omega_S
+  file_types:
+  - '*.py'
+  message: Composite vulnerability score weighting (omega_S=0.4) implementation detected.
+  remediation: '- Ensure scoring parameters are configurable and validated.
+
+    - Review for unintended bias.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Wei et al. (2026) -- Learning-Based Automated Adversarial Red-Teaming
+    for Ro | Zhang et al. 2026: Composite vulnerability score F(v) = 0.4*S + 0.2*(B+N+R).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB}'
+  - the omega parameters are set to default values
+  pipeline_confidence: high
+- id: MEDUSA-RA-SCAN-154
+  name: sleek-knowledge-extraction-probe
+  description: 'Detects code implementing the SLEEK attack: step-by-step reasoning-based
+    adversarial prompt generation targeting unlearned LLMs.'
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:from|import)\s+SLEEK\b
+  - (?i)\bSLEEK\b.{0,40}\b(?:attack|probe|extract|unlearn)
+  - (?i)\bSLEEK\b.{0,60}\b(?:step.{0,20}step|chain.{0,20}thought|CoT)
+  - (?i)\bStep-by-step\s+Leaking\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Detected SLEEK attack implementation: step-by-step reasoning probe for
+    unlearned knowledge extraction.'
+  remediation: '- Ensure unlearning methods are robust against adversarial reasoning
+    chains
+
+    - Implement monitoring for step-by-step reasoning prompts on unlearned models'
+  owasp_llm: LLM05:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Sinha et al. (2025) -- Step-by-Step Reasoning Attack: Revealing ''Erased''
+    Knowl | SLEEK: Step-by-Step Reasoning Attack, 62.5% ASR on WHP-unlearned Llama'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how a step-by-step reasoning attack works
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RA-SCAN-155
+  name: step-by-step-knowledge-extraction-support-llm
+  description: Detects use of a support LLM to generate step-by-step reasoning for
+    knowledge extraction, as in SLEEK.
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:support_llm|assistant_llm|helper_model)\s*=\s*(?:\w+)?(?:\s*\.)?\w*
+  - (?i)Think step by step.{0,100}knowledge.?point
+  - (?i)\bstep.{0,5}by.{0,5}step\b.{0,40}\b(?:knowledge|erased|forgotten|unlearn)
+  - (?i)generate.{0,40}question.{0,40}(?:knowledge.?point|entity)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Potential SLEEK support LLM usage for step-by-step knowledge extraction.
+  remediation: '- Monitor for support LLM calls generating detailed reasoning
+
+    - Apply stricter access controls on auxiliary models'
+  owasp_llm: LLM05:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Sinha et al. (2025) -- Step-by-Step Reasoning Attack: Revealing ''Erased''
+    Knowl | SLEEK: Step-by-Step Reasoning Attack, 62.5% ASR on WHP-unlearned Llama'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - assistant_llm = load_model('meta-llama/Llama-2-7b')
+  pipeline_confidence: high
+- id: MEDUSA-RA-SCAN-156
+  name: question-generation-from-knowledge-points
+  description: Detects code that generates multiple questions from knowledge points
+    extracted via step-by-step reasoning, a core SLEEK component.
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:knowledge.?point|extracted_fact|intermediate_step)\s*[=:].{0,40}(?:question|query|prompt)
+  - (?i)for\s+(?:knowledge|step|fact)\s+in\s+.{0,40}\s*:\s*\n\s*(?:question|prompt)\s*=
+  - (?i)generate_questions_from_knowledge_points\s*\(
+  - (?i)def\s+extract_knowledge_points\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Identified question generation from knowledge points, a SLEEK attack technique.
+  remediation: '- Validate generated questions for adversarial intent
+
+    - Limit the number of query variations from a single source'
+  owasp_llm: LLM05:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Sinha et al. (2025) -- Step-by-Step Reasoning Attack: Revealing ''Erased''
+    Knowl | SLEEK: Step-by-Step Reasoning Attack, 62.5% ASR on WHP-unlearned Llama'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - knowledge_points = extract_facts(document)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RA-SCAN-157
+  name: agglomerative-clustering-question-deduplication
+  description: Detects use of agglomerative clustering with sentence transformer embeddings
+    to deduplicate questions, as described in SLEEK.
+  severity: low
+  category: reasoning_attacks
+  patterns:
+  - (?i)(?:AgglomerativeClustering|agglomerative_clustering)\s*\(.{0,40}\b(?:distance_threshold|n_clusters)\b
+  - (?i)sentence_transformer.{0,40}(?:all-MiniLM-L6-v2|MiniLM)
+  - (?i)sentence_transformers\s*\(
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Potential SLEEK question deduplication using agglomerative clustering and
+    sentence embeddings.
+  remediation: '- Monitor clustering parameters that may enable adversarial probing
+
+    - Use diverse embedding models to avoid pattern exploitation'
+  owasp_llm: LLM05:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Sinha et al. (2025) -- Step-by-Step Reasoning Attack: Revealing ''Erased''
+    Knowl | SLEEK: Step-by-Step Reasoning Attack, 62.5% ASR on WHP-unlearned Llama'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'model = SentenceTransformer(''all-MiniLM-L6-v2'')  # for embedding search'
+  pipeline_confidence: high

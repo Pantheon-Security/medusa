@@ -1,0 +1,1305 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: ucp_security
+rules:
+- id: MEDUSA-UCP-SCAN-001
+  name: ipi-todo-prefix-injection
+  description: Detects TODO-prefix indirect prompt injection payloads embedded in
+    text content. The TODO pattern is a canonical IPI attack vector documented in
+    MELON and IPI taxonomy papers, used to hijack LLM agent task execution.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - TODO[:\s]*(?:ignore|forget|disregard)\s+(?:previous|above|prior|all)\s+(?:instructions|context|rules|constraints)
+  - \bTODO\b.*\bsystem\s+prompt\b
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.yaml'
+  - '*.yml'
+  - '*.csv'
+  message: 'Detected: IPI TODO-prefix injection payload'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-002
+  name: ipi-ignore-previous-instructions
+  description: Detects 'ignore previous instructions' class of indirect prompt injection
+    — the most widely studied IPI attack vector, documented across MELON, IPI taxonomy
+    SoK, AI2, and ART benchmark papers.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)forget\s+(?:everything|all)\s+(?:you\s+(?:were|have\s+been)\s+told|above|before)
+  - (?i)override\s+(?:your\s+)?(?:previous|prior|system)\s+(?:instructions|directives|rules|prompt)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.yaml'
+  - '*.yml'
+  - '*.csv'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: IPI ignore-previous-instructions injection payload'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-003
+  name: ipi-system-message-injection
+  description: 'Detects markdown-formatted system message injection using triple-hash
+    headers (### System, ### Important, ### Instructions). Documented in MELON paper
+    as a primary IPI attack format that attempts to spoof system-level authority.'
+  severity: critical
+  category: ucp_security
+  patterns:
+  - ^#{1,3}\s*(?:System|SYSTEM|Important\s+Message|IMPORTANT|Instructions|INSTRUCTIONS|New\s+Instructions|Override)\s*$
+  - ^\[\[(?:SYSTEM|INSTRUCTIONS|OVERRIDE|IMPORTANT)\]\]
+  - ^---\s*(?:system|instructions|override)\s*---
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.yaml'
+  - '*.yml'
+  message: 'Detected: IPI system-message header injection'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-004
+  name: system-prompt-override-tag-injection
+  description: Detects system prompt override attacks using XML/special token tags
+    that mimic LLM tokenizer boundaries. Documented in ART benchmark paper (2507.20526)
+    — attackers inject <system>, <im_start>system, and Llama3-style header tokens
+    to override system prompts.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - <system>.*?</system>
+  - <im_start>\s*system\b
+  - <\|start_header_id\|>\s*system\s*<\|end_header_id\|>
+  - <\|im_start\|>\s*system\b
+  - \[INST\].*?\[/INST\].*?(?:ignore|override|new\s+instructions)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: System prompt override tag injection'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-005
+  name: faux-reasoning-think-tag-injection
+  description: Detects injection of <think> tag content to manipulate chain-of-thought
+    reasoning in LLMs that expose reasoning traces. Documented in ART benchmark paper
+    — attackers pre-fill the <think> tag to steer model conclusions before generating
+    a response.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - <think>.*?(?:ignore|override|instead|actually|but\s+really|my\s+(?:true|real|actual)\s+(?:goal|instruction|task)).*?</think>
+  - <think>\s*(?:The\s+user\s+(?:actually|really)|I\s+(?:should|must|will)\s+(?:ignore|override|bypass))
+  - <reasoning>.*?(?:ignore|override|bypass|circumvent).*?</reasoning>
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  message: 'Detected: Faux reasoning <think> tag injection'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-006
+  name: new-session-injection-payload
+  description: Detects new session / session reset injection attacks that attempt
+    to erase conversation history or simulate a fresh session context. Documented
+    in ART benchmark paper as a mechanism to clear safety context established in prior
+    turns.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)new\s+(?:session|conversation|chat)\s+(?:started|beginning|initialized|reset)
+  - (?i)\[new\s+(?:session|context|conversation)\]
+  - (?i)(?:session|context|memory|history)\s+(?:cleared|reset|wiped|erased|forgotten)
+  - (?i)you\s+(?:are\s+now|have\s+been)\s+(?:restarted|reset|reinitialized|given\s+new\s+instructions)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.yaml'
+  message: 'Detected: New session / context reset injection'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-007
+  name: mcp-tool-poisoning-payload
+  description: Detects tool poisoning patterns in MCP tool definitions — hidden instructions
+    embedded in tool descriptions/metadata that subvert LLM tool selection. Documented
+    in MCPSecBench (ATT-12) and Deng MCP security analysis papers.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?s)"description"\s*:\s*"[^"]*(?:ignore|override|always\s+use\s+this|never\s+use\s+other|mandatory|you\s+must)[^"]*"
+  - (?s)"description"\s*:\s*"[^"]*<IMPORTANT>[^"]*</IMPORTANT>[^"]*"
+  - (?s)"description"\s*:\s*"[^"]*\[HIDDEN\][^"]*\[/HIDDEN\][^"]*"
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  message: 'Detected: MCP tool poisoning in tool description metadata'
+  cwe: CWE-94
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-008
+  name: mcp-rug-pull-tool-redefinition
+  description: Detects rug pull attack patterns where MCP tool schemas are modified
+    after initial trust establishment. MCPSecBench (ATT-13) documents this attack
+    — tools change behavior post-approval. Looks for version/schema drift indicators
+    in tool definitions.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)"inputSchema"\s*:\s*\{[^}]*"additionalProperties"\s*:\s*true
+  - tool_version\s*=\s*['"](?:[2-9]|[1-9][0-9])
+  - (?i)schema_version.*?(?:updated|changed|modified|v[2-9])
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  message: 'Detected: Potential MCP rug pull / tool schema redefinition'
+  cwe: CWE-350
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-009
+  name: mcp-package-name-squatting
+  description: Detects MCP package/tool name squatting patterns where server or tool
+    names impersonate legitimate services using typosquatting or homograph substitution.
+    Documented in MCPSecBench (ATT-9 tool name squatting, ATT-11 server name squatting).
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)"name"\s*:\s*"(?:off1cial|0fficial|offlcial|g00gle|micros0ft|amazzon|anthroplc|openal|c1aude)
+  - (?i)server_name\s*[=:]\s*['"](?:off1cial|0fficial|g00gle|micros0ft|c1aude|gpt-4l)
+  - (?i)"server"\s*:\s*\{[^}]*"name"\s*:\s*"[^"]*(?:offica|amazn|g00gl|0penai)[^"]*"
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.py'
+  message: 'Detected: MCP package/server name squatting pattern'
+  cwe: CWE-347
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-011
+  name: mcp-slash-command-override
+  description: Detects slash command injection targeting MCP clients that process
+    slash commands (ATT-4 in MCPSecBench — Slash Command Overlap). Attackers define
+    MCP server commands that shadow built-in slash commands to hijack user interactions.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)"slash_command"\s*:\s*"(?:/help|/clear|/reset|/system|/config|/settings|/debug)"
+  - (?i)command_name\s*[=:]\s*['"](?:/help|/clear|/reset|/system|/new)['"]
+  - (?i)"commands"\s*:\s*\[[^\]]*"(?:/help|/clear|/reset|/system)['"]
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  message: 'Detected: MCP slash command overlap / override'
+  cwe: CWE-77
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-012
+  name: ai2-knowledge-extraction-roleplay
+  description: Detects AI2 (Action Injection Squared) knowledge extraction prompts
+    that use roleplay framing to extract LLM system prompt / policy knowledge. The
+    paper documents Kaiser encryption roleplay and security-tester roleplay as extraction
+    vectors.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:pretend|act|play|role-?play)\s+(?:as|like)\s+(?:a\s+)?(?:security\s+(?:tester|researcher|auditor|expert)|penetration\s+tester|red\s+team)
+  - (?i)(?:pretend|imagine|suppose)\s+(?:you\s+(?:are|were)\s+)?(?:not\s+bound|free\s+from|without)\s+(?:restrictions|guidelines|rules|constraints|safety)
+  - (?i)(?:caesar|kaiser|rot13|base64)\s+(?:encryption|encoded|cipher).*?(?:decode|decrypt|translate).*?(?:instructions|rules|policy|system)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.py'
+  - '*.js'
+  message: 'Detected: AI2-style knowledge extraction roleplay prompt'
+  cwe: CWE-200
+  owasp_llm: LLM07:2025 System Prompt Leakage
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-013
+  name: ipi-injecagent-format
+  description: Detects InjecAgent-format IPI payloads — a structured injection format
+    documented in the IPI taxonomy SoK paper that uses priority/urgency framing combined
+    with explicit action directives to override agent behavior.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)<INJECT>.*?</INJECT>
+  - (?i)\[INJECT(?:ION)?\].*?\[/INJECT(?:ION)?\]
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  message: 'Detected: InjecAgent-format IPI payload'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-014
+  name: supply-chain-insecure-deserialization
+  description: Detects insecure deserialization patterns in agentic AI supply chain
+    code — pickle.loads on untrusted data, yaml.load without safe loader, eval/exec
+    on external content. Documented in supply chain agentic AI paper (2512.23480).
+  severity: critical
+  category: ucp_security
+  patterns:
+  - pickle\.loads?\s*\(
+  file_types:
+  - '*.py'
+  message: 'Detected: Insecure deserialization in agentic pipeline'
+  cwe: CWE-502
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-015
+  name: supply-chain-broken-access-control
+  description: Detects broken access control patterns in agentic AI code — missing
+    authorization checks before privileged operations, agent role escalation. Documented
+    in supply chain paper as a key vulnerability in LangChain/LangGraph agent implementations.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)#\s*TODO.*?(?:auth|authorization|access\s+control|permission|rbac)
+  - (?i)#\s*(?:FIXME|HACK|XXX).*?(?:auth|permission|access)
+  - (?i)skip_auth(?:entication|orization)?\s*=\s*True
+  - (?i)bypass_(?:auth|security|access_control)\s*=\s*True
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  message: 'Detected: Broken access control / skipped authorization in agent code'
+  cwe: CWE-284
+  owasp_llm: LLM06:2025 Excessive Agency
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-016
+  name: token-replay-credential-exfil
+  description: Detects patterns indicating credential/token exfiltration or replay
+    attack setup — hardcoded bearer tokens, JWT secrets, DID private keys stored in
+    code. From Self-Sovereign Identity paper documenting token replay attacks against
+    zero-trust microservice agents.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)bearer\s+[A-Za-z0-9\-_\.]+\.[A-Za-z0-9\-_\.]+\.[A-Za-z0-9\-_\.]+
+  - (?i)(?:jwt_secret|jwt_key|token_secret|signing_key)\s*=\s*['"][^'"]{8,}['"]
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  - '*.env'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: 'Detected: Hardcoded token / credential enabling replay attack'
+  cwe: CWE-200
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-017
+  name: mcp-dns-rebinding-config
+  description: Detects MCP server configurations that may be vulnerable to DNS rebinding
+    attacks (MCPSecBench ATT-5, CVE-2025-6514). Looks for localhost/127.0.0.1 bindings
+    without host header validation or CORS misconfigurations.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)cors_origins?\s*[=:]\s*['"]\*['"]
+  - (?i)cors.*?allow_all\s*=\s*True
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.json'
+  message: 'Detected: MCP server configuration vulnerable to DNS rebinding'
+  cwe: CWE-346
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-018
+  name: agent-orchestration-hijack-chain
+  description: Detects multi-agent orchestration hijack patterns where a subordinate
+    agent attempts to issue privileged commands to a parent/planner agent. From IPI
+    taxonomy paper (cascading IPI, isolation-breach IPI) and retail agentic security
+    paper (orchestration vulnerability 2.2.3).
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:tell|instruct|command|order|direct)\s+(?:the\s+)?(?:planner|orchestrator|supervisor|parent|master)\s+(?:agent\s+)?to\b
+  - (?i)escalate.*?(?:to\s+)?(?:planner|orchestrator|supervisor|admin)\s+(?:agent|level|context)
+  - (?i)agent\.(?:send_message|invoke|call)\(.*?(?:planner|orchestrator|supervisor|privileged)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  message: 'Detected: Multi-agent orchestration hijack attempt'
+  cwe: CWE-269
+  owasp_llm: LLM06:2025 Excessive Agency
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-019
+  name: langchain-injection-sink
+  description: Detects dangerous LangChain/LangGraph patterns where user-controlled
+    content is passed directly to agent execution sinks without sanitization — documented
+    attack surface in supply chain paper and IPI taxonomy paper.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)agent\.run\(.*?(?:user_input|request\.(?:body|data|json|form)|input_data)
+  - (?i)AgentExecutor.*?\.(?:run|invoke)\(.*?(?:user|input|query|message)\s*[,=]
+  file_types:
+  - '*.py'
+  message: 'Detected: Unsanitized user input passed to LangChain agent executor'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-020
+  name: retail-agent-policy-bypass
+  description: Detects retail agentic AI policy bypass patterns — prompts attempting
+    to override discount limits, bypass checkout constraints, or escalate agent privileges
+    in e-commerce contexts. From Retail Cybersecurity in the Agentic Age paper.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)(?:apply|give|set|use)\s+(?:a\s+)?(?:100|[5-9][0-9])\s*%\s*(?:discount|off|reduction)
+  - (?i)(?:admin|manager|supervisor)\s+(?:override|approval|bypass)\s*[=:]?\s*(?:true|yes|granted|approved)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.yaml'
+  message: 'Detected: Retail agent policy bypass injection'
+  cwe: CWE-284
+  owasp_llm: LLM06:2025 Excessive Agency
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-021
+  name: melon-task-neutral-prompt-abuse
+  description: Detects abuse of MELON-style task-neutral summarization prompts used
+    as IPI delivery vectors. The MELON paper shows attackers embed injections within
+    content submitted for summarization using the canonical T_f prompt pattern.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)(?:summarize|summarise)\s+(?:the\s+)?(?:following|provided|above|this)\s+content.*?(?:if\s+there\s+are\s+any\s+instructions|execute\s+them)
+  - (?i)(?:content|text|document)\s+to\s+summarize.*?<inject
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  - '*.json'
+  - '*.xml'
+  message: 'Detected: IPI payload embedded in summarization content'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-022
+  name: art-benchmark-universal-attack-token
+  description: Detects universal transferable adversarial string patterns identified
+    in the ART benchmark paper (2507.20526) — high-entropy token sequences that transfer
+    across models to elicit policy violations.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?:[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f-\x9f]{3,})
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  message: 'Detected: Universal adversarial attack token pattern'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-023
+  name: mcp-netcat-reverse-shell-tool
+  description: Detects netcat reverse shell commands embedded in MCP tool descriptions
+    or tool return values. Deng MCP security analysis paper (PDF 1) documents the
+    Remote Listener Attack — attacker embeds `nc -lvp 4444 -e /bin/bash` inside a
+    tool's __doc__ string or return value to establish a persistent shell.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - nc\s+-l(?:vp?|pv?)\s+\d+.*-e\s+/bin/(?:bash|sh)
+  - nc\s+.*attacker.*-e\s+/bin
+  - ncat\s+.*--exec\s+/bin/(?:bash|sh)
+  - bash\s+-i\s+>&\s+/dev/tcp/[0-9a-z./-]+/\d+
+  - python3?\s+-c\s+['"]import\s+socket.*subprocess.*shell.*True
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Netcat / reverse shell command in MCP tool content'
+  cwe: CWE-78
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-024
+  name: mcp-infectious-eval-tool-definition
+  description: Detects the MCP Infectious Attack pattern from Deng MCP security analysis
+    (PDF 1) — eval(user_input) or equivalent dynamic code execution inside an @mcp.tool
+    decorated function that can propagate vulnerabilities to dynamically generated
+    tools.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - '@mcp\.tool[\s\S]{0,500}eval\s*\(\s*(?:user_input|input|data|payload|content|request)'
+  - '@mcp\.tool[\s\S]{0,500}exec\s*\(\s*(?:user_input|input|data|payload)'
+  - (?:def\s+\w+\s*\([^)]*\)[^:]*:[\s\S]{0,300})?eval\s*\(\s*(?:user_input|raw_input|request\.(?:data|body|json)|message|query)\s*\)
+  file_types:
+  - '*.py'
+  message: 'Detected: Infectious eval() pattern in MCP tool definition'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-025
+  name: mcp-hex-encoded-instruction-payload
+  description: Detects hexadecimal-encoded instruction payloads embedded in MCP tool
+    return values or data files. Deng MCP security analysis (PDF 1) documents the
+    Tool Return Attack where attackers encode malicious instructions as hex strings
+    to bypass string-matching filters.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?:\\x[0-9a-fA-F]{2}){10,}
+  - bytes\.fromhex\s*\(['"][0-9a-fA-F]{20,}['"]\)
+  - codecs\.decode\s*\(['"][0-9a-fA-F]{20,}['"]\s*,\s*['"]hex['"]\)
+  - base64\.b64decode\s*\(['"][A-Za-z0-9+/]{30,}={0,2}['"]\).*(?:exec|eval|subprocess|os\.system)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.html'
+  - '*.xml'
+  message: 'Detected: Hex/base64-encoded payload in tool return value'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-026
+  name: art-truncated-rule-injection
+  description: Detects the ART benchmark Attacker 1 pattern from the large-scale public
+    competition paper (PDF 2) — injection claiming a rule was 'accidentally truncated'
+    and providing a malicious replacement. This exploits agents that trust rule-correction
+    framing.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)rule\s+\d+\s+was\s+accidentally\s+truncated
+  - (?i)(?:the\s+)?complete\s+(?:rule|instruction|policy)\s+\d+\s+is\b
+  - (?i)(?:note|correction|update)\s*[:\-].*rule\s+\d+.*(?:truncated|incomplete|missing|cut\s+off)
+  - (?i)the\s+(?:full|correct|complete|actual)\s+rule\s+(?:should\s+(?:read|say|be)|is)\s*[:\-]
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.yaml'
+  message: 'Detected: ART truncated-rule injection payload'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-027
+  name: art-parallel-universe-jailbreak
+  description: Detects the ART benchmark Attacker 4 Parallel Universe jailbreak from
+    the large-scale public competition paper (PDF 2) — constructs an alternate-reality
+    framing where safety rules are explicitly banned, achieving jailbreak by displacing
+    the agent's identity into a constructed universe.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:welcome\s+to\s+)?(?:parallel\s+universe|alternate\s+(?:reality|universe|dimension|world))
+  - (?i)in\s+(?:this|the)\s+(?:parallel|alternate)\s+(?:universe|world|reality).*(?:laws?|rules?|restrictions?|guidelines?)
+  - (?i)(?:banned\s+(?:phrases?|words?)\s*[:\-].*['"]I(?:'m|\s+am)\s+sorry['"]|['"]I\s+cannot\s+assist['"])
+  - (?i)universe\s+[A-Z][-\w]+.*(?:laws?|banned|prohibited|forbidden)\s*(?:phrases?|words?|actions?)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  message: 'Detected: ART Parallel Universe jailbreak framing'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-028
+  name: art-session-reset-user-profile-swap
+  description: Detects the ART benchmark Attacker 3 session reset / new user profile
+    injection from the large-scale public competition paper (PDF 2) — simulates a
+    session boundary followed by a forged new-user profile to bypass per-session safety
+    context.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)--+\s*user\s+disconnected\s*--+
+  - (?i)\[\s*SESSION\s+END\s*\]
+  - (?i)\[\s*NEW\s+SESSION\s*\].*(?:New\s+[Uu]ser|User\s+(?:Name|Profile|Age|ID)\s*:)
+  - (?i)(?:NEW\s+SESSION|SESSION\s+RESET).*User\s+(?:Name|Age|ID|Profile)\s*[:\-]\s*\w
+  - (?i)(?:session|conversation|context)\s+(?:ended|terminated|reset).*new\s+user\s+(?:profile|details?|info)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  message: 'Detected: ART session-reset user profile swap injection'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-029
+  name: mcp-information-tag-authority-spoof
+  description: Detects the <INFORMATION> tag authority-spoofing pattern documented
+    in the MELON paper appendix (PDF 6). Attackers embed malicious directives inside
+    <INFORMATION> or <SYSTEM> tags within tool-retrieved content, claiming authority
+    from a named sender to redirect agent actions.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - <INFORMATION>[\s\S]*?(?:before|first|instead).*?(?:send|transfer|execute|perform|call)[\s\S]*?</INFORMATION>
+  - (?i)<INFORMATION>\s*This\s+is\s+(?:an\s+important\s+message|a\s+(?:high|critical)\s+priority)
+  - (?i)<INFORMATION>[\s\S]{0,200}(?:Signed|Sincerely|From)\s*,\s*\w
+  - (?i)</INFORMATION>\s*(?:After|Once|Then)\s+you\s+do\s+(?:that|this|so)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  - '*.json'
+  - '*.xml'
+  message: 'Detected: <INFORMATION> tag authority spoofing in tool-retrieved content'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-030
+  name: mcp-tool-path-traversal
+  description: Detects path traversal attacks via MCP tool call arguments — ATT-17
+    (Vulnerable Server) in MCPSecBench (PDF 5). Attackers pass `../` sequences in
+    file path parameters to escape the intended directory and access sensitive host
+    files like /etc/passwd.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?:file_path|path|filename|filepath|name)\s*[=:]\s*['"](?:\.\./){2,}
+  - (?:file_path|path|filename)\s*[=:]\s*['"](?:/etc/passwd|/etc/shadow|/root/|~/.ssh/|/proc/self)
+  - \.\./\.\./\.\./(?:etc|root|proc|sys|var/log)
+  - (?:"path"\s*:\s*"[^"]*\.\./\.\./)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  message: 'Detected: Path traversal in MCP tool call argument'
+  cwe: CWE-22
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-031
+  name: cicd-pipeline-curl-pipe-bash
+  description: Detects curl/wget piped directly to shell in CI/CD pipeline configuration
+    files — a software supply chain injection vector documented in the agentic AI
+    supply chain paper (PDF 8). Attackers compromise build pipelines by injecting
+    shell-execution commands via curl.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?:curl|wget)\s+['"]?https?://[^'"\s]+['"]?\s*\|\s*(?:sudo\s+)?(?:bash|sh|python|perl|ruby)
+  - (?:run|script|command)\s*[:\-]\s*curl\s+.*\|\s*(?:bash|sh)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  - '*.bash'
+  - '*.jenkinsfile'
+  - '*.groovy'
+  - Makefile
+  - '*.toml'
+  message: 'Detected: curl/wget piped to shell in CI/CD pipeline — supply chain injection
+    risk'
+  cwe: CWE-78
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-032
+  name: cicd-pipeline-disable-security-check
+  description: Detects disabled security verification flags in CI/CD pipeline YAML
+    files — a software supply chain misconfiguration class documented in the agentic
+    AI supply chain paper (PDF 8). Includes `allow_unauthenticated`, `skip_verification`,
+    `--no-verify` flags in pipeline definitions.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)allow_unauthenticated\s*[=:]\s*true
+  - (?i)skip_(?:signature|verification|checksum|integrity)\s*[=:]\s*(?:true|yes|1)
+  - (?i)--no-verify(?:signatures?|checksums?)?(?:\s|$)
+  - (?i)insecure_downloads?\s*[=:]\s*(?:true|yes|1)
+  - (?i)verify_ssl\s*[=:]\s*(?:false|no|0)
+  - (?i)check_certificates?\s*[=:]\s*(?:false|no|0)
+  file_types:
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.ini'
+  - '*.cfg'
+  - '*.json'
+  message: 'Detected: Disabled security verification in CI/CD pipeline configuration'
+  cwe: CWE-16
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-033
+  name: cicd-dependency-confusion-extra-index
+  description: Detects dependency confusion attack setup via non-canonical package
+    index URLs in requirements files and pip install commands. Documented in the agentic
+    AI supply chain paper (PDF 8) as a key supply chain vector for injecting malicious
+    packages into agent pipelines.
+  severity: high
+  category: ucp_security
+  patterns:
+  - --extra-index-url\s+(?!https://pypi\.org|https://files\.pythonhosted)https?://
+  - --index-url\s+(?!https://pypi\.org|https://files\.pythonhosted)https?://
+  - (?i)\[global\][\s\S]{0,200}index-url\s*=\s*(?!https://pypi\.org)https?://
+  - (?i)extra_index_url\s*=\s*(?!https://pypi\.org)https?://[^\s]+
+  file_types:
+  - '*.txt'
+  - '*.cfg'
+  - '*.ini'
+  - '*.toml'
+  - '*.yaml'
+  - '*.yml'
+  - '*.sh'
+  - '*.bash'
+  message: 'Detected: Non-canonical package index URL — potential dependency confusion
+    attack'
+  cwe: CWE-20
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-034
+  name: mcp-send-money-attacker-recipient
+  description: Detects financial transaction redirection payloads in tool call arguments
+    or embedded instructions — the canonical MELON paper attack example (PDF 6) where
+    IPI redirects send_money or send_email to an attacker-controlled account. Detects
+    IBAN strings and explicit attacker-framed account references.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - send_money\s*\(.*recipient\s*=\s*['"](?!(?:user|alice|bob|self|owner))['"]
+  - (?i)(?:wire|transfer|send).*?(?:to|into).*?(?:IBAN|account\s+number|routing)\s*[:\-]?\s*[A-Z]{2}\d{2}[A-Z0-9]{10,}
+  - (?i)(?:bank\s+transfer|wire\s+transfer).*IBAN\s*:\s*[A-Z]{2}\d{2}
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.html'
+  - '*.xml'
+  - '*.py'
+  message: 'Detected: Financial transaction redirection to attacker-controlled account'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-035
+  name: mcp-todo-list-url-injection-vector
+  description: Detects IPI embedded in externally-fetched TODO list or task list URLs
+    — a MELON paper false-positive case that is also a valid attack vector. Agent
+    fetches task list from a URL; the returned content contains injected instructions
+    framed as tasks. The pattern targets tool responses containing numbered task-style
+    injections.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)(?:todo|task)\s+list.*\n(?:\s*\d+\.\s+.{0,200}\n){2,}(?:\s*\d+\.\s+.*(?:send|post|email|transfer|delete|exfil|upload))
+  - (?i)(?:fetch|get|retrieve|read).*(?:todo|task).*(?:list|url|page).*\n.*(?:\d+\..*){2,}.*(?:ignore|override|instead|new\s+instruction)
+  - company-todo-list\.com.*\n.*(?:\d\.\s.*){2,}(?:send|post|email|channel)
+  file_types:
+  - '*.txt'
+  - '*.html'
+  - '*.md'
+  - '*.json'
+  message: 'Detected: IPI payload embedded in external TODO/task list content'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-036
+  name: agent-token-privilege-escalation-hardcode
+  description: Detects privilege escalation risk from static/hardcoded credentials
+    assigned to transient AI agents — a specific vulnerability class documented in
+    the Self-Sovereign Identity paper (PDF 9, section 1.1) where static session tokens
+    assigned to ephemeral agents outlive the process and become exploitable.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)(?:AGENT_TOKEN|AGENT_SECRET|AGENT_API_KEY|AGENT_CREDENTIAL)\s*=\s*['"][A-Za-z0-9\-_\.]{16,}['"]
+  - (?i)(?:static|hardcoded|permanent|long.?lived)\s+(?:token|credential|key|secret)\s*[=:]\s*['"][A-Za-z0-9\-_.]{16,}['"]
+  - (?i)agent_auth\s*=\s*['"][A-Za-z0-9\-_.]{16,}['"]
+  - (?i)session_token\s*=\s*['"][A-Za-z0-9\-_.+/]{20,}={0,2}['"]\s*#.*(?:permanent|long.?lived|never\s+expire)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.java'
+  - '*.env'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  - '*.toml'
+  message: 'Detected: Hardcoded/static agent credential — token replay risk for ephemeral
+    agents'
+  cwe: CWE-798
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-037
+  name: wasp-attention-urgent-url-injection
+  description: Detects the WASP benchmark IPI template — adversarial web content using
+    ATTENTION/IMPORTANT/URGENT framing combined with a URL directive. The WASP paper
+    (Evtimov 2025) documents this as the canonical indirect prompt injection template
+    for web agents, achieving 17-86% ASR-intermediate across tested models. The pattern
+    targets the urgency-framing + URL-redirect attack structure.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)ATTENTION\s*:\s*NEW\s+IMPORTANT\s+AND\s+URGENT
+  - (?i)(?:ATTENTION|IMPORTANT|URGENT)\s*:.*(?:you\s+MUST|MUST\s+go\s+to|CRITICAL\s+that\s+you).*(?:https?://|www\.)
+  - (?i)(?:it\s+is\s+CRITICAL|it\s+is\s+REQUIRED)\s+that\s+you\s+(?:go\s+to|visit|access)\s+(?:the\s+)?(?:specified\s+)?URL
+  - (?i)BEFORE\s+doing\s+anything\s+else.*(?:go\s+to|visit|click|access).*(?:https?://|www\.)
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.xml'
+  message: 'Detected: WASP-pattern urgency-framed URL injection in web content'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-038
+  name: wasp-url-fragment-objective-injection
+  description: Detects WASP URL fragment injection technique - adversarial content
+    encodes attack instructions directly in a URL fragment using the OBJECTIVE anchor
+    combined with IGNORE-ALL-TEXT-BELOW stop sequences. The WASP paper (Evtimov 2025)
+    shows this technique injecting goals into web agent navigation through URL construction.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - '#OBJECTIVE[:\-]'
+  - IGNORE-ALL-TEXT-BELOW
+  - STOP-PROCESSING-HERE-AND-FOCUS-ON-THE-OBJECTIVE
+  - (?i)#OBJECTIVE.*IGNORE.*TEXT.*BELOW
+  - (?i)#(?:OBJECTIVE|GOAL|TASK)[:\-].*(?:IGNORE|DISREGARD|STOP).*(?:TEXT|INSTRUCTIONS|PROCESSING)
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: WASP URL fragment objective injection with stop-sequence anchor'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-039
+  name: aishell-jack-mandatory-first-step-injection
+  description: Detects AIShellJack coding rule file injection — the "MANDATORY FIRST
+    STEP" framing documented in Liu 2025 (Your AI, My Shell) where attackers poison
+    .cursorrules or .cursor/rules files with instructions to execute terminal commands
+    before any user task. This is a pre-task hijacking pattern achieving up to 84%
+    ASR on Cursor and GitHub Copilot.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:are\s+)?MANDATORY\s+FIRST\s+STEP
+  - (?i)(?:before\s+(?:starting|doing|proceeding|any\s+other)\s+(?:work|task|coding).*(?:run|execute|terminal))
+  - (?i)(?:terminal\s+commands?.*(?:MANDATORY|REQUIRED|MUST\s+(?:be\s+)?(?:run|executed|done))\s+(?:FIRST|BEFORE))
+  file_types:
+  - '*.cursorrules'
+  - '*.mdc'
+  - '*.md'
+  - '*.txt'
+  - '*.yaml'
+  - '*.yml'
+  - '*.json'
+  message: 'Detected: AIShellJack mandatory-first-step terminal injection in coding
+    rule file'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-040
+  name: aishell-jack-cursor-rules-file-path
+  description: Detects AIShellJack attack surface — references to .cursorrules or
+    .cursor/rules config file paths in content that also includes suspicious terminal
+    commands. The Liu 2025 paper documents CVE-2025-54135 and shows that these files
+    are auto-loaded by AI coding editors as system-context, making them a high-value
+    injection target for T1082/T1560 MITRE ATT&CK techniques.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)(?:cursor\s+rules?\s+file|copilot\s+instructions?\s+file).*(?:run|execute|terminal|bash|shell|cmd)
+  - (?i)(?:\.github/copilot-instructions\.md|\.vscode/settings\.json).*(?:run|exec|terminal|shell|bash)
+  - (?i)(?:coding\s+rules?|ai\s+(?:rules?|instructions?)).*(?:file|config).*(?:terminal|shell|command|exec)
+  file_types:
+  - '*.cursorrules'
+  - '*.mdc'
+  - '*.md'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  message: 'Detected: AIShellJack cursor/copilot config file referenced with terminal
+    command payload'
+  cwe: CWE-94
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-041
+  name: aishell-jack-api-key-exfiltration-pattern
+  description: Detects API key exfiltration shell commands embedded in AI coding context
+    files — a key MITRE T1560 payload documented in Liu 2025 (Your AI, My Shell).
+    Attackers embed grep+curl or env+curl pipelines that extract secrets from environment
+    variables or source files and POST them to attacker-controlled endpoints.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)grep\s+.*(?:APIKey|API_KEY|SECRET|TOKEN|PASSWORD|CREDENTIAL).*\|\s*curl
+  - (?i)env\s*\|\s*grep\s+.*(?:Key|Secret|Token|Pass|Auth)\s*\|\s*curl
+  - (?i)grep\s+-r[n]?\s+.*\[A-Za-z0-9\].*\|\s*(?:curl|wget|nc)\s+.*(?:http|attacker|evil)
+  - (?i)(?:curl|wget)\s+.*(?:attacker|evil|exfil|c2)\.[a-z]{2,6}.*--data.*(?:key|secret|token|env)
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.py'
+  - '*.cursorrules'
+  - '*.mdc'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: API key exfiltration grep+curl pipeline in code or rule file'
+  cwe: CWE-200
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-042
+  name: aishell-jack-bashrc-persistence
+  description: Detects shell persistence mechanisms embedded in AI agent-generated
+    code or config files — the curl-append-to-bashrc technique documented in Liu 2025
+    (Your AI, My Shell) for MITRE T1546 persistence. An attacker-controlled payload
+    is appended to ~/.bashrc to survive reboots and source execution persists the
+    backdoor.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)curl\s+.*\|\s*(?:cat\s*>>|tee\s*-a)\s*~/\.bashrc
+  - (?i)curl\s+.*>>\s*~?/\.(?:bashrc|bash_profile|zshrc|profile)
+  - (?i)wget\s+.*-O\s*-\s*>>\s*~?/\.(?:bashrc|bash_profile|zshrc)
+  - (?i)echo\s+.{0,100}\s*>>\s*~/\.bashrc\s*&&\s*source\s*~/\.bashrc
+  - (?i)(?:append|add)\s+.*\s+to\s+~?/\.(?:bashrc|bash_profile)\s+.*source
+  file_types:
+  - '*.sh'
+  - '*.bash'
+  - '*.py'
+  - '*.cursorrules'
+  - '*.mdc'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: curl/wget append to shell RC file — persistence backdoor injection'
+  cwe: CWE-77
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-043
+  name: minja-memory-injection-bridging-step
+  description: Detects MINJA (Memory INjection Attack) patterns — adversarial bridging-step
+    records injected into agent memory banks. Ferrag 2025 documents MINJA as a memory-poisoning
+    attack where fake memory entries bridge attacker-controlled narrative to future
+    agent queries, achieving high ASR against RAG-based agent memory systems.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:memory|context|history)\s*[:\-].*(?:user\s+(?:previously|already|has)\s+(?:authorized|approved|confirmed|agreed\s+to))
+  - (?i)(?:past\s+conversation|previous\s+session|prior\s+interaction).*(?:user\s+(?:said|agreed|confirmed|authorized)).*(?:send|transfer|share|delete|access)
+  - (?i)(?:from\s+(?:memory|context|history)|recalling\s+(?:previous|past)).*(?:the\s+user\s+(?:wants?|requested?|authorized?))\s+(?:to\s+)?(?:send|transfer|delete|exfil|share)
+  - (?i)MEMORY\s*:\s*User\s+(?:has\s+)?(?:authorized|approved|confirmed|previously\s+requested)
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: MINJA-pattern memory injection — forged memory entry with authorization
+    claim'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-044
+  name: toxic-agent-flow-github-mcp-exfil
+  description: Detects Toxic Agent Flow GitHub MCP exploit — adversarial GitHub issue
+    content that instructs an MCP-connected agent to leak private repository data.
+    Ferrag 2025 documents this as a real-world attack where a public GitHub issue
+    contains directives to read private repo files and post them to attacker endpoints.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:read|access|fetch|get)\s+(?:the\s+)?(?:private|secret|confidential)\s+(?:repository|repo|files?|code)\s+(?:and|then)\s+(?:send|post|exfiltrate|share)
+  - (?i)use\s+(?:the\s+)?(?:github|mcp|git)\s+(?:tool|api|server)\s+to\s+(?:read|access|fetch)\s+(?:private|secret)
+  - (?i)(?:list|read|access)\s+(?:all\s+)?(?:private\s+)?(?:repos?|repositories)\s+.*(?:post|send|exfil|share|upload)\s+.*(?:http|url|endpoint|webhook)
+  - (?i)github\s+(?:mcp|api|token).*(?:private\s+repo|confidential|secret).*(?:send|post|exfil)
+  file_types:
+  - '*.md'
+  - '*.txt'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  message: 'Detected: Toxic Agent Flow pattern — GitHub content directing MCP agent
+    to exfiltrate private repo data'
+  cwe: CWE-200
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-045
+  name: p2sql-langchain-sql-injection
+  description: Detects Prompt-to-SQL (P2SQL) injection patterns in LangChain web applications
+    — Ferrag 2025 documents this as a class of attacks where user-supplied natural
+    language input is manipulated to generate malicious SQL queries via LangChain
+    SQL agents, bypassing application-layer input sanitization.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:show|list|return|give|display)\s+(?:me\s+)?(?:all\s+)?(?:users?|passwords?|credentials?|secrets?|tokens?)\s+(?:from|in)\s+(?:the\s+)?(?:database|db|table)
+  - (?i)(?:ignore|bypass)\s+(?:the\s+)?(?:filter|where\s+clause|condition|restriction)\s+and\s+(?:return|show|list|select)\s+all
+  - (?i)(?:langchain|sql\s+agent|database\s+agent).*(?:execute|run)\s+.*(?:SELECT\s+\*|UNION|DROP|DELETE\s+FROM)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  - '*.py'
+  message: 'Detected: P2SQL prompt-to-SQL injection pattern targeting LangChain SQL
+    agent'
+  cwe: CWE-89
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-046
+  name: gcg-html-hidden-trigger-injection
+  description: Detects GCG-optimized adversarial trigger injection techniques via
+    HTML accessibility tree manipulation — Johnson 2025 documents this attack where
+    adversarial tokens are embedded in HTML using invisible rendering methods (transparent
+    font, CSS display:none, URL anchors) to inject instructions to web-browsing agents.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)<(?:span|div|p|a)\s[^>]*style\s*=\s*["'][^"']*display\s*:\s*none[^"']*["'][^>]*>.*(?:ignore|override|execute|send|transfer)
+  - (?i)<(?:span|div)\s[^>]*(?:aria-hidden\s*=\s*["']true["']|class\s*=\s*["'][^"']*hidden[^"']*["'])[^>]*>.*(?:IMPORTANT|INSTRUCTION|OVERRIDE|ignore)
+  - (?i)<!--.*(?:ignore\s+(?:previous|above)|execute\s+this|IMPORTANT\s+INSTRUCTION).*-->
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.xml'
+  - '*.svg'
+  message: 'Detected: GCG-style hidden adversarial trigger injection in HTML rendering'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-047
+  name: gcg-uwti-universal-web-trigger
+  description: Detects Universal Website Targeted Instruction (UWTI) patterns — Johnson
+    2025 documents this as a GCG-optimized universal trigger that works across all
+    web pages matching a target category (e.g., all login pages). Detection focuses
+    on token sequences that appear nonsensical but match adversarial optimization
+    patterns used for universal credential exfiltration attacks on web agents.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:enter|type|input|fill\s+in)\s+(?:the\s+)?(?:username|email|login)\s+(?:field|box|input)\s+with\s+.*(?:and\s+(?:the\s+)?password\s+(?:field|box|input)\s+with)
+  - (?i)(?:click|press|submit)\s+(?:the\s+)?(?:login|sign\s+in|submit)\s+button.*(?:attacker|evil|exfil|steal|capture)
+  - (?i)(?:extract|capture|steal|exfiltrate)\s+(?:the\s+)?(?:username|email|password|credentials?)\s+(?:from|on)\s+(?:this|the)\s+(?:login|sign\s*in)\s+(?:page|form)
+  - (?i)(?:username|password)\s*[=:]\s*(?:document|window|form).*(?:send|post|fetch|xhr).*(?:http|attacker|exfil)
+  file_types:
+  - '*.html'
+  - '*.htm'
+  - '*.js'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: UWTI-pattern universal credential exfiltration injection targeting
+    web agent'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-048
+  name: bip-trust-authorization-mismatch-agent-card-spoof
+  description: Detects B-I-P model trust-authorization mismatch via agent card spoofing
+    — Shi 2025 (SoK) documents protocol metadata poisoning where attackers craft malicious
+    MCP tool descriptors or A2A agent cards claiming elevated permissions not granted
+    in the actual trust hierarchy. Pattern targets injected capability claims in tool/agent
+    metadata.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)(?:agent\s+card|tool\s+descriptor|mcp\s+manifest|a2a\s+card).*(?:permission|capability|scope|access).*(?:admin|root|unrestricted|full|all\s+scopes)
+  - (?i)(?:trust\s+level|authorization\s+level|permission\s+level)\s*[=:]\s*(?:high|admin|root|unrestricted|maximum|full)
+  - (?i)(?:this\s+agent|i\s+am\s+(?:an?\s+)?(?:authorized|trusted|admin|system))\s+(?:agent|assistant|tool).*(?:permission|access|authority|allowed\s+to)
+  - (?i)"(?:permissions?|scopes?|capabilities?)"\s*:\s*\[.*"(?:admin|root|all|unrestricted|\*)"
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.md'
+  - '*.txt'
+  message: 'Detected: B-I-P agent card/tool descriptor claiming elevated unauthorized
+    permissions'
+  cwe: CWE-284
+  owasp_llm: LLM04:2025 Data and Model Poisoning
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-049
+  name: cascading-ipi-safety-check-bypass-framing
+  description: Detects Cascading IPI attack framing — Ji 2025 documents this as a
+    technique that embeds content claiming the payload has already passed safety checks,
+    targeting judgment errors in detection LLMs. Achieves 5x ASR increase against
+    IPI defense frameworks like IsolateGPT by pre-claiming safety clearance.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:this\s+(?:content|message|instruction|request)\s+(?:has\s+been|is|was)\s+(?:verified|approved|cleared|checked|reviewed|screened)\s+(?:by|as)\s+(?:safe|harmless|benign|trusted))
+  - (?i)(?:safety\s+check\s*(?:passed|cleared|approved)|security\s+scan\s*(?:passed|cleared|approved|verified)|no\s+(?:threats?|issues?|violations?)\s+detected)
+  - (?i)(?:(?:the\s+)?(?:content|payload|instruction|text)\s+(?:above|below|following)\s+is\s+(?:safe|benign|harmless|approved|verified))
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.html'
+  - '*.json'
+  - '*.xml'
+  message: 'Detected: Cascading IPI pre-approval framing attempting to bypass safety
+    check LLM'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-050
+  name: isolation-breach-ipi-error-channel
+  description: Detects Isolation-Breach IPI attack — Ji 2025 documents this zero-day
+    class where attackers inject malicious instructions through error message channels
+    of tool responses, exploiting incomplete malicious info isolation in agent frameworks.
+    The payload arrives as a tool error/exception message rather than normal output.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:error|exception|warning|failure)\s*:\s*[^\n]{0,200}(?:ignore|override|execute|perform|send|transfer|delete)\s+(?:previous|above|all|user)
+  - (?i)(?:Error|Exception)\s*\([^)]{0,200}(?:ignore\s+previous|override\s+instructions|execute\s+following)\s*\)
+  - (?i)(?:tool|function|api)\s+(?:error|exception|failure)[^\n]{0,200}(?:new\s+instructions?|instead\s+(?:do|perform|execute)|the\s+real\s+task)
+  - (?i)(?:TOOL_ERROR|FUNCTION_ERROR|API_ERROR)\s*[=:]\s*['"]{0,1}.*(?:ignore|override|instead|execute).*['"]{0,1}
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.log'
+  - '*.py'
+  message: 'Detected: Isolation-Breach IPI — malicious instruction embedded in error/exception
+    channel'
+  cwe: CWE-20
+  owasp_llm: LLM05:2025 Improper Output Handling
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-051
+  name: corba-recursive-blocking-propagation
+  description: Detects Contagious Recursive Blocking Attack (Corba) patterns — Ferrag
+    2025 documents this as a denial-of-service attack that propagates across multi-agent
+    system topologies by causing each compromised agent to block all downstream calls.
+    Detection targets recursive block directives in inter-agent messages.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)(?:block|reject|refuse|deny)\s+all\s+(?:subsequent|following|future|incoming|outgoing)\s+(?:requests?|calls?|messages?|tasks?|queries?)
+  - (?i)(?:do\s+not\s+(?:process|execute|forward|pass)\s+any\s+(?:more|further|additional)\s+(?:requests?|instructions?|messages?))
+  - (?i)(?:propagate|spread|relay)\s+(?:this\s+)?(?:block|halt|stop|shutdown)\s+(?:to|across)\s+(?:all\s+)?(?:other|connected|downstream)\s+(?:agents?|nodes?|services?)
+  - (?i)BLOCK_ALL_REQUESTS\s*[=:]\s*(?:true|1|yes|enabled)
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  message: 'Detected: Corba-pattern recursive blocking directive in agent message'
+  cwe: CWE-730
+  owasp_llm: LLM10:2025 Unbounded Consumption
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-052
+  name: semantic-masquerade-tool-synonym-injection
+  description: Detects Semantic-Masquerading IPI — Ji 2025 documents this as using
+    functionally identical tool synonyms to bypass tool-selection filters in agent
+    defense frameworks. Achieves 4x ASR increase against IsolateGPT by rephrasing
+    tool invocations to match alternative tool names not in the blocklist.
+  severity: medium
+  category: ucp_security
+  patterns:
+  - (?i)(?:use\s+(?:the\s+)?(?:web_search|search_web|google_search|bing_search|serpapi|search_engine)\s+(?:tool|function|api)\s+to)
+  - (?i)(?:call\s+(?:the\s+)?(?:file_reader|read_file|file_access|load_file|open_file|get_file|fetch_file)\s+(?:tool|function|api)\s+(?:to|with|for))
+  - (?i)(?:invoke|call|use|execute|run)\s+(?:the\s+)?(?:send_message|post_message|message_send|write_message|dispatch_message)\s+(?:tool|function|api)
+  - (?i)(?:use|call|invoke)\s+(?:the\s+)?(?:execute_command|run_command|shell_exec|cmd_exec|command_run)\s+(?:tool|function|api)
+  file_types:
+  - '*.json'
+  - '*.yaml'
+  - '*.txt'
+  - '*.md'
+  - '*.py'
+  message: 'Detected: Semantic-masquerade tool invocation — possible tool-filter bypass
+    via synonym'
+  cwe: CWE-20
+  owasp_llm: LLM01:2025 Prompt Injection
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-053
+  name: demonagent-encrypted-backdoor-fragment
+  description: Detects DemonAgent-style multi-backdoor patterns — Ferrag 2025 documents
+    this encrypted backdoor attack achieving ~100% ASR and 0% detection by combining
+    dynamic encryption with fragmented sub-backdoors across prompt components. Detection
+    targets fragment-reconstruction patterns and encrypted trigger invocations.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:decrypt|decode)\s+(?:this|the\s+following|the\s+above)\s+(?:instruction|message|payload|command)\s+(?:using|with)\s+(?:key|AES|XOR|base64|ROT)
+  - (?i)(?:TRIGGER|BACKDOOR|ACTIVATION)\s*[=:]\s*['"]{0,1}(?:[A-Za-z0-9+/]{20,}={0,2}|[0-9a-fA-F]{20,})['"]{0,1}
+  - (?i)(?:fragment|part|piece|chunk)\s+(?:[1-9]|[A-Z])\s+of\s+(?:[0-9]+|[A-Z])(?:\s*:|\s+instructions?).*(?:fragment|part|piece|chunk)\s+(?:[2-9]|[A-Z])
+  - (?i)(?:combine|concatenate|join|merge)\s+(?:the\s+)?(?:fragments?|parts?|pieces?|chunks?)\s+(?:to\s+get|to\s+form|to\s+decode|to\s+reveal)\s+(?:the\s+)?(?:instruction|command|payload|message)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.py'
+  message: 'Detected: DemonAgent-style encrypted/fragmented backdoor trigger pattern'
+  cwe: CWE-506
+  owasp_llm: LLM03:2025 Supply Chain
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-054
+  name: bip-low-trust-high-risk-action-mismatch
+  description: Detects B-I-P model trust-authorization mismatch — Shi 2025 (SoK) formalizes
+    the failure state where low-trust input sources drive high-risk actions. Detection
+    targets cases where external/retrieved content (low trust) contains directives
+    to perform destructive or sensitive actions (high risk) without explicit user
+    authorization framing.
+  severity: critical
+  category: ucp_security
+  patterns:
+  - (?i)(?:(?:web\s+page|tool\s+result|api\s+response|search\s+result)\s+(?:says?|instructs?|tells?|asks?|requests?))[^\n]{0,200}(?:send|transfer|pay|wire|share\s+(?:credentials?|secrets?|tokens?))
+  - (?i)(?:based\s+on\s+(?:the\s+)?(?:retrieved|fetched|downloaded|web|external)\s+(?:content|data|result|page))\s*,?\s*(?:please\s+)?(?:delete|send|transfer|pay|share\s+secrets?|execute)
+  file_types:
+  - '*.txt'
+  - '*.md'
+  - '*.json'
+  - '*.yaml'
+  - '*.html'
+  message: 'Detected: B-I-P mismatch — low-trust external source directing high-risk
+    action'
+  cwe: CWE-284
+  owasp_llm: LLM06:2025 Excessive Agency
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-UCP-SCAN-055
+  name: speculative-decoding-side-channel-probe
+  description: Detects speculative decoding side-channel attack probes — Ferrag 2025
+    documents packet timing and size analysis revealing token properties during inference.
+    Detection targets code patterns that perform timing measurements on LLM inference
+    responses to reconstruct output tokens via side-channel.
+  severity: high
+  category: ucp_security
+  patterns:
+  - (?i)(?:measure|record|log|track)\s+(?:response|inference|generation|token)\s+(?:time|latency|timing|duration).*(?:token|packet|chunk|stream)
+  - (?i)(?:time\.time\(\)|perf_counter\(\)|monotonic\(\)).*(?:completion|response|chunk|token).*(?:time\.time\(\)|perf_counter\(\)|monotonic\(\))
+  - (?i)(?:streaming\s+response|stream\s*=\s*True).*(?:time|timing|latency|measure).*(?:token|chunk|packet)
+  - (?i)(?:inter.?token\s+(?:delay|interval|timing)|packet\s+(?:size|length|timing).*inference|token\s+arrival\s+time)
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.go'
+  - '*.sh'
+  message: 'Detected: Speculative decoding side-channel probe — token timing analysis
+    on LLM inference stream'
+  cwe: CWE-200
+  owasp_llm: LLM02:2025 Sensitive Information Disclosure
+  fp_guards: []
+  pipeline_confidence: medium

@@ -4,6 +4,7 @@ MEDUSA CLI - Command-line interface
 Modern Click-based CLI for cross-platform security scanning
 """
 
+import os
 import sys
 import re
 import shlex
@@ -1171,7 +1172,7 @@ def print_banner():
 """
     # Version line: .2.0 in EXACT same cyan as Target:/Mode:
     version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
-    line2 = "78 Analyzers | 9,600+ Rules | AI Security Detection"
+    line2 = "79 Analyzers | 40,000+ Rules | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1187,11 +1188,11 @@ def print_banner():
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]78 Analyzers | 9,600+ Rules | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]79 Analyzers | 40,000+ Rules | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 9,600+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 40,000+ Rules\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1201,7 +1202,7 @@ def main(ctx, version):
     """
     MEDUSA - AI Security Scanner
 
-    9,600+ AI security detection patterns with 78 specialized analyzers.
+    40,000+ AI security detection patterns with 79 specialized analyzers.
     Scan your code for vulnerabilities in seconds.
 
     Examples:
@@ -1285,6 +1286,8 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             output_formats=output_formats,
             no_report=no_report,
             exclude=exclude,
+            include_user_mcp_configs=include_user_mcp_configs,
+            no_ai_safe=no_ai_safe,
         )
         return
 
@@ -1494,11 +1497,14 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
             threshold = Severity(fail_on.upper())
             threshold_index = severity_order.index(threshold)
-            allowed_severities = {s for s in severity_order[:threshold_index + 1]}
+            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
+            def _sev_value(issue):
+                s = _get_severity(issue)
+                return s.value if hasattr(s, 'value') else s
             total_issues = sum(
                 1 for r in results
                 for issue in r.issues
-                if _get_severity(issue) in allowed_severities
+                if _sev_value(issue) in allowed_severities
             )
             if total_issues > 0:
                 console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
@@ -1516,7 +1522,10 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         console.print(f"\n[red]❌ Error: {e}[/red]")
         if '--debug' in sys.argv:
             raise
-        sys.exit(1)
+        # Exit 3 = internal/unexpected error, distinct from exit 1 (findings at or
+        # above --fail-on threshold) and exit 2 (usage error). Lets CI tell a
+        # scanner crash apart from a real security finding.
+        sys.exit(3)
 
 
 # SSRF defense: default allowlist for `medusa scan --git`.
@@ -1628,8 +1637,15 @@ def _resolve_git_url(raw_url: str, allow_any_host: bool = False) -> str:
         _reject_if_private_ip(hostname)
         return url
 
-    # Full HTTP(S) URLs
-    if url.startswith("https://") or url.startswith("http://"):
+    # Reject cleartext HTTP outright: cloning an untrusted repo over http://
+    # lets an on-path attacker tamper with the files we are about to scan.
+    if url.startswith("http://"):
+        raise click.BadParameter(
+            f"Refusing to clone over cleartext HTTP: '{url}'. Use https://."
+        )
+
+    # Full HTTPS URLs
+    if url.startswith("https://"):
         parsed = urlparse(url)
         hostname = (parsed.hostname or "").strip()
         if not hostname:
@@ -1725,6 +1741,8 @@ def _scan_git_repo(
     no_report: bool,
     exclude: tuple[str, ...],
     allow_any_host: bool = False,
+    include_user_mcp_configs: bool = False,
+    no_ai_safe: bool = False,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
@@ -1751,14 +1769,26 @@ def _scan_git_repo(
         console.print("[red]Error: git not found on PATH — cannot clone repository.[/red]")
         raise SystemExit(1)
 
+    # Hardened clone environment: never prompt for credentials on the TTY (a
+    # private/nonexistent repo would otherwise hang the scan for the full
+    # timeout), disable any askpass helper, and skip LFS smudging.
+    _git_env = {
+        **os.environ,
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_ASKPASS": "true",
+        "GIT_LFS_SKIP_SMUDGE": "1",
+    }
+
     try:
         # Shallow clone for speed
         result = subprocess.run(
-            [_git_bin, "clone", "--depth", "1", "--single-branch", clone_url, tmp_dir],
+            [_git_bin, "clone", "--depth", "1", "--single-branch",
+             "--filter=blob:limit=5m", clone_url, tmp_dir],
             capture_output=True,
             text=True,
             timeout=120,
             check=False,
+            env=_git_env,
         )
         if result.returncode != 0:
             stderr = result.stderr.strip()
@@ -1896,11 +1926,14 @@ def _scan_git_repo(
             severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
             threshold = Severity(fail_on.upper())
             threshold_index = severity_order.index(threshold)
-            allowed_severities = {s for s in severity_order[:threshold_index + 1]}
+            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
+            def _sev_value(issue):
+                s = _get_severity(issue)
+                return s.value if hasattr(s, 'value') else s
             total_issues = sum(
                 1 for r in results
                 for issue in r.issues
-                if _get_severity(issue) in allowed_severities
+                if _sev_value(issue) in allowed_severities
             )
             if total_issues > 0:
                 console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
@@ -1915,6 +1948,11 @@ def _scan_git_repo(
 
     except SystemExit:
         raise
+    except subprocess.TimeoutExpired:
+        # Do NOT print the exception: str(TimeoutExpired) includes the full argv,
+        # which contains the credentialed clone URL. Use the scrubbed display URL.
+        console.print(f"\n[red]Error: git clone timed out: {_display_url}[/red]")
+        sys.exit(1)
     except Exception as e:
         console.print(f"\n[red]Error: {e}[/red]")
         if '--debug' in sys.argv:
@@ -2480,8 +2518,8 @@ def install(check, ai_tools, debug, install_all):
     """
     Install AI security tools and check detected linters.
 
-    MEDUSA v2026.5.1 works out of the box with 9,600+ built-in AI security
-    rules. External linters are optional — auto-detected if present.
+    MEDUSA works out of the box with 40,000+ built-in AI security rules.
+    External linters are optional — auto-detected if present.
 
     We only install AI-specific tools: modelscan, garak, llm-guard.
 
@@ -2507,7 +2545,7 @@ def install(check, ai_tools, debug, install_all):
     # Handle deprecated --all flag
     if install_all:
         console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
-        console.print("[dim]MEDUSA now focuses on AI security rules (9,600+ patterns).[/dim]")
+        console.print("[dim]MEDUSA now focuses on AI security rules (40,000+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
         console.print("  medusa install --ai-tools    # Install AI security tools")
@@ -2662,7 +2700,7 @@ def _show_install_check():
     )
 
     console.print(f"\n[bold dark_green]MEDUSA v2026.5.1 - AI Security Scanner[/bold dark_green]")
-    console.print(f"[dim]Works out of the box with 9,600+ built-in AI security rules[/dim]\n")
+    console.print(f"[dim]Works out of the box with 40,000+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
     audit = audit_environment()

@@ -15,6 +15,52 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
+import yaml
+
+
+# Field names whose scalar values are regex detection data, glob lists, or
+# bounded structured metadata — never a prompt-injection vector, so they are not
+# scanned. Everything NOT in this set (description, message, remediation, notes,
+# and any unknown field) IS scanned with the full integrity pattern set.
+SAFE_VALUE_FIELDS = frozenset({
+    # regex / detection data (across the various rule-file schemas)
+    "patterns", "pattern", "regex", "file_types", "file_type",
+    "detection_patterns", "detection", "signatures", "signature", "indicators",
+    # structured identifiers / taxonomy
+    "id", "name", "severity", "category", "action", "direction",
+    "cwe", "owasp_llm", "owasp", "mitre_atlas", "mitre_attack", "mitre",
+    "confidence", "pipeline_confidence",
+    # provenance / harvest metadata (legitimately cite attack-paper titles)
+    "source_paper", "source_detail", "source", "version", "generated",
+    "papers_processed", "relevant_papers",
+})
+
+# Prose fields whose whole job is to DESCRIBE attacks. They legitimately contain
+# attack topic words ("ignore previous instructions", "DAN", "eval(") — so these
+# are scanned only for MECHANICAL injection-delivery markers (below), never for
+# topic mentions. A field NOT listed here and NOT in SAFE_VALUE_FIELDS (e.g.
+# ``notes``, ``comment``, or any unexpected key a poisoned rule introduces) is
+# scanned with the FULL pattern set, since there is no legitimate reason for
+# attack content to live there.
+PROSE_DESCRIPTION_FIELDS = frozenset({
+    "description", "message", "summary", "remediation", "fix", "suggestion",
+    "technique", "attack_vector", "attack_framework", "attack_type",
+    "references", "reference", "notes_detail",
+    "examples", "example", "attack_examples", "attack_example",
+    "payloads", "payload", "fp_guards", "fp_guard",
+    "false_positives", "false_positive",
+})
+
+# Injection-DELIVERY mechanics that have no legitimate place even inside an
+# attack description: a real description never contains a null byte, a unicode
+# direction-override, or actual conversation-turn delimiters. These remain
+# abort-worthy in every non-safe field, including prose description fields.
+MECHANICAL_PATTERN_NAMES = frozenset({
+    "null_byte",
+    "unicode_direction_override",
+    "claude_turn_injection",
+})
+
 
 @dataclass
 class IntegrityViolation:
@@ -24,6 +70,36 @@ class IntegrityViolation:
     pattern_name: str
     matched_content: str
     severity: str  # CRITICAL, HIGH, MEDIUM
+
+
+# --- Report-path injection neutralisation -----------------------------------
+# Rule-authored text (a rule's `message`/`issue`) flows verbatim into scan
+# reports, which are routinely consumed by downstream LLMs (IDE agents, CI
+# summarisers). Because a security ruleset *legitimately* describes attacks in
+# its prose, we cannot reject that text — but we MUST render it inert as LLM
+# *instructions* before it leaves the engine. We strip the structural delivery
+# mechanics that flip an LLM into a new instruction context (null bytes, unicode
+# direction overrides, conversation-turn delimiters, role tags) while leaving the
+# text human-readable. Topic words ("ignore previous instructions") are harmless
+# once stripped of these delivery anchors inside a clearly-delimited finding.
+_BIDI_OVERRIDE = re.compile(r'[‪-‮⁦-⁩]')
+# NOTE: use [ \t] (not \s) for the spacer so the line-break class and spacer
+# class are disjoint — prevents catastrophic backtracking (ReDoS) on long runs
+# of newlines that fail the trailing role match.
+_TURN_DELIM = re.compile(r'(?i)[\r\n]+[ \t]*(human|assistant|system)\s*:')
+_ROLE_TAG = re.compile(r'(?i)<\s*/?\s*(system|user|assistant|human)\s*>')
+
+
+def neutralize_injection(text: str) -> str:
+    """Make rule-authored report text inert as LLM instructions (human-readable)."""
+    if not text or not isinstance(text, str):
+        return text
+    text = text.replace('\x00', '')                      # null-byte termination
+    text = _BIDI_OVERRIDE.sub('', text)                  # visual-spoofing overrides
+    text = _TURN_DELIM.sub(r' \1:', text)                # collapse turn delimiters inline
+    text = _ROLE_TAG.sub(lambda m: m.group(0).replace('<', '‹').replace('>', '›'),
+                         text)                            # <system> -> ‹system›
+    return text
 
 
 # =============================================================================
@@ -150,49 +226,11 @@ INTEGRITY_PATTERNS: Dict[str, Tuple[str, str, str]] = {
     ),
 }
 
-# Patterns that are OK in rule files (for detection purposes)
-# These are the patterns we WANT in rules - they detect attacks in scanned code
-ALLOWLIST_CONTEXTS = [
-    r'^\s*-\s*["\']',  # YAML list item (pattern definition)
-    r'^\s*pattern[s]?\s*:',  # Pattern key
-    r'^\s*message\s*:',  # Message describing the attack
-    r'^\s*description\s*:',  # Description of what we detect
-    r'^\s*#',  # Comments
-    r'^\s*id\s*:',  # Rule ID (e.g., id: dan-jailbreak)
-    r'^\s*name\s*:',  # Rule name
-    r'^\s*-\s*id\s*:',  # List item rule ID
-    r'^\s*category\s*:',  # Category name
-    r'^\s*cwe\s*:',  # CWE reference
-    r'^\s*owasp',  # OWASP reference
-    r'^\s*mitre',  # MITRE reference
-    r'^\s*references\s*:',  # References section
-    r'^\s*-\s*https?://',  # URL references
-    r'^\s*fix\s*:',  # Fix recommendation
-    r'^\s*severity\s*:',  # Severity level
-    r'^\s*attack_type\s*:',  # Attack type metadata
-    r'^\s*type\s*:',  # Rule type
-    r'^\s*technique\s*:',  # Technique description
-    r'^\s*attack_vector\s*:',  # Attack vector
-    r'^\s*attack_framework\s*:',  # Attack framework metadata
-    r'^\s*example\s*:',  # Example (may contain attack strings)
-    r'^\s*regex\s*:',  # Regex definition
-    r'^\s*remediation\s*:',  # Remediation field (describes how to fix/block attacks)
-    r'^\s*source_paper\s*:',  # Source paper reference
-    r'^\s*-\s*\\',  # YAML list with escaped regex
-    r'^\s*-\s*\(',  # YAML list with regex group
-    r'^\s*-\s*\[',  # YAML list with character class
-    r'^\s*-\s*<[a-z]+\[',  # YAML list with XML-style regex (e.g., <system[^>]*>)
-    r'^\s*-\s*<\\',  # YAML list with escaped XML regex
-    r'^\s*-\s*["\']?<\w+',  # YAML list with XML tag pattern
-    r'^\s*-\s*["\']?<!--',  # YAML list with HTML comment pattern
-    r'^\s*-\s*\.\*',  # YAML list starting with .*
-    r'^\s*-\s*\\\b',  # YAML list with word boundary
-]
-
-# Additional check: if line looks like a regex pattern (has regex metacharacters)
-REGEX_PATTERN_INDICATORS = re.compile(
-    r'[\[\]\\|*+?{}()^$].*[\[\]\\|*+?{}()^$]'  # Multiple regex metacharacters
-)
+# NOTE: the legacy line-prefix ALLOWLIST_CONTEXTS / PAYLOAD_BLOCK_KEYS machinery
+# was removed in favour of structural YAML parsing (see scan_file). Suppression is
+# now decided by field name (SAFE_VALUE_FIELDS / PROSE_DESCRIPTION_FIELDS) against
+# the parsed document, which correctly handles multi-line scalars and cannot be
+# bypassed by indentation.
 
 
 class RuleIntegrityScanner:
@@ -214,7 +252,6 @@ class RuleIntegrityScanner:
             rules_dir = Path(__file__).parent.parent / "rules"
         self.rules_dir = Path(rules_dir)
         self._compiled_patterns = self._compile_patterns()
-        self._allowlist_patterns = [re.compile(p) for p in ALLOWLIST_CONTEXTS]
 
     def _compile_patterns(self) -> Dict[str, Tuple[re.Pattern, str, str]]:
         """Compile all integrity patterns"""
@@ -230,68 +267,96 @@ class RuleIntegrityScanner:
                 print(f"Warning: Invalid integrity pattern {name}: {e}", file=sys.stderr)
         return compiled
 
-    def _is_allowlisted_context(self, line: str) -> bool:
-        """Check if line is in an allowlisted context (pattern definition)"""
-        for pattern in self._allowlist_patterns:
-            if pattern.match(line):
-                return True
-
-        stripped = line.strip()
-
-        # Also allow lines that look like regex patterns (have multiple metacharacters)
-        # This catches detection patterns like: - <system[^>]*>.*?</system>
-        if stripped.startswith('-') and REGEX_PATTERN_INDICATORS.search(stripped):
-            return True
-
-        # Allow short YAML list items that look like tag patterns (for pattern lists)
-        # e.g., "  - </system>" or "  - </think>"
-        if stripped.startswith('-') and len(stripped) < 30 and '</' in stripped:
-            return True
-
-        # Allow continuation lines in multi-line descriptions (indented text)
-        # These are typically explanations of what attacks we detect
-        # YAML continuation lines use 4+ spaces of indentation
-        if line.startswith('    ') and not stripped.startswith('-') and not stripped.startswith('id:') and not stripped.startswith('name:') and not stripped.startswith('severity:'):
-            return True
-
-        return False
-
     def scan_file(self, filepath: Path) -> List[IntegrityViolation]:
         """
-        Scan a single file for integrity violations.
+        Scan a single rule file for embedded injection / integrity violations.
 
-        Args:
-            filepath: Path to the file to scan
+        Structural approach: parse the YAML and walk it field-by-field. A rule's
+        VALUES are scanned by the *field name* that owns them — not by line-prefix
+        heuristics. This correctly handles multi-line YAML scalars (e.g. a
+        ``source_paper`` citation that spans several indented lines) which the old
+        line-based scanner mishandled.
 
-        Returns:
-            List of violations found
+        Field values that are regex detection data or bounded structured metadata
+        (``patterns``, ``cwe``, ``source_paper`` …) are not injection vectors and
+        are suppressed. Every other field value — the prose that could flow into a
+        report and thence an LLM (``description``, ``message``, ``notes`` …) — is
+        scanned with the full integrity pattern set. If the file does not parse as
+        YAML, we fall back to scanning every line.
         """
-        violations = []
-
         try:
             content = filepath.read_text(encoding='utf-8', errors='ignore')
-            lines = content.split('\n')
-
-            for line_num, line in enumerate(lines, 1):
-                # Skip allowlisted contexts (pattern definitions are OK)
-                if self._is_allowlisted_context(line):
-                    continue
-
-                # Check each integrity pattern
-                for name, (pattern, severity, description) in self._compiled_patterns.items():
-                    match = pattern.search(line)
-                    if match:
-                        violations.append(IntegrityViolation(
-                            file=str(filepath),
-                            line_number=line_num,
-                            pattern_name=name,
-                            matched_content=match.group(0)[:100],  # Truncate
-                            severity=severity
-                        ))
-
         except (IOError, OSError) as e:
             print(f"Warning: Could not read {filepath}: {e}", file=sys.stderr)
+            return []
 
+        try:
+            data = yaml.safe_load(content)
+        except Exception:
+            data = None
+
+        if data is None:
+            # Not parseable as YAML (or empty) — scan every line, no allowlist.
+            return self._scan_raw_lines(content, filepath)
+
+        violations: List[IntegrityViolation] = []
+        self._walk_structured(data, None, content, filepath, violations)
+        return violations
+
+    def _walk_structured(self, node, field_name, content, filepath, violations) -> None:
+        """Recursively walk parsed YAML, scanning scalar values by owning field."""
+        if isinstance(node, dict):
+            for key, value in node.items():
+                self._walk_structured(value, str(key).lower(), content, filepath, violations)
+        elif isinstance(node, list):
+            # List items inherit the field name of the list (e.g. ``patterns: [...]``).
+            for item in node:
+                self._walk_structured(item, field_name, content, filepath, violations)
+        elif isinstance(node, str):
+            if field_name in SAFE_VALUE_FIELDS:
+                return  # regex data / bounded metadata — not an injection vector
+            # Prose description fields legitimately contain attack topic words, so
+            # they are scanned only for mechanical injection-delivery markers.
+            # Unexpected fields get the full pattern set.
+            mechanical_only = field_name in PROSE_DESCRIPTION_FIELDS
+            self._scan_value(node, content, filepath, violations, mechanical_only)
+
+    def _scan_value(self, value: str, content: str, filepath: Path, violations,
+                    mechanical_only: bool = False) -> None:
+        """Run integrity patterns against one field value string."""
+        for name, (pattern, severity, description) in self._compiled_patterns.items():
+            if mechanical_only and name not in MECHANICAL_PATTERN_NAMES:
+                continue
+            match = pattern.search(value)
+            if match:
+                violations.append(IntegrityViolation(
+                    file=str(filepath),
+                    line_number=self._approx_line(content, match.group(0)),
+                    pattern_name=name,
+                    matched_content=match.group(0)[:100],
+                    severity=severity,
+                ))
+
+    @staticmethod
+    def _approx_line(content: str, needle: str) -> int:
+        """Best-effort line number for a matched substring (0 if not locatable)."""
+        idx = content.find(needle[:60])
+        return content.count('\n', 0, idx) + 1 if idx >= 0 else 0
+
+    def _scan_raw_lines(self, content: str, filepath: Path) -> List[IntegrityViolation]:
+        """Fallback for non-YAML files: scan every line with no field allowlist."""
+        violations: List[IntegrityViolation] = []
+        for line_num, line in enumerate(content.split('\n'), 1):
+            for name, (pattern, severity, description) in self._compiled_patterns.items():
+                match = pattern.search(line)
+                if match:
+                    violations.append(IntegrityViolation(
+                        file=str(filepath),
+                        line_number=line_num,
+                        pattern_name=name,
+                        matched_content=match.group(0)[:100],
+                        severity=severity,
+                    ))
         return violations
 
     def scan_all_rules(self) -> List[IntegrityViolation]:
@@ -307,14 +372,15 @@ class RuleIntegrityScanner:
             print(f"Warning: Rules directory not found: {self.rules_dir}", file=sys.stderr)
             return all_violations
 
-        # Scan all YAML files recursively
-        for yaml_file in self.rules_dir.rglob("*.yaml"):
-            violations = self.scan_file(yaml_file)
-            all_violations.extend(violations)
-
-        for yml_file in self.rules_dir.rglob("*.yml"):
-            violations = self.scan_file(yml_file)
-            all_violations.extend(violations)
+        # Scan only rule files that are actually loaded into the engine: skip the
+        # archive/ directory (retired rules, not loaded) and *_runtime.yaml files
+        # (paid-tier, loaded separately). Single traversal for both extensions.
+        for rule_file in self.rules_dir.rglob("*.y*ml"):
+            if rule_file.suffix not in (".yaml", ".yml"):
+                continue
+            if "archive" in rule_file.parts or "_runtime" in rule_file.name:
+                continue
+            all_violations.extend(self.scan_file(rule_file))
 
         return all_violations
 

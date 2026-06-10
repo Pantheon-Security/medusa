@@ -1,0 +1,1937 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: multimodal_attacks
+rules:
+- id: MEDUSA-MM-SCAN-072
+  name: multimodal-wolf-agent-malice-injection
+  description: Detects prompt patterns characteristic of MLLM wolf-agent attacks where
+    one multimodal agent is manipulated via adversarial image inputs to generate malicious
+    prompts that propagate to other agents
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - (?i)(describe this (image|sound|audio)).{0,200}(illegal|malicious|weapon|violence|harm|drugs?)
+  - (?i)(image|audio|visual).{0,60}(jailbreak|bypass|override|circumvent).{0,60}(safety|filter|guardrail|alignment)
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.txt'
+  - '*.html'
+  message: 'Detected: multimodal-wolf-agent-malice-injection'
+  remediation: Multimodal wolf-agent malice injection pattern detected. Scan all MLLM-generated
+    outputs for safety compliance before forwarding to downstream agents.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'The Wolf Within: Covert Injection of Malice into MLLM Societies via
+    An MLLM Operative (2024)'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-073
+  name: vlm-multimodal-linkage-encryption-bypass
+  description: Detects Multi-Modal Linkage (MML) attack patterns where malicious content
+    is encrypted into typographic images via word replacement, base64, or geometric
+    transforms to evade VLM safety filters
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - (?i)(extract (the|this) (title|text|content) from (the|this) image.{0,80}(decrypt|decode|reconstruct))
+  - (?i)(villain.{0,40}(evil|malicious|dangerous).{0,60}(nature|objectives|goals|intent).{0,40}(image|screen|visual|picture))
+  file_types:
+  - '*.txt'
+  - '*.py'
+  - '*.json'
+  - '*.html'
+  message: 'Detected: vlm-multimodal-linkage-encryption-bypass'
+  remediation: Multi-Modal Linkage jailbreak pattern detected. Apply semantic analysis
+    of VLM decryption instructions and evil-alignment framing in prompts.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Jailbreak Large Vision-Language Models Through Multi-Modal Linkage
+    (2024)
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-074
+  name: evil-alignment-game-scenario-framing
+  description: Detects evil-alignment framing patterns in multimodal prompts that
+    embed the attack within a fictional villain game scenario to align model outputs
+    with malicious objectives
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(villain.{0,30}(lair|game|character|evil).{0,60}(content|instructions?|output|respond|generate).{0,60}(consistent
+    with|align(ed)? with|based on))
+  - (?i)(I am (developing|creating|building).{0,30}(game|simulation|story).{0,60}villain.{0,40}(evil|malicious|dangerous))
+  file_types:
+  - '*.txt'
+  - '*.py'
+  - '*.json'
+  - '*.html'
+  message: 'Detected: evil-alignment-game-scenario-framing'
+  remediation: Evil-alignment game scenario framing detected in multimodal context.
+    Reject creative-framing prompts requesting villain-consistent harmful outputs.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: Jailbreak Large Vision-Language Models Through Multi-Modal Linkage
+    (2024) - Evil Alignment component
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-075
+  name: typographic-image-harmful-content-encoding
+  description: Detects prompts referencing base64 encoding, word replacement, or image
+    mirroring techniques applied to typographic images to conceal harmful content
+    from VLM safety filters
+  severity: critical
+  category: multimodal_attacks
+  patterns:
+  - (?i)(word replacement.{0,60}(harmful|malicious|illegal|dangerous).{0,60}(image|typographic|visual))
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.json'
+  - '*.html'
+  message: 'Detected: typographic-image-harmful-content-encoding'
+  remediation: Typographic image content encoding jailbreak technique detected. Apply
+    OCR-based content extraction and scan decoded text before VLM processing.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  source_paper: 'Jailbreak Large Vision-Language Models Through Multi-Modal Linkage
+    (2024) - Encryption methods: base64, word replacement, mirroring'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-072
+  name: Multimodal Prompt Decoupling Attack on T2I Safety Filters
+  description: Detects MPDA (Multimodal Prompt Decoupling Attack) that decomposes
+    unsafe text-to-image requests using LLMs into pseudo-safe and harmful sub-prompt
+    components — pseudo-safe component bypasses safety filters while harmful component
+    guides image generation, with VLM-based semantic refinement loop ensuring final
+    output matches original unsafe intent
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - MPDA.*multimodal.*prompt.*decouple.*T2I.*safety
+  - prompt.*decouple.*pseudo.safe.*harmful.*T2I.*filter
+  - text.to.image.*safety.*filter.*decouple.*bypass
+  - LLM.*decouple.*unsafe.*pseudo.safe.*harmful.*sub.prompt
+  - VLM.*caption.*refine.*unsafe.*T2I.*bypass
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: Multimodal Prompt Decoupling Attack (MPDA) on T2I safety filter detected
+    — LLM decoupling unsafe prompt into pseudo-safe/harmful sub-prompts bypassing
+    safety filters
+  source_detail: 'arXiv:2509.21360 Peng et al. 2025 — MPDA: LLM decomposes unsafe
+    request into pseudo-safe bypassing filter + harmful sub-prompt; adversarial rewriting
+    reformulates harmful components; VLM caption feedback refines output; targets
+    NSFW T2I generation'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-073
+  name: T2I Adversarial Prompt Rewriting for Safety Filter Bypass
+  description: Detects MPDA adversarial rewriting phase that reformulates harmful
+    prompt components as natural adversarial prompts to circumvent text-to-image safety
+    filters while instructing the model to modify base images — exploits semantic
+    equivalence between safe-appearing and unsafe-generating prompts
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - adversarial.*rewrite.*harmful.*natural.*T2I.*bypass
+  - T2I.*natural.*adversarial.*prompt.*safety.*filter.*evade
+  - rewrite.*unsafe.*prompt.*natural.*image.*generation.*bypass
+  - harmful.*prompt.*reformulate.*natural.*filter.*evade.*T2I
+  - T2I.*base.*image.*modify.*adversarial.*rewrite.*unsafe
+  file_types:
+  - .py
+  - .json
+  message: T2I adversarial prompt rewriting for safety filter bypass detected — harmful
+    prompts reformulated as natural-appearing text to bypass safety filters
+  source_detail: 'arXiv:2509.21360 Peng et al. 2025 — MPDA adversarial rewriting:
+    reformulates harmful prompt as natural adversarial prompts; instructs T2I model
+    to modify base images; VLM-based semantic refinement feedback loop ensures unsafe
+    content generation'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-074
+  name: VLM Caption Feedback Loop for T2I Jailbreak Refinement
+  description: Detects MPDA semantic refinement loop that uses vision-language model
+    captions to guide iterative LLM refinement — VLM analyzes generated images and
+    feeds captions back to LLM for prompt optimization until final output matches
+    original unsafe request
+  severity: medium
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - VLM.*caption.*feedback.*loop.*T2I.*jailbreak.*refine
+  - image.*caption.*feedback.*LLM.*refine.*unsafe.*T2I
+  - VLM.*generate.*caption.*guide.*prompt.*optimize.*T2I
+  - iterative.*VLM.*caption.*unsafe.*T2I.*semantic.*refine
+  - vision.language.*model.*caption.*loop.*T2I.*attack
+  file_types:
+  - .py
+  - .json
+  message: VLM caption feedback loop T2I jailbreak refinement detected — iterative
+    VLM-guided prompt optimization to generate unsafe T2I content
+  source_detail: 'arXiv:2509.21360 Peng et al. 2025 — MPDA: VLM generates image captions
+    from iteratively produced outputs; captions create feedback loop guiding LLM refinement;
+    ensures final generated content aligns with original unsafe request'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-075
+  name: Adversarial Textual Jailbreak on Robotic VLA Models
+  description: Detects adversarial textual attacks on Vision-Language-Action (VLA)
+    robotic models that achieve full action space reachability with single-input persistent
+    effects — adapted LLM jailbreaking applied to robotic end-to-end control enables
+    physical adversarial consequences without semantic harm concept linkage
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - VLA.*robotic.*adversarial.*textual.*jailbreak.*action
+  - vision.language.action.*jailbreak.*full.*action.*space
+  - robotic.*VLA.*adversarial.*text.*control.*jailbreak
+  - VLA.*adversarial.*text.*physical.*action.*persist
+  - robotic.*control.*jailbreak.*textual.*action.*space
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: Adversarial textual jailbreak on robotic VLA model detected — single textual
+    input achieving full action space control with persistent physical effects
+  source_detail: arXiv:2506.03350 Jones et al. 2025 — textual attacks applied once
+    at rollout start achieve full action space reachability; persistent over extended
+    horizons; no semantic harm concept linkage required; purely adversarial text prompts
+    achieve physical control
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-105
+  name: audio-based-jailbreak-mllm-voice-emotional-simulation
+  description: Detects audio-based jailbreak attacks against multimodal LLMs using
+    emotional audio simulations and voice-based adversarial prompts to induce uncontrolled
+    outputs — audio modality exploited alongside visual inputs to bypass safety filters
+    that primarily focus on text and image content; audio emotional manipulation bypasses
+    alignment mechanisms
+  severity: medium
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - audio.*jailbreak.*MLLM.*voice.*emotional.*simulation.*bypass
+  - voice.*adversarial.*prompt.*MLLM.*audio.*jailbreak.*safety.*bypass
+  - emotional.*audio.*simulation.*MLLM.*uncontrolled.*output.*jailbreak
+  - multimodal.*audio.*voice.*jailbreak.*bypass.*safety.*alignment.*LLM
+  - audio.visual.*multimodal.*jailbreak.*emotional.*manipulat.*adversarial
+  file_types:
+  - .py
+  - .json
+  - .wav
+  - .mp3
+  message: Audio-based multimodal jailbreak attack detected — emotional voice simulation
+    exploiting audio modality to bypass MLLM safety alignment
+  source_detail: 'Mao et al. survey arXiv:2506.15170 2025 — audio modality jailbreak:
+    voice input exploiting MLLM audio processing; emotional simulation induces uncontrolled
+    outputs; audio alignment mechanisms less mature than visual/text; survey identifies
+    audio as critical underprotected attack surface in MLLM ecosystem'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-106
+  name: mllm-agent-toolchain-knowledge-base-jailbreak-cascade
+  description: Detects jailbreak attacks on LLM agent systems targeting toolchain
+    components, knowledge bases, or memory modules to propagate malicious instructions
+    across multi-agent networks — attacks exploit agent planning, tool invocation,
+    and memory components to cascade harmful content through agent interactions, bypassing
+    single-agent safety mechanisms
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM02
+  cwe:
+  - CWE-74
+  patterns:
+  - agent.*toolchain.*jailbreak.*knowledge.*base.*propagat.*multi.agent
+  - LLM.*agent.*tool.*invok.*malicious.*cascade.*multi.agent.*jailbreak
+  - agent.*memory.*planning.*jailbreak.*reward.*function.*manipulat.*RL
+  - multi.agent.*jailbreak.*toolchain.*knowledge.*propagat.*cascade.*harm
+  - agent.*jailbreak.*planning.*task.*decomposition.*cascade.*tool.*exploit
+  file_types:
+  - .py
+  - .json
+  message: Multi-agent toolchain/knowledge-base jailbreak cascade attack detected
+    — malicious instructions propagating through agent planning, tool invocation,
+    and memory components across agent networks
+  source_detail: 'arXiv:2506.15170 Mao et al. Henan Univ/CAS 2025 — agent jailbreak
+    survey: reward function manipulation via RL; toolchain/knowledge base/memory as
+    attack vectors; cascading risks across multi-agent interactions; planning component
+    exploitation; adds 20 shopping cart items vs intended; distinct from MLLM attacks'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-107
+  name: bap-bimodal-adversarial-prompt-lvlm-jailbreak
+  description: Detects BAP (Bi-Modal Adversarial Prompt) attacks on large vision-language
+    models that simultaneously optimize both visual and textual adversarial prompts
+    — query-agnostic universal image perturbation created with affirmative prefix
+    corpus combined with CoT-refined intent-specific textual adversarial prompts for
+    29%+ ASR improvement over visual-only attacks; bypasses aligned LVLMs that fuse
+    both modalities
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - BAP.*bi.modal.*adversarial.*prompt.*LVLM.*visual.*textual.*simultaneous
+  - bimodal.*adversarial.*visual.*textual.*optimize.*LVLM.*jailbreak
+  - query.agnostic.*universal.*image.*adversarial.*textual.*CoT.*refine.*LVLM
+  - affirmative.*prefix.*corpus.*adversarial.*image.*textual.*prompt.*LVLM.*jailbreak
+  - bi.modal.*adversarial.*prompt.*visual.*text.*simultaneous.*optimize.*LVLM
+  file_types:
+  - .py
+  - .json
+  message: Bi-Modal Adversarial Prompt (BAP) LVLM jailbreak detected — simultaneous
+    optimization of visual adversarial perturbation and CoT-refined textual prompt
+    bypassing aligned vision-language model safety
+  source_detail: 'arXiv:2406.04031 Ying et al. Beihang Univ/NUS 2024 — BAP: universal
+    visual perturbation (query-agnostic, affirmative prefix corpus) + CoT-refined
+    textual adversarial prompt; +29.03% ASR vs visual-only; Gemini pro-vision, GLM
+    v3, Qwen v2.1, ERNIE Bot v3.5 attacked; chain-of-thought failure analysis→textual
+    refinement'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-105
+  name: C-PGC Contrastive Universal Adversarial Perturbation VLP Attack
+  description: Detects C-PGC (Contrastive-training Perturbation Generator with Cross-modal
+    conditions) universal adversarial attacks on Vision-Language Pre-training models
+    — exploits contrastive learning alignment by generating single universal perturbation
+    effective across multiple inputs and models; malicious contrastive learning with
+    crafted positive/negative image-text pairs disrupts VLP alignment; forces adversarial
+    samples away from feature space; unimodal and cross-modal guidance; ICCV 2025
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - C.PGC.*contrastive.*universal.*adversarial.*perturbation.*VLP
+  - VLP.*contrastive.*learning.*universal.*adversarial.*perturbation
+  - universal.*adversarial.*perturbation.*VLP.*contrastive.*cross.modal
+  - C.PGC.*vision.language.*pre.training.*contrastive.*adversarial
+  - VLP.*alignment.*universal.*adversarial.*contrastive.*learning.*attack
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: C-PGC universal contrastive adversarial perturbation VLP attack detected
+    — single universal perturbation exploiting contrastive learning alignment across
+    vision-language models
+  source_detail: 'arXiv:2406.05491 Anonymous 2024 — C-PGC: ICCV 2025; malicious contrastive
+    learning; single universal perturbation; cross-modal guidance; multiple VLP models;
+    feature space displacement; vision-language task attacks'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-106
+  name: QAVA Query-Agnostic Visual Adversarial Attack on Vision-Language Models
+  description: Detects QAVA (Query-Agnostic Visual Attack) adversarial examples targeting
+    large vision-language models regardless of query — generates robust adversarial
+    images causing incorrect responses to unknown/unspecified questions; unlike query-specific
+    attacks; practical real-world threat where single image faces multiple questions;
+    performance comparable to known-query attacks; NAACL 2025; reveals broadly applicable
+    visual vulnerability independent of prompt
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - QAVA.*query.agnostic.*visual.*attack.*vision.language
+  - query.agnostic.*visual.*adversarial.*LLM.*vision.*language
+  - adversarial.*visual.*image.*query.agnostic.*VLM.*incorrect
+  - QAVA.*visual.*adversarial.*unknown.*query.*vision.*language
+  - query.agnostic.*adversarial.*image.*vision.language.*attack
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: QAVA query-agnostic visual attack detected — adversarial image causing
+    incorrect VLM responses regardless of accompanying query content
+  source_detail: 'arXiv:2504.11038 Anonymous 2025 — QAVA: NAACL 2025; query-agnostic;
+    unknown question attacks; comparable to known-query; practical multi-question
+    threat; vision-language model vulnerability'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-107
+  name: VMA Vision-Language Model Hijacking Multi-Attack Adversarial Redirection
+  description: Detects VMA (Vision-language Model Attack) imperceptible perturbations
+    enabling multi-vector attacks on VLMs — first-order and second-order momentum
+    optimization with differentiable transformation; manipulates individual output
+    tokens; enables jailbreaking, model hijacking, privacy violations, and DoS attacks
+    via single image perturbation technique; theoretical and empirical vulnerability
+    evidence; NeurIPS 2025; dual-use for watermarking
+  severity: critical
+  category: multimodal_attacks
+  owasp_llm:
+  - LLM01
+  cwe:
+  - CWE-284
+  patterns:
+  - VMA.*vision.language.*model.*hijack.*adversarial.*token.*manipulate
+  - vision.language.*adversarial.*momentum.*token.*manipulate.*hijack
+  - VMA.*VLM.*jailbreak.*hijack.*privacy.*DoS.*adversarial.*perturb
+  - VLM.*adversarial.*image.*token.level.*manipulate.*momentum.*optimize
+  - vision.language.*adversarial.*image.*multi.attack.*jailbreak.*hijack
+  file_types:
+  - .py
+  - .json
+  - .ipynb
+  message: VMA vision-language model adversarial attack detected — imperceptible image
+    perturbations enabling multi-vector attacks including jailbreaking, model hijacking,
+    and privacy violations
+  source_detail: 'arXiv:2505.19911 Anonymous 2025 — VMA: NeurIPS 2025; momentum optimization;
+    differentiable transformation; token manipulation; jailbreak/hijack/privacy/DoS;
+    image-based adversarial; theoretical+empirical; dual-use watermark'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-121
+  name: one-frame-attack-single-frame-adversarial-video
+  description: Detects implementation of the one frame attack technique that exploits
+    structural vulnerability by perturbing only a single periodically-vulnerable frame
+    in a video clip to fool action recognition models.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)one[_\-\s]frame[_\-\s]attack
+  - (?i)single[_\-\s]frame.*adversarial.*(?:perturbation|attack|video)
+  - (?i)vulnerable[_\-\s]frame[_\-\s](?:index|indices|location)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Detected: one-frame-attack-single-frame-adversarial-video'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM03
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Hwang et al. (2020) -- Just One Moment: Structural Vulnerability
+    of Deep Actio | Hwang et al. 2020 (arXiv:2011.14585) — one frame attack achieves
+    83-100% fooling rate on I3D, 73-98% on SlowFast, 60-97% on ir-CSN at ε=2-16'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-122
+  name: structural-vulnerability-periodic-frame-stride-exploitation
+  description: Detects code that analyzes model temporal stride and pooling structure
+    to identify periodically vulnerable frame indices for targeted adversarial perturbation
+    — the core structural vulnerability exploitation technique.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)temporal[_\-\s]stride.*vulnerable|vulnerable.*temporal[_\-\s]stride
+  - (?i)periodic.*vulnerable[_\-\s]frame|vulnerable[_\-\s]frame.*period
+  - (?i)frame[_\-\s]index.*(?:i3d|slowfast|ir.csn).*(?:attack|perturb|adversar)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: structural-vulnerability-periodic-frame-stride-exploitation'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM03
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Hwang et al. (2020) -- Just One Moment: Structural Vulnerability
+    of Deep Actio | Hwang et al. 2020 — I3D vulnerable frames at indices {3,7,11,15,19,23,27,31},
+    SlowFast at {1,5,9,13,17,21,25,29} due to stride-4 and dual-pathway structure'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-123
+  name: universal-one-frame-video-perturbation-generator
+  description: Detects code implementing video-agnostic universal perturbation for
+    one-frame action recognition attacks using averaged gradients across multiple
+    video clips.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)universal.*one[_\-\s]frame.*perturbation
+  - (?i)video[_\-\s]agnostic.*(?:one[_\-\s]frame|single[_\-\s]frame).*perturbation
+  - (?i)average[_\-\s]gradient.*(?:video|clip|action[_\-\s]recognition)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: 'Detected: universal-one-frame-video-perturbation-generator'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM03
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Hwang et al. (2020) -- Just One Moment: Structural Vulnerability
+    of Deep Actio | Hwang et al. 2020 — universal one-frame perturbation achieves
+    >80% fooling rate with 1500 videos at ε=32, >90% using multiple vulnerable frames
+    with 500 videos'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-124
+  name: time-invariant-adversarial-video-stream-attack
+  description: Detects code implementing time-invariant universal adversarial attacks
+    on real-time video streams by distributing perturbations across periodic frame
+    positions to guarantee a vulnerable frame is always hit regardless of temporal
+    offset.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)time[_\-\s]invariant.*(?:attack|perturbation|adversar)
+  - (?i)temporal[_\-\s]offset.*adversar|adversar.*temporal[_\-\s]offset
+  - (?i)sliding[_\-\s]window.*adversar.*(?:video|action|recogni)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.sh'
+  message: 'Detected: time-invariant-adversarial-video-stream-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM03
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Hwang et al. (2020) -- Just One Moment: Structural Vulnerability
+    of Deep Actio | Hwang et al. 2020 — time-invariant attack achieves >70% fooling
+    rate on I3D/SlowFast with 1000 videos for real-time streaming scenarios'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-125
+  name: mmaction2-adversarial-action-recognition-attack
+  description: Detects use of the MMAction2 toolbox in adversarial attack contexts
+    targeting I3D, SlowFast, or ir-CSN action recognition models.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)mmaction2.*(?:adversar|attack|perturb|fool)
+  - (?i)(?:i3d|slowfast|ir.csn).*(?:adversar|attack|fool|perturb)
+  - (?i)kinetics.*(?:adversar|attack|fool.*rate)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  - '*.toml'
+  message: 'Detected: mmaction2-adversarial-action-recognition-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM03
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Hwang et al. (2020) -- Just One Moment: Structural Vulnerability
+    of Deep Actio | Hwang et al. 2020 — uses MMAction2 pretrained I3D, SlowFast-8x8,
+    ir-CSN-152 on Kinetics-400 as attack targets'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-126
+  name: sam-prompt-agnostic-encoder-attack
+  description: Detects code implementing prompt-agnostic adversarial attacks on SAM/SEEM
+    by maximizing L2 distance between image encoder embeddings, as described in Croce
+    & Hein 2023. Targets foundation segmentation model image encoders to break all
+    prompt types simultaneously.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)from\s+segment_anything\s+import
+  - (?i)segment.anything.*(?:adversar|perturbat|attack)
+  file_types:
+  - '*.py'
+  message: 'Detected: sam-prompt-agnostic-encoder-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM07
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Croce et al. (2023) -- Segment (Almost) Nothing: Prompt-Agnostic
+    Adversarial A | Croce & Hein 2023 - Segment (Almost) Nothing: mIoU drops from
+    59.86% to 7.33% on SAM at eps=8/255'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-127
+  name: sam-embedding-l2-maximization-attack
+  description: 'Detects the specific prompt-agnostic attack objective: maximizing
+    L2 norm between clean and adversarial image encoder embeddings (phi(x+delta) -
+    phi(x)) to distort segmentation for all prompts. Unique to Croce & Hein 2023 approach.'
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:phi|encoder|image_encoder)\s*\(\s*(?:x|img|image)\s*\+\s*(?:delta|perturb|noise)
+  - (?i)torch\.norm.*(?:encoder|embed|phi).*(?:clean|orig)
+  - (?i)l2.*dist.*(?:embed|latent|encoder).*(?:adversar|perturb|attack)
+  file_types:
+  - '*.py'
+  message: 'Detected: sam-embedding-l2-maximization-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM07
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Croce et al. (2023) -- Segment (Almost) Nothing: Prompt-Agnostic
+    Adversarial A | Croce & Hein 2023 - prompt-agnostic SAM/SEEM attack via encoder
+    embedding L2 maximization'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-128
+  name: multicrop-pgd-segmentation-attack
+  description: Detects multi-crop PGD attack variant designed to defeat SAM's multi-crop
+    mask generator. Uses random rectangular crops (30-90% of image dimensions) during
+    PGD iterations with p_crop=0.8. Novel algorithm from Croce & Hein 2023.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)multi.?crop.*pgd
+  - (?i)p_?crop\s*=\s*0\.[7-9]
+  - (?i)random.*(?:crop|rect).*(?:perturbat|adversar).*(?:pgd|gradient|update)
+  file_types:
+  - '*.py'
+  message: 'Detected: multicrop-pgd-segmentation-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM07
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Croce et al. (2023) -- Segment (Almost) Nothing: Prompt-Agnostic
+    Adversarial A | Croce & Hein 2023 - multi-crop PGD defeats SAM multi-crop mask
+    generator; step_size=eps/8, 100 iterations'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-129
+  name: universal-sam-segmentation-perturbation
+  description: Detects code generating universal adversarial perturbations targeting
+    SAM or SEEM image encoders — a single 1024x1024 perturbation interpolated to any
+    input size that degrades segmentation across all images (mIoU 11.24% at eps=8/255).
+    From Croce & Hein 2023.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)universal.*perturbat.*(?:sam|seem|segment_anything|segmentation)
+  - (?i)(?:sam|seem|segment).*universal.*(?:perturbat|adversar|attack)
+  - (?i)torch\.nn\.functional\.interpolate.*(?:perturbat|delta|noise).*(?:sam|seem|segment)
+  file_types:
+  - '*.py'
+  message: 'Detected: universal-sam-segmentation-perturbation'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM07
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Croce et al. (2023) -- Segment (Almost) Nothing: Prompt-Agnostic
+    Adversarial A | Croce & Hein 2023 - universal SAM/SEEM perturbation: 1024x1024
+    base, interpolated; mIoU drops to 11.24% at eps=8/255 on unseen images'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-130
+  name: seem-focal-backbone-adversarial-attack
+  description: Detects adversarial attacks targeting SEEM (Segment Everything Everywhere
+    All At Once) with Focal-T or Focal-L backbones, as studied in Croce & Hein 2023.
+    Small perturbations eps=1/255 sufficient to break semantic segmentation across
+    text, visual, and audio prompts.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:focal.?[tl]|focal_(?:tiny|large)).*(?:adversar|perturbat|attack)
+  - (?i)seem.*(?:focal|backbone).*(?:adversar|attack|perturbat)
+  - (?i)UX.Decoder.*(?:adversar|attack|perturbat)
+  file_types:
+  - '*.py'
+  message: 'Detected: seem-focal-backbone-adversarial-attack'
+  remediation: Review usage context. Remove if not authorised research/testing.
+  owasp_llm: LLM07
+  cwe: CWE-693
+  mitre_attack: T1565
+  source_paper: 'Croce et al. (2023) -- Segment (Almost) Nothing: Prompt-Agnostic
+    Adversarial A | Croce & Hein 2023 - SEEM Focal-T/Focal-L attacked via image encoder
+    embedding distortion; eps=1/255 sufficient to break all prompt types'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-131
+  name: twostage-gda-text-influence-token-selection
+  description: Detects code that selects influential tokens with gradient-based saliency
+    scoring for adversarial text perturbation as described in 2S-GDA.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bgrad\b.{0,40}\b(?:saliency|imp(?:ortance)?)\b
+  - (?i)\btorch\.autograd\.(?:grad|backward)\b
+  - (?i)get_important_tokens\s*\(
+  - (?i)token_importance\s*=
+  file_types:
+  - '*.py'
+  message: Detected gradient-based token importance scoring for adversarial text perturbations
+    (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Implement detection of adversarial text perturbations in the pipeline.
+
+    - Consider using certified defenses against gradient-based attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: gradient-based saliency scoring identifies top-k influential
+    tokens (Section 2.3).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# gradient saliency for model interpretability (not attack)'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-132
+  name: twostage-gda-wordnet-synonym-pool
+  description: Detects code that expands candidate token pool with WordNet synonyms
+    for adversarial text attack.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+wordnet
+  - (?i)wn\.synsets\b
+  - (?i)lemmas\s*\(\s*\)
+  - (?i)\bnltk\.corpus\.wordnet\b
+  file_types:
+  - '*.py'
+  message: Detected WordNet synonym expansion for adversarial candidate pool (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Monitor for usage combined with BERT MLM candidate generation.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: Candidate Text Expansion (CTE) combines BERT-MLM top-k
+    with WordNet synonyms (Section 2.3).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# WordNet synonyms for data augmentation (not attack)'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-133
+  name: twostage-gda-bsr-augmentation
+  description: Detects code that applies Block Shuffle and Rotation (BSR) augmentation
+    for visual adversarial diversity.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bbsr\b.{0,40}\b(?:augment|transform|apply|image)\b
+  - (?i)block_shuffle_rotation\s*\(
+  - (?i)shuffle_and_rotate\s*\(
+  - (?i)\b(?:shuffle|rotate)\b.{0,40}\bblock\b.{0,40}\bimage\b
+  file_types:
+  - '*.py'
+  message: Detected Block Shuffle and Rotation (BSR) augmentation for adversarial
+    image perturbation (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Implement detection of adversarial visual augmentation in the pipeline.
+
+    - Consider defenses against multi-scale transformations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: visual perturbation module applies multi-scale resizing
+    and BSR (Section 2.2). References Wang et al. 2024 BSR.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# data augmentation for robust training (benign BSR)'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-134
+  name: twostage-gda-two-stage-pipeline-2s
+  description: Detects code implementing a two-stage adversarial attack pipeline with
+    separate text and image stages.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bstage[_-]?[Ii]\b.{0,40}\btext(?:ual)?\b.{0,40}\bperturb\b
+  - (?i)\bstage[_-]?[Ii][Ii]\b.{0,40}\b(?:image|visual)\b.{0,40}\bperturb\b
+  - (?i)two_stage_attack\s*\(
+  - '(?i)def\s+text_perturbation\s*\(.{0,40}\)\s*:'
+  file_types:
+  - '*.py'
+  message: Detected two-stage adversarial attack pipeline (2S-GDA style).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Monitor for combined text and image adversarial optimization.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: two-stage pipeline (S1: text perturbation, S2: visual
+    perturbation) (Section 2.2).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# image-to-text retrieval pipeline with two stages (benign)'
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-135
+  name: twostage-gda-globally-aware-replacement-scope
+  description: Detects code that evaluates multiple candidate replacements across
+    influential tokens and selects based on adversarial loss.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bargmax\b.{0,40}\bloss\b
+  - (?i)for\s+wi\s+in\s+W_imp
+  - (?i)best_token.{0,10}:.{0,10}best_candidate
+  - (?i)\bglobal.{0,40}score.{0,40}candidate
+  file_types:
+  - '*.py'
+  message: Detected globally-aware replacement strategy for adversarial text attack
+    (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Monitor for candidate evaluation over multiple influential tokens.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: Globally-Aware Replacement (GAR) selects best token–candidate
+    pair maximizing adversarial loss (Section 2.3).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# grid search over hyperparameters (benign)'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-136
+  name: twostage-gda-multiscale-resizing-visual
+  description: Detects code that applies multi-scale resizing to images for adversarial
+    perturbation generation.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)multi[_-]?scale.{0,30}(?:resize|scale|augment)
+  - (?i)\b(?:resize|scale)\b.{0,30}\bfactors?\b.{0,30}\blist\b
+  - (?i)\bsv\b.{0,30}\bvariant\b
+  file_types:
+  - '*.py'
+  message: Detected multi-scale resizing for visual adversarial diversity (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Monitor for integration with PGD or similar visual attack methods.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: visual perturbation module applies multi-scale resizing
+    (Section 2.2).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# multi-scale testing for model robustness (benign)'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-137
+  name: twostage-gda-token-candidate-expansion
+  description: Detects code that expands candidate tokens by combining BERT-MLM predictions
+    with other sources.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bC_MLM\b.{0,40}\bC_WN\b
+  - (?i)\b(?:mlm|bert).{0,20}(?:topk|top_k|prediction).{0,20}(?:union|\|)
+  - (?i)\bcandidates\s*(?:=|\+=)\s*(?:\{|\(|set\().{0,20}wordnet
+  file_types:
+  - '*.py'
+  message: Detected multi-source candidate token expansion for adversarial text attack
+    (2S-GDA).
+  remediation: '- Verify the code''s purpose and authorization.
+
+    - Monitor for specific combination of MLM and synonym expansion.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-472
+  mitre_attack: null
+  source_paper: 'Chen et al. (2026) -- A Two-Stage Globally-Diverse Adversarial Attack
+    for Vis | 2S-GDA paper: Candidate Text Expansion (CTE) combines BERT-MLM top-k
+    and WordNet synonyms (Section 2.3).'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# lexical diversity augmentation (benign)'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-138
+  name: aet-sampling-implementation
+  description: Detects code implementing Adversarial Evolution Triangle (AET) sampling,
+    a technique from SA-AET that uses clean, previous, and current adversarial examples
+    to generate multimodal adversarial examples.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+sa[_-]?aet\b
+  - (?i)\bAET\b.{0,40}\b(?:triangle|sample|evolution)\b
+  - (?i)\bAdversarialEvolutionTriangle\b
+  file_types:
+  - '*.py'
+  message: Detected AET sampling implementation for multimodal adversarial example
+    generation.
+  remediation: '- Remove or isolate AET-related code in production.
+
+    - Use runtime monitoring to detect adversarial perturbations.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Jia et al. (2024) -- Semantic-Aligned Adversarial Evolution Triangle
+    for Hig | SA-AET: AET sampling from clean/historical/current adversarial examples.
+    ASR 100% on source ALBEF, up to 95.15% TR R@1 on TCL. arXiv:2411.02669.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - explain how an adversarial evolution triangle works in theory
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-139
+  name: semantic-projection-matrix-calculation
+  description: Detects code that computes a semantic projection matrix via SVD on
+    text features, used in SA-AET to project features into a semantic subspace for
+    adversarial generation.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+scipy\.(?:linalg|sparse).{0,40}\bsvd\b
+  - (?i)\bU\s*,\s*S\s*,\s*V\s*=\s*svd\s*\(
+  - (?i)\bP\s*=\s*U\s*⊙\s*U\.T\b
+  file_types:
+  - '*.py'
+  message: Detected semantic projection matrix calculation for adversarial example
+    generation in semantic subspace.
+  remediation: '- Remove or isolate semantic projection matrix computation.
+
+    - Verify no adversarial use of SVD-based projection is present.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Jia et al. (2024) -- Semantic-Aligned Adversarial Evolution Triangle
+    for Hig | SA-AET: Semantic projection matrix P via SVD on text features for adversarial
+    transferability. arXiv:2411.02669.'
+  fp_guards:
+  - 'ProcessMetrics: {SVD: 0.123, U: [0.1, 0.2]}'
+  - svd is a standard linear algebra operation used in PCA
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-140
+  name: adversarial-text-generation-via-triangle
+  description: Detects code that generates adversarial text by deviating from the
+    final adversarial evolution triangle, as proposed in SA-AET.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\b(?:kappa|mu|nu)\s*[=:].{0,40}\bJ\s*\(
+  - (?i)\bargmax.{0,40}\bkappa\s*\*\s*J\s*\(
+  - (?i)\bargmax.{0,40}\bnu\s*\*\s*J\s*\(\s*\w+_T
+  file_types:
+  - '*.py'
+  message: Detected adversarial text generation using evolution triangle (kappa, mu,
+    nu coefficients).
+  remediation: '- Remove or isolate adversarial text generation code.
+
+    - Monitor text inputs for adversarial patterns.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Jia et al. (2024) -- Semantic-Aligned Adversarial Evolution Triangle
+    for Hig | SA-AET: Adversarial text generation via Eq(7) using triangle coefficients
+    κ, μ, ν. arXiv:2411.02669.'
+  fp_guards:
+  - 'ProcessMetrics: {kappa: 0.5, mu: 0.2, nu: 0.3}'
+  - explain how kappa, mu, nu are used in the loss function
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-141
+  name: text-guided-augmentation-selection
+  description: Detects code implementing text-guided augmentation selection, which
+    selects optimal perturbations by maximizing divergence from text, used in SA-AET.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bargmax.{0,40}\bJ\s*\(\s*\w+_I\s*\+\s*eps
+  - (?i)\btext[_-]?guided.{0,40}(?:augment|select)
+  - (?i)\bepsilon_set\b.{0,40}\bJ\(\s*\w+_I
+  file_types:
+  - '*.py'
+  message: Detected text-guided augmentation selection for adversarial perturbation
+    optimization.
+  remediation: '- Remove or isolate text-guided augmentation selection code.
+
+    - Use input validation to detect adversarial modifications.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Jia et al. (2024) -- Semantic-Aligned Adversarial Evolution Triangle
+    for Hig | SA-AET: Text-guided augmentation selection via Eq(5). arXiv:2411.02669.'
+  fp_guards:
+  - 'ProcessMetrics: {argmax: 0.8, epsilon: 0.1}'
+  - 'def text_guided_selection(x, y): return max(y)'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-142
+  name: muap-patch-import
+  description: Detects import of the MUAP universal adversarial patch generation library
+    from the paper's GitHub repository LibertazZ/MUAP.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+muap\b
+  - (?i)(?:from|import)\s+universal_adversarial_patch\b
+  - (?i)git(?:hub)?\.com/LibertazZ/MUAP
+  file_types:
+  - '*.py'
+  message: MUAP universal adversarial patch import detected - used to attack VLP models
+    like CLIP/BEiT3.
+  remediation: '- Remove unauthorized adversarial patch generation code.\n- Use input
+    sanitization checks on image patches.\n- Monitor for unknown patch patterns in
+    image uploads.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zheng et al. (2024) -- Sample-agnostic Adversarial Perturbation for
+    Vision-Lan | MUAP - arXiv:2408.02980, ASR 99.9% on CLIP ViT-B/16 Flickr30k R@1,
+    targets CLIP & BEiT3
+  fp_guards:
+  - from sklearn.metrics import mutual_info_score
+  - 'muap = ''model_update_and_predict'' # internal function'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-143
+  name: muap-decision-boundary-attack-function
+  description: Detects functions implementing the decision-boundary-based universal
+    adversarial perturbation algorithm for VLP models, as described in the MUAP paper.
+  severity: high
+  category: multimodal_attacks
+  patterns:
+  - (?i)\b(?:universal_adversarial_perturbation|muap_generate|cross_decision_boundary)\s*\(
+  - (?i)def\s+(?:attack_text_retrieval|attack_image_retrieval|cross_k_decision_boundaries)\s*\(
+  - (?i)Alg\s*[23]\s*[:.]
+  file_types:
+  - '*.py'
+  message: MUAP decision boundary attack function detected - implements universal
+    adversarial patch against VLP image-text retrieval.
+  remediation: '- Remove the decision-boundary-based attack algorithm.\n- Apply defensive
+    distillation or adversarial training on image encoders.\n- Use certified robustness
+    methods for patch detection.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zheng et al. (2024) -- Sample-agnostic Adversarial Perturbation for
+    Vision-Lan | MUAP - arXiv:2408.02980, ASR 99.9% on CLIP ViT-B/16 Flickr30k R@1,
+    targets CLIP & BEiT3
+  fp_guards:
+  - 'def compute_decision_boundary_distance(features, labels):'
+  - '# Alg 1: standard gradient descent'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-144
+  name: muap-clamp-patch-constraint
+  description: Detects the clamp operation used in MUAP to ensure patch pixel values
+    stay in [0,1], a key implementation detail of the universal adversarial patch.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bclamp\s*\(0\s*,\s*1\)\s*\(\s*\w+
+  - (?i)\btorch\.clamp\s*\([^)]*0[^)]*1[^)]*patch
+  file_types:
+  - '*.py'
+  message: MUAP-style clamp to [0,1] on patch variable detected - suggests universal
+    adversarial patch generation for VLP models.
+  remediation: '- Investigate the surrounding code for adversarial patch generation.\n-
+    Remove unauthorized image perturbation functions.\n- Implement input validation
+    for image tensor ranges.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zheng et al. (2024) -- Sample-agnostic Adversarial Perturbation for
+    Vision-Lan | MUAP - arXiv:2408.02980, ASR 99.9% on CLIP ViT-B/16 Flickr30k R@1,
+    targets CLIP & BEiT3
+  fp_guards:
+  - 'clamp(0, 1)(logits)  # for bounding logits'
+  - output = torch.clamp(input, -1.0, 1.0)
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-145
+  name: jmtfa-attention-relevance-score-calculation
+  description: Detects code implementing the JMTFA attention relevance score calculation
+    (Hadamard product of attention scores and gradients) for multimodal adversarial
+    attacks on VLP transformers.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:attention.{0,40}relevance|relevance.{0,40}score|\bA_hat\b).{0,40}(?:hadamard|element.?wise|\bmultipl[yi]|\bgrad)
+  - (?i)\b(?:torch\.)?(?:multiply|mul)\s*\(\s*[^)]*grad[^)]*\)\s*.{0,40}\battn\b
+  - (?i)(?:from|import)\s+jmtfa\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'JMTFA attention relevance score calculation detected: computes Hadamard
+    product of attention scores and gradients to guide multimodal adversarial perturbations.'
+  remediation: '- Use adversarial training with multimodal data to improve robustness.
+
+    - Implement input sanitization for both image and text modalities.
+
+    - Monitor for abnormal gradient patterns indicative of white-box attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, up to 88.27% ASR on VQA and 91.90% on VSR (ViLT, VisualBERT,
+    VLE, LXMERT)
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - attention_scores = torch.softmax(q @ k.T, dim=-1)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-146
+  name: jmtfa-afia-loss-function
+  description: Detects the Attention Feature Importance Attack (AFIA) loss function
+    used in JMTFA to perturb visual features based on attention relevance scores.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bLAFIA\b
+  - (?i)loss.{0,40}(?:attention.{0,40}feature.{0,40}importance|AFIA)
+  - (?i)feature_importance.{0,40}loss.{0,40}attention
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'AFIA loss function implementation detected: uses attention relevance scores
+    to guide adversarial perturbations on image features.'
+  remediation: '- Validate input images for unexpected perturbations.
+
+    - Apply gradient masking or defense distillation.
+
+    - Use certified adversarial defenses for vision encoders.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, ASR up to 88.27% on VQA (ViLT, VisualBERT, VLE, LXMERT)
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - loss = F.cross_entropy(output, labels)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-147
+  name: jmtfa-pgd-image-perturbation
+  description: Detects PGD-based image perturbation loop specific to JMTFA, using
+    attention relevance scores to craft adversarial images.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)for.{0,40}in.{0,40}range\(.{0,40}iter.{0,40}\):.{0,40}\bg\s*=\s*.{0,40}grad.{0,40}loss
+  - (?i)adversarial.{0,40}image.{0,40}(?:PGD|projected.{0,40}gradient).{0,40}step.{0,40}alpha
+  - (?i)iadv\s*=\s*Cli.{0,40}(?:xi|image).{0,40}alpha.{0,40}sign.{0,40}grad
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'JMTFA PGD-based image perturbation loop detected: iteratively generates
+    adversarial images guided by attention relevance scores.'
+  remediation: '- Use adversarial training with PGD examples.
+
+    - Implement input preprocessing (e.g., JPEG compression) to disrupt subtle perturbations.
+
+    - Monitor for iterative gradient-based attacks via logging.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, ϵ=8/255, α=2/255, 40 iterations, ASR up to 88.27% on VQA
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - "for epoch in range(num_epochs):\n    optimizer.step()"
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-148
+  name: jmtfa-bert-attack-text-perturbation
+  description: Detects JMTFA text attack using BERT-Attack guided by attention relevance
+    scores for word-level substitution.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bBERT.?Attack\b.{0,40}attention.{0,40}relevance
+  - (?i)word.{0,40}importance.{0,40}ranking.{0,40}attention.{0,40}relevance
+  - (?i)top.?k.{0,40}candidate.{0,40}BERT.{0,40}adversarial
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'JMTFA BERT-Attack text perturbation detected: replaces important words
+    using MLM-based candidates guided by attention relevance scores.'
+  remediation: '- Use certified adversarial defenses like adversarial training with
+    textual perturbations.
+
+    - Implement input validation for unnatural word substitutions.
+
+    - Monitor for high replacement rate in text inputs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, K=3, ASR up to 80.50% on VQA (VLE)
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - candidates = model.generate(masked_sentence)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-149
+  name: jmtfa-mse-loss-vsr
+  description: Detects JMTFA-MSE loss extension adding MSE loss to AFIA for spatial
+    reasoning tasks like VSR.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)JMTFA.?MSE|jmtfa_mse
+  - (?i)AFIA.{0,40}MSE.{0,40}loss|MSE.{0,40}AFIA.{0,40}loss
+  - (?i)loss.{0,40}(?:mse|MSE).{0,40}feature.{0,40}distance.{0,40}label
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'JMTFA-MSE loss detected: combines AFIA with MSE distance for more effective
+    attacks on spatial reasoning tasks.'
+  remediation: '- Use label smoothing to reduce sensitivity to small feature changes.
+
+    - Consider robust spatial feature encodings.
+
+    - Apply adversarial training on spatial reasoning datasets.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, VSR task, ASR up to 91.90% (ViLT)
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - loss = F.mse_loss(pred, target)
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-150
+  name: jmtfa-dual-stream-cross-attention-relevance
+  description: Detects dual-stream cross-attention relevance aggregation (Equation
+    2) combining self-attention and cross-attention scores.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:cross.?attn|CA).{0,40}grad.{0,40}hadamard|hadamard.{0,40}cross.?attn.{0,40}grad
+  - (?i)A_hat.{0,40}=.{0,40}A_self.{0,40}prod.{0,40}E.{0,40}cross.{0,40}grad
+  - (?i)Eh\s*\(.{0,40}cross.{0,40}grad.{0,40}\)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Dual-stream cross-attention relevance calculation detected: aggregates
+    self- and cross-attention relevance for multimodal feature importance.'
+  remediation: '- Use attention masking to limit cross-modal interaction influence.
+
+    - Apply differential privacy to gradients.
+
+    - Implement adversarial detection based on attention pattern anomalies.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, LXMERT, VLE architectures, ASR 68.06% image attack on LXMERT
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - attn = softmax(q @ k.T / sqrt(d))
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-151
+  name: jmtfa-single-stream-self-attention-relevance
+  description: Detects single-stream attention relevance aggregation (Equation 1)
+    using product of mean head attention over layers.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)A_hat\s*=\s*prod.{0,40}Eh\s*\(
+  - (?i)(?:self.?attn|SA).{0,40}grad.{0,40}hadamard.{0,40}mean.{0,40}head
+  - (?i)torch\.prod\(.{0,40}Eh\s*\(.{0,40}(?:attn|attention).{0,40}gradient
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: 'Single-stream attention relevance aggregation detected: computes product
+    of mean head attention over layers for feature importance.'
+  remediation: '- Use adversarial training with attention-guided perturbations.
+
+    - Apply gradient clipping to limit relevance score manipulation.
+
+    - Monitor for abnormal attention patterns.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, ViLT, VisualBERT architectures, ASR 85.52% on ViLT VQA
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - attn_output = scaled_dot_product_attention(q, k, v)
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-152
+  name: vqa-vsr-adversarial-evaluation-jmtfa
+  description: Detects evaluation scripts using JMTFA on VQA or VSR datasets for adversarial
+    attack evaluation.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:VQAv2|VSR).{0,40}(?:adversarial|attack|JMTFA)
+  - (?i)(?:evaluate|eval).{0,40}(?:VQA|VSR).{0,40}attack.{0,40}success.{0,40}rate
+  - (?i)JMTFA.{0,40}(?:VQA|VSR)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  - '*.yaml'
+  message: 'JMTFA evaluation on VQA/VSR detected: likely running attack success rate
+    experiments.'
+  remediation: '- Restrict access to evaluation scripts in production.
+
+    - Sanitize datasets and model outputs.
+
+    - Use sandboxed environments for adversarial research.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA paper, VQA 5K val set, VSR 1K test set
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - accuracy = evaluate_model(model, dataloader)
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-153
+  name: jmtfa-attention-feature-import-attack
+  description: 'Detects JMTFA implementation: uses aggregated attention relevance
+    scores (Hadamard product of attention and gradients) to guide adversarial perturbations
+    on VLP transformers.'
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+.{0,40}\b(?:LAFIA|AFIA)\b
+  - (?i)\balpha\s*=\s*2/255\b.{0,60}\bepsilon\s*=\s*(?:4|8)/255\b
+  - (?i)aggregated.{0,40}attention.{0,40}relevance.{0,40}scores|hadamard.{0,40}(?:product|\\odot).{0,40}gradient
+  file_types:
+  - '*.py'
+  message: 'JMTFA attack code detected: uses attention relevance scores to guide multimodal
+    adversarial perturbations.'
+  remediation: '- Use adversarial training on multimodal representations
+
+    - Apply input sanitization (e.g., JPEG compression for images)
+
+    - Monitor for unusual attention distribution patterns'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA from Guan et al. 2024; ASR up to 88.27% on VQAv2 with VLE; ViLT, VisualBERT,
+    LXMERT, VLE targets
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - attention_scores = softmax(Q @ K.T / sqrt(d_k))
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-154
+  name: jmtfa-bert-attack-word-importance
+  description: Detects use of BERT-Attack guided by multimodal attention relevance
+    scores word importance ranking for text modality adversarial generation.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bBERT(?:-|_)Attack\b.{0,40}\b(?:attention|relevance)\b
+  - (?i)\bword_importance\s*=\s*\w*attention_scores\b|\btop_k_candidates\s*=\s*\w*\.greedy_search
+  file_types:
+  - '*.py'
+  message: 'JMTFA text attack component: uses BERT-Attack with attention-guided word
+    selection.'
+  remediation: '- Use adversarial training on text modality
+
+    - Implement semantic similarity checks on modified tokens
+
+    - Limit number of word substitutions per query'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA text attack from Guan et al. 2024; uses BERT-Attack with attention
+    relevance scores; ASR up to 80.50% on VLE VQAv2
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - candidates = bert_model.get_top_k_tokens(masked_input, k=5)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-155
+  name: jmtfa-mse-loss-vsr
+  description: Detects JMTFA-MSE variant with additional MSE loss distance on feature
+    representations for VSR task.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bMSE\b.{0,40}\b(?:loss|distance|L2)\b
+  - (?i)jmtfa.{0,20}mse|feature.{0,20}distance.{0,20}afia
+  file_types:
+  - '*.py'
+  message: 'JMTFA-MSE attack: adds MSE loss on feature representations for enhanced
+    visual reasoning attack.'
+  remediation: '- Use robust feature extractors (e.g., ViT with defense)
+
+    - Apply spatial reasoning checks
+
+    - Monitor loss spikes on combined objective'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA-MSE from Guan et al. 2024; achieves ASR 91.90% on ViLT VSR; targets
+    VLP spatial reasoning
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - loss = L_cls + mse_loss(attention_maps, attention_ref)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-156
+  name: jmtfa-pgd-budget-8-255
+  description: Detects PGD adversarial generation with epsilon 8/255 and step size
+    2/255 typical of JMTFA image attacks.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bepsilon\s*[=:]\s*8/255\b.{0,40}\bstep_size\s*[=:]\s*2/255\b
+  - (?i)\bPGD\b.{0,60}\bepsilon\s*=\s*\d+/255\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: PGD with epsilon=8/255, step=2/255 consistent with JMTFA attack settings.
+  remediation: '- Use larger epsilon budgets for defense (e.g., 16/255)
+
+    - Apply randomized smoothing
+
+    - Monitor perturbation norm in input images'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: null
+  source_paper: Guan et al. (2024) -- Probing the Robustness of Vision-Language Pretrained
+    Mo | JMTFA image attack settings from Guan et al. 2024; epsilon 8/255, step 2/255,
+    40 iterations
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'epsilon = 0.031  # standard PGD for CIFAR-10'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-157
+  name: mmcoa-training-framework-import
+  description: Detects import or usage of the MMCoA training framework, a multimodal
+    adversarial defense method for CLIP.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+mmcoa\b
+  - (?i)\b(?:MMCoA|MultimodalContrastiveAdversarial|multimodal_contrastive_adversarial)\s*(?:=|\()
+  file_types:
+  - '*.py'
+  message: MMCoA training framework imported; used for multimodal adversarial robustness.
+  remediation: '- Review if MMCoA is used in a security-sensitive context.
+
+    - Ensure adversarial training is applied correctly.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zhou et al. (2024) -- Revisiting the Adversarial Robustness of Vision
+    Languag | MMCoA defense framework from Zhou et al. 2024, used to defend against
+    multimodal attacks on CLIP.
+  fp_guards:
+  - MMCoA is a defense method, not an attack.
+  - 'def mmcoa_loss(): pass'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-158
+  name: text-supervised-image-adversarial-loss
+  description: Detects the text-supervised image adversarial contrastive loss used
+    in MMCoA training.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - "(?i)\\bLI['ˆ]?-T\b"
+  - (?i)\btext.supervised.image.adversarial\b
+  file_types:
+  - '*.py'
+  message: Text-supervised image adversarial loss detected; used for multimodal robustness.
+  remediation: '- No remediation needed; this is a defense component.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zhou et al. (2024) -- Revisiting the Adversarial Robustness of Vision
+    Languag | Loss function from MMCoA (Zhou et al. 2024) aligning adversarial images
+    with clean text.
+  fp_guards:
+  - 'LI_T = LI_omega_T # not the same loss'
+  - LI_T is a variable for different loss.
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-159
+  name: image-supervised-text-adversarial-loss
+  description: Detects the image-supervised text adversarial contrastive loss used
+    in MMCoA training.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - "(?i)\\bLI-T['ˆ]?\b"
+  - (?i)\bimage.supervised.text.adversarial\b
+  file_types:
+  - '*.py'
+  message: Image-supervised text adversarial loss detected; used for multimodal robustness.
+  remediation: '- No remediation needed; this is a defense component.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zhou et al. (2024) -- Revisiting the Adversarial Robustness of Vision
+    Languag | Loss function from MMCoA (Zhou et al. 2024) aligning adversarial text
+    with clean images.
+  fp_guards:
+  - L_I_T = some_other_loss
+  - L_I_T_prime is a variable.
+  pipeline_confidence: medium
+- id: MEDUSA-MM-SCAN-160
+  name: mmcoa-algorithm-pseudo-code
+  description: Detects pseudo-code implementation of MMCoA training algorithm, including
+    ImageAttack and BertAttack calls.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bImageAttack\(x,\s*t,\s*[^)]*\)
+  - (?i)\bBertAttack\(t,[^)]*\)
+  file_types:
+  - '*.py'
+  message: MMCoA training algorithm with ImageAttack and BertAttack detected.
+  remediation: '- Ensure adversarial attack functions are used only in controlled
+    defensive training.
+
+    - Validate input sources.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Zhou et al. (2024) -- Revisiting the Adversarial Robustness of Vision
+    Languag | MMCoA algorithm from Zhou et al. 2024 generates adversarial examples
+    for training.
+  fp_guards:
+  - 'def ImageAttack(): # defensive function'
+  - BertAttack() is used in benign adversarial training.
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-161
+  name: intersection-region-trajectory-diversification
+  description: Detects code implementing the proposed intersection region diversification
+    attack on VLP models, achieving up to 11.62% ASR improvement over SGA.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+SensenGao\.?VLPTransferAttack\b
+  - (?i)(?:\.|\s)intersection\s*(?:region|trajectory)\s*(?:sampl|augment|diversifi)
+  - (?i)(?:triang(?:le|ular)|triangle\s*region)\s*(?:sampl|select|augment)\s*\(.{0,40}?\bv\b.{0,40}?\bv_prime\b
+  - (?i)(?:beta\s*\+|gamma\s*\+|eta\s*\+)\s*=\s*1\.0\s*#.{0,40}(?:intersection|triangle)
+  file_types:
+  - '*.py'
+  message: Detected code implementing intersection region trajectory diversification
+    attack for VLP transferability.
+  remediation: '- Review and sanitize any image perturbations applied during model
+    inference.
+
+    - Implement adversarial training with diversified examples.
+
+    - Use ensemble defenses or input preprocessing.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-77
+  mitre_attack: null
+  source_paper: Gao et al. (2024) -- Boosting Transferability in Vision-Language Attacks
+    via | Gao et al. 2024 - Intersection region diversification attack, up to +11.62%
+    ASR on CLIP models vs SGA
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - triangle_area = abs(dx1 * dy2 - dx2 * dy1) / 2.0
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-162
+  name: text-guided-augmentation-selection
+  description: Detects the text-guided adversarial example selection strategy that
+    picks the perturbation maximizing deviation from text.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)argmax\s*\(.{0,40}?J\(FI\(v_prime\s*\+\s*pm\),\s*FT\(t\)\)
+  - (?i)text[-_]?guided\s*(?:augment|selection|sampl)
+  file_types:
+  - '*.py'
+  message: Detected text-guided augmentation selection logic for multimodal adversarial
+    attacks.
+  remediation: '- Avoid using user-controlled text as guidance for image perturbations.
+
+    - Implement guardrails that check for adversarial perturbations.
+
+    - Use certified defenses like randomized smoothing.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-77
+  mitre_attack: null
+  source_paper: Gao et al. (2024) -- Boosting Transferability in Vision-Language Attacks
+    via | Gao et al. 2024 - Text-guided augmentation selection, achieves up to +9.23%
+    ASR
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# argmax over candidate captions for image retrieval'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-163
+  name: adversarial-text-deviation-intersection
+  description: Detects code that generates adversarial text by deviating from the
+    last intersection region (clean image, previous and current adversarial images).
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:lambda\s*\*\s*J\(FI\(v\),\s*FT\(t\)\s*\+\s*mu\s*\*\s*J\(FI\(v_prime)
+  - (?i)(?:deviate|distance).{0,40}(?:intersection|triangle).{0,40}(?:text|t_prime)
+  - (?i)(?:adversarial\s*text|t_prime).{0,40}(?:last|final).{0,40}(?:intersection|triangle)
+  file_types:
+  - '*.py'
+  message: Detected adversarial text generation that deviates from the intersection
+    region of adversarial trajectory.
+  remediation: '- Use separate text encoder with robust feature alignment.
+
+    - Apply text perturbation detection (e.g., perplexity filter).
+
+    - Limit text modifications to acceptable synonym replacements.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-77
+  mitre_attack: null
+  source_paper: Gao et al. (2024) -- Boosting Transferability in Vision-Language Attacks
+    via | Gao et al. 2024 - Adversarial text deviation from intersection region, key
+    for transferability to aligned models
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - '# lambda, mu, nu are scaling factors for loss components'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-164
+  name: sparsema-attack-import
+  description: Detects import or usage of the SparseMA attack library, a black-box
+    multimodal adversarial attack that splits images into patches and text into words
+    for substitution.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+sparsema\b
+  - (?i)\bsparsema\b
+  file_types:
+  - '*.py'
+  message: Found import/usage of SparseMA (multimodal attack library).
+  remediation: '- Remove any unauthorized usage of SparseMA attack code. - Use robust
+    multimodal defenses like adversarial training with sparse perturbations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA paper, attack demonstrated on CLIP, ALBEF models with up to 82.5% ASR.
+  fp_guards:
+  - import numpy as np
+  - from sklearn import metrics
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-165
+  name: sparsema-image-patch-perturbation
+  description: Detects code that splits an image into patches and sets them to all-black/white/crossed
+    patterns as per SparseMA candidate substitution.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)patch\s*=\s*image\[.{0,40}?\].{0,40}?zeros|zeros_like
+  - (?i)\.reshape\(.{0,40}?-1.{0,40}?\).{0,40}?\bpatch_size\b
+  - (?i)np\.zeros.{0,40}?patch
+  file_types:
+  - '*.py'
+  message: Detected image patch perturbation pattern matching SparseMA attack.
+  remediation: '- Validate image inputs for patch-based perturbations. - Use patch-level
+    anomaly detection. - Implement adversarial training with sparse patches.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA uses patches of size (s,s) and substitutes with all-black, all-white,
+    or crossed patterns.
+  fp_guards:
+  - 'image_patches = [image[x:x+16, y:y+16] for x in range(0,224,16)]  # legitimate
+    patch extraction'
+  - 'patch_size = 20  # model parameter'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-166
+  name: sparsema-word-synonym-substitution
+  description: Detects the use of counter-fitted embedding space for synonym substitution
+    in textual adversarial attacks, a key component of SparseMA.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)counter.fitted\b|\bfitted_embeddings\b
+  - (?i)(?:from|import)\s+.{0,40}?counter.{0,40}?fitted
+  - (?i)topk_synonyms|get_synonyms
+  file_types:
+  - '*.py'
+  message: Found synonym substitution code using counter-fitted embeddings (potential
+    SparseMA text attack).
+  remediation: '- Monitor and restrict synonym substitution functions. - Use input
+    sanitization for text classifiers. - Implement semantic similarity checks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA selects top-k nearest synonyms in counter-fitted embedding space for
+    word substitution.
+  fp_guards:
+  - 'from textblob import Word  # legitimate synonym'
+  - 'synonyms = wordnet.synsets(word)  # legitimate nlp'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-167
+  name: sparsema-replacement-order-logits
+  description: Detects code that computes importance scores using logit differences
+    after masking patches/words, a core step in SparseMA.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)importance_score.{0,40}?=.{0,40}?f\(y.{0,40}?\).{0,40}?f\(y.{0,40}?\)
+  - (?i)logit.{0,40}?diff.{0,40}?mask|patch.{0,40}?logit
+  file_types:
+  - '*.py'
+  message: Detected logit-based importance scoring for replacement order (SparseMA).
+  remediation: '- Monitor for logit-based feature importance attacks. - Implement
+    defenses like gradient masking or confidence thresholding.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA sorts patches/words by importance score I(p) = f(y|x) - f(y|x_hat) /
+    d(x_hat, x).
+  fp_guards:
+  - 'score = model(inputs) - baseline  # legitimate model interpretation'
+  - 'importance = np.abs(gradients).sum(axis=0)  # saliency map'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-168
+  name: sparsema-random-recovery-loop
+  description: Detects the random recovery loop used in SparseMA to reduce perturbation
+    count by reverting random perturbed elements and checking adversariality.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)random.{0,40}?recover|revert.{0,40}?perturb
+  - (?i)for\s+t\s+in\s+range\(.{0,40}?N\):.{0,40}?replace.{0,40}?original
+  - (?i)if.{0,40}?argmax.{0,40}?!=.{0,40}?y.{0,40}?:.{0,40}?\bupdate\b
+  file_types:
+  - '*.py'
+  message: Detected random recovery loop to optimize adversarial perturbations (SparseMA).
+  remediation: '- Limit queries to the model to prevent iterative attacks. - Use query
+    throttling and anomaly detection.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA uses N iterations (4x perturbed count) for random recovery to reduce
+    perturbations.
+  fp_guards:
+  - 'for _ in range(10): # random augmentation'
+  - 'candidate = random.choice(pool)  # legitimate random selection'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-169
+  name: co-attack-multimodal-embedding-implementation
+  description: Detection of Co-Attack implementation targeting multimodal embedding
+    in VLP models. The attack jointly perturbs image and text to maximize divergence
+    from original multimodal embedding.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+co_attack\b
+  - (?i)\bCoAttack\b.{0,40}\(.{0,40}alpha\s*=\s*\d+
+  - (?i)\bco_attack\s*=\s*(?:CoAttack|collaborative_attack)
+  file_types:
+  - '*.py'
+  message: Detected Co-Attack code implementing collaborative multimodal adversarial
+    attack on VLP models.
+  remediation: '- Review for malicious use cases
+
+    - Implement input sanitization and adversarial training
+
+    - Monitor for unauthorized adversarial testing'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: T1574
+  source_paper: Zhang et al. (2022) -- Towards Adversarial Attack on Vision-Language
+    Pre-train | Co-Attack on VLP models, up to 79.3% ASR on ALBEF VE task, 72.2% on
+    image-text retrieval
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'def co_embedding_loss(x): return x.mean()'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-170
+  name: co-attack-unimodal-embedding-implementation
+  description: Detection of Co-Attack variant that attacks unimodal embedding space,
+    applicable to aligned VLP models like CLIP.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+co_attack\s*.{0,40}unimodal
+  - (?i)\bunimodal_co_attack\b
+  - (?i)\bco_attack_unimodal\b
+  file_types:
+  - '*.py'
+  message: Detected unimodal Co-Attack implementation targeting aligned VLP models.
+  remediation: '- Restrict access to adversarial attack scripts
+
+    - Apply input validation and adversarial detection
+
+    - Use robust model architectures (ViT over CNN)'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: T1574
+  source_paper: Zhang et al. (2022) -- Towards Adversarial Attack on Vision-Language
+    Pre-train | Co-Attack unimodal variant, up to 74.4% ASR on CLIPViT image-text
+    retrieval
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'def unimodal_feature(x): return x'
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-171
+  name: co-attack-stepwise-pgd
+  description: Detection of stepwise PGD-based optimization used in Co-Attack, which
+    first perturbs text then image with a collaborative loss term.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)\bpgd\s*.{0,40}stepwise\s*.{0,40}\battack\b
+  - (?i)\btext_first\s*.{0,40}image_second\s*.{0,40}\bperturb\b
+  - (?i)\b(?:alpha_1|alpha_2)\s*=\s*\d+
+  file_types:
+  - '*.py'
+  message: Detected stepwise PGD optimization for collaborative multimodal attack.
+  remediation: '- Review code for adversarial intent
+
+    - Implement adversarial training
+
+    - Monitor for suspicious gradient-based perturbations'
+  owasp_llm: LLM06:2025
+  cwe: CWE-693
+  mitre_attack: T1574
+  source_paper: Zhang et al. (2022) -- Towards Adversarial Attack on Vision-Language
+    Pre-train | Co-Attack stepwise PGD, Eq. (6) and Eq. (7) in paper
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'alpha = 1.5  # learning rate'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-172
+  name: bert-attack-text-perturbation
+  description: Detection of BERT-Attack used for text perturbation in multimodal attacks
+    on VLP models.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+bert_attack\b
+  - (?i)\bBERTAttack\b
+  - (?i)\bbert_attack\s*\(\s*model
+  file_types:
+  - '*.py'
+  message: Detected BERT-Attack used for adversarial text perturbation in VLP attack.
+  remediation: '- Remove or restrict BERT-Attack usage
+
+    - Apply text input sanitization
+
+    - Monitor for excessive token replacement requests'
+  owasp_llm: LLM01:2025
+  cwe: CWE-290
+  mitre_attack: T1556
+  source_paper: Zhang et al. (2022) -- Towards Adversarial Attack on Vision-Language
+    Pre-train | BERT-Attack used in Co-Attack text perturbation, ref [9]
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'bert_attack = False  # flag'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-MM-SCAN-173
+  name: sparsema-import
+  description: Detects import or usage of the SparseMA attack library/framework from
+    the paper.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:from|import)\s+SparseMA\b
+  - (?i)SparseMA\s*=
+  file_types:
+  - '*.py'
+  message: Detected SparseMA library import - used for black-box multimodal adversarial
+    attacks.
+  remediation: '- Remove usage of SparseMA for malicious purposes. - Use robust multimodal
+    classifiers with adversarial training.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: T1557
+  source_paper: 'Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA paper, attack success rates up to 82.5% on CLIPViT, targets: CLIP, ALBEF'
+  fp_guards:
+  - sparsema is a technique for evaluating model robustness
+  - The SparseMA method was proposed in EMNLP 2023.
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-174
+  name: sparsema-patch-split-code
+  description: Detects code that splits images into patches for SparseMA-style attacks,
+    typically with side lengths and importance scoring.
+  severity: medium
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:split|divide).{0,40}(?:image|patch).{0,40}(?:side|size).{0,40}\d+
+  - (?i)importance_score.{0,40}(?:patch|word).{0,40}(?:output|logit)
+  file_types:
+  - '*.py'
+  message: Detected image patch splitting and importance scoring pattern used in SparseMA
+    attack.
+  remediation: '- Inspect code for adversarial attack intent. - Use patch-based defensive
+    preprocessing.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: T1557
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA paper, patch side length s=8 to 32 pixels
+  fp_guards:
+  - 'def split_image(image, patch_size):  # for legitimate segmentation'
+  - importance_score = compute_saliency(image)
+  pipeline_confidence: high
+- id: MEDUSA-MM-SCAN-175
+  name: sparsema-candidate-substitution
+  description: Detects candidate substitution loops that replace patches or words
+    with optimal alternatives based on model output difference.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)(?:candidate|replace|substitut).{0,40}(?:patch|word).{0,40}(?:optimum|greedy|best)
+  - (?i)for\s+(?:patch|word).{0,40}in.{0,40}(?:replacement_order|candidate_set)
+  file_types:
+  - '*.py'
+  message: Detected candidate substitution loop for SparseMA-like adversarial attacks.
+  remediation: '- Remove adversarial substitution logic. - Implement adversarial training
+    to harden models.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: T1557
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA paper, uses greedy substitution with optimal candidates
+  fp_guards:
+  - 'for patch in image_patches:  # for data augmentation'
+  - '    candidate = random.choice(candidates)  # in GAN training'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-MM-SCAN-176
+  name: sparsema-random-recovery
+  description: Detects the random recovery loop that reverts perturbations to minimize
+    changes while maintaining adversarial status.
+  severity: low
+  category: multimodal_attacks
+  patterns:
+  - (?i)random.{0,40}(?:recover|revert|restore).{0,40}(?:perturb|adversar)
+  - (?i)for\s+t\s+in\s+range\(.{0,40}recovery\s*\*
+  file_types:
+  - '*.py'
+  message: Detected random recovery loop to refine adversarial examples (SparseMA).
+  remediation: '- Remove recovery loops that reduce perturbation. - Use detection
+    systems for sparse perturbations.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: T1557
+  source_paper: Yu et al. (2023) -- Sparse Black-Box Multimodal Attack for Vision-Language  |
+    SparseMA paper, N iterations = 4x perturbed element count
+  fp_guards:
+  - 'for t in range(recovery_iters):  # for image restoration'
+  - '    if adversarial: break'
+  pipeline_confidence: medium
+  action: log

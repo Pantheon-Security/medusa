@@ -1,0 +1,2780 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: voice_audio_attacks
+rules:
+- id: MEDUSA-VAA-SCAN-101
+  name: lipfuzzer-import
+  description: Detects import or usage of the LipFuzzer fuzzing tool for NLU intent
+    classifier attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+lipfuzzer\b
+  - (?i)lipfuzzer\s*=\s*(?:LipFuzzer|True|1)
+  file_types:
+  - '*.py'
+  message: Detected LipFuzzer fuzzing tool for voice assistant semantic misinterpretation
+    attacks.
+  remediation: '- Remove LipFuzzer from production code.
+
+    - Use intent classification with strict matching and validation.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2019) -- Life after Speech Recognition: Fuzzing Semantic
+    Misinte | LipFuzzer: linguistic-model-guided fuzzing of NLU intent classifiers
+    – 71% of Amazon Alexa and 29% of Google Assistant vApps vulnerable'
+  fp_guards:
+  - import lipreading as lipfuzzer
+  - lipfuzzer is not a known library
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-102
+  name: lapsus-model-usage
+  description: Detects loading or usage of LAPSUS linguistic models for generating
+    semantic misinterpretation attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\blapsus\s*_?\s*model
+  - (?i)(?:load|read|open)\s*\(\s*['"][^'"]*lapsus
+  - (?i)lapsus_models?\s*=
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.pkl'
+  message: Detected LAPSUS linguistic model used for generating misinterpretation
+    voice commands.
+  remediation: '- Remove LAPSUS model files from deployment.
+
+    - Ensure NLU intent classification is not influenced by external linguistic models.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2019) -- Life after Speech Recognition: Fuzzing Semantic
+    Misinte | LipFuzzer uses LAPSUS models to query linguistic knowledge and fuzz
+    voice command templates'
+  fp_guards:
+  - lapsus_model is a variable name
+  - from lapsus import lapsus_model
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-103
+  name: bayesian-network-attack-model
+  description: Detects construction or usage of Bayesian Networks for modeling linguistic
+    attacks on voice assistants.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)BayesianNetwork\s*\(.{0,40}lapsus
+  - (?i)(?:from\s+pgmpy|import\s+BayesianNetwork)
+  - (?i)BN\s*=\s*\w*Lapsus|Lapsus.{0,40}BN
+  file_types:
+  - '*.py'
+  message: Detected Bayesian Network attack model for linguistic fuzzing of NLU intent
+    classifiers.
+  remediation: '- Remove Bayesian Network attack modeling code.
+
+    - Use intent classifiers with proven robustness against fuzzing.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2019) -- Life after Speech Recognition: Fuzzing Semantic
+    Misinte | LipFuzzer formulates Bayesian Networks from linguistic knowledge to
+    guide mutation fuzzing'
+  fp_guards:
+  - import BayesianNetwork from pgmpy for educational purposes
+  - BayesianNetwork is used for medical diagnosis
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-104
+  name: nlp-mutation-fuzzing
+  description: Detects NLP preprocessing or mutation engine designed for generating
+    adversarial voice commands.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)LipFuzzer\.(?:MutationEngine|NLPPreprocessing)
+  - (?i)class\s+MutationEngine\s*\(.{0,40}LipFuzzer
+  file_types:
+  - '*.py'
+  message: Detected NLP mutation engine used for generating malicious voice commands.
+  remediation: '- Remove custom mutation engine code.
+
+    - Apply input validation on voice command templates.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2019) -- Life after Speech Recognition: Fuzzing Semantic
+    Misinte | LipFuzzer includes NLP preprocessing and mutation engine to mutate phoneme,
+    vocabulary, and grammar fields'
+  fp_guards:
+  - 'class MutationEngine:  # for evolutionary algorithms'
+  - from nlp.preprocessing import NLPPreprocessing
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-105
+  name: cmu-pronouncing-dictionary-attack
+  description: Detects usage of CMU Pronouncing Dictionary for pronunciation-based
+    mutation in voice assistant attacks.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)cmudict\.dictionary\(\)
+  - (?i)cmu[_-]?pronouncing
+  file_types:
+  - '*.py'
+  message: Detected CMU Pronouncing Dictionary usage, which can be used for pronunciation-level
+    fuzzing.
+  remediation: '- Review usage of pronunciation dictionaries in security contexts.
+
+    - Restrict access to phonetic data in production.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Zhang et al. (2019) -- Life after Speech Recognition: Fuzzing Semantic
+    Misinte | LipFuzzer uses CMU Pronouncing Dictionary via NLTK for phoneme extraction'
+  fp_guards:
+  - 'from cmudict import cmudict  # for speech recognition training'
+  - cmu_pronouncing is used in text-to-speech system
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-106
+  name: perturbation-engine-tdi-rpg-audio-attack
+  description: Detects code implementing Time Domain Inversion (TDI) or Random Phase
+    Generation (RPG) perturbation methods for hidden voice attacks. These methods
+    modify audio in the time or phase domain while preserving the magnitude spectrum,
+    used to generate adversarial audio that VPSes transcribe correctly but humans
+    perceive as noise.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+.{0,40}perturbation.{0,40}engine.{0,40}
+  - (?i)\b(tdi|rpg)\s*=\s*[{(\['"]
+  - (?i)\bperturbation_engine\(.{0,40}(?:tdi|rpg|phase|window)\b
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.sh'
+  message: Detected code implementing TDI or RPG perturbation methods for hidden voice
+    attacks. These methods can generate audio that is unintelligible to humans but
+    correctly processed by speech recognition systems.
+  remediation: '- Review the purpose and intended use of TDI/RPG perturbation code.
+
+    - If part of an attack toolkit, remove or sandbox the code.
+
+    - Ensure that any audio processing pipeline includes detection of such perturbations
+    (e.g., phase coherence checks).
+
+    - Implement input validation and anomaly detection for audio feature vectors.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1556.007
+  source_paper: 'Abdullah et al. (2019) -- Practical Hidden Voice Attacks against
+    Speech and Speak | Paper: Practical Hidden Voice Attacks against Speech and Speaker
+    Recognition Systems (NDSS 2019); methods: Time Domain Inversion (TDI) and Random
+    Phase Generation (RPG); target models: 12 black-box VPSes including Google Speech
+    API, Bing Speech API, IBM Speech API, etc.'
+  fp_guards:
+  - from research.audio import tdi_feature
+  - '# Implement TDI for audio denoising project'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-107
+  name: high-frequency-addition-perturbation
+  description: Detects code adding high-frequency sine waves to audio to mask commands,
+    as described in HFA perturbation. These frequencies are filtered out during VPS
+    preprocessing but can be used to create attack audio that is unintelligible to
+    humans.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:generate|add)_high_freq\(|high_freq.{0,40}sine\(|freq.{0,40}mask.{0,40}audio\b
+  - (?i)\bsin\(.{0,40}2\s*\*\s*math\.pi\s*\*\s*freq\)
+  file_types:
+  - '*.py'
+  - '*.m'
+  - '*.ipynb'
+  message: Detected code that adds high-frequency sine waves to audio. This technique
+    is used in the HFA perturbation to mask voice commands from human hearing while
+    allowing VPS transcription.
+  remediation: '- Investigate the context of high-frequency sine wave addition.
+
+    - If used for attack generation, remove or restrict the code.
+
+    - Implement audio preprocessing filters that detect and remove unexpected high-frequency
+    components.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1556.007
+  source_paper: 'Abdullah et al. (2019) -- Practical Hidden Voice Attacks against
+    Speech and Speak | Paper: Practical Hidden Voice Attacks against Speech and Speaker
+    Recognition Systems (NDSS 2019); method: High Frequency Addition (HFA); target
+    models: multiple VPSes.'
+  fp_guards:
+  - 'freq = np.fft.fftfreq(n); sine = np.sin(2 * np.pi * 440 * t)  # legitimate tuning
+    reference'
+  - 'high_freq = np.sin(2 * np.pi * 20000 * t)  # used for ultrasonic testing'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-108
+  name: time-scaling-audio-perturbation
+  description: Detects code implementing time scaling (speed perturbation) to accelerate
+    voice commands while maintaining intelligibility for VPSes, as per TS perturbation.
+    This method compresses audio in time domain to make commands harder for humans
+    to understand.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(resample|time_stretch|speed_change)\s*\(.{0,40}\b(?:factor|rate|scale)\b
+  - (?i)\blibrosa\.effects\.time_stretch\b
+  - (?i)\bsoundfile\.write\(.{0,40}\b(speed|accelerat|stretch)\b
+  file_types:
+  - '*.py'
+  - '*.m'
+  - '*.ipynb'
+  message: Detected time scaling or speed perturbation of audio, which can be used
+    as part of a hidden voice attack to accelerate commands beyond human comprehension
+    while keeping VPS accuracy.
+  remediation: '- If part of an attack pipeline, remove or sandbox the code.
+
+    - Implement checks for unusual speech rate or spectral irregularities.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1556.007
+  source_paper: 'Abdullah et al. (2019) -- Practical Hidden Voice Attacks against
+    Speech and Speak | Paper: Practical Hidden Voice Attacks against Speech and Speaker
+    Recognition Systems (NDSS 2019); method: Time Scaling (TS); target models: 12
+    VPSes.'
+  fp_guards:
+  - 'rate_orig = sr; y_stretched = librosa.effects.time_stretch(y, rate=0.8)  # slow
+    down for analysis'
+  - soundfile.write('output.wav', audio, samplerate, subtype='PCM_16')
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-109
+  name: perturbation-engine-tdi-rpg-audio-attack
+  description: Detects audio perturbation engine using Time Domain Inversion (TDI)
+    or Random Phase Generation (RPG) with configurable window sizes, as described
+    in the paper with 100% ASR across 12 models.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:time|tdi|rpg|domain).{0,20}(?:inversion|phase|perturb)
+  - (?i)(?:window_size|win_size|window_length)\s*(?:=|:)\s*\d+
+  - (?i)(?:from|import)\s+perturbation_engine\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  - '*.yaml'
+  message: Detected audio perturbation engine using TDI/RPG techniques; this tool
+    can generate hidden voice commands that bypass human perception.
+  remediation: '- Review and restrict use of audio perturbation tools like Perturbation
+    Engine (PE)
+
+    - Implement audio input validation and anomaly detection on MFCC feature vectors
+
+    - Use voice biometric liveness detection to prevent replay/perturbation attacks'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1557.001
+  source_paper: 'Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Abdullah et al. 2019 NDSS: Practical Hidden Voice Attacks; 100%
+    ASR on 12 models incl. Google, Bing, IBM, Azure'
+  fp_guards:
+  - 'def process_audio(window_size=256, sample_rate=16000):'
+  - 'time_domain_inversion = False  # disabled in production'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-110
+  name: high-frequency-addition-perturbation
+  description: Detects code that adds high frequency sine waves (>8kHz) to audio,
+    a technique used to mask voice commands (100% ASR on tested models).
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:np\.sin|math\.sin|sin)\s*\(\s*2\s*\*\s*(?:np\.pi|math\.pi|pi)\s*\*\s*(?:freq|frequency)
+  file_types:
+  - '*.py'
+  - '*.m'
+  - '*.ipynb'
+  message: Detected high frequency sine wave addition to audio; used by Hidden Voice
+    Attack to mask commands.
+  remediation: '- Monitor use of high-frequency generation libraries (numpy, scipy)
+
+    - Apply bandpass filters to remove out-of-band frequencies in VPS input
+
+    - Educate developers against adding high-frequency noise to audio data'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Abdullah et al. 2019 NDSS: Practical Hidden Voice Attacks; HFA
+    technique, 100% ASR on multiple models'
+  fp_guards:
+  - 'freq = np.fft.fftfreq(n, d=1/16000)  # legitimate FFT'
+  - 'sine_wave = np.sin(2 * np.pi * 440 * t)  # tuning note'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-111
+  name: noise-flooding-import
+  description: Detects import of noise flooding defense code from the paper's GitHub
+    repository or usage of its core algorithm.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+noise_flooding\b
+  - (?i)github\.com/LincLabUCCS/Noise-Flooding
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: Detected noise flooding defense code from Rajaratnam et al. 2018 paper.
+  remediation: '- Ensure this is used for authorized security testing only.
+
+    - Review integration points for false positive impacts on benign audio.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Rajaratnam et al. (2018) -- Noise Flooding for Detecting Audio Adversarial
+    Examples | Noise Flooding for Detecting Audio Adversarial Examples (2018) - detection
+    defense for Speech Commands model.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 100MB, FloodingScore: 0.9}'
+  - The noise_flooding approach is discussed in the literature review section.
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-112
+  name: bandpass-filter-noise-flooding
+  description: Detects custom band-pass filtering logic for audio noise flooding as
+    described in the paper.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)band[-_]?pass\s*filter
+  - (?i)scipy\.signal\.butter\s*\([^)]*\b(?:0-2000|2000-4000|4000-6000|6000-8000)\b
+  file_types:
+  - '*.py'
+  message: Detected band-pass filter targeting specific frequency bands for noise
+    flooding.
+  remediation: '- Verify that audio preprocessing includes proper band-pass filtering.
+
+    - Ensure band-pass parameters are not used to evade detection.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Rajaratnam et al. (2018) -- Noise Flooding for Detecting Audio Adversarial
+    Examples | Noise Flooding paper: uses scipy.signal.butter to filter noise into
+    bands (0-2000Hz, 2000-4000Hz, etc.).'
+  fp_guards:
+  - scipy.signal.butter(4, [100, 300], btype='band', fs=44100)
+  - The band-pass filter was applied to remove noise above 4kHz for speech enhancement.
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-113
+  name: xgboost-ensemble-flooding
+  description: Detects training or loading of an XGBoost classifier for noise flooding
+    score ensemble as the paper's best defense.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)xgboost\.(?:XGBClassifier|train)
+  - (?i)from\s+xgboost\s+import\s+XGBClassifier
+  file_types:
+  - '*.py'
+  message: Detected XGBoost ensemble for noise flooding adversarial detection.
+  remediation: '- Use only for authorized security testing.
+
+    - Monitor for false positives when applied to benign audio.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Rajaratnam et al. (2018) -- Noise Flooding for Detecting Audio Adversarial
+    Examples | Noise Flooding paper: XGBoost ensemble achieved best F1=0.926 on Speech
+    Commands adversarial detection.'
+  fp_guards:
+  - from xgboost import XGBRegressor; model = XGBRegressor()
+  - The XGBoost ensemble for adversarial detection requires scoring threshold tuning.
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-114
+  name: audio-fingerprint-memory-mechanism
+  description: Detects use of audio fingerprint similarity and memory sequence to
+    identify query-based adversarial attacks on ASR.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:audio\s*fingerprint|fingerprint\s*similarity|memory\s*mechanism)\b.{0,40}(?:adversarial|attack|detect|defense)
+  - (?i)(?:from\s+.{0,40}import|import\s+).{0,40}\b(?:fingerprint|audfprint|pyaudioanalysis|dejavu)\b
+  - (?i)\b(?:k\s*=\s*75|threshold\s*[=:].{0,40}0\.31[0-9]{3,}|memory\s*depth\s*[=:].{0,40}75\b)
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  message: Detected audio fingerprint memory mechanism for adversarial attack detection.
+  remediation: '- Evaluate if memory mechanism is used for security monitoring.
+
+    - Ensure it does not introduce privacy concerns.
+
+    - Consider adversarial robustness of fingerprint extraction.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: universal defense for query-based audio adversarial
+    attacks, 90%+ DSR on CommanderSong, Devil''s Whisper, IRTA, DS attacks.'
+  fp_guards:
+  - fingerprint_similarity = compute_cosine_similarity(embedding_a, embedding_b)
+  - 'memory_depth = 75  # hyperparameter for sequence analysis'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-115
+  name: commander-song-attack-import
+  description: Detects CommanderSong attack implementation using Kaldi and music-carrier
+    adversarial examples.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+.{0,40}\bcommander\s*song\b
+  - (?i)\bcmd\s*=\s*['"]play\s+music\b
+  - (?i)\bkaldi\b.{0,40}\badversarial\b
+  file_types:
+  - '*.py'
+  message: 'CommanderSong attack code detected: music-carrier adversarial attack on
+    Kaldi.'
+  remediation: '- Remove or isolate CommanderSong attack code.
+
+    - Implement input validation for music files.
+
+    - Use audio fingerprint memory defense.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1098
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: CommanderSong attack on Kaldi, 100% SRoA, music-carrier.'
+  fp_guards:
+  - from kaldi import recognize as kaldi_recognize
+  - 'import commander  # not CommanderSong'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-116
+  name: devils-whisper-attack-import
+  description: Detects Devil's Whisper black-box attack using substitute model and
+    commercial API queries.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+.{0,40}\bdevils\s*whisper\b
+  - (?i)\bsubstitute\s*model\b.{0,40}\bapi\b.{0,40}\badversarial\b
+  - (?i)\bgoogle\s*(?:assistant|speech)\b.{0,40}\battack\b
+  file_types:
+  - '*.py'
+  message: 'Devil''s Whisper black-box attack code detected: targets commercial ASR
+    APIs.'
+  remediation: '- Remove or isolate Devil''s Whisper attack code.
+
+    - Implement rate limiting on API queries.
+
+    - Use fingerprint similarity monitoring.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: T1041
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: Devil''s Whisper attack on commercial APIs, 98% SRoA,
+    music-carrier.'
+  fp_guards:
+  - 'from whisper import transcribe  # not Devil''s Whisper'
+  - 'import devils  # not the attack'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-117
+  name: irta-attack-import
+  description: Detects Imperceptible Robust Targeted Adversarial (IRTA) attack using
+    psychoacoustic masking on Lingvo.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:irta|imperceptible.{0,20}robust.{0,20}targeted)\b.{0,40}\badversarial\b
+  - (?i)\blingvo\b.{0,40}\battack\b
+  - (?i)\bpschoacoustic\s*masking\b.{0,40}\badversarial\b
+  file_types:
+  - '*.py'
+  message: 'IRTA attack code detected: psychoacoustic masking adversarial attack on
+    Lingvo.'
+  remediation: '- Remove IRTA attack code.
+
+    - Implement psychoacoustic detection mechanisms.
+
+    - Monitor query frequency and similarity.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1098
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: IRTA attack on Lingvo, 100% SRoA, ~5000 queries,
+    FSNR 40.97dB.'
+  fp_guards:
+  - 'import irta as irta_module  # not the attack'
+  - from lingvo import model
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-118
+  name: ds-attack-import
+  description: Detects DeepSpeech adversarial attack using CTC-loss optimization.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:ctc.{0,20}loss|ctcloss).{0,40}adversarial
+  - (?i)\bdeepspeech\b.{0,40}\badversarial\b
+  - (?i)(?:from|import).{0,40}\bds_attack\b
+  file_types:
+  - '*.py'
+  message: 'DeepSpeech adversarial attack code detected: CTC-loss based attack.'
+  remediation: '- Remove DS attack code.
+
+    - Update DeepSpeech to robust version.
+
+    - Implement fingerprint memory defense.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+  mitre_attack: T1098
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: DS attack on DeepSpeech, 100% SRoA, ~1000 queries.'
+  fp_guards:
+  - 'import deepspeech as ds  # benign usage'
+  - 'ctc_loss = tf.nn.ctc_loss(labels, logits)  # benign training'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-119
+  name: music-carrier-dataset
+  description: Detects music-carrier dataset used for generating audio adversarial
+    examples (Music-sets).
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bmusic.sets?\b.{0,40}\.(?:wav|mp3|flac)
+  - (?i)\b10[\.,]553\b.{0,40}\bmusic\b
+  - (?i)\bmusic.base[d]?\s*adversarial\b
+  file_types:
+  - '*.csv'
+  - '*.json'
+  - '*.txt'
+  message: Music-carrier adversarial dataset detected (Music-sets from Guo et al.
+    2023).
+  remediation: '- Review dataset for adversarial usage.
+
+    - Apply audio fingerprint defense.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: Music-sets dataset of 10,553 music clips for adversarial
+    attacks.'
+  fp_guards:
+  - 'music = load_audio(''song.wav'')  # benign music library'
+  - 'dataset_size = 10553  # not necessarily adversarial'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-120
+  name: high-frequency-addition-perturbation
+  description: Detects implementations of the High Frequency Addition (HFA) perturbation
+    method from the paper. HFA adds high-frequency sine waves to mask the underlying
+    audio command, leveraging psychoacoustic effects.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+high_frequency_addition\b
+  - (?i)(?:high.?frequency.?addition|hfa)\s*\(.{0,40}(?:sine|frequency|mask)
+  file_types:
+  - '*.py'
+  message: Detected High Frequency Addition (HFA) perturbation implementation.
+  remediation: '- Filter out high-frequency content beyond voice range (e.g., >8 kHz).
+
+    - Use anti-masking techniques or psychoacoustic models to detect such attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks against Speech and Speaker Recognition
+    Systems. HFA adds high frequencies to mask commands, effective black-box.
+  fp_guards:
+  - '# high frequency addition is also used in audio equalization for hearing aids'
+  - 'hfa = 0.5  # heuristic frequency adjustment'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-121
+  name: time-scaling-audio-perturbation
+  description: Detects implementations of Time Scaling (TS) perturbation, which compresses
+    audio in the time domain to speed up speech while maintaining spectrum. Combined
+    with other perturbations, it makes audio unintelligible to humans but still transcribable
+    by ASRs.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+time_scaling\b
+  - (?i)time_scaling\s*\(.{0,40}(?:speed|compress|tempo)
+  file_types:
+  - '*.py'
+  message: Detected Time Scaling (TS) perturbation implementation.
+  remediation: '- Normalize audio speed and detect unnatural time compression.
+
+    - Use tempo-robust acoustic models or limit allowed speed variations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks against Speech and Speaker Recognition
+    Systems. TS speeds up voice commands while preserving transcription.
+  fp_guards:
+  - '# time scaling is a common audio processing technique for podcasts'
+  - 'audio_speed = 1.0  # normal speed'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-122
+  name: bandpass-filter-noise-flooding
+  description: Detects implementations that combine bandpass filtering with noise
+    flooding, as discussed in the paper's defense section. Although not a primary
+    attack, such techniques could be misused to probe or degrade VPS.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:bandpass|band_pass)\s*filter.{0,40}(?:noise|flood)
+  - (?i)noise_flooding\s*\(.{0,40}(?:bandpass|filter)
+  file_types:
+  - '*.py'
+  message: Detected bandpass filter combined with noise flooding, a technique related
+    to the paper's defense analysis.
+  remediation: '- Ensure noise flooding is not used to mask adversarial perturbations.
+
+    - Monitor for excessive audio processing that degrades quality.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks against Speech and Speaker Recognition
+    Systems. The paper discusses noise flooding as a potential defense, but it can
+    be misused.
+  fp_guards:
+  - '# bandpass filter is standard in audio preprocessing'
+  - filtered = bandpass_filter(audio, low=20, high=20000)
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-VAA-SCAN-123
+  name: audio-fingerprint-memory-mechanism
+  description: Detects implementations of audio fingerprinting or memory mechanisms
+    for replay detection, as discussed in the paper's defense section.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:audio_fingerprint|audio_fingerprinting)\b
+  - (?i)replay_detection\s*\(.{0,40}(?:audio|fingerprint)
+  file_types:
+  - '*.py'
+  message: Detected audio fingerprinting or replay detection mechanism.
+  remediation: '- Review the implementation for correctness and robustness.
+
+    - Fingerprinting alone may not detect advanced adversarial perturbations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks. The paper suggests audio fingerprinting
+    as a defense to detect repeated attack samples.
+  fp_guards:
+  - '# audio fingerprinting is used in music recognition'
+  - fingerprint = audio_fingerprint(audio)
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-124
+  name: commander-song-attack-import
+  description: Detects imports or references to 'Commander Song' style attacks, which
+    are related obfuscated voice commands. This rule captures the broader category
+    of hidden voice attacks discussed in the paper's related work.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:commander.?song|CommanderSong)\b
+  - (?i)hidden.?voice.{0,40}(?:command|attack)
+  file_types:
+  - '*.py'
+  message: Detected reference to Commander Song or hidden voice attack framework.
+  remediation: '- Ensure audio processing systems can detect unnatural audio.
+
+    - Monitor for known attack patterns like Commander Song.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks. Commander Song is a related hidden
+    voice attack framework.
+  fp_guards:
+  - '# commander song is a song by the band The Clash'
+  - 'hidden_voice = True  # configuration setting'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-125
+  name: devils-whisper-attack-import
+  description: Detects imports or references to 'Devil's Whisper' attack, a related
+    black-box audio adversarial attack.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:devils.?whisper|devil.?s.?whisper)\b
+  - (?i)adversarial.{0,40}(?:black.?box|audio)
+  file_types:
+  - '*.py'
+  message: Detected reference to Devil's Whisper or black-box adversarial audio attack.
+  remediation: '- Review code for potential adversarial audio generation.
+
+    - Implement detection of unnatural audio patterns.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks. Devil's Whisper is a related black-box
+    attack on VPS.
+  fp_guards:
+  - '# devils whisper is a movie title'
+  - 'black_box = ''audio''  # generic'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-126
+  name: irta-attack-import
+  description: Detects imports or references to 'IRTA' (Inaudible Remote Triggered
+    Audio) attacks, which use ultrasonic carriers.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bIRTA\b
+  - (?i)inaudible.{0,40}(?:trigger|remote)
+  file_types:
+  - '*.py'
+  message: Detected reference to IRTA (Inaudible Remote Triggered Audio) attack.
+  remediation: '- Filter ultrasonic frequencies from microphone input.
+
+    - Monitor for inaudible command injection techniques.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks. IRTA is a related inaudible attack
+    technique.
+  fp_guards:
+  - '# IRTA is also an acronym for International Real-Time Analysis'
+  - 'irta = True  # flag'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-127
+  name: music-carrier-dataset
+  description: Detects use of music as a carrier for hidden voice commands, a technique
+    related to the paper's approach of using audio samples that sound like music or
+    noise.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)music.{0,20}(?:carrier|hidden|adversarial)
+  - (?i)carrier.{0,20}(?:audio|music)
+  file_types:
+  - '*.py'
+  message: Detected music carrier dataset or technique for hidden voice commands.
+  remediation: '- Ensure that music-like audio is not used to carry hidden commands.
+
+    - Implement audio anomaly detection.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks. The paper uses audio that sounds like
+    noise or music to carry hidden commands.
+  fp_guards:
+  - '# music carrier dataset is used in audio classification research'
+  - 'carrier_audio = ''music.wav''  # legitimate file'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-128
+  name: carlini-wagner-audio-ctc-loss-optimization
+  description: Detects usage of CTC loss optimization for adversarial audio generation
+    as in Carlini & Wagner audio attack.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+ctc_loss\b
+  - (?i)\bctc[_-]loss\b.{0,40}\badversarial\b
+  - (?i)tf\.contrib\.signal\.mfccs_from_audio\b
+  file_types:
+  - '*.py'
+  message: Detected use of CTC loss optimization for adversarial audio generation.
+  remediation: '- Ensure all audio input validation is in place.
+
+    - Use robust feature extraction methods.
+
+    - Implement adversarial training with audio perturbations.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Targeted audio adversarial examples on DeepSpeech,
+    100% ASR, -31dB mean distortion.
+  fp_guards:
+  - 'import tensorflow as tf
+
+    from tensorflow.contrib.signal import mfccs_from_audio
+
+    # legit feature extraction'
+  - 'def compute_ctc_loss(labels, logits):  # benign training loss'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-129
+  name: carlini-wagner-audio-alignment-extraction
+  description: Detects extraction of CTC alignment for second-stage adversarial optimization.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bargmax\b.{0,40}\b(?:alignment|align)\b
+  - (?i)\b(?:alignment|align)\s*=\s*\b(?:argmax|arg_max|argmax)\b
+  file_types:
+  - '*.py'
+  message: Possible extraction of CTC alignment for adversarial audio generation.
+  remediation: '- Limit use of argmax on logits without sanitization.
+
+    - Restrict access to model internals.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, extract alignment π = argmax f(x0) then fix for
+    second step.
+  fp_guards:
+  - 'pred = tf.argmax(logits, axis=1)  # standard classification'
+  - 'align = greedy_decode(outputs)  # benign CTC decode'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-130
+  name: carlini-wagner-audio-per-character-weights
+  description: Detects per-character weights in adversarial loss, a signature of Carlini
+    & Wagner audio attack.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bsum\(ci\s*\*\s*loss\b
+  file_types:
+  - '*.py'
+  message: Detected per-character weighting in adversarial loss, indicating advanced
+    audio attack.
+  remediation: '- Monitor for custom loss functions with per-character weights.
+
+    - Use beam search decoding to increase robustness.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, use ∑ ci·Li(x+δ,πi) with different ci per character.
+  fp_guards:
+  - loss = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels,
+    logits=logits))
+  - 'weights = tf.constant([1.0, 1.5, 1.0])  # class balancing, not per character'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-131
+  name: carlini-wagner-audio-mp3-robust-attack
+  description: Detects use of straight-through estimator for MP3-compression-robust
+    adversarial audio.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bstraight.?through\b.{0,40}\b(?:mp3|compression|gradient)\b
+  - (?i)\bMP3(?:Compression|Layer|Op)\b.{0,40}\bgradient\b
+  - (?i)tf\.gradient_pass_through_estimator\b
+  file_types:
+  - '*.py'
+  message: Detected MP3-robust adversarial audio generation via straight-through estimator.
+  remediation: '- Apply MP3 compression as a defense before ASR inference.
+
+    - Use MP3 compression in adversarial training.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, MP3-robust adversarial examples with 15dB larger
+    distortion.
+  fp_guards:
+  - '# benign MP3 encoding function
+
+    import mp3
+
+    encoded = mp3.encode(waveform)'
+  - 'from tensorflow import gradient_pass_through_estimator  # not an attack alone'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-132
+  name: carlini-wagner-audio-adam-high-lr
+  description: Detects high learning rate Adam optimizer (lr=10) used in Carlini &
+    Wagner audio attack.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)Adam(?:Optimizer)?\(.{0,40}\blearning_rate\s*=\s*10\b
+  - (?i)tf\.keras\.optimizers\.Adam\(.{0,40}\blearning_rate\s*=\s*10\b
+  - (?i)learning_rate\s*=\s*10\b
+  file_types:
+  - '*.py'
+  message: High learning rate (10) Adam optimizer detected, commonly used in Carlini
+    & Wagner audio attack.
+  remediation: '- Monitor for abnormal optimizer configurations.
+
+    - Reduce learning rate for gradient-based attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Adam optimizer with learning rate 10, 5000 iterations.
+  fp_guards:
+  - optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+  - 'lr = 10  # just a variable name, not optimizer'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-133
+  name: carlini-wagner-audio-5000-iterations
+  description: Detects 5000 iterations gradient descent loop used in Carlini & Wagner
+    audio adversarial attack.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:iterations|steps|max_iter)\s*[=:].{0,40}5000\b
+  - (?i)\bfor\s+_\s+in\s+range\(5000\)\b
+  file_types:
+  - '*.py'
+  message: 5000 iteration loop detected, typical of audio adversarial generation.
+  remediation: '- Limit the number of optimization iterations in production.
+
+    - Use early stopping with input validation.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, up to 5000 iterations of Adam with learning rate
+    10.
+  fp_guards:
+  - 'for epoch in range(5):  # training epochs'
+  - 'iters = 5000  # variable definition, not loop'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-VAA-SCAN-134
+  name: carlini-wagner-audio-decibel-constraint
+  description: Detects dB distortion constraint τ used in Carlini & Wagner audio attack.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bdBx\(\s*delta\s*\)\s*\<=\s*\btau\b
+  - (?i)\b(?:distortion|tau)\s*\<=\s*\-?\d+\s*dB\b
+  - (?i)\[.{0,40}-?\d+.{0,40}dB.{0,40}\].{0,40}\btau\b
+  file_types:
+  - '*.py'
+  message: Detected dB distortion constraint τ, characteristic of Carlini & Wagner
+    audio adversarial attack.
+  remediation: '- Enforce strict dB limits on audio input perturbations.
+
+    - Use l_infinity clipping to limit perturbation magnitude.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, minimize |δ|2_2 + c·ℓ(x+δ,t) subject to dBx(δ)
+    ≤ τ.
+  fp_guards:
+  - 'distortion = compute_thd(signal)  # total harmonic distortion'
+  - 'if amplitude > 0.9:  # audio level check'
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-VAA-SCAN-135
+  name: carlini-wagner-audio-robust-to-noise
+  description: Detects Expectation over Transforms used for noise-robust adversarial
+    audio (Carlini & Wagner).
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bexpectation.?over.?transforms\b
+  - (?i)\bEoT(?:Attac[kks]|\s*\(|\s*\[)
+  - (?i)transform\(\s*x\s*,\s*noise\s*\)
+  file_types:
+  - '*.py'
+  message: Detected Expectation over Transforms for noise-robust adversarial audio.
+  remediation: '- Use ensemble of transforms during inference.
+
+    - Add random noise during training for robustness.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, EoT for robustness to pointwise noise at -30dB.
+  fp_guards:
+  - 'def transform(x):  # data augmentation'
+  - 'noise = np.random.normal(0, 0.01, x.shape)  # benign augmentation'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-136
+  name: carlini-wagner-audio-ctc-targeted
+  description: Detection of Carlini-Wagner iterative optimization-based targeted audio
+    adversarial example generation using CTC loss and custom alignment-based loss
+    functions.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+ctc_loss_attack\b
+  - (?i)def\s+(?:carlini_wagner|audio_adversarial|ctc_attack)\b
+  - (?i)(?:CTC[_-]?Loss|ctc_loss)\s*\(.{0,40}target_phrase\b
+  file_types:
+  - '*.py'
+  message: 'Carlini-Wagner audio adversarial attack code detected: iterative optimization
+    to craft targeted adversarial examples on DeepSpeech.'
+  remediation: '- Implement input validation and perturbation detection (e.g., statistical
+    outlier detection).
+
+    - Use adversarial training with audio-specific defenses (e.g., MP3 compression,
+    random noise).
+
+    - Monitor and block large gradient-based optimization on audio input pipelines.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018 Audio Adversarial Examples: 100% ASR on DeepSpeech,
+    mean distortion -31dB.'
+  fp_guards:
+  - from tensorflow import keras as K
+  - 'loss = ctc_loss(labels, logits)  # standard CTC loss in speech recognition training'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-137
+  name: audio-ffmpeg-hiding-pattern
+  description: Detection of code that creates a subprocess call to ffmpeg for hiding
+    audio using adversarial perturbations, targeting non-speech or silent frames.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)subprocess\.(?:run|Popen|call)\s*\(\s*\[\s*['"](?:ffmpeg|avconv)['"]\s*,.{0,100}(?:adversarial|hide|embed|silence)\b
+  - (?i)(?:ffmpeg|avconv)\s+-i\s+.{0,40}\s+-filter_complex\s+.{0,40}\s+adversarial\s+
+  file_types:
+  - '*.py'
+  - '*.sh'
+  message: FFmpeg subprocess call with adversarial audio embedding parameters.
+  remediation: '- Restrict subprocess calls to allowed binaries with validated arguments.
+
+    - Use input sanitization on audio file paths and filter arguments.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-78
+  mitre_attack: T1059
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: demonstrating embedding adversarial perturbations
+    into non-speech audio via gradient descent.'
+  fp_guards:
+  - subprocess.run(['ffmpeg', '-i', 'input.mp4', '-vn', 'output.mp3'])
+  - subprocess.Popen(['libreoffice', '--headless', '--convert-to', 'pdf', filepath])
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-138
+  name: audio-dolphin-attack-mfcc-bypass
+  description: Detects code that manipulates MFCC preprocessing to bypass audio adversarial
+    defenses, using gradient-based optimization through the MFCC layer.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:tf\.audio\.mfccs_from_waveforms|mfcc|mel_frequency).{0,40}(?:adversarial|gradient|perturb|attack)
+  - (?i)(?:from|import)\s+.{0,40}mfcc_attack\b
+  file_types:
+  - '*.py'
+  message: MFCC manipulation for adversarial attack on speech-to-text systems.
+  remediation: '- Monitor and log unusual MFCC value distributions.
+
+    - Use randomized MFCC parameters during inference to break gradient alignment.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: optimization through MFCC preprocessing to
+    generate targeted adversarial examples.'
+  fp_guards:
+  - mel_spectrogram = tf.signal.mfccs_from_log_mel_spectrograms(log_mel_spectrograms)
+  - from speech_recognition import MFCC
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-139
+  name: audio-ctc-loss-targeted-optimization
+  description: Detects usage of CTC loss with per-character weight optimization for
+    targeted audio adversarial attacks, as described in the improved loss function
+    section.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:ctc_loss|CTCLoss)\s*\(.{0,60}(?:target_phrase|alignment|per_character_weight)
+  - (?i)ci\s*=\s*\[.{0,40}loss_i\b
+  file_types:
+  - '*.py'
+  message: CTC loss with per-character weighting for targeted adversarial audio attack.
+  remediation: '- Implement input preprocessing to detect abnormal alignment probability
+    distributions.
+
+    - Use ensemble of decoders (greedy + beam search) to cross-validate transcription.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018 improved loss function: minimized ∑ ci·Li
+    for targeted attack.'
+  fp_guards:
+  - loss = tf.nn.ctc_loss(labels=labels, logits=logits, label_length=label_length)
+  - from tensorflow.keras.backend import ctc_batch_cost
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-140
+  name: audio-common-voice-benchmark
+  description: Detects import or usage of Mozilla Common Voice dataset for benchmarking
+    audio adversarial attacks.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+common_voice\b
+  - (?i)(?:common_voice|CommonVoice)\s*\(.{0,40}(?:adversarial|attack|target)
+  - (?i)common[_-]voice\s*=\s*
+  file_types:
+  - '*.py'
+  message: Mozilla Common Voice dataset usage in audio adversarial attack context.
+  remediation: '- Ensure proper dataset access controls and usage policies.
+
+    - Monitor for automated benchmarking of adversarial attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-200
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: evaluation on Common Voice test set.'
+  fp_guards:
+  - 'import common_voice  # benign import for research'
+  - dataset = common_voice.load('val')
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-141
+  name: deepfake-defender-import-librosa
+  description: Detects import of Librosa for audio feature extraction in deepfake
+    detection systems as documented in Deep Fake Defender paper.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:import\s+librosa|from\s+librosa\s+import)
+  - (?i)librosa\.[a-z_]+\(.{0,40}(?:mfcc|spectrogram|pitch|jitter|chroma|melspectrogram)\)
+  - (?i)(?:import|from)\s+librosa\.(?:display|feature|core|onset)\b
+  file_types:
+  - '*.py'
+  message: Librosa used for acoustic feature extraction; confirm if part of audio
+    forensic/deepfake detection pipeline.
+  remediation: '- Ensure Librosa usage is part of an authorized deepfake detection
+    system.
+
+    - Review audio processing code for compliance with security policies.'
+  owasp_llm: LLM05:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'M et al. (2025) -- Deep Fake Defender AI-Based Detection of Deepfake
+    Voice | Deep Fake Defender paper: uses Librosa for MFCC, spectrogram, pitch, jitter
+    extraction for real-time deepfake detection.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'def get_mfcc(signal): return librosa.feature.mfcc(y=signal, sr=22050)'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-142
+  name: deepfake-defender-asvspoof-dataset
+  description: Detects references to ASVspoof dataset used for training deepfake detection
+    models as mentioned in the paper.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)ASVspoof\s*2019
+  - (?i)ASVspoof\s*2021
+  - (?i)(?:from|import|load)\s*(?:asv|ASV)spoof
+  file_types:
+  - '*.py'
+  - '*.txt'
+  - '*.md'
+  - '*.yaml'
+  - '*.json'
+  message: Reference to ASVspoof dataset; indicates deepfake detection or spoofing
+    research.
+  remediation: '- Ensure dataset usage complies with license terms.
+
+    - If used in deepfake generation, escalate for review.'
+  owasp_llm: LLM10:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'M et al. (2025) -- Deep Fake Defender AI-Based Detection of Deepfake
+    Voice | Deep Fake Defender paper: uses ASVspoof 2019 dataset for training deepfake
+    detection models.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The ASVspoof challenge is an anti-spoofing competition.
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-143
+  name: perturbation-engine-tdi-rpg-audio-attack
+  description: Detects code implementing Time Domain Inversion (TDI) or Random Phase
+    Generation (RPG) audio perturbation attacks for hidden voice commands. These techniques
+    exploit many-to-one FFT magnitude property to create adversarial audio samples
+    that sound like noise but are correctly transcribed by ASR systems.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+perturbation_engine
+  - (?i)class\s+PerturbationEngine
+  - (?i)def\s+(?:tdi|rpg|time_domain_inversion|random_phase_generation)
+  - (?i)perturbation_engine\.(?:apply_perturbation|generate_attack)
+  file_types:
+  - '*.py'
+  message: Detected code implementing TDI/RPG perturbation attack for hidden voice
+    commands. This technique generates audio that is unintelligible to humans but
+    correctly transcribed by ASR systems.
+  remediation: '- Remove or restrict usage of perturbation engine code in production
+
+    - Implement audio input validation and anomaly detection (e.g., spectral flatness,
+    phase coherence)
+
+    - Use defense mechanisms like audio preprocessing or adversarial training
+
+    - Monitor for unusual audio distortion patterns in system logs'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - TDI/RPG perturbations
+    achieve black-box attacks against 12 ASR systems including Google Speech API,
+    Bing Speech API, IBM Speech API, Mozilla DeepSpeech.
+  fp_guards:
+  - from perturbation_theory import compute_energy
+  - 'def rpg_stats(data): return statistics.mean(data)'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-144
+  name: high-frequency-addition-perturbation
+  description: Detects code implementing High Frequency Addition (HFA) perturbation
+    for hidden voice attacks. HFA adds high-frequency sine waves (e.g., >8kHz) that
+    are filtered out by ASR preprocessing but mask the underlying command to human
+    ears.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)def\s+(?:add_high_freq|high_frequency_addition|hfa)\s*\(
+  - (?i)sine\s*=\s*(?:np\.|numpy\.)?sin\s*\(\s*2\s*\*\s*np\.pi\s*\*\s*[0-9]{4,}\s*\*\s*t
+  - (?i)perturbation_engine\.add_high_frequency
+  - (?i)high_freq_intensity\s*=.{0,40}[0-9]
+  file_types:
+  - '*.py'
+  message: Detected code implementing High Frequency Addition perturbation for hiding
+    voice commands. This technique adds sine waves above 8kHz to mask audio commands
+    from human listeners.
+  remediation: '- Remove or disable high-frequency addition code
+
+    - Apply anti-aliasing filters to reject out-of-band frequencies
+
+    - Monitor for unexpected high-frequency content in audio inputs
+
+    - Educate developers on risks of audio perturbation techniques'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - HFA perturbation tested
+    against Google Speech API, Bing Speech API, IBM Speech API, etc. The added high
+    frequencies are removed by ASR preprocessing but make audio painful/unintelligible
+    to humans.
+  fp_guards:
+  - 'sine_wave = np.sin(2 * np.pi * 440 * t)  # legitimate audio synthesis'
+  - 'def add_high_freq_filter(signal, cutoff=8000): return lowpass(signal, cutoff)'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-145
+  name: time-scaling-audio-perturbation
+  description: Detects code implementing Time Scaling (TS) perturbation for hidden
+    voice attacks. TS accelerates voice commands by discarding samples while maintaining
+    sample rate, making audio faster and harder for humans to comprehend but still
+    correctly transcribed by ASR.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)def\s+(?:time_scaling|ts|accelerate_audio)\s*\(
+  - (?i)(?:librosa\.)?(?:time_stretch|effects\.time_stretch|resample)\s*\(\s*[^)]*rate\s*[>=1-9]
+  - (?i)compressed\s*=\s*signal\[::\d+\]
+  - (?i)perturbation_engine\.(?:time_scale|ts)
+  file_types:
+  - '*.py'
+  message: Detected code implementing Time Scaling perturbation for hidden voice commands.
+    This technique accelerates audio to make it unintelligible to humans while remaining
+    transcribable by ASR systems.
+  remediation: '- Remove or restrict time-scaling code in production
+
+    - Implement speed anomaly detection (e.g., WER vs. human comprehension tests)
+
+    - Use input validation to reject audio with unnatural tempo variation
+
+    - Monitor for rapid-fire audio commands in system logs'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - Time Scaling perturbation
+    combined with other perturbations (TDI, RPG, HFA) achieves high ASR against 12
+    models. The paper tested speed factors up to 2x while maintaining transcription
+    accuracy.
+  fp_guards:
+  - 'audio = librosa.effects.time_stretch(audio, rate=1.1)  # slight tempo adjustment
+    for legitimate use'
+  - 'def accelerate(audio, factor): return audio[::factor]  # used for audio processing
+    in general'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-146
+  name: mfcc-feature-exploit
+  description: Detects code that exploits MFCC feature extraction by generating audio
+    samples with similar feature vectors but different time-domain signals. The paper's
+    perturbation techniques (TDI, RPG) leverage many-to-one nature of FFT magnitude
+    to create adversarial audio that preserves MFCC features.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)mfcc\s*=\s*(?:librosa\.|python_speech_features\.)?(?:mfcc|logfbank)
+  - (?i)def\s+extract_mfcc
+  - (?i)feature_vector\s*=\s*.{0,40}mfcc
+  - (?i)(?:fbank|mel_spec|spectrogram)\s*=\s*.{0,40}(?:n_mels|nfft)
+  file_types:
+  - '*.py'
+  message: Detected code performing MFCC feature extraction, which the paper shows
+    can be exploited by generating perturbed audio with identical MFCC vectors but
+    unintelligible time-domain signals.
+  remediation: '- Ensure MFCC extraction is part of a comprehensive defense pipeline
+
+    - Combine MFCC analysis with temporal consistency checks
+
+    - Use anomaly detection on MFCC features to identify adversarial perturbations
+
+    - Implement multi-modal verification (e.g., audio + text consistency)'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - The paper demonstrates
+    that multiple source audio samples can have similar MFCC feature vectors, enabling
+    black-box attacks against ASR systems.
+  fp_guards:
+  - 'mfcc = librosa.feature.mfcc(y=audio, sr=16000, n_mfcc=13)  # legitimate feature
+    extraction for training'
+  - 'def extract_mfcc(audio): return python_speech_features.mfcc(audio, samplerate=16000)'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-147
+  name: noise-flooding-import
+  description: Detects import of the noise-flooding module used for generating adversarial
+    audio samples that pass as noise. The paper's perturbation techniques create audio
+    that sounds like unintelligible noise but is correctly transcribed by ASR systems.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+noise_flooding
+  - (?i)(?:from|import)\s+acoustic_perturbation
+  - (?i)class\s+NoiseFlooding
+  - (?i)noise_flooding\.(?:generate|apply)
+  file_types:
+  - '*.py'
+  message: Detected import of noise-flooding module used for generating adversarial
+    audio that sounds like noise but is correctly transcribed by ASR systems.
+  remediation: '- Remove or disable noise-flooding module in production
+
+    - Implement audio classification to distinguish noise-like adversarial samples
+
+    - Use spectral analysis (e.g., entropy, flatness) to detect unnatural noise patterns
+
+    - Restrict usage of acoustic perturbation libraries'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - The perturbation engine
+    generates thousands of noise-like audio samples that achieve >80% ASR against
+    Google Speech API and other commercial systems.
+  fp_guards:
+  - 'from noise import noise_reduction  # legitimate noise reduction import'
+  - 'import noise_flooding as nf  # if used for research purposes but flagged'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-148
+  name: bandpass-filter-noise-flooding
+  description: Detects bandpass filter code used in conjunction with noise flooding
+    for adversarial audio attacks. The paper's preprocessing steps include noise removal
+    and low-pass filtering that attackers can exploit.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:scipy\.signal\.|sos?filtfilt|butter|cheby1|ellip)\s*\(\s*[^)]*[0-9]{4,6}\s*[^)]*[0-9]{4,6}
+  - (?i)lowpass\s*=\s*.{0,40}(?:cutoff|8000)
+  - (?i)signal\.filtfilt\s*\(\s*[^)]*8000
+  file_types:
+  - '*.py'
+  message: Detected bandpass filter code that could be used as part of noise flooding
+    attack pipeline. The paper shows that attackers can exploit preprocessing filters
+    to craft adversarial audio.
+  remediation: '- Ensure filter parameters are fixed and not attacker-controllable
+
+    - Use secure coding practices for audio processing pipelines
+
+    - Validate that filter outputs maintain audio integrity
+
+    - Monitor for unexpected frequency content changes'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - Attackers use knowledge
+    of VPS preprocessing (low-pass filter at 8kHz) to craft perturbations that survive
+    filtering.
+  fp_guards:
+  - 'sos = signal.butter(4, 8000, ''low'', fs=16000, output=''sos'')  # standard audio
+    processing'
+  - 'filtered = signal.sosfiltfilt(sos, audio)  # legitimate filtering for noise reduction'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-149
+  name: xgboost-ensemble-flooding
+  description: Detects XGBoost ensemble classifier code used for distinguishing adversarial
+    audio from benign audio. While this is a defense, detecting its presence indicates
+    awareness of audio adversarial attacks and potential bypass attempts.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:import|from)\s+xgboost
+  - (?i)xgb\.(?:XGBClassifier|train|predict)
+  - (?i)ensemble\s*=\s*(?:XGBClassifier|GradientBoostingClassifier)\s*\(.{0,40}\)
+  - (?i)booster\.(?:predict|load_model)
+  file_types:
+  - '*.py'
+  message: Detected XGBoost ensemble classifier that may be used for detecting adversarial
+    audio. Attackers may attempt to probe or bypass such classifiers.
+  remediation: '- Ensure XGBoost model is robust to adversarial examples
+
+    - Implement multiple detection layers (statistical + ML-based)
+
+    - Regularly retrain detector on new attack variants
+
+    - Monitor for attempted bypass patterns'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - The paper discusses potential
+    defenses including ensemble classifiers. Detection of such classifiers may indicate
+    defensive infrastructure.
+  fp_guards:
+  - 'import xgboost as xgb
+
+    model = xgb.XGBClassifier()  # legitimate ML training'
+  - 'from xgboost import XGBClassifier as booster  # common ML practice'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-150
+  name: audio-fingerprint-memory-mechanism
+  description: Detects code implementing audio fingerprint memory mechanisms for replay
+    attack detection or speaker verification. The paper discusses defenses that use
+    fingerprinting of audio characteristics.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)def\s+(?:audio_fingerprint|extract_fingerprint|hash_audio)
+  - (?i)fingerprint\s*=\s*(?:hashlib\.|audio_fingerprint\.)?(?:md5|sha1|sha256)\s*\(\s*audio
+  - (?i)class\s+AudioFingerprint
+  - (?i)memory_mechanism\s*=\s*.{0,40}fingerprint
+  file_types:
+  - '*.py'
+  message: Detected audio fingerprinting code that may be used for detecting replay
+    or adversarial audio attacks. Attackers may attempt to bypass fingerprint checks.
+  remediation: '- Ensure fingerprinting uses cryptographic hashing with secret salt
+
+    - Implement integrity checks on audio content
+
+    - Use multiple fingerprint features (spectral, temporal)
+
+    - Monitor for cloning attempts'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - The paper mentions audio
+    fingerprinting as a potential defense against hidden voice commands.
+  fp_guards:
+  - 'audio_hash = hashlib.sha256(audio_bytes).hexdigest()  # legitimate content verification'
+  - "class AudioFingerprint:\n    def extract(self, audio): return self._compute_hash(audio)"
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-151
+  name: commander-song-attack-import
+  description: Detects imports or references to the 'Commander Song' attack framework,
+    which generates adversarial audio embedded in songs. This is a related work referenced
+    in the paper that shares similar goals of hidden voice commands.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+commander_song
+  - (?i)commander_song\.(?:generate|embed)
+  - (?i)(?:from|import)\s+musical_voice
+  - (?i)class\s+CommanderSong
+  file_types:
+  - '*.py'
+  message: Detected Commander Song attack framework import. This tool generates adversarial
+    audio commands embedded in music, related to hidden voice attacks.
+  remediation: '- Remove or restrict Commander Song dependencies
+
+    - Implement music audio anomaly detection (e.g., speech detection in music)
+
+    - Use cross-domain validation (audio-to-text consistency checks)
+
+    - Block audio files with embedded adversarial content'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - References Commander
+    Song as related work. The paper's own perturbation techniques (TDI, RPG, etc.)
+    are distinct but share the hidden command goal.
+  fp_guards:
+  - 'import commander_song  # research context only'
+  - 'from commander_song import utils  # not used for attacks'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-152
+  name: devils-whisper-attack-import
+  description: Detects imports or references to 'Devil's Whisper' attack framework,
+    which generates adversarial audio that is imperceptible to humans but recognized
+    by ASR. This is related work referenced in the paper.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+devils_whisper
+  - (?i)devils_whisper\.(?:generate|attack)
+  - (?i)(?:from|import)\s+dolphin_attack
+  - (?i)class\s+(?:DevilsWhisper|DolphinAttack)
+  file_types:
+  - '*.py'
+  message: Detected Devil's Whisper or DolphinAttack framework import. These are related
+    hidden voice attack tools that generate imperceptible audio commands.
+  remediation: '- Remove or restrict adversarial audio toolkit dependencies
+
+    - Implement ultrasonic frequency rejection filters
+
+    - Use audio watermarking to detect synthetic content
+
+    - Monitor for high-frequency injection patterns'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - References Devil's Whisper
+    and DolphinAttack as prior work. The paper's approach differs by using audible
+    but unintelligible noise rather than inaudible ultrasound.
+  fp_guards:
+  - 'import devils_whisper as dw  # academic reference only'
+  - 'from dolphin_attack import utils  # research context'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-153
+  name: irta-attack-import
+  description: Detects imports or references to 'IRTA' (Iterative Refinement Targeted
+    Attack) audio adversarial attack framework. This technique generates targeted
+    adversarial perturbations for audio.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+irta
+  - (?i)irta\.(?:generate|attack)
+  - (?i)iterative_refinement_targeted_attack
+  - (?i)class\s+IRTA
+  file_types:
+  - '*.py'
+  message: Detected IRTA (Iterative Refinement Targeted Attack) framework import.
+    This tool generates targeted adversarial audio perturbations.
+  remediation: '- Remove or restrict IRTA dependencies
+
+    - Implement gradient-based adversarial detection methods
+
+    - Use input perturbation smoothing defenses
+
+    - Monitor for targeted audio anomalies'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: T1059
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - References IRTA as related
+    work in targeted adversarial audio attacks. The paper's own black-box approach
+    is perturbation-based without model knowledge.
+  fp_guards:
+  - 'from irta import utils  # research use only'
+  - 'import irta  # academic evaluation'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-154
+  name: music-carrier-dataset
+  description: Detects references to 'music carrier' datasets used for embedding adversarial
+    audio commands in music. The paper discusses related work that hides commands
+    in music files.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)music_carrier\s*=\s*['"][^'"]+\.(?:wav|mp3|flac)['"]
+  - (?i)carrier_song|carrier_music|music_background|background_music
+  - (?i)class\s+MusicCarrier
+  - (?i)embed_command.{0,40}music|music.{0,40}embed.{0,40}command
+  file_types:
+  - '*.py'
+  message: Detected music carrier dataset references used for embedding adversarial
+    commands in music. This indicates awareness of hidden voice attack techniques.
+  remediation: '- Remove or restrict adversarial music dataset usage
+
+    - Implement speech-in-music detection algorithms
+
+    - Use audio source separation to check for hidden commands
+
+    - Monitor for steganographic audio content'
+  owasp_llm: LLM03:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Practical Hidden Voice Attacks against Speech
+    and Speak | Practical Hidden Voice Attacks (NDSS 2019) - References music carrier
+    approaches as related work. The paper's own approach does not use music carrier
+    but focuses on noise-like perturbations.
+  fp_guards:
+  - 'carrier_music = ''background.wav''  # legitimate background music for presentation'
+  - 'music_carrier = ''/path/to/song.mp3''  # file path in testing environment'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-155
+  name: tdi-window-inversion-import
+  description: Detects code implementing Time Domain Inversion (TDI) perturbation
+    by inverting small windows of audio to remove smoothness while preserving spectrum,
+    used in hidden voice commands against VPSes.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bTDI\b.{0,40}\b(?:window|invert|inversion)\b
+  - (?i)\bperturbation_engine\b
+  file_types:
+  - '*.py'
+  message: Detected code implementing TDI perturbation for hidden voice attacks—generates
+    audio unrecognizable to humans but transcribed by VPSes.
+  remediation: '- Remove or disable perturbation engine code in production.
+
+    - Apply input validation to reject audio with inverted window artifacts.
+
+    - Use human-in-the-loop verification for commands from untrusted sources.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' (NDSS 2019) - TDI perturbation
+    achieves 100% ASR against 10 ASR models including Google, Bing, IBM, Azure APIs.
+  fp_guards:
+  - 'import math
+
+    # window inversion for audio filtering in music production
+
+    filtered = scipy.signal.filtfilt(b, a, data)'
+  - 'ProcessMetrics: {TotalRss: 42MB, TDI: 0.12}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-156
+  name: random-phase-generation-import
+  description: Detects code implementing Random Phase Generation (RPG) perturbation
+    that selects random phase values while preserving magnitude spectrum, used in
+    hidden voice attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+random_phase\b
+  - (?i)\bRPG\b.{0,40}\b(?:phase|magnitude)\b
+  - (?i)\bmagnitude_original\s*=\s*\bsqrt\b
+  file_types:
+  - '*.py'
+  message: Detected code implementing Random Phase Generation (RPG) perturbation for
+    hidden voice attacks.
+  remediation: '- Remove RPG module from deployment.
+
+    - Validate audio phase coherence; reject signals with random-phase artifacts.
+
+    - Train VPS on adversarially perturbed samples.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - RPG perturbation used
+    against 12 VPSes, 100% ASR on Azure Veri/Attestation APIs.
+  fp_guards:
+  - 'import numpy as np
+
+    # random phase rotation for channel simulation
+
+    phase = np.random.uniform(0, 2*np.pi, size=(N,))'
+  - 'ProcessMetrics: {RPG: 0, TotalCalls: 1024}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-157
+  name: high-frequency-addition-import
+  description: Detects code adding high-frequency sine waves to mask underlying speech,
+    exploiting preprocessing low-pass filters for hidden voice commands.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+high_freq_add\b
+  - (?i)\bHFA\b.{0,40}\b(?:sine|frequency|mask)\b
+  - (?i)\bhigh[_-]?frequency[_-]?addition\b
+  file_types:
+  - '*.py'
+  message: Detected code for High Frequency Addition (HFA) perturbation that masks
+    speech with sine waves for hidden voice attacks.
+  remediation: '- Remove HFA module from deployment.
+
+    - Implement high-frequency rejection in microphone preprocessing.
+
+    - Educate users about potential discomfort from high-frequency noise.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - HFA tested against 12
+    VPSes, 100% ASR on Google, Bing, IBM APIs.
+  fp_guards:
+  - 'import numpy as np
+
+    # high-frequency tone for hearing test
+
+    sine_wave = np.sin(2*np.pi*8000*t)'
+  - 'ProcessMetrics: {HFA: 0, Frequency: 8000}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-158
+  name: time-scaling-attack-import
+  description: Detects code for Time Scaling (TS) perturbation that accelerates speech
+    while retaining spectrum, often combined with other perturbations for hidden voice
+    commands.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\btime[_-]?scal(?:e|ing)\b
+  file_types:
+  - '*.py'
+  message: Detected code for Time Scaling (TS) perturbation that accelerates speech
+    for hidden voice attacks.
+  remediation: '- Remove TS module from production.
+
+    - Normalize speech rate before VPS processing.
+
+    - Combine with other perturbation detection.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - TS combined with TDI/RPG/HFA
+    against 12 VPSes.
+  fp_guards:
+  - 'import librosa
+
+    # time stretching for voice conversion
+
+    y = librosa.effects.time_stretch(y, rate=1.2)'
+  - 'ProcessMetrics: {TS: 0.5, AudioDuration: 12s}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-159
+  name: perturbation-engine-tdi-rpg-audio-attack
+  description: Detects code generating attack audio using Perturbation Engine with
+    TDI or RPG techniques for hidden voice attacks against VPSes.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bperturbation_engine\b.{0,60}\b(?:TDI|RPG|window)\b
+  - (?i)(?:TDI|RPG)\s*\(\s*.{0,40}\s*window_size\s*=
+  - (?i)apply_perturbation\s*\(\s*(?:audio|signal)
+  file_types:
+  - '*.py'
+  message: Detected Perturbation Engine usage with TDI/RPG for hidden voice attack
+    generation.
+  remediation: '- Remove Perturbation Engine from production.
+
+    - Validate audio features for window inversion or random phase artifacts.
+
+    - Use anomaly detection on feature vectors.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - Perturbation Engine generates
+    >20,000 samples, tested against 12 VPSes.
+  fp_guards:
+  - 'import signal_processing
+
+    # standard audio filtering
+
+    filtered = signal_processing.low_pass(audio, cutoff=8000)'
+  - 'ProcessMetrics: {PerturbationEngine: false, Total: 0}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-160
+  name: high-frequency-addition-perturbation
+  description: Detects code adding high-frequency sine waves (>=8000 Hz) to audio,
+    mimicking HFA perturbation for hidden voice attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:sine|sin)\s*\(\s*2\s*\*\s*(?:np|math)\.pi\s*\*\s*[89][0-9]{3,}
+  - (?i)\bfreq(?:uency)?\s*[>=]\s*8000\b.{0,40}\b(?:sine|mask|add|mix)
+  - (?i)\bhigh[_-]?freq(?:uency)?[_-]?add(?:ition)?\b
+  file_types:
+  - '*.py'
+  message: Detected high-frequency addition pattern matching HFA perturbation for
+    hidden voice attacks.
+  remediation: '- Remove high-frequency mixing code.
+
+    - Add band-stop filter to suppress frequencies above 8kHz before VPS.
+
+    - Monitor for unusual high-frequency components.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - HFA with sine waves at
+    12-14kHz masks speech, 100% ASR on Google Client API.
+  fp_guards:
+  - 'import numpy as np
+
+    # generate test tone at 1000 Hz
+
+    sine = np.sin(2 * np.pi * 1000 * t)'
+  - 'ProcessMetrics: {HighFreq: 0, MaxFreq: 4000}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-161
+  name: time-scaling-audio-perturbation
+  description: Detects code that speeds up audio by discarding samples (time compression)
+    while preserving sample rate, used in TS perturbation for hidden voice attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:time|speed|tempo)\s*(?:scale|compress|stretch|up).{0,20}\b(?:factor|rate|ratio)\s*=.{0,40}[0-9]\.[0-9]
+  - (?i)\bresample\b.{0,40}\b(?:rate|speed).{0,20}\b(?:factor|2\.0|1\.5)\b
+  file_types:
+  - '*.py'
+  message: Detected time scaling code that could be used for TS perturbation in hidden
+    voice attacks.
+  remediation: '- Validate audio for unnatural speed.
+
+    - Remove or limit time scaling utilities.
+
+    - Use tempo detection to flag sped-up audio.'
+  owasp_llm: LLM07:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Paper 'Practical Hidden Voice Attacks' - TS accelerates speech
+    up to 2x, combined with other perturbations.
+  fp_guards:
+  - 'import librosa
+
+    # standard audio augmentation
+
+    stretched = librosa.effects.time_stretch(y, rate=0.9)'
+  - 'ProcessMetrics: {TimeScaling: false, ResampleCount: 0}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-162
+  name: perturbation-engine-tdi-rpg-audio-attack
+  description: Detects implementation of Time Domain Inversion (TDI) or Random Phase
+    Generation (RPG) audio perturbation attacks exploiting FFT many-to-one property
+    to generate hidden voice commands, black-box, >80% ASR across 12 models.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bperturbation_engine\s*\(.{0,40}\btdi\b|\brpg\b
+  - (?i)def\s+(?:tdi_perturb|rpg_perturb|phase_randomize)\s*\(
+  - (?i)\b(?:tdi|rpg|phase_random)\s*=\s*['"](?:true|1)['"]
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.cfg'
+  - '*.yaml'
+  message: Detected implementation of TDI or RPG audio perturbation technique for
+    hidden voice commands
+  remediation: '- Apply audio adversarial detection (e.g., statistical filter checking
+    for spectral discontinuities or phase randomization)
+
+    - Use robust feature extraction that checks for such perturbations (e.g., verify
+    FFT magnitude consistency)
+
+    - Train models on adversarially perturbed audio'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Abdullah et al. 2019: TDI/RPG perturbations achieve >80% ASR against
+    12 black-box VPSes including Google, Bing, IBM, Azure'
+  fp_guards:
+  - from lib.perturb import perturbation_engine as aug; augmented = perturbaug(samples,
+    window_size=25, method='time_stretch')
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-163
+  name: high-frequency-addition-perturbation
+  description: Detects implementation of High Frequency Addition (HFA) perturbation
+    that adds high-frequency sine waves (e.g., 8kHz+) to mask voice commands, achieving
+    >80% ASR over-the-air.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bhigh_frequency_add\s*\(|\bhfa_perturb\s*\(
+  - (?i)np\.sin\s*\(\s*2\s*\*\s*np\.pi\s*\*\s*freq\s*\*\s*t\s*\)
+  - (?i)\b(?:add_sine|add_tone|hf_add|high_freq_add)\s*\(\s*audio
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.cfg'
+  - '*.yaml'
+  message: Detected high-frequency addition audio perturbation for hidden voice command
+    generation
+  remediation: '- Apply low-pass filter before model inference to remove frequencies
+    above 8kHz
+
+    - Detect and remove high-frequency tones using notch filters
+
+    - Use psychoacoustic models to identify masking'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Abdullah et al. 2019: HFA perturbation effectively masks commands
+    to human ear while VPS still transcribes'
+  fp_guards:
+  - 'def add_sine_freq(signal, freq, duration): # legitimate test tone generator'
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-164
+  name: time-scaling-audio-perturbation
+  description: Detects time scaling (speed perturbation) used as part of hidden voice
+    command generation, often combined with other perturbations for maximum effect.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:time_scale|speed_up|accelerate_audio|compress_time)\s*\(\s*audio
+  - (?i)\btime_scal\w*\s*=\s*[0-9.]+
+  file_types:
+  - '*.py'
+  - '*.ipynb'
+  - '*.yaml'
+  message: Detected time scaling perturbation used in hidden voice command generation
+  remediation: '- Use variable-length processing or time-warping detection
+
+    - Check for unnatural speech rate using VAD and tempo analysis'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Abdullah et al. (2019) -- Abdullah - Practical Hidden Voice Attacks
+    against Speec | Abdullah et al. 2019: Time scaling combined with other perturbations
+    makes commands unintelligible to humans'
+  fp_guards:
+  - 'aug = Compose([TimeScale(factor=(0.8,1.2)), AddNoise()]) # legitimate data augmentation'
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-165
+  name: timbre-watermark-repeat-strategy
+  description: Detects the repeated watermark embedding along the time axis, a key
+    component of Timbre Watermarking for time-independence.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\.repeat\s*\(\s*1\s*,\s*[^)]+\s*\)
+  - (?i)Repeat\(\s*fw\s*,\s*T\s*\)
+  - (?i)(?:repeat|tile)\s*\(.{0,40}time.{0,40}watermark
+  file_types:
+  - '*.py'
+  message: Detected repeated watermark embedding along time axis - signature of Timbre
+    Watermarking.
+  remediation: '- Confirm the repeated embedding is used for legitimate content protection.
+
+    - Check that the watermarking framework includes the full pipeline (embedding,
+    extraction, distortion layer).'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking (NDSS 2024) - Repeated embedding for time-independence.
+  fp_guards:
+  - 'x.repeat(1, 3, 1) # common in many deep learning models'
+  - repeat = torch.Tensor.repeat
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-166
+  name: timbre-watermark-distortion-layer
+  description: Detects the distortion layer used in training that simulates TTS preprocessing
+    (GL, Mel, normalization) for robustness against voice cloning.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)Griffin.?Lim\s*\(\s*Mel\s*\(\s*.{0,40}max\(.{0,40}\)\s*\)
+  - (?i)def.{0,40}distortion.{0,40}layer.{0,40}GL\(Mel\(.{0,40}\)\)
+  - (?i)aw\s*/\s*max\(\s*abs\(\s*aw\s*\)\s*\)
+  file_types:
+  - '*.py'
+  message: Detected distortion layer (GL + Mel + normalization) from Timbre Watermarking
+    training.
+  remediation: '- This is a defensive component; ensure it is used only for training
+    the watermark extractor.
+
+    - No action required if used in the described training pipeline.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking (NDSS 2024) - Distortion layer for generalization.
+  fp_guards:
+  - mel_spec = MelSpectrogram()(waveform)
+  - max_val = torch.max(torch.abs(waveform))
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-167
+  name: timbre-watermark-extractor
+  description: Detects the watermark extractor component that uses average pooling
+    over time to decode the watermark, as in Timbre Watermarking.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)Average\(\s*f'._w\s*\)
+  - (?i)torch\.mean\(.{0,40}dim\s*=\s*2\)
+  - (?i)watermark.{0,40}extract.{0,40}average.{0,40}pool
+  file_types:
+  - '*.py'
+  message: Detected watermark extractor with average pooling over time - Timbre Watermarking
+    signature.
+  remediation: '- Verify that the extractor is paired with the corresponding embedding
+    module.
+
+    - Ensure the system is not being used to bypass voice cloning detection.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking (NDSS 2024) - Watermark extraction with average pooling.
+  fp_guards:
+  - 'avg_pool = torch.mean(x, dim=2) # common in audio classifiers'
+  - x = torch.mean(tensor, dim=1)
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-168
+  name: timbre-watermark-adaptive-attacks
+  description: 'Detects code that implements adaptive attacks against Timbre Watermarking:
+    VAEs for watermark removal, domain-adversarial training, or watermark overwriting.'
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)vae.{0,40}reconstruction.{0,40}watermark
+  - (?i)domain.adversarial.{0,40}watermark
+  - (?i)overwrit.{0,40}watermark
+  file_types:
+  - '*.py'
+  message: 'Detected adaptive attack code targeting Timbre Watermarking: VAE reconstruction,
+    domain-adversarial training, or overwriting.'
+  remediation: '- Ensure no unauthorized removal of watermarks from audio data.
+
+    - Implement additional robustness checks or re-watermarking.
+
+    - Monitor for attempts to bypass watermark extraction via domain-adversarial training.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-828
+  mitre_attack: T1574
+  source_paper: 'Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking (NDSS 2024) - Adaptive attacks: VAE reconstruction, overwriting,
+    domain-adversarial training.'
+  fp_guards:
+  - 'vae = VAE() # standard VAE for speech enhancement'
+  - adversarial_training = GANLoss()
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-169
+  name: carlini-wagner-audio-ctc-loss-optimization
+  description: Detects the Carlini & Wagner iterative optimization attack on DeepSpeech
+    using CTC loss, targeting arbitrary transcriptions with 100% success at mean -31dB
+    distortion.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+deepSpeech\.(?:ctcloss|adversarial)
+  - (?i)CTC\-Loss\(.{0,40}?,\s*target\)
+  - (?i)minimize\s+\|.{0,40}\|\s*\+\s*c\s*\*\s*loss
+  file_types:
+  - '*.py'
+  message: Carlini & Wagner audio adversarial attack using CTC loss detected
+  remediation: '- Apply input sanitization to detect and block adversarial perturbations.
+
+    - Use robust feature extraction (e.g., mel-spectrograms) resistant to gradient
+    attacks.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1574.002
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, 100% ASR on DeepSpeech
+  fp_guards:
+  - CTC loss is used in training speech models, not just attacks.
+  - 'loss = CTC-Loss(predictions, labels)  # legitimate training'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-170
+  name: carlini-wagner-audio-logit-loss-attack
+  description: Detects the improved loss function attack using per-character logit-based
+    loss, achieving lower distortion at -38dB mean on DeepSpeech.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)max\(.{0,40}?yt\s*-\s*max\(.{0,40}?t.{0,40}?yt.{0,40}?0\)
+  - (?i)Li\(x,\s*pi\)\s*=\s*max\(.{0,40}?f\(x\).{0,40}?pi.{0,40}?0\)
+  - (?i)per\-?character\s+loss\s+(?:function|weight)
+  file_types:
+  - '*.py'
+  message: Carlini & Wagner per-character logit loss attack on speech recognition
+    detected
+  remediation: '- Monitor for iterative optimization with per-character loss functions.
+
+    - Implement gradient masking or adversarial training with this attack.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1574.002
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, -38dB mean distortion
+  fp_guards:
+  - 'max_pool = max(input_tensor)  # legitimate operation'
+  - 'result = max(0, value)  # ReLU activation'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-171
+  name: carlini-wagner-audio-silence-target
+  description: Detects the silence-targeting attack where adversarial noise hides
+    speech, requiring only -45dB distortion to silence any phrase.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)silence.{0,40}?loss.{0,40}?max\(.{0,40}?f\(x\).{0,40}?epsilon.{0,40}?max.{0,40}?0\)
+  - (?i)\bempty\s+phrase\b
+  - (?i)silence.{0,40}?(?:adversarial|attack|perturbation)
+  file_types:
+  - '*.py'
+  message: Silence-targeting adversarial attack on speech recognition detected
+  remediation: '- Add detection of abnormally silent frames in ASR output.
+
+    - Use confidence thresholds to reject low-probability transcriptions.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1574.002
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, -45dB silence attack
+  fp_guards:
+  - 'silence_detector = lambda x: np.mean(x) < threshold  # legitimate silence detection'
+  - silence = audio[np.abs(audio) < 0.01]
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-172
+  name: carlini-wagner-audio-music-to-speech
+  description: Detects the attack that makes non-speech audio (e.g., music) transcribe
+    as arbitrary speech, requiring 20,000 iterations with -20dB distortion.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:music|non\-?speech).{0,40}?adversarial
+  - (?i)(?:classical|audio).{0,40}?target.{0,40}?phrase
+  - (?i)non\-?speech.{0,40}?transcrib
+  file_types:
+  - '*.py'
+  message: Non-speech to speech adversarial attack detected
+  remediation: '- Verify that input audio contains expected speech characteristics
+    (e.g., mel-spectrogram energy).
+
+    - Use voice activity detection to flag non-speech inputs.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: T1574.002
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, -20dB music-to-speech
+  fp_guards:
+  - 'music = load_audio(''song.wav'')  # legitimate audio loading'
+  - 'transcription = model(music)  # normal inference'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-173
+  name: carlini-wagner-audio-ctc-decoding-attack
+  description: Detects the attack targeting greedy CTC decoding with improved loss
+    function, achieving -38dB but only effective against greedy decoder.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)greedy.{0,40}?decod(?:e|ing).{0,40}?adversarial
+  - (?i)alignment.{0,40}?greedy.{0,40}?decode
+  - (?i)beam\s*search.{0,40}?bypass
+  file_types:
+  - '*.py'
+  message: Greedy-decoding targeted adversarial attack detected
+  remediation: '- Use beam-search decoding with wider beam to resist greedy-fooling
+    attacks.
+
+    - Combine multiple decoders and check consistency.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, 100% ASR on greedy
+    decoding
+  fp_guards:
+  - 'alignment = greedy_decode(logits)  # standard inference'
+  - decoded = beam_search(predictions)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-174
+  name: fast-gradient-sign-audio-untargeted
+  description: Detects untargeted FGSM attack on audio causing misclassification with
+    single-step perturbation.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)fast\s*gradient\s*sign\s*method.{0,40}?audio
+  - (?i)FGSM.{0,40}?(?:audio|waveform|speech)
+  - (?i)sign\(.{0,40}?grad.{0,40}?loss.{0,40}?audio
+  file_types:
+  - '*.py'
+  message: Fast Gradient Sign Method used on audio (untargeted attack)
+  remediation: '- Monitor for single-step gradient attacks; iterative attacks are
+    more dangerous.
+
+    - Consider gradient masking or adversarial training.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, untargeted FGSM on
+    audio
+  fp_guards:
+  - 'sign = lambda x: 1 if x > 0 else -1  # not adversarial'
+  - 'grad = torch.autograd.grad(loss, input)[0]  # normal training'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-175
+  name: carlini-wagner-audio-adversarial-example-generation
+  description: Detects code that generates adversarial examples against DeepSpeech
+    using iterative optimization, aligning with paper's core attack with 100% success
+    rate.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)adversarial.{0,40}?example.{0,40}?deepSpeech
+  - (?i)audio.{0,40}?adversarial.{0,40}?(?:example|attack)
+  - (?i)generate.{0,40}?adversarial.{0,40}?(?:audio|waveform)
+  file_types:
+  - '*.py'
+  message: Audio adversarial example generation against DeepSpeech detected
+  remediation: '- Review for adversarial intent; may be research.
+
+    - Restrict access to model gradients in production.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner, Audio Adversarial Examples, 100% ASR on DeepSpeech
+  fp_guards:
+  - 'adversarial_training = True  # legitimate defense'
+  - 'examples = [audio, label]  # normal dataset'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-176
+  name: timbre-watermarking-embed-import
+  description: Detects import or usage of the timbre watermarking embedding module
+    (Encoder+Embedder) from the paper, indicating a user or attacker deploying watermarking
+    to protect timbre.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+(?:timbre_watermark|tw_embed|watemark_embed)
+  file_types:
+  - '*.py'
+  message: Timbre watermarking embedding module detected; this may be used to protect
+    speech from cloning.
+  remediation: '- Verify that usage is authorized and for defensive purposes.
+
+    - Ensure watermark embedding does not interfere with normal audio usage.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking paper (NDSS 2024) - frequency-domain watermark embedding
+    to detect voice cloning.
+  fp_guards:
+  - import os; os.system('echo test')
+  - EM = torch.nn.Embedding(100, 32)
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-177
+  name: timbre-watermarking-extract-import
+  description: Detects import or usage of the timbre watermarking extraction module
+    (Extractor+Decoder) from the paper, used to detect cloned voices.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+(?:timbre_watermark|tw_extract|watermark_extract)
+  file_types:
+  - '*.py'
+  message: Timbre watermarking extraction module detected; used to detect synthetic
+    speech.
+  remediation: '- Ensure extraction is performed only on authorized audio.
+
+    - Protect the watermark key from exposure.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking paper (NDSS 2024) - extraction module for detecting cloned
+    voices.
+  fp_guards:
+  - import torch; EX = torch.jit.script(model)
+  - DE = torch.nn.Dropout(0.5)
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-178
+  name: timbre-watermarking-distortion-layer
+  description: Detects implementation of the distortion layer (Griffin-Lim, mel-transform,
+    normalization) used in timbre watermarking training to simulate voice cloning
+    preprocessing.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)GriffinLim\s*\(|GL\(|griffin_lim\s*=
+  - (?i)Mel\s*\(|mel_transform\s*=
+  - (?i)max\(\|aw\|\)|normalization\s*distortion
+  file_types:
+  - '*.py'
+  message: Distortion layer components detected; part of timbre watermarking training
+    pipeline.
+  remediation: '- Not a direct threat; indicates research or deployment of watermarking
+    defense.'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: Liu et al. (2024) -- Detecting Voice Cloning Attacks via Timbre Watermarking
+    | Timbre Watermarking paper (NDSS 2024) - distortion layer for robustness against
+    voice cloning.
+  fp_guards:
+  - import librosa; mel = librosa.feature.melspectrogram(y=audio)
+  - from torchaudio.transforms import MelSpectrogram
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-179
+  name: audio-fingerprint-memory-mechanism
+  description: Detects implementation of the memory-based defense mechanism using
+    audio fingerprint similarity to detect query-based adversarial attacks on ASR
+    systems. The paper proposes a defense with k=75 memory depth and weighted cosine
+    similarity threshold.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+chromaprint\b
+  - (?i)(?:from|import)\s+dejavu\b
+  - (?i)\bfingerprint(?:s)?\s*=\s*(?:extract|compute|calculate)_fingerprint
+  - (?i)\bweighted_cosine_similarity\s*\(
+  file_types:
+  - '*.py'
+  message: 'Detected audio fingerprint memory mechanism for adversarial attack detection
+    (paper: Guo et al. 2023).'
+  remediation: '- Review if the defense is used against legitimate traffic and whitelist
+    known benign sources. - Monitor false positive rate; adjust k and δ thresholds
+    if needed.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: Universal defense using audio fingerprint memory
+    mechanism, DSR >90% on four attacks.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'from chromaprint import fingerprint # used for music identification'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-180
+  name: music-carrier-dataset
+  description: Detects usage of the Music-sets dataset (10,553 music clips) created
+    in this paper for generating audio adversarial examples, specifically for CommanderSong
+    and Devil's Whisper attacks.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bMusic[-_]?sets?\b
+  - (?i)music[-_]?carrier[-_]?(?:dataset|library|clips)
+  file_types:
+  - '*.py'
+  - '*.yaml'
+  - '*.json'
+  message: Detected reference to Music-sets carrier dataset used in adversarial audio
+    research.
+  remediation: '- Ensure dataset is only used in controlled research environments.
+    - Monitor for associated attack scripts.'
+  owasp_llm: LLM08:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Guo et al. (2023) -- Towards the universal defense for query-based
+    audio adv | Guo et al. 2023: Music-sets dataset with 10,553 music clips for adversarial
+    audio evaluation.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'music_carrier_dataset = ''Dataset A'' # different dataset'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-181
+  name: carlini-wagner-audio-adversarial-import
+  description: Detects usage of the Carlini & Wagner audio adversarial attack framework,
+    which achieved 100% ASR on DeepSpeech.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+(?:audio_adversarial_examples|audio_adv)|audio_adv\.py
+  - (?i)(?:from|import)\s+deep_speech_adversarial|deepspeech_adv\.py
+  file_types:
+  - '*.py'
+  message: Detected Carlini & Wagner audio adversarial attack code. This framework
+    can craft targeted adversarial audio with 100% ASR on DeepSpeech.
+  remediation: '- Use adversarial training with CTC loss
+
+    - Apply robust preprocessing like MP3 compression
+
+    - Monitor for unusual audio perturbations'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: 100% ASR on DeepSpeech, mean distortion -31dB'
+  fp_guards:
+  - import deep_speech_stt
+  - from audio_utils import normalize
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-182
+  name: ctc-loss-optimization-audio-attack
+  description: Detects code that optimizes CTC loss for crafting adversarial audio
+    examples, a technique used in the Carlini & Wagner attack.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bctc_loss\b.{0,40}(?:optim|grad|backward|minim)
+  - (?i)(?:optimize|minimize)\b.{0,40}\bctc_loss\b
+  file_types:
+  - '*.py'
+  message: Detected CTC loss optimization for adversarial audio. This technique was
+    used to achieve 100% ASR on DeepSpeech.
+  remediation: '- Harden the ASR model with adversarial training
+
+    - Add input validation to detect abnormal perturbation
+
+    - Limit the number of optimization iterations in batch'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: CTC loss optimization achieved 100% ASR with
+    mean distortion -31dB'
+  fp_guards:
+  - 'ctc_loss = torch.nn.CTCLoss()
+
+    loss = ctc_loss(log_probs, targets, input_lengths, target_lengths)'
+  - 'def compute_ctc_loss(predictions, targets): return ctc_loss(predictions, targets)'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-183
+  name: logit-based-loss-function-audio
+  description: Detects the improved logit-based loss function used in the Carlini
+    & Wagner attack to generate lower-distortion adversarial audio.
+  severity: high
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:max|torch\.max)\(.{0,40}(?:yt|pred).{0,40}(?:max|torch\.max)\(.{0,40}[^)]*['"]?[^)]*['"]?\).{0,40}(?:0)[^)]*\)
+  - (?i)\bloss\s*=\s*(?:torch\.|F\.)?(?:max|clamp)(?:\(.{0,40}?pred.{0,40}?max.{0,40}?\))
+  file_types:
+  - '*.py'
+  message: Detected logit-based loss function from Carlini & Wagner attack. This loss
+    reduces distortion from -31dB to -38dB on DeepSpeech.
+  remediation: '- Use the improved CTC loss as a detection feature
+
+    - Monitor for abnormally low distortion adversarial examples
+
+    - Implement defense-aware training'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Logit-based loss reduced mean distortion
+    from -31dB to -38dB'
+  fp_guards:
+  - loss = F.cross_entropy(logits, targets)
+  - 'def custom_loss(predictions, targets): return torch.max(predictions - targets,
+    torch.zeros_like(targets))'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-184
+  name: deep-audio-adversarial-iteration-count
+  description: Detects high-iteration adversarial audio generation loops typical of
+    the Carlini & Wagner attack (5000+ iterations).
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:for|while)\b.{0,60}(?:iter|epoch|step)\b.{0,60}(?:5000|10000|20000)
+  - (?i)\bmax_iter\s*=\s*(?:5000|10000|20000)\b
+  file_types:
+  - '*.py'
+  message: Detected high-iteration loop typical of audio adversarial example generation
+    with up to 20000 iterations.
+  remediation: '- Limit maximum iterations for audio processing scripts
+
+    - Audit code for adversarial generation patterns
+
+    - Use runtime monitoring for long-running audio tasks'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Attack uses 5,000 iterations for speech,
+    20,000 for music'
+  fp_guards:
+  - "num_epochs = 100\nfor epoch in range(num_epochs):\n    train_one_epoch(model,\
+    \ dataloader)"
+  - "for iteration in range(100):\n    # training loop"
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-VAA-SCAN-185
+  name: mfc-preprocessing-differentiation
+  description: Detects code that differentiates through Mel-Frequency Cepstrum (MFC)
+    preprocessing, a requirement for end-to-end audio adversarial attacks.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(mfcc|mel_spectrogram|mfc)\b.{0,40}\b(?:grad|backward|differentiable|autograd)\b
+  - (?i)\b(?:torch_mfcc|librosa_mfcc|melspec)\b
+  file_types:
+  - '*.py'
+  message: Detected differentiable MFC preprocessing, which is needed for white-box
+    audio adversarial attacks like Carlini & Wagner.
+  remediation: '- Use non-differentiable or randomized MFC preprocessing
+
+    - Apply input sanitization before feature extraction
+
+    - Consider using robust feature transformations'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Attack differentiates through MFC for end-to-end
+    optimization on DeepSpeech'
+  fp_guards:
+  - mfcc = librosa.feature.mfcc(y=audio, sr=16000)
+  - 'from python_speech_features import mfcc
+
+    features = mfcc(audio, samplerate=16000)'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-186
+  name: high-density-audio-target
+  description: Detects code targeting the maximum character density of 50 chars/sec
+    in audio adversarial examples.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b50\b.{0,20}(?:char|frame|character|second)\b.{0,20}(?:adversarial|attack|target)
+  - (?i)\bmax_density\b|\bchars_per_second\b
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Detected code targeting high character density adversarial audio, a technique
+    from Carlini & Wagner achieving 50 chars/sec.
+  remediation: '- Monitor for abnormal transcription density
+
+    - Set density limits in ASR post-processing'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Achieves 50 characters per second density
+    with mean distortion -18dB'
+  fp_guards:
+  - '# 50 frames per second'
+  - 'frame_rate = 50  # standard audio frame rate'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-187
+  name: silence-targeting-audio-adv
+  description: Detects code targeting silence (empty transcription) in audio adversarial
+    attacks, which Carlini & Wagner showed requires only -45dB distortion.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\btarget_silence\b|\bempty_phrase\b.{0,20}(?:adversarial|attack)
+  - (?i)silence\b.{0,40}\btarget\b.{0,40}(?:adversarial|attack)
+  file_types:
+  - '*.py'
+  message: Detected silence-targeting adversarial audio code. Carlini & Wagner achieved
+    -45dB distortion to hide speech from DeepSpeech.
+  remediation: '- Add silence detection threshold monitoring
+
+    - Use input validation for unexpected silence in speech samples'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Silence targeting achieved -45dB distortion,
+    hiding speech from ASR'
+  fp_guards:
+  - '# silence detection for VAD'
+  - 'if is_silence(audio):'
+  pipeline_confidence: low
+  action: log
+- id: MEDUSA-VAA-SCAN-188
+  name: non-speech-to-speech-attack
+  description: Detects code that transforms non-speech audio (e.g., music) into targeted
+    speech adversarial examples.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\b(?:music|non.?speech)\b.{0,40}\b(?:adversarial|target|transcribe)\b
+  - (?i)\bfrom_music\b|\bnonspeech_attack\b
+  file_types:
+  - '*.py'
+  message: Detected non-speech to speech adversarial audio attack code. Carlini &
+    Wagner achieved this with mean distortion -20dB.
+  remediation: '- Apply audio content classification before ASR
+
+    - Monitor ASR activation on expected non-speech inputs'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Music-to-speech attack with -20dB mean distortion,
+    20,000 iterations'
+  fp_guards:
+  - music, sr = librosa.load('song.mp3')
+  - transcribe_music = asr_model(music_audio)
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-189
+  name: robust-adversarial-mp3
+  description: Detects code that generates audio adversarial examples robust to MP3
+    compression using straight-through estimator.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)mp3\b.{0,40}(?:adversarial|attack|straight.?through)
+  - (?i)\bstraight.?through\b.{0,40}(?:mp3|adversarial)
+  file_types:
+  - '*.py'
+  message: Detected MP3-robust adversarial audio generation using straight-through
+    estimator. Carlini & Wagner achieved robustness with ~15dB larger distortion.
+  remediation: '- Encode audio with random MP3 compression levels
+
+    - Use ensemble detection across compression variants
+
+    - Band-limit audio before ASR processing'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: MP3-robust adversarial examples with straight-through
+    estimator'
+  fp_guards:
+  - import mp3
+  - 'from pydub import AudioSegment
+
+    AudioSegment.from_mp3(''file.mp3'')'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-190
+  name: expectation-over-transforms-audio
+  description: Detects code applying Expectation over Transforms (EoT) to generate
+    audio adversarial examples robust to pointwise noise.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bexpectation.?over.?transforms?\b|\bEoT\b.{0,40}(?:audio|adversarial)
+  - (?i)EoT\b.{0,40}(?:adversarial|attack|perturb)
+  file_types:
+  - '*.py'
+  message: Detected Expectation over Transforms for robust audio adversarial examples.
+    Carlini & Wagner achieved robustness at -30dB with ~10dB larger distortion.
+  remediation: '- Add random noise during ASR inference
+
+    - Use input perturbation detection
+
+    - Apply denoising autoencoders'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: EoT for pointwise noise robustness at -30dB'
+  fp_guards:
+  - '# data augmentation'
+  - augmented = transform(original)
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-VAA-SCAN-191
+  name: mozilla-common-voice-targeting
+  description: Detects code that uses Mozilla Common Voice dataset for audio adversarial
+    attacks, as in the Carlini & Wagner evaluation.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:common.?voice|mozillacv|common_voice)\b.{0,40}(?:adversarial|attack|target)
+  - (?i)cv_corpus\b|mozilla_common_voice
+  file_types:
+  - '*.py'
+  - '*.sh'
+  - '*.txt'
+  message: Detected use of Mozilla Common Voice dataset for audio adversarial research
+    (Carlini & Wagner evaluation).
+  remediation: '- No immediate action, but monitor for broader attack development'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Evaluated on first 100 Mozilla Common Voice
+    test instances'
+  fp_guards:
+  - '!wget https://commonvoice.mozilla.org/dataset'
+  - 'from datasets import load_dataset
+
+    dataset = load_dataset(''mozilla-foundation/common_voice_11_0'')'
+  pipeline_confidence: low
+- id: MEDUSA-VAA-SCAN-192
+  name: carlini-wagner-audio-decoder-alignment
+  description: Detects code that extracts and fixes alignment from CTC decoder for
+    improved adversarial audio distortion.
+  severity: medium
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bargmax\b.{0,40}\bf\(.{0,40}\).{0,40}\)
+  file_types:
+  - '*.py'
+  message: Detected alignment-based adversarial audio attack step from Carlini & Wagner.
+    This improves distortion from -31dB to -38dB.
+  remediation: '- Use randomized decoding strategies
+
+    - Harden model against alignment manipulation'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Two-step attack with fixed alignment reduces
+    distortion by 7dB'
+  fp_guards:
+  - alignment = torch.argmax(logits, dim=-1)
+  - 'from ctcdecode import CTCBeamDecoder
+
+    decoder.decode(probs, seq_lens)'
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-193
+  name: deepspeech-implementation-usage
+  description: Detects code that imports or instantiates DeepSpeech model, which was
+    the target of the Carlini & Wagner attack.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)(?:from|import)\s+deepspeech\b
+  - (?i)\bDeepSpeech\(.{0,40}\)
+  file_types:
+  - '*.py'
+  message: Detected DeepSpeech model usage. This ASR model was targeted by Carlini
+    & Wagner with 100% attack success.
+  remediation: '- Consider upgrading to newer ASR models with better robustness
+
+    - Apply input validation'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Attacked Mozilla''s DeepSpeech implementation
+    with 100% ASR'
+  fp_guards:
+  - import deepspeech as ds
+  - '# DeepSpeech model loading'
+  pipeline_confidence: high
+- id: MEDUSA-VAA-SCAN-194
+  name: adam-optimizer-audio-adv
+  description: Detects use of Adam optimizer with learning rate 10 for audio adversarial
+    attacks, as specified in the paper.
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bAdam\b.{0,40}\blr\s*=\s*10\b
+  - (?i)optim\.Adam\b.{0,40}\blr\s*=\s*10
+  file_types:
+  - '*.py'
+  message: Detected Adam optimizer with lr=10 typical of Carlini & Wagner adversarial
+    audio generation.
+  remediation: '- No immediate action, but flag for review if combined with other
+    patterns'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Used Adam optimizer with learning rate 10
+    for 5000 iterations'
+  fp_guards:
+  - optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+  - opt = torch.optim.AdamW(model.parameters(), lr=1e-5)
+  pipeline_confidence: medium
+- id: MEDUSA-VAA-SCAN-195
+  name: audio-adv-db-distortion-metric
+  description: Detects usage of decibel (dB) distortion metric for audio adversarial
+    attacks, specifically computing dBx(δ) = dB(δ) - dB(x).
+  severity: low
+  category: voice_audio_attacks
+  patterns:
+  - (?i)\bdBx\b|\bdB\(.{0,40}pert|noise\).{0,40}-\s*dB\(.{0,40}x\)
+  file_types:
+  - '*.py'
+  message: 'Detected dB-based distortion metric used in Carlini & Wagner audio adversarial
+    attack. Reference: -31dB mean distortion.'
+  remediation: '- No direct action; indicator of adversarial research code'
+  owasp_llm: LLM01:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Carlini et al. (2018) -- Audio Adversarial Examples Targeted Attacks
+    on Speech-t | Carlini & Wagner 2018: Distortion metric dBx(δ) = dB(δ) - dB(x)'
+  fp_guards:
+  - 'def dB(x): return 20 * np.log10(np.abs(x).max())'
+  - '# compute SNR'
+  pipeline_confidence: high

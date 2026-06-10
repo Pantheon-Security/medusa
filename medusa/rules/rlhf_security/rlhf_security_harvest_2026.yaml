@@ -1,0 +1,446 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: rlhf_security
+rules:
+- id: MEDUSA-RLHF-SCAN-101
+  name: best-of-poisson-implementation
+  description: Detects implementations of Best-of-Poisson sampling as defined in the
+    paper, which uses a Poisson-distributed sample count to approximate optimal tilted
+    distribution for reward hacking mitigation.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:from|import)\s+best_of_poisson\b
+  - (?i)\bdef\s+best_of_poisson\b
+  - (?i)class\s+BestOfPoisson\b
+  - (?i)Poisson\s*\(\s*mu\s*\)\s*.{0,40}\bargmax\b
+  file_types:
+  - '*.py'
+  message: Best-of-Poisson implementation detected; verify parameter selection to
+    avoid reward hacking.
+  remediation: '- Use HedgeTune to select optimal Poisson parameter mu
+
+    - Validate with held-out true reward samples
+
+    - Monitor for KL divergence gap from optimal tilted distribution'
+  owasp_llm: LLM01:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: Khalaf et al. (2025) -- Inference-Time Reward Hacking in Large Language
+    Models | Inference-Time Reward Hacking in Large Language Models, NeurIPS 2025
+  fp_guards:
+  - 'ProcessMetrics: {PoissonRate: 0.5}'
+  - The Poisson distribution is used in queueing theory.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RLHF-SCAN-102
+  name: hedgetune-implementation
+  description: Detects implementations of HedgeTune algorithm for finding optimal
+    inference-time parameters to mitigate reward hacking.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)\bHedgeTune\b
+  - (?i)\bhedge_tune\b
+  - (?i)\boptimal_hedge\b
+  - (?i)(?:_|\b)hedge\s*tune\b
+  file_types:
+  - '*.py'
+  message: HedgeTune or hedging logic detected; ensure root-finding uses correct score
+    functions.
+  remediation: '- Validate that the residual function R(theta) = E[rt(u)*psi(u,theta)]
+    is correctly computed
+
+    - Use bisection or Newton method for root-finding
+
+    - Verify with held-out true reward data'
+  owasp_llm: LLM01:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: Khalaf et al. (2025) -- Inference-Time Reward Hacking in Large Language
+    Models | Inference-Time Reward Hacking in Large Language Models, NeurIPS 2025
+  fp_guards:
+  - The hedge_tune parameter was set to 0.5.
+  - 'ProcessMetrics: {HedgeTuneVersion: 2.1}'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-103
+  name: soft-best-of-n-implementation
+  description: Detects implementations of Soft Best-of-n sampling which uses temperature-scaled
+    softmax over candidate reward scores.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)\bsoft\s*best\s*of\s*n\b
+  - (?i)\bsbon\b
+  - (?i)\bSoftBestOfN\b
+  - (?i)def\s+soft_best_of_n\b
+  file_types:
+  - '*.py'
+  message: Soft Best-of-n implementation detected; improper temperature selection
+    may lead to reward hacking.
+  remediation: '- Use HedgeTune to select optimal temperature lambda
+
+    - Ensure lambda is not too large to avoid overoptimization
+
+    - Validate with held-out true rewards'
+  owasp_llm: LLM01:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: Khalaf et al. (2025) -- Inference-Time Reward Hacking in Large Language
+    Models | Inference-Time Reward Hacking in Large Language Models, NeurIPS 2025
+  fp_guards:
+  - The sbon parameter is set to 2.0.
+  - 'ProcessMetrics: {SBON: 1.0}'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-104
+  name: par-implementation-detection
+  description: Detects implementations of the Preference As Reward (PAR) reward shaping
+    method, which applies a sigmoid to centered rewards (r - r_ref).
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:from|import)\s+PAR\b
+  - (?i)rRL\s*=\s*1\s*/\s*M\s*\*\s*(?:np\.|tf\.|torch\.)?sigmoid\(\s*(?:r|reward)\s*-\s*(?:r_ref|reference_reward)
+  - '(?i)def\s+par_reward\(.{0,40}\)\s*:'
+  file_types:
+  - '*.py'
+  message: PAR reward shaping implementation detected. While intended for defense,
+    ensure it is not used to mask reward hacking.
+  remediation: '- Verify that PAR is applied correctly with a bounded sigmoid transformation.
+
+    - Ensure reference reward r_ref is properly computed.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: Fu et al. (2026) -- Reward Shaping to Mitigate Reward Hacking in RLHF
+    | Reward Shaping to Mitigate Reward Hacking in RLHF, PAR method, 75.37% winrate
+    AlpacaEval 2.0 on Gemma2-2B
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The sigmoid function is used in many ML contexts unrelated to RLHF.
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-105
+  name: sgfc-implementation-detection
+  description: Detects Slow-Grow-Fast-Converge (SgFc) reward shaping function, which
+    the paper warns is prone to reward hacking.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)\bSgFc\b
+  - (?i)slow_grow_fast_converge\b
+  - (?i)def\s+sgfc\(.{0,40}\)
+  file_types:
+  - '*.py'
+  message: SgFc reward shaping implementation detected. Paper shows it has diminished
+    early gradients and leads to reward hacking.
+  remediation: '- Consider using PAR instead of SgFc for more stable training.
+
+    - Monitor winrate during training to detect hacking early.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: Fu et al. (2026) -- Reward Shaping to Mitigate Reward Hacking in RLHF
+    | Reward Shaping to Mitigate Reward Hacking in RLHF, Figure 5 shows SgFc leads
+    to lower winrate and hacking.
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The SgFc model is defined in a different file for image classification.
+  pipeline_confidence: medium
+  action: log
+- id: MEDUSA-RLHF-SCAN-106
+  name: unbounded-reward-clipping-bypass
+  description: Detects attempts to bypass reward clipping by setting high ceil values
+    (e.g., ceil5.0) which the paper shows still leads to reward hacking when threshold
+    exceeds 6.0.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)\bceil\s*(?:5|6|7|8|9|10)\b
+  - (?i)rRL\s*=\s*(?:np\.|torch\.)?clip\s*\(\s*.{0,40},\s*.{0,40},\s*\d{2,}\s*\)
+  - (?i)min\(\s*r(?:eward)?\s*,\s*[5-9]\s*\)
+  file_types:
+  - '*.py'
+  message: Insufficient reward ceiling detected. The paper shows ceilings >=5 still
+    allow proxy reward to exceed safe threshold (6.0) and trigger hacking.
+  remediation: '- Use bounded reward shaping like PAR (sigmoid capped at 1.0).
+
+    - Monitor proxy reward and winrate; if proxy reward exceeds 6.0, reduce ceiling
+    or apply stronger shaping.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-693
+  mitre_attack: null
+  source_paper: 'Fu et al. (2026) -- Reward Shaping to Mitigate Reward Hacking in
+    RLHF | Reward Shaping to Mitigate Reward Hacking in RLHF, Figure 4: ceil5.0 still
+    allows proxy reward > 6.0 leading to hacking.'
+  fp_guards:
+  - clip_output = np.clip(img, 0, 255)
+  - Min max normalization clip to [0,1].
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RLHF-SCAN-107
+  name: reward-overoptimization-threshold-pattern
+  description: Detects code patterns that allow proxy reward to exceed the critical
+    threshold of 6.0, which the paper identifies as the hacking trigger point.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)reward\s*(?:>|>=|>?\s*6)\.0\b
+  - (?i)if\s+reward\s*[>]\s*6\b
+  - (?i)while\s+reward\s*[>]\s*6\b
+  file_types:
+  - '*.py'
+  message: Code checks if proxy reward exceeds 6.0, the threshold the paper identifies
+    for triggering reward hacking.
+  remediation: '- Ensure reward is bounded below 6.0 via PAR or other shaping.
+
+    - Monitor winrate when proxy reward exceeds 6.0.'
+  owasp_llm: LLM04:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Fu et al. (2026) -- Reward Shaping to Mitigate Reward Hacking in
+    RLHF | Reward Shaping to Mitigate Reward Hacking in RLHF, Section 4.4: hacking
+    occurs when proxy reward reaches ~6.0.'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - The reward threshold for acceptance is greater than 6.0 in the experiment config.
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RLHF-SCAN-108
+  name: odin-two-head-reward-model-implementation
+  description: Detects ODIN-style two-head reward model with separate linear projections
+    for quality and length, including weight normalization and orthogonality loss.
+  severity: medium
+  category: rlhf_security
+  patterns:
+  - (?i)(?:class\s+ODIN|TwoHeadReward|DisentangledReward)
+  - (?i)(?:weight_norm|WeightNorm)\s*\(\s*(?:WQ|WL|quality_head|length_head)
+  - (?i)(?:WQ|WL)\s*=\s*(?:nn\.Linear|nn\.Parameter|nn\.Module)
+  - (?i)(?:orthogonality_loss|LO_loss|torch\.abs\(.{0,40}WQ.{0,40}WL)
+  file_types:
+  - '*.py'
+  message: Found ODIN-style two-head reward model implementation with orthogonal length/quality
+    heads.
+  remediation: '- Verify that only the quality head is used in RL fine-tuning.
+
+    - Ensure weight normalization is applied to prevent degenerate solutions.
+
+    - Check orthogonality loss coefficient matches paper (lambda_O=1).'
+  owasp_llm: LLM09:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Chen et al. (2024) -- ODIN: Disentangled Reward Mitigates Hacking
+    in RLHF | ODIN: Disentangled Reward Mitigates Hacking in RLHF (arXiv 2402.07319)
+    - Two-head reward model with orthogonality loss reduces length correlation from
+    0.451 to -0.03.'
+  fp_guards:
+  - "class RewardModel(nn.Module):\n    def __init__(self):\n        self.head = nn.Linear(768,\
+    \ 1)"
+  - '# example of orthogonal regularization for multitask learning
+
+    ortho_loss = torch.abs(W1 @ W2.T)'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-109
+  name: odin-length-penalty-implementation
+  description: Detects length penalty reward modification used as baseline comparison
+    in ODIN paper, where auxiliary reward subtracts alpha times length.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:length_penalty|length_bias|alpha\s*\*\s*L\(y\)|r_lp)
+  - (?i)(?:r_lp|aux_reward|reward_lp)\s*=\s*(?:reward|r).{0,40}\balpha\b.{0,20}\b(?:len|length|L\(y\))
+  - (?i)(?:def|lambda)\s+length_penalty
+  file_types:
+  - '*.py'
+  message: Detected length penalty reward modification (auxiliary reward = original
+    reward - alpha * length).
+  remediation: '- Consider using ODIN reward disentanglement instead of additive length
+    penalty.
+
+    - Tune alpha carefully to avoid over-penalizing longer responses.
+
+    - Monitor reward correlation with length during training.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Chen et al. (2024) -- ODIN: Disentangled Reward Mitigates Hacking
+    in RLHF | ODIN: Disentangled Reward Mitigates Hacking in RLHF - Length penalty
+    baseline with tunable alpha coefficient.'
+  fp_guards:
+  - 'reward = torch.sum(log_probs)  # RL objective with log probs'
+  - '# penalize length for efficiency
+
+    loss = ce_loss + 0.01 * len(output)'
+  pipeline_confidence: high
+  action: log
+- id: MEDUSA-RLHF-SCAN-110
+  name: odin-pearson-correlation-loss
+  description: Detects implementation of Pearson correlation loss used in ODIN to
+    decorrelate length from quality reward head.
+  severity: medium
+  category: rlhf_security
+  patterns:
+  - (?i)(?:pearson_corr|rho_corr|ll_loss|length_loss).{0,60}(?:corrcoef|pearsonr|correlation)
+  - (?i)(?:def|lambda).{0,20}(?:pearson|rho).{0,40}(?:torch\.|np\.|scipy\.).{0,30}(?:corrcoef|pearsonr)
+  - (?i)torch\.abs\(torch\.corrcoef
+  file_types:
+  - '*.py'
+  message: Found Pearson correlation loss implementation for reward model length debiasing.
+  remediation: '- Ensure global minibatch computation across GPUs.
+
+    - Verify loss sign: maximize |rho(Q,length)| and minimize rho(L,length).
+
+    - Check that gradient flows correctly for both heads.'
+  owasp_llm: LLM09:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Chen et al. (2024) -- ODIN: Disentangled Reward Mitigates Hacking
+    in RLHF | ODIN: Disentangled Reward Mitigates Hacking in RLHF - Uses Pearson correlation
+    regularizer to decorrelate length from quality head.'
+  fp_guards:
+  - 'corr = torch.corrcoef(predictions.T)
+
+    loss = corr[0,1]  # correlation loss for fairness'
+  - 'import numpy as np
+
+    rho = np.corrcoef(x, y)[0,1]'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-111
+  name: odin-orthogonality-loss
+  description: Detects orthogonality loss between quality and length projection weights
+    as used in ODIN.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:orthogonality|LO_loss|ortho_loss|WQ.{0,40}WL|WL.{0,40}WQ)
+  - (?i)lambda_o|lambda_orth|ortho_weight
+  file_types:
+  - '*.py'
+  message: Detected orthogonality loss for reward model disentanglement.
+  remediation: '- Verify that weight normalization is applied before computing orthogonality.
+
+    - Check that both heads are non-degenerate.
+
+    - Confirm orthogonality coefficient matches paper (lambda_O=1).'
+  owasp_llm: LLM09:2025
+  cwe: CWE-912
+  mitre_attack: null
+  source_paper: 'Chen et al. (2024) -- ODIN: Disentangled Reward Mitigates Hacking
+    in RLHF | ODIN: Disentangled Reward Mitigates Hacking in RLHF - Orthogonality
+    loss reduces length correlation further from -0.05 to -0.03.'
+  fp_guards:
+  - 'loss = ce_loss + 0.1 * torch.abs(W1 @ W2.T)  # different context'
+  - '# orthogonal regularization for feature separation
+
+    reg = torch.abs(W_a @ W_b.T)'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-112
+  name: fact-rlhf-reward-model-augmentation
+  description: Detects implementation patterns of Factually Augmented RLHF where the
+    reward model ingests additional factual information (image captions, rationales)
+    to calibrate reward signals and prevent reward hacking.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:class|def)\s+RewardModel\s*[\w]*.{0,40}(?:captions|rationals|factual)
+  - (?i)(?:concat|append|combine)\s*(?:captions|rationals|factual)\s*(?:to|with|as)\s*(?:input|reward|context)
+  - (?i)factual\s*_?info(?:rmation)?\s*(?:input|augment|append)
+  file_types:
+  - '*.py'
+  message: Detected Fact-RLHF reward model augmentation pattern
+  remediation: '- Consider using separate reward model without factual augmentation
+    if hallucination risk is low
+
+    - Ensure factual information is sanitized and trustworthy'
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+  mitre_attack: null
+  source_paper: 'Sun et al. (2023) -- Aligning Large Multimodal Models with Factually
+    Augment | LLaVA-RLHF paper: Fact-RLHF augments reward model with COCO captions
+    or A-OKVQA rationals'
+  fp_guards:
+  - "class RewardModel(nn.Module):\n    def forward(self, image, prompt, response):"
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-113
+  name: symbolic-reward-correctness-penalty
+  description: Detects implementation of symbolic rewards that penalize divergence
+    from ground-truth answers (binary or multi-choice) in RLHF, as used in Fact-RLHF.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:symbolic|correctness|penalty)\s*reward
+  - (?i)(?:correct|ground_truth|label)\s*(?:penalty|loss|reward)
+  - (?i)if\s+(?:answer|pred|output)\s*(?:!=|!=\s*|!~=)\s*(?:label|gt|ground_truth)
+  file_types:
+  - '*.py'
+  message: Detected symbolic reward correctness penalty implementation
+  remediation: '- Ensure penalty is applied only during RL training, not inference
+
+    - Validate ground-truth labels to avoid incorrect penalties'
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+  mitre_attack: null
+  source_paper: 'Sun et al. (2023) -- Aligning Large Multimodal Models with Factually
+    Augment | LLaVA-RLHF paper: symbolic correctness penalty for VQA v2 and A-OKVQA
+    answers'
+  fp_guards:
+  - '# compute reward based on response quality'
+  - reward = model_output.scores[0, answer_id]
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-114
+  name: mmhal-bench-evaluation-patterns
+  description: Detects implementation of MMHAL-BENCH evaluation that uses GPT-4 to
+    assess hallucinations in LMM responses, with specific question categories.
+  severity: low
+  category: rlhf_security
+  patterns:
+  - (?i)(?:MMHAL|mmhal|Mmhal)\s*(?:-|_)?BENCH
+  - (?i)(?:Object attribute|Adversarial object|Comparison|Counting|Spatial relation|Environment|Holistic
+    description)\s*(?:question|category)
+  - (?i)(?:GPT-4|gpt4|gpt_4).{0,40}(?:hallucination|assess|score)
+  - (?i)hallucination.{0,20}(?:score|rate|detection|classifier)
+  file_types:
+  - '*.py'
+  - '*.json'
+  message: Detected MMHAL-BENCH evaluation or hallucination assessment pattern
+  remediation: '- Ensure benchmark uses non-leaked images (OpenImages validation/test)
+
+    - Use GPT-4 with human-generated answers for evaluation'
+  owasp_llm: LLM06:2025
+  cwe: CWE-20
+  mitre_attack: null
+  source_paper: 'Sun et al. (2023) -- Aligning Large Multimodal Models with Factually
+    Augment | LLaVA-RLHF paper: MMHAL-BENCH with 96 image-question pairs across 8
+    categories'
+  fp_guards:
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  - 'def evaluate_model(model, dataset):'
+  pipeline_confidence: high
+- id: MEDUSA-RLHF-SCAN-115
+  name: heterogeneous-model-averaging-implementation
+  description: Detects implementations of Heterogeneous Model Averaging (HMA) which
+    applies different averaging ratios to different transformer layers to mitigate
+    alignment tax.
+  severity: medium
+  category: rlhf_security
+  patterns:
+  - (?i)(?:from|import)\s+heterogeneous_model_averaging\b
+  - (?i)\bHMA\(.{0,40},\s*alpha(?:s|_list)\s*=\s*\[
+  - (?i)\b(?:heterogeneous_model_averaging|HMA)\.(?:fit|optimize|apply)\s*\(
+  file_types:
+  - '*.py'
+  message: Heterogeneous Model Averaging (HMA) implementation detected – used to mitigate
+    alignment tax in RLHF.
+  remediation: '- Evaluate the impact on reward and forgetting metrics.
+
+    - Ensure deployment guardrails are in place for experimental techniques.'
+  owasp_llm: LLM06:2025
+  cwe: CWE-912
+  mitre_attack: T1574
+  source_paper: Lin et al. (2024) -- Mitigating the Alignment Tax of RLHF | Mitigating
+    the Alignment Tax of RLHF – Lin et al. 2024 – Heterogeneous Model Averaging (HMA)
+  fp_guards:
+  - 'import homogeneous_averaging  # not HMA'
+  - 'ProcessMetrics: {TotalRss: 42MB, WorkingSetBytes: 38MB}'
+  pipeline_confidence: high
