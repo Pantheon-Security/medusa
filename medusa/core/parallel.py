@@ -362,6 +362,8 @@ class MedusaParallelScanner:
         '.dockerfile': 'docker',
         '.ps1': 'powershell',
         '.json': 'json',
+        '.jsonl': 'dataset',   # JSONL datasets (attack corpora, training data)
+        '.csv': 'dataset',     # CSV data files
         '.xml': 'xml',
         '.sol': 'solidity',
         '.env': 'env',
