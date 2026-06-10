@@ -142,14 +142,16 @@ class MedusaConfig:
         config.workers = data.get('workers', config.workers)
         config.cache_enabled = data.get('cache_enabled', config.cache_enabled)
 
-        # Scanners
-        scanners = data.get('scanners', {})
+        # Scanners.  `or {}` (not a default arg) so a present-but-null YAML key
+        # (`scanners:` with no value → None) doesn't raise AttributeError and
+        # silently discard the user's entire config.
+        scanners = data.get('scanners') or {}
         config.scanners_enabled = scanners.get('enabled', [])
         config.scanners_disabled = scanners.get('disabled', [])
         config.scanner_overrides = scanners.get('overrides', {})
 
         # Exclusions - MERGE user paths with mandatory exclusions (don't replace)
-        exclude = data.get('exclude', {})
+        exclude = data.get('exclude') or {}
         if 'paths' in exclude:
             # Start with user's paths
             user_paths = set(exclude['paths'])
@@ -165,13 +167,13 @@ class MedusaConfig:
             config.exclude_files = exclude['files']
 
         # IDE settings
-        ide = data.get('ide', {})
-        claude = ide.get('claude_code', {})
+        ide = data.get('ide') or {}
+        claude = ide.get('claude_code') or {}
         config.ide_claude_code_enabled = claude.get('enabled', False)
         config.ide_claude_code_auto_scan = claude.get('auto_scan', True)
         config.ide_claude_code_inline_annotations = claude.get('inline_annotations', True)
 
-        cursor = ide.get('cursor', {})
+        cursor = ide.get('cursor') or {}
         config.ide_cursor_enabled = cursor.get('enabled', False)
 
         vscode = ide.get('vscode', {})

@@ -192,20 +192,14 @@ class TestRuleLoader:
         rules = loader.load_rules_from_file(Path("/nonexistent/rules.yaml"))
         assert rules == []
 
-    def test_load_rules_from_file_with_runtime_free_tier(self, sample_runtime_rule_yaml):
-        """Runtime rules should be SKIPPED for free tier"""
-        with patch('medusa.core.licensing.can_use_runtime_filters', return_value=False):
-            loader = RuleLoader()
-            rules = loader.load_rules_from_file(sample_runtime_rule_yaml)
-            assert len(rules) == 0  # Should be empty for free tier
-
-    def test_load_rules_from_file_with_runtime_pro_tier(self, sample_runtime_rule_yaml):
-        """Runtime rules should be LOADED for pro tier"""
-        with patch('medusa.core.licensing.can_use_runtime_filters', return_value=True):
-            loader = RuleLoader()
-            rules = loader.load_rules_from_file(sample_runtime_rule_yaml)
-            assert len(rules) == 1  # Should load for pro tier
-            assert rules[0].id == "runtime-rule-001"
+    def test_load_rules_from_file_runtime_loads_without_gate(self, sample_runtime_rule_yaml):
+        """Runtime rule files load with no license gate. Licensing was removed
+        from the free product (the paid tier is a separate hosted service); the
+        loader applies no gate, so a runtime rule file loads normally if present."""
+        loader = RuleLoader()
+        rules = loader.load_rules_from_file(sample_runtime_rule_yaml)
+        assert len(rules) == 1
+        assert rules[0].id == "runtime-rule-001"
 
     def test_load_rules_from_dir(self, tmp_path, sample_rule_yaml):
         """Test loading all rules from directory"""
@@ -225,16 +219,8 @@ class TestRuleLoader:
         rules = loader.load_rules_from_dir("nonexistent_directory_xyz")
         assert rules == []
 
-    def test_load_runtime_dir_without_license(self):
-        """Runtime directory should be skipped without license"""
-        with patch('medusa.core.licensing.can_use_runtime_filters', return_value=False):
-            loader = RuleLoader()
-            rules = loader.load_rules_from_dir("runtime")
-            assert len(rules) == 0
-
-    def test_load_runtime_dir_with_license(self, tmp_path):
-        """Runtime directory should load with pro license"""
-        # Create runtime directory with rules
+    def test_load_runtime_dir_loads_when_present(self, tmp_path):
+        """A runtime directory loads its rules when present — no license gate."""
         runtime_dir = tmp_path / "runtime"
         runtime_dir.mkdir()
         rule_file = runtime_dir / "test.yaml"
@@ -249,10 +235,9 @@ rules:
     message: Runtime test
 """)
 
-        with patch('medusa.core.licensing.can_use_runtime_filters', return_value=True):
-            loader = RuleLoader(rules_dir=tmp_path)
-            rules = loader.load_rules_from_dir("runtime")
-            assert len(rules) == 1
+        loader = RuleLoader(rules_dir=tmp_path)
+        rules = loader.load_rules_from_dir("runtime")
+        assert len(rules) == 1
 
     def test_rule_caching(self, tmp_path, sample_rule_yaml):
         """Test that rules are cached after first load"""

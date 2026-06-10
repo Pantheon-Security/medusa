@@ -19,8 +19,10 @@ import re
 import secrets
 import sys
 import json
+import logging
 import hashlib
 import signal
+import stat
 import time
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
@@ -118,6 +120,7 @@ class ScanResult:
     cached: bool = False
     scanner_stats: Optional[Dict[str, int]] = None  # {scanner_name: issue_count}
     line_count: int = 0
+    scanner_errors: Optional[Dict[str, int]] = None  # {scanner_name: failure_count}
 
 
 class MedusaCacheManager:
@@ -255,8 +258,13 @@ class MedusaCacheManager:
                 "hmac": self._compute_hmac(canonical),
                 "entries": entries,
             }
-            with open(self.cache_file, 'w', encoding='utf-8') as f:
+            # Atomic write: serialize to a temp file then os.replace, so a
+            # concurrent scan or a crash mid-write cannot truncate the cache into
+            # invalid JSON (which would be silently discarded on next load).
+            tmp_file = self.cache_file.with_suffix(self.cache_file.suffix + '.tmp')
+            with open(tmp_file, 'w', encoding='utf-8') as f:
                 json.dump(envelope, f, indent=2)
+            os.replace(tmp_file, self.cache_file)
         except Exception as e:
             print(f"⚠️  Cache save error: {e}")
 
@@ -477,7 +485,9 @@ class MedusaParallelScanner:
                     # Check for typical venv structure (bin/activate or Scripts/activate.bat)
                     elif (item / 'bin' / 'activate').exists() or (item / 'Scripts' / 'activate.bat').exists():
                         detected_venvs.append(item.name + '/')
-        except PermissionError:
+        except OSError:
+            # PermissionError, stale NFS handle, disconnected mount, etc. — venv
+            # detection is best-effort and must not abort scanner construction.
             pass
 
         return detected_venvs
@@ -606,6 +616,16 @@ class MedusaParallelScanner:
         def _maybe_add(file_path: Path) -> None:
             if file_path in files_set:
                 return
+            # Skip non-regular files (FIFOs, sockets, device nodes). open() on a
+            # FIFO with no writer blocks forever and would hang the whole scan
+            # (both _pre_map_scanners and scan_file open files). os.stat follows
+            # symlinks, so symlinks pointing at such files are excluded too;
+            # broken symlinks raise OSError and are skipped.
+            try:
+                if not stat.S_ISREG(os.stat(file_path).st_mode):
+                    return
+            except OSError:
+                return
             if self.quick_mode and self.cache:
                 if not self.cache.is_file_changed(file_path):
                     return
@@ -615,7 +635,16 @@ class MedusaParallelScanner:
         # -- Single os.walk() pass over the project tree -----------------
         project_root_str = str(self.project_root)
 
-        for root, dirs, filenames in os.walk(self.project_root):
+        # Record directories os.walk cannot enter (permissions, stale mounts) so
+        # we can warn rather than silently drop coverage — a security scanner
+        # reporting "complete" while skipping unreadable subtrees is a finding-
+        # suppression bug.
+        unreadable_dirs: List[str] = []
+
+        def _on_walk_error(err):
+            unreadable_dirs.append(getattr(err, 'filename', str(err)))
+
+        for root, dirs, filenames in os.walk(self.project_root, onerror=_on_walk_error):
             # Prune excluded directories in-place to skip entire subtrees.
             # .git is always excluded (version control internals, not scannable).
             # Note: .github is NOT excluded here -- it may contain AI context files.
@@ -693,6 +722,13 @@ class MedusaParallelScanner:
                 if mcp_file.exists() and mcp_file.is_file():
                     _maybe_add(mcp_file)
 
+        if unreadable_dirs:
+            _ic = '!' if self.force_ascii else '⚠️'
+            print(
+                f"{_ic}  {len(unreadable_dirs)} director(ies) could not be read "
+                f"and were skipped (e.g. {unreadable_dirs[0]})"
+            )
+
         return sorted(files)
 
     @staticmethod
@@ -757,6 +793,7 @@ class MedusaParallelScanner:
         all_issues = []
         scanner_names = []
         scanner_issue_counts = {}  # Track issues per scanner
+        scanner_errors = {}  # scanner_name -> failure count (crashes + timeouts)
         seen_issues = set()  # Deduplicate by (line, message_prefix)
 
         for scanner in scanners:
@@ -766,7 +803,9 @@ class MedusaParallelScanner:
                     scanner, file_path, PER_SCANNER_TIMEOUT
                 )
                 if scanner_result is None:
-                    # Scanner timed out -- skip it
+                    # Scanner timed out -- record and skip it
+                    _sname = getattr(scanner, 'name', scanner.__class__.__name__)
+                    scanner_errors[_sname] = scanner_errors.get(_sname, 0) + 1
                     continue
                 scanner_name = scanner_result.scanner_name
                 scanner_names.append(scanner_name)
@@ -783,8 +822,14 @@ class MedusaParallelScanner:
                         issues_from_this += 1
 
                 scanner_issue_counts[scanner_name] = issues_from_this
-            except Exception:
-                # Don't let one scanner failure stop others
+            except Exception as _exc:
+                # Don't let one scanner failure stop others — but don't hide it
+                # either: record the failure so the parent can surface a summary.
+                _sname = getattr(scanner, 'name', scanner.__class__.__name__)
+                logging.getLogger("medusa.scan").debug(
+                    "scanner %s failed on %s: %s", _sname, file_path, _exc
+                )
+                scanner_errors[_sname] = scanner_errors.get(_sname, 0) + 1
                 continue
 
         # Count lines from the file content (avoids re-opening in generate_report)
@@ -803,7 +848,8 @@ class MedusaParallelScanner:
                 scan_time=time.time() - start_time,
                 cached=False,
                 scanner_stats=scanner_issue_counts,
-                line_count=_line_count
+                line_count=_line_count,
+                scanner_errors=scanner_errors or None
             )
         else:
             result = ScanResult(
@@ -812,7 +858,8 @@ class MedusaParallelScanner:
                 issues=[],
                 scan_time=time.time() - start_time,
                 cached=False,
-                line_count=_line_count
+                line_count=_line_count,
+                scanner_errors=scanner_errors or None
             )
 
         # Update cache — store serialized issues so cache hits return real findings
@@ -837,7 +884,9 @@ class MedusaParallelScanner:
         if sys.platform == 'win32':
             return scanner.scan_file(file_path)
 
-        class _ScannerTimeout(Exception):
+        # BaseException (not Exception) so a scanner's own `except Exception`
+        # cannot swallow the timeout and defeat the wall-clock guard.
+        class _ScannerTimeout(BaseException):
             pass
 
         def _alarm_handler(signum, frame):
@@ -1095,6 +1144,41 @@ class MedusaParallelScanner:
             _ic = '!' if self.force_ascii else '\u26a0\ufe0f'
             print(f"{_ic}  Multiprocessing unavailable ({e}), falling back to sequential scan...")
             results = self._scan_sequential(files, scanner_expected)
+
+        # Persist the cache from the parent process. update_cache() called inside
+        # scan_file() runs in Pool worker processes, whose mutations of the
+        # pickled cache copy die with the worker and never reach the parent — so
+        # without this rebuild the cache file is never written and --quick
+        # silently re-scans everything. Rebuild entries from the collected
+        # results here (issues are already serialized dicts) and save once.
+        if self.use_cache and self.cache:
+            for r in results:
+                try:
+                    serialized = [
+                        i.to_dict() if hasattr(i, 'to_dict') else i
+                        for i in r.issues
+                    ]
+                    self.cache.update_cache(Path(r.file), len(r.issues), serialized)
+                except Exception:
+                    pass
+            self.cache.save()
+
+        # Surface scanner failures/timeouts aggregated from the workers. Each
+        # ScanResult carries the failures seen while scanning that file; without
+        # this a scanner crashing on every file would still print a clean
+        # "Scan complete" with no signal that coverage was lost.
+        agg_errors: Dict[str, int] = {}
+        for r in results:
+            for name, count in (getattr(r, 'scanner_errors', None) or {}).items():
+                agg_errors[name] = agg_errors.get(name, 0) + count
+        if agg_errors:
+            total = sum(agg_errors.values())
+            top = ", ".join(
+                f"{n} ({c})"
+                for n, c in sorted(agg_errors.items(), key=lambda kv: -kv[1])[:5]
+            )
+            _ic = '!' if self.force_ascii else '⚠️'
+            print(f"{_ic}  {total} scanner error(s)/timeout(s) during scan: {top}")
 
         return results
 

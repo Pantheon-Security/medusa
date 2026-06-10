@@ -107,10 +107,11 @@ class TestResolveGitUrl:
         url = "https://github.com/owner/project.git"
         assert _resolve_git_url(url) == url
 
-    def test_http_url_passes_through(self):
-        """Plain HTTP URL is accepted (though insecure)."""
-        url = "http://github.com/owner/project"
-        assert _resolve_git_url(url) == url
+    def test_http_url_rejected(self):
+        """Cleartext HTTP must be rejected (CR-027): cloning an untrusted repo
+        over http:// allows on-path tampering of the files we then scan."""
+        with pytest.raises(click.BadParameter):
+            _resolve_git_url("http://github.com/owner/project")
 
     def test_ssh_url_passes_through(self):
         """SSH (git@) URL should be returned unchanged."""

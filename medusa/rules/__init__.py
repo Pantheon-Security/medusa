@@ -15,9 +15,20 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
 import re
+import warnings
 import yaml
 from dataclasses import dataclass, field
 from enum import Enum
+
+# Several bundled rule patterns use nested character sets (e.g. [a-z[A-Z]]) which
+# Python's re module flags with FutureWarning. The patterns still compile and
+# match correctly today; a proper audit/rewrite is tracked for 2026.6.1 (CR-050).
+# Suppress only this specific warning so it doesn't flood scan output — badly on
+# Windows, where spawn-mode workers each re-import and re-compile the rules and
+# would otherwise emit it hundreds of times, mangling the progress display.
+# Scoped by message so no other FutureWarning is hidden; re-applies on every
+# import, including in spawn-mode worker processes.
+warnings.filterwarnings("ignore", message="Possible nested set", category=FutureWarning)
 
 _log = logging.getLogger(__name__)
 
@@ -165,7 +176,10 @@ class RuleLoader:
             d.name for d in self.rules_dir.iterdir()
             if d.is_dir() and d.name not in skip_dirs
         )
-        # Always append runtime last (requires license check)
+        # Append runtime last. The free product ships no runtime rules and no
+        # rules/runtime/ directory (runtime scanning belongs to the separate
+        # hosted service). The loader still checks for the directory so it is a
+        # harmless no-op when absent — it simply contributes no rules.
         subdirs.append('runtime')
 
         seen_ids: set = set()
@@ -189,15 +203,6 @@ class RuleLoader:
         Returns:
             List of rules from that directory
         """
-        # Runtime rules require a paid license
-        if subdir == 'runtime':
-            try:
-                from medusa.core.licensing import can_use_runtime_filters
-                if not can_use_runtime_filters():
-                    return []
-            except ImportError:
-                return []  # Licensing module not available — skip runtime rules
-
         if not force_reload and subdir in self._rules_cache:
             return self._rules_cache[subdir]
 
@@ -268,15 +273,6 @@ class RuleLoader:
         Returns:
             List of rules from the file
         """
-        # Runtime rule files require a paid license
-        if '_runtime' in filepath.name or filepath.parent.name == 'runtime':
-            try:
-                from medusa.core.licensing import can_use_runtime_filters
-                if not can_use_runtime_filters():
-                    return []
-            except ImportError:
-                return []  # Licensing module not available — skip runtime rules
-
         rules = []
 
         try:

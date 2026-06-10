@@ -83,8 +83,13 @@ class TestFailOn:
         result = runner.invoke(main, [
             'scan', str(dirty_repo), '--fail-on', 'low', '--no-report', '--workers', '1'
         ])
-        # dirty_repo contains eval() — must produce at least a LOW finding
-        assert result.exit_code in (0, 1), f"Unexpected exit code: {result.exit_code}\n{result.output}"
+        # dirty_repo contains eval() — must produce at least a LOW finding, so
+        # --fail-on low MUST exit 1. (CR-037: this asserted `in (0, 1)`, a
+        # tautology that stayed green even while --fail-on was a no-op — CR-001.)
+        assert result.exit_code == 1, (
+            f"--fail-on low must exit 1 on a repo with findings, got "
+            f"{result.exit_code}\n{result.output}"
+        )
 
     def test_fail_on_clean_repo_exits_zero(self, clean_repo):
         runner = CliRunner()
@@ -99,8 +104,11 @@ class TestFailOn:
             result = runner.invoke(main, [
                 'scan', str(clean_repo), '--fail-on', level, '--no-report', '--workers', '1'
             ])
-            assert result.exit_code in (0, 1), (
-                f"--fail-on {level} produced unexpected exit code {result.exit_code}"
+            # CR-037: a clean repo trips no threshold, so every level must exit 0
+            # (was `in (0, 1)` — a tautology).
+            assert result.exit_code == 0, (
+                f"clean repo must exit 0 at --fail-on {level}, got "
+                f"{result.exit_code}\n{result.output}"
             )
 
     def test_fail_on_rejects_invalid_severity(self, clean_repo):
