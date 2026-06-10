@@ -32,6 +32,13 @@ class AIAttackSignatureScanner(RuleBasedScanner):
     # (Unannotated form so the rule-coverage wiring check's regex detects it.)
     RULE_CATEGORIES = ['attack_signatures']
 
+    # Safe to run on files over the global size cap: scan_file streams only the
+    # first MAX_RULE_SCAN_LINES lines and matches a tiny curated rule set, so a
+    # huge dataset (jailbreak corpus) is bounded — not the multi-minute hang the
+    # 2MB cap protects against. The parallel scanner routes oversized files to
+    # scanners with this flag instead of skipping them.
+    supports_large_files = True
+
     # Broad text coverage — jailbreak/injection payloads show up in code,
     # configs, prompts, and datasets alike. Includes dataset extensions
     # (.jsonl/.csv) so attack corpora are covered.
@@ -73,8 +80,16 @@ class AIAttackSignatureScanner(RuleBasedScanner):
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         try:
-            content = file_path.read_text(encoding="utf-8", errors="replace")
-            lines = content.split("\n")
+            # Stream only the first MAX_RULE_SCAN_LINES lines so memory and time
+            # stay bounded regardless of file size (a 1GB dataset reads just the
+            # head). _scan_with_rules applies the same cap; reading lazily here
+            # avoids loading a huge file into memory first.
+            lines: List[str] = []
+            with open(file_path, encoding="utf-8", errors="replace") as fh:
+                for idx, line in enumerate(fh):
+                    if idx >= self.MAX_RULE_SCAN_LINES:
+                        break
+                    lines.append(line.rstrip("\n"))
             issues: List[ScannerIssue] = self._scan_with_rules(lines, file_path)
             return ScannerResult(
                 scanner_name=self.name,

@@ -772,25 +772,32 @@ class MedusaParallelScanner:
                     cached=True
                 )
 
-        # --- File size guard ---
-        # Data files (73MB JSON datasets, large logs, vendor bundles) will
-        # hang regex scanners for minutes.  Skip them outright.
-        file_size = self._file_size(file_path)
-        if file_size > MAX_SCAN_FILE_SIZE:
-            print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
-            return ScanResult(
-                file=str(file_path),
-                scanner='skipped-large-file',
-                issues=[],
-                scan_time=time.time() - start_time,
-                cached=False,
-                scanner_stats={'skipped-large-file': 0}
-            )
-
         # Reuse pre-mapped scanners if available, otherwise look up fresh
         scanners = self._scanner_map.get(str(file_path))
         if scanners is None:
             scanners = scanner_registry.get_scanners_for_file(file_path)
+
+        # --- File size guard ---
+        # Data files (73MB JSON datasets, large logs, vendor bundles) will hang
+        # full regex scanning for minutes. For oversized files run ONLY
+        # large-file-capable scanners (they sample/cap internally — e.g. the
+        # attack-signature scanner reads just the first 50k lines); if none
+        # apply, skip the file outright as before. This recovers attack-payload
+        # detection in big datasets without reintroducing the hang.
+        file_size = self._file_size(file_path)
+        if file_size > MAX_SCAN_FILE_SIZE:
+            large_capable = [s for s in scanners if getattr(s, 'supports_large_files', False)]
+            if not large_capable:
+                print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
+                return ScanResult(
+                    file=str(file_path),
+                    scanner='skipped-large-file',
+                    issues=[],
+                    scan_time=time.time() - start_time,
+                    cached=False,
+                    scanner_stats={'skipped-large-file': 0}
+                )
+            scanners = large_capable
 
         all_issues = []
         scanner_names = []
