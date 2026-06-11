@@ -130,6 +130,12 @@ class FalsePositiveFilter:
     _METHOD_RE = re.compile(
         r'\.(?:' + '|'.join(re.escape(m) for m in SECURITY_METHODS) + r')\s*\(',
     )
+    # _check_security_module: single bare-substring regex (case-insensitive)
+    # replacing 19 separate `method in context.lower()` scans. Same semantics
+    # (substring presence), one pass — NOT _METHOD_RE, which requires `.m(` syntax.
+    _SECURITY_METHOD_SUBSTR_RE = re.compile(
+        '|'.join(re.escape(m) for m in SECURITY_METHODS), re.IGNORECASE
+    )
     # _check_security_module: single regex instead of iterating SECURITY_MODULE_PATTERNS
     _SECURITY_MODULE_RE = re.compile(
         '|'.join(SECURITY_MODULE_PATTERNS),
@@ -296,10 +302,7 @@ class FalsePositiveFilter:
         if self._SECURITY_MODULE_RE.search(file_path):
             # Additional check: does the file have security methods?
             full_context = '\n'.join(context)
-            has_security_methods = any(
-                method in full_context.lower()
-                for method in self.SECURITY_METHODS
-            )
+            has_security_methods = bool(self._SECURITY_METHOD_SUBSTR_RE.search(full_context))
 
             if has_security_methods:
                 return FilterResult(
@@ -412,9 +415,12 @@ class FalsePositiveFilter:
             )
 
         # --- Python docstring detection ---
-        full_text = '\n'.join(context[:line_idx + 1])
-        triple_double = full_text.count('"""')
-        triple_single = full_text.count("'''")
+        # Count triple-quote delimiters over the prefix WITHOUT building one big
+        # joined string per finding. Summing per-line counts is identical: a
+        # `"""`/`'''` token never spans a newline, and join inserts only '\n'.
+        prefix = context[:line_idx + 1]
+        triple_double = sum(ln.count('"""') for ln in prefix)
+        triple_single = sum(ln.count("'''") for ln in prefix)
 
         if triple_double % 2 == 1 or triple_single % 2 == 1:
             return FilterResult(

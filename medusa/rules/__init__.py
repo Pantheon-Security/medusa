@@ -12,6 +12,7 @@ Rules are defined in YAML format in the following directories:
 """
 
 import logging
+from bisect import bisect_left
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
 import re
@@ -148,6 +149,8 @@ class RuleLoader:
         """
         self.rules_dir = rules_dir or self.RULES_DIR
         self._rules_cache: Dict[str, List[Rule]] = {}
+        self._rules_by_id: Dict[str, Rule] = {}
+        self._rules_by_id_src: Optional[List[Rule]] = None
         self._integrity_verified = False
         self._skip_integrity = skip_integrity_check
 
@@ -431,6 +434,9 @@ class RuleLoader:
 
         matches = []
         lines = content.split('\n')
+        # Precompute newline offsets once: line number via bisect is O(log n)
+        # per match instead of O(pos) re-scanning the prefix for every match.
+        _nl_offsets = [i for i, c in enumerate(content) if c == '\n']
 
         for rule in rules:
             rule_matches = rule.matches(content)
@@ -438,7 +444,7 @@ class RuleLoader:
             for match in rule_matches:
                 # Find line number
                 start_pos = match.start()
-                line_num = content[:start_pos].count('\n') + 1
+                line_num = bisect_left(_nl_offsets, start_pos) + 1
 
                 # Get line content
                 if 0 < line_num <= len(lines):
@@ -479,12 +485,13 @@ class RuleLoader:
         return [r for r in all_rules if r.owasp_llm == owasp_id]
 
     def get_rule_by_id(self, rule_id: str) -> Optional[Rule]:
-        """Get a specific rule by ID"""
+        """Get a specific rule by ID (O(1) via an index rebuilt only when the
+        underlying rule list changes)."""
         all_rules = self.load_all_rules()
-        for rule in all_rules:
-            if rule.id == rule_id:
-                return rule
-        return None
+        if self._rules_by_id_src is not all_rules:
+            self._rules_by_id = {r.id: r for r in all_rules}
+            self._rules_by_id_src = all_rules
+        return self._rules_by_id.get(rule_id)
 
     def get_categories(self) -> Set[str]:
         """Get all unique categories"""
