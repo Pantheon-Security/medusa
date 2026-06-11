@@ -45,6 +45,16 @@ _ALLOW_ALL = {"*", "bash", "bash(*)", "bash(*:*)"}
 # Fallback extraction of hook command strings when JSON parsing fails.
 _COMMAND_KEY_RE = re.compile(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
+# Subagent frontmatter that grants ALL tools via a literal wildcard. Detected by
+# regex (not YAML parse) because `tools: *` is invalid YAML — `*` is an alias
+# indicator. An explicit enumerated list (tools: Read, Grep, …) or an omitted
+# `tools:` field is the legitimate case and must NOT match.
+_WILDCARD_TOOLS = [
+    re.compile(r'(?m)^tools:\s*["\']?\*["\']?\s*(?:#.*)?$'),       # tools: *
+    re.compile(r'(?m)^tools:\s*\[\s*["\']?\*["\']?\s*\]'),          # tools: [*]
+    re.compile(r'(?ms)^tools:\s*\n(?:[ \t]+-[^\n]*\n)*?[ \t]+-\s*["\']?\*["\']?\s*$'),  # block list with a * item
+]
+
 
 class ClaudeCodeScanner(RuleBasedScanner):
     """Detect poisoned Claude Code settings (hook exfiltration, allow-all perms)."""
@@ -57,13 +67,21 @@ class ClaudeCodeScanner(RuleBasedScanner):
         return "python"  # pure rule-based; no external tool
 
     def get_file_extensions(self) -> List[str]:
-        return [".json"]
+        return [".json", ".md", ".sh", ".py"]
 
     def can_scan(self, file_path: Path) -> bool:
-        return (
-            file_path.name in _SETTINGS_NAMES
-            and file_path.parent.name == ".claude"
-        )
+        p = file_path
+        parts = p.parts
+        # .claude/settings.json | settings.local.json
+        if p.name in _SETTINGS_NAMES and p.parent.name == ".claude":
+            return True
+        # .claude/agents/*.md (subagent definitions)
+        if p.suffix == ".md" and p.parent.name == "agents" and p.parent.parent.name == ".claude":
+            return True
+        # .claude/skills/**/*.sh|*.py (skill companion scripts)
+        if p.suffix in (".sh", ".py") and ".claude" in parts and "skills" in parts:
+            return True
+        return False
 
     def get_confidence_score(self, file_path: Path, content_head: Optional[str] = None) -> int:
         return 90 if self.can_scan(file_path) else 0
@@ -74,6 +92,16 @@ class ClaudeCodeScanner(RuleBasedScanner):
             raw = file_path.read_text(encoding="utf-8", errors="replace")
         except Exception as e:  # noqa: BLE001 - report unreadable file as scan failure
             return ScannerResult(self.name, str(file_path), [], time.time() - start, False, str(e))
+
+        # Subagent definitions: check frontmatter for wildcard tool grants.
+        if file_path.suffix == ".md":
+            return ScannerResult(self.name, str(file_path), self._scan_agent(raw),
+                                 time.time() - start, True)
+
+        # Skill companion scripts: apply the dropper/exfil patterns to the body.
+        if file_path.suffix in (".sh", ".py"):
+            return ScannerResult(self.name, str(file_path), self._scan_skill_script(raw),
+                                 time.time() - start, True)
 
         try:
             data = json.loads(raw)
@@ -117,6 +145,53 @@ class ClaudeCodeScanner(RuleBasedScanner):
         elif isinstance(node, list):
             for item in node:
                 self._collect_commands(item, out)
+
+    def _scan_agent(self, raw: str) -> List[ScannerIssue]:
+        """Flag a subagent whose frontmatter grants ALL tools via literal `*`.
+        Enumerated lists and omitted `tools:` (default-inherit) are legitimate."""
+        fm = self._frontmatter(raw)
+        if fm is None:
+            return []
+        if any(p.search(fm) for p in _WILDCARD_TOOLS):
+            return [self._inline_issue(
+                "CC-AGENT-001", Severity.MEDIUM,
+                "Claude Code subagent grants ALL tools via wildcard (tools: *) — "
+                "unrestricted access including Bash",
+                self._line_of(raw, "tools:"), cwe_id=250,
+            )]
+        return []
+
+    def _scan_skill_script(self, raw: str) -> List[ScannerIssue]:
+        """Apply the curated dropper/exfil patterns (the CC-HOOK rule set) to a
+        skill companion script. BashScanner does not catch `curl|bash`-style
+        droppers, so a poisoned skill script would otherwise run undetected."""
+        issues: List[ScannerIssue] = []
+        for idx, line in enumerate(raw.split("\n"), 1):
+            for rule in self.rules:
+                if any(p.search(line) for p in rule._compiled_patterns):
+                    sev = _SEVERITY_MAP.get(rule.severity.value, Severity.MEDIUM)
+                    cwe_id = cwe_link = None
+                    if rule.cwe:
+                        m = _CWE_RE.search(rule.cwe)
+                        if m:
+                            cwe_id = int(m.group(1))
+                            cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+                    issues.append(ScannerIssue(
+                        severity=sev,
+                        message=f"Claude Code skill companion script: {rule.message}",
+                        line=idx, rule_id="CC-SKILL-001", cwe_id=cwe_id, cwe_link=cwe_link,
+                    ))
+                    break  # one finding per line
+        return issues
+
+    @staticmethod
+    def _frontmatter(raw: str) -> Optional[str]:
+        """Return the YAML frontmatter block (between the leading `---` fences)."""
+        if not raw.lstrip().startswith("---"):
+            return None
+        body = raw.lstrip()
+        parts = body.split("---", 2)
+        return parts[1] if len(parts) >= 3 else None
 
     def _check_permissions(self, data: dict, raw: str) -> List[ScannerIssue]:
         issues: List[ScannerIssue] = []
