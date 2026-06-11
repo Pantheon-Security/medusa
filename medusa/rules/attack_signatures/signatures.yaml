@@ -117,3 +117,29 @@ rules:
   description: Persona-reset phrasing that redefines the assistant as unrestricted.
   owasp_llm: LLM01:2025
   cwe: CWE-94
+
+# ── Invisible / bidirectional unicode (Trojan Source, hidden-instruction) ────
+# Recovered from over-aggressive FP-tuning (was JB-129/130). High value,
+# near-zero FP: bidi override/isolate controls in source are the Trojan Source
+# attack (CVE-2021-42574). Emoji ZWJ (U+200D) is deliberately excluded.
+- id: MEDUSA-ATKSIG-020
+  name: bidi-control-trojan-source
+  severity: high
+  category: attack_signatures
+  patterns:
+  - "[‪-‮⁦-⁩]"
+  message: "Bidirectional-control unicode (Trojan Source / visual code reordering)"
+  description: Right-to-left / left-to-right override and isolate characters can reorder how source code reads versus how it executes (CVE-2021-42574). Almost never legitimate in source.
+  cwe: CWE-94
+- id: MEDUSA-ATKSIG-021
+  name: invisible-unicode-embedding
+  severity: high
+  category: attack_signatures
+  patterns:
+  # Code that embeds zero-width / bidi controls via escape or chr() — used to
+  # hide instructions inside prompts, identifiers, or strings.
+  - (?i)(?:\\u(?:200[b-f]|202[a-e]|206[0-9]|feff)|\\x{?(?:200[b-f]|202[a-e]|feff)|chr\(\s*0x(?:200[b-f]|202[a-e]|feff))
+  message: "Code embedding invisible / bidi unicode (hidden-instruction injection)"
+  description: Source that writes zero-width or bidirectional control characters via \u/\x escapes or chr() — a common way to smuggle hidden instructions or obfuscate payloads.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
