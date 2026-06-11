@@ -1160,6 +1160,54 @@ def _get_severity(issue):
     return None
 
 
+def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
+                       no_report, no_ai_safe, missing_linters, found_marker=""):
+    """Shared report-generation + fail-threshold logic for `scan` and
+    `_scan_git_repo` (CR-007 — these had drifted, causing CR-001/CR-002).
+
+    Returns the intended exit code: 1 if findings exist at/above the --fail-on
+    severity, else 0. The caller sys.exit()s only on a non-zero return, then
+    prints its own "scan complete" line (marker style differs per caller).
+    `found_marker` prefixes the threshold message (e.g. "❌ " for the local
+    scan, "" for --git) to preserve each caller's existing output style.
+    """
+    # Generate reports
+    if not no_report:
+        output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Handle 'all' format
+        formats = list(output_formats)
+        if 'all' in formats:
+            formats = ['json', 'html', 'markdown']
+
+        scanner.generate_report(results, output_dir, formats=formats,
+                                missing_linters=missing_linters, ai_safe=not no_ai_safe)
+
+    # Check fail threshold — only count issues at or above the specified severity
+    if fail_on:
+        from medusa.scanners import Severity
+        severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
+        threshold = Severity(fail_on.upper())
+        threshold_index = severity_order.index(threshold)
+        allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
+
+        def _sev_value(issue):
+            s = _get_severity(issue)
+            return s.value if hasattr(s, 'value') else s
+
+        total_issues = sum(
+            1 for r in results
+            for issue in r.issues
+            if _sev_value(issue) in allowed_severities
+        )
+        if total_issues > 0:
+            console.print(f"\n[red]{found_marker}Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
+            return 1
+
+    return 0
+
+
 def print_banner():
     """Print MEDUSA banner with large block-style ASCII logo"""
     logo = """[dark_green]
@@ -1479,36 +1527,15 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Scan files
         results = scanner.scan_parallel(files)
 
-        # Generate reports
-        if not no_report:
-            output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            # Handle 'all' format
-            formats = list(output_formats)
-            if 'all' in formats:
-                formats = ['json', 'html', 'markdown']
-
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
-
-        # Check fail threshold — only count issues at or above the specified severity
-        if fail_on:
-            from medusa.scanners import Severity
-            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
-            threshold = Severity(fail_on.upper())
-            threshold_index = severity_order.index(threshold)
-            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
-            def _sev_value(issue):
-                s = _get_severity(issue)
-                return s.value if hasattr(s, 'value') else s
-            total_issues = sum(
-                1 for r in results
-                for issue in r.issues
-                if _sev_value(issue) in allowed_severities
-            )
-            if total_issues > 0:
-                console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
-                sys.exit(1)
+        # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
+        _exit_code = _run_scan_pipeline(
+            scanner, results, fail_on=fail_on, output=output,
+            output_formats=output_formats, no_report=no_report,
+            no_ai_safe=no_ai_safe, missing_linters=missing_linters,
+            found_marker="❌ ",
+        )
+        if _exit_code:
+            sys.exit(_exit_code)
 
         console.print("\n[dark_green]✅ Scan complete![/dark_green]")
 
@@ -1909,35 +1936,15 @@ def _scan_git_repo(
 
         results = scanner.scan_parallel(files)
 
-        # Generate reports
-        if not no_report:
-            output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            output_dir.mkdir(parents=True, exist_ok=True)
-
-            formats = list(output_formats)
-            if 'all' in formats:
-                formats = ['json', 'html', 'markdown']
-
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
-
-        # Check fail threshold — only count issues at or above the specified severity
-        if fail_on:
-            from medusa.scanners import Severity
-            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
-            threshold = Severity(fail_on.upper())
-            threshold_index = severity_order.index(threshold)
-            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
-            def _sev_value(issue):
-                s = _get_severity(issue)
-                return s.value if hasattr(s, 'value') else s
-            total_issues = sum(
-                1 for r in results
-                for issue in r.issues
-                if _sev_value(issue) in allowed_severities
-            )
-            if total_issues > 0:
-                console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
-                sys.exit(1)
+        # Generate reports + check fail threshold (shared with local scan via _run_scan_pipeline)
+        _exit_code = _run_scan_pipeline(
+            scanner, results, fail_on=fail_on, output=output,
+            output_formats=output_formats, no_report=no_report,
+            no_ai_safe=no_ai_safe, missing_linters=missing_linters,
+            found_marker="",
+        )
+        if _exit_code:
+            sys.exit(_exit_code)
 
         console.print("\n[dark_green]Scan complete![/dark_green]")
 
