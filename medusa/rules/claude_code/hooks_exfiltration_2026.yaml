@@ -1,0 +1,68 @@
+version: 1
+description: >
+  Claude Code hook-command exfiltration / RCE signatures. These are applied by
+  ClaudeCodeScanner ONLY to shell-command strings extracted from `.claude/
+  settings.json` hooks (PreToolUse/PostToolUse/…), not to whole files — a tiny,
+  high-signal surface. Every pattern must be high-precision: a legitimate
+  formatter / lint / test hook (prettier, ruff, npm test) must match none.
+generated: '2026-06-11'
+rules:
+
+- id: CC-HOOK-001
+  name: hook-curl-pipe-to-shell
+  severity: critical
+  category: claude_code
+  patterns:
+  - (?i)\b(?:curl|wget)\b[^\n|]*\|\s*(?:ba)?sh\b
+  message: "Claude Code hook pipes a network download straight to a shell (curl|bash RCE)"
+  owasp_llm: LLM05:2025
+  cwe: CWE-94
+
+- id: CC-HOOK-002
+  name: hook-base64-decode-to-shell
+  severity: critical
+  category: claude_code
+  patterns:
+  - (?i)base64\s+(?:-d|--decode|-D)\b[^\n|]*\|\s*(?:ba)?sh\b
+  - (?i)\|\s*base64\s+(?:-d|--decode)\b[^\n]*\|\s*(?:ba)?sh\b
+  - (?i)(?:eval|exec)\b[^\n]*base64\s+(?:-d|--decode)
+  message: "Claude Code hook decodes base64 and executes it (obfuscated RCE)"
+  owasp_llm: LLM05:2025
+  cwe: CWE-94
+
+- id: CC-HOOK-003
+  name: hook-credential-exfiltration
+  severity: critical
+  category: claude_code
+  patterns:
+  # credential read AND network egress in the same command (either order)
+  - (?i)(?:~/?\.ssh/|/\.ssh/id_|\.aws/credentials|\.aws/config|\.env\b|\.npmrc|\.config/gh/|\.docker/config\.json|\.netrc)[^\n]*(?:curl|wget|\bnc\b|/dev/tcp|invoke-?webrequest|\biwr\b)
+  - (?i)(?:curl|wget|\bnc\b|/dev/tcp|invoke-?webrequest|\biwr\b)[^\n]*(?:~/?\.ssh/|/\.ssh/id_|\.aws/credentials|\.env\b|\.npmrc|\.config/gh/|\.netrc)
+  message: "Claude Code hook reads credential files and sends them over the network (exfiltration)"
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+
+- id: CC-HOOK-004
+  name: hook-exfil-to-collector
+  severity: high
+  category: claude_code
+  patterns:
+  - (?i)(?:curl|wget|invoke-?webrequest|\biwr\b)\b[^\n]*\b(?:pastebin\.com|webhook\.site|requestbin|ngrok\.io|burpcollaborator|interactsh|oast\.|\.onion)\b
+  - (?i)(?:curl|wget)\b[^\n]*(?:-d|--data|--data-binary|-F)\b[^\n]*\$\((?:env|printenv|cat[^\n]*(?:secret|token|cred|key|password))
+  message: "Claude Code hook exfiltrates data to an external collector / paste host"
+  owasp_llm: LLM06:2025
+  cwe: CWE-200
+
+- id: CC-HOOK-005
+  name: hook-reverse-shell
+  severity: critical
+  category: claude_code
+  patterns:
+  - (?i)/dev/tcp/\d
+  - (?i)\b(?:ba)?sh\s+-i\b[^\n]*(?:/dev/tcp|\bnc\b|>&)
+  - (?i)\bnc\b[^\n]*\s-e\b
+  - (?i)mkfifo\b[^\n]*\|[^\n]*\b(?:ba)?sh\b
+  - (?i)python[0-9.]*\b[^\n]*socket[^\n]*subprocess
+  message: "Claude Code hook opens a reverse shell"
+  owasp_llm: LLM05:2025
+  cwe: CWE-94
