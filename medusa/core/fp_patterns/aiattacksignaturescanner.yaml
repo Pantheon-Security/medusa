@@ -1,0 +1,27 @@
+# FP guards for AIAttackSignatureScanner.
+# This scanner runs on EVERY text file, so attack-signature matches in
+# non-deployment contexts (documentation about attacks, detection-rule data,
+# test/benchmark fixtures with intentional payloads) are context false
+# positives. Real matches in source/config/datasets are retained.
+# `pattern: '.*'` + scanner-scoping filters this scanner's findings in the
+# listed file contexts only.
+scanner: aiattacksignaturescanner
+patterns:
+- name: attack_signature_in_docs_or_research
+  pattern: '.*'
+  file_pattern: '(?:^|/)(?:docs?|research|papers?|notebooklm|nblm)/|(?:README|CHANGELOG|SECURITY|CONTRIBUTING)|\.(?:md|markdown|rst)$'
+  reason: DOCSTRING
+  confidence: 0.9
+  description: Attack signature appears in documentation/research prose (describing attacks, not deploying them).
+- name: attack_signature_in_rule_or_pattern_definitions
+  pattern: '.*'
+  file_pattern: '(?:^|/)(?:rules?|fp_patterns|signatures?|patterns?|detections?)/.*\.(?:ya?ml|json|jsonl)$'
+  reason: KNOWN_PATTERN
+  confidence: 0.95
+  description: Attack signature inside detection-rule / FP-pattern definition files (patterns stored as data, not an attack).
+- name: attack_signature_in_tests_or_fixtures
+  pattern: '.*'
+  file_pattern: '(?:^|/)(?:tests?|test|examples?|samples?|fixtures?|benchmark[s_-]?|corpus|datasets?)(?:/|_)'
+  reason: TEST_FILE
+  confidence: 0.85
+  description: Attack signature in test/example/benchmark fixture (intentional payload, not deployed code).

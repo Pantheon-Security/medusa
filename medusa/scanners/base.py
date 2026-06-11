@@ -216,6 +216,11 @@ class BaseScanner(ABC):
     - Result parsing (how to interpret scanner output)
     """
 
+    # When True, this scanner may run on files over MAX_SCAN_FILE_SIZE because
+    # it samples/caps internally. Default False: oversized files are skipped to
+    # avoid multi-minute regex hangs on large data files.
+    supports_large_files = False
+
     def __init__(self):
         self.name = self.__class__.__name__
         self.tool_name = self.get_tool_name()
