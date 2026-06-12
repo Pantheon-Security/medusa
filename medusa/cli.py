@@ -1348,6 +1348,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             include_user_mcp_configs=include_user_mcp_configs,
             no_ai_safe=no_ai_safe,
             screening=True,  # pre-install screening: vet the target, don't bury findings in tests/tools
+            trace_rules=trace_rules,
         )
         return
 
@@ -1813,6 +1814,7 @@ def _scan_git_repo(
     include_user_mcp_configs: bool = False,
     no_ai_safe: bool = False,
     screening: bool = True,
+    trace_rules: bool = False,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
@@ -1970,6 +1972,18 @@ def _scan_git_repo(
             include_user_mcp_configs=include_user_mcp_configs,
         )
 
+        # Rule diagnostics (--trace-rules) — same as the local path, serial scan.
+        if trace_rules:
+            import os as _os
+            from medusa.core import rule_diag
+            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
+            rule_diag.enable(_diag_out, fine=_fine)
+            scanner.trace_rules = True
+            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — rule-trace.jsonl + slow_rules.csv[/yellow]")
+            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
+                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+
         files = scanner.find_scannable_files()
         if not files:
             console.print("[yellow]No files found to scan[/yellow]")
@@ -1978,6 +1992,16 @@ def _scan_git_repo(
         console.print(f"[dark_green]Found {len(files)} scannable files[/dark_green]\n")
 
         results = scanner.scan_parallel(files)
+
+        if trace_rules:
+            from medusa.core import rule_diag
+            _d = rule_diag.get()
+            if _d is not None:
+                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
+                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
+                rule_diag.disable()
 
         # Generate reports + check fail threshold (shared with local scan via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(
