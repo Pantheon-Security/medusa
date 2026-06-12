@@ -1149,7 +1149,16 @@ class MedusaParallelScanner:
                 }
 
         try:
-            if HAS_RICH:
+            if getattr(self, 'trace_rules', False):
+                # Rule-diagnostics mode: scan serially in this process so the
+                # rule-trace + timing collector (medusa.core.rule_diag) gathers
+                # everything in one place (Pool workers can't return it cheaply).
+                results = []
+                for _i, _fp in enumerate(files, 1):
+                    results.append(self.scan_file(_fp))
+                    print(f"\r  [trace-rules] {_i}/{len(files)}", end="", flush=True)
+                print()
+            elif HAS_RICH:
                 results = self._scan_with_live_table(files, scanner_expected)
             elif HAS_TQDM:
                 results = self._scan_with_tqdm(files)

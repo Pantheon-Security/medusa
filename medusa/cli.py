@@ -1309,7 +1309,11 @@ def main(ctx, version):
                    'tests/, examples/, tools/, or dataset files (in a repo you are screening, those ARE '
                    'the attack surface). Auto-enabled for --git pre-install screening. Off by default for '
                    'scanning your own clean codebase.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening):
+@click.option('--trace-rules', 'trace_rules', is_flag=True, default=False, envvar='MEDUSA_TRACE_RULES',
+              help='Rule diagnostics: log every rule firing (rule-trace.jsonl) and per-rule timing '
+                   '(slow_rules.csv) to the report dir, to debug false positives/misses and find slow/'
+                   'ReDoS rules. Forces a serial scan. Also enabled by MEDUSA_TRACE_RULES=1.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules):
     """
     Scan a directory or file for security issues.
 
@@ -1524,6 +1528,14 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             include_user_mcp_configs=include_user_mcp_configs,
         )
 
+        # Rule diagnostics (--trace-rules / MEDUSA_TRACE_RULES): collect rule
+        # firings + per-rule timing during a serial scan.
+        if trace_rules:
+            from medusa.core import rule_diag
+            rule_diag.enable()
+            scanner.trace_rules = True
+            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
+
         # Find files
         files = scanner.find_scannable_files()
         if not files:
@@ -1534,6 +1546,16 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
         # Scan files
         results = scanner.scan_parallel(files)
+
+        if trace_rules:
+            from medusa.core import rule_diag
+            _d = rule_diag.get()
+            if _d is not None:
+                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
+                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
+                rule_diag.disable()
 
         # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(

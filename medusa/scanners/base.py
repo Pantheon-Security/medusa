@@ -6,6 +6,7 @@ Abstract base class for all security scanner implementations
 
 from abc import ABC, abstractmethod
 from bisect import bisect_left
+from time import perf_counter
 from pathlib import Path
 from typing import List, Dict, Optional
 from dataclasses import dataclass
@@ -520,11 +521,20 @@ class RuleBasedScanner(BaseScanner):
         file_str = str(file_path) if file_path else ""
         applicable_rules = [r for r in self.rules if r.matches_file_type(file_str)]
 
+        # Rule diagnostics (opt-in, --trace-rules): collected only when enabled.
+        # Lazy import avoids a base<-core import cycle; timing is per-RULE (not
+        # per-search) so normal scans pay nothing.
+        from medusa.core import rule_diag
+        _diag = rule_diag._DIAG
+
         for rule in applicable_rules:
+            _t0 = perf_counter() if _diag else 0.0
             for i, line in enumerate(scan_lines, 1):
-                for compiled in rule._compiled_patterns:
+                for _pidx, compiled in enumerate(rule._compiled_patterns):
                     try:
                         if compiled.search(line):
+                            if _diag:
+                                _diag.trace(rule.id, self.name, file_path, i, line, _pidx, rule.severity)
                             severity = _SEVERITY_MAP.get(rule.severity.value, Severity.MEDIUM)
 
                             # Extract CWE number from string like "CWE-94"
@@ -548,6 +558,8 @@ class RuleBasedScanner(BaseScanner):
                     except re.error:
                         # Skip invalid regex patterns
                         continue
+            if _diag:
+                _diag.record_time(rule.id, self.name, file_path, (perf_counter() - _t0) * 1000.0)
 
         return issues
 
