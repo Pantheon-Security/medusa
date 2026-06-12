@@ -39,6 +39,10 @@ class AIAttackSignatureScanner(RuleBasedScanner):
     # scanners with this flag instead of skipping them.
     supports_large_files = True
 
+    # Head-sampling bounds for large files (keeps huge adversarial datasets fast):
+    MAX_SAMPLE_BYTES = 3 * 1024 * 1024   # read at most ~3MB of content
+    MAX_LINE_LEN = 8192                   # clip very long single lines before matching
+
     # Broad text coverage — jailbreak/injection payloads show up in code,
     # configs, prompts, and datasets alike. Includes dataset extensions
     # (.jsonl/.csv) so attack corpora are covered.
@@ -80,16 +84,20 @@ class AIAttackSignatureScanner(RuleBasedScanner):
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
         try:
-            # Stream only the first MAX_RULE_SCAN_LINES lines so memory and time
-            # stay bounded regardless of file size (a 1GB dataset reads just the
-            # head). _scan_with_rules applies the same cap; reading lazily here
-            # avoids loading a huge file into memory first.
+            # Sample only the head of the file so a huge dataset (a 53MB
+            # adversarial .jsonl) costs a second, not minutes. Bound by BOTH a
+            # byte budget and a line cap (50k .jsonl lines can be tens of MB),
+            # and clip pathologically long single lines (a multi-KB JSON record)
+            # so per-line regex cost stays flat. Jailbreak/injection signal is
+            # short and near the start; this keeps detection while staying fast.
             lines: List[str] = []
+            total_bytes = 0
             with open(file_path, encoding="utf-8", errors="replace") as fh:
                 for idx, line in enumerate(fh):
-                    if idx >= self.MAX_RULE_SCAN_LINES:
+                    if idx >= self.MAX_RULE_SCAN_LINES or total_bytes >= self.MAX_SAMPLE_BYTES:
                         break
-                    lines.append(line.rstrip("\n"))
+                    total_bytes += len(line)
+                    lines.append(line[:self.MAX_LINE_LEN].rstrip("\n"))
             issues: List[ScannerIssue] = self._scan_with_rules(lines, file_path)
             return ScannerResult(
                 scanner_name=self.name,
