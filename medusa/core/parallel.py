@@ -1429,7 +1429,7 @@ class MedusaParallelScanner:
 
         return results
 
-    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None, ai_safe: bool = True):
+    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None, ai_safe: bool = True, screening: bool = False):
         """Generate reports in requested formats (json, html, markdown)"""
         if formats is None:
             formats = ['json', 'html']
@@ -1496,7 +1496,7 @@ class MedusaParallelScanner:
         original_count = len(findings)
         try:
             from medusa.core.fp_filter import FalsePositiveFilter
-            fp_filter = FalsePositiveFilter(self.project_root)
+            fp_filter = FalsePositiveFilter(self.project_root, screening=screening)
             findings, likely_fps = fp_filter.filter_findings(findings)
             # Calculate stats without re-filtering
             fp_stats = {

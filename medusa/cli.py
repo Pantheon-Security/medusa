@@ -1161,7 +1161,8 @@ def _get_severity(issue):
 
 
 def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
-                       no_report, no_ai_safe, missing_linters, found_marker=""):
+                       no_report, no_ai_safe, missing_linters, found_marker="",
+                       screening=False):
     """Shared report-generation + fail-threshold logic for `scan` and
     `_scan_git_repo` (CR-007 — these had drifted, causing CR-001/CR-002).
 
@@ -1182,7 +1183,8 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
             formats = ['json', 'html', 'markdown']
 
         scanner.generate_report(results, output_dir, formats=formats,
-                                missing_linters=missing_linters, ai_safe=not no_ai_safe)
+                                missing_linters=missing_linters, ai_safe=not no_ai_safe,
+                                screening=screening)
 
     # Check fail threshold — only count issues at or above the specified severity
     if fail_on:
@@ -1302,7 +1304,12 @@ def main(ctx, version):
               help='Allow --git to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org). Private IPs are still rejected.')
 @click.option('--include-user-mcp-configs', 'include_user_mcp_configs', is_flag=True, default=False,
               help='Include user-home MCP config files (~/.config/Claude, ~/.cursor) in the scan.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs):
+@click.option('--screening', '--audit', 'screening', is_flag=True, default=False,
+              help='Target-vetting mode: surface attack/high-severity findings even when they live in '
+                   'tests/, examples/, tools/, or dataset files (in a repo you are screening, those ARE '
+                   'the attack surface). Auto-enabled for --git pre-install screening. Off by default for '
+                   'scanning your own clean codebase.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening):
     """
     Scan a directory or file for security issues.
 
@@ -1336,6 +1343,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             exclude=exclude,
             include_user_mcp_configs=include_user_mcp_configs,
             no_ai_safe=no_ai_safe,
+            screening=True,  # pre-install screening: vet the target, don't bury findings in tests/tools
         )
         return
 
@@ -1532,7 +1540,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             scanner, results, fail_on=fail_on, output=output,
             output_formats=output_formats, no_report=no_report,
             no_ai_safe=no_ai_safe, missing_linters=missing_linters,
-            found_marker="❌ ",
+            found_marker="❌ ", screening=screening,
         )
         if _exit_code:
             sys.exit(_exit_code)
@@ -1777,6 +1785,7 @@ def _scan_git_repo(
     allow_any_host: bool = False,
     include_user_mcp_configs: bool = False,
     no_ai_safe: bool = False,
+    screening: bool = True,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
@@ -1948,7 +1957,7 @@ def _scan_git_repo(
             scanner, results, fail_on=fail_on, output=output,
             output_formats=output_formats, no_report=no_report,
             no_ai_safe=no_ai_safe, missing_linters=missing_linters,
-            found_marker="",
+            found_marker="", screening=screening,
         )
         if _exit_code:
             sys.exit(_exit_code)
