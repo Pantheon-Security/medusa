@@ -28,6 +28,27 @@ class RuleDiagnostics:
     def __init__(self):
         self._trace = []                      # list of trace records
         self._timings = {}                    # (rule_id, scanner) -> [total_ms, calls, max_ms, worst_file]
+        self.heartbeat_path = None            # breadcrumb file; survives an uninterruptible hang
+        self.fine = False                     # per-RULE heartbeat (targeted single-file re-scan)
+
+    def set_heartbeat(self, output_dir, fine=False):
+        """Arm a flushed breadcrumb so a hung scan (uninterruptible C-level regex
+        backtracking) still leaves the culprit file/rule on disk when killed."""
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        self.heartbeat_path = output_dir / "rule-diag-current.txt"
+        self.fine = fine
+        self.beat("ARMED")
+
+    def beat(self, text):
+        if self.heartbeat_path is None:
+            return
+        try:
+            with open(self.heartbeat_path, "w", encoding="utf-8") as f:
+                f.write(text + "\n")
+                f.flush()
+        except OSError:
+            pass
 
     def trace(self, rule_id, scanner, file_path, line_no, line_text, pattern_idx, severity=None):
         self._trace.append({
@@ -69,6 +90,9 @@ class RuleDiagnostics:
             w = csv.writer(f)
             w.writerow(["rule_id", "scanner", "total_ms", "calls", "max_ms_single_file", "worst_file"])
             w.writerows(rows)
+        # Scan finished cleanly -> overwrite the breadcrumb so a leftover from a
+        # prior hung run isn't mistaken for the culprit.
+        self.beat(f"DONE ({len(self._trace)} firings, {len(self._timings)} rules timed)")
         return trace_path, slow_path, len(self._trace), len(self._timings)
 
 
@@ -76,9 +100,11 @@ class RuleDiagnostics:
 _DIAG: Optional[RuleDiagnostics] = None
 
 
-def enable() -> RuleDiagnostics:
+def enable(output_dir=None, fine=False) -> RuleDiagnostics:
     global _DIAG
     _DIAG = RuleDiagnostics()
+    if output_dir is not None:
+        _DIAG.set_heartbeat(output_dir, fine=fine)
     return _DIAG
 
 

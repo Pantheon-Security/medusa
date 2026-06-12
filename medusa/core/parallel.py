@@ -1153,8 +1153,15 @@ class MedusaParallelScanner:
                 # Rule-diagnostics mode: scan serially in this process so the
                 # rule-trace + timing collector (medusa.core.rule_diag) gathers
                 # everything in one place (Pool workers can't return it cheaply).
+                from medusa.core import rule_diag
+                _diag = rule_diag._DIAG
                 results = []
                 for _i, _fp in enumerate(files, 1):
+                    # Flushed breadcrumb BEFORE scanning: if a file hangs the scan
+                    # (uninterruptible regex backtracking), rule-diag-current.txt
+                    # still names it after the process is killed.
+                    if _diag is not None:
+                        _diag.beat(f"FILE {_i}/{len(files)} {_fp}")
                     results.append(self.scan_file(_fp))
                     print(f"\r  [trace-rules] {_i}/{len(files)}", end="", flush=True)
                 print()

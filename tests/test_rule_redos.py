@@ -17,6 +17,26 @@ def test_static_flags_nested_quantifier(pattern):
     assert "nested_quantifier" in rule_lint.static_findings(pattern)
 
 
+@pytest.mark.parametrize("pattern", [
+    r"(?:[^\x00-\x7F]{5,}){3,}",     # the real GPTs ReDoS shape (brace-nested)
+    r"(?:\w{2,}){4,}",
+    r"(a{1,3})+",
+])
+def test_static_flags_brace_nested_quantifier(pattern):
+    # Brace-range quantifiers {n,} nest just as dangerously as +/* — the GPTs
+    # hang was (?:[^\x00-\x7F]{5,}){3,} and the original detector missed it.
+    assert "nested_quantifier" in rule_lint.static_findings(pattern)
+
+
+def test_gpts_redos_rule_stays_fixed():
+    # Regression: MEDUSA-PIA-SCAN-077 hung the scanner on GPTs/(A.I. Bestie).md.
+    # Every shipped pattern of that rule must be free of nested quantifiers.
+    from medusa.rules import get_loader
+    rule = next(r for r in get_loader().load_all_rules() if r.id == "MEDUSA-PIA-SCAN-077")
+    for pat in rule.patterns:
+        assert "nested_quantifier" not in rule_lint.static_findings(pat), pat
+
+
 def test_static_flags_nested_set():
     assert "nested_set" in rule_lint.static_findings(r"[a-z[0-9]]")
 

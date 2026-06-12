@@ -52,6 +52,21 @@ def test_scanner_records_firing_when_enabled(tmp_path):
         rule_diag.disable()
 
 
+def test_heartbeat_breadcrumb(tmp_path):
+    # The flushed breadcrumb is what survives an uninterruptible hang — verify it
+    # is armed, updates on beat(), and is cleared to DONE on a clean write().
+    d = rule_diag.enable(tmp_path)
+    try:
+        bc = tmp_path / "rule-diag-current.txt"
+        assert bc.read_text().strip() == "ARMED"
+        d.beat("FILE 2/282 /x/(A.I. Bestie).md")
+        assert "A.I. Bestie" in bc.read_text()
+        d.write(tmp_path)
+        assert bc.read_text().startswith("DONE")
+    finally:
+        rule_diag.disable()
+
+
 def test_disabled_collects_nothing(tmp_path):
     from medusa.scanners.ai_attack_signature_scanner import AIAttackSignatureScanner
     rule_diag.disable()

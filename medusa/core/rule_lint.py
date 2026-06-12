@@ -16,9 +16,12 @@ import re
 from multiprocessing import Process, Queue
 from typing import List, Tuple
 
-# A group that contains an inner quantifier AND is itself quantified: (a+)+,
-# (.*)*, (\d+)*, (?:x*)+ — the classic exponential-backtracking shape.
-_NESTED_QUANT = re.compile(r'\((?:\?[:=!>]|\?<[=!])?[^()]*[*+][^()]*\)\s*[*+]')
+# A group that contains an inner quantifier AND is itself quantified — the classic
+# exponential-backtracking shape. Inner/outer quantifier may be +, *, or a brace
+# range {n,}: (a+)+, (.*)*, (\d+)*, and — the GPTs ReDoS — (?:[^\x00-\x7F]{5,}){3,}.
+_QUANT = r'(?:[*+]|\{\d+,\d*\})'
+_NESTED_QUANT = re.compile(
+    r'\((?:\?[:=!>]|\?<[=!])?[^()]*' + _QUANT + r'[^()]*\)\s*' + _QUANT)
 # Nested character set [ ... [ ... ] — Python's "Possible nested set" FutureWarning.
 _NESTED_SET = re.compile(r'\[[^\]]*\[')
 
@@ -42,9 +45,11 @@ def _match_worker(pattern: str, text: str, q: Queue) -> None:
 
 
 # Pathological inputs: long repetitive runs (which inner quantifiers gobble) with
-# a failing terminator (which forces the outer quantifier to backtrack).
+# a failing terminator (which forces the outer quantifier to backtrack). The
+# non-ASCII run (★) is essential — the GPTs ReDoS was a [^\x00-\x7F] class that
+# ASCII inputs never triggered.
 def _canary_inputs(n: int = 40) -> List[str]:
-    return [c * n + "!" for c in ("a", "0", " ")] + ["a1 " * n + "!"]
+    return [c * n + "!" for c in ("a", "0", " ", "★", "é")] + ["a1 " * n + "!"]
 
 
 def is_redos(pattern: str, timeout_ms: int = 120) -> bool:

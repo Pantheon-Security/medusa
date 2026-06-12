@@ -527,8 +527,13 @@ class RuleBasedScanner(BaseScanner):
         from medusa.core import rule_diag
         _diag = rule_diag._DIAG
 
+        _fine = _diag is not None and _diag.fine
         for rule in applicable_rules:
             _t0 = perf_counter() if _diag else 0.0
+            if _fine:
+                # Per-rule breadcrumb (targeted single-file re-scan, MEDUSA_TRACE_FINE=1):
+                # names the exact rule when a single match hangs uninterruptibly.
+                _diag.beat(f"RULE {rule.id} {self.name} @ {file_path}")
             for i, line in enumerate(scan_lines, 1):
                 for _pidx, compiled in enumerate(rule._compiled_patterns):
                     try:

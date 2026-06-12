@@ -1531,10 +1531,15 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Rule diagnostics (--trace-rules / MEDUSA_TRACE_RULES): collect rule
         # firings + per-rule timing during a serial scan.
         if trace_rules:
+            import os as _os
             from medusa.core import rule_diag
-            rule_diag.enable()
+            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
+            rule_diag.enable(_diag_out, fine=_fine)
             scanner.trace_rules = True
             console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
+            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
+                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
 
         # Find files
         files = scanner.find_scannable_files()
