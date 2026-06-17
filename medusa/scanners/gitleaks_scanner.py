@@ -10,11 +10,50 @@ cache — zero extra subprocess cost.
 """
 
 import json
+import re
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+
+
+# Obvious non-secret tokens that documentation/examples use in place of a real
+# credential. GitLeaks' built-in rules are laxer than MEDUSA's own patterns
+# (e.g. its stripe rule matches sk_live_ + as few as ~10 chars, where MEDUSA
+# requires {24,}), so a doc placeholder like `sk_live_abc123def456` slips through
+# as a CRITICAL secret. These are never real secrets.
+_PLACEHOLDER_TOKENS = (
+    'example', 'sample', 'placeholder', 'your', 'dummy', 'changeme', 'change_me',
+    'redacted', 'notreal', 'not_real', 'fake', 'foobar', 'lorem', 'testkey',
+    'test_key', 'abc123', 'xxxx', 'replace', 'insert', 'yourkey', 'mykey',
+    'goes_here', 'goeshere', '<', '...', 'dummytoken', 'apikeyhere',
+)
+
+
+def _looks_placeholder_secret(secret: str) -> bool:
+    """True if a matched secret value is an obvious doc/example placeholder.
+
+    Conservative by design — only fires on clear tells (placeholder keywords or a
+    body that is mostly sequential/repeated characters) so it never suppresses a
+    real, high-entropy credential.
+    """
+    s = (secret or '').strip()
+    if not s:
+        return False
+    low = s.lower()
+    if any(tok in low for tok in _PLACEHOLDER_TOKENS):
+        return True
+    # Strip a known key prefix to inspect the random "body" of the secret.
+    body = re.sub(r'^(sk|pk|rk|ak|api|key|tok|token|ghp|gho|ghs|xox[baprs]|akia|asia)[-_]*',
+                  '', low)
+    body = re.sub(r'[^a-z0-9]', '', body)
+    if len(body) < 8:
+        return False  # too short to judge by sequence; leave to other gates
+    # Fraction of adjacent chars that are equal or consecutive (abc/123/aaaa).
+    seq = sum(1 for i in range(len(body) - 1)
+              if body[i] == body[i + 1] or ord(body[i + 1]) - ord(body[i]) == 1)
+    return seq / (len(body) - 1) > 0.5
 
 
 class GitLeaksScanner(BaseScanner):
@@ -109,7 +148,8 @@ class GitLeaksScanner(BaseScanner):
                             abs_key = str(p.resolve())
 
                             issue = self._parse_finding(finding)
-                            self._results_cache.setdefault(abs_key, []).append(issue)
+                            if issue is not None:
+                                self._results_cache.setdefault(abs_key, []).append(issue)
                 except json.JSONDecodeError:
                     pass
 
@@ -190,7 +230,9 @@ class GitLeaksScanner(BaseScanner):
                     findings = json.loads(result.stdout)
                     if isinstance(findings, list):
                         for finding in findings:
-                            issues.append(self._parse_finding(finding))
+                            issue = self._parse_finding(finding)
+                            if issue is not None:
+                                issues.append(issue)
                 except json.JSONDecodeError:
                     pass
 
@@ -216,10 +258,16 @@ class GitLeaksScanner(BaseScanner):
     # Shared parsing helpers
     # ------------------------------------------------------------------
 
-    def _parse_finding(self, finding: dict) -> ScannerIssue:
-        """Parse a single GitLeaks finding into a ScannerIssue."""
+    def _parse_finding(self, finding: dict) -> Optional[ScannerIssue]:
+        """Parse a single GitLeaks finding into a ScannerIssue.
+
+        Returns None for obvious placeholder/example values (doc fillers like
+        `sk_live_abc123def456`) so they never surface as CRITICAL secrets.
+        """
         rule_id = finding.get('RuleID', 'unknown')
         description = finding.get('Description', 'Secret detected')
+        if _looks_placeholder_secret(finding.get('Secret') or finding.get('Match', '')):
+            return None
         match = finding.get('Match', '')[:50]
 
         return ScannerIssue(
