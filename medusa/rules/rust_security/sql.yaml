@@ -1,0 +1,44 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Raw SQL string building in Rust
+rules:
+- id: MEDUSA-RUST-SCAN-030
+  name: rust-sql-sqlx-format
+  description: sqlx query built with format!() instead of bind parameters.
+  severity: high
+  category: rust_security
+  patterns:
+  - sqlx::query\s*\(\s*&?format!\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: sqlx query built with format!() — SQL injection; use bind parameters ($1, ?)'
+  cwe: CWE-89
+  fix: Use sqlx bind parameters (query("... $1").bind(value)) instead of format!().
+
+- id: MEDUSA-RUST-SCAN-031
+  name: rust-sql-diesel-format
+  description: diesel sql_query built with format!().
+  severity: high
+  category: rust_security
+  patterns:
+  - sql_query\s*\(\s*&?format!\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: diesel sql_query built with format!() — SQL injection; use bound parameters'
+  cwe: CWE-89
+  fix: Use diesel bind() parameters rather than interpolating with format!().
+
+- id: MEDUSA-RUST-SCAN-032
+  name: rust-sql-raw-format
+  description: Raw SQL statement assembled via format!() and passed to execute/query.
+  severity: high
+  category: rust_security
+  patterns:
+  - (?:execute|query)\s*\(\s*&?format!\s*\(\s*"(?:SELECT|INSERT|UPDATE|DELETE)
+  file_types:
+  - '*.rs'
+  message: 'Rust: raw SQL assembled with format!() — SQL injection; parameterize the query'
+  cwe: CWE-89
+  fix: Build queries with placeholders and pass values as parameters.

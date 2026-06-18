@@ -357,6 +357,7 @@ class MedusaParallelScanner:
         '.cmd': 'bat',
         '.py': 'python',
         '.go': 'go',
+        '.rs': 'rust',
         '.js': 'javascript',
         '.jsx': 'javascript',
         '.ts': 'javascript',

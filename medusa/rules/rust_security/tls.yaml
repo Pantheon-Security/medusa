@@ -1,0 +1,44 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: TLS / transport security misconfigurations in Rust
+rules:
+- id: MEDUSA-RUST-SCAN-001
+  name: rust-tls-accept-invalid-certs
+  description: reqwest client built with certificate validation disabled, allowing MITM.
+  severity: high
+  category: rust_security
+  patterns:
+  - danger_accept_invalid_certs\s*\(\s*true\s*\)
+  file_types:
+  - '*.rs'
+  message: 'Rust: TLS certificate validation disabled (danger_accept_invalid_certs(true)) — MITM risk'
+  cwe: CWE-295
+  fix: Remove danger_accept_invalid_certs(true); validate certificates against a trusted CA.
+
+- id: MEDUSA-RUST-SCAN-002
+  name: rust-tls-accept-invalid-hostnames
+  description: reqwest/native-tls client accepting invalid hostnames, defeating cert pinning.
+  severity: high
+  category: rust_security
+  patterns:
+  - danger_accept_invalid_hostnames\s*\(\s*true\s*\)
+  file_types:
+  - '*.rs'
+  message: 'Rust: TLS hostname verification disabled (danger_accept_invalid_hostnames(true)) — MITM risk'
+  cwe: CWE-295
+  fix: Remove danger_accept_invalid_hostnames(true); verify the server hostname.
+
+- id: MEDUSA-RUST-SCAN-003
+  name: rust-tls-verify-none
+  description: OpenSSL SSL context configured with peer verification disabled.
+  severity: high
+  category: rust_security
+  patterns:
+  - \.set_verify\s*\(\s*SslVerifyMode::NONE
+  file_types:
+  - '*.rs'
+  message: 'Rust: OpenSSL peer verification disabled (SslVerifyMode::NONE) — MITM risk'
+  cwe: CWE-295
+  fix: Use SslVerifyMode::PEER and provide a trusted CA store.
