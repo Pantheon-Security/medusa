@@ -358,6 +358,7 @@ class MedusaParallelScanner:
         '.py': 'python',
         '.go': 'go',
         '.rs': 'rust',
+        '.php': 'php',
         '.js': 'javascript',
         '.jsx': 'javascript',
         '.ts': 'javascript',
