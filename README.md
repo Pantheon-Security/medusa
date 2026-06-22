@@ -14,7 +14,7 @@
 **🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
 **🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
 **🔐 `medusa secrets scan` — Find leaked API keys in your Claude / Cursor / Copilot / shell history. 21 issuer types. Interactive in-place redaction.**
-**🚀 v2026.5.12: Our biggest release ever — 40,000+ detection patterns (up from 9,600+), harvested from 8,466 AI-security research papers and false-positive-hardened against real-world codebases.**
+**🚀 v2026.7.0: Claude Code compromise detection, an always-on AI attack-signature scanner, native Rust & PHP security rules, and rule-level diagnostics — on top of 40,000+ detection patterns.**
 
 ---
 
@@ -39,20 +39,23 @@ MEDUSA is an AI-first security scanner with **40,000+ detection patterns** that 
 - 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
 - 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
-### 🆕 What's New in v2026.5.12
+### 🆕 What's New in v2026.7.0
 
-**Our biggest release ever — 4× the detection coverage, false-positive-hardened.**
+**Claude Code supply-chain detection, broader language coverage, and rule-level observability.**
 
 | | Change | Details |
 |---|---|---|
-| 🤖 | **9,600 → 40,000+ patterns** | A 4× expansion harvested from **8,466 AI-security research papers** across 41 attack categories — prompt injection, jailbreaks, MCP, RAG, model poisoning, agentic & multimodal attacks, and more. |
-| 🛡️ | **False-positive hardened** | Every new rule validated against real-world reference libraries (x402, guardrails, the UCP SDKs, and MEDUSA's own source) — **zero harvest-rule false positives on clean code**. |
-| 🔬 | **Detection preserved** | 94% of documented benchmark vulnerabilities still caught; 121 genuine detectors recovered with context guards that blanket FP-tuning would otherwise have dropped. |
-| 🔒 | **Rule-integrity hardening** | Structural, field-aware YAML integrity scanner — closes a prompt-in-a-prompt rule-poisoning gap and fixes a ReDoS in rule loading. |
-| ⚙️ | **79 analyzers** | Up from 78, all loaded out of the box. |
+| 🛡️ | **Claude Code compromise detection** | `medusa scan --git` now structurally vets `.claude/` — poisoned **hooks** (curl\|bash, base64→exec, credential exfil, reverse shells), over-broad **permissions** (`Bash(*)`, `bypassPermissions`), wildcard-tool **subagents**, and dropper **skills** — *before* you clone. |
+| 🎯 | **Always-on attack-signature scanner** | Closes a false-negative gap — jailbreak / prompt-injection payloads in data files (`.jsonl`/`.csv`) and prose are now caught regardless of LLM-context confidence, plus invisible-unicode / bidi (Trojan Source, CVE-2021-42574) recovery. |
+| 🦀 | **Native Rust security rules** | 22 out-of-box rules (no toolchain needed) — TLS verification disabled, command injection, untrusted deserialization, raw SQL, unsafe memory ops, weak crypto, SSRF. |
+| 🐘 | **Native PHP security rules** | 16 out-of-box rules — SQLi, command/eval injection, LFI/RFI, path traversal, `unserialize()` object injection, unrestricted upload, reflected XSS, SSRF, weak crypto. |
+| 🔬 | **Rule diagnostics (`--trace-rules`)** | Per-rule firing log + timing (`rule-trace.jsonl`, `slow_rules.csv`) and a hang-survivable heartbeat — found & fixed a real catastrophic-backtracking ReDoS, plus a ReDoS/nested-set lint that blocks bad patterns at author time. |
+| ⚡ | **Engine + accuracy** | Scan-engine perf quick-wins, context-aware screening mode for `--git` target vetting, large-file byte-cap sampling, and a documentation-placeholder secret-FP fix. |
 
 <details>
 <summary>Previous releases</summary>
+
+**v2026.5.12** — Biggest pattern release: 9,600 → 40,000+ detection patterns harvested from 8,466 AI-security research papers, false-positive-hardened; structural rule-integrity scanner.
 
 **v2026.5.10** — Security hardening: VS Code extension command-injection fix, `--fail-on` cached-findings bug, tool-cache stale-path fix, user-home MCP configs made opt-in.
 
@@ -279,8 +282,8 @@ MEDUSA supports **79 scanner types** covering AI/ML security, all major programm
 | JavaScript/TypeScript | ESLint | `.js`, `.jsx`, `.ts`, `.tsx` |
 | Go | golangci-lint | `.go` |
 | Ruby | RuboCop | `.rb`, `.rake`, `.gemspec` |
-| PHP | PHPStan | `.php` |
-| Rust | Clippy | `.rs` |
+| PHP | Native rules (+ PHPStan optional) | `.php` |
+| Rust | Native rules (+ Clippy optional) | `.rs` |
 | Java | Checkstyle | `.java` |
 | C/C++ | cppcheck | `.c`, `.cpp`, `.cc`, `.cxx`, `.h`, `.hpp` |
 | C# | Roslynator | `.cs` |

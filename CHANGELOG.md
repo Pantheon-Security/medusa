@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2026.7.0] - 2026-06-22
+
+**Claude Code supply-chain detection, broader language coverage, and rule-level observability.**
+
+### Added
+- **Claude Code compromise detection** — `medusa scan --git` structurally vets `.claude/` for poisoned hooks (curl|bash, base64→exec, credential exfil, reverse shells), over-broad permissions (`Bash(*)`, `bypassPermissions`), wildcard-tool subagents, and dropper skills.
+- **Always-on AI attack-signature scanner** — catches jailbreak/prompt-injection payloads in data files (`.jsonl`/`.csv`) and prose regardless of LLM-context confidence; recovers invisible-unicode / bidi (Trojan Source, CVE-2021-42574) detection.
+- **Native Rust security ruleset** (22 rules, no toolchain needed) — TLS verification disabled, command injection, untrusted deserialization, raw SQL, unsafe memory ops, weak crypto, SSRF. `.rs` files are now discovered + scanned.
+- **Native PHP security ruleset** (16 rules) — SQLi, command/eval injection, LFI/RFI, path traversal, `unserialize()` object injection, unrestricted upload, reflected XSS, SSRF, weak crypto. `.php` files are now discovered + scanned.
+- **Rule diagnostics** (`--trace-rules` / `MEDUSA_TRACE_RULES`) — per-rule firing log (`rule-trace.jsonl`) + timing (`slow_rules.csv`) + hang-survivable heartbeat; ReDoS/nested-set lint that blocks bad patterns at author time.
+- **Context-aware screening mode** for `--git` target vetting (surfaces CRITICAL/HIGH attack findings even in utility/test/example paths).
+
+### Fixed
+- Catastrophic-backtracking ReDoS in a prompt-injection rule (`MEDUSA-PIA-SCAN-077`) that could hang scans; CR-050 nested-set FutureWarning patterns repaired and the blanket suppression removed.
+- GitLeaks placeholder/example secrets (e.g. `sk_live_abc123def456` in docs) no longer surface as CRITICAL.
+- Large-file byte-cap sampling — bounds memory/time on oversized data files (fixes an ALERT-class slowdown).
+
+### Changed
+- Rust and PHP scanners upgraded to native rule-based scanning; external linters (Clippy/PHPStan) are now optional enrichment.
+- Scan-engine performance quick-wins.
+
 ## [2026.5.12] - 2026-06-09
 
 **Biggest rule release in MEDUSA's history: 9,600 → 40,000+ detection patterns, false-positive-hardened.**
