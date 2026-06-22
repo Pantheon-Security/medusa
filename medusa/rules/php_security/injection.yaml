@@ -1,0 +1,73 @@
+version: '2026.7.0'
+metadata:
+  source: php-security-2026
+  category: php_security
+  description: PHP injection vulnerabilities (SQLi, command exec, code eval)
+rules:
+- id: MEDUSA-PHP-SCAN-001
+  name: php-sqli-interpolated-query
+  description: SQL query with a PHP variable interpolated directly into the string.
+  severity: high
+  category: php_security
+  patterns:
+  - (?:mysqli_query|->query|->exec)\s*\(\s*"[^"]*(?:SELECT|INSERT|UPDATE|DELETE)[^"]*\$
+  - (?:mysql_query|pg_query)\s*\(\s*"[^"]*\$
+  file_types:
+  - '*.php'
+  message: 'PHP: SQL query with interpolated variable — SQL injection; use prepared statements (PDO bind)'
+  cwe: CWE-89
+  fix: Use PDO/mysqli prepared statements with bound parameters instead of string interpolation.
+
+- id: MEDUSA-PHP-SCAN-002
+  name: php-command-exec-tainted
+  description: Shell execution sink receiving a request variable or interpolated input.
+  severity: critical
+  category: php_security
+  patterns:
+  - (?:system|exec|shell_exec|passthru|popen|proc_open)\s*\(\s*[^)]*\$_(?:GET|POST|REQUEST|COOKIE)
+  - (?:system|exec|shell_exec|passthru)\s*\(\s*"[^"]*\$
+  file_types:
+  - '*.php'
+  message: 'PHP: shell execution with tainted/interpolated input — command injection'
+  cwe: CWE-78
+  fix: Avoid shell sinks; if unavoidable use escapeshellarg() on every argument.
+
+- id: MEDUSA-PHP-SCAN-003
+  name: php-backtick-exec
+  description: Backtick operator executes a shell command.
+  severity: high
+  category: php_security
+  patterns:
+  - '=\s*`[^`]*\$'
+  file_types:
+  - '*.php'
+  message: 'PHP: backtick shell execution with interpolation — command injection'
+  cwe: CWE-78
+  fix: Do not use the backtick operator with dynamic input.
+
+- id: MEDUSA-PHP-SCAN-004
+  name: php-dynamic-eval
+  description: eval()/assert() on dynamic input executes arbitrary PHP.
+  severity: critical
+  category: php_security
+  patterns:
+  - (?:eval|assert)\s*\(\s*[^)]*\$_(?:GET|POST|REQUEST|COOKIE)
+  - \beval\s*\(\s*"[^"]*\$
+  file_types:
+  - '*.php'
+  message: 'PHP: eval()/assert() on dynamic input — remote code execution'
+  cwe: CWE-95
+  fix: Never eval untrusted input; redesign to avoid dynamic code execution.
+
+- id: MEDUSA-PHP-SCAN-005
+  name: php-dynamic-callable
+  description: call_user_func / variable function invoked with request-controlled name.
+  severity: high
+  category: php_security
+  patterns:
+  - call_user_func(?:_array)?\s*\(\s*\$_(?:GET|POST|REQUEST)
+  file_types:
+  - '*.php'
+  message: 'PHP: dynamic callable from request input — arbitrary function invocation'
+  cwe: CWE-94
+  fix: Allowlist permitted callables; never derive the function name from input.

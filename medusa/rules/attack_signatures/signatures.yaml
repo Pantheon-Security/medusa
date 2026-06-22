@@ -1,0 +1,145 @@
+version: 1
+description: >
+  MEDUSA curated high-precision AI attack signatures. These run on EVERY text
+  file via AIAttackSignatureScanner (no LLM-context gate), so every pattern here
+  must be high-precision — anchored on phrasing that is overwhelmingly malicious,
+  not generic words. This is the false-negative safety net: jailbreak/injection
+  payloads in plain code, configs, and datasets that the context-gated scanners
+  would otherwise skip. Keep this set small and precise; broad/noisy patterns
+  belong in the gated scanners.
+generated: '2026-06-10'
+rules:
+
+# ── Named jailbreaks ────────────────────────────────────────────────────────
+- id: MEDUSA-ATKSIG-001
+  name: dan-do-anything-now
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)\bdo\s+anything\s+now\b
+  - (?i)\bD\.?A\.?N\.?\b\s*(?:mode|jailbreak|prompt|persona)
+  - (?i)(?:you\s+are|act\s+as|you'?re)\s+(?:now\s+)?DAN\b
+  message: "DAN ('Do Anything Now') jailbreak signature"
+  description: The DAN jailbreak instructs the model to drop all restrictions. One of the most widely used jailbreak families.
+  owasp_llm: LLM01:2025
+  mitre_atlas: AML.T0054
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-002
+  name: no-restrictions-roleplay
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)pretend\s+(?:you\s+(?:have|are)|to\s+(?:have|be))\s+(?:no|without)\s+(?:restrictions|rules|filters|guidelines|limits)
+  - (?i)(?:you\s+(?:have|are)|with)\s+no\s+(?:restrictions|filters|guidelines|ethical\s+guidelines|content\s+polic)
+  - (?i)without\s+any\s+(?:restrictions|filters|safety|ethical\s+guidelines|censorship)
+  message: "Roleplay-without-restrictions jailbreak signature"
+  description: Instructs the model to roleplay as an entity with no safety restrictions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-003
+  name: developer-mode-jailbreak
+  severity: high
+  category: attack_signatures
+  patterns:
+  # High-precision: require the jailbreak framing, NOT the bare phrase
+  # ("running in developer mode" is a benign app concept and must not match).
+  - (?i)developer\s+mode\s+output\b
+  - (?i)(?:chat\s?gpt|gpt-?[0-9]|claude|llm|the\s+ai|model)\s+with\s+developer\s+mode
+  - (?i)developer\s+mode\s+(?:enabled|on)\b[^\n]{0,80}(?:ignore|unrestricted|no\s+(?:restrictions|filters)|anything|uncensored|without\s+(?:filter|restriction|limit))
+  - (?i)(?:act\s+as|pretend|simulate|enable)[^\n]{0,40}developer\s+mode[^\n]{0,40}(?:unrestricted|no\s+(?:restrictions|filters)|ignore|uncensored|jailbr)
+  message: "'Developer Mode' jailbreak signature"
+  description: The 'Developer Mode' jailbreak claims an unrestricted developer persona (e.g. 'Developer Mode Output', 'ChatGPT with Developer Mode'). Bare 'developer mode' is intentionally excluded as a benign app concept.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-004
+  name: named-jailbreak-personas
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)\bAIM\b\s+(?:mode|jailbreak|prompt|always\s+intelligent)
+  - (?i)always\s+intelligent\s+and\s+machiavellian
+  - (?i)\bSTAN\b\s+(?:mode|jailbreak|strive\s+to\s+avoid)
+  - (?i)strive\s+to\s+avoid\s+norms
+  - (?i)\bjailbr(?:oken|eak)\s+(?:mode|version|persona|AI|model|assistant)
+  message: "Named jailbreak persona signature (AIM/STAN/jailbroken-mode)"
+  description: Well-known named jailbreak personas that request unrestricted behaviour.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+# ── Instruction-override / prompt injection ─────────────────────────────────
+- id: MEDUSA-ATKSIG-010
+  name: ignore-previous-instructions
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)ignore\s+(?:all\s+)?(?:the\s+)?(?:previous|prior|above|earlier|preceding|former)\s+(?:instructions?|prompts?|directions?|commands?|rules?|context)
+  - (?i)ignore\s+everything\s+(?:above|before|previously|that)
+  message: "'Ignore previous instructions' prompt-injection signature"
+  description: Classic direct prompt injection that tries to override the system/prior instructions.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-011
+  name: disregard-instructions
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)disregard\s+(?:all\s+)?(?:the\s+|your\s+|any\s+)?(?:previous|prior|above|earlier|system)?\s*(?:instructions?|prompts?|directions?|rules?|guidelines?)
+  - (?i)forget\s+(?:all\s+)?(?:your\s+|the\s+|everything\s+)?(?:previous\s+)?(?:instructions?|training|rules?|guidelines?|context)
+  message: "'Disregard/forget instructions' prompt-injection signature"
+  description: Instruction-override phrasing used to neutralise the system prompt.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-012
+  name: override-system-prompt
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)(?:override|bypass|ignore|disable|circumvent)\s+(?:the\s+|your\s+|any\s+|all\s+)?(?:system\s+prompt|safety\s+(?:filters?|guidelines?|measures?)|content\s+polic|guardrails?|safeguards?)
+  - (?i)new\s+(?:system\s+)?(?:instructions?|prompt)\s*[:=]\s*(?:you|ignore|do|act|disregard)
+  message: "System-prompt override / safety-bypass signature"
+  description: Attempts to override the system prompt or disable safety guardrails.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+- id: MEDUSA-ATKSIG-013
+  name: you-are-now-unrestricted
+  severity: high
+  category: attack_signatures
+  patterns:
+  - (?i)you\s+are\s+now\s+(?:a\s+|an\s+)?(?:free|unrestricted|unfiltered|uncensored|unlimited|jailbroken)
+  - (?i)from\s+now\s+on[, ]+you\s+(?:are|will|must|can)\s+(?:ignore|act|respond|answer|do\s+anything|no\s+longer)
+  message: "'You are now unrestricted / from now on' injection signature"
+  description: Persona-reset phrasing that redefines the assistant as unrestricted.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94
+
+# ── Invisible / bidirectional unicode (Trojan Source, hidden-instruction) ────
+# Recovered from over-aggressive FP-tuning (was JB-129/130). High value,
+# near-zero FP: bidi override/isolate controls in source are the Trojan Source
+# attack (CVE-2021-42574). Emoji ZWJ (U+200D) is deliberately excluded.
+- id: MEDUSA-ATKSIG-020
+  name: bidi-control-trojan-source
+  severity: high
+  category: attack_signatures
+  patterns:
+  - "[‪-‮⁦-⁩]"
+  message: "Bidirectional-control unicode (Trojan Source / visual code reordering)"
+  description: Right-to-left / left-to-right override and isolate characters can reorder how source code reads versus how it executes (CVE-2021-42574). Almost never legitimate in source.
+  cwe: CWE-94
+- id: MEDUSA-ATKSIG-021
+  name: invisible-unicode-embedding
+  severity: high
+  category: attack_signatures
+  patterns:
+  # Code that embeds zero-width / bidi controls via escape or chr() — used to
+  # hide instructions inside prompts, identifiers, or strings.
+  - (?i)(?:\\u(?:200[b-f]|202[a-e]|206[0-9]|feff)|\\x{?(?:200[b-f]|202[a-e]|feff)|chr\(\s*0x(?:200[b-f]|202[a-e]|feff))
+  message: "Code embedding invisible / bidi unicode (hidden-instruction injection)"
+  description: Source that writes zero-width or bidirectional control characters via \u/\x escapes or chr() — a common way to smuggle hidden instructions or obfuscate payloads.
+  owasp_llm: LLM01:2025
+  cwe: CWE-94

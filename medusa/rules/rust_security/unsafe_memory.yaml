@@ -1,0 +1,57 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Unsafe memory operations in Rust (specific risky ops, not bare `unsafe`)
+rules:
+- id: MEDUSA-RUST-SCAN-040
+  name: rust-mem-transmute
+  description: mem::transmute reinterprets bits between types — undefined behavior if layouts differ.
+  severity: medium
+  category: rust_security
+  patterns:
+  - mem::transmute
+  file_types:
+  - '*.rs'
+  message: 'Rust: mem::transmute — type punning can cause UB / memory corruption; prefer safe conversions'
+  cwe: CWE-119
+  fix: Use safe conversions (From/TryFrom, bytemuck) instead of transmute where possible.
+
+- id: MEDUSA-RUST-SCAN-041
+  name: rust-slice-from-raw-parts
+  description: slice::from_raw_parts builds a slice from a raw pointer + length (no bounds/validity checks).
+  severity: medium
+  category: rust_security
+  patterns:
+  - slice::from_raw_parts
+  file_types:
+  - '*.rs'
+  message: 'Rust: slice::from_raw_parts — invalid ptr/len causes out-of-bounds reads; verify provenance and length'
+  cwe: CWE-125
+  fix: Ensure the pointer is valid for len elements and outlives the slice.
+
+- id: MEDUSA-RUST-SCAN-042
+  name: rust-vec-set-len
+  description: Vec::set_len can expose uninitialized memory.
+  severity: medium
+  category: rust_security
+  patterns:
+  - \.set_len\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: set_len() can expose uninitialized memory — ensure elements are initialized first'
+  cwe: CWE-908
+  fix: Initialize the elements before calling set_len, or use safe Vec APIs.
+
+- id: MEDUSA-RUST-SCAN-043
+  name: rust-get-unchecked
+  description: get_unchecked elides bounds checks — out-of-bounds access if the index is wrong.
+  severity: medium
+  category: rust_security
+  patterns:
+  - \.get_unchecked(?:_mut)?\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: get_unchecked() skips bounds checks — out-of-bounds risk; prefer checked indexing'
+  cwe: CWE-125
+  fix: Use checked indexing unless the index is provably in-bounds.

@@ -1,0 +1,31 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Server-side request forgery (SSRF) surfaces in Rust HTTP clients
+rules:
+- id: MEDUSA-RUST-SCAN-060
+  name: rust-ssrf-reqwest-get-format
+  description: reqwest::get called with a URL built via format!() (possible SSRF).
+  severity: medium
+  category: rust_security
+  patterns:
+  - reqwest::get\s*\(\s*&?format!\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: reqwest::get with a format!()-built URL — SSRF if the URL is influenced by input'
+  cwe: CWE-918
+  fix: Validate/allowlist the host; do not build request URLs from untrusted input.
+
+- id: MEDUSA-RUST-SCAN-061
+  name: rust-ssrf-client-url-format
+  description: HTTP client get/post with a format!()-interpolated URL.
+  severity: medium
+  category: rust_security
+  patterns:
+  - \.(?:get|post)\s*\(\s*&?format!\s*\(\s*"https?://
+  file_types:
+  - '*.rs'
+  message: 'Rust: HTTP client URL interpolated via format!() — SSRF if host/path is attacker-influenced'
+  cwe: CWE-918
+  fix: Construct the URL from a fixed base + validated path; allowlist destinations.

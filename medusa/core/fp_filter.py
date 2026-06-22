@@ -130,6 +130,12 @@ class FalsePositiveFilter:
     _METHOD_RE = re.compile(
         r'\.(?:' + '|'.join(re.escape(m) for m in SECURITY_METHODS) + r')\s*\(',
     )
+    # _check_security_module: single bare-substring regex (case-insensitive)
+    # replacing 19 separate `method in context.lower()` scans. Same semantics
+    # (substring presence), one pass — NOT _METHOD_RE, which requires `.m(` syntax.
+    _SECURITY_METHOD_SUBSTR_RE = re.compile(
+        '|'.join(re.escape(m) for m in SECURITY_METHODS), re.IGNORECASE
+    )
     # _check_security_module: single regex instead of iterating SECURITY_MODULE_PATTERNS
     _SECURITY_MODULE_RE = re.compile(
         '|'.join(SECURITY_MODULE_PATTERNS),
@@ -183,14 +189,22 @@ class FalsePositiveFilter:
     KNOWN_FP_PATTERNS: List[FPPattern] = []
 
 
-    def __init__(self, source_root: Optional[Path] = None):
+    def __init__(self, source_root: Optional[Path] = None, screening: bool = False):
         """
         Initialize the FP filter
 
         Args:
             source_root: Root directory of source code for context analysis
+            screening: Target-vetting mode (e.g. `medusa scan --git` pre-install
+                screening). When True, real attack / high-severity security
+                findings are NOT suppressed merely for living in tools/, tests/,
+                examples/, or dataset files — in a poisoned/vulnerable target
+                those directories ARE the attack surface. Default False keeps the
+                precision-tight behavior for scanning your own clean codebase
+                (no clean-code false-positive regression).
         """
         self.source_root = source_root or Path.cwd()
+        self.screening = screening
         self._file_cache: Dict[str, List[str]] = {}
         self._class_cache: Dict[str, Dict] = {}
 
@@ -226,8 +240,19 @@ class FalsePositiveFilter:
             self._check_docstring,
             self._check_security_wrapper,
             self._check_known_patterns,
-            self._check_test_file,
         ]
+
+        # Screening mode: when vetting a target repo (not scanning your own clean
+        # code), do not let the test/example/utility-file heuristic bury a real
+        # attack or high-severity security finding — in a vulnerable/poisoned
+        # repo those locations (tools_plugins/, datasets, jailbreak .md/.csv) are
+        # exactly where the malicious content lives. The genuinely-safe checks
+        # (security-module self-detection, real docstrings, known FP patterns)
+        # still run in all modes.
+        severity = (finding.get('severity') or 'MEDIUM').upper()
+        relax_context_fp = self.screening and severity in ('CRITICAL', 'HIGH')
+        if not relax_context_fp:
+            checks.append(self._check_test_file)
 
         for check in checks:
             check_result = check(finding, source_context)
@@ -296,10 +321,7 @@ class FalsePositiveFilter:
         if self._SECURITY_MODULE_RE.search(file_path):
             # Additional check: does the file have security methods?
             full_context = '\n'.join(context)
-            has_security_methods = any(
-                method in full_context.lower()
-                for method in self.SECURITY_METHODS
-            )
+            has_security_methods = bool(self._SECURITY_METHOD_SUBSTR_RE.search(full_context))
 
             if has_security_methods:
                 return FilterResult(
@@ -412,9 +434,12 @@ class FalsePositiveFilter:
             )
 
         # --- Python docstring detection ---
-        full_text = '\n'.join(context[:line_idx + 1])
-        triple_double = full_text.count('"""')
-        triple_single = full_text.count("'''")
+        # Count triple-quote delimiters over the prefix WITHOUT building one big
+        # joined string per finding. Summing per-line counts is identical: a
+        # `"""`/`'''` token never spans a newline, and join inserts only '\n'.
+        prefix = context[:line_idx + 1]
+        triple_double = sum(ln.count('"""') for ln in prefix)
+        triple_single = sum(ln.count("'''") for ln in prefix)
 
         if triple_double % 2 == 1 or triple_single % 2 == 1:
             return FilterResult(
@@ -490,6 +515,17 @@ class FalsePositiveFilter:
         issue_text = finding.get('issue', '')
         line_num = finding.get('line') or 0
 
+        # Screening mode: for real attack/high-severity findings, skip the
+        # *file-location* context guards (docs / tests / examples / utility) that
+        # exist to silence attack signatures in a clean codebase's docs/datasets.
+        # When vetting a target those locations are the attack surface. The
+        # content-safety guards (security wrappers, safe patterns, rule-definition
+        # files) still apply.
+        relax_context_fp = (
+            self.screening
+            and str(finding.get('severity', '')).upper() in ('CRITICAL', 'HIGH')
+        )
+
         # Get the line and surrounding context (may be empty for external tools)
         line = ""
         broader_context = ""
@@ -509,7 +545,15 @@ class FalsePositiveFilter:
             self._FP_BY_SCANNER.get('_any_', [])
         )
 
+        _CONTEXT_FP_REASONS = {
+            FPReason.DOCSTRING, FPReason.TEST_FILE,
+            FPReason.EXAMPLE_FILE, FPReason.UTILITY_FILE,
+        }
         for fp_pattern in candidates:
+
+            # Screening: don't let a file-location guard bury a real attack finding
+            if relax_context_fp and fp_pattern.reason in _CONTEXT_FP_REASONS:
+                continue
 
             # Skip if this pattern can't beat current best
             if fp_pattern.confidence <= best_result.confidence:

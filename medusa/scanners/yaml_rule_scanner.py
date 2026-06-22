@@ -97,6 +97,9 @@ class YAMLRuleScanner(RuleBasedScanner):
         all_rules = loader.load_all_rules()
 
         claimed_cats, claimed_prefixes = _get_claimed_categories_and_prefixes()
+        # str.startswith accepts a tuple of prefixes — one C-level call per rule
+        # instead of O(prefixes) Python-level startswith calls (~2M -> ~42k).
+        claimed_prefix_tuple = tuple(sorted(set(claimed_prefixes)))
 
         self._unclaimed_rules = []
         for rule in all_rules:
@@ -104,13 +107,9 @@ class YAMLRuleScanner(RuleBasedScanner):
             if rule.category in claimed_cats:
                 continue
             # Skip if any prefix is claimed
-            claimed = False
-            for prefix in claimed_prefixes:
-                if rule.id.startswith(prefix):
-                    claimed = True
-                    break
-            if not claimed:
-                self._unclaimed_rules.append(rule)
+            if claimed_prefix_tuple and rule.id.startswith(claimed_prefix_tuple):
+                continue
+            self._unclaimed_rules.append(rule)
 
         self._unclaimed_loaded = True
 

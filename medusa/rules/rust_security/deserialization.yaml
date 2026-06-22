@@ -1,0 +1,57 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Untrusted deserialization in Rust
+rules:
+- id: MEDUSA-RUST-SCAN-020
+  name: rust-deser-bincode
+  description: bincode deserialization of (potentially untrusted) bytes.
+  severity: high
+  category: rust_security
+  patterns:
+  - bincode::deserialize
+  file_types:
+  - '*.rs'
+  message: 'Rust: bincode deserialization — validate source/size; untrusted input can corrupt state'
+  cwe: CWE-502
+  fix: Deserialize only trusted data; bound input size and validate after decoding.
+
+- id: MEDUSA-RUST-SCAN-021
+  name: rust-deser-serde-yaml
+  description: serde_yaml deserialization (YAML is expressive and abuse-prone).
+  severity: high
+  category: rust_security
+  patterns:
+  - serde_yaml::from_(?:str|slice|reader)\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: serde_yaml deserialization of input — validate schema and source'
+  cwe: CWE-502
+  fix: Restrict to trusted YAML; validate the deserialized structure.
+
+- id: MEDUSA-RUST-SCAN-022
+  name: rust-deser-pickle
+  description: serde_pickle deserialization — pickle-style formats are RCE-prone.
+  severity: critical
+  category: rust_security
+  patterns:
+  - serde_pickle::(?:from|de)
+  file_types:
+  - '*.rs'
+  message: 'Rust: serde_pickle deserialization — pickle formats can execute code; never on untrusted input'
+  cwe: CWE-502
+  fix: Do not deserialize untrusted pickle data; use a safe format with a fixed schema.
+
+- id: MEDUSA-RUST-SCAN-023
+  name: rust-deser-msgpack
+  description: rmp_serde (MessagePack) deserialization of input.
+  severity: high
+  category: rust_security
+  patterns:
+  - rmp_serde::(?:from_slice|from_read|decode)
+  file_types:
+  - '*.rs'
+  message: 'Rust: rmp_serde (MessagePack) deserialization — validate source/size of input'
+  cwe: CWE-502
+  fix: Deserialize only trusted MessagePack; bound size and validate.

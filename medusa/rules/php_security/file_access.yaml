@@ -1,0 +1,57 @@
+version: '2026.7.0'
+metadata:
+  source: php-security-2026
+  category: php_security
+  description: PHP file inclusion / path traversal / unsafe upload
+rules:
+- id: MEDUSA-PHP-SCAN-010
+  name: php-lfi-rfi-include
+  description: include/require with request-controlled path (LFI/RFI).
+  severity: critical
+  category: php_security
+  patterns:
+  - (?:include|include_once|require|require_once)\s*(?:\(\s*)?[^;]*\$_(?:GET|POST|REQUEST|COOKIE)
+  file_types:
+  - '*.php'
+  message: 'PHP: include/require with request-controlled path — local/remote file inclusion (RCE)'
+  cwe: CWE-98
+  fix: Allowlist includable files; never build an include path from user input.
+
+- id: MEDUSA-PHP-SCAN-011
+  name: php-path-traversal-fileop
+  description: File operation reading a request-controlled path.
+  severity: high
+  category: php_security
+  patterns:
+  - (?:file_get_contents|fopen|readfile|file|unlink|fwrite)\s*\(\s*[^)]*\$_(?:GET|POST|REQUEST|COOKIE)
+  file_types:
+  - '*.php'
+  message: 'PHP: file operation on request-controlled path — path traversal'
+  cwe: CWE-22
+  fix: Canonicalize and validate the path against an allowed base directory.
+
+- id: MEDUSA-PHP-SCAN-012
+  name: php-unserialize-untrusted
+  description: unserialize() on request input — object injection / RCE via magic methods.
+  severity: critical
+  category: php_security
+  patterns:
+  - unserialize\s*\(\s*[^)]*\$_(?:GET|POST|REQUEST|COOKIE)
+  file_types:
+  - '*.php'
+  message: 'PHP: unserialize() on request input — PHP object injection (RCE via gadgets)'
+  cwe: CWE-502
+  fix: Use json_decode() for untrusted data, or unserialize() with allowed_classes=false.
+
+- id: MEDUSA-PHP-SCAN-013
+  name: php-move-uploaded-no-validation
+  description: Uploaded file moved using its client-supplied name.
+  severity: high
+  category: php_security
+  patterns:
+  - move_uploaded_file\s*\(\s*[^,]*,\s*[^)]*\$_FILES
+  file_types:
+  - '*.php'
+  message: 'PHP: uploaded file moved using client-supplied name — unrestricted upload'
+  cwe: CWE-434
+  fix: Generate a server-side filename and validate the extension/MIME against an allowlist.
