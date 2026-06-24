@@ -82,6 +82,8 @@ from medusa.scanners.plugin_security_scanner import PluginSecurityScanner
 from medusa.scanners.excessive_agency_scanner import ExcessiveAgencyScanner
 from medusa.scanners.prompt_injection_code_scanner import PromptInjectionCodeScanner
 from medusa.scanners.dataset_injection_scanner import DatasetInjectionScanner
+from medusa.scanners.claude_code_scanner import ClaudeCodeScanner
+from medusa.scanners.ai_attack_signature_scanner import AIAttackSignatureScanner
 from medusa.scanners.web_security_scanner import WebSecurityScanner
 from medusa.scanners.gitleaks_scanner import GitLeaksScanner
 from medusa.scanners.semgrep_scanner import SemgrepScanner
@@ -151,6 +153,7 @@ registry.register(AgentReflectionScanner())
 registry.register(AgentPlanningScanner())
 registry.register(MultiAgentScanner())
 registry.register(OWASPLLMScanner())
+registry.register(AIAttackSignatureScanner())
 registry.register(ModelAttackScanner())
 registry.register(LLMOpsScanner())
 registry.register(VectorDBScanner())
@@ -167,6 +170,7 @@ registry.register(PluginSecurityScanner())
 registry.register(ExcessiveAgencyScanner())
 registry.register(PromptInjectionCodeScanner())
 registry.register(DatasetInjectionScanner())
+registry.register(ClaudeCodeScanner())
 registry.register(WebSecurityScanner())
 registry.register(GitLeaksScanner())
 registry.register(SemgrepScanner())
@@ -242,6 +246,7 @@ __all__ = [
     'AgentPlanningScanner',
     'MultiAgentScanner',
     'OWASPLLMScanner',
+    'AIAttackSignatureScanner',
     'ModelAttackScanner',
     'LLMOpsScanner',
     'VectorDBScanner',
@@ -258,6 +263,7 @@ __all__ = [
     'ExcessiveAgencyScanner',
     'PromptInjectionCodeScanner',
     'DatasetInjectionScanner',
+    'ClaudeCodeScanner',
     'WebSecurityScanner',
     'GitLeaksScanner',
     'SemgrepScanner',

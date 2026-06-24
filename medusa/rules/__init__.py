@@ -12,23 +12,20 @@ Rules are defined in YAML format in the following directories:
 """
 
 import logging
+from bisect import bisect_left
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
 import re
-import warnings
 import yaml
 from dataclasses import dataclass, field
 from enum import Enum
 
-# Several bundled rule patterns use nested character sets (e.g. [a-z[A-Z]]) which
-# Python's re module flags with FutureWarning. The patterns still compile and
-# match correctly today; a proper audit/rewrite is tracked for 2026.6.1 (CR-050).
-# Suppress only this specific warning so it doesn't flood scan output — badly on
-# Windows, where spawn-mode workers each re-import and re-compile the rules and
-# would otherwise emit it hundreds of times, mangling the progress display.
-# Scoped by message so no other FutureWarning is hidden; re-applies on every
-# import, including in spawn-mode worker processes.
-warnings.filterwarnings("ignore", message="Possible nested set", category=FutureWarning)
+# CR-050 (resolved 2026.7.0): the two bundled patterns that emitted Python's
+# "Possible nested set" FutureWarning (MEDUSA-PRIV-SCAN-1514, MEDUSA-PIA-SCAN-2531)
+# were malformed-by-harvest and have been repaired (disjoint char classes). The
+# blanket filterwarnings() suppression that used to live here is gone — if a new
+# rule reintroduces a nested-set pattern, the FutureWarning now surfaces (and
+# tests/test_rule_redos.py / the __post_init__ lint below flag it at compile).
 
 _log = logging.getLogger(__name__)
 
@@ -82,6 +79,15 @@ class Rule:
                 self._compiled_patterns.append(re.compile(pattern, re.IGNORECASE | re.MULTILINE))
             except re.error as e:
                 _log.warning("Invalid regex pattern in rule %s (pattern skipped): %s — %s", self.id, pattern, e)
+                continue
+            # CR-050 follow-up: cheap static ReDoS/nested-set smell check. DEBUG-only
+            # (silent on normal scans), so a misbehaving pattern is greppable in -v
+            # logs without the per-search cost. See medusa/core/rule_lint.py.
+            if _log.isEnabledFor(logging.DEBUG):
+                from medusa.core import rule_lint
+                smells = rule_lint.static_findings(pattern)
+                if smells:
+                    _log.debug("Lint smell %s in rule %s: %s", smells, self.id, pattern)
         # Normalize file_types globs for matching
         self._compiled_file_globs = []
         for ft in self.file_types:
@@ -148,6 +154,8 @@ class RuleLoader:
         """
         self.rules_dir = rules_dir or self.RULES_DIR
         self._rules_cache: Dict[str, List[Rule]] = {}
+        self._rules_by_id: Dict[str, Rule] = {}
+        self._rules_by_id_src: Optional[List[Rule]] = None
         self._integrity_verified = False
         self._skip_integrity = skip_integrity_check
 
@@ -431,6 +439,9 @@ class RuleLoader:
 
         matches = []
         lines = content.split('\n')
+        # Precompute newline offsets once: line number via bisect is O(log n)
+        # per match instead of O(pos) re-scanning the prefix for every match.
+        _nl_offsets = [i for i, c in enumerate(content) if c == '\n']
 
         for rule in rules:
             rule_matches = rule.matches(content)
@@ -438,7 +449,7 @@ class RuleLoader:
             for match in rule_matches:
                 # Find line number
                 start_pos = match.start()
-                line_num = content[:start_pos].count('\n') + 1
+                line_num = bisect_left(_nl_offsets, start_pos) + 1
 
                 # Get line content
                 if 0 < line_num <= len(lines):
@@ -479,12 +490,13 @@ class RuleLoader:
         return [r for r in all_rules if r.owasp_llm == owasp_id]
 
     def get_rule_by_id(self, rule_id: str) -> Optional[Rule]:
-        """Get a specific rule by ID"""
+        """Get a specific rule by ID (O(1) via an index rebuilt only when the
+        underlying rule list changes)."""
         all_rules = self.load_all_rules()
-        for rule in all_rules:
-            if rule.id == rule_id:
-                return rule
-        return None
+        if self._rules_by_id_src is not all_rules:
+            self._rules_by_id = {r.id: r for r in all_rules}
+            self._rules_by_id_src = all_rules
+        return self._rules_by_id.get(rule_id)
 
     def get_categories(self) -> Set[str]:
         """Get all unique categories"""

@@ -1,0 +1,46 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Weak cryptography and hardcoded key material in Rust
+rules:
+- id: MEDUSA-RUST-SCAN-050
+  name: rust-weak-hash-md5
+  description: MD5 used (broken for security purposes — collisions, preimage weaknesses).
+  severity: medium
+  category: rust_security
+  patterns:
+  - Md5::new\s*\(
+  - \buse\s+md5\b
+  file_types:
+  - '*.rs'
+  message: 'Rust: MD5 in use — not secure for signatures/passwords/integrity; use SHA-256+ or a KDF'
+  cwe: CWE-327
+  fix: Replace MD5 with SHA-256/BLAKE3 (integrity) or Argon2/bcrypt (passwords).
+
+- id: MEDUSA-RUST-SCAN-051
+  name: rust-weak-hash-sha1
+  description: SHA-1 used (cryptographically broken).
+  severity: medium
+  category: rust_security
+  patterns:
+  - Sha1::new\s*\(
+  - \buse\s+sha1\b
+  file_types:
+  - '*.rs'
+  message: 'Rust: SHA-1 in use — cryptographically broken; use SHA-256+ for security'
+  cwe: CWE-327
+  fix: Replace SHA-1 with SHA-256 or BLAKE3.
+
+- id: MEDUSA-RUST-SCAN-052
+  name: rust-hardcoded-key-material
+  description: Hardcoded key / IV / nonce / secret literal in source.
+  severity: medium
+  category: rust_security
+  patterns:
+  - let\s+(?:key|iv|nonce|secret|seed)\s*=\s*b?"[^"]{16,}"
+  file_types:
+  - '*.rs'
+  message: 'Rust: hardcoded key/iv/nonce/secret literal — load secrets from a vault/env at runtime'
+  cwe: CWE-798
+  fix: Source key material from a KMS/secret manager or environment, never source literals.

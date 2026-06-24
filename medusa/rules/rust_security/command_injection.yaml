@@ -1,0 +1,44 @@
+version: '2026.7.0'
+metadata:
+  source: rust-security-2026
+  category: rust_security
+  description: Command / process execution injection in Rust
+rules:
+- id: MEDUSA-RUST-SCAN-010
+  name: rust-command-shell-interpreter
+  description: Spawning a shell interpreter via std::process::Command (shell command execution).
+  severity: high
+  category: rust_security
+  patterns:
+  - Command::new\s*\(\s*"(?:sh|bash|zsh|cmd|powershell)"
+  file_types:
+  - '*.rs'
+  message: 'Rust: spawning a shell interpreter (Command::new("sh"/"bash"/...)) — command injection risk if args are tainted'
+  cwe: CWE-78
+  fix: Invoke the target binary directly with separate args; never pass user input through a shell.
+
+- id: MEDUSA-RUST-SCAN-011
+  name: rust-command-arg-format
+  description: Process argument built with format!() — attacker-controlled input may inject.
+  severity: high
+  category: rust_security
+  patterns:
+  - \.arg\s*\(\s*&?format!\s*\(
+  file_types:
+  - '*.rs'
+  message: 'Rust: process argument built via format!() (.arg(format!(...))) — verify input is not attacker-controlled'
+  cwe: CWE-78
+  fix: Pass untrusted values as discrete args; avoid building command strings with format!().
+
+- id: MEDUSA-RUST-SCAN-012
+  name: rust-command-dash-c
+  description: Passing -c to a process, i.e. executing a shell command string.
+  severity: medium
+  category: rust_security
+  patterns:
+  - \.arg\s*\(\s*"-c"\s*\)
+  file_types:
+  - '*.rs'
+  message: 'Rust: passing -c to a process (shell command string execution) — ensure the command is not built from input'
+  cwe: CWE-78
+  fix: Avoid `-c`/shell strings; run the program directly with argument vectors.

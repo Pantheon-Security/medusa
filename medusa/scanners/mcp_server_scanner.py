@@ -17,7 +17,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
+from medusa.scanners.base import (
+    RuleBasedScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps,
+    _build_line_offsets, _get_line_number,
+)
 
 
 class MCPServerScanner(RuleBasedScanner):
@@ -842,12 +845,13 @@ class MCPServerScanner(RuleBasedScanner):
         # Look for description patterns
         desc_pattern = r'description\s*[=:]\s*[`"\']([^`"\']*(?:[`"\'][^`"\']*)*)[`"\']'
 
+        _offsets = _build_line_offsets(content)
         for match in re.finditer(desc_pattern, content, re.DOTALL | re.IGNORECASE):
             desc_content = match.group(1)
             desc_start = match.start()
 
-            # Find line number
-            line_num = content[:desc_start].count('\n') + 1
+            # Find line number (O(log n) via prebuilt offsets)
+            line_num = _get_line_number(_offsets, desc_start)
 
             # Check for poisoning patterns
             for pattern, description, severity in self.TOOL_POISONING_PATTERNS:
@@ -913,11 +917,12 @@ class MCPServerScanner(RuleBasedScanner):
         tool_pattern = r'(?:server\.tool|\.tool|@server\.tool|@mcp\.tool|registerTool)\s*\([^)]*'
 
         # Build a map of tool-like regions in the content
+        _offsets = _build_line_offsets(content)
         for match in re.finditer(tool_pattern, content, re.DOTALL):
             tool_start = match.start()
             # Get ~500 chars after the tool definition start for analysis
             tool_region = content[tool_start:tool_start + 500]
-            line_num = content[:tool_start].count('\n') + 1
+            line_num = _get_line_number(_offsets, tool_start)
 
             for pattern, description, severity in self.TOOL_NAME_SPOOFING_PATTERNS:
                 if re.search(pattern, tool_region, re.IGNORECASE | re.DOTALL):
@@ -940,14 +945,16 @@ class MCPServerScanner(RuleBasedScanner):
         # Find tool definitions
         tool_pattern = r'(server\.tool|\.tool|@server\.tool|@mcp\.tool)\s*\(\s*\{([^}]*)\}'
 
+        _offsets = _build_line_offsets(content)
         for match in re.finditer(tool_pattern, content, re.DOTALL):
             tool_content = match.group(2)
+            tool_content_lower = tool_content.lower()  # compute once, used 3x below
             tool_start = match.start()
-            line_num = content[:tool_start].count('\n') + 1
+            line_num = _get_line_number(_offsets, tool_start)
 
             # Check for destructive operations without destructiveHint
             has_destructive_keyword = any(
-                kw in tool_content.lower()
+                kw in tool_content_lower
                 for kw in self.DESTRUCTIVE_KEYWORDS
             )
             has_destructive_hint = 'destructiveHint' in tool_content or 'destructive_hint' in tool_content
@@ -964,11 +971,11 @@ class MCPServerScanner(RuleBasedScanner):
 
             # Check for read operations without readOnlyHint
             is_read_only = any(
-                kw in tool_content.lower()
+                kw in tool_content_lower
                 for kw in ['get', 'read', 'list', 'fetch', 'query', 'search', 'find']
             )
             is_not_write = not any(
-                kw in tool_content.lower()
+                kw in tool_content_lower
                 for kw in self.DESTRUCTIVE_KEYWORDS + ['write', 'create', 'update', 'set', 'put', 'post']
             )
             has_readonly_hint = 'readOnlyHint' in tool_content or 'read_only_hint' in tool_content

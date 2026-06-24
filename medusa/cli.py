@@ -1160,6 +1160,56 @@ def _get_severity(issue):
     return None
 
 
+def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
+                       no_report, no_ai_safe, missing_linters, found_marker="",
+                       screening=False):
+    """Shared report-generation + fail-threshold logic for `scan` and
+    `_scan_git_repo` (CR-007 — these had drifted, causing CR-001/CR-002).
+
+    Returns the intended exit code: 1 if findings exist at/above the --fail-on
+    severity, else 0. The caller sys.exit()s only on a non-zero return, then
+    prints its own "scan complete" line (marker style differs per caller).
+    `found_marker` prefixes the threshold message (e.g. "❌ " for the local
+    scan, "" for --git) to preserve each caller's existing output style.
+    """
+    # Generate reports
+    if not no_report:
+        output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Handle 'all' format
+        formats = list(output_formats)
+        if 'all' in formats:
+            formats = ['json', 'html', 'markdown']
+
+        scanner.generate_report(results, output_dir, formats=formats,
+                                missing_linters=missing_linters, ai_safe=not no_ai_safe,
+                                screening=screening)
+
+    # Check fail threshold — only count issues at or above the specified severity
+    if fail_on:
+        from medusa.scanners import Severity
+        severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
+        threshold = Severity(fail_on.upper())
+        threshold_index = severity_order.index(threshold)
+        allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
+
+        def _sev_value(issue):
+            s = _get_severity(issue)
+            return s.value if hasattr(s, 'value') else s
+
+        total_issues = sum(
+            1 for r in results
+            for issue in r.issues
+            if _sev_value(issue) in allowed_severities
+        )
+        if total_issues > 0:
+            console.print(f"\n[red]{found_marker}Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
+            return 1
+
+    return 0
+
+
 def print_banner():
     """Print MEDUSA banner with large block-style ASCII logo"""
     logo = """[dark_green]
@@ -1254,7 +1304,16 @@ def main(ctx, version):
               help='Allow --git to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org). Private IPs are still rejected.')
 @click.option('--include-user-mcp-configs', 'include_user_mcp_configs', is_flag=True, default=False,
               help='Include user-home MCP config files (~/.config/Claude, ~/.cursor) in the scan.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs):
+@click.option('--screening', '--audit', 'screening', is_flag=True, default=False,
+              help='Target-vetting mode: surface attack/high-severity findings even when they live in '
+                   'tests/, examples/, tools/, or dataset files (in a repo you are screening, those ARE '
+                   'the attack surface). Auto-enabled for --git pre-install screening. Off by default for '
+                   'scanning your own clean codebase.')
+@click.option('--trace-rules', 'trace_rules', is_flag=True, default=False, envvar='MEDUSA_TRACE_RULES',
+              help='Rule diagnostics: log every rule firing (rule-trace.jsonl) and per-rule timing '
+                   '(slow_rules.csv) to the report dir, to debug false positives/misses and find slow/'
+                   'ReDoS rules. Forces a serial scan. Also enabled by MEDUSA_TRACE_RULES=1.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules):
     """
     Scan a directory or file for security issues.
 
@@ -1288,6 +1347,8 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             exclude=exclude,
             include_user_mcp_configs=include_user_mcp_configs,
             no_ai_safe=no_ai_safe,
+            screening=True,  # pre-install screening: vet the target, don't bury findings in tests/tools
+            trace_rules=trace_rules,
         )
         return
 
@@ -1468,6 +1529,19 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             include_user_mcp_configs=include_user_mcp_configs,
         )
 
+        # Rule diagnostics (--trace-rules / MEDUSA_TRACE_RULES): collect rule
+        # firings + per-rule timing during a serial scan.
+        if trace_rules:
+            import os as _os
+            from medusa.core import rule_diag
+            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
+            rule_diag.enable(_diag_out, fine=_fine)
+            scanner.trace_rules = True
+            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
+            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
+                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+
         # Find files
         files = scanner.find_scannable_files()
         if not files:
@@ -1479,36 +1553,25 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Scan files
         results = scanner.scan_parallel(files)
 
-        # Generate reports
-        if not no_report:
-            output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            output_dir.mkdir(parents=True, exist_ok=True)
+        if trace_rules:
+            from medusa.core import rule_diag
+            _d = rule_diag.get()
+            if _d is not None:
+                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
+                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
+                rule_diag.disable()
 
-            # Handle 'all' format
-            formats = list(output_formats)
-            if 'all' in formats:
-                formats = ['json', 'html', 'markdown']
-
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
-
-        # Check fail threshold — only count issues at or above the specified severity
-        if fail_on:
-            from medusa.scanners import Severity
-            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
-            threshold = Severity(fail_on.upper())
-            threshold_index = severity_order.index(threshold)
-            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
-            def _sev_value(issue):
-                s = _get_severity(issue)
-                return s.value if hasattr(s, 'value') else s
-            total_issues = sum(
-                1 for r in results
-                for issue in r.issues
-                if _sev_value(issue) in allowed_severities
-            )
-            if total_issues > 0:
-                console.print(f"\n[red]❌ Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
-                sys.exit(1)
+        # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
+        _exit_code = _run_scan_pipeline(
+            scanner, results, fail_on=fail_on, output=output,
+            output_formats=output_formats, no_report=no_report,
+            no_ai_safe=no_ai_safe, missing_linters=missing_linters,
+            found_marker="❌ ", screening=screening,
+        )
+        if _exit_code:
+            sys.exit(_exit_code)
 
         console.print("\n[dark_green]✅ Scan complete![/dark_green]")
 
@@ -1688,6 +1751,9 @@ _PRIORITY_FILES: list[tuple[str, str, str]] = [
     ("mcp.json", "red", "MCP server configuration"),
     (".mcp.json", "red", "MCP server configuration"),
     (".mcp/config.json", "red", "MCP server configuration"),
+    (".claude/settings.json", "red", "Claude Code settings (hooks can execute code)"),
+    (".claude/settings.local.json", "red", "Claude Code local settings (hooks/permissions)"),
+    (".claude/hooks/*", "red", "Claude Code hook scripts (code execution)"),
     # --- High: AI editor instruction files ---
     ("GEMINI.md", "yellow", "Gemini CLI instructions"),
     (".gemini/settings.json", "yellow", "Gemini CLI configuration"),
@@ -1695,6 +1761,10 @@ _PRIORITY_FILES: list[tuple[str, str, str]] = [
     ("AGENTS.md", "yellow", "OpenAI Codex agent instructions"),
     ("AGENT.md", "yellow", "Roo Code agent instructions"),
     ("SKILL.md", "yellow", "AI skill definitions (ToxicSkills)"),
+    (".claude/agents/*.md", "yellow", "Claude Code subagent definitions"),
+    (".claude/commands/*.md", "yellow", "Claude Code slash commands"),
+    (".claude/skills/*/*.sh", "yellow", "Claude Code skill companion script"),
+    (".claude/skills/*/*.py", "yellow", "Claude Code skill companion script"),
     (".github/copilot-instructions.md", "yellow", "GitHub Copilot instructions"),
     (".github/instructions/*.instructions.md", "yellow", "Copilot scoped instructions"),
     ("CONVENTIONS.md", "yellow", "AI coding conventions (Aider)"),
@@ -1743,6 +1813,8 @@ def _scan_git_repo(
     allow_any_host: bool = False,
     include_user_mcp_configs: bool = False,
     no_ai_safe: bool = False,
+    screening: bool = True,
+    trace_rules: bool = False,
 ) -> None:
     """
     Clone a remote git repository and run the MEDUSA scan pipeline on it.
@@ -1900,6 +1972,18 @@ def _scan_git_repo(
             include_user_mcp_configs=include_user_mcp_configs,
         )
 
+        # Rule diagnostics (--trace-rules) — same as the local path, serial scan.
+        if trace_rules:
+            import os as _os
+            from medusa.core import rule_diag
+            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
+            rule_diag.enable(_diag_out, fine=_fine)
+            scanner.trace_rules = True
+            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — rule-trace.jsonl + slow_rules.csv[/yellow]")
+            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
+                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+
         files = scanner.find_scannable_files()
         if not files:
             console.print("[yellow]No files found to scan[/yellow]")
@@ -1909,35 +1993,25 @@ def _scan_git_repo(
 
         results = scanner.scan_parallel(files)
 
-        # Generate reports
-        if not no_report:
-            output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            output_dir.mkdir(parents=True, exist_ok=True)
+        if trace_rules:
+            from medusa.core import rule_diag
+            _d = rule_diag.get()
+            if _d is not None:
+                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
+                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
+                rule_diag.disable()
 
-            formats = list(output_formats)
-            if 'all' in formats:
-                formats = ['json', 'html', 'markdown']
-
-            scanner.generate_report(results, output_dir, formats=formats, missing_linters=missing_linters, ai_safe=not no_ai_safe)
-
-        # Check fail threshold — only count issues at or above the specified severity
-        if fail_on:
-            from medusa.scanners import Severity
-            severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
-            threshold = Severity(fail_on.upper())
-            threshold_index = severity_order.index(threshold)
-            allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
-            def _sev_value(issue):
-                s = _get_severity(issue)
-                return s.value if hasattr(s, 'value') else s
-            total_issues = sum(
-                1 for r in results
-                for issue in r.issues
-                if _sev_value(issue) in allowed_severities
-            )
-            if total_issues > 0:
-                console.print(f"\n[red]Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")
-                sys.exit(1)
+        # Generate reports + check fail threshold (shared with local scan via _run_scan_pipeline)
+        _exit_code = _run_scan_pipeline(
+            scanner, results, fail_on=fail_on, output=output,
+            output_formats=output_formats, no_report=no_report,
+            no_ai_safe=no_ai_safe, missing_linters=missing_linters,
+            found_marker="", screening=screening,
+        )
+        if _exit_code:
+            sys.exit(_exit_code)
 
         console.print("\n[dark_green]Scan complete![/dark_green]")
 

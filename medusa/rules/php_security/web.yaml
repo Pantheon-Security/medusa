@@ -1,0 +1,45 @@
+version: '2026.7.0'
+metadata:
+  source: php-security-2026
+  category: php_security
+  description: PHP web-layer issues (reflected XSS, SSRF)
+rules:
+- id: MEDUSA-PHP-SCAN-020
+  name: php-reflected-xss-echo
+  description: echo/print of request input without encoding (reflected XSS).
+  severity: high
+  category: php_security
+  patterns:
+  - (?:echo|print)\s+[^;]*\$_(?:GET|POST|REQUEST|COOKIE)
+  file_types:
+  - '*.php'
+  message: 'PHP: echo/print of request input without encoding — reflected XSS'
+  cwe: CWE-79
+  fix: Encode output with htmlspecialchars($v, ENT_QUOTES) before printing.
+
+- id: MEDUSA-PHP-SCAN-021
+  name: php-ssrf-curl-tainted
+  description: cURL/HTTP request to a request-controlled URL (SSRF).
+  severity: high
+  category: php_security
+  patterns:
+  - curl_setopt\s*\(\s*[^,]*,\s*CURLOPT_URL\s*,\s*[^)]*\$_(?:GET|POST|REQUEST)
+  - (?:file_get_contents|fopen)\s*\(\s*\$_(?:GET|POST|REQUEST)
+  file_types:
+  - '*.php'
+  message: 'PHP: outbound request to request-controlled URL — SSRF'
+  cwe: CWE-918
+  fix: Allowlist destination hosts; reject internal/link-local addresses.
+
+- id: MEDUSA-PHP-SCAN-022
+  name: php-header-injection
+  description: header() called with request input — response splitting / open redirect.
+  severity: medium
+  category: php_security
+  patterns:
+  - header\s*\(\s*[^)]*\$_(?:GET|POST|REQUEST|COOKIE)
+  file_types:
+  - '*.php'
+  message: 'PHP: header() with request input — HTTP response splitting / open redirect'
+  cwe: CWE-113
+  fix: Validate/allowlist header values; never reflect raw input into headers.

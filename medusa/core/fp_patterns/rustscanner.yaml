@@ -1,0 +1,30 @@
+# FP guards for the native Rust security ruleset (RustScanner / MEDUSA-RUST-*).
+# The generic FP filter already suppresses // and /* */ comments and tests/ +
+# examples/ directories, so this file only adds Rust-specific context the generic
+# layer can't infer. `pattern` matches the finding message; `context_pattern` the
+# surrounding source; `file_pattern` the path.
+scanner: rustscanner
+patterns:
+  # MD5/SHA-1 used as a non-security checksum / cache key / dedup hash, not crypto.
+  - name: rust_weak_hash_non_security
+    pattern: '(MD5|SHA-1) in use'
+    context_pattern: '(cache|checksum|dedup|fingerprint|etag|content_hash|digest|crc)'
+    reason: INTENTIONAL_WEAK
+    confidence: 0.85
+    description: MD5/SHA1 used for cache key / checksum / dedup, not for security
+
+  # Low-level unsafe ops are expected in FFI / sys / generated binding crates.
+  - name: rust_unsafe_in_ffi
+    pattern: '(transmute|from_raw_parts|set_len|get_unchecked)'
+    file_pattern: '(ffi|bindings|_sys|/sys/|_gen)\.?.*\.rs$'
+    reason: KNOWN_PATTERN
+    confidence: 0.8
+    description: Unsafe memory ops in FFI/bindings/sys code are expected and reviewed
+
+  # Any rust_security finding inside a benches/ directory is benchmark code.
+  - name: rust_finding_in_benches
+    pattern: '^Rust:'
+    file_pattern: '(^|/)benches/'
+    reason: EXAMPLE_FILE
+    confidence: 0.85
+    description: Finding in benches/ (benchmark code), not shipped library code

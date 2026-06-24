@@ -1,0 +1,30 @@
+# FP guards for the native PHP security ruleset (PHPScanner / MEDUSA-PHP-*).
+# The generic FP filter already suppresses // and /* */ comments and tests/ +
+# examples/ directories; this file adds PHP-specific context.
+# `pattern` matches the finding message; `context_pattern` the source line;
+# `file_pattern` the path.
+scanner: phpscanner
+patterns:
+  # MD5/SHA1 used as a non-security checksum / cache key / etag, not crypto.
+  - name: php_weak_hash_non_security
+    pattern: 'MD5/SHA1 hash'
+    context_pattern: '(cache|checksum|etag|dedup|fingerprint|filemtime|cache_key|->id)'
+    reason: INTENTIONAL_WEAK
+    confidence: 0.8
+    description: MD5/SHA1 used for cache key / checksum, not security
+
+  # uniqid()/rand() used for a non-security purpose (temp names, display ids).
+  - name: php_random_non_security
+    pattern: 'non-cryptographic randomness'
+    context_pattern: '(tmp|temp|cache|filename|prefix|->id|label|display)'
+    reason: SAFE_PATTERN
+    confidence: 0.78
+    description: Non-crypto randomness used for a non-security value (temp name / id)
+
+  # Findings inside PHP test scaffolding (PHPUnit) within src trees.
+  - name: php_phpunit_test_context
+    pattern: '^PHP:'
+    context_pattern: '(extends\s+TestCase|@test|PHPUnit|function\s+test[A-Z])'
+    reason: TEST_FILE
+    confidence: 0.85
+    description: Finding inside a PHPUnit test class/method, not production code

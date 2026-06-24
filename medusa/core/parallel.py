@@ -191,8 +191,11 @@ class MedusaCacheManager:
         hasher = hashlib.sha256()
         hasher.update(str(len(yaml_files)).encode())
         for yf in yaml_files:
+            # Stat-based fingerprint (path + size + mtime) detects rule changes
+            # without reading ~48MB of YAML content on every scan init (~27x faster).
             try:
-                hasher.update(yf.read_bytes())
+                st = yf.stat()
+                hasher.update(f"{yf}:{st.st_size}:{st.st_mtime_ns}".encode())
             except OSError:
                 pass
         return hasher.hexdigest()[:16]
@@ -253,17 +256,21 @@ class MedusaCacheManager:
                 path: asdict(meta)
                 for path, meta in self.cache.items()
             }
+            # Serialize entries ONCE; embed that exact canonical string in the
+            # envelope (no second json.dump, no indent bloat). The HMAC covers
+            # the canonical entries — _load_cache re-canonicalizes the parsed
+            # entries identically (sort_keys + compact separators), so it matches.
             canonical = json.dumps(entries, sort_keys=True, separators=(",", ":"))
-            envelope = {
-                "hmac": self._compute_hmac(canonical),
-                "entries": entries,
-            }
+            envelope_str = (
+                '{"hmac":' + json.dumps(self._compute_hmac(canonical))
+                + ',"entries":' + canonical + '}'
+            )
             # Atomic write: serialize to a temp file then os.replace, so a
             # concurrent scan or a crash mid-write cannot truncate the cache into
             # invalid JSON (which would be silently discarded on next load).
             tmp_file = self.cache_file.with_suffix(self.cache_file.suffix + '.tmp')
             with open(tmp_file, 'w', encoding='utf-8') as f:
-                json.dump(envelope, f, indent=2)
+                f.write(envelope_str)
             os.replace(tmp_file, self.cache_file)
         except Exception as e:
             print(f"⚠️  Cache save error: {e}")
@@ -350,6 +357,8 @@ class MedusaParallelScanner:
         '.cmd': 'bat',
         '.py': 'python',
         '.go': 'go',
+        '.rs': 'rust',
+        '.php': 'php',
         '.js': 'javascript',
         '.jsx': 'javascript',
         '.ts': 'javascript',
@@ -362,6 +371,8 @@ class MedusaParallelScanner:
         '.dockerfile': 'docker',
         '.ps1': 'powershell',
         '.json': 'json',
+        '.jsonl': 'dataset',   # JSONL datasets (attack corpora, training data)
+        '.csv': 'dataset',     # CSV data files
         '.xml': 'xml',
         '.sol': 'solidity',
         '.env': 'env',
@@ -770,25 +781,32 @@ class MedusaParallelScanner:
                     cached=True
                 )
 
-        # --- File size guard ---
-        # Data files (73MB JSON datasets, large logs, vendor bundles) will
-        # hang regex scanners for minutes.  Skip them outright.
-        file_size = self._file_size(file_path)
-        if file_size > MAX_SCAN_FILE_SIZE:
-            print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
-            return ScanResult(
-                file=str(file_path),
-                scanner='skipped-large-file',
-                issues=[],
-                scan_time=time.time() - start_time,
-                cached=False,
-                scanner_stats={'skipped-large-file': 0}
-            )
-
         # Reuse pre-mapped scanners if available, otherwise look up fresh
         scanners = self._scanner_map.get(str(file_path))
         if scanners is None:
             scanners = scanner_registry.get_scanners_for_file(file_path)
+
+        # --- File size guard ---
+        # Data files (73MB JSON datasets, large logs, vendor bundles) will hang
+        # full regex scanning for minutes. For oversized files run ONLY
+        # large-file-capable scanners (they sample/cap internally — e.g. the
+        # attack-signature scanner reads just the first 50k lines); if none
+        # apply, skip the file outright as before. This recovers attack-payload
+        # detection in big datasets without reintroducing the hang.
+        file_size = self._file_size(file_path)
+        if file_size > MAX_SCAN_FILE_SIZE:
+            large_capable = [s for s in scanners if getattr(s, 'supports_large_files', False)]
+            if not large_capable:
+                print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
+                return ScanResult(
+                    file=str(file_path),
+                    scanner='skipped-large-file',
+                    issues=[],
+                    scan_time=time.time() - start_time,
+                    cached=False,
+                    scanner_stats={'skipped-large-file': 0}
+                )
+            scanners = large_capable
 
         all_issues = []
         scanner_names = []
@@ -1133,7 +1151,23 @@ class MedusaParallelScanner:
                 }
 
         try:
-            if HAS_RICH:
+            if getattr(self, 'trace_rules', False):
+                # Rule-diagnostics mode: scan serially in this process so the
+                # rule-trace + timing collector (medusa.core.rule_diag) gathers
+                # everything in one place (Pool workers can't return it cheaply).
+                from medusa.core import rule_diag
+                _diag = rule_diag._DIAG
+                results = []
+                for _i, _fp in enumerate(files, 1):
+                    # Flushed breadcrumb BEFORE scanning: if a file hangs the scan
+                    # (uninterruptible regex backtracking), rule-diag-current.txt
+                    # still names it after the process is killed.
+                    if _diag is not None:
+                        _diag.beat(f"FILE {_i}/{len(files)} {_fp}")
+                    results.append(self.scan_file(_fp))
+                    print(f"\r  [trace-rules] {_i}/{len(files)}", end="", flush=True)
+                print()
+            elif HAS_RICH:
                 results = self._scan_with_live_table(files, scanner_expected)
             elif HAS_TQDM:
                 results = self._scan_with_tqdm(files)
@@ -1413,7 +1447,7 @@ class MedusaParallelScanner:
 
         return results
 
-    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None, ai_safe: bool = True):
+    def generate_report(self, results: List[ScanResult], output_dir: Path, formats: List[str] = None, missing_linters: List[str] = None, ai_safe: bool = True, screening: bool = False):
         """Generate reports in requested formats (json, html, markdown)"""
         if formats is None:
             formats = ['json', 'html']
@@ -1480,7 +1514,7 @@ class MedusaParallelScanner:
         original_count = len(findings)
         try:
             from medusa.core.fp_filter import FalsePositiveFilter
-            fp_filter = FalsePositiveFilter(self.project_root)
+            fp_filter = FalsePositiveFilter(self.project_root, screening=screening)
             findings, likely_fps = fp_filter.filter_findings(findings)
             # Calculate stats without re-filtering
             fp_stats = {
