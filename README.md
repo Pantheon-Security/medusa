@@ -1,56 +1,56 @@
-# 🐍 MEDUSA - AI Security Scanner
+# MEDUSA - AI Security Scanner
 
 [![PyPI](https://img.shields.io/pypi/v/medusa-security?label=PyPI&color=blue)](https://pypi.org/project/medusa-security/)
 [![Downloads](https://img.shields.io/pypi/dm/medusa-security?label=Downloads&color=brightgreen)](https://pypi.org/project/medusa-security/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![Tests](https://github.com/Pantheon-Security/medusa/actions/workflows/test.yml/badge.svg)](https://github.com/Pantheon-Security/medusa/actions/workflows/test.yml)
-[![Windows](https://img.shields.io/badge/Windows-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
-[![macOS](https://img.shields.io/badge/macOS-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
-[![Linux](https://img.shields.io/badge/Linux-✓-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
+[![Windows](https://img.shields.io/badge/Windows-supported-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
+[![macOS](https://img.shields.io/badge/macOS-supported-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
+[![Linux](https://img.shields.io/badge/Linux-supported-brightgreen.svg)](https://github.com/Pantheon-Security/medusa)
 
 **AI-first security scanner with 40,000+ detection patterns for AI/ML, agents, and LLM applications.**
-**🤖 Works out of the box - no tool installation required.**
-**🚨 200 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
-**🔥 `medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
-**🔐 `medusa secrets scan` — Find leaked API keys in your Claude / Cursor / Copilot / shell history. 21 issuer types. Interactive in-place redaction.**
-**🚀 v2026.7.0: Claude Code compromise detection, an always-on AI attack-signature scanner, native Rust & PHP security rules, and rule-level diagnostics — on top of 40,000+ detection patterns.**
+**Works out of the box - no tool installation required.**
+**265 CVEs: Log4Shell, Spring4Shell, XZ Utils, LangChain RCE, MCP-Remote RCE, React2Shell**
+**`medusa scan --git <URL>` — Scan any repo for AI supply chain attacks (repo poisoning, prompt injection, MCP tool poisoning)**
+**`medusa secrets scan` — Find leaked API keys in your Claude / Cursor / Copilot / shell history. 21 issuer types. Interactive in-place redaction.**
+**v2026.7.0: Claude Code compromise detection, an always-on AI attack-signature scanner, native Rust & PHP security rules, and rule-level diagnostics — on top of 40,000+ detection patterns.**
 
 ---
 
-## 🎯 What is MEDUSA?
+## What is MEDUSA?
 
 MEDUSA is an AI-first security scanner with **40,000+ detection patterns** that works out of the box. Simply install and scan - no external tool installation required. MEDUSA's built-in rules detect vulnerabilities in AI/ML applications, LLM agents, MCP servers, RAG pipelines, and traditional code.
 
-### ✨ Key Features
+## What's New in v2026.7.0
 
-- 🔥 **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks in seconds
-- 🔐 **`medusa secrets scan` + `purge`** - Find API keys / tokens / private keys leaked into Claude Code / Cursor / Copilot / Zed / Gemini chat histories *and* your bash / zsh / psql / mysql / python REPL history. 21 issuer types (Anthropic, OpenAI, PyPI, GitHub PATs, AWS, GCP, Stripe, Slack…). Interactive `[y/n/s/a/q]` purge with mandatory byte-identical backup and JSONL-safe redaction. Local-only, no telemetry.
-- 🤖 **40,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
-- 🛡️ **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
-- 🚀 **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
-- 🚨 **200 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
-- ⚡ **Parallel Processing** - Multi-core scanning (10-40x faster than sequential), works on macOS/Windows/Linux
-- 🎨 **Beautiful CLI** - Rich terminal output with progress bars
-- 🧠 **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
-- 🔄 **Smart Caching** - Skip unchanged files for lightning-fast rescans (content-hash keyed, correct in CI)
-- ⚙️ **Configurable** - `.medusa.yml` for project-specific settings
-- 🌍 **Cross-Platform** - Native Windows, macOS, and Linux support
-- 📊 **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
-- 🔧 **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
+This release closes the loop on AI supply-chain security — vetting the tools you install, catching the payloads other scanners miss, and widening native language coverage, all with zero setup.
 
-### 🆕 What's New in v2026.7.0
+| Feature | What it does for you |
+|---|---|
+| **Claude Code compromise detection** | `medusa scan --git` structurally vets `.claude/` *before you clone* — flagging poisoned hooks (curl\|bash, base64→exec, credential exfil, reverse shells), over-broad permissions (`Bash(*)`, `bypassPermissions`), wildcard-tool subagents, and dropper skills. |
+| **Always-on attack-signature scanner** | Catches jailbreak and prompt-injection payloads hiding in data files (`.jsonl`/`.csv`) and prose — regardless of LLM-context confidence — plus invisible-unicode / bidi attacks (Trojan Source, CVE-2021-42574). |
+| **Native Rust rules (22)** | Out-of-the-box detection, no toolchain needed: disabled TLS verification, command injection, untrusted deserialization, raw SQL, unsafe memory ops, weak crypto, and SSRF. |
+| **Native PHP rules (16)** | Out-of-the-box detection for SQLi, command/eval injection, LFI/RFI, path traversal, `unserialize()` object injection, unrestricted upload, reflected XSS, SSRF, and weak crypto. |
+| **Rule diagnostics (`--trace-rules`)** | Per-rule firing log and timing (`rule-trace.jsonl`, `slow_rules.csv`) with a hang-survivable heartbeat — already caught and fixed a real catastrophic-backtracking ReDoS, and lints bad patterns at author time. |
+| **Faster, more accurate engine** | Scan-engine speed-ups, context-aware screening for `--git` vetting, large-file byte-cap sampling, and fewer false positives on documentation placeholders. |
 
-**Claude Code supply-chain detection, broader language coverage, and rule-level observability.**
+### Key Features
 
-| | Change | Details |
-|---|---|---|
-| 🛡️ | **Claude Code compromise detection** | `medusa scan --git` now structurally vets `.claude/` — poisoned **hooks** (curl\|bash, base64→exec, credential exfil, reverse shells), over-broad **permissions** (`Bash(*)`, `bypassPermissions`), wildcard-tool **subagents**, and dropper **skills** — *before* you clone. |
-| 🎯 | **Always-on attack-signature scanner** | Closes a false-negative gap — jailbreak / prompt-injection payloads in data files (`.jsonl`/`.csv`) and prose are now caught regardless of LLM-context confidence, plus invisible-unicode / bidi (Trojan Source, CVE-2021-42574) recovery. |
-| 🦀 | **Native Rust security rules** | 22 out-of-box rules (no toolchain needed) — TLS verification disabled, command injection, untrusted deserialization, raw SQL, unsafe memory ops, weak crypto, SSRF. |
-| 🐘 | **Native PHP security rules** | 16 out-of-box rules — SQLi, command/eval injection, LFI/RFI, path traversal, `unserialize()` object injection, unrestricted upload, reflected XSS, SSRF, weak crypto. |
-| 🔬 | **Rule diagnostics (`--trace-rules`)** | Per-rule firing log + timing (`rule-trace.jsonl`, `slow_rules.csv`) and a hang-survivable heartbeat — found & fixed a real catastrophic-backtracking ReDoS, plus a ReDoS/nested-set lint that blocks bad patterns at author time. |
-| ⚡ | **Engine + accuracy** | Scan-engine perf quick-wins, context-aware screening mode for `--git` target vetting, large-file byte-cap sampling, and a documentation-placeholder secret-FP fix. |
+- **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks in seconds
+- **`medusa secrets scan` + `purge`** - Find API keys / tokens / private keys leaked into Claude Code / Cursor / Copilot / Zed / Gemini chat histories *and* your bash / zsh / psql / mysql / python REPL history. 21 issuer types (Anthropic, OpenAI, PyPI, GitHub PATs, AWS, GCP, Stripe, Slack…). Interactive `[y/n/s/a/q]` purge with mandatory byte-identical backup and JSONL-safe redaction. Local-only, no telemetry.
+- **40,000+ AI Security Patterns** - Industry-leading coverage for AI/ML, agents, and LLM applications
+- **Repo Poisoning Detection** - Detects weaponized AI editor configs across 28+ file types (Cursor, Cline, Copilot, Claude Code, Gemini, Kiro, and more)
+- **Zero Setup Required** - Works immediately after `pip install` - no tool installation needed
+- **265 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
+- **Parallel Processing** - Multi-core scanning (10-40x faster than sequential), works on macOS/Windows/Linux
+- **Beautiful CLI** - Rich terminal output with progress bars
+- **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
+- **Smart Caching** - Skip unchanged files for lightning-fast rescans (content-hash keyed, correct in CI)
+- **Configurable** - `.medusa.yml` for project-specific settings
+- **Cross-Platform** - Native Windows, macOS, and Linux support
+- **Multiple Reports** - JSON, HTML, Markdown, SARIF exports for any workflow
+- **Optional Linter Support** - Auto-detects external linters if installed for enhanced coverage
 
 <details>
 <summary>Previous releases</summary>
@@ -73,7 +73,7 @@ MEDUSA is an AI-first security scanner with **40,000+ detection patterns** that 
 
 ---
 
-## 🔐 Scan your AI chat history for leaked secrets
+## Scan your AI chat history for leaked secrets
 
 > Your PyPI token might be in your Claude chat history right now.
 
@@ -130,7 +130,7 @@ medusa secrets purge
   redact?  [y/n/s/a/q/?]: y
 ...
 
-✓ /home/ross/.claude/history.jsonl  (13 redacted)
+/home/ross/.claude/history.jsonl  (13 redacted)
     backup → /home/ross/.medusa/secrets-scan/backups/20260519-074452/home/ross/.claude/history.jsonl
 ```
 
@@ -169,11 +169,11 @@ medusa secrets purge --all --yes-i-know   # batch mode for power users / CI
 - **Refuse on drift.** If the source file changed between scan and purge, the purger refuses rather than risk clobbering an edit.
 - **Atomic write.** Temp file + `os.replace` swap. Either the rewrite lands or the original stays.
 
-[**📖 Full secrets-scanner guide →**](docs/SECRETS_SCANNER.md)
+[** Full secrets-scanner guide →**](docs/SECRETS_SCANNER.md)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -245,7 +245,7 @@ MEDUSA auto-detects external linters if installed (bandit, eslint, shellcheck, e
 
 </div>
 
-### 📊 Report Formats
+### Report Formats
 
 MEDUSA generates beautiful reports in multiple formats:
 
@@ -271,7 +271,7 @@ medusa scan . --format all
 
 ---
 
-## 📚 Language Support
+## Language Support
 
 MEDUSA supports **79 scanner types** covering AI/ML security, all major programming languages, and file formats:
 
@@ -360,7 +360,7 @@ MEDUSA supports **79 scanner types** covering AI/ML security, all major programm
 
 ---
 
-## 🚨 React2Shell CVE Detection (NEW in v2025.8)
+## React2Shell CVE Detection (NEW in v2025.8)
 
 MEDUSA now detects **CVE-2025-55182 "React2Shell"** - a CVSS 10.0 RCE vulnerability affecting React Server Components and Next.js.
 
@@ -380,24 +380,30 @@ medusa scan .
 
 ---
 
-## 🤖 AI Agent Security
+## AI Agent Security
 
-MEDUSA provides **industry-leading AI security scanning** with **40,000+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **200+ CVEs** across AI coding editors and MCP servers.
+MEDUSA provides **industry-leading AI security scanning** with **40,000+ detection patterns** for the agentic AI era. Updated for **OWASP Top 10 for LLM Applications 2025** and includes detection for **265 CVEs** across AI coding editors and MCP servers.
+
+**New in v2026.7.0:** Claude Code compromise detection (structural `.claude/` hook, permission, subagent and skill vetting before you clone) and an always-on attack-signature scanner that catches jailbreak/prompt-injection payloads in data files and prose — including invisible-unicode / bidi attacks (Trojan Source, CVE-2021-42574).
 
 **[Full AI Security Documentation](docs/AI_SECURITY.md)**
 
 ### AI Security Coverage
 
-| Category | Patterns | Detects |
-|----------|----------|---------|
-| **Prompt Injection** | 800+ | Direct/indirect injection, jailbreaks, role manipulation |
-| **MCP Server Security** | 400+ | Tool poisoning, schema poisoning, ATPA, sampling injection, rug-pull |
-| **Repo Poisoning** | 150+ | Weaponized AI editor configs, Clinejection, CurXecute, IDEsaster, CamoLeak |
-| **RAG Security** | 300+ | Vector injection, document poisoning, tenant isolation |
-| **Agent Security** | 500+ | Excessive agency, memory poisoning, HITL bypass |
-| **Model Security** | 400+ | Insecure loading, checkpoint exposure, adversarial attacks |
-| **Supply Chain** | 350+ | Dependency confusion, typosquatting, lock file backdoors |
-| **Traditional SAST** | 1,400+ | SQL injection, XSS, command injection, secrets |
+| Category | Rules | Detects |
+|----------|------|---------|
+| **Prompt Injection & Jailbreaks** | 10,400+ | Direct/indirect injection, jailbreaks, role manipulation, guardrail bypass, invisible-unicode / bidi (Trojan Source) |
+| **Model Security** | 5,000+ | Insecure loading, checkpoint exposure, model poisoning, extraction, adversarial & fine-tuning attacks |
+| **Other (SAST, secrets, configs, CVEs)** | 4,300+ | SQL injection, XSS, command injection, secrets, 265 CVEs, IaC/config, repo poisoning |
+| **Agent Security** | 4,200+ | Excessive agency, memory poisoning, HITL bypass, agentic attack chains |
+| **Privacy & Data Protection** | 3,400+ | Membership inference, data extraction, differential-privacy attacks |
+| **MCP & Agent-Protocol Security** | 3,300+ | Tool poisoning, schema poisoning, ATPA, sampling injection, rug-pull |
+| **Inference Infrastructure** | 3,100+ | Serving/endpoint exposure, resource abuse, configuration weaknesses |
+| **Advanced & Emerging Threats** | 3,000+ | Watermarking bypass, federated-learning attacks, post-quantum, provenance |
+| **RAG & Vector Security** | 2,900+ | Vector injection, document poisoning, tenant isolation, retrieval manipulation |
+| **GenAI & Multimodal** | 2,000+ | Multimodal, voice/audio, and image attacks; GenAI-specific patterns |
+| **Supply Chain** | 800+ | Dependency confusion, typosquatting, slopsquatting, lock-file backdoors |
+| **Total** | **42,684** | Across 999 rule categories — verifiable via `medusa`'s loaded rule count |
 
 ### AI Attack Coverage
 
@@ -408,6 +414,7 @@ MEDUSA provides **industry-leading AI security scanning** with **40,000+ detecti
 - Prompt injection patterns
 - Role/persona manipulation
 - Hidden instructions
+- Invisible-unicode / bidi (Trojan Source)
 - Obfuscation tricks
 
 **Memory & State Attacks**
@@ -461,6 +468,11 @@ MEDUSA provides **industry-leading AI security scanning** with **40,000+ detecti
 *.code-workspace          # VS Code workspace
 mcp.json / .mcp.json      # MCP server configs
 
+# Critical - Claude Code compromise (structural .claude/ vetting)
+.claude/settings.json     # Hooks, permissions (curl|bash, bypassPermissions)
+.claude/agents/*          # Subagents (wildcard-tool access)
+.claude/skills/*          # Skills (dropper scripts)
+
 # High - AI instruction files
 CLAUDE.md                 # Claude Code
 GEMINI.md                 # Gemini CLI
@@ -484,7 +496,7 @@ CONVENTIONS.md            # Aider
 medusa scan . --ai-only
 
 # Example output:
-# 🔍 AI Security Scan Results
+# AI Security Scan Results
 # ├── .cursorrules: 3 issues (1 CRITICAL, 2 HIGH)
 # │   └── AIC001: Prompt injection - ignore previous instructions (line 15)
 # │   └── AIC011: Tool shadowing - override default tools (line 23)
@@ -496,7 +508,7 @@ medusa scan . --ai-only
 
 ---
 
-## 🎮 Usage
+## Usage
 
 ### Basic Commands
 
@@ -600,7 +612,7 @@ medusa override path/to/file.yaml --remove
 | `--no-cache` | Disable result caching |
 | `--fail-on LEVEL` | Exit with error on severity: `critical`, `high`, `medium`, `low` |
 | `-o, --output PATH` | Custom output directory for reports |
-| `--format FORMAT` | Output format: `json`, `html`, `sarif`, `junit`, `text` (can specify multiple) |
+| `--format FORMAT` | Output format: `json`, `html`, `markdown`, `sarif`, `all` (can specify multiple) |
 | `--no-report` | Skip generating HTML report |
 ### Install Options Reference
 
@@ -614,7 +626,7 @@ medusa override path/to/file.yaml --remove
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### `.medusa.yml`
 
@@ -622,7 +634,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.5.5
+version: 2026.7.0
 
 # Scanner control
 scanners:
@@ -671,7 +683,7 @@ This creates `.medusa.yml` with sensible defaults and auto-detects your IDE.
 
 ---
 
-## 🤖 IDE Integration
+## IDE Integration
 
 MEDUSA supports **5 major AI coding assistants** with native integrations. Initialize with `medusa init --ide all` or select specific platforms.
 
@@ -679,11 +691,11 @@ MEDUSA supports **5 major AI coding assistants** with native integrations. Initi
 
 | IDE | Context File | Commands | Status |
 |-----|-------------|----------|--------|
-| **Claude Code** | `CLAUDE.md` | `/medusa-scan`, `/medusa-install` | ✅ Full Support |
-| **Gemini CLI** | `GEMINI.md` | `/scan`, `/install` | ✅ Full Support |
-| **OpenAI Codex** | `AGENTS.md` | Native slash commands | ✅ Full Support |
-| **GitHub Copilot** | `.github/copilot-instructions.md` | Code suggestions | ✅ Full Support |
-| **Cursor** | Reuses `CLAUDE.md` | MCP + Claude commands | ✅ Full Support |
+| **Claude Code** | `CLAUDE.md` | `/medusa-scan`, `/medusa-install` | Full Support |
+| **Gemini CLI** | `GEMINI.md` | `/scan`, `/install` | Full Support |
+| **OpenAI Codex** | `AGENTS.md` | Native slash commands | Full Support |
+| **GitHub Copilot** | `.github/copilot-instructions.md` | Code suggestions | Full Support |
+| **Cursor** | Reuses `CLAUDE.md` | MCP + Claude commands | Full Support |
 
 ### Quick Setup
 
@@ -758,7 +770,7 @@ Codex: *executes medusa scan .*
 
 ---
 
-## 🔧 Advanced Features
+## Advanced Features
 
 ### System Load Monitoring
 
@@ -772,7 +784,7 @@ MEDUSA automatically monitors system load and adjusts worker count:
 # - Available cores
 
 # Warns when system is overloaded:
-⚠️  High CPU usage: 85.3%
+ High CPU usage: 85.3%
 Using 2 workers (reduced due to system load)
 ```
 
@@ -782,13 +794,13 @@ Hash-based caching skips unchanged files:
 
 ```bash
 # First scan
-📂 Files scanned: 145
-⏱️  Total time: 47.28s
+Files scanned: 145
+ Total time: 47.28s
 
 # Second scan (no changes)
-📂 Files scanned: 0
-⚡ Files cached: 145
-⏱️  Total time: 2.15s  # 22× faster!
+Files scanned: 0
+Files cached: 145
+ Total time: 2.15s  # 22× faster!
 ```
 
 ### Parallel Processing
@@ -803,7 +815,7 @@ Single-threaded:  417.5 seconds
 
 ---
 
-## 📊 Example Workflow
+## Example Workflow
 
 ### New Project Setup
 
@@ -812,30 +824,30 @@ Single-threaded:  417.5 seconds
 cd my-awesome-project
 medusa init
 
-🐍 MEDUSA Initialization Wizard
+MEDUSA Initialization Wizard
 
-✅ Step 1: Project Analysis
+Step 1: Project Analysis
    Found 15 language types
    Primary: PythonScanner (44 files)
 
-✅ Step 2: Scanner Availability
+Step 2: Scanner Availability
    Available: 6/79 scanners
    Missing: 73 tools
 
-✅ Step 3: Configuration
+Step 3: Configuration
    Created .medusa.yml
    Auto-detected IDE: Claude Code
 
-✅ Step 4: IDE Integration
+Step 4: IDE Integration
    Created .claude/agents/medusa/agent.json
    Created .claude/commands/medusa-scan.md
 
-✅ MEDUSA Initialized Successfully!
+MEDUSA Initialized Successfully!
 
 # 2. First scan
 medusa scan .
 
-🔍 Issues found: 23
+Issues found: 23
    CRITICAL: 0
    HIGH: 2
    MEDIUM: 18
@@ -844,8 +856,8 @@ medusa scan .
 # 3. Fix issues and rescan
 medusa scan . --quick
 
-⚡ Files cached: 142
-🔍 Issues found: 12  # Progress!
+Files cached: 142
+Issues found: 12  # Progress!
 ```
 
 ### CI/CD Integration
@@ -878,7 +890,7 @@ jobs:
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ### Scanner Pattern
 
@@ -926,7 +938,7 @@ Unified severity levels across all tools:
 
 ---
 
-## 🧪 Testing & Quality
+## Testing & Quality
 
 ### Dogfooding Results
 
@@ -934,14 +946,14 @@ MEDUSA scans itself — and real-world projects:
 
 ```
 Self-scan (473 files):
-  ✅ Issues found: 114 (pre-filter) → 0 (post-filter)
-  ✅ FP reduction: 100% on own codebase
-  ⏱️  Time: 8.2s
+  Issues found: 114 (pre-filter) → 0 (post-filter)
+  FP reduction: 100% on own codebase
+   Time: 8.2s
 
 OpenClaw benchmark (4,124 files, 751K LOC):
-  🔍 Issues found: 825 (post-filter)
-  ✅ FPs filtered: 11,436 (93.9% reduction)
-  ⏱️  Time: 3.3 hours (79 scanners)
+  Issues found: 825 (post-filter)
+  FPs filtered: 11,436 (93.9% reduction)
+   Time: 3.3 hours (79 scanners)
 ```
 
 ### Performance Benchmarks
@@ -956,9 +968,9 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
-### ✅ Completed (v2026.5.0)
+### Completed (v2026.5.0)
 
 - **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks
 - **Repo Poisoning Detection** - 45 new rules for Clinejection, CurXecute, IDEsaster, CamoLeak, ToxicSkills
@@ -974,7 +986,7 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 - **Cross-Platform** - Native Windows, macOS, Linux support
 - **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot, OpenAI Codex
 
-### 🔮 Upcoming
+### Upcoming
 
 - **MEDUSA Professional** - Runtime proxy filters for production LLM protection
 - **GitHub App** - Automatic PR scanning
@@ -983,7 +995,7 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Here's how to get started:
 
@@ -1018,7 +1030,7 @@ See `docs/development/adding-scanners.md` for a guide on adding new language sup
 
 ---
 
-## 📜 License
+## License
 
 AGPL-3.0-or-later - See [LICENSE](LICENSE) file
 
@@ -1028,23 +1040,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 
-## Coming Soon
-
-MEDUSA Professional adds **runtime protection** for production LLM applications - blocking prompt injection, jailbreaking, and data exfiltration attempts in real-time before they reach your models.
-
-| Feature | Open Source | Professional | Enterprise |
-|---------|-------------|--------------|------------|
-| Static scanning (40,000+ patterns) | Yes | Yes | Yes |
-| Runtime proxy filters (1,100+) | - | Yes | Yes |
-| REST API & webhooks | - | Yes | Yes |
-| Custom rules & SSO | - | - | Yes |
-| **Price** | Free | $99/dev/mo | $499/50 devs/mo |
-
-The runtime proxy is currently in private beta. If you're protecting production LLM applications and want early access, reach out to **support@pantheonsecurity.io**.
-
----
-
-## 🙏 Credits
+## Credits
 
 **Development:**
 - Pantheon Security
@@ -1064,7 +1060,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ---
 
-## 📖 Guides
+## Guides
 
 - **[Quick Start](docs/guides/quick-start.md)** - Get running in 5 minutes
 - **[AI Security Scanning](docs/AI_SECURITY.md)** - Complete guide to AI/LLM security (OWASP 2025, MCP, RAG)
@@ -1073,7 +1069,7 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ---
 
-## 📞 Support
+## Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/Pantheon-Security/medusa/issues)
 - **Email**: support@pantheonsecurity.io
@@ -1082,14 +1078,14 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ---
 
-## 📈 Statistics
+## Statistics
 
-**Version**: 2026.5.5
-**Release Date**: 2026-04-03
+**Version**: 2026.7.0
+**Release Date**: 2026-06-24
 **Detection Patterns**: 40,000+ AI security rules
 **Analyzers**: 79 specialized scanners
 **FP Filter Patterns**: 514 intelligent filters (96.8% reduction rate)
-**CVE Coverage**: 200 critical vulnerabilities (37+ AI editor CVEs)
+**CVE Coverage**: 265 known vulnerabilities (37+ AI editor CVEs)
 **Repo Poisoning**: 28+ AI editor config file types detected
 **Language Coverage**: 46+ file types
 **Platform Support**: Linux, macOS, Windows
@@ -1099,35 +1095,35 @@ The runtime proxy is currently in private beta. If you're protecting production 
 
 ---
 
-## 🌟 Why MEDUSA?
+## Why MEDUSA?
 
 ### vs. Bandit
-- ✅ 40,000+ patterns (not just Python security)
-- ✅ AI/ML security coverage
-- ✅ Zero setup required
-- ✅ IDE integration
+- 40,000+ patterns (not just Python security)
+- AI/ML security coverage
+- Zero setup required
+- IDE integration
 
 ### vs. SonarQube
-- ✅ Simpler setup (`pip install && scan`)
-- ✅ No server required
-- ✅ AI-first security focus
-- ✅ Free and open source
+- Simpler setup (`pip install && scan`)
+- No server required
+- AI-first security focus
+- Free and open source
 
 ### vs. Semgrep
-- ✅ AI/ML-specific rules built-in
-- ✅ MCP, RAG, agent security
-- ✅ Better IDE integration
-- ✅ No rule configuration needed
+- AI/ML-specific rules built-in
+- MCP, RAG, agent security
+- Better IDE integration
+- No rule configuration needed
 
 ### vs. Traditional SAST
-- ✅ Works immediately (no tool installation)
-- ✅ AI security patterns included
-- ✅ Parallel processing
-- ✅ Smart caching
+- Works immediately (no tool installation)
+- AI security patterns included
+- Parallel processing
+- Smart caching
 
 ---
 
-**🐍🐍🐍 MEDUSA - Multi-Language Security Scanner 🐍🐍🐍**
+**MEDUSA - Multi-Language Security Scanner **
 
 **One Command. Complete Security.**
 
@@ -1137,6 +1133,6 @@ medusa init && medusa scan .
 
 ---
 
-**Last Updated**: 2026-04-03
+**Last Updated**: 2026-06-24
 **Status**: Production Ready
-**Current Version**: v2026.5.5 - Security Hardening
+**Current Version**: v2026.7.0 - Claude Code Compromise Detection

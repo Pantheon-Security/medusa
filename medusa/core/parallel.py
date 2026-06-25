@@ -1565,6 +1565,11 @@ class MedusaParallelScanner:
             md_path = generator.generate_markdown_report(scan_results, output_dir / f"medusa-scan-{timestamp}.md", ai_safe=ai_safe)
             generated_files.append(('Markdown', md_path))
 
+        # Generate SARIF report (GitHub Code Scanning)
+        if 'sarif' in formats:
+            sarif_path = generator.generate_sarif_report(scan_results, output_dir / f"medusa-scan-{timestamp}.sarif", ai_safe=ai_safe)
+            generated_files.append(('SARIF', sarif_path))
+
         # Print generated files
         _ascii = self.force_ascii
         if generated_files:

@@ -9,13 +9,15 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, field
 
+from medusa import __version__
+
 
 @dataclass
 class MedusaConfig:
     """MEDUSA configuration structure"""
 
-    # Version
-    version: str = "0.11.9"
+    # Version (derives from the package version, single source of truth)
+    version: str = field(default_factory=lambda: __version__)
 
     # Scanner configuration
     scanners_enabled: List[str] = field(default_factory=list)  # Empty = all

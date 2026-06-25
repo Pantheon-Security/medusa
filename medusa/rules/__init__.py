@@ -514,7 +514,12 @@ class RuleLoader:
         owasp_counts = {}
         for rule in all_rules:
             if rule.owasp_llm:
-                owasp_counts[rule.owasp_llm] = owasp_counts.get(rule.owasp_llm, 0) + 1
+                # owasp_llm is typed Optional[str], but some rules supply a list
+                # (YAML `owasp: [LLM01, LLM02]`). Normalize to individual keys so
+                # we never use an unhashable list as a dict key.
+                owasp_values = rule.owasp_llm if isinstance(rule.owasp_llm, list) else [rule.owasp_llm]
+                for owasp_value in owasp_values:
+                    owasp_counts[owasp_value] = owasp_counts.get(owasp_value, 0) + 1
 
         return {
             'total_rules': len(all_rules),

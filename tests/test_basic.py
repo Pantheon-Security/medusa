@@ -12,7 +12,13 @@ def test_import():
 
 
 def test_version():
-    """Test version is accessible"""
+    """Test version is accessible and is a valid 3-part YEAR.MONTH.PATCH string.
+
+    Do NOT hardcode a literal version here — that goes stale on every release
+    (it did: this asserted 2026.6.0 long after the package moved on). Exact
+    cross-file version consistency is guarded by tests/test_version_consistency.py.
+    """
     from medusa import __version__
-    # Using assert in tests is standard pytest practice
-    assert __version__ == "2026.6.0"
+    parts = __version__.split(".")
+    assert len(parts) == 3, f"version must be 3-part YEAR.MONTH.PATCH, got {__version__!r}"
+    assert all(p.isdigit() for p in parts), f"version parts must be numeric, got {__version__!r}"

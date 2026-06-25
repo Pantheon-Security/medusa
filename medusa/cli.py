@@ -1180,7 +1180,7 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
         # Handle 'all' format
         formats = list(output_formats)
         if 'all' in formats:
-            formats = ['json', 'html', 'markdown']
+            formats = ['json', 'html', 'markdown', 'sarif']
 
         scanner.generate_report(results, output_dir, formats=formats,
                                 missing_linters=missing_linters, ai_safe=not no_ai_safe,
@@ -1289,9 +1289,9 @@ def main(ctx, version):
 @click.option('-o', '--output', type=click.Path(), default=None,
               help='Output directory for reports')
 @click.option('--format', 'output_formats', multiple=True,
-              type=click.Choice(['json', 'html', 'markdown', 'all']),
+              type=click.Choice(['json', 'html', 'markdown', 'sarif', 'all']),
               default=['json', 'html'],
-              help='Output format(s): json, html, markdown, or all (can specify multiple)')
+              help='Output format(s): json, html, markdown, sarif, or all (can specify multiple)')
 @click.option('--no-report', is_flag=True,
               help='Skip report generation (faster)')
 @click.option('--no-ai-safe', 'no_ai_safe', is_flag=True, default=False,
@@ -1313,7 +1313,9 @@ def main(ctx, version):
               help='Rule diagnostics: log every rule firing (rule-trace.jsonl) and per-rule timing '
                    '(slow_rules.csv) to the report dir, to debug false positives/misses and find slow/'
                    'ReDoS rules. Forces a serial scan. Also enabled by MEDUSA_TRACE_RULES=1.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules):
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts (auto-continue optional-tool gates)')
+@click.option('--no-prompt', 'no_prompt', is_flag=True, help='Never prompt; auto-continue optional-tool gates (alias of --yes for CI)')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt):
     """
     Scan a directory or file for security issues.
 
@@ -1431,60 +1433,60 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     ai_status = get_ai_tools_status()
     modelscan_missing = not ai_status.get('modelscan', {}).get('installed', False)
 
-    critical_warning = False
-    if has_model_files and modelscan_missing:
-        critical_warning = True
-        console.print(f"\n[bold red]⚠️  CRITICAL: Model files detected but modelscan is NOT installed![/bold red]")
-        console.print(f"[red]   Model files (.safetensors, .bin, .pkl, etc.) may contain malicious code.[/red]")
-        console.print(f"[red]   Without modelscan, these files will NOT be scanned for security threats.[/red]")
-        console.print(f"\n[yellow]   To install: [bold]medusa install --ai-tools[/bold][/yellow]")
-        console.print(f"[yellow]               or: pip install modelscan[/yellow]")
+    # --yes and --no-prompt both mean "auto-continue, never block on a prompt".
+    auto_continue = yes or no_prompt
 
-    if missing_scanners and not critical_warning:
-        console.print(f"\n[yellow]For best results, install {len(missing_scanners)} missing tool(s):[/yellow]")
+    # Single non-blocking pre-scan gate (P1-6). Lead with what IS active so the
+    # tool never reads as "broken / missing N tools". External linters are framed
+    # as optional enrichment and NEVER block the scan. Only the modelscan case —
+    # where model files would silently go unscanned — is allowed to prompt, and
+    # only when interactive and not auto-continuing.
+    console.print()
+    console.print("[dark_green]✓ 40,000+ AI security patterns active (no setup needed)[/dark_green]")
+
+    # External linters: optional enrichment, informational only — never blocks.
+    if missing_scanners:
+        console.print(
+            f"[cyan]Optional enrichment:[/cyan] {len(missing_scanners)} external "
+            f"linter(s) available to add for deeper coverage"
+        )
         for s in missing_scanners:
             tool = s.get_tool_name()
             ext_info = EXTERNAL_TOOLS.get(tool, {})
             desc = ext_info.get('desc', s.name)
             hint = get_install_hint(tool)
-            console.print(f"  [yellow]{tool}[/yellow] [dim]({desc})[/dim]")
-            console.print(f"    [dim]{hint}[/dim]")
+            console.print(f"  [dim]{tool} ({desc}) — {hint}[/dim]")
 
-        if not sys.stdin.isatty():
-            # Non-interactive (CI, subprocess, pipe) — auto-continue
-            console.print("[dim]Non-interactive mode: continuing without optional tools.[/dim]\n")
-        else:
-            console.print(f"\n[bold yellow]Continue scan without these tools?[/bold yellow]")
-            console.print("  [dim]yes[/dim] - Continue anyway (some files won't be fully scanned)")
-            console.print("  [dim]no[/dim]  - Cancel and install the tools first")
-            try:
-                response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
-                if response not in ('y', 'yes'):
-                    console.print("\n[dim]Scan cancelled. Install the tools above and try again.[/dim]")
-                    return
-                console.print()
-            except (KeyboardInterrupt, EOFError):
-                console.print("\n[dim]Scan cancelled.[/dim]")
-                return
-
-    # Ask Y/N if critical tools missing
+    # modelscan: model files present but modelscan missing means those files will
+    # NOT be scanned — this is meaningful, so warn clearly and (when interactive
+    # and not auto-continuing) confirm before proceeding.
+    critical_warning = has_model_files and modelscan_missing
     if critical_warning:
-        console.print()
-        if not sys.stdin.isatty():
-            console.print("[dim]Non-interactive mode: continuing without modelscan.[/dim]\n")
+        console.print(
+            f"\n[bold red]⚠️  Model files detected but modelscan is not installed — "
+            f"these files will NOT be scanned.[/bold red]"
+        )
+        console.print(
+            f"[yellow]   To scan them, run: [bold]medusa install --ai-tools[/bold][/yellow]"
+        )
+
+        if auto_continue or not sys.stdin.isatty():
+            # --yes/--no-prompt or non-interactive (CI, subprocess, pipe): continue
+            console.print("[dim]   Continuing without modelscan; model files will be skipped.[/dim]")
         else:
             try:
-                console.print("[bold yellow]Continue scan without modelscan?[/bold yellow]")
-                console.print("  [dim]yes[/dim] - Continue anyway (model files won't be scanned)")
-                console.print("  [dim]no[/dim]  - Cancel and install modelscan first")
-                response = console.input("\n[bold yellow]Your choice (yes/no): [/bold yellow]").strip().lower()
+                response = console.input(
+                    "\n[bold yellow]Continue scan without modelscan? (yes/no): [/bold yellow]"
+                ).strip().lower()
                 if response not in ('y', 'yes'):
                     console.print("\n[dim]Scan cancelled. Run 'medusa install --ai-tools' then try again.[/dim]")
-                    return
-                console.print()
+                    # Exit 2 (deliberate user-abort) — distinct from exit 1
+                    # (findings) and exit 3 (internal error) so an aborted scan
+                    # never looks like a clean pass in CI.
+                    sys.exit(2)
             except (KeyboardInterrupt, EOFError):
                 console.print("\n[dim]Scan cancelled.[/dim]")
-                return
+                sys.exit(2)
 
     console.print()
 
@@ -2618,7 +2620,7 @@ def install(check, ai_tools, debug, install_all):
 
     # Handle deprecated --all flag
     if install_all:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
+        console.print(f"\n[yellow]--all is deprecated in MEDUSA v{__version__}[/yellow]")
         console.print("[dim]MEDUSA now focuses on AI security rules (40,000+ patterns).[/dim]")
         console.print("[dim]External linters are optional - install them yourself if needed.[/dim]")
         console.print("\n[cyan]Use instead:[/cyan]")
@@ -2773,7 +2775,7 @@ def _show_install_check():
         audit_environment, get_install_hint,
     )
 
-    console.print(f"\n[bold dark_green]MEDUSA v2026.5.1 - AI Security Scanner[/bold dark_green]")
+    console.print(f"\n[bold dark_green]MEDUSA v{__version__} - AI Security Scanner[/bold dark_green]")
     console.print(f"[dim]Works out of the box with 40,000+ built-in AI security rules[/dim]\n")
 
     # ── Environment Audit ──
@@ -2858,7 +2860,7 @@ def uninstall(tool, all_tools, yes):
     """
     Uninstall AI security tools.
 
-    MEDUSA v2026.5.1 only manages modelscan. Use your package manager
+    MEDUSA only manages modelscan. Use your package manager
     for other tools.
 
     Example:
@@ -2868,7 +2870,7 @@ def uninstall(tool, all_tools, yes):
 
     # Handle deprecated --all flag
     if all_tools:
-        console.print("\n[yellow]--all is deprecated in MEDUSA v2026.5.1[/yellow]")
+        console.print(f"\n[yellow]--all is deprecated in MEDUSA v{__version__}[/yellow]")
         console.print("[dim]MEDUSA now only manages modelscan.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for external tool guidance[/dim]\n")
         return
@@ -2876,12 +2878,12 @@ def uninstall(tool, all_tools, yes):
     # No tool specified
     if not tool:
         console.print("\n[cyan]Usage: medusa uninstall modelscan[/cyan]")
-        console.print("[dim]MEDUSA v2026.5.1 only manages modelscan installation.[/dim]\n")
+        console.print(f"[dim]MEDUSA v{__version__} only manages modelscan installation.[/dim]\n")
         return
 
     # Non-modelscan tool
     if tool != 'modelscan':
-        console.print(f"\n[yellow]MEDUSA v2026.5.1 doesn't manage '{tool}'[/yellow]")
+        console.print(f"\n[yellow]MEDUSA v{__version__} doesn't manage '{tool}'[/yellow]")
         console.print("[dim]Use your package manager to uninstall it.[/dim]")
         console.print("[dim]See: docs/OPTIONAL_TOOLS.md for guidance[/dim]\n")
         return
