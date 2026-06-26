@@ -206,6 +206,39 @@ skips:
   - B105  # hardcoded passwords in test fixtures
 ```
 
+## Inline Suppression (`medusa:ignore`)
+
+When a single line is a confirmed false positive and you do not want to disable
+a rule project-wide, add an inline suppression comment on the **same line** as
+the flagged code. MEDUSA skips any finding reported on a line carrying the marker.
+
+| Language family | Comment syntax |
+|-----------------|----------------|
+| Python, shell (`.py`, `.sh`, `.bash`) | `# medusa:ignore` |
+| Rust, PHP, JavaScript/TypeScript (`.rs`, `.php`, `.js`, `.ts`) | `// medusa:ignore` |
+
+```python
+password = "placeholder-not-a-real-secret"  # medusa:ignore
+```
+
+```rust
+let conn = "postgres://demo:demo@localhost/db";  // medusa:ignore
+```
+
+```php
+$token = "EXAMPLE_TOKEN_FOR_DOCS"; // medusa:ignore
+```
+
+**Guidelines:**
+
+- Suppress the **narrowest** thing possible — one line, not a file or a rule.
+- Leave a short note explaining *why* it is safe (e.g. test fixture, placeholder).
+- Prefer inline suppression for one-off cases; use `.medusa.yml` `exclude` for
+  whole directories (vendored code, generated files) and `.bandit` skips for
+  systemic Bandit FP patterns.
+- Review suppressions periodically — a line that was safe can become a real
+  vulnerability after edits.
+
 ## Using AI for Triage
 
 MEDUSA integrates with AI IDEs (Claude Code, Gemini, Copilot) that can intelligently triage findings. When you run `medusa init`, it creates context files that teach the AI:

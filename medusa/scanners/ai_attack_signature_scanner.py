@@ -18,15 +18,37 @@ must fire overwhelmingly on real payloads, not generic words, so always-on
 matching does not reintroduce false positives.
 """
 
+import re
 import time
 from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue
 
+# Path segments that mark an obvious test / fixture context. A jailbreak or
+# injection payload living under one of these is sample/fixture data for a test
+# suite, not a live attack — firing on it is a false positive that floods real
+# user repos. Matched case-insensitively against the posix path.
+_TEST_FIXTURE_SEGMENTS = (
+    "/tests/", "/test/", "/fixtures/", "/fixture/", "/__tests__/",
+    "/test_data/", "/testdata/", "/test-fixtures/",
+)
+# Same markers anchored at the very start of a (relative) path, so a top-level
+# `tests/` or `fixtures/` directory is caught even without a leading slash.
+_TEST_FIXTURE_PREFIXES = (
+    "tests/", "test/", "fixtures/", "fixture/", "__tests__/",
+    "test_data/", "testdata/", "test-fixtures/",
+)
+
 
 class AIAttackSignatureScanner(RuleBasedScanner):
     """Always-on detector for curated high-precision AI attack signatures."""
+
+    display_name = "AI Attack Signatures (always-on)"
+    description = (
+        "Always-on, high-precision detector for named jailbreaks and "
+        "instruction-override prompt injections in any text file."
+    )
 
     # Load ONLY the curated high-precision signature set, by category.
     # (Unannotated form so the rule-coverage wiring check's regex detects it.)
@@ -81,8 +103,55 @@ class AIAttackSignatureScanner(RuleBasedScanner):
         # outranking context-specialised scanners while still always running.
         return 15 if self.can_scan(file_path) else 0
 
+    @staticmethod
+    def _is_test_fixture_path(file_path: Path) -> bool:
+        """True when the file lives in an obvious test/fixture directory.
+
+        Payloads checked into a test suite or fixture corpus are sample data,
+        not live attacks; firing on them is a false positive. Matched
+        case-insensitively against the posix path so it works regardless of the
+        absolute prefix supplied by the caller.
+        """
+        posix = file_path.as_posix().lower()
+        if any(seg in posix for seg in _TEST_FIXTURE_SEGMENTS):
+            return True
+        return any(posix.startswith(pre) for pre in _TEST_FIXTURE_PREFIXES)
+
+    @staticmethod
+    def _markdown_fenced_line_set(raw_lines: List[str]) -> set:
+        """Return the set of 1-based line numbers that sit inside a fenced code
+        block (``` ... ```) in a markdown document.
+
+        Attack examples documented inside a code fence are illustrative, not
+        executable — a red-team writeup quoting "ignore previous instructions"
+        is documentation, so those lines are suppressed. Prose outside fences is
+        left to fire normally.
+        """
+        fenced: set = set()
+        in_fence = False
+        for idx, line in enumerate(raw_lines, 1):
+            if line.lstrip().startswith("```"):
+                in_fence = not in_fence
+                continue  # the fence marker line itself carries no payload
+            if in_fence:
+                fenced.add(idx)
+        return fenced
+
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
+
+        # FP suppression: a payload sitting in a test/fixture tree is sample
+        # data for a test suite, not a live attack. Skip the file entirely so it
+        # produces no findings (and costs nothing to scan).
+        if self._is_test_fixture_path(file_path):
+            return ScannerResult(
+                scanner_name=self.name,
+                file_path=str(file_path),
+                issues=[],
+                scan_time=time.time() - start_time,
+                success=True,
+            )
+
         try:
             # Sample only the head of the file so a huge dataset (a 53MB
             # adversarial .jsonl) costs a second, not minutes. Bound by BOTH a
@@ -99,6 +168,15 @@ class AIAttackSignatureScanner(RuleBasedScanner):
                     total_bytes += len(line)
                     lines.append(line[:self.MAX_LINE_LEN].rstrip("\n"))
             issues: List[ScannerIssue] = self._scan_with_rules(lines, file_path)
+
+            # FP suppression for markdown docs: drop findings whose line sits
+            # inside a fenced code block — those are documented attack examples
+            # (red-team writeups), not live payloads.
+            if file_path.suffix.lower() in (".md", ".markdown") and issues:
+                fenced = self._markdown_fenced_line_set(lines)
+                if fenced:
+                    issues = [i for i in issues if i.line not in fenced]
+
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=str(file_path),

@@ -360,7 +360,7 @@ MEDUSA supports **79 scanner types** covering AI/ML security, all major programm
 
 ---
 
-## React2Shell CVE Detection (NEW in v2025.8)
+## React2Shell CVE Detection
 
 MEDUSA now detects **CVE-2025-55182 "React2Shell"** - a CVSS 10.0 RCE vulnerability affecting React Server Components and Next.js.
 
@@ -403,7 +403,7 @@ MEDUSA provides **industry-leading AI security scanning** with **40,000+ detecti
 | **RAG & Vector Security** | 2,900+ | Vector injection, document poisoning, tenant isolation, retrieval manipulation |
 | **GenAI & Multimodal** | 2,000+ | Multimodal, voice/audio, and image attacks; GenAI-specific patterns |
 | **Supply Chain** | 800+ | Dependency confusion, typosquatting, slopsquatting, lock-file backdoors |
-| **Total** | **42,684** | Across 999 rule categories — verifiable via `medusa`'s loaded rule count |
+| **Total** | **42,684** | Across 999 rule categories — verify with `medusa rules --count` |
 
 ### AI Attack Coverage
 
@@ -607,13 +607,20 @@ medusa override path/to/file.yaml --remove
 | `TARGET` | Directory or file to scan (default: `.`) |
 | `-g, --git URL` | Clone and scan a remote git repo (GitHub URL or `user/repo` shorthand) |
 | `-w, --workers N` | Number of parallel workers (default: auto-detect) |
-| `--quick` | Quick scan (changed files only, requires git) |
+| `--quick` | Quick scan (uses the content-hash cache to skip unchanged files) |
 | `--force` | Force full scan (ignore cache) |
 | `--no-cache` | Disable result caching |
 | `--fail-on LEVEL` | Exit with error on severity: `critical`, `high`, `medium`, `low` |
 | `-o, --output PATH` | Custom output directory for reports |
 | `--format FORMAT` | Output format: `json`, `html`, `markdown`, `sarif`, `all` (can specify multiple) |
 | `--no-report` | Skip generating HTML report |
+| `-y, --yes` | Skip confirmation prompts (auto-continue optional-tool gates) |
+| `--no-prompt` | Never prompt; auto-continue gates (alias of `--yes` for CI) |
+| `--trace-rules` | Rule diagnostics: per-rule firing log and timing (`rule-trace.jsonl`, `slow_rules.csv`); forces a serial scan |
+| `--screening` | Target-vetting mode: surface attack/high-severity findings even in `tests/`, `examples/`, `tools/`, or dataset files (auto-enabled for `--git`) |
+| `--no-ai-safe` | Disable payload obfuscation in reports (default: obfuscated for LLM safety) |
+| `--allow-any-host` | Allow `--git` to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org; private IPs still rejected) |
+
 ### Install Options Reference
 
 | Option | Description |
@@ -680,6 +687,23 @@ medusa init
 ```
 
 This creates `.medusa.yml` with sensible defaults and auto-detects your IDE.
+
+### Suppressing False Positives
+
+To silence a single finding without disabling a rule project-wide, add an inline
+suppression comment on the same line as the flagged code:
+
+```python
+api_key = "sk-test-not-a-real-key"  # medusa:ignore
+```
+
+```rust
+let pwd = "placeholder";  // medusa:ignore
+```
+
+Use `# medusa:ignore` in Python and shell files, and `// medusa:ignore` in Rust,
+PHP, and JavaScript/TypeScript. For broader suppression, exclude paths in
+`.medusa.yml` (see above). Full guidance: **[Handling False Positives](docs/guides/handling-false-positives.md)**.
 
 ---
 
@@ -784,7 +808,7 @@ MEDUSA automatically monitors system load and adjusts worker count:
 # - Available cores
 
 # Warns when system is overloaded:
- High CPU usage: 85.3%
+High CPU usage: 85.3%
 Using 2 workers (reduced due to system load)
 ```
 
@@ -795,12 +819,12 @@ Hash-based caching skips unchanged files:
 ```bash
 # First scan
 Files scanned: 145
- Total time: 47.28s
+Total time: 47.28s
 
 # Second scan (no changes)
 Files scanned: 0
 Files cached: 145
- Total time: 2.15s  # 22× faster!
+Total time: 2.15s  # 22x faster!
 ```
 
 ### Parallel Processing
@@ -831,8 +855,8 @@ Step 1: Project Analysis
    Primary: PythonScanner (44 files)
 
 Step 2: Scanner Availability
-   Available: 6/79 scanners
-   Missing: 73 tools
+   40,000+ AI security patterns active (no setup required)
+   6 optional enrichment linters available
 
 Step 3: Configuration
    Created .medusa.yml
@@ -946,14 +970,14 @@ MEDUSA scans itself — and real-world projects:
 
 ```
 Self-scan (473 files):
-  Issues found: 114 (pre-filter) → 0 (post-filter)
+  Issues found: 114 (pre-filter) -> 0 (post-filter)
   FP reduction: 100% on own codebase
-   Time: 8.2s
+  Time: 8.2s
 
 OpenClaw benchmark (4,124 files, 751K LOC):
   Issues found: 825 (post-filter)
   FPs filtered: 11,436 (93.9% reduction)
-   Time: 3.3 hours (79 scanners)
+  Time: 3.3 hours (79 scanners)
 ```
 
 ### Performance Benchmarks
@@ -970,28 +994,29 @@ OpenClaw benchmark (4,124 files, 751K LOC):
 
 ## Roadmap
 
-### Completed (v2026.5.0)
+### Shipped (current capabilities)
 
 - **`medusa scan --git <URL>`** - Scan any GitHub repo for AI supply chain attacks
 - **Repo Poisoning Detection** - 45 new rules for Clinejection, CurXecute, IDEsaster, CamoLeak, ToxicSkills
 - **28+ AI Editor Config Detection** - Priority file scanning across 15+ AI coding tools
 - **MCP Advanced Attacks** - Schema poisoning, ATPA, sampling injection, cross-server manipulation
 - **40,000+ Detection Patterns** - Industry-leading AI security coverage
-- **78 Specialized Analyzers** - Comprehensive language and platform coverage
-- **133 Critical CVEs** - CVEMiner database for known vulnerability scanning
-- **583 FP Filter Patterns** - 97.7% false positive reduction rate on real-world projects
+- **79 Specialized Analyzers** - Comprehensive language and platform coverage
+- **265 CVE Detections** - CVEMiner database for known vulnerability scanning
+- **583 FP Filter Patterns** - 97.9% false-positive reduction measured on the MEDUSA benchmark corpus (376/384 findings filtered)
 - **Agent Protocol Security** - UCP, AP2, ACP vulnerability detection (91 rules)
 - **Dataset Poisoning Detection** - CSV, JSON, JSONL injection scanning
 - **Code-Level Prompt Injection** - F-string injection, ChatML tokens, role manipulation
 - **Cross-Platform** - Native Windows, macOS, Linux support
 - **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot, OpenAI Codex
 
-### Upcoming
+### Planned (not yet shipped)
 
 - **MEDUSA Professional** - Runtime proxy filters for production LLM protection
 - **GitHub App** - Automatic PR scanning
 - **VS Code Extension** - Native IDE integration
 - **REST API** - CI/CD pipeline integration
+- **Discord community** - https://discord.gg/medusa
 
 ---
 
@@ -1073,8 +1098,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/Pantheon-Security/medusa/issues)
 - **Email**: support@pantheonsecurity.io
-- **Documentation**: https://docs.pantheonsecurity.io
-- **Discord**: https://discord.gg/medusa (coming soon)
+- **Documentation**: https://pantheonsecurity.io
 
 ---
 
@@ -1084,7 +1108,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 **Release Date**: 2026-06-24
 **Detection Patterns**: 40,000+ AI security rules
 **Analyzers**: 79 specialized scanners
-**FP Filter Patterns**: 514 intelligent filters (96.8% reduction rate)
+**FP Filter Patterns**: 583 filters (97.9% reduction measured on the benchmark corpus)
 **CVE Coverage**: 265 known vulnerabilities (37+ AI editor CVEs)
 **Repo Poisoning**: 28+ AI editor config file types detected
 **Language Coverage**: 46+ file types
@@ -1123,7 +1147,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ---
 
-**MEDUSA - Multi-Language Security Scanner **
+**MEDUSA - Multi-Language Security Scanner**
 
 **One Command. Complete Security.**
 

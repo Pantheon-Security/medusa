@@ -151,16 +151,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install MEDUSA
+        run: pip install medusa-security
+
       - name: Run MEDUSA Scan
-        uses: pantheon-security/medusa-action@v2026
-        with:
-          fail-on: high
-          output-format: sarif
+        run: medusa scan . --fail-on high --format sarif
 
       - name: Upload SARIF results
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: .medusa/reports/results.sarif
+          sarif_file: .medusa/reports/*.sarif
 ```
 
 ### GitLab CI
@@ -172,7 +172,7 @@ security_scan:
     - medusa scan . --fail-on high --format sarif
   artifacts:
     reports:
-      sast: .medusa/reports/results.sarif
+      sast: .medusa/reports/medusa-scan-*.sarif
 ```
 
 ## Troubleshooting
@@ -292,7 +292,7 @@ git status | grep runtime  # Should show nothing
 
 ## Learn More
 
-- **Documentation**: https://docs.medusa-security.dev
+- **Documentation**: https://pantheonsecurity.io
 - **GitHub**: https://github.com/Pantheon-Security/medusa
 - **Report Issues**: https://github.com/Pantheon-Security/medusa/issues
 - **Agents & Skills**: `.claude/AGENTS_AND_SKILLS.md`

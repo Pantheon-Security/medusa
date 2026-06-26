@@ -38,7 +38,13 @@ jobs:
 
       - name: Run MEDUSA Security Scan
         id: scan
-        run: medusa scan . --format all --fail-on high --no-install || true
+        run: medusa scan . --format sarif --fail-on high
+
+      - name: Upload SARIF results
+        if: always()  # upload findings even when --fail-on trips the scan step
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: .medusa/reports/*.sarif
 
       - name: Comment PR with results
         if: github.event_name == 'pull_request'

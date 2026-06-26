@@ -417,8 +417,14 @@ class MedusaParallelScanner:
         self.force_ascii = not self._is_modern_terminal()
 
         # Load configuration from medusa.yml (or .medusa.yml)
-        from medusa.config import ConfigManager
-        self.config = ConfigManager.load_config()
+        from medusa.config import ConfigManager, ConfigError
+        try:
+            self.config = ConfigManager.load_config()
+        except ConfigError as e:
+            import sys
+            print(f"\nERROR: invalid MEDUSA config — {e}", file=sys.stderr)
+            print("Fix the config file (or remove it to use defaults), then re-run.", file=sys.stderr)
+            sys.exit(2)
 
         # Merge CLI --exclude paths into config exclusions
         if extra_excludes:
@@ -812,7 +818,7 @@ class MedusaParallelScanner:
         scanner_names = []
         scanner_issue_counts = {}  # Track issues per scanner
         scanner_errors = {}  # scanner_name -> failure count (crashes + timeouts)
-        seen_issues = set()  # Deduplicate by (line, message_prefix)
+        seen_issues = set()  # Deduplicate by (line, rule_id) — distinct rules survive
 
         for scanner in scanners:
             try:
@@ -830,8 +836,13 @@ class MedusaParallelScanner:
                 issues_from_this = 0
 
                 for issue in scanner_result.issues:
-                    # Deduplicate: same line + first 80 chars of message
-                    dedup_key = (issue.line, issue.message[:80] if issue.message else '')
+                    # Deduplicate: same line + rule_id, so two findings on the same
+                    # line from DIFFERENT rules both survive. Fall back to the message
+                    # prefix only when a finding carries no rule_id.
+                    dedup_key = (
+                        issue.line,
+                        issue.rule_id or (issue.message[:80] if issue.message else ''),
+                    )
                     if dedup_key not in seen_issues:
                         seen_issues.add(dedup_key)
                         d = issue.to_dict()
@@ -1335,16 +1346,41 @@ class MedusaParallelScanner:
         return results
 
     def _scan_with_pool(self, files: List[Path]) -> List[ScanResult]:
-        """Fallback: scan with basic Pool.map"""
+        """Fallback: scan with basic Pool.imap_unordered + periodic progress line.
+
+        This is the bare fallback (no rich, no tqdm). Emit a lightweight,
+        periodic "[N/M files]" status line so long scans aren't silent. The
+        line is time-throttled (not per-file) to stay non-spammy and CI-safe:
+        on a non-tty we print a fresh line at most every few seconds rather
+        than a redrawing progress bar.
+        """
+        import time as _time
+        results: List[ScanResult] = []
+        total = len(files)
+        is_tty = sys.stdout.isatty()
+        update_interval = 0.5 if is_tty else 5.0  # gentle on CI logs
+        last_update = _time.time()
+
+        chunksize = min(8, max(1, total // (self.workers * 4)))
         _snapshot = getattr(self, '_batch_cache_snapshot', None)
         with Pool(
             processes=self.workers,
             initializer=_inject_batch_scanner_caches,
             initargs=(_snapshot,),
         ) as pool:
-            results = pool.map(self.scan_file, files)
+            for result in pool.imap_unordered(self.scan_file, files, chunksize=chunksize):
+                results.append(result)
+                now = _time.time()
+                if now - last_update >= update_interval:
+                    if is_tty:
+                        print(f"\r  [{len(results)}/{total} files]", end="", flush=True)
+                    else:
+                        print(f"  [{len(results)}/{total} files]", flush=True)
+                    last_update = now
+            if is_tty:
+                print("\r" + " " * 32 + "\r", end="", flush=True)
             _ic = '+' if self.force_ascii else '\u2705'
-            print(f"{_ic} Scanned {len(files)} files")
+            print(f"{_ic} Scanned {total} files")
         return results
 
     def _print_scanner_summary(self, scanner_totals: Dict[str, Dict[str, int]]):
@@ -1492,6 +1528,7 @@ class MedusaParallelScanner:
                         'issue': neutralize_injection(issue.get('issue_text', issue.get('message', str(issue)))),
                         'rule_id': issue.get('rule_id'),
                         'cwe': issue.get('issue_cwe', {}).get('id'),
+                        'remediation': issue.get('remediation'),
                         'code': _truncate_code(issue.get('code', ''))
                     })
                 # Handle new ScannerIssue object format
@@ -1505,6 +1542,7 @@ class MedusaParallelScanner:
                         'issue': neutralize_injection(issue.message),
                         'rule_id': issue.rule_id,
                         'cwe': issue.cwe_id,
+                        'remediation': getattr(issue, 'remediation', None),
                         'code': _truncate_code(issue.code)
                     })
 

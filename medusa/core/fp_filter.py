@@ -47,6 +47,9 @@ class FPReason(Enum):
     COMPLIANCE_CODE = "compliance_code"  # GDPR/DSAR/compliance code doing its legal job
     DESCRIPTION_STRING = "description_string"  # Tool description / documentation string
     INFRASTRUCTURE_CODE = "infrastructure_code"  # Internal infra (logging, cert-pinning, SIEM)
+    INLINE_SUPPRESSION = "inline_suppression"  # Author opt-out via `medusa:ignore` comment
+    SIGNATURE_DATA = "signature_data"  # Security-rule / signature definition file (data, not code)
+    PATTERN_LITERAL = "pattern_literal"  # Match is inside an attack-pattern literal constant
 
 
 @dataclass
@@ -184,6 +187,69 @@ class FalsePositiveFilter:
         ])
     )
 
+    # Inline suppression: an author opts a single line out of scanning with a
+    # `medusa:ignore` comment. Accepts the Python/shell (`#`) and
+    # Rust/PHP/JS/C-family (`//`) comment styles, with optional trailing reason
+    # text (e.g. `# medusa:ignore - test fixture`). Matched against the source
+    # line the finding is on.
+    _INLINE_SUPPRESS_RE = re.compile(r'(?:#|//)\s*medusa:ignore\b', re.IGNORECASE)
+
+    # --- B1: security-rule / signature-definition data-file recognition ---
+    #
+    # A security tool's own rule corpus (and any user who VENDORS such a corpus)
+    # is DATA, not application code: the attack strings inside it ARE the rule
+    # definitions, so a scanner matching them on itself is a false positive.
+    #
+    # Two independent signals mark a file as a rule/signature definition:
+    #   (1) it lives under a rules/signatures/patterns/attack_signatures dir, or
+    #   (2) its YAML/JSON content matches a rule-definition schema.
+    # Either is sufficient. Path-only matching keeps it cheap for the common case
+    # and language-agnostic; the content schema catches rule files that live
+    # elsewhere.
+
+    # Directory-name signal (matched on the path RELATIVE to scan root so the
+    # repo name itself can't trip it). Trailing separator required so we match a
+    # directory component, not a substring like "myrulestore.py".
+    _SIGNATURE_DIR_RE = re.compile(
+        r'(?:^|/)(?:rules?|signatures?|attack[_-]?signatures?|patterns?'
+        r'|rulesets?|detections?|fp[_-]?patterns?)/',
+        re.IGNORECASE,
+    )
+    # Only data/serialized-rule extensions qualify for path-based suppression.
+    # A .py under rules/ is still executable code and must NOT be blanket-cleared
+    # here (B2 handles pattern-literal .py separately, conservatively).
+    _SIGNATURE_DATA_EXT_RE = re.compile(r'\.(ya?ml|json|toml)$', re.IGNORECASE)
+    # Content schema: a rule-definition document tends to declare an id/rule_id
+    # together with severity/patterns/message. Require at least two distinct
+    # rule-schema keys so an arbitrary config YAML with a stray `severity:` line
+    # is not mistaken for a rule corpus.
+    _RULE_SCHEMA_KEY_RE = re.compile(
+        r'^\s*-?\s*(rule_?id|id|patterns?|severity|message|cwe|owasp|detection)\s*:',
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    # --- B2: pattern-literal source recognition ---
+    #
+    # A scanner defines its attack signatures as module-level constants, e.g.
+    #   COMMAND_INJECTION_PATTERNS = [ r'os\.system\(', r'subprocess.*shell=True' ]
+    # Matching one of those literal strings is a self-match on data, not a vuln
+    # in executable logic. We suppress ONLY when the finding's line sits inside
+    # such a literal collection (a NAME ending in _PATTERNS/_SIGNATURES/_RULES/
+    # _REGEXES/_INDICATORS assigned a list/dict/tuple/set), and the matched line
+    # is a string literal element — never the executable code around it.
+    _PATTERN_LITERAL_ASSIGN_RE = re.compile(
+        r'^\s*[A-Z][A-Z0-9_]*'
+        r'(?:_PATTERNS?|_SIGNATURES?|_RULES?|_REGEXE?S?|_INDICATORS?|_KEYWORDS?'
+        r'|_PAYLOADS?|_BLOCKLIST|_BLACKLIST|_DENYLIST)\b'
+        r'\s*(?::[^=]+)?=\s*[\[\{\(]',
+    )
+    # A line that is (predominantly) a quoted string literal element, optionally a
+    # raw/byte/format string, with an optional trailing comma — i.e. a datum in a
+    # collection literal, not a statement that calls/executes anything.
+    _STRING_LITERAL_LINE_RE = re.compile(
+        r'^\s*[rRbBfFuU]{0,2}(["\']).*\1\s*,?\s*(?:#.*)?$'
+    )
+
     # Known FP patterns - loaded from medusa/core/fp_patterns/*.yaml
     # via load_known_fp_patterns() (see bottom of file)
     KNOWN_FP_PATTERNS: List[FPPattern] = []
@@ -234,8 +300,13 @@ class FalsePositiveFilter:
         if source_context is None:
             source_context = self._get_source_context(file_path, line_num)
 
-        # Check each filter in order of confidence
+        # Check each filter in order of confidence. Inline suppression is an
+        # explicit author opt-out (`medusa:ignore`) so it runs first and applies
+        # in every mode, including screening.
         checks = [
+            self._check_inline_suppression,
+            self._check_signature_data_file,
+            self._check_pattern_literal,
             self._check_security_module,
             self._check_docstring,
             self._check_security_wrapper,
@@ -303,6 +374,182 @@ class FalsePositiveFilter:
                 filtered.append(finding)
 
         return filtered, likely_fps
+
+    def _check_inline_suppression(
+        self,
+        finding: Dict,
+        context: List[str]
+    ) -> FilterResult:
+        """Suppress a finding whose source line carries a `medusa:ignore` comment.
+
+        Honors `# medusa:ignore` (Python/shell) and `// medusa:ignore`
+        (Rust/PHP/JS/C-family). This is an explicit author opt-out, so it gets
+        the highest confidence and wins over every other check.
+        """
+        line_num = finding.get('line') or 0
+        if not context or line_num <= 0:
+            return FilterResult()
+
+        line_idx = min(line_num - 1, len(context) - 1)
+        if line_idx < 0:
+            return FilterResult()
+
+        line = context[line_idx] if line_idx < len(context) else ""
+        if self._INLINE_SUPPRESS_RE.search(line):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=1.0,
+                reason=FPReason.INLINE_SUPPRESSION,
+                explanation="Finding suppressed by inline 'medusa:ignore' comment on this line"
+            )
+
+        return FilterResult()
+
+    def _check_signature_data_file(
+        self,
+        finding: Dict,
+        context: List[str]
+    ) -> FilterResult:
+        """B1: Suppress findings in security-rule / signature DEFINITION files.
+
+        Such a file is data, not application code — the attack strings it
+        contains ARE the rule definitions, so any scanner matching them is a
+        false positive. A file qualifies when EITHER:
+          * it lives under a rules/signatures/patterns/attack_signatures-style
+            directory AND has a data extension (.yaml/.json/.toml), OR
+          * its content matches a rule-definition schema (>= 2 distinct
+            rule-schema keys such as id/rule_id/patterns/severity/message).
+
+        This is a content/data guard, not a file-location guard, so it applies
+        in screening mode too: a vendored security ruleset is data wherever it
+        is being scanned.
+        """
+        raw_path = finding.get('file', '')
+        # Relative path so the repo/scan-root name can't itself trip the dir match.
+        try:
+            rel_path = str(Path(raw_path).relative_to(self.source_root))
+        except (ValueError, TypeError):
+            rel_path = raw_path
+        norm_path = rel_path.replace('\\', '/')
+
+        in_signature_dir = bool(self._SIGNATURE_DIR_RE.search(norm_path))
+        is_data_ext = bool(self._SIGNATURE_DATA_EXT_RE.search(norm_path))
+
+        # Path signal: a serialized-rule file under a rules/signatures dir.
+        if in_signature_dir and is_data_ext:
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.95,
+                reason=FPReason.SIGNATURE_DATA,
+                explanation=(
+                    "File is a security-rule/signature definition (data file under "
+                    "a rules/signatures/patterns directory), not application code"
+                ),
+            )
+
+        # Content signal: rule-definition schema inside a data file anywhere.
+        # Only inspect data-extension files — we never want to schema-match a .py.
+        if is_data_ext and context:
+            blob = '\n'.join(context)
+            schema_keys = {
+                m.group(1).lower().replace('_', '')
+                for m in self._RULE_SCHEMA_KEY_RE.finditer(blob)
+            }
+            # Require an identity key plus a rule-detail key so a generic config
+            # with a lone `severity:` does not qualify.
+            has_identity = bool(schema_keys & {'ruleid', 'id'})
+            has_detail = bool(
+                schema_keys & {'patterns', 'pattern', 'severity', 'message',
+                               'cwe', 'owasp', 'detection'}
+            )
+            if has_identity and has_detail and len(schema_keys) >= 2:
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.90,
+                    reason=FPReason.SIGNATURE_DATA,
+                    explanation=(
+                        "File content matches a security-rule definition schema "
+                        f"(keys: {', '.join(sorted(schema_keys))}); treated as data"
+                    ),
+                )
+
+        return FilterResult()
+
+    def _check_pattern_literal(
+        self,
+        finding: Dict,
+        context: List[str]
+    ) -> FilterResult:
+        """B2: Suppress findings whose match is inside an attack-pattern literal.
+
+        A scanner declares its signatures as module-level constants, e.g.
+        ``COMMAND_INJECTION_PATTERNS = [r'os\\.system\\(', ...]``. Matching one of
+        those literal strings is a self-match on data, not a vulnerability in
+        executable logic.
+
+        GUARD against over-suppression: we suppress ONLY when BOTH hold —
+          (1) the finding's own line is a plain quoted string-literal element
+              (a datum in a collection, not a statement that executes anything),
+          (2) walking upward, that line is inside a collection assigned to a NAME
+              ending in _PATTERNS/_SIGNATURES/_RULES/_REGEXES/etc., with no
+              intervening top-level statement closing the literal.
+        A real ``eval(user_input)`` or ``subprocess.run(..., shell=True)`` in
+        normal code is NOT a bare string literal, so it never matches (1).
+        """
+        # Only Python source — the literal/assignment heuristics are Python-shaped.
+        raw_path = finding.get('file', '')
+        if not raw_path.endswith('.py'):
+            return FilterResult()
+
+        line_num = finding.get('line') or 0
+        if not context or line_num <= 0:
+            return FilterResult()
+
+        line_idx = min(line_num - 1, len(context) - 1)
+        if line_idx < 0:
+            return FilterResult()
+
+        line = context[line_idx] if line_idx < len(context) else ""
+
+        # (1) The matched line must itself be a quoted string-literal element.
+        # This is the core guard: executable code (eval(...), subprocess.run(...))
+        # is not a bare quoted string, so it is excluded here.
+        if not self._STRING_LITERAL_LINE_RE.match(line):
+            return FilterResult()
+
+        # (2) Walk upward to confirm we're inside a *_PATTERNS-style collection
+        # literal. Stop if we hit a line that looks like a top-level/dedented
+        # statement (def/class/import or an unindented non-data line) before
+        # finding the assignment — that means the literal has already closed.
+        cur_indent = len(line) - len(line.lstrip())
+        for i in range(line_idx - 1, max(line_idx - 200, -1), -1):
+            prev = context[i] if i < len(context) else ""
+            stripped = prev.strip()
+            if not stripped:
+                continue
+            if self._PATTERN_LITERAL_ASSIGN_RE.match(prev):
+                return FilterResult(
+                    is_likely_fp=True,
+                    confidence=0.85,
+                    reason=FPReason.PATTERN_LITERAL,
+                    explanation=(
+                        "Match is a string literal inside an attack-pattern "
+                        "constant (e.g. *_PATTERNS/_SIGNATURES); definition data, "
+                        "not executable logic"
+                    ),
+                )
+            prev_indent = len(prev) - len(prev.lstrip())
+            # A dedented statement (def/class/import or anything less-indented
+            # than our element) below the assignment means the collection has
+            # closed; stop searching to avoid a false attribution.
+            if prev_indent < cur_indent and (
+                stripped.startswith(('def ', 'class ', 'import ', 'from '))
+                or stripped.endswith(':')
+                or '=' in stripped.split('#', 1)[0]
+            ):
+                break
+
+        return FilterResult()
 
     def _check_security_module(
         self,

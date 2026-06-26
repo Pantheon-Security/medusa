@@ -197,7 +197,7 @@ MEDUSA supports 43+ languages and formats:
 
 ## Getting Help
 
-- **Documentation:** [docs.pantheonsecurity.io](https://docs.pantheonsecurity.io)
+- **Documentation:** [pantheonsecurity.io](https://pantheonsecurity.io)
 - **Issues:** [GitHub Issues](https://github.com/pantheon-security/medusa/issues)
 - **Guides:** See other guides in this directory
 

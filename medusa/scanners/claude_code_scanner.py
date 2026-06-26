@@ -59,6 +59,12 @@ _WILDCARD_TOOLS = [
 class ClaudeCodeScanner(RuleBasedScanner):
     """Detect poisoned Claude Code settings (hook exfiltration, allow-all perms)."""
 
+    display_name = "Claude Code Compromise"
+    description = (
+        "Screens .claude/ settings for poisoned hooks, allow-all permissions, "
+        "and wildcard subagent tool grants that run on project open."
+    )
+
     # Curated hook-command exfil patterns (dir name == category, per the
     # rule-coverage wiring check). Applied only to extracted hook commands.
     RULE_CATEGORIES = ['claude_code']
@@ -176,6 +182,9 @@ class ClaudeCodeScanner(RuleBasedScanner):
                         if m:
                             cwe_id = int(m.group(1))
                             cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
+                    # CC-SKILL-001 is the documented, test-asserted family id for
+                    # skill-dropper findings — keep it stable (do NOT emit the
+                    # per-pattern rule id here; that broke the public contract).
                     issues.append(ScannerIssue(
                         severity=sev,
                         message=f"Claude Code skill companion script: {rule.message}",

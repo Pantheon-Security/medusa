@@ -12,6 +12,16 @@ from dataclasses import dataclass, field
 from medusa import __version__
 
 
+class ConfigError(Exception):
+    """Raised when a config file exists but cannot be parsed/validated.
+
+    P3-5: distinct from the absent-config case (which silently uses defaults).
+    A present-but-broken `.medusa.yml` must fail loudly so a configured CI
+    `fail_on` is never silently dropped. Callers (CLI) should catch this and
+    print a prominent error / exit non-zero rather than scanning with defaults.
+    """
+
+
 @dataclass
 class MedusaConfig:
     """MEDUSA configuration structure"""
@@ -282,22 +292,51 @@ class ConfigManager:
         if config_path is None:
             config_path = ConfigManager.find_config()
 
-        # Return default config if no file found
+        # Return default config if no file found. Absent config -> defaults is a
+        # supported, silent path.
         if config_path is None or not config_path.exists():
             return MedusaConfig()
 
+        # P3-5: a config file EXISTS, so the user clearly intends to configure
+        # MEDUSA (e.g. a CI `fail_on`). If it cannot be parsed we must NOT
+        # silently fall back to defaults — that would let a typo in `.medusa.yml`
+        # quietly disable the configured fail threshold and pass CI. Surface the
+        # parse error loudly and refuse to continue with the wrong config.
         try:
             with open(config_path, 'r') as f:
                 data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            # Pull the exact line/column out of the PyYAML error when available.
+            mark = getattr(e, 'problem_mark', None)
+            where = f" (line {mark.line + 1}, column {mark.column + 1})" if mark else ""
+            raise ConfigError(
+                f"Invalid YAML in config file {config_path}{where}: {e}\n"
+                f"Fix the syntax error or remove {config_path.name} to use defaults."
+            ) from e
+        except OSError as e:
+            raise ConfigError(
+                f"Could not read config file {config_path}: {e}"
+            ) from e
 
-            if data is None:
-                return MedusaConfig()
-
-            return MedusaConfig.from_dict(data)
-
-        except Exception as e:
-            print(f"Warning: Failed to load config from {config_path}: {e}")
+        # Empty file (`safe_load` -> None) is a benign no-op: an empty config
+        # means "use defaults", same as no file.
+        if data is None:
             return MedusaConfig()
+
+        if not isinstance(data, dict):
+            raise ConfigError(
+                f"Invalid config file {config_path}: expected a YAML mapping at "
+                f"the top level, got {type(data).__name__}.\n"
+                f"Fix the structure or remove {config_path.name} to use defaults."
+            )
+
+        try:
+            return MedusaConfig.from_dict(data)
+        except (TypeError, ValueError, AttributeError) as e:
+            raise ConfigError(
+                f"Invalid config values in {config_path}: {e}\n"
+                f"Fix the offending key or remove {config_path.name} to use defaults."
+            ) from e
 
     @staticmethod
     def save_config(config: MedusaConfig, config_path: Path) -> bool:

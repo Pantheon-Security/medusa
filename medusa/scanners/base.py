@@ -58,6 +58,7 @@ class ScannerIssue:
     cwe_id: Optional[int] = None
     cwe_link: Optional[str] = None
     rule_url: Optional[str] = None
+    remediation: Optional[str] = None
 
     def to_dict(self) -> Dict:
         """Convert to dictionary for JSON serialization"""
@@ -71,6 +72,7 @@ class ScannerIssue:
             'cwe_id': self.cwe_id,
             'cwe_link': self.cwe_link,
             'rule_url': self.rule_url,
+            'remediation': self.remediation,
         }
 
 
@@ -222,10 +224,31 @@ class BaseScanner(ABC):
     # avoid multi-minute regex hangs on large data files.
     supports_large_files = False
 
+    # Human-readable label and one-line summary for reports/UX. Subclasses may
+    # override either as a class attribute; the base __init__ derives a sensible
+    # default display_name from the class name when not set (e.g.
+    # "AIAttackSignatureScanner" -> "AI Attack Signature Scanner").
+    display_name: str = ""
+    description: str = ""
+
     def __init__(self):
         self.name = self.__class__.__name__
         self.tool_name = self.get_tool_name()
         self.tool_path = self._find_tool()
+        if not self.display_name:
+            self.display_name = self._default_display_name()
+        if not self.description:
+            self.description = f"{self.display_name} scanner"
+
+    def _default_display_name(self) -> str:
+        """Prettify the class name into a spaced label, e.g.
+        'AIAttackSignatureScanner' -> 'AI Attack Signature Scanner'."""
+        # Insert a space before each interior uppercase letter that starts a new
+        # word (handles acronym runs like 'AI' / 'MCP' without splitting them).
+        name = self.__class__.__name__
+        spaced = re.sub(r'(?<=[a-z0-9])(?=[A-Z])', ' ', name)
+        spaced = re.sub(r'(?<=[A-Z])(?=[A-Z][a-z])', ' ', spaced)
+        return spaced
 
     @abstractmethod
     def get_tool_name(self) -> str:
@@ -551,13 +574,22 @@ class RuleBasedScanner(BaseScanner):
                                     cwe_id = int(cwe_match.group(1))
                                     cwe_link = f"https://cwe.mitre.org/data/definitions/{cwe_id}.html"
 
+                            # Remediation text: prefer an explicit `remediation`
+                            # attr on the Rule, fall back to its `fix` field.
+                            remediation = (
+                                getattr(rule, 'remediation', None)
+                                or getattr(rule, 'fix', None)
+                                or None
+                            )
+
                             issues.append(ScannerIssue(
                                 severity=severity,
                                 message=rule.message,
                                 line=i,
                                 rule_id=rule.id,
                                 cwe_id=cwe_id,
-                                cwe_link=cwe_link
+                                cwe_link=cwe_link,
+                                remediation=remediation,
                             ))
                             break  # One issue per line per rule
                     except re.error:

@@ -236,7 +236,7 @@ Edit `.medusa.yml` to customize:
 
 ## Learn More
 
-- Documentation: https://docs.medusa-security.dev
+- Documentation: https://pantheonsecurity.io
 - Report Issues: https://github.com/Pantheon-Security/medusa/issues
 """
 

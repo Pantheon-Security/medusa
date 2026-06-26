@@ -227,4 +227,4 @@ class TestNewFeature:
 
 - [pytest documentation](https://docs.pytest.org/)
 - [pytest-cov documentation](https://pytest-cov.readthedocs.io/)
-- [MEDUSA Documentation](https://docs.medusa-security.dev)
+- [MEDUSA Documentation](https://pantheonsecurity.io)

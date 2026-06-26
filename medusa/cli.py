@@ -1210,6 +1210,103 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
     return 0
 
 
+def _print_scan_complete() -> None:
+    """Single source of truth for the post-scan completion line (P3-16a).
+
+    Both the local `scan()` path and the `--git` `_scan_git_repo()` path call
+    this so the message can never drift again (they previously printed
+    "✅ Scan complete!" vs "Scan complete!").
+    """
+    console.print("\n[dark_green]✅ Scan complete![/dark_green]")
+
+
+def _print_secrets_tip() -> None:
+    """One-line discoverability nudge for `medusa secrets scan` (P3-13).
+
+    Surfaced at the end of a normal scan and in `medusa init` output, because
+    leaked API keys in AI chat / shell history are a top, easily-missed win.
+    """
+    console.print(
+        "\n[dim]Tip: run [cyan]medusa secrets scan[/cyan] — "
+        "API keys may be sitting in your AI chat/shell history.[/dim]"
+    )
+
+
+def _enable_rule_diagnostics(scanner, output, console) -> None:
+    """Turn on --trace-rules / MEDUSA_TRACE_RULES diagnostics for `scanner`.
+
+    Unifies the local-scan vs --git heartbeat-path console message (P3-14) so
+    the two paths can no longer drift. Returns nothing; mutates `scanner` and
+    enables the module-level rule_diag collector.
+    """
+    import os as _os
+    from medusa.core import rule_diag
+    _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+    _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
+    rule_diag.enable(_diag_out, fine=_fine)
+    scanner.trace_rules = True
+    console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
+    console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
+                  f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+
+
+def _write_rule_diagnostics(output, console) -> None:
+    """Flush --trace-rules diagnostics to the report dir, shared by both paths."""
+    from medusa.core import rule_diag
+    _d = rule_diag.get()
+    if _d is not None:
+        _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
+        _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
+        console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+        console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
+        rule_diag.disable()
+
+
+# Process-level cache for the real rule count/provenance split (RH-1). get_stats()
+# loads every rule (~a few seconds) so we compute it at most once per process and
+# reuse it for the banner and the `rules --count` command.
+_RULE_COUNT_CACHE: Optional[dict] = None
+
+
+def _get_rule_count_info() -> Optional[dict]:
+    """Return {'total', 'curated', 'harvested', 'other'} from the real loader, or
+    None if the loader errors. Cached for the life of the process (RH-1/RM-2).
+
+    Computing this loads all rules, so callers that run on every invocation (the
+    banner) must tolerate the cost or fall back to a static string on None.
+    """
+    global _RULE_COUNT_CACHE
+    if _RULE_COUNT_CACHE is not None:
+        return _RULE_COUNT_CACHE
+    try:
+        from medusa.rules import get_loader
+        loader = get_loader()
+        total = loader.get_stats()['total_rules']
+        prov = loader.get_provenance_map()
+        curated = prov.get('curated', 0)
+        harvested = prov.get('harvested', 0)
+        other = total - curated - harvested
+        _RULE_COUNT_CACHE = {
+            'total': total,
+            'curated': curated,
+            'harvested': harvested,
+            'other': other,
+        }
+        return _RULE_COUNT_CACHE
+    except Exception:
+        return None
+
+
+def _banner_rules_label() -> str:
+    """The '<N> Rules' fragment for the banner. Uses the real loaded count when
+    available, falling back to the historical '40,000+' string if the loader
+    can't be queried (RH-1)."""
+    info = _get_rule_count_info()
+    if info and info['total']:
+        return f"{info['total']:,} Rules"
+    return "40,000+ Rules"
+
+
 def print_banner():
     """Print MEDUSA banner with large block-style ASCII logo"""
     logo = """[dark_green]
@@ -1220,9 +1317,10 @@ def print_banner():
  ██║ ╚═╝ ██║ ███████╗ ██████╔╝ ╚██████╔╝ ███████║ ██║  ██║
  ╚═╝     ╚═╝ ╚══════╝ ╚═════╝   ╚═════╝  ╚══════╝ ╚═╝  ╚═╝[/dark_green]
 """
-    # Version line: .2.0 in EXACT same cyan as Target:/Mode:
-    version_parts = __version__.split('.', 1)  # Split: ['2026', '2.0']
-    line2 = "79 Analyzers | 40,000+ Rules | AI Security Detection"
+    # Version line: split on the first dot so the YEAR stays plain and the
+    # remainder (e.g. "6.0" of 2026.6.0) is highlighted, matching Target:/Mode:.
+    version_parts = __version__.split('.', 1)  # e.g. '2026.6.0' -> ['2026', '6.0']
+    line2 = f"79 Analyzers | {_banner_rules_label()} | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1237,12 +1335,13 @@ def print_banner():
         console.print("")
     except (UnicodeEncodeError, UnicodeDecodeError):
         # Fallback for Windows terminals that don't support Unicode
+        _rules_label = _banner_rules_label()
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]79 Analyzers | 40,000+ Rules | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]79 Analyzers | {_rules_label} | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
-            print(f"\nMEDUSA v{__version__} - AI Security Scanner | 40,000+ Rules\n")
+            print(f"\nMEDUSA v{__version__} - AI Security Scanner | {_rules_label}\n")
 
 
 @click.group(invoke_without_command=True)
@@ -1281,9 +1380,11 @@ def main(ctx, version):
 @click.option('--quick', is_flag=True,
               help='Quick scan mode (changed files only)')
 @click.option('--force', is_flag=True,
-              help='Force full scan (ignore cache)')
+              help='Full rescan: ignore any cached results and re-scan every file (use after '
+                   'upgrading rules, or when you suspect a stale cache)')
 @click.option('--no-cache', is_flag=True,
-              help='Disable caching')
+              help='Run with the result cache disabled entirely (same scope of work as --force; '
+                   'use in CI / ephemeral checkouts where a cache would never help)')
 @click.option('--fail-on', type=click.Choice(['critical', 'high', 'medium', 'low']),
               help='Exit with code 1 if issues at this level or higher are found')
 @click.option('-o', '--output', type=click.Path(), default=None,
@@ -1310,9 +1411,10 @@ def main(ctx, version):
                    'the attack surface). Auto-enabled for --git pre-install screening. Off by default for '
                    'scanning your own clean codebase.')
 @click.option('--trace-rules', 'trace_rules', is_flag=True, default=False, envvar='MEDUSA_TRACE_RULES',
-              help='Rule diagnostics: log every rule firing (rule-trace.jsonl) and per-rule timing '
-                   '(slow_rules.csv) to the report dir, to debug false positives/misses and find slow/'
-                   'ReDoS rules. Forces a serial scan. Also enabled by MEDUSA_TRACE_RULES=1.')
+              help='[For rule authors / debugging] Rule diagnostics: log every rule firing '
+                   '(rule-trace.jsonl) and per-rule timing (slow_rules.csv) to the report dir, to '
+                   'debug false positives/misses and find slow/ReDoS rules. Forces a serial scan. '
+                   'Also enabled by MEDUSA_TRACE_RULES=1.')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts (auto-continue optional-tool gates)')
 @click.option('--no-prompt', 'no_prompt', is_flag=True, help='Never prompt; auto-continue optional-tool gates (alias of --yes for CI)')
 def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt):
@@ -1532,17 +1634,10 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         )
 
         # Rule diagnostics (--trace-rules / MEDUSA_TRACE_RULES): collect rule
-        # firings + per-rule timing during a serial scan.
+        # firings + per-rule timing during a serial scan. Shared helper with the
+        # --git path so the heartbeat message can't drift (P3-14).
         if trace_rules:
-            import os as _os
-            from medusa.core import rule_diag
-            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
-            rule_diag.enable(_diag_out, fine=_fine)
-            scanner.trace_rules = True
-            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
-            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
-                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+            _enable_rule_diagnostics(scanner, output, console)
 
         # Find files
         files = scanner.find_scannable_files()
@@ -1556,14 +1651,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         results = scanner.scan_parallel(files)
 
         if trace_rules:
-            from medusa.core import rule_diag
-            _d = rule_diag.get()
-            if _d is not None:
-                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
-                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
-                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
-                rule_diag.disable()
+            _write_rule_diagnostics(output, console)
 
         # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(
@@ -1575,13 +1663,29 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         if _exit_code:
             sys.exit(_exit_code)
 
-        console.print("\n[dark_green]✅ Scan complete![/dark_green]")
+        # Affirmative empty state: when nothing was found, say so plainly with a
+        # file count rather than leaving a bare "Scan complete!" / silent zero.
+        _total_findings = sum(len(r.issues) for r in results)
+        _scanner_count = len({
+            getattr(r, 'scanner', '') for r in results if getattr(r, 'scanner', '')
+        })
+        if _total_findings == 0:
+            _file_word = "file" if len(files) == 1 else "files"
+            console.print(
+                f"\n[bold green]✅ Clean — 0 issues found across "
+                f"{len(files)} {_file_word}, {_scanner_count} scanners[/bold green]"
+            )
+
+        _print_scan_complete()
 
         # Post-scan: remind about missing linters for fuller coverage
         if missing_linters:
             console.print(f"\n[yellow]For fuller coverage, install missing linters and re-scan:[/yellow]")
             console.print(f"  [dim]{', '.join(missing_linters[:5])}{'...' if len(missing_linters) > 5 else ''}[/dim]")
             console.print(f"  [dim]Run 'medusa install --check' for details[/dim]")
+
+        # Discoverability nudge for the secrets scanner (P3-13).
+        _print_secrets_tip()
 
     except Exception as e:
         console.print(f"\n[red]❌ Error: {e}[/red]")
@@ -1879,6 +1983,16 @@ def _scan_git_repo(
         repo_path = Path(tmp_dir)
         priority_hits = _detect_priority_files(repo_path)
 
+        # Claude Code config files are a distinct, high-value attack surface
+        # (hooks/permissions can execute code), so call them out separately and
+        # signal that ClaudeCodeScanner will do structural analysis (P3-10).
+        _claude_config_hits = [
+            rel_path for rel_path, _color, _desc in priority_hits
+            if str(rel_path).replace("\\", "/") in (
+                ".claude/settings.json", ".claude/settings.local.json"
+            )
+        ]
+
         if priority_hits:
             console.print("[bold yellow]HIGH-RISK FILES DETECTED:[/bold yellow]")
             for rel_path, color, desc in priority_hits:
@@ -1887,6 +2001,16 @@ def _scan_git_repo(
             console.print()
         else:
             console.print("[dim]No high-risk AI editor files detected.[/dim]\n")
+
+        if _claude_config_hits:
+            console.print(
+                "[bold red]Claude Code config detected[/bold red] — running "
+                "structural hook/permission analysis (ClaudeCodeScanner)."
+            )
+            console.print(
+                "[dim]  Any findings below tagged ClaudeCodeScanner indicate a "
+                "potential Claude Code Compromise (hooks/permissions/skills).[/dim]\n"
+            )
 
         # Run the normal scan pipeline on the cloned repo
         # Import here to match the pattern used in the scan() function
@@ -1974,17 +2098,10 @@ def _scan_git_repo(
             include_user_mcp_configs=include_user_mcp_configs,
         )
 
-        # Rule diagnostics (--trace-rules) — same as the local path, serial scan.
+        # Rule diagnostics (--trace-rules) — shared helper with the local path so
+        # the heartbeat message stays identical across both paths (P3-14).
         if trace_rules:
-            import os as _os
-            from medusa.core import rule_diag
-            _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-            _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
-            rule_diag.enable(_diag_out, fine=_fine)
-            scanner.trace_rules = True
-            console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — rule-trace.jsonl + slow_rules.csv[/yellow]")
-            console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
-                          f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
+            _enable_rule_diagnostics(scanner, output, console)
 
         files = scanner.find_scannable_files()
         if not files:
@@ -1996,14 +2113,24 @@ def _scan_git_repo(
         results = scanner.scan_parallel(files)
 
         if trace_rules:
-            from medusa.core import rule_diag
-            _d = rule_diag.get()
-            if _d is not None:
-                _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
-                _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
-                console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
-                console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
-                rule_diag.disable()
+            _write_rule_diagnostics(output, console)
+
+        # Surface Claude Code findings distinctly when a .claude config was found,
+        # so they're clearly attributable rather than buried in the general list
+        # (P3-10). The fail-threshold exit below can short-circuit, so emit this
+        # note first.
+        if _claude_config_hits:
+            _cc_findings = sum(
+                1 for r in results
+                if 'claudecode' in str(getattr(r, 'scanner', '')).lower()
+                for _ in r.issues
+            )
+            if _cc_findings:
+                console.print(
+                    f"\n[bold red]Claude Code Compromise:[/bold red] "
+                    f"{_cc_findings} finding(s) from ClaudeCodeScanner — review the "
+                    f".claude hooks/permissions/skills surface in this repo."
+                )
 
         # Generate reports + check fail threshold (shared with local scan via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(
@@ -2015,12 +2142,28 @@ def _scan_git_repo(
         if _exit_code:
             sys.exit(_exit_code)
 
-        console.print("\n[dark_green]Scan complete![/dark_green]")
+        # Affirmative empty state — mirror the local scan() path (RM-1) so a clean
+        # cloned repo reads as "verified clean" rather than a silent zero.
+        _total_findings = sum(len(r.issues) for r in results)
+        _scanner_count = len({
+            getattr(r, 'scanner', '') for r in results if getattr(r, 'scanner', '')
+        })
+        if _total_findings == 0:
+            _file_word = "file" if len(files) == 1 else "files"
+            console.print(
+                f"\n[bold green]✅ Clean — 0 issues found across "
+                f"{len(files)} {_file_word}, {_scanner_count} scanners[/bold green]"
+            )
+
+        _print_scan_complete()
 
         if missing_linters:
             console.print(f"\n[yellow]For fuller coverage, install missing linters and re-scan:[/yellow]")
             console.print(f"  [dim]{', '.join(missing_linters[:5])}{'...' if len(missing_linters) > 5 else ''}[/dim]")
             console.print(f"  [dim]Run 'medusa install --check' for details[/dim]")
+
+        # Discoverability nudge for the secrets scanner — mirror local scan() (RM-1).
+        _print_secrets_tip()
 
     except SystemExit:
         raise
@@ -2241,9 +2384,6 @@ def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
             console.print("  5. GitHub Copilot")
             console.print("  6. All of the above")
             console.print("  7. None")
-            choices = click.prompt("Select IDE(s) (comma-separated, e.g., 1,2,3)", type=str, default="7")
-
-            choice_nums = [int(c.strip()) for c in choices.split(',') if c.strip().isdigit()]
             ide_map = {
                 1: 'claude-code',
                 2: 'cursor',
@@ -2253,6 +2393,37 @@ def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
                 6: 'all',
                 7: 'none'
             }
+
+            # Re-prompt on bad input rather than silently configuring nothing
+            # (RL-4): a non-numeric or out-of-range entry should not quietly map
+            # to "no IDE". Cap the retries so a non-interactive/piped stdin that
+            # keeps returning the same junk can't loop forever — fall back to the
+            # safe default ('none') after a few tries.
+            choice_nums: list = []
+            _valid_choices = set(ide_map)
+            for _attempt in range(3):
+                choices = click.prompt(
+                    "Select IDE(s) (comma-separated, e.g., 1,2,3)",
+                    type=str, default="7",
+                )
+                _tokens = [c.strip() for c in choices.split(',') if c.strip()]
+                _parsed = [int(t) for t in _tokens if t.isdigit()]
+                _bad = [t for t in _tokens if not t.isdigit() or int(t) not in _valid_choices]
+                choice_nums = [n for n in _parsed if n in _valid_choices]
+                if choice_nums and not _bad:
+                    break
+                # Something was invalid (non-numeric, out of range, or empty).
+                console.print(
+                    f"[yellow]Please enter one or more numbers from 1-7 "
+                    f"(comma-separated). Unrecognized: "
+                    f"{', '.join(_bad) if _bad else '(empty)'}[/yellow]"
+                )
+            else:
+                # Exhausted retries without a clean selection — default to 'none'
+                # so we never silently configure a partial/empty IDE set.
+                if not choice_nums:
+                    console.print("[dim]No valid IDE selected — skipping IDE integration.[/dim]")
+                    choice_nums = [7]
 
             ide_list = []
             for num in choice_nums:
@@ -2279,11 +2450,22 @@ def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
         if attr:
             setattr(config, attr, True)
 
-    # Determine config path (visible or legacy hidden)
-    config_path = project_root / "medusa.yml"
-    legacy_path = project_root / ".medusa.yml"
-    if legacy_path.exists() and not config_path.exists():
-        config_path = legacy_path
+    # Determine config path. The tool and all docs read `.medusa.yml`, so that
+    # is the canonical name we write (P3-6). If a config already exists under
+    # either name we reuse it rather than creating a second, conflicting file.
+    dotted_path = project_root / ".medusa.yml"
+    visible_path = project_root / "medusa.yml"
+    if dotted_path.exists():
+        config_path = dotted_path
+    elif visible_path.exists():
+        # Pre-existing visible config: don't orphan it by writing a dotted twin.
+        config_path = visible_path
+        console.print(
+            f"[yellow]⚠️  Using existing {visible_path.name}; "
+            f"the canonical name is .medusa.yml (both are read).[/yellow]"
+        )
+    else:
+        config_path = dotted_path
 
     # Save configuration
     ConfigManager.save_config(config, config_path)
@@ -2432,12 +2614,23 @@ def init(ide, force, install):
     console.print("\n[cyan]🔧 MEDUSA Initialization Wizard[/cyan]\n")
 
     project_root = Path.cwd()
-    config_path = project_root / "medusa.yml"
 
-    # Check if config already exists (visible or legacy hidden)
-    legacy_path = project_root / ".medusa.yml"
-    if legacy_path.exists() and not config_path.exists():
-        config_path = legacy_path
+    # `.medusa.yml` is canonical (P3-6); `medusa.yml` is still honored for
+    # backward compatibility. Prefer the dotted name when deciding what an
+    # existing config is.
+    dotted_path = project_root / ".medusa.yml"
+    visible_path = project_root / "medusa.yml"
+    config_path = dotted_path if dotted_path.exists() else (
+        visible_path if visible_path.exists() else dotted_path
+    )
+
+    # If BOTH names exist, the tool reads either — warn so the user can dedupe.
+    if dotted_path.exists() and visible_path.exists():
+        console.print(
+            "[yellow]⚠️  Both .medusa.yml and medusa.yml exist — "
+            ".medusa.yml takes precedence. Consider removing medusa.yml.[/yellow]"
+        )
+
     if config_path.exists() and not force:
         console.print(f"[yellow]⚠️  Configuration already exists: {config_path}[/yellow]")
         if not click.confirm("Overwrite existing configuration?", default=False):
@@ -2474,6 +2667,7 @@ def init(ide, force, install):
     console.print(f"  {step}. Run your first scan: [cyan]medusa scan .[/cyan]")
     console.print(f"  {step + 1}. Exclude directories: [cyan]medusa scan . -e archive/ -e vendor/[/cyan]")
     console.print(f"\n[dim]  Tip: Add permanent exclusions in {config_path.name} under 'exclude > paths'[/dim]")
+    _print_secrets_tip()
     console.print()
 
 
@@ -2972,7 +3166,7 @@ def config():
         console.print("[bold cyan]Cache:[/bold cyan] Not initialized")
 
 
-@main.command()
+@main.command(hidden=True)
 def output():
     """Development helper: Check background process output"""
     # This is primarily for development/debugging
@@ -3109,17 +3303,20 @@ def override(file_path, scanner_name, list_scanners, show, remove):
         # Remove an override
         medusa override docker-compose.dev.yml --remove
     """
-    from medusa.config import ConfigManager
+    from medusa.config import ConfigManager, ConfigError
     from medusa.scanners import registry
     from rich.table import Table
 
     # Load config
     config_path = ConfigManager.find_config()
-    if config_path:
-        config = ConfigManager.load_config(config_path)
-    else:
+    if not config_path:
         config_path = Path.cwd() / "medusa.yml"
+    try:
         config = ConfigManager.load_config(config_path)
+    except ConfigError as e:
+        console.print(f"[red]ERROR: invalid MEDUSA config:[/red] {e}")
+        console.print("[dim]Fix the config file (or remove it to use defaults), then re-run.[/dim]")
+        raise SystemExit(2)
 
     # List available scanners
     if list_scanners:
@@ -3513,6 +3710,43 @@ def _generate_spdx(target_path: Path, dependencies: list) -> dict:
             } for pkg in packages
         ]
     }
+
+
+@main.command()
+@click.option('--count', is_flag=True,
+              help='Print the real loaded rule count and the curated/harvested split')
+def rules(count):
+    """
+    Inspect the loaded detection ruleset.
+
+    The count reported here is computed from the rules actually loaded by MEDUSA
+    (not a marketing figure), and is broken down by provenance: curated rules are
+    hand-written and versioned; harvested rules are bulk-extracted from research.
+
+    Examples:
+        medusa rules --count            # Show the real total + curated/harvested split
+    """
+    # --count is currently the only behaviour; treat a bare `medusa rules` the
+    # same so users discover the number without needing the flag.
+    info = _get_rule_count_info()
+    if not info:
+        console.print(
+            "[red]Could not load the ruleset to count it.[/red] "
+            "Try [cyan]medusa scan .[/cyan] to surface the underlying error."
+        )
+        raise SystemExit(1)
+
+    total = info['total']
+    curated = info['curated']
+    harvested = info['harvested']
+    other = info['other']
+
+    console.print(f"\n[bold dark_green]MEDUSA loaded rules:[/bold dark_green] {total:,}")
+    console.print(f"  [cyan]curated[/cyan]   (hand-written, versioned): {curated:,}")
+    console.print(f"  [cyan]harvested[/cyan] (research-extracted):      {harvested:,}")
+    if other:
+        console.print(f"  [dim]unmarked:                            {other:,}[/dim]")
+    console.print()
 
 
 # Attach host-scoped subcommands. Import is deferred to keep cold-start

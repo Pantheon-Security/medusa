@@ -76,6 +76,31 @@ def _md_sanitize_inline(text: str) -> str:
     return text.replace('`', '').replace('\n', '').replace('\r', '')
 
 
+# Friendly labels for scanner class names, surfaced in JSON/HTML reports so a
+# finding shows "AI Attack Signatures (always-on)" rather than the bare class
+# name. Scanners not listed here fall back to a prettified class name.
+_SCANNER_DISPLAY_NAMES = {
+    'AIAttackSignatureScanner': 'AI Attack Signatures (always-on)',
+    'ClaudeCodeScanner': 'Claude Code Compromise',
+}
+
+# Split a CamelCase scanner class name into spaced words for a default label,
+# keeping acronym runs (AI, MCP) intact.
+_CAMEL_SPLIT_1 = re.compile(r'(?<=[a-z0-9])(?=[A-Z])')
+_CAMEL_SPLIT_2 = re.compile(r'(?<=[A-Z])(?=[A-Z][a-z])')
+
+
+def _scanner_display_name(scanner_name: str) -> str:
+    """Map a raw scanner class name to a human-readable label."""
+    if not scanner_name:
+        return 'Unknown Scanner'
+    if scanner_name in _SCANNER_DISPLAY_NAMES:
+        return _SCANNER_DISPLAY_NAMES[scanner_name]
+    spaced = _CAMEL_SPLIT_1.sub(' ', scanner_name)
+    spaced = _CAMEL_SPLIT_2.sub(' ', spaced)
+    return spaced
+
+
 class MedusaReportGenerator:
     """Generate comprehensive security reports from MEDUSA scans"""
 
@@ -160,6 +185,14 @@ class MedusaReportGenerator:
         timestamp = datetime.now().isoformat()
         findings = list(scan_results.get('findings', []))
 
+        # Surface a friendly scanner label per finding (maps the raw scanner
+        # class name to a human-readable display_name). Copy each dict so the
+        # caller's findings are not mutated.
+        findings = [
+            {**f, 'scanner_display_name': _scanner_display_name(f.get('scanner', ''))}
+            for f in findings
+        ]
+
         # Apply AI-safe obfuscation if requested
         obfuscator = None
         if ai_safe:
@@ -178,7 +211,7 @@ class MedusaReportGenerator:
                 'version': __version__,
                 'analyzers': 79,
                 'rules': '40,000+',
-                'url': 'https://medusa-security.dev',
+                'url': 'https://pantheonsecurity.io',
             },
             'scan_summary': {
                 'total_issues': len(findings),
@@ -318,8 +351,7 @@ class MedusaReportGenerator:
             count = severity_breakdown.get(severity, 0)
             if count > 0:
                 percentage = (count / total_issues) * 100
-                emoji = {'CRITICAL': '🚨', 'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🔵'}.get(severity, '⚪')
-                md += f"| {emoji} **{severity}** | {count} | {percentage:.1f}% |\n"
+                md += f"| **{severity}** | {count} | {percentage:.1f}% |\n"
 
         md += "\n---\n\n"
 
@@ -333,9 +365,8 @@ class MedusaReportGenerator:
 
             for i, finding in enumerate(sorted_findings, 1):
                 severity = finding['severity']
-                emoji = {'CRITICAL': '🚨', 'HIGH': '🔴', 'MEDIUM': '🟡', 'LOW': '🔵', 'UNDEFINED': '⚪'}.get(severity, '⚪')
 
-                md += f"### {i}. {emoji} {severity}: {_md_sanitize_inline(str(finding['issue']))}\n\n"
+                md += f"### {i}. [{severity}] {_md_sanitize_inline(str(finding['issue']))}\n\n"
                 md += f"**File:** `{_md_sanitize_inline(str(finding['file']))}:{finding['line']}`  \n"
                 md += f"**Scanner:** {finding['scanner']}  \n"
                 md += f"**Confidence:** {finding.get('confidence', 'N/A')}  \n"
@@ -349,7 +380,7 @@ class MedusaReportGenerator:
 
                 md += "\n---\n\n"
         else:
-            md += "## Detailed Findings\n\n✨ **No security issues found!** Your code is excellent!\n\n---\n\n"
+            md += "## Detailed Findings\n\n**No security issues found.**\n\n---\n\n"
 
         # Missing linters note
         missing_linters = scan_results.get('missing_linters', [])
@@ -372,7 +403,7 @@ class MedusaReportGenerator:
 
 MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection rules for AI/ML, LLM agents, and MCP servers.
 
-**Learn more:** [MEDUSA Security](https://medusa-security.dev)
+**Learn more:** [MEDUSA Security](https://pantheonsecurity.io)
 
 ---
 
@@ -516,7 +547,7 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
                         'driver': {
                             'name': 'MEDUSA',
                             'semanticVersion': __version__,
-                            'informationUri': 'https://medusa-security.dev',
+                            'informationUri': 'https://pantheonsecurity.io',
                             'rules': rules,
                         }
                     },
@@ -594,12 +625,15 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
         else:
             score_color = '#ef4444'  # Red
 
-        # Build scanner summary rows
+        # Build scanner summary rows. Use the same friendly display name the
+        # finding cards use so the summary table matches (RM-3) instead of
+        # leaking raw class names like "AIAttackSignatureScanner".
         scanner_rows = ''
         for scanner_name, count in sorted(scanner_counts.items(), key=lambda x: x[1], reverse=True):
+            display_name = _scanner_display_name(scanner_name)
             scanner_rows += f'''
                 <tr>
-                    <td style="padding: 10px 16px; border-bottom: 1px solid var(--border);">{scanner_name}</td>
+                    <td style="padding: 10px 16px; border-bottom: 1px solid var(--border);">{display_name}</td>
                     <td style="padding: 10px 16px; border-bottom: 1px solid var(--border); text-align: right; font-weight: 600;">{count}</td>
                 </tr>'''
 
@@ -639,7 +673,6 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MEDUSA Security Report</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 
@@ -663,7 +696,9 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
         }}
 
         body {{
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            /* System-font stack so the report renders fully offline / air-gapped
+               (no Google Fonts dependency). 'Inter' is used if locally installed. */
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: var(--bg);
             color: var(--text);
             line-height: 1.6;
@@ -980,6 +1015,26 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
             margin-bottom: 12px;
         }}
 
+        .finding-remediation {{
+            background: rgba(152, 251, 146, 0.06);
+            border-left: 3px solid var(--success);
+            border-radius: 6px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: var(--text);
+            line-height: 1.5;
+        }}
+
+        .finding-remediation-label {{
+            font-weight: 600;
+            color: var(--success);
+        }}
+
+        .finding-rule-id {{
+            font-family: 'SF Mono', Monaco, monospace;
+        }}
+
         .finding-meta {{
             display: flex;
             flex-wrap: wrap;
@@ -997,20 +1052,26 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
             text-decoration: underline;
         }}
 
-        .no-findings {{
+        .empty-result {{
             text-align: center;
             padding: 60px 20px;
             color: var(--success);
         }}
 
-        .no-findings-icon {{
+        .empty-result-icon {{
             font-size: 48px;
             margin-bottom: 16px;
         }}
 
-        .no-findings-text {{
+        .empty-result-text {{
             font-size: 18px;
             font-weight: 500;
+        }}
+
+        .empty-result-stats {{
+            margin-top: 10px;
+            font-size: 14px;
+            color: var(--text-secondary, #888);
         }}
 
         /* Footer */
@@ -1138,12 +1199,12 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
 
         <div class="findings-section">
             <h2 class="section-title">Findings ({len(findings)})</h2>
-            {self._build_professional_findings_html(findings)}
+            {self._build_professional_findings_html(findings, summary)}
         </div>
 
         <footer class="footer">
             <p>Generated by <strong>MEDUSA</strong> v{__version__} &mdash; 79 Analyzers &bull; 40,000+ Rules &bull; AI Security Detection</p>
-            <p><a href="https://medusa-security.dev">medusa-security.dev</a></p>
+            <p><a href="https://pantheonsecurity.io">pantheonsecurity.io</a></p>
         </footer>
     </div>
 </body>
@@ -1151,13 +1212,17 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
 
         return html
 
-    def _build_professional_findings_html(self, findings: List[Dict]) -> str:
+    def _build_professional_findings_html(self, findings: List[Dict], summary: Dict = None) -> str:
         """Build professional findings list"""
         if not findings:
-            return '''
-            <div class="no-findings">
-                <div class="no-findings-icon">&#10003;</div>
-                <div class="no-findings-text">No security issues found</div>
+            summary = summary or {}
+            files_scanned = summary.get('files_scanned', 0)
+            lines_scanned = summary.get('lines_scanned', summary.get('total_lines_scanned', 0)) or 0
+            return f'''
+            <div class="empty-result" data-state="no-findings">
+                <div class="empty-result-icon" role="img" aria-label="Success: no security issues found">&#10003;</div>
+                <div class="empty-result-text">No security issues found</div>
+                <div class="empty-result-stats">Scanned {files_scanned} files / {lines_scanned:,} lines &mdash; 0 issues</div>
             </div>
             '''
 
@@ -1177,9 +1242,14 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
             file_path = html_lib.escape(str(finding.get('file', 'Unknown')))
             line = html_lib.escape(str(finding.get('line', '?')))
             code = html_lib.escape(finding.get('code', '')) if finding.get('code') else ''
-            scanner = html_lib.escape(finding.get('scanner', 'unknown'))
+            # Prefer the friendly scanner label; fall back to the raw class name.
+            raw_scanner = finding.get('scanner', 'unknown')
+            scanner = html_lib.escape(
+                finding.get('scanner_display_name') or _scanner_display_name(raw_scanner)
+            )
             confidence = html_lib.escape(str(finding.get('confidence', 'N/A')))
             cwe = finding.get('cwe')
+            rule_id = finding.get('rule_id')
 
             code_block = f'<pre class="finding-code">{code}</pre>' if code else ''
 
@@ -1187,6 +1257,21 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
             cwe_link = ''
             if cwe and str(cwe).isdigit():
                 cwe_link = f'<span>CWE-{cwe}: <a href="https://cwe.mitre.org/data/definitions/{cwe}.html" target="_blank">Details</a></span>'
+
+            # Render the rule ID so each finding is traceable to its detection rule.
+            rule_id_span = ''
+            if rule_id:
+                rule_id_span = f'<span class="finding-rule-id">Rule: {html_lib.escape(str(rule_id))}</span>'
+
+            # Remediation block: how to fix this finding (sourced from the rule).
+            remediation = finding.get('remediation')
+            remediation_block = ''
+            if remediation:
+                remediation_block = (
+                    '<div class="finding-remediation">'
+                    '<span class="finding-remediation-label">Remediation:</span> '
+                    f'{html_lib.escape(str(remediation))}</div>'
+                )
 
             # FP analysis badge
             fp_analysis = finding.get('fp_analysis', {})
@@ -1202,9 +1287,11 @@ MEDUSA is an AI-first security scanner with 79 analyzers and 40,000+ detection r
                 </div>
                 <div class="finding-message">{issue}</div>
                 {code_block}
+                {remediation_block}
                 <div class="finding-meta">
                     <span>Scanner: {scanner}</span>
                     <span>Confidence: {confidence}</span>
+                    {rule_id_span}
                     {cwe_link}
                     {fp_badge}
                 </div>

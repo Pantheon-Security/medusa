@@ -64,6 +64,15 @@ class Rule:
     source_paper: Optional[str] = None
     source_cve: Optional[str] = None
     fix: Optional[str] = None
+    # P2-3: remediation text surfaced on findings. Sourced from the rule's
+    # `remediation:` field if present, otherwise falls back to `fix:` at scan
+    # time. Kept as a distinct field so the scanner lane can read a stable name.
+    remediation: Optional[str] = None
+    # P2-7: provenance marker — 'curated' (hand-written, versioned rule sets like
+    # rust_security/php_security/attack_signatures) vs 'harvested' (bulk paper/
+    # extraction harvests). Derived by the loader from file/dir conventions when
+    # not set explicitly on the rule.
+    provenance: Optional[str] = None
     references: List[str] = field(default_factory=list)
     file_types: List[str] = field(default_factory=list)
 
@@ -144,6 +153,16 @@ class RuleLoader:
     # Default rules directory (relative to this file)
     RULES_DIR = Path(__file__).parent
 
+    # P2-7: directories whose rules are hand-written/curated (versioned, with
+    # fix: fields). Everything else defaults to harvested unless the filename
+    # markers below say otherwise.
+    _CURATED_DIRS = frozenset({
+        'rust_security', 'php_security', 'attack_signatures',
+        'cve', 'claude_code', 'web_security', 'code_gen_security',
+    })
+    # Filename substrings that mark bulk-harvested / auto-expanded rule files.
+    _HARVEST_MARKERS = ('_harvest', '_extract_max', '_scanner_expansion', '_expansion')
+
     def __init__(self, rules_dir: Optional[Path] = None, skip_integrity_check: bool = False):
         """
         Initialize rule loader.
@@ -156,6 +175,12 @@ class RuleLoader:
         self._rules_cache: Dict[str, List[Rule]] = {}
         self._rules_by_id: Dict[str, Rule] = {}
         self._rules_by_id_src: Optional[List[Rule]] = None
+        # P3-4: category -> rules index, built once from load_all_rules() and
+        # reused by every RuleBasedScanner instead of each one re-walking all
+        # ~42k rules to extract its categories. Rebuilt only when the underlying
+        # rule list object changes (same invalidation idiom as _rules_by_id).
+        self._rules_by_category: Dict[str, List[Rule]] = {}
+        self._rules_by_category_src: Optional[List[Rule]] = None
         self._integrity_verified = False
         self._skip_integrity = skip_integrity_check
 
@@ -227,6 +252,28 @@ class RuleLoader:
         self._rules_cache[subdir] = rules
         return rules
 
+    def _derive_provenance(self, filepath: Path, file_source: Optional[str]) -> str:
+        """Classify a rule file as 'curated' or 'harvested' (P2-7).
+
+        Precedence:
+        1. Explicit file-level metadata.source naming a harvest/extraction.
+        2. Filename markers (_harvest, _extract_max, _scanner_expansion).
+        3. Curated directory allowlist.
+        4. Default to 'harvested' (bulk pattern sets are the common case).
+        """
+        name = filepath.name.lower()
+        if file_source:
+            src = str(file_source).lower()
+            if any(m in src for m in ('harvest', 'extract', 'expansion', 'paper-')):
+                return 'harvested'
+        if any(marker in name for marker in self._HARVEST_MARKERS):
+            return 'harvested'
+        # Directory-based curated classification
+        parent = filepath.parent.name
+        if parent in self._CURATED_DIRS:
+            return 'curated'
+        return 'harvested'
+
     def _verify_rule_integrity(self) -> None:
         """
         Verify rule files haven't been tampered with (prompt-in-a-prompt protection).
@@ -293,6 +340,18 @@ class RuleLoader:
         if not data:
             return rules
 
+        # P2-7: determine provenance for every rule in this file. Honor an
+        # explicit file-level metadata.source, then fall back to filename/dir
+        # conventions.
+        file_source = None
+        if isinstance(data, dict):
+            meta = data.get('metadata')
+            if isinstance(meta, dict):
+                file_source = meta.get('source')
+            if file_source is None:
+                file_source = data.get('source')
+        default_provenance = self._derive_provenance(filepath, file_source)
+
         rules_data = []
 
         # Format 1: Standard format with 'rules:' key
@@ -324,7 +383,7 @@ class RuleLoader:
         # Parse all collected rules
         for rule_data in rules_data:
             try:
-                rule = self._parse_rule(rule_data)
+                rule = self._parse_rule(rule_data, default_provenance=default_provenance)
                 if rule:
                     rules.append(rule)
             except Exception as e:
@@ -332,7 +391,7 @@ class RuleLoader:
 
         return rules
 
-    def _parse_rule(self, data: Dict[str, Any]) -> Optional[Rule]:
+    def _parse_rule(self, data: Dict[str, Any], default_provenance: Optional[str] = None) -> Optional[Rule]:
         """Parse a single rule from dictionary data.
 
         Handles field variations:
@@ -419,6 +478,10 @@ class RuleLoader:
             source_paper=data.get('source_paper'),
             source_cve=data.get('source_cve'),
             fix=data.get('fix'),
+            # P2-3: prefer an explicit remediation, else reuse fix as remediation.
+            remediation=data.get('remediation') or data.get('fix'),
+            # P2-7: explicit rule-level provenance wins over the file default.
+            provenance=data.get('provenance') or default_provenance,
             references=references,
             file_types=file_types,
         )
@@ -474,10 +537,49 @@ class RuleLoader:
 
         return matches
 
-    def get_rules_by_category(self, category: str) -> List[Rule]:
-        """Get rules filtered by category"""
+    def _ensure_category_index(self) -> Dict[str, List[Rule]]:
+        """Build (once) and return the category -> rules index.
+
+        P3-4: each RuleBasedScanner used to call load_all_rules() and re-walk the
+        full ~42k-rule list to pull out the few categories it cares about. That is
+        O(rules) per scanner. Building the index once and slicing it is O(1) per
+        category lookup thereafter. Invalidated only when the underlying rule list
+        object is replaced (e.g. force_reload), matching the _rules_by_id idiom.
+        """
         all_rules = self.load_all_rules()
-        return [r for r in all_rules if r.category == category]
+        if self._rules_by_category_src is not all_rules:
+            index: Dict[str, List[Rule]] = {}
+            for rule in all_rules:
+                index.setdefault(rule.category, []).append(rule)
+            self._rules_by_category = index
+            self._rules_by_category_src = all_rules
+        return self._rules_by_category
+
+    def get_rules_by_category(self, category: str) -> List[Rule]:
+        """Get rules filtered by category (O(1) via the cached category index).
+
+        Returns the loader's own list for the category; callers that mutate the
+        result should copy it first.
+        """
+        return self._ensure_category_index().get(category, [])
+
+    def get_rules_for_categories(self, categories) -> List[Rule]:
+        """Get all rules belonging to any of the given categories (P3-4).
+
+        Convenience for scanners that select several categories at once. Preserves
+        rule order within each category and de-duplicates rules that somehow live
+        under more than one requested category lookup. Uses the cached index so it
+        does not re-walk the full rule list per scanner.
+        """
+        index = self._ensure_category_index()
+        result: List[Rule] = []
+        seen_ids: Set[str] = set()
+        for category in categories:
+            for rule in index.get(category, []):
+                if rule.id not in seen_ids:
+                    seen_ids.add(rule.id)
+                    result.append(rule)
+        return result
 
     def get_rules_by_severity(self, severity: RuleSeverity) -> List[Rule]:
         """Get rules filtered by severity"""
@@ -499,9 +601,27 @@ class RuleLoader:
         return self._rules_by_id.get(rule_id)
 
     def get_categories(self) -> Set[str]:
-        """Get all unique categories"""
+        """Get all unique categories (keys of the cached category index)."""
+        return set(self._ensure_category_index().keys())
+
+    def get_provenance_map(self) -> Dict[str, int]:
+        """Return a count of loaded rules by provenance (P2-7).
+
+        Keys are provenance markers ('curated', 'harvested', or '' when a rule
+        carries no marker). Lets callers/UX distinguish vetted from bulk-harvested
+        rules and report the split.
+        """
         all_rules = self.load_all_rules()
-        return {r.category for r in all_rules}
+        counts: Dict[str, int] = {}
+        for rule in all_rules:
+            key = rule.provenance or ''
+            counts[key] = counts.get(key, 0) + 1
+        return counts
+
+    def get_rules_by_provenance(self, provenance: str) -> List[Rule]:
+        """Get rules filtered by provenance marker (e.g. 'curated', 'harvested')."""
+        all_rules = self.load_all_rules()
+        return [r for r in all_rules if r.provenance == provenance]
 
     def get_stats(self) -> Dict[str, Any]:
         """Get rule statistics"""
