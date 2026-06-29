@@ -252,7 +252,14 @@ rules:
   severity: MEDIUM
   category: encoding_attack
   patterns:
-  - \\u[0-9a-fA-F]{4}
+  # Only the dangerous invisible/control ranges, NOT every \uXXXX escape.
+  # A blanket \\u[0-9a-fA-F]{4} matched every accented char (é) and emoji table
+  # entry (rich/_emoji_codes.py), firing ~934x on clean libs. Scope to the
+  # ranges actually used to hide/obfuscate payloads:
+  #   200b ZWSP, 200c ZWNJ, 200e LRM, 200f RLM  (200d ZWJ excluded — benign emoji joiner)
+  #   202a-202e bidi overrides/embeddings, 2066-2069 bidi isolates (Trojan Source)
+  #   feff BOM / zero-width no-break space
+  - (?i)\\u(?:200[bcef]|202[a-e]|206[6-9]|feff)
   - unicode_normalize
   - homoglyph
   message: Unicode manipulation for obfuscation

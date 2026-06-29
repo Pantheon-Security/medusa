@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
+from medusa.scanners._ml_context import has_ml_context
 
 # Module-level pre-compiled regex for assignment matching (used per-line in taint analysis)
 _ASSIGN_RE = re.compile(r'(\w+)\s*=\s*(.+)')
@@ -1009,8 +1010,19 @@ class OWASPLLMScanner(RuleBasedScanner):
                         column=1,
                     ))
 
-            # Scan with YAML rules
-            issues.extend(self._scan_with_rules(lines, file_path))
+            # Scan with YAML rules (OWASP LLM Top-10 harvest corpus).
+            #
+            # APPLICABILITY GATE: the harvested OWASP-LLM rules (MEDUSA-MM-SCAN-*,
+            # MEDUSA-JB-SCAN-*, MEDUSA-PRIV-SCAN-*, etc.) are LLM-specific by
+            # definition. The DEFINITIVE_LLM_INDICATORS check above admits files
+            # that merely contain an LLM name as a SUBSTRING — e.g. rich's emoji
+            # dictionary has a `"gemini"` key — letting the corpus fire on pure
+            # data/non-AI code. Require genuine AI/LLM context (which ignores
+            # quoted-name->emoji-glyph data lines) before reporting these rules. A
+            # real LLM vuln in AI code still carries context, so it still fires;
+            # the hand-written LLM01-LLM10 heuristics above already ran.
+            if has_ml_context(content):
+                issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

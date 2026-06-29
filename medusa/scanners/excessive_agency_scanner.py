@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
+from medusa.scanners._ml_context import has_ml_context
 
 
 class ExcessiveAgencyScanner(BaseScanner):
@@ -321,19 +322,33 @@ class ExcessiveAgencyScanner(BaseScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
-            # Check if file is agent-related
-            agent_indicators = [
-                'agent', 'langchain', 'llama_index', 'autogen', 'crewai',
-                'tool', 'action', 'execute', 'openai', 'anthropic',
-                'assistant', 'function_call', 'capability',
-                'pythonrepl', 'python_repl', 'shelltool', 'bashprocess',
-                'agentexecutor', 'create_react_agent', 'create_openai',
-                'docx2txt', 'document_loader', 'pypdf', 'pdfplumber',
-                'load_tools', 'gradio',
-            ]
+            # Check if file is agent-related.
+            #
+            # APPLICABILITY GATE: this scanner is LLM-agent-specific (OWASP LLM08).
+            # The generic substrings in `agent_indicators` ('tool', 'action',
+            # 'execute', 'capability') appear in benign non-AI code (requests,
+            # urllib3), causing EXA* heuristics + the YAML corpus to fire on
+            # unrelated files. Require EITHER genuine ML/LLM context (shared
+            # detector) OR a STRONG, unambiguous agent-framework construct
+            # (AgentExecutor, create_react_agent, PythonREPL, load_tools, ...).
+            # This preserves coverage for agent code that uses no LLM-SDK token
+            # while dropping the generic-substring false positives.
             content_lower = content.lower()
 
-            if not any(ind in content_lower for ind in agent_indicators):
+            # Strong agent-framework constructs — specific enough not to collide
+            # with general-purpose code.
+            strong_agent_indicators = [
+                'langchain', 'llama_index', 'autogen', 'crewai',
+                'pythonrepl', 'python_repl', 'shelltool', 'bashprocess',
+                'agentexecutor', 'create_react_agent', 'create_openai',
+                'load_tools', 'function_call', 'document_loader',
+            ]
+            has_agent_context = (
+                has_ml_context(content)
+                or any(ind in content_lower for ind in strong_agent_indicators)
+            )
+
+            if not has_agent_context:
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),

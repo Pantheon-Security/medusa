@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
+from medusa.scanners._ml_context import has_ml_context
 
 
 class ModelAttackScanner(RuleBasedScanner):
@@ -420,9 +421,19 @@ class ModelAttackScanner(RuleBasedScanner):
                         column=1,
                     ))
 
-            # Scan with YAML rules
-            lines = content.split('\n')
-            issues.extend(self._scan_with_rules(lines, file_path))
+            # Scan with YAML rules (adversarial-ML / model-poisoning corpus).
+            #
+            # APPLICABILITY GATE: the harvested model-attack rules (MEDUSA-MM-SCAN-*,
+            # MEDUSA-FLA-SCAN-*, MEDUSA-AI-BACKDOOR-*, etc.) are AI-specific by
+            # definition and match generic tokens that fire on benign non-AI code
+            # (the loose `ml_indicators` above admits substrings like 'train'/'bert'
+            # inside unrelated words). Only report them when the file shows genuine
+            # ML/AI context. A real model attack in an AI-context file still carries
+            # that context, so it still fires; the legacy MA* heuristics above
+            # already ran on the looser gate.
+            if has_ml_context(content):
+                lines = content.split('\n')
+                issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

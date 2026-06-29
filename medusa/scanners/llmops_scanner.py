@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number
+from medusa.scanners._ml_context import has_ml_context as _shared_has_ml_context
 
 
 class LLMOpsScanner(RuleBasedScanner):
@@ -216,6 +217,32 @@ class LLMOpsScanner(RuleBasedScanner):
 
     # Note: GPU memory patterns (CVE-2023-4969) moved to ModelAttackScanner (MA012)
     # which has CVE-referenced, multiline-aware detection
+
+    # --- ML / inference-infrastructure applicability gate ---------------------
+    #
+    # The YAML-loaded inference_infrastructure corpus (the MEDUSA-INF-SCAN-* /
+    # MEDUSA-INFRA-SCAN-* harvest, ~3k rules) only makes sense in files that
+    # actually do ML / model-serving / inference work. Many of those rules match
+    # extremely generic tokens (`chunk_size`, `compression_ratio`, `import
+    # socket`, `host: 0.0.0.0`) and fire on benign SSL/network/utility code,
+    # producing the bulk of LLMOpsScanner false positives on non-ML projects.
+    #
+    # We require POSITIVE ML/inference context in the file before those
+    # category-level YAML findings are reported. A real inference-infra issue in
+    # an ML file still has context, so it still fires. The legacy LO* heuristics
+    # above are unaffected — only the YAML inference_infrastructure rules are
+    # gated, and only when the file shows no ML/inference signal at all.
+    #
+    # The actual detector lives in medusa.scanners._ml_context (shared with
+    # ModelAttackScanner and OWASPLLMScanner so all AI scanners gate identically).
+    @classmethod
+    def _has_ml_context(cls, content: str) -> bool:
+        """True when the file shows genuine ML / model-serving / inference context.
+
+        Thin wrapper over the shared detector so existing tests that call
+        ``LLMOpsScanner._has_ml_context`` keep working.
+        """
+        return _shared_has_ml_context(content)
 
     def __init__(self):
         super().__init__()
@@ -417,9 +444,17 @@ class LLMOpsScanner(RuleBasedScanner):
 
             # GPU memory (CVE-2023-4969) now handled by ModelAttackScanner (MA012)
 
-            # Scan with YAML rules
-            lines = content.split('\n')
-            issues.extend(self._scan_with_rules(lines, file_path))
+            # Scan with YAML rules (inference_infrastructure corpus).
+            #
+            # APPLICABILITY GATE: the ~3k harvested inference_infrastructure rules
+            # match very generic tokens and produce the bulk of LLMOps false
+            # positives on benign non-ML code. Only report them when the file has
+            # genuine ML / model-serving / inference context. A real inference-infra
+            # issue in an ML file still carries that context, so it still fires;
+            # the legacy LO* heuristics above already ran unconditionally.
+            if self._has_ml_context(content):
+                lines = content.split('\n')
+                issues.extend(self._scan_with_rules(lines, file_path))
 
             return ScannerResult(
                 scanner_name=self.name,

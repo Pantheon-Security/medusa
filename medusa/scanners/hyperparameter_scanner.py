@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners._ml_context import has_ml_context
 
 
 class HyperparameterScanner(BaseScanner):
@@ -218,7 +219,17 @@ class HyperparameterScanner(BaseScanner):
                     pass
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
-            # Check if file is ML/training related
+            # Check if file is ML/training related.
+            #
+            # APPLICABILITY GATE: this scanner is ML-specific by definition (it
+            # only flags training-hyperparameter issues). The legacy `ml_indicators`
+            # list below admits generic substrings ('config', 'lr', 'fit', 'loss',
+            # 'batch') that appear in benign non-ML code (e.g. rich/jinja2), causing
+            # every HPT* heuristic AND the YAML corpus to fire on unrelated files.
+            # Require genuine ML context (shared detector, which also ignores
+            # quoted-name->emoji-glyph data lines) before doing ANY work here. A
+            # real hyperparameter issue in ML code still carries that context, so it
+            # still fires; coverage is preserved and no rule is removed.
             ml_indicators = [
                 'train', 'model', 'epoch', 'batch', 'learning_rate', 'lr',
                 'optimizer', 'loss', 'fit', 'keras', 'torch', 'tensorflow',
@@ -226,7 +237,9 @@ class HyperparameterScanner(BaseScanner):
             ]
             content_lower = content.lower()
 
-            if not any(ind in content_lower for ind in ml_indicators):
+            if not has_ml_context(content) or not any(
+                ind in content_lower for ind in ml_indicators
+            ):
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),

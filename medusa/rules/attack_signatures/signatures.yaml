@@ -136,10 +136,25 @@ rules:
   severity: high
   category: attack_signatures
   patterns:
-  # Code that embeds zero-width / bidi controls via escape or chr() — used to
-  # hide instructions inside prompts, identifiers, or strings.
-  - (?i)(?:\\u(?:200[b-f]|202[a-e]|206[0-9]|feff)|\\x{?(?:200[b-f]|202[a-e]|feff)|chr\(\s*0x(?:200[b-f]|202[a-e]|feff))
+  # (1) RAW invisible codepoint sitting literally in source — the actual attack:
+  # a zero-width char smuggled into a string/prompt/identifier. Near-zero FP
+  # (0 hits across 100k LOC of clean libs). Mirrors ATKSIG-020 (which covers raw
+  # bidi controls 202a-202e / 2066-2069); this covers the zero-width set NOT in
+  # 020. U+200D (ZWJ) is deliberately EXCLUDED — it is the legitimate emoji
+  # joiner and is everywhere in width/emoji tables (rich/_emoji_codes.py).
+  #   200b ZWSP, 200c ZWNJ, 200e LRM, 200f RLM, feff BOM/ZWNBSP
+  - "[​‌‎‏﻿]"
+  # (2) Code that *constructs* an invisible/bidi control via escape or chr().
+  #   - \u / \x ESCAPE form: bidi ranges ONLY (202a-202e, 2066-2069). The old
+  #     rule also matched 200[b-f] escapes, but ‍ (ZWJ) escapes appear ~765x
+  #     in clean emoji-width tables (rich/_emoji_codes.py); a zero-width *escape*
+  #     cannot be told apart from benign unicode-handling code, so the real
+  #     zero-width *embedding* attack is carried by pattern (1) on the raw char.
+  #   - chr(0x..) form: keep the full zero-width+bidi+BOM set (200b/c/e/f, 202a-e,
+  #     2066-9, feff) EXCEPT 200d — chr() of an invisible codepoint is 0 hits in
+  #     100k LOC of clean libs, i.e. a deliberate, high-signal construction.
+  - (?i)(?:\\u(?:202[a-e]|206[6-9])|\\x\{?(?:202[a-e])\}?|chr\(\s*0x(?:200[bcef]|202[a-e]|206[6-9]|feff))
   message: "Code embedding invisible / bidi unicode (hidden-instruction injection)"
-  description: Source that writes zero-width or bidirectional control characters via \u/\x escapes or chr() — a common way to smuggle hidden instructions or obfuscate payloads.
+  description: Source containing a raw zero-width codepoint (hidden in a string/prompt/identifier) or constructing a bidirectional override via \u/\x escapes or chr() — a common way to smuggle hidden instructions or obfuscate payloads. Emoji ZWJ (U+200D) is excluded as benign.
   owasp_llm: LLM01:2025
   cwe: CWE-94

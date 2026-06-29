@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _build_line_offsets, _get_line_number, filter_contextual_fps
+from medusa.scanners._ml_context import has_ml_context
 
 
 # Severity ordering for demotion logic
@@ -606,6 +607,23 @@ class PromptLeakageScanner(RuleBasedScanner):
 
             # Skip empty files
             if not content.strip():
+                return ScannerResult(
+                    scanner_name=self.name,
+                    file_path=str(file_path),
+                    issues=[],
+                    scan_time=time.time() - start_time,
+                    success=True,
+                )
+
+            # APPLICABILITY GATE: prompt-leakage is LLM-specific — a real
+            # system-prompt / tool-definition leak lives in code that talks to an
+            # LLM. This scanner had NO context gate and so its PL* heuristics +
+            # the YAML corpus fired on benign non-AI source (click / jinja2 /
+            # rich). Require genuine ML/LLM context (shared detector, which also
+            # ignores quoted-name->emoji-glyph data lines) before any work. Real
+            # prompt-leak code carries that context, so it still fires; coverage
+            # is preserved and no rule is removed.
+            if not has_ml_context(content):
                 return ScannerResult(
                     scanner_name=self.name,
                     file_path=str(file_path),
