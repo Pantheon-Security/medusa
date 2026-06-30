@@ -1232,6 +1232,57 @@ def _print_secrets_tip() -> None:
     )
 
 
+def _run_llm_triage(results) -> None:
+    """Run the optional LLM semantic triage over scan results (build item #7).
+
+    Called ONLY when `--llm-triage` is set. Imports medusa.core.llm_triage
+    lazily so the default scan path never imports it and never touches the
+    network. If no provider is configured, prints a clear message and returns
+    without changing anything (the scan still succeeds).
+
+    Fail-safe by construction: triage_findings never drops a finding on error,
+    never drops a CRITICAL, and only suppresses confident sub-CRITICAL FPs. We
+    rebuild each result's issue list from the triage `kept` set so any
+    suppressed FPs disappear from the reports / fail-threshold while the
+    verdict + reason annotations remain on the survivors.
+    """
+    from medusa.core.llm_triage import llm_available, triage_findings
+
+    available, info = llm_available()
+    if not available:
+        console.print(
+            f"\n[yellow]ℹ️  --llm-triage requested but no LLM provider configured: "
+            f"{info}.[/yellow]"
+        )
+        console.print("[dim]   Skipping triage; scan results are unchanged.[/dim]")
+        return
+
+    console.print(f"\n[cyan]🤖 LLM triage ({info}) — annotating findings...[/cyan]")
+
+    total_triaged = 0
+    total_suppressed = 0
+    total_errors = 0
+    for r in results:
+        issues = getattr(r, "issues", None)
+        if not issues:
+            continue
+        outcome = triage_findings(issues, provider=info)
+        r.issues = outcome["kept"]
+        total_triaged += outcome["triaged"]
+        total_suppressed += outcome["suppressed_fp"]
+        total_errors += outcome["errors"]
+
+    console.print(
+        f"[cyan]   Triaged {total_triaged} finding(s): "
+        f"{total_suppressed} confident false-positive(s) suppressed, "
+        f"{total_errors} kept as uncertain (triage error).[/cyan]"
+    )
+    console.print(
+        "[dim]   CRITICAL findings are never suppressed by triage; "
+        "survivors carry an llm_verdict + llm_reason.[/dim]"
+    )
+
+
 def _enable_rule_diagnostics(scanner, output, console) -> None:
     """Turn on --trace-rules / MEDUSA_TRACE_RULES diagnostics for `scanner`.
 
@@ -1421,7 +1472,11 @@ def main(ctx, version):
               help='Suppress findings whose fingerprint is in this baseline file; surface only NEW findings.')
 @click.option('--write-baseline', 'write_baseline_path', type=click.Path(), default=None,
               help='Write the current findings\' fingerprints to this file (creates/updates the baseline).')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path):
+@click.option('--llm-triage', 'llm_triage', is_flag=True, default=False,
+              help='OPT-IN: use your configured LLM (ANTHROPIC_API_KEY / OPENAI_API_KEY) to '
+                   'semantically triage findings — annotate each as true/false positive with a '
+                   'one-line reason. OFF by default; no network unless enabled AND a provider is set.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage):
     """
     Scan a directory or file for security issues.
 
@@ -1712,6 +1767,14 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
                     f"[cyan]Baseline applied: {_suppressed_total} finding(s) "
                     f"suppressed, {_new_total} new[/cyan]"
                 )
+
+        # Optional LLM semantic triage (build item #7). OPT-IN only: imported
+        # and run solely when --llm-triage is set, so the default path has zero
+        # overhead and never touches the network. Runs AFTER the FP filter
+        # (applied inside scan_parallel) and the baseline so the LLM only sees
+        # findings that survived those stages.
+        if llm_triage:
+            _run_llm_triage(results)
 
         # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(

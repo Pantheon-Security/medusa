@@ -194,6 +194,13 @@ class FalsePositiveFilter:
     # line the finding is on.
     _INLINE_SUPPRESS_RE = re.compile(r'(?:#|//)\s*medusa:ignore\b', re.IGNORECASE)
 
+    # Deliberate, high-precision attack signatures that fire only on
+    # instruction-bearing / clearly-malicious content. The generic context FP
+    # heuristics (generated-code, config/data-file, test-file…) must not bury
+    # these. (MCP tool-metadata poisoning lives in mcp.json, which the
+    # generated-code heuristic wrongly treats as auto-generated.)
+    _NEVER_GENERIC_FP_PREFIXES = ('MEDUSA-MCP-POISON-',)
+
     # --- B1: security-rule / signature-definition data-file recognition ---
     #
     # A security tool's own rule corpus (and any user who VENDORS such a corpus)
@@ -299,6 +306,18 @@ class FalsePositiveFilter:
         # Load source context if not provided
         if source_context is None:
             source_context = self._get_source_context(file_path, line_num)
+
+        # High-signal, self-guarded attack signatures must NOT be second-guessed
+        # by the generic context heuristics. E.g. a poisoned mcp.json (hidden
+        # directive in tool metadata) was being read as "generated_code" and
+        # silently dropped. These detectors only fire on instruction-bearing
+        # content, so honor an explicit `medusa:ignore` but otherwise always
+        # report.
+        rule_id = finding.get('rule_id') or ''
+        if rule_id.startswith(self._NEVER_GENERIC_FP_PREFIXES):
+            inline = self._check_inline_suppression(finding, source_context)
+            return inline if inline.is_likely_fp else FilterResult(
+                original_severity=finding.get('severity', 'MEDIUM'))
 
         # Check each filter in order of confidence. Inline suppression is an
         # explicit author opt-out (`medusa:ignore`) so it runs first and applies
