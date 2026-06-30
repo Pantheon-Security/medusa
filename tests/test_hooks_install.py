@@ -172,13 +172,126 @@ def test_codex_mcp_merge_preserves_server(tmp_path: Path):
 
 
 # --------------------------------------------------------------------------- #
+# Claude SessionStart hook
+# --------------------------------------------------------------------------- #
+def test_claude_sessionstart_present_and_contract(tmp_path: Path):
+    path = install.install_claude_sessionstart(tmp_path)
+    assert path == tmp_path / ".claude" / "settings.json"
+
+    data = json.loads(path.read_text())  # valid JSON
+    start = data["hooks"]["SessionStart"]
+    assert isinstance(start, list)
+
+    medusa_entries = [
+        e
+        for e in start
+        if any("medusa" in h.get("command", "") for h in e.get("hooks", []))
+    ]
+    assert len(medusa_entries) == 1
+    hook = medusa_entries[0]["hooks"][0]
+    assert hook["type"] == "command"
+    assert "medusa" in hook["command"]
+
+
+def test_claude_sessionstart_idempotent(tmp_path: Path):
+    install.install_claude_sessionstart(tmp_path)
+    install.install_claude_sessionstart(tmp_path)
+    data = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    start = data["hooks"]["SessionStart"]
+    medusa_entries = [
+        e
+        for e in start
+        if any("medusa" in h.get("command", "") for h in e.get("hooks", []))
+    ]
+    assert len(medusa_entries) == 1
+
+
+def test_claude_sessionstart_merges_with_pretooluse(tmp_path: Path):
+    # Installing both hooks must not clobber each other in the same settings.json.
+    install.install_claude_hook(tmp_path)
+    install.install_claude_sessionstart(tmp_path)
+    data = json.loads((tmp_path / ".claude" / "settings.json").read_text())
+    assert any(
+        e.get("matcher") == "Bash" for e in data["hooks"]["PreToolUse"]
+    )
+    assert len(data["hooks"]["SessionStart"]) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Claude skill (SKILL.md)
+# --------------------------------------------------------------------------- #
+def test_claude_skill_frontmatter_and_tools(tmp_path: Path):
+    path = install.install_claude_skill(tmp_path)
+    assert path == tmp_path / ".claude" / "skills" / "medusa-vet" / "SKILL.md"
+
+    content = path.read_text()
+    # Valid YAML frontmatter delimited by --- ... ---
+    assert content.startswith("---\n")
+    _, fm, _body = content.split("---\n", 2)
+    meta = __import__("yaml").safe_load(fm)
+    assert meta["name"] == "medusa-vet"
+    assert "description" in meta and meta["description"]
+    assert "when-to-use" in meta
+
+    # Body references the real MCP gatekeeper tools.
+    assert "scan_repo" in content
+    assert "scan_skill" in content
+    assert "secrets_scan" in content
+    assert "secrets" in content.lower()
+
+
+def test_claude_skill_idempotent(tmp_path: Path):
+    p1 = install.install_claude_skill(tmp_path)
+    first = p1.read_text()
+    p2 = install.install_claude_skill(tmp_path)
+    assert p2 == p1
+    assert p2.read_text() == first  # stable rewrite
+
+
+# --------------------------------------------------------------------------- #
+# Claude project MCP (.mcp.json)
+# --------------------------------------------------------------------------- #
+def test_claude_mcp_valid_and_idempotent(tmp_path: Path):
+    path = install.install_claude_mcp(tmp_path)
+    install.install_claude_mcp(tmp_path)
+    assert path == tmp_path / ".mcp.json"
+
+    data = json.loads(path.read_text())  # valid JSON
+    medusa = data["mcpServers"]["medusa"]
+    assert medusa["command"] == "medusa"
+    assert medusa["args"] == ["mcp"]
+    assert list(data["mcpServers"]).count("medusa") == 1
+
+
+def test_claude_mcp_merge_preserves_server(tmp_path: Path):
+    cfg_path = tmp_path / ".mcp.json"
+    cfg_path.write_text(json.dumps({"mcpServers": {"other": {"command": "foo"}}}))
+
+    install.install_claude_mcp(tmp_path)
+    data = json.loads(cfg_path.read_text())
+    assert data["mcpServers"]["other"] == {"command": "foo"}  # preserved
+    assert "medusa" in data["mcpServers"]
+
+
+# --------------------------------------------------------------------------- #
 # install_all
 # --------------------------------------------------------------------------- #
 def test_install_all(tmp_path: Path):
     result = install.install_all(tmp_path)
-    assert set(result) == {"claude", "pre_commit", "cursor", "codex"}
+    assert set(result) == {
+        "claude",
+        "claude_sessionstart",
+        "claude_skill",
+        "claude_mcp",
+        "pre_commit",
+        "cursor",
+        "codex",
+    }
     for p in result.values():
         assert Path(p).exists()
+    # The skill and project MCP config are wired by --all.
+    assert Path(result["claude_skill"]).name == "SKILL.md"
+    assert Path(result["claude_mcp"]).name == ".mcp.json"
 
 
 if __name__ == "__main__":  # pragma: no cover

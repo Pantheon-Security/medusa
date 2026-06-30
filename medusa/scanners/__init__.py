@@ -91,6 +91,7 @@ from medusa.scanners.trivy_scanner import TrivyScanner
 from medusa.scanners.ucp_scanner import UCPScanner
 from medusa.scanners.ap2_scanner import AP2Scanner
 from medusa.scanners.pi_scan_code_scanner import PISCANCodeScanner
+from medusa.scanners.ast_behavior_scanner import AstBehaviorScanner
 from medusa.scanners.yaml_rule_scanner import YAMLRuleScanner
 
 # Create global scanner registry
@@ -178,6 +179,7 @@ registry.register(TrivyScanner())
 registry.register(UCPScanner())
 registry.register(AP2Scanner())
 registry.register(PISCANCodeScanner())
+registry.register(AstBehaviorScanner())
 # YAMLRuleScanner is available but NOT registered by design — every rule
 # should be claimed by a specific scanner with proper file/context gating.
 # Orphaned rules indicate a wiring gap that should be fixed at the rule or
@@ -264,6 +266,7 @@ __all__ = [
     'PromptInjectionCodeScanner',
     'DatasetInjectionScanner',
     'ClaudeCodeScanner',
+    'AstBehaviorScanner',
     'WebSecurityScanner',
     'GitLeaksScanner',
     'SemgrepScanner',

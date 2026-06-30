@@ -59,6 +59,17 @@ _CLAUDE_HOOK_COMMAND = (
     "esac"
 )
 
+# The Claude SessionStart hook command. Runs once when a session starts to
+# announce that the MEDUSA MCP gatekeeper is active and to ensure the project's
+# .mcp.json carries the medusa server (so the gatekeeper auto-loads). The
+# `medusa hooks install --claude-mcp` call is idempotent and merge-safe, so it
+# is safe to run on every session start; it is a no-op if already wired.
+_CLAUDE_SESSIONSTART_COMMAND = (
+    "medusa hooks install --claude-mcp >/dev/null 2>&1 || true; "
+    'echo "MEDUSA gatekeeper active: vet repos/skills with scan_repo/scan_skill '
+    'and check for leaked credentials with secrets_scan before risky actions."'
+)
+
 
 def _backup(path: Path) -> None:
     """Copy ``path`` to ``<path>.medusa.bak`` if it exists (best effort)."""
@@ -122,6 +133,48 @@ def install_claude_hook(base: str | os.PathLike[str]) -> Path:
     new_pre = [e for e in pre if not _is_medusa_entry(e)]
     new_pre.append(medusa_entry)
     hooks["PreToolUse"] = new_pre
+
+    _backup(path)
+    _write_json(path, settings)
+    return path
+
+
+def install_claude_sessionstart(base: str | os.PathLike[str]) -> Path:
+    """Write/merge a MEDUSA ``SessionStart`` hook into ``<base>/.claude/settings.json``.
+
+    On every new Claude Code session this ensures the project ``.mcp.json``
+    carries the ``medusa`` gatekeeper server and announces that vetting is
+    active. Existing settings keys and unrelated SessionStart hooks are
+    preserved; calling twice does not duplicate the MEDUSA hook.
+    """
+    path = Path(base) / ".claude" / "settings.json"
+    settings = _load_json(path)
+
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        hooks = {}
+        settings["hooks"] = hooks
+    start = hooks.setdefault("SessionStart", [])
+    if not isinstance(start, list):
+        start = []
+        hooks["SessionStart"] = start
+
+    def _is_medusa_entry(entry: Any) -> bool:
+        if not isinstance(entry, dict):
+            return False
+        for hook in entry.get("hooks", []):
+            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+                return True
+        return False
+
+    medusa_entry = {
+        "hooks": [{"type": "command", "command": _CLAUDE_SESSIONSTART_COMMAND}],
+    }
+
+    # Replace any prior MEDUSA entry (idempotent update), keep everything else.
+    new_start = [e for e in start if not _is_medusa_entry(e)]
+    new_start.append(medusa_entry)
+    hooks["SessionStart"] = new_start
 
     _backup(path)
     _write_json(path, settings)
@@ -259,12 +312,103 @@ def install_codex_mcp(base: str | os.PathLike[str]) -> Path:
 
 
 # --------------------------------------------------------------------------- #
-# 5. Install everything
+# 5. Claude Code skill: always-on vetting via the MEDUSA gatekeeper
+# --------------------------------------------------------------------------- #
+_CLAUDE_SKILL_MD = """\
+---
+name: medusa-vet
+description: >-
+  Always vet untrusted code and check for leaked credentials with the MEDUSA
+  MCP gatekeeper before risky actions. Use BEFORE cloning, installing, or
+  running a repo/skill, and BEFORE committing or pasting code that may contain
+  secrets.
+when-to-use: >-
+  Trigger before any of: cloning a git repo, installing a package/skill/plugin,
+  running fetched code, committing, or pasting content that could contain
+  credentials. If the medusa MCP tools are unavailable, fall back to the
+  `medusa scan` / `medusa secrets scan` CLI.
+---
+
+# MEDUSA vet (always-on gatekeeper)
+
+The `medusa` MCP server exposes three READ-ONLY vetting tools. Use them
+proactively — do not wait to be asked.
+
+## Tools
+
+- `scan_repo(url_or_path)` — vet a local repo path or a remote git URL before
+  you clone, install, or run it. Returns a verdict label, a numeric score, and
+  the top findings.
+- `scan_skill(path)` — vet a skill directory or `SKILL.md` before installing or
+  trusting it (catches prompt-injection / toxic-skill payloads).
+- `secrets_scan(path?)` — scan for leaked credentials. Pass a path, or omit it
+  to scan the working directory. Run this before committing or before pasting
+  code/config into a message.
+
+## When to vet
+
+1. **Before cloning/installing a repo or skill** — call `scan_repo` on the URL
+   or `scan_skill` on the skill path FIRST. If the verdict is high-risk, stop
+   and report the findings instead of proceeding.
+2. **Before running fetched/untrusted code** — `scan_repo` on the local path.
+3. **Before committing or pasting code** — `secrets_scan` to catch credentials.
+
+If a tool reports a blocking verdict, surface the findings and ask before
+continuing. If the MCP tools are not available, use the CLI equivalents
+(`medusa scan --git <url>`, `medusa scan <path>`, `medusa secrets scan`).
+"""
+
+
+def install_claude_skill(base: str | os.PathLike[str]) -> Path:
+    """Write ``<base>/.claude/skills/medusa-vet/SKILL.md`` (always-on vetting skill).
+
+    The skill instructs Claude Code to vet untrusted repos/skills and check for
+    leaked credentials via the MEDUSA MCP gatekeeper tools before risky actions.
+    Idempotent: re-running rewrites the same file. Backup-first.
+    """
+    path = Path(base) / ".claude" / "skills" / "medusa-vet" / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    _backup(path)
+    path.write_text(_CLAUDE_SKILL_MD, encoding="utf-8")
+    return path
+
+
+# --------------------------------------------------------------------------- #
+# 6. Claude Code project MCP server entry (.mcp.json)
+# --------------------------------------------------------------------------- #
+def install_claude_mcp(base: str | os.PathLike[str]) -> Path:
+    """Write/merge ``<base>/.mcp.json`` with the ``medusa`` MCP gatekeeper server.
+
+    Claude Code auto-loads project-level ``.mcp.json`` servers, so this wires the
+    gatekeeper for the project. Existing servers under ``mcpServers`` are
+    preserved; the MEDUSA entry launches ``medusa mcp``. Idempotent and
+    backup-first.
+    """
+    path = Path(base) / ".mcp.json"
+    config = _load_json(path)
+
+    servers = config.setdefault("mcpServers", {})
+    if not isinstance(servers, dict):
+        servers = {}
+        config["mcpServers"] = servers
+
+    servers[MEDUSA_MARKER] = {"command": "medusa", "args": ["mcp"]}
+
+    _backup(path)
+    _write_json(path, config)
+    return path
+
+
+# --------------------------------------------------------------------------- #
+# 7. Install everything
 # --------------------------------------------------------------------------- #
 def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
     """Run every installer against ``base`` and return ``{name: path}``."""
     return {
         "claude": str(install_claude_hook(base)),
+        "claude_sessionstart": str(install_claude_sessionstart(base)),
+        "claude_skill": str(install_claude_skill(base)),
+        "claude_mcp": str(install_claude_mcp(base)),
         "pre_commit": str(install_pre_commit(base)),
         "cursor": str(install_cursor_mcp(base)),
         "codex": str(install_codex_mcp(base)),

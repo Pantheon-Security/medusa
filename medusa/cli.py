@@ -1417,7 +1417,11 @@ def main(ctx, version):
                    'Also enabled by MEDUSA_TRACE_RULES=1.')
 @click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts (auto-continue optional-tool gates)')
 @click.option('--no-prompt', 'no_prompt', is_flag=True, help='Never prompt; auto-continue optional-tool gates (alias of --yes for CI)')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt):
+@click.option('--baseline', 'baseline', type=click.Path(), default=None,
+              help='Suppress findings whose fingerprint is in this baseline file; surface only NEW findings.')
+@click.option('--write-baseline', 'write_baseline_path', type=click.Path(), default=None,
+              help='Write the current findings\' fingerprints to this file (creates/updates the baseline).')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path):
     """
     Scan a directory or file for security issues.
 
@@ -1652,6 +1656,62 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
         if trace_rules:
             _write_rule_diagnostics(output, console)
+
+        # Fingerprint baseline / suppression (build item #2). Operates on the
+        # raw scan results before report generation: a baseline file records the
+        # known/accepted findings so that a later scan surfaces only NEW ones.
+        # The fingerprint formula is shared with the SARIF reporter via
+        # medusa.core.baseline.finding_fingerprint.
+        if baseline or write_baseline_path:
+            from medusa.core.baseline import (
+                load_baseline, write_baseline as _write_baseline, finding_fingerprint,
+            )
+
+            # Normalize every result issue to the reporter's finding shape so the
+            # fingerprint uses the same fields (rule_id:file:line:issue). The file
+            # field comes from the ScanResult, matching how the reporter builds it.
+            def _issue_finding(_res, _issue):
+                if isinstance(_issue, dict):
+                    return {
+                        'rule_id': _issue.get('rule_id'),
+                        'file': _res.file,
+                        'line': _issue.get('line_number', _issue.get('line', 0)),
+                        'issue': _issue.get('issue_text', _issue.get('message', '')),
+                    }
+                return {
+                    'rule_id': getattr(_issue, 'rule_id', None),
+                    'file': _res.file,
+                    'line': getattr(_issue, 'line', 0),
+                    'issue': getattr(_issue, 'message', ''),
+                }
+
+            if write_baseline_path:
+                all_findings = [
+                    _issue_finding(r, issue)
+                    for r in results for issue in r.issues
+                ]
+                _n = _write_baseline(all_findings, write_baseline_path)
+                console.print(
+                    f"[dark_green]Wrote baseline with {_n} fingerprint(s) to "
+                    f"{write_baseline_path}[/dark_green]"
+                )
+
+            if baseline:
+                baseline_set = load_baseline(baseline)
+                _suppressed_total = 0
+                for r in results:
+                    kept = []
+                    for issue in r.issues:
+                        if finding_fingerprint(_issue_finding(r, issue)) in baseline_set:
+                            _suppressed_total += 1
+                        else:
+                            kept.append(issue)
+                    r.issues = kept
+                _new_total = sum(len(r.issues) for r in results)
+                console.print(
+                    f"[cyan]Baseline applied: {_suppressed_total} finding(s) "
+                    f"suppressed, {_new_total} new[/cyan]"
+                )
 
         # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(
@@ -3767,14 +3827,16 @@ def hooks():
 
 
 @hooks.command('install')
-@click.option('--claude', is_flag=True, help='Install the Claude Code PreToolUse hook')
+@click.option('--claude', is_flag=True, help='Install the Claude Code hooks (PreToolUse vet + SessionStart), the always-on vet skill, and the project MCP server')
 @click.option('--cursor', is_flag=True, help='Install the Cursor MCP server entry')
 @click.option('--codex', is_flag=True, help='Install the ChatGPT/Codex MCP server entry')
 @click.option('--pre-commit', 'pre_commit', is_flag=True, help='Install the git pre-commit secrets gate')
+@click.option('--claude-mcp', 'claude_mcp', is_flag=True,
+              help='Register only the project .mcp.json medusa server (idempotent; used by the SessionStart hook)')
 @click.option('--all', 'install_all_flag', is_flag=True, help='Install all of the above (default)')
 @click.option('--global', '-g', 'is_global', is_flag=True,
               help='Install under your home directory (~) instead of the current directory')
-def hooks_install(claude, cursor, codex, pre_commit, install_all_flag, is_global):
+def hooks_install(claude, cursor, codex, pre_commit, claude_mcp, install_all_flag, is_global):
     """Install MEDUSA hooks/MCP configs into this project (or ~ with --global).
 
     With no scope flag, installs everything (equivalent to --all).
@@ -3784,7 +3846,7 @@ def hooks_install(claude, cursor, codex, pre_commit, install_all_flag, is_global
     base = Path.home() if is_global else Path.cwd()
 
     # No scope flag given → default to installing everything.
-    if not any([claude, cursor, codex, pre_commit, install_all_flag]):
+    if not any([claude, cursor, codex, pre_commit, claude_mcp, install_all_flag]):
         install_all_flag = True
     if install_all_flag:
         claude = cursor = codex = pre_commit = True
@@ -3793,7 +3855,15 @@ def hooks_install(claude, cursor, codex, pre_commit, install_all_flag, is_global
     written: list[Path] = []
 
     if claude:
+        # Full Claude Code wiring: PreToolUse vet hook, SessionStart gatekeeper,
+        # the always-on medusa-vet skill, and the project .mcp.json server.
         written.append(hook_install.install_claude_hook(base))
+        written.append(hook_install.install_claude_sessionstart(base))
+        written.append(hook_install.install_claude_skill(base))
+        written.append(hook_install.install_claude_mcp(base))
+    elif claude_mcp:
+        # Registration-ensure only (invoked by the SessionStart hook).
+        written.append(hook_install.install_claude_mcp(base))
     if cursor:
         written.append(hook_install.install_cursor_mcp(base))
     if codex:
