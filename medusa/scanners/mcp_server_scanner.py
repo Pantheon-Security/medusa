@@ -12,10 +12,13 @@ Detects vulnerabilities in TypeScript/JavaScript and Python MCP servers:
 - Missing security annotations
 """
 
+import base64
+import binascii
+import json
 import re
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 from medusa.scanners.base import (
     RuleBasedScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps,
@@ -53,6 +56,15 @@ class MCPServerScanner(RuleBasedScanner):
     - MCP123: Auto-update without integrity check
     - MCP124: Path traversal vulnerabilities (arbitrary file read/write)
     - MCP125: LLM agent security (unsafe agent configs, raw input, code execution)
+
+    MCP tool-poisoning in config metadata (mcp.json / .mcp.json / .cursor/mcp.json
+    / .kiro .../mcp.json) — hidden directives smuggled into tool descriptions,
+    names, instructions, or server-level metadata (SkillSpector "MCP tool
+    poisoning" class):
+    - MEDUSA-MCP-POISON-001: HTML comment hiding instruction text
+    - MEDUSA-MCP-POISON-002: zero-width / bidi control characters hiding text
+    - MEDUSA-MCP-POISON-003: base64 blob decoding to an instruction/URL/command
+    - MEDUSA-MCP-POISON-004: data: URI embedded in description/metadata
 
     Note: Deserialization (CWE-502), SSRF (CWE-918), RAG security, memory poisoning,
     and model serialization patterns are handled by their dedicated scanners:
@@ -610,16 +622,69 @@ class MCPServerScanner(RuleBasedScanner):
          'MCP123: Dynamic require with concatenation', Severity.HIGH),
     ]
 
+    # ------------------------------------------------------------------
+    # MCP metadata-poisoning (config files) — SkillSpector tool-poisoning class
+    # ------------------------------------------------------------------
+
+    # Metadata fields walked for hidden directives (case-insensitive key match)
+    POISON_META_FIELDS = ('description', 'name', 'instructions', 'instruction', 'title')
+
+    # Zero-width / bidi / invisible control characters used to hide text.
+    # U+200B-200F (zero-width + bidi marks), U+202A-202E (bidi embedding/override),
+    # U+2066-2069 (bidi isolates), U+FEFF (BOM / zero-width no-break space).
+    ZERO_WIDTH_BIDI_RE = re.compile(
+        '[​-‏‪-‮⁦-⁩﻿]'
+    )
+
+    # data: URI embedded in a metadata value
+    DATA_URI_RE = re.compile(r'data:[\w.+-]+/[\w.+-]+(?:;[\w=.+-]+)*;?(?:base64)?,', re.IGNORECASE)
+
+    # HTML comment (may span multiple lines) inside a metadata value
+    HTML_COMMENT_RE = re.compile(r'<!--(.*?)-->', re.DOTALL)
+
+    # Indicators that an HTML comment / decoded base64 carries an actual
+    # instruction/directive rather than benign annotation text.
+    INSTRUCTION_INDICATOR_RE = re.compile(
+        r'(?i)\b('
+        r'ignore\s+(?:all\s+)?(?:previous|prior|above)|'
+        r'disregard|forget\s+(?:everything|all|previous)|'
+        r'new\s+instructions?|system\s*:|you\s+(?:are|must|should)|'
+        r'do\s+not\s+(?:tell|mention|reveal)|'
+        r'instead\s+(?:of|you)|'
+        r'before\s+(?:using|calling|executing)|'
+        r'always\s+(?:call|run|use|send|read|include)|'
+        r'send\s+(?:the|all|your)|exfiltrat|'
+        r'read\s+(?:the\s+)?(?:file|\~?/\.|contents)|'
+        r'curl\s+|wget\s+|bash\s+-c|/bin/sh|subprocess|os\.system|'
+        r'<important>|<secret>|<system>|<hidden>'
+        r')\b'
+    )
+
+    # URL / command indicators used when validating decoded base64 blobs.
+    URL_OR_COMMAND_RE = re.compile(
+        r'(?i)(https?://|ftp://|file://|\bcurl\b|\bwget\b|\bbash\b|/bin/|\bsh\s+-c\b|'
+        r'\bpython\b|\bnode\b|\beval\b|\bexec\b|\.sh\b|\bnc\s|-----BEGIN)'
+    )
+
+    # base64 candidate blob: a long run of base64 alphabet chars.
+    BASE64_CANDIDATE_RE = re.compile(r'[A-Za-z0-9+/]{16,}={0,2}')
+
     def get_tool_name(self) -> str:
         return "python"  # Built-in scanner
 
     def get_file_extensions(self) -> List[str]:
-        return ['.ts', '.js', '.mjs', '.py']
+        return ['.ts', '.js', '.mjs', '.py', '.json']
 
     def can_scan(self, file_path: Path) -> bool:
         """Check if this file is likely an MCP server implementation"""
         if file_path.suffix not in self.get_file_extensions():
             return False
+
+        # JSON files: only MCP config files (mcp.json / .mcp.json and variants).
+        # Other .json files are handled by their own scanners; we only contribute
+        # the tool-poisoning metadata checks for MCP configs.
+        if file_path.suffix == '.json':
+            return self._is_mcp_config_name(file_path)
 
         # Check filename hints
         name_lower = file_path.name.lower()
@@ -629,6 +694,21 @@ class MCPServerScanner(RuleBasedScanner):
             return True
 
         return True  # Will do content check in get_confidence_score
+
+    @staticmethod
+    def _is_mcp_config_name(file_path: Path) -> bool:
+        """True for mcp.json / .mcp.json / mcp-config.json and known IDE locations
+        (.cursor/mcp.json, .vscode/mcp.json, .kiro/.../mcp.json, claude config)."""
+        name = file_path.name.lower()
+        mcp_names = {
+            'mcp.json', '.mcp.json', 'mcp-config.json', 'mcp_config.json',
+            'claude_desktop_config.json',
+        }
+        if name in mcp_names:
+            return True
+        # mcp.json nested under any directory still matches by name above;
+        # also accept any *mcp*.json to cover .kiro/settings/mcp.json style paths
+        return name.endswith('.json') and 'mcp' in name
 
     def get_confidence_score(self, file_path: Path, content_head: str = None) -> int:
         """
@@ -683,6 +763,20 @@ class MCPServerScanner(RuleBasedScanner):
                 content = f.read()
 
             lines = content.split('\n')
+
+            # JSON MCP config files: only run the metadata-poisoning checks.
+            # Config-security checks (secrets, transport, etc.) are owned by
+            # MCPConfigScanner; here we add hidden-directive detection on tool
+            # and server metadata fields.
+            if file_path.suffix == '.json':
+                issues.extend(self._scan_metadata_poisoning(content, lines))
+                return ScannerResult(
+                    scanner_name=self.name,
+                    file_path=str(file_path),
+                    issues=issues,
+                    scan_time=time.time() - start_time,
+                    success=True
+                )
 
             # Check if this is actually an MCP server file
             is_mcp_file = any(
@@ -881,6 +975,151 @@ class MCPServerScanner(RuleBasedScanner):
                         ))
 
         return issues
+
+    def _scan_metadata_poisoning(self, content: str, lines: List[str]) -> List[ScannerIssue]:
+        """Detect hidden directives smuggled into MCP config tool/server metadata.
+
+        Parses mcp.json, walks every string value whose key is a metadata field
+        (description/name/instructions/title) plus server-level metadata, and
+        flags the four MCP tool-poisoning vectors:
+          MEDUSA-MCP-POISON-001  HTML comment hiding instruction text
+          MEDUSA-MCP-POISON-002  zero-width / bidi control characters
+          MEDUSA-MCP-POISON-003  base64 blob decoding to an instruction/URL/command
+          MEDUSA-MCP-POISON-004  data: URI embedded in metadata
+        """
+        issues: List[ScannerIssue] = []
+
+        try:
+            config = json.loads(content)
+        except (json.JSONDecodeError, ValueError):
+            return issues  # malformed JSON handled by MCPConfigScanner
+
+        # Collect (field_key, value) pairs for metadata fields anywhere in the tree.
+        meta_values: List[Tuple[str, str]] = []
+        self._collect_meta_values(config, meta_values)
+
+        for key, value in meta_values:
+            line_num = self._find_meta_line(lines, value)
+
+            # POISON-001: HTML comment carrying instruction text
+            for cmt in self.HTML_COMMENT_RE.findall(value):
+                if self.INSTRUCTION_INDICATOR_RE.search(cmt):
+                    issues.append(ScannerIssue(
+                        severity=Severity.CRITICAL,
+                        message=(f"MCP tool poisoning: HTML comment hides instruction "
+                                 f"text in '{key}' metadata"),
+                        line=line_num,
+                        rule_id="MEDUSA-MCP-POISON-001",
+                        cwe_id=94,
+                        cwe_link="https://cwe.mitre.org/data/definitions/94.html"
+                    ))
+                    break
+
+            # POISON-002: zero-width / bidi control characters hiding content
+            if self.ZERO_WIDTH_BIDI_RE.search(value):
+                issues.append(ScannerIssue(
+                    severity=Severity.HIGH,
+                    message=(f"MCP tool poisoning: zero-width / bidirectional control "
+                             f"characters hide text in '{key}' metadata"),
+                    line=line_num,
+                    rule_id="MEDUSA-MCP-POISON-002",
+                    cwe_id=94,
+                    cwe_link="https://cwe.mitre.org/data/definitions/94.html"
+                ))
+
+            # POISON-003: base64 blob that decodes to an instruction/URL/command
+            if self._base64_hides_directive(value):
+                issues.append(ScannerIssue(
+                    severity=Severity.CRITICAL,
+                    message=(f"MCP tool poisoning: base64 blob in '{key}' metadata "
+                             f"decodes to hidden instruction/URL/command"),
+                    line=line_num,
+                    rule_id="MEDUSA-MCP-POISON-003",
+                    cwe_id=94,
+                    cwe_link="https://cwe.mitre.org/data/definitions/94.html"
+                ))
+
+            # POISON-004: data: URI embedded in metadata
+            if self.DATA_URI_RE.search(value):
+                issues.append(ScannerIssue(
+                    severity=Severity.HIGH,
+                    message=(f"MCP tool poisoning: data: URI embedded in '{key}' "
+                             f"metadata"),
+                    line=line_num,
+                    rule_id="MEDUSA-MCP-POISON-004",
+                    cwe_id=94,
+                    cwe_link="https://cwe.mitre.org/data/definitions/94.html"
+                ))
+
+        return issues
+
+    def _collect_meta_values(
+        self,
+        node: Any,
+        out: List[Tuple[str, str]],
+        in_server_meta: bool = False,
+    ) -> None:
+        """Recursively gather string values from metadata fields.
+
+        Captures any string under a key in POISON_META_FIELDS, plus all string
+        values inside a server-level ``metadata`` object (server metadata can
+        carry smuggled directives even under arbitrary keys).
+        """
+        if isinstance(node, dict):
+            for key, value in node.items():
+                key_lower = key.lower() if isinstance(key, str) else ''
+                if isinstance(value, str):
+                    if key_lower in self.POISON_META_FIELDS:
+                        out.append((key, value))
+                    elif in_server_meta:
+                        out.append((key, value))
+                else:
+                    # Descend; treat values under a 'metadata' key as server metadata.
+                    self._collect_meta_values(
+                        value, out, in_server_meta or key_lower == 'metadata'
+                    )
+        elif isinstance(node, list):
+            for item in node:
+                self._collect_meta_values(item, out, in_server_meta)
+
+    def _base64_hides_directive(self, value: str) -> bool:
+        """True if a base64 candidate inside ``value`` decodes to text containing
+        instruction/URL/command indicators. Short tokens and binary blobs are
+        ignored to avoid false positives on legitimate encoded data."""
+        for candidate in self.BASE64_CANDIDATE_RE.findall(value):
+            # Base64 length must be a multiple of 4 once padding is considered.
+            if len(candidate) % 4 != 0:
+                continue
+            try:
+                decoded_bytes = base64.b64decode(candidate, validate=True)
+            except (binascii.Error, ValueError):
+                continue
+            try:
+                decoded = decoded_bytes.decode('utf-8')
+            except UnicodeDecodeError:
+                continue  # binary payload, not smuggled text
+            # Require it to be mostly printable text, then check for directives.
+            if not decoded or sum(c.isprintable() or c.isspace() for c in decoded) / len(decoded) < 0.8:
+                continue
+            if self.INSTRUCTION_INDICATOR_RE.search(decoded) or self.URL_OR_COMMAND_RE.search(decoded):
+                return True
+        return False
+
+    def _find_meta_line(self, lines: List[str], value: str) -> int:
+        """Best-effort 1-based line number for a metadata value. Falls back to a
+        distinctive substring (control chars break exact matches in raw JSON)."""
+        if value:
+            probe = value[:40]
+            for i, line in enumerate(lines, 1):
+                if probe and probe in line:
+                    return i
+            # Control/zero-width chars may be escaped in raw JSON; try a clean head.
+            clean = ''.join(c for c in value if c.isprintable())[:40]
+            if clean:
+                for i, line in enumerate(lines, 1):
+                    if clean in line:
+                        return i
+        return 1
 
     def _scan_patterns(
         self,

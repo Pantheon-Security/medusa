@@ -92,6 +92,7 @@ from medusa.scanners.ucp_scanner import UCPScanner
 from medusa.scanners.ap2_scanner import AP2Scanner
 from medusa.scanners.pi_scan_code_scanner import PISCANCodeScanner
 from medusa.scanners.ast_behavior_scanner import AstBehaviorScanner
+from medusa.scanners.dependency_cve_scanner import DependencyCVEScanner
 from medusa.scanners.yaml_rule_scanner import YAMLRuleScanner
 
 # Create global scanner registry
@@ -180,6 +181,7 @@ registry.register(UCPScanner())
 registry.register(AP2Scanner())
 registry.register(PISCANCodeScanner())
 registry.register(AstBehaviorScanner())
+registry.register(DependencyCVEScanner())
 # YAMLRuleScanner is available but NOT registered by design — every rule
 # should be claimed by a specific scanner with proper file/context gating.
 # Orphaned rules indicate a wiring gap that should be fixed at the rule or
@@ -267,6 +269,7 @@ __all__ = [
     'DatasetInjectionScanner',
     'ClaudeCodeScanner',
     'AstBehaviorScanner',
+    'DependencyCVEScanner',
     'WebSecurityScanner',
     'GitLeaksScanner',
     'SemgrepScanner',
