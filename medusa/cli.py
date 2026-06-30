@@ -1905,6 +1905,9 @@ def _detect_priority_files(repo_dir: Path) -> list[tuple[Path, str, str]]:
     return found
 
 
+# NOTE (deferred refactor): the shallow-clone + cleanup logic below overlaps with
+# scan_api._clone_repo. They could be factored into one shared git-clone helper
+# later; left separate for now to avoid touching the working scan path.
 def _scan_git_repo(
     git_url: str,
     workers: Optional[int],
@@ -3746,6 +3749,137 @@ def rules(count):
     console.print(f"  [cyan]harvested[/cyan] (research-extracted):      {harvested:,}")
     if other:
         console.print(f"  [dim]unmarked:                            {other:,}[/dim]")
+    console.print()
+
+
+@main.command()
+def mcp():
+    """Run the MEDUSA MCP gatekeeper server (vet repos/skills/secrets for Claude Code, Cursor, ChatGPT/Codex)."""
+    # Import is deferred so the (potentially heavier) MCP stack is only loaded
+    # when the server is actually launched, not on every `medusa` invocation.
+    from medusa.mcp.server import main as _mcp_main
+    _mcp_main()
+
+
+@main.group()
+def hooks():
+    """Install/inspect MEDUSA editor hooks + MCP gatekeeper configs."""
+
+
+@hooks.command('install')
+@click.option('--claude', is_flag=True, help='Install the Claude Code PreToolUse hook')
+@click.option('--cursor', is_flag=True, help='Install the Cursor MCP server entry')
+@click.option('--codex', is_flag=True, help='Install the ChatGPT/Codex MCP server entry')
+@click.option('--pre-commit', 'pre_commit', is_flag=True, help='Install the git pre-commit secrets gate')
+@click.option('--all', 'install_all_flag', is_flag=True, help='Install all of the above (default)')
+@click.option('--global', '-g', 'is_global', is_flag=True,
+              help='Install under your home directory (~) instead of the current directory')
+def hooks_install(claude, cursor, codex, pre_commit, install_all_flag, is_global):
+    """Install MEDUSA hooks/MCP configs into this project (or ~ with --global).
+
+    With no scope flag, installs everything (equivalent to --all).
+    """
+    from medusa.hooks import install as hook_install
+
+    base = Path.home() if is_global else Path.cwd()
+
+    # No scope flag given → default to installing everything.
+    if not any([claude, cursor, codex, pre_commit, install_all_flag]):
+        install_all_flag = True
+    if install_all_flag:
+        claude = cursor = codex = pre_commit = True
+
+    console.print(f"[cyan]Installing MEDUSA hooks under[/cyan] {base}\n")
+    written: list[Path] = []
+
+    if claude:
+        written.append(hook_install.install_claude_hook(base))
+    if cursor:
+        written.append(hook_install.install_cursor_mcp(base))
+    if codex:
+        written.append(hook_install.install_codex_mcp(base))
+    if pre_commit:
+        # pre-commit only makes sense inside a git repo; skip gracefully otherwise.
+        if (base / ".git").is_dir():
+            written.append(hook_install.install_pre_commit(base))
+        else:
+            console.print(
+                f"[yellow]Skipping pre-commit:[/yellow] no .git directory at {base}. "
+                "Run this inside a git repository to install the secrets gate."
+            )
+
+    for path in written:
+        console.print(f"  [dark_green]✓[/dark_green] {path}")
+    if written:
+        console.print(f"\n[dark_green]✅ Installed {len(written)} MEDUSA config(s)[/dark_green]")
+
+
+@hooks.command('status')
+def hooks_status():
+    """Report which MEDUSA hooks/configs are present at the cwd (and ~)."""
+    from medusa.hooks.install import MEDUSA_MARKER, _MARKER_BEGIN
+
+    def _claude_present(base: Path) -> bool:
+        path = base / ".claude" / "settings.json"
+        if not path.exists():
+            return False
+        try:
+            import json
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        for entry in data.get("hooks", {}).get("PreToolUse", []):
+            if not isinstance(entry, dict):
+                continue
+            for hook in entry.get("hooks", []):
+                if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+                    return True
+        return False
+
+    def _pre_commit_present(base: Path) -> bool:
+        path = base / ".git" / "hooks" / "pre-commit"
+        if not path.exists():
+            return False
+        try:
+            return _MARKER_BEGIN in path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+
+    def _cursor_present(base: Path) -> bool:
+        path = base / ".cursor" / "mcp.json"
+        if not path.exists():
+            return False
+        try:
+            import json
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return False
+        return MEDUSA_MARKER in data.get("mcpServers", {})
+
+    def _codex_present(base: Path) -> bool:
+        path = base / ".codex" / "config.toml"
+        if not path.exists():
+            return False
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return False
+        # Match both the structured table and the marker-guarded text fallback.
+        return f"mcp_servers.{MEDUSA_MARKER}" in text or _MARKER_BEGIN in text
+
+    checks = [
+        ("Claude PreToolUse hook (.claude/settings.json)", _claude_present),
+        ("Git pre-commit secrets gate (.git/hooks/pre-commit)", _pre_commit_present),
+        ("Cursor MCP server (.cursor/mcp.json)", _cursor_present),
+        ("Codex MCP server (.codex/config.toml)", _codex_present),
+    ]
+
+    for label, base in (("Current directory", Path.cwd()), ("Home (~)", Path.home())):
+        console.print(f"\n[bold cyan]{label}:[/bold cyan] {base}")
+        for name, fn in checks:
+            present = fn(base)
+            mark = "[dark_green]✓ present[/dark_green]" if present else "[dim]– absent[/dim]"
+            console.print(f"  {mark}  {name}")
     console.print()
 
 

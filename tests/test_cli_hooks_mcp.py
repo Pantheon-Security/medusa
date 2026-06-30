@@ -1,0 +1,68 @@
+"""CLI wiring tests for `medusa mcp` and `medusa hooks` (Phase 2).
+
+These exercise the real command tree via Click's CliRunner and real filesystem
+writes in an isolated temp cwd. The MCP server is never actually launched (it
+blocks on stdio); we only assert its command/help renders.
+"""
+
+from pathlib import Path
+
+from click.testing import CliRunner
+
+from medusa.cli import main
+
+
+def test_help_lists_mcp_and_hooks():
+    runner = CliRunner()
+    result = runner.invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "mcp" in result.output
+    assert "hooks" in result.output
+
+
+def test_mcp_help_renders_without_launching():
+    # `medusa mcp --help` must work; the server itself blocks, so never run it.
+    runner = CliRunner()
+    result = runner.invoke(main, ["mcp", "--help"])
+    assert result.exit_code == 0
+    assert "gatekeeper" in result.output.lower()
+
+
+def test_hooks_install_all_writes_every_config():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        # Create a .git dir so the pre-commit gate installs (vs. skipping).
+        Path(".git").mkdir()
+
+        result = runner.invoke(main, ["hooks", "install", "--all"])
+        assert result.exit_code == 0, result.output
+
+        assert Path(".claude/settings.json").exists()
+        assert Path(".git/hooks/pre-commit").exists()
+        assert Path(".cursor/mcp.json").exists()
+        assert Path(".codex/config.toml").exists()
+
+
+def test_hooks_status_reports_present_after_install():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        Path(".git").mkdir()
+
+        install = runner.invoke(main, ["hooks", "install", "--all"])
+        assert install.exit_code == 0, install.output
+
+        status = runner.invoke(main, ["hooks", "status"])
+        assert status.exit_code == 0, status.output
+        # All four configs should be reported present for the current directory.
+        assert status.output.count("present") >= 4
+
+
+def test_hooks_install_skips_pre_commit_without_git():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        # No .git dir: pre-commit should be skipped gracefully, others still write.
+        result = runner.invoke(main, ["hooks", "install", "--all"])
+        assert result.exit_code == 0, result.output
+        assert "Skipping pre-commit" in result.output
+        assert not Path(".git/hooks/pre-commit").exists()
+        assert Path(".claude/settings.json").exists()

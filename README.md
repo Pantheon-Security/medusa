@@ -173,6 +173,69 @@ medusa secrets purge --all --yes-i-know   # batch mode for power users / CI
 
 ---
 
+## Vet before you install — Claude Code, Cursor & ChatGPT
+
+> Catch a poisoned repo or skill *before* it lands on your machine — and stop a leaked
+> credential *before* it lands in a commit.
+
+The moment you `git clone` a repo, `pip install` a package, or add a Claude/Cursor skill,
+you are running someone else's instructions. MEDUSA's `medusa scan --git` already vets a
+remote repo (poisoned `.claude/` hooks, prompt injection, MCP tool poisoning) *before you
+clone it*, and `medusa secrets scan` finds leaked credentials. This release wires both of
+those directly into your AI coding tools so the check happens automatically, at the exact
+moment of install or commit — no extra step to remember.
+
+```bash
+# Wire MEDUSA into every tool you use, plus the git pre-commit guard
+medusa hooks install --all
+```
+
+### Two layers of protection
+
+**1. MCP gatekeeper — `medusa mcp`**
+
+MEDUSA ships an MCP server that Claude Code, Cursor (`.cursor/mcp.json`), and
+ChatGPT/Codex (`.codex/config.toml`) can consume. It exposes three tools that return a
+plain **SAFE / CAUTION / DO_NOT_INSTALL** verdict, so your assistant vets a target before
+acting on it:
+
+| MCP tool | What it vets |
+|----------|--------------|
+| `scan_repo` | A remote repo URL (wraps `medusa scan --git`) — repo poisoning, prompt injection, MCP tool poisoning |
+| `scan_skill` | A Claude/Cursor skill or `SKILL.md` before you install it — dropper scripts, ToxicSkills |
+| `secrets_scan` | A path or file for leaked API keys, tokens, and private keys |
+
+```bash
+# Run the gatekeeper server (Claude Code / Cursor / Codex connect to this)
+medusa mcp
+```
+
+**2. Native hooks — installed by `medusa hooks install`**
+
+- A real **Claude Code PreToolUse hook** that intercepts `git clone` and
+  `pip` / `npm` / `uv install` commands, runs the matching MEDUSA vet, and surfaces a
+  verdict *before* the command executes.
+- A git **pre-commit hook** that runs `medusa secrets scan` and **blocks the commit** if
+  any credential is found — so a pasted token never reaches your history.
+
+```bash
+# Install selectively
+medusa hooks install --claude        # Claude Code PreToolUse hook
+medusa hooks install --cursor        # Cursor MCP gatekeeper config
+medusa hooks install --codex         # ChatGPT/Codex MCP gatekeeper config
+medusa hooks install --pre-commit    # git pre-commit secrets block
+medusa hooks install --all           # all of the above
+medusa hooks install --all --global  # install for every project on this machine
+
+# Check what's wired up
+medusa hooks status
+```
+
+The win: a poisoned repo or skill is caught at clone/install time, and a leaked secret is
+caught at commit time — automatically, by the tools you already use.
+
+---
+
 ## Quick Start
 
 ### Installation
@@ -599,6 +662,31 @@ medusa override --show
 # Remove override
 medusa override path/to/file.yaml --remove
 ```
+
+### Hooks & MCP Gatekeeper Commands
+
+```bash
+# Vet repos/skills/secrets at install & commit time (see "Vet before you install")
+medusa hooks install --all          # Claude + Cursor + Codex + git pre-commit
+medusa hooks install --claude       # Claude Code PreToolUse hook only
+medusa hooks install --pre-commit   # git pre-commit secrets block only
+medusa hooks install --all --global # apply to every project on this machine
+medusa hooks status                 # show which hooks/configs are wired up
+
+# Run the MCP gatekeeper server (Claude Code / Cursor / Codex connect to this)
+medusa mcp
+```
+
+### Hooks Options Reference
+
+| Option | Description |
+|--------|-------------|
+| `--claude` | Install the Claude Code PreToolUse hook that vets `git clone` / `pip`/`npm`/`uv install` |
+| `--cursor` | Write the Cursor MCP gatekeeper config (`.cursor/mcp.json`) |
+| `--codex` | Write the ChatGPT/Codex MCP gatekeeper config (`.codex/config.toml`) |
+| `--pre-commit` | Install the git pre-commit hook that runs `medusa secrets scan` and blocks on findings |
+| `--all` | Install all of the above |
+| `--global` | Install for every project on this machine instead of the current repo |
 
 ### Scan Options Reference
 

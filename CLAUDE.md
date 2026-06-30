@@ -53,6 +53,11 @@ medusa install --check
 
 # Install AI tools (modelscan for ML model scanning)
 medusa install --ai-tools
+
+# Vet repos/skills/secrets at install & commit time
+medusa hooks install --all   # Claude PreToolUse hook + Cursor/Codex MCP config + git pre-commit secrets block
+medusa hooks status          # Show which hooks/configs are wired up
+medusa mcp                   # Run the MCP gatekeeper server (scan_repo / scan_skill / secrets_scan)
 ```
 
 ## Available Slash Commands
@@ -64,10 +69,17 @@ medusa install --ai-tools
 
 ### Claude Code Integration
 
-- **Auto-scan on save**: Automatically scans files when you save them
-- **Inline annotations**: Security issues appear directly in your IDE
-- **Smart detection**: Only scans relevant file types
-- **Parallel processing**: Fast scanning with multi-core support
+- **PreToolUse hook (vet before you install)**: Installed by `medusa hooks install --claude`,
+  a real Claude Code PreToolUse hook intercepts `git clone` and `pip`/`npm`/`uv install`
+  commands, vets the target with `medusa scan --git` / `medusa secrets scan`, and returns a
+  SAFE / CAUTION / DO_NOT_INSTALL verdict *before* the command runs.
+- **MCP gatekeeper**: `medusa mcp` exposes `scan_repo`, `scan_skill`, and `secrets_scan`
+  tools that Claude Code (and Cursor / ChatGPT-Codex) consume to vet a repo or skill before
+  install. Wire it up with `medusa hooks install --all`; check state with `medusa hooks status`.
+- **Pre-commit secrets block**: The git pre-commit hook (`medusa hooks install --pre-commit`)
+  runs `medusa secrets scan` and blocks the commit if any credential is found.
+- **On-demand scanning**: `/medusa-scan` runs a full security scan; results appear in the
+  terminal and chat. Smart detection and parallel multi-core processing keep it fast.
 
 ### AI-First Security
 
