@@ -29,7 +29,13 @@ Design principles (deliberate, security-first):
   It may be annotated with a verdict/reason, but it always stays visible.
 * **Minimal data egress.** Only the rule_id, severity, a neutralized message,
   the ``file:line`` location, and an already-truncated code snippet are sent.
-  Never whole files, and never the secrets scanner's secret values.
+  Never whole files, and never the secrets scanner's secret values. Obvious
+  secret-pattern tokens (AWS ``AKIA…`` ids, ``sk-…`` keys, JWTs, long hex/base64
+  blobs) are scrubbed from the message/snippet before they leave the process
+  (CR-029). NOTE: the ``*-api`` backends (``anthropic-api`` / ``openai-api``)
+  transmit these code excerpts over the network to a third party (Anthropic /
+  OpenAI); the ``claude-cli`` / ``codex-cli`` backends run locally against the
+  user's own installed CLI.
 * **No heavy imports at module load.** Provider SDKs are lazy-imported inside
   the call so importing this module (or merely having it on disk) costs
   nothing and triggers no network. The CLI backends shell out to a binary the
@@ -101,15 +107,30 @@ _ZW = re.compile(
     "[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]"
 )
 
+# Obvious secret-pattern tokens scrubbed from message/snippet before egress
+# (CR-029). Best-effort defence-in-depth so a credential caught in a snippet is
+# not shipped to a third-party API backend; the CLI backends stay local anyway.
+_SECRET_RE = re.compile(
+    r"AKIA[0-9A-Z]{16}"                                    # AWS access key id
+    r"|sk-[A-Za-z0-9_-]{16,}"                              # OpenAI-style secret key
+    r"|eyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}"  # JWT (3 b64url segs)
+    r"|[A-Fa-f0-9]{32,}"                                   # long hex (tokens/hashes)
+    r"|[A-Za-z0-9+/]{32,}={0,2}"                           # long base64 blob
+)
+
 
 def _clean(text: Any, cap: int) -> str:
-    """Neutralize an UNTRUSTED field before it enters the prompt (CR-005).
+    """Neutralize an UNTRUSTED field before it enters the prompt (CR-005/CR-029).
 
-    Strips zero-width/bidi characters, collapses all whitespace runs (incl.
-    newlines) to single spaces so attacker text cannot close the fence or forge
-    prompt structure, and caps the length.
+    Strips zero-width/bidi characters, scrubs obvious secret-pattern tokens
+    (AWS/`sk-`/JWT/long hex/base64) so a credential in a snippet is not egressed
+    to an API backend, collapses all whitespace runs (incl. newlines) to single
+    spaces so attacker text cannot close the fence or forge prompt structure,
+    and caps the length.
     """
-    return re.sub(r"\s+", " ", _ZW.sub("", str(text or "")))[:cap]
+    cleaned = _ZW.sub("", str(text or ""))
+    cleaned = _SECRET_RE.sub("[REDACTED]", cleaned)
+    return re.sub(r"\s+", " ", cleaned)[:cap]
 
 
 # Anchored verdict parse (CR-006): the verdict is only ever read from a line

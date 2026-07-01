@@ -50,6 +50,18 @@ _OSV_QUERYBATCH_URL = "https://api.osv.dev/v1/querybatch"
 # OSV caps querybatch at 1000 queries per request; chunk anything larger.
 _OSV_BATCH_MAX = 1000
 
+# CR-028: cross-file circuit breaker. After this many consecutive network
+# failures in a run (transport OR reachable-but-erroring), the scanner opens the
+# breaker (flips offline) so the remaining lookups short-circuit to no findings
+# — bounded degradation, no per-manifest stalls behind a flaky/blocking network.
+_OSV_CIRCUIT_BREAKER_K = 3
+
+# Exact npm version: a bare version pin with no range operators. Accepts 1-2
+# component pins ("1", "1.2") as well as full semver ("1.2.3") plus an optional
+# prerelease/build suffix. Ranges, carets, tildes, and wildcards are NOT pins.
+# Defined here (not at module foot) so it precedes the lockfile parsers below.
+_EXACT_NPM_VERSION_RE = re.compile(r"^\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.\-]+)?$")
+
 # Network timeout (seconds). Kept short so an unreachable network degrades
 # gracefully to "no findings" rather than stalling a scan.
 _OSV_TIMEOUT = 5
@@ -96,6 +108,10 @@ class DependencyCVEScanner(BaseScanner):
         # Set when a reachable OSV returns 429/5xx even after one retry — results
         # may be partial, so an empty finding list must not be read as "clean".
         self._network_incomplete = False
+        # CR-028 circuit breaker: count consecutive failed batch calls; on the
+        # Kth in a row the run flips offline so the rest short-circuits. Reset to
+        # zero on any successful batch.
+        self._consecutive_failures = 0
         # Marks the cache as pre-populated by a project-wide prefetch (CR-016) so
         # spawn-mode Pool workers can rehydrate it via the batch-cache snapshot.
         self._cache_populated = False
@@ -471,6 +487,12 @@ class DependencyCVEScanner(BaseScanner):
             results = self._post_querybatch(chunk)
             if results is None:
                 # Failure already recorded (_offline / _network_incomplete).
+                # CR-028: after K consecutive failures in this run, open the
+                # circuit breaker (flip offline) so the remaining lookups
+                # short-circuit — bounded degradation, no further stalls.
+                self._consecutive_failures += 1
+                if self._consecutive_failures >= _OSV_CIRCUIT_BREAKER_K:
+                    self._offline = True
                 # Cache-empty this chunk, and if we are now offline cache-empty
                 # the remainder too and stop (bounded, no further stalls).
                 for key in chunk:
@@ -480,6 +502,8 @@ class DependencyCVEScanner(BaseScanner):
                         self._osv_cache.setdefault(key, ([], None))
                     return
                 continue
+            # A successful batch clears the consecutive-failure streak.
+            self._consecutive_failures = 0
             for key, res in zip(chunk, results):
                 # _extract_batch_ids yields (ids, severity) tuples; a mocked
                 # _post_querybatch may return bare id-lists — normalise both.
@@ -659,9 +683,3 @@ class DependencyCVEScanner(BaseScanner):
             line=1,
             column=1,
         )
-
-
-# Exact npm version: a bare version pin with no range operators. Accepts 1-2
-# component pins ("1", "1.2") as well as full semver ("1.2.3") plus an optional
-# prerelease/build suffix. Ranges, carets, tildes, and wildcards are NOT pins.
-_EXACT_NPM_VERSION_RE = re.compile(r"^\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.\-]+)?$")

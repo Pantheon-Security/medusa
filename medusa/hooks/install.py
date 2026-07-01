@@ -87,6 +87,18 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def _is_medusa_entry(entry: Any) -> bool:
+    """True if a Claude settings hook entry is a MEDUSA-owned one (its command
+    carries the MEDUSA marker). Used by both the PreToolUse and SessionStart
+    installers to replace any prior MEDUSA entry idempotently."""
+    if not isinstance(entry, dict):
+        return False
+    for hook in entry.get("hooks", []):
+        if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+            return True
+    return False
+
+
 # --------------------------------------------------------------------------- #
 # 1. Claude Code PreToolUse hook
 # --------------------------------------------------------------------------- #
@@ -119,14 +131,6 @@ def install_claude_hook(base: str | os.PathLike[str]) -> Path:
     if not isinstance(pre, list):
         pre = []
         hooks["PreToolUse"] = pre
-
-    def _is_medusa_entry(entry: Any) -> bool:
-        if not isinstance(entry, dict):
-            return False
-        for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
-                return True
-        return False
 
     medusa_entry = {
         "matcher": "Bash",
@@ -162,14 +166,6 @@ def install_claude_sessionstart(base: str | os.PathLike[str]) -> Path:
     if not isinstance(start, list):
         start = []
         hooks["SessionStart"] = start
-
-    def _is_medusa_entry(entry: Any) -> bool:
-        if not isinstance(entry, dict):
-            return False
-        for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
-                return True
-        return False
 
     medusa_entry = {
         "hooks": [{"type": "command", "command": _CLAUDE_SESSIONSTART_COMMAND}],

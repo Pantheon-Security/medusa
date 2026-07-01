@@ -49,6 +49,10 @@ class SkillManifestScanner(BaseScanner):
         "self-modification/persistence, memory-poisoning, and over-broad tools."
     )
 
+    # Top-level `key: value` matcher for the lightweight frontmatter parser.
+    # A class constant so it is compiled once, not per _frontmatter_values call.
+    _FRONTMATTER_KEY_RE = re.compile(r'^([A-Za-z0-9_-]+):\s?(.*)$')
+
     # Frontmatter keys whose VALUES describe when the skill fires.
     _TRIGGER_KEYS = ("when-to-use", "when_to_use", "trigger", "triggers", "description")
 
@@ -219,11 +223,11 @@ class SkillManifestScanner(BaseScanner):
         body_start_line = (fm_end + 1) if frontmatter is not None else 0
 
         # --- TRIGGER abuse: examine frontmatter trigger-bearing values ---
-        issues.extend(self._check_triggers(lines, frontmatter, fm_start))
-        issues.extend(self._check_shadow_name(lines, frontmatter, fm_start))
+        issues.extend(self._check_triggers(frontmatter, fm_start))
+        issues.extend(self._check_shadow_name(frontmatter, fm_start))
 
         # --- TOOLS: over-broad allowed-tools in frontmatter ---
-        issues.extend(self._check_tools(lines, frontmatter, fm_start))
+        issues.extend(self._check_tools(frontmatter, fm_start))
 
         # --- Body + frontmatter free-text vectors (anti-refusal / rogue / memory) ---
         # These instruction-style abuses can appear in either region. Match each
@@ -349,7 +353,7 @@ class SkillManifestScanner(BaseScanner):
         return False
 
     def _check_triggers(
-        self, lines: List[str], frontmatter: Optional[str], fm_start: int
+        self, frontmatter: Optional[str], fm_start: int
     ) -> List[ScannerIssue]:
         if frontmatter is None:
             return []
@@ -384,7 +388,7 @@ class SkillManifestScanner(BaseScanner):
         return issues
 
     def _check_shadow_name(
-        self, lines: List[str], frontmatter: Optional[str], fm_start: int
+        self, frontmatter: Optional[str], fm_start: int
     ) -> List[ScannerIssue]:
         if frontmatter is None:
             return []
@@ -402,7 +406,7 @@ class SkillManifestScanner(BaseScanner):
         return []
 
     def _check_tools(
-        self, lines: List[str], frontmatter: Optional[str], fm_start: int
+        self, frontmatter: Optional[str], fm_start: int
     ) -> List[ScannerIssue]:
         if frontmatter is None:
             return []
@@ -477,10 +481,9 @@ class SkillManifestScanner(BaseScanner):
             if cur_key is not None:
                 results.append((cur_key, " ".join(p for p in cur_val_parts if p), cur_line))
 
-        key_re = re.compile(r'^([A-Za-z0-9_-]+):\s?(.*)$')
         for i, line in enumerate(fm_lines):
             abs_line = fm_start + 1 + i
-            m = key_re.match(line)
+            m = self._FRONTMATTER_KEY_RE.match(line)
             if m and not line.startswith((" ", "\t")):
                 flush()
                 cur_key = m.group(1)

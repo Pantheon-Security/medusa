@@ -341,8 +341,8 @@ class _TaintAnalyzer:
                 # credential-ish. A clearly-benign named env var -> no taint.
                 pass
 
-        # os.environ["TOKEN"] handled via Subscript path -> _web? no; handle here
-        # when the call is os.environ.get already covered above.
+        # os.environ["TOKEN"] subscript access is handled on the Subscript path;
+        # the os.environ.get(...) call form is already covered above.
 
         # input() -> untrusted input
         if name in _INPUT_FUNCS and root is None:
@@ -393,7 +393,7 @@ class _TaintAnalyzer:
         root = _attr_root(call.func) if isinstance(call.func, ast.Attribute) else None
 
         # ---- network exfil sink ----
-        if self._is_network_sink(call, name, root):
+        if self._is_network_sink(call, name):
             tainted_kinds = self._tainted_args(call, sink="network")
             if "cred" in tainted_kinds:
                 self._add(
@@ -414,8 +414,7 @@ class _TaintAnalyzer:
                     call, cwe_id=78,
                 )
 
-    def _is_network_sink(self, call: ast.Call, name: Optional[str],
-                         root: Optional[str]) -> bool:
+    def _is_network_sink(self, call: ast.Call, name: Optional[str]) -> bool:
         if name not in _NETWORK_SINK_FUNCS:
             return False
         # Require attribute form (requests.post, sess.get, sock.send, httpx.post,
