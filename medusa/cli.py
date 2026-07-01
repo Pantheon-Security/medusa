@@ -1232,13 +1232,17 @@ def _print_secrets_tip() -> None:
     )
 
 
-def _run_llm_triage(results) -> None:
+def _run_llm_triage(results, backend=None) -> None:
     """Run the optional LLM semantic triage over scan results (build item #7).
 
     Called ONLY when `--llm-triage` is set. Imports medusa.core.llm_triage
-    lazily so the default scan path never imports it and never touches the
-    network. If no provider is configured, prints a clear message and returns
-    without changing anything (the scan still succeeds).
+    lazily so the default scan path never imports it and never touches a
+    subprocess or the network. If no backend is available, prints a clear
+    message and returns without changing anything (the scan still succeeds).
+
+    Interactive users get triage via their locally-installed, subscription-
+    authenticated CLI (``claude`` or ``codex``) with NO API key; API keys are
+    the CI/service fallback. Backend auto-detects unless *backend* forces one.
 
     Fail-safe by construction: triage_findings never drops a finding on error,
     never drops a CRITICAL, and only suppresses confident sub-CRITICAL FPs. We
@@ -1248,13 +1252,16 @@ def _run_llm_triage(results) -> None:
     """
     from medusa.core.llm_triage import llm_available, triage_findings
 
-    available, info = llm_available()
+    available, info = llm_available(backend)
     if not available:
         console.print(
-            f"\n[yellow]ℹ️  --llm-triage requested but no LLM provider configured: "
+            f"\n[yellow]ℹ️  --llm-triage requested but no LLM backend available: "
             f"{info}.[/yellow]"
         )
-        console.print("[dim]   Skipping triage; scan results are unchanged.[/dim]")
+        console.print(
+            "[dim]   Tip: install the 'claude' or 'codex' CLI to triage with your "
+            "existing subscription (no API key). Skipping; results unchanged.[/dim]"
+        )
         return
 
     console.print(f"\n[cyan]🤖 LLM triage ({info}) — annotating findings...[/cyan]")
@@ -1266,7 +1273,7 @@ def _run_llm_triage(results) -> None:
         issues = getattr(r, "issues", None)
         if not issues:
             continue
-        outcome = triage_findings(issues, provider=info)
+        outcome = triage_findings(issues, backend=info)
         r.issues = outcome["kept"]
         total_triaged += outcome["triaged"]
         total_suppressed += outcome["suppressed_fp"]
@@ -1473,10 +1480,17 @@ def main(ctx, version):
 @click.option('--write-baseline', 'write_baseline_path', type=click.Path(), default=None,
               help='Write the current findings\' fingerprints to this file (creates/updates the baseline).')
 @click.option('--llm-triage', 'llm_triage', is_flag=True, default=False,
-              help='OPT-IN: use your configured LLM (ANTHROPIC_API_KEY / OPENAI_API_KEY) to '
-                   'semantically triage findings — annotate each as true/false positive with a '
-                   'one-line reason. OFF by default; no network unless enabled AND a provider is set.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage):
+              help='OPT-IN: semantically triage findings with an LLM — annotate each as '
+                   'true/false positive with a one-line reason. Interactive users get this '
+                   'for free via their existing Claude (claude) or ChatGPT (codex) CLI — no '
+                   'API key needed. ANTHROPIC_API_KEY / OPENAI_API_KEY are the CI fallback. '
+                   'OFF by default; no subprocess/network unless enabled AND a backend is available.')
+@click.option('--llm-backend', 'llm_backend', default=None,
+              type=click.Choice(['claude-cli', 'codex-cli', 'anthropic-api', 'openai-api']),
+              help='Force the LLM triage backend instead of auto-detecting. Default order: '
+                   'claude-cli, codex-cli, anthropic-api, openai-api. (Also settable via '
+                   'MEDUSA_LLM_BACKEND.) Only used with --llm-triage.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage, llm_backend):
     """
     Scan a directory or file for security issues.
 
@@ -1774,7 +1788,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # (applied inside scan_parallel) and the baseline so the LLM only sees
         # findings that survived those stages.
         if llm_triage:
-            _run_llm_triage(results)
+            _run_llm_triage(results, backend=llm_backend)
 
         # Generate reports + check fail threshold (shared with --git via _run_scan_pipeline)
         _exit_code = _run_scan_pipeline(
