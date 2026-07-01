@@ -146,6 +146,16 @@ class MedusaReportGenerator:
         # Penalty: -1 point per weighted issue, minimum 0
         score = max(0, 100 - total_weight)
 
+        # PR-018a: a single CRITICAL (or HIGH) must never read as a "GOOD" score.
+        # The weighted penalty alone lets e.g. 1 CRITICAL + 1 HIGH score 85/GOOD,
+        # which is a trust-killer for a security scanner. Cap the score by the
+        # worst severity present so the risk level is honest.
+        severities = {str(f.get('severity', '')).upper() for f in findings}
+        if 'CRITICAL' in severities:
+            score = min(score, 40)   # -> risk level CRITICAL
+        elif 'HIGH' in severities:
+            score = min(score, 65)   # -> risk level CONCERNING
+
         return round(score, 2)
 
     def calculate_risk_level(self, score: float) -> str:
