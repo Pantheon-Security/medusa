@@ -105,6 +105,7 @@ _SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
 # with medusa.scanners._normalize._INVISIBLE_RE.
 _ZW = re.compile(
     "[­᠎​-‏‪-‮⁠-⁤⁦-⁩﻿]"
+    "|[\U000e0000-\U000e007f]"  # Unicode Tag block (matches _normalize._INVISIBLE_RE)
 )
 
 # Obvious secret-pattern tokens scrubbed from message/snippet before egress

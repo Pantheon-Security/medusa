@@ -34,7 +34,7 @@ command -v medusa >/dev/null 2>&1 || block "medusa not found (fail closed)"
 # `uv pip install` is matched by the `pip install` substring pattern below (kept
 # as one pattern to stay shellcheck-clean — SC2221/SC2222).
 case "$cmd" in
-    *"git clone"* | *"gh repo clone"* | *curl*sh* | *wget* | \
+    *"git clone"* | *"gh repo clone"* | *curl* | *wget* | \
     *"pip install"* | *"pip3 install"* | *"pipx install"* | \
     *"npm install"* | *"poetry add"* | *"cargo install"* | *"go install"*)
         # Vet every extracted URL. `grep -oE` prints one match per line; a
