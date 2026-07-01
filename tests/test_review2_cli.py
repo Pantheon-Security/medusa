@@ -179,11 +179,23 @@ def test_init_ide_prompt_rejects_nonnumeric_then_accepts(monkeypatch, tmp_path):
     Exercises the real `_create_init_config` prompt loop by feeding stdin
     through Click; asserts the warning surfaces and the valid '1' (claude-code)
     selection is accepted on retry.
+
+    PR-002 added a non-TTY guard to `init` (refuse before any write when stdin
+    is not interactive and no --ide was given). The interactive prompt this test
+    exercises only runs on a TTY, so we feed CliRunner a stdin stream that
+    reports as a terminal (Click's text wrapper delegates isatty to this binary
+    buffer) — the piped input then drives the real prompt loop as before.
     """
+    import io as _io
+
+    class _TTYBytes(_io.BytesIO):
+        def isatty(self):
+            return True
+
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
     # First line is junk ("abc"), second is a valid selection ("1").
-    result = runner.invoke(main, ["init", "--force"], input="abc\n1\n")
+    result = runner.invoke(main, ["init", "--force"], input=_TTYBytes(b"abc\n1\n"))
     out = result.output
     # The validation branch must have surfaced a re-prompt / warning. We do not
     # assert exit_code here because `init` does a lot of downstream work; the

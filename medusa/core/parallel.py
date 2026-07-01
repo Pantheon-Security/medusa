@@ -1062,11 +1062,12 @@ class MedusaParallelScanner:
             else:
                 status = Text("- Queued" if self.force_ascii else "\u25e6 Queued", style="dim")
 
-            # Issues display
+            # Issues display — render an explicit 0 (not a middot) so a
+            # zero-finding scanner row reads as a real count, not a placeholder.
             if issues > 0:
                 issue_text = Text(str(issues), style="bold red")
             else:
-                issue_text = Text("·", style="dim")
+                issue_text = Text("0", style="dim")
 
             # Progress bar - show 100% for scanners that ran when scan is complete
             if scan_complete and done > 0:
@@ -1434,7 +1435,7 @@ class MedusaParallelScanner:
         )
 
         for name, stats in sorted_scanners:
-            issue_str = str(stats['issues']) if stats['issues'] > 0 else '·'
+            issue_str = str(stats['issues']) if stats['issues'] > 0 else '0'
             print(f"   {name:<30} {stats['files']:>6} {issue_str:>7}")
 
         print()
@@ -1688,3 +1689,31 @@ class MedusaParallelScanner:
             _con.print(f"  [dim]{'Cache hit rate:':<{_w}}[/dim] [white]{100*cached_count/len(results):.1f}%[/white]")
 
         _con.print(_bar)
+
+        # Severity breakdown + risk level inline so a user learns WHAT and HOW
+        # BAD without opening the JSON/HTML report (both are already computed and
+        # were being discarded from the terminal).
+        if findings:
+            sev_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
+            for f in findings:
+                s = str(f.get("severity", "MEDIUM")).upper()
+                sev_counts[s] = sev_counts.get(s, 0) + 1
+            _style = {"CRITICAL": "bold red", "HIGH": "red", "MEDIUM": "yellow",
+                      "LOW": "cyan", "INFO": "dim"}
+            parts = [f"[{_style[s]}]{s.title()}: {sev_counts[s]}[/{_style[s]}]"
+                     for s in ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO") if sev_counts[s]]
+            score = generator.calculate_security_score(findings)
+            risk = generator.calculate_risk_level(score)
+            _con.print(f"  [dim]{'Severity:':<{_w}}[/dim] " + "  ".join(parts))
+            _con.print(f"  [dim]{'Risk level:':<{_w}}[/dim] [bold]{risk}[/bold] (score {score}/100)")
+            worst = sorted(
+                (f for f in findings if str(f.get("severity", "")).upper() in ("CRITICAL", "HIGH")),
+                key=lambda f: 0 if str(f.get("severity", "")).upper() == "CRITICAL" else 1)
+            if worst:
+                _con.print(_bar)
+                _con.print("  [bold]Top findings:[/bold]")
+                for f in worst[:3]:
+                    sev = str(f.get("severity", "")).upper()
+                    _con.print(f"   [{_style.get(sev, 'white')}]{sev}[/] "
+                               f"{f.get('file', '?')}:{f.get('line', '?')} — {(f.get('issue') or '')[:80]}")
+                _con.print(_bar)

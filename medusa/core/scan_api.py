@@ -331,8 +331,9 @@ def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:
 def vet_skill(path, redact_snippets: bool = False) -> dict:
     """Vet a skill directory or SKILL.md file.
 
-    For now this is a content scan of the skill (vet_path on the dir/file).
-    Deep SKILL.md manifest vetting is deferred (see the feature plan).
+    SKILL.md manifest vetting is active: the scan of the skill dir/file (via
+    vet_path) runs the SkillManifestScanner (registered in scanners/__init__.py)
+    over the manifest plus adjacent scripts — the actual risk surface of a skill.
 
     ``redact_snippets`` is forwarded to ``vet_path`` (MCP path).
     """

@@ -33,6 +33,7 @@ Design notes:
 """
 
 import json
+import os
 import re
 import time
 import urllib.error
@@ -104,7 +105,10 @@ class DependencyCVEScanner(BaseScanner):
         self._osv_cache: Dict[Tuple[str, str, str], Tuple[List[str], Optional[str]]] = {}
         # Set on the first transport failure so the rest of the run short-circuits
         # (no per-manifest network stalls when offline / behind a drop-firewall).
-        self._offline = False
+        # PR-011: `medusa scan --offline` sets MEDUSA_OFFLINE=1 so no dependency
+        # names/versions ever leave the machine — the existing circuit-breaker
+        # already short-circuits all OSV network when _offline is True.
+        self._offline = os.environ.get("MEDUSA_OFFLINE") == "1"
         # Set when a reachable OSV returns 429/5xx even after one retry — results
         # may be partial, so an empty finding list must not be read as "clean".
         self._network_incomplete = False

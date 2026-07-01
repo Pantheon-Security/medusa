@@ -1504,7 +1504,10 @@ def main(ctx, version):
               help='Force the LLM triage backend instead of auto-detecting. Default order: '
                    'claude-cli, codex-cli, anthropic-api, openai-api. (Also settable via '
                    'MEDUSA_LLM_BACKEND.) Only used with --llm-triage.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage, llm_backend):
+@click.option('--offline', '--no-network', 'offline', is_flag=True, default=False,
+              help='Disable all network egress: skip the OSV.dev dependency-CVE lookup so no '
+                   'package names/versions leave the machine. The scan runs fully local.')
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage, llm_backend, offline):
     """
     Scan a directory or file for security issues.
 
@@ -1522,8 +1525,26 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         medusa scan --git user/repo            # Clone and scan a GitHub repo
         medusa scan -g https://github.com/u/r  # Clone and scan by URL
     """
+    # Network kill-switch (PR-011): set an env var the DependencyCVEScanner reads
+    # in __init__ so the OSV.dev lookup short-circuits to offline. Set BEFORE the
+    # --git branch so both the local and remote-clone paths inherit it.
+    if offline:
+        os.environ["MEDUSA_OFFLINE"] = "1"
+
     # Handle --git mode: clone remote repo and scan it
     if git_url:
+        # PR-015: --baseline / --write-baseline / --llm-triage are not yet
+        # threaded through the --git path. Silently ignoring them is worse than
+        # an error (the user believes triage/baseline ran), so reject the combo
+        # explicitly until threading lands.
+        _unsupported = [n for n, v in (("--baseline", baseline),
+                                       ("--write-baseline", write_baseline_path),
+                                       ("--llm-triage", llm_triage)) if v]
+        if _unsupported:
+            console.print(
+                f"[red]{', '.join(_unsupported)} is not supported with --git yet.[/red]"
+            )
+            raise SystemExit(2)
         _scan_git_repo(
             git_url=git_url,
             allow_any_host=allow_any_host,
@@ -1560,6 +1581,12 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     console.print(f"[cyan]🔧 Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
     if exclude:
         console.print(f"[cyan]🚫 Excluding:[/cyan] {', '.join(exclude)}")
+    # PR-016: announce triage up-front so --llm-triage isn't silent — it only
+    # runs after the full scan, so on a long scan the user would otherwise see
+    # nothing triage-related and assume it hung. Console notice only; no backend
+    # is imported or invoked here (the default path stays network-free).
+    if llm_triage:
+        console.print("[cyan]🤖 LLM triage enabled — findings will be triaged after the scan.[/cyan]")
 
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
@@ -1817,14 +1844,22 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Affirmative empty state: when nothing was found, say so plainly with a
         # file count rather than leaving a bare "Scan complete!" / silent zero.
         _total_findings = sum(len(r.issues) for r in results)
+        # PR-017: derive the clean-line scanner count the SAME way the SCAN
+        # COMPLETE box does (unique scanner_stats keys) so the two numbers can
+        # never disagree. Fall back to the distinct scanner attribute only when
+        # no scanner_stats are present.
         _scanner_count = len({
-            getattr(r, 'scanner', '') for r in results if getattr(r, 'scanner', '')
+            k for r in results for k in (getattr(r, 'scanner_stats', None) or {}).keys()
+        }) or len({
+            getattr(r, 'scanner', '') for r in results
+            if getattr(r, 'scanner', '') not in ('', 'cached', 'unsupported')
         })
+        _scanner_word = "scanner" if _scanner_count == 1 else "scanners"
         if _total_findings == 0:
             _file_word = "file" if len(files) == 1 else "files"
             console.print(
                 f"\n[bold green]✅ Clean — 0 issues found across "
-                f"{len(files)} {_file_word}, {_scanner_count} scanners[/bold green]"
+                f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
             )
 
         _print_scan_complete()
@@ -2273,14 +2308,22 @@ def _scan_git_repo(
         # Affirmative empty state — mirror the local scan() path (RM-1) so a clean
         # cloned repo reads as "verified clean" rather than a silent zero.
         _total_findings = sum(len(r.issues) for r in results)
+        # PR-017: derive the clean-line scanner count the SAME way the SCAN
+        # COMPLETE box does (unique scanner_stats keys) so the two numbers can
+        # never disagree. Fall back to the distinct scanner attribute only when
+        # no scanner_stats are present.
         _scanner_count = len({
-            getattr(r, 'scanner', '') for r in results if getattr(r, 'scanner', '')
+            k for r in results for k in (getattr(r, 'scanner_stats', None) or {}).keys()
+        }) or len({
+            getattr(r, 'scanner', '') for r in results
+            if getattr(r, 'scanner', '') not in ('', 'cached', 'unsupported')
         })
+        _scanner_word = "scanner" if _scanner_count == 1 else "scanners"
         if _total_findings == 0:
             _file_word = "file" if len(files) == 1 else "files"
             console.print(
                 f"\n[bold green]✅ Clean — 0 issues found across "
-                f"{len(files)} {_file_word}, {_scanner_count} scanners[/bold green]"
+                f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
             )
 
         _print_scan_complete()
@@ -2742,6 +2785,20 @@ def init(ide, force, install):
     console.print("\n[cyan]🔧 MEDUSA Initialization Wizard[/cyan]\n")
 
     project_root = Path.cwd()
+
+    # Non-interactive safety (P1/PR-002): without a TTY the IDE-selection prompt
+    # hits EOF and Click aborts *after* config has already been written to disk,
+    # leaving a half-initialized project with no rollback. Detect this BEFORE any
+    # write and refuse cleanly unless the caller passed an explicit --ide, which
+    # makes the run fully non-interactive.
+    if not sys.stdin.isatty() and not ide:
+        console.print(
+            "[red]medusa init needs an interactive terminal to choose IDE integration.[/red]\n"
+            "[yellow]Non-interactive shell detected — nothing was written. Re-run with an explicit target:[/yellow]\n"
+            "  [cyan]medusa init --ide none[/cyan]   (write config only, no IDE wiring)\n"
+            "  [cyan]medusa init --ide all[/cyan]    (wire every supported IDE)"
+        )
+        raise SystemExit(2)
 
     # `.medusa.yml` is canonical (P3-6); `medusa.yml` is still honored for
     # backward compatibility. Prefer the dotted name when deciding what an
@@ -3908,6 +3965,19 @@ def vet(target, as_json):
     else:
         score = result.get('score', 0)
         click.echo(f"VERDICT: {verdict}  (risk score {score})")
+        # Surface the "why" (PR-006): the top findings that drove the verdict.
+        # vet_repo already returns them; without this the user gets a bare
+        # DO_NOT_INSTALL with no reason and either overrides blindly or distrusts
+        # the tool. Matched-source snippets stay behind --json (parity with the
+        # redacted MCP path's intent).
+        top = result.get('top_findings') or []
+        if top:
+            click.echo(f"Top findings ({result.get('total_findings', len(top))} total):")
+            for f in top[:5]:
+                loc = f.get('file', '?')
+                if f.get('line'):
+                    loc = f"{loc}:{f['line']}"
+                click.echo(f"  [{f.get('severity', '?')}] {f.get('rule_id', '')} — {loc}")
         error = result.get('error')
         if error:
             click.echo(f"Note: {error}")
