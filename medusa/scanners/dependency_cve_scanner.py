@@ -256,12 +256,61 @@ class DependencyCVEScanner(BaseScanner):
         r'["\']([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*==\s*([A-Za-z0-9][A-Za-z0-9.\-+!]*)["\']'
     )
 
+    # Poetry table headers whose entries are `pkg = "<spec>"` install deps.
+    _POETRY_DEP_HEADER_RE = re.compile(
+        r'^\[tool\.poetry(?:\.group\.[^.\]]+)?\.dependencies\]$|^\[tool\.poetry\.dev-dependencies\]$'
+    )
+    _POETRY_PIN_RE = re.compile(
+        r'^\s*"?([A-Za-z0-9][A-Za-z0-9._-]*)"?\s*=\s*"(?:==)?\s*([0-9][0-9A-Za-z.\-+!]*)"\s*$'
+    )
+    _TOML_HEADER_RE = re.compile(r'^(\[\[?[^\]]+\]\]?)\s*$')
+
     def _parse_pyproject(self, content: str) -> List[Tuple[str, str, str, int]]:
+        """Extract exact `==` pins from *install* dependency tables only.
+
+        Scopes to PEP 621 [project] ``dependencies`` / [project.optional-
+        dependencies] and Poetry dependency tables. Test/tool blocks such as
+        [tool.tox] command lists, example lockfiles, and [dependency-groups] are
+        NOT install dependencies, so pins inside them are ignored — reading them
+        was the source of phantom CVEs for projects like flask.
+        """
         deps: List[Tuple[str, str, str, int]] = []
+        section = ''
+        in_project_deps = False  # inside [project] dependencies = [ ... ]
         for i, line in enumerate(content.splitlines(), 1):
-            for m in self._PYPROJECT_DEP_RE.finditer(line):
-                deps.append((self._norm(m.group(1)), m.group(2), _PYPI, i))
+            stripped = line.strip()
+            hdr = self._TOML_HEADER_RE.match(stripped)
+            if hdr:
+                section = hdr.group(1).lower()
+                in_project_deps = False
+                continue
+
+            if section == '[project]':
+                if not in_project_deps:
+                    m = re.match(r'^dependencies\s*=\s*\[(.*)$', stripped)
+                    if m:
+                        in_project_deps = True
+                        self._collect_pyproject_line(m.group(1), i, deps)
+                        if ']' in m.group(1):
+                            in_project_deps = False
+                else:
+                    self._collect_pyproject_line(stripped, i, deps)
+                    if ']' in stripped:
+                        in_project_deps = False
+            elif section == '[project.optional-dependencies]':
+                self._collect_pyproject_line(stripped, i, deps)
+            elif self._POETRY_DEP_HEADER_RE.match(section):
+                pm = self._POETRY_PIN_RE.match(stripped)
+                if pm and pm.group(1).lower() != 'python':
+                    deps.append((self._norm(pm.group(1)), pm.group(2), _PYPI, i))
         return deps
+
+    def _collect_pyproject_line(
+        self, text: str, line_no: int, deps: List[Tuple[str, str, str, int]]
+    ) -> None:
+        """Append every exact `==` pin found in a PEP 621 dependency-array line."""
+        for m in self._PYPROJECT_DEP_RE.finditer(text):
+            deps.append((self._norm(m.group(1)), m.group(2), _PYPI, line_no))
 
     def _parse_lock_toml_or_json(self, kind: str, content: str) -> List[Tuple[str, str, str, int]]:
         # poetry.lock is TOML with [[package]] tables; Pipfile.lock is JSON.

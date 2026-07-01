@@ -290,6 +290,80 @@ def _parse_v1_rule(rule: Dict) -> List[Dict]:
     return [entry]
 
 
+def _exact_pin(spec: str) -> Optional[str]:
+    """Return the exact pinned version from a PEP 508 specifier, or None.
+
+    Only a single ``==X.Y.Z`` pin is a concrete installed version we can match
+    against CVE ranges. A minimum / compatible / range specifier (``>=``, ``>``,
+    ``<``, ``<=``, ``~=``, ``!=``, ``^``, wildcards, or a comma-joined set like
+    ``>=1.0,<2.0``) means the *installed* version is unknown, so it must NOT be
+    treated as a version — that was the phantom-CVE false positive.
+    """
+    if not spec:
+        return None
+    spec = spec.strip()
+    # A comma joins multiple specifiers (a range) and ``*`` is a wildcard pin;
+    # ``==`` must be present and be the sole, exact operator.
+    if '==' not in spec or ',' in spec or '*' in spec:
+        return None
+    match = re.match(r'^==\s*([0-9][0-9a-zA-Z.\-]*)$', spec)
+    return match.group(1) if match else None
+
+
+def _iter_toml_sections(content: str):
+    """Yield (header, body) for each TOML table in `content`.
+
+    ``header`` is the bracketed table name (e.g. ``[tool.poetry.dependencies]``)
+    or ``''`` for the implicit root table before the first header. This lets the
+    pyproject parser scope itself to real dependency tables instead of matching
+    version pins anywhere in the file (e.g. inside [tool.tox] test commands).
+    """
+    parts = re.split(r'(?m)^\s*(\[\[?[^\]]+\]\]?)\s*$', content)
+    yield '', parts[0]
+    for i in range(1, len(parts), 2):
+        header = parts[i].strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ''
+        yield header, body
+
+
+def _collect_quoted_pins(text: str, deps: Dict[str, str]) -> None:
+    """Add every quoted PEP 508 spec in `text` that is an exact pin to `deps`."""
+    for match in re.finditer(
+        r'["\']([a-zA-Z0-9_.-]+)(?:\[[^\]]*\])?\s*([^"\']*)["\']', text
+    ):
+        version = _exact_pin(match.group(2))
+        if version:
+            deps[match.group(1).lower()] = version
+
+
+def _collect_poetry_pins(body: str, deps: Dict[str, str]) -> None:
+    """Add exact Poetry dependency pins from a [tool.poetry...dependencies] body.
+
+    Poetry treats a bare ``"1.2.3"`` (and ``"==1.2.3"``) as an exact version;
+    caret ``^``, tilde ``~``, inequality (``>=``/``<``), wildcard, and multi-part
+    constraints leave the installed version unknown and are skipped.
+    """
+    for match in re.finditer(r'^\s*([a-zA-Z0-9_.-]+)\s*=\s*(.+?)\s*$', body, re.MULTILINE):
+        name = match.group(1).lower()
+        if name == 'python':
+            continue
+        rhs = match.group(2).strip()
+        # Inline table form: pkg = { version = "1.2.3", ... }
+        if rhs.startswith('{'):
+            ver_match = re.search(r'version\s*=\s*"([^"]+)"', rhs)
+            spec = ver_match.group(1).strip() if ver_match else ''
+        else:
+            quoted = re.match(r'^["\']([^"\']*)["\']', rhs)
+            spec = quoted.group(1).strip() if quoted else ''
+        if not spec:
+            continue
+        if spec.startswith('=='):
+            spec = spec[2:].strip()
+        # Accept only a bare exact version (no range/compat operators, no wildcard).
+        if re.match(r'^[0-9][0-9a-zA-Z.\-]*$', spec):
+            deps[name] = spec
+
+
 def _str_to_version_tuple(version_str: str) -> Optional[Tuple[int, ...]]:
     """Convert a version string like '2.14.1' to a tuple like (2, 14, 1)."""
     if not version_str:
@@ -605,17 +679,25 @@ class CriticalCVEScanner(BaseScanner):
         return {}
 
     def _parse_requirements_txt(self, file_path: Path) -> Dict[str, str]:
-        """Parse requirements.txt: package==1.2.3 or package>=1.2.3"""
+        """Parse requirements.txt, keeping only exact `package==1.2.3` pins.
+
+        A minimum/range spec (`package>=1.2.3`) leaves the installed version
+        unknown and is skipped — matching it against CVE ranges is a false pin.
+        """
         deps = {}
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith('#') or line.startswith('-'):
                     continue
-                # Match: package==1.2.3 or package>=1.2.3 or package~=1.2.3
-                match = re.match(r'^([a-zA-Z0-9_.-]+)\s*[=~<>!]+\s*([0-9][0-9a-zA-Z.*-]*)', line)
-                if match:
-                    deps[match.group(1).lower()] = match.group(2)
+                # Drop environment markers and inline comments before the spec.
+                line = line.split(';', 1)[0].split(' #', 1)[0].strip()
+                match = re.match(r'^([a-zA-Z0-9_.-]+)\s*(?:\[[^\]]*\])?\s*(.*)$', line)
+                if not match:
+                    continue
+                version = _exact_pin(match.group(2))
+                if version:
+                    deps[match.group(1).lower()] = version
         return deps
 
     def _parse_setup_py(self, file_path: Path) -> Dict[str, str]:
@@ -626,8 +708,13 @@ class CriticalCVEScanner(BaseScanner):
         # Find install_requires list
         requires_match = re.search(r'install_requires\s*=\s*\[(.*?)\]', content, re.DOTALL)
         if requires_match:
-            for match in re.finditer(r'["\']([a-zA-Z0-9_.-]+)\s*[=~<>!]+\s*([0-9][0-9a-zA-Z.*-]*)', requires_match.group(1)):
-                deps[match.group(1).lower()] = match.group(2)
+            for match in re.finditer(
+                r'["\']([a-zA-Z0-9_.-]+)(?:\[[^\]]*\])?\s*([^"\']*)["\']',
+                requires_match.group(1),
+            ):
+                version = _exact_pin(match.group(2))
+                if version:
+                    deps[match.group(1).lower()] = version
         return deps
 
     def _parse_setup_cfg(self, file_path: Path) -> Dict[str, str]:
@@ -640,29 +727,42 @@ class CriticalCVEScanner(BaseScanner):
         if requires_match:
             for line in requires_match.group(1).split('\n'):
                 line = line.strip()
-                match = re.match(r'([a-zA-Z0-9_.-]+)\s*[=~<>!]+\s*([0-9][0-9a-zA-Z.*-]*)', line)
-                if match:
-                    deps[match.group(1).lower()] = match.group(2)
+                match = re.match(r'^([a-zA-Z0-9_.-]+)(?:\[[^\]]*\])?\s*(.*)$', line)
+                if not match:
+                    continue
+                version = _exact_pin(match.group(2))
+                if version:
+                    deps[match.group(1).lower()] = version
         return deps
 
     def _parse_pyproject_toml(self, file_path: Path) -> Dict[str, str]:
-        """Parse pyproject.toml dependencies via regex."""
-        deps = {}
+        """Parse pyproject.toml install dependencies via regex.
+
+        Only *real* dependency tables are the install surface — PEP 621
+        [project] ``dependencies`` / [project.optional-dependencies] and Poetry
+        [tool.poetry.dependencies] / group dependency tables. Test/tool blocks
+        such as [tool.tox], testenv command lists, and [dependency-groups] are
+        NOT install dependencies and must not be scanned as such. Only exact
+        ``==``/bare pins yield a concrete version (ranges leave it unknown).
+        """
+        deps: Dict[str, str] = {}
         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
-        # PEP 621 [project] dependencies
-        dep_section = re.search(r'\[project\].*?dependencies\s*=\s*\[(.*?)\]', content, re.DOTALL)
-        if dep_section:
-            for match in re.finditer(r'["\']([a-zA-Z0-9_.-]+)\s*[=~<>!]+\s*([0-9][0-9a-zA-Z.*-]*)', dep_section.group(1)):
-                deps[match.group(1).lower()] = match.group(2)
-        # Poetry [tool.poetry.dependencies]
-        poetry_section = re.search(r'\[tool\.poetry\.dependencies\](.*?)(?:\[|\Z)', content, re.DOTALL)
-        if poetry_section:
-            for match in re.finditer(r'^([a-zA-Z0-9_.-]+)\s*=\s*["\']([^"\']+)', poetry_section.group(1), re.MULTILINE):
-                name = match.group(1).lower()
-                if name != 'python':
-                    version = re.sub(r'[\^~>=<]', '', match.group(2))
-                    deps[name] = version
+
+        for header, body in _iter_toml_sections(content):
+            if header == '[project]':
+                # dependencies = ["pkg==1.2.3", ...]
+                arr = re.search(r'(?:^|\n)\s*dependencies\s*=\s*\[(.*?)\]', body, re.DOTALL)
+                if arr:
+                    _collect_quoted_pins(arr.group(1), deps)
+            elif header == '[project.optional-dependencies]':
+                # extra = ["pkg==1.2.3", ...] — the whole table is spec arrays.
+                _collect_quoted_pins(body, deps)
+            elif header == '[tool.poetry.dependencies]' or re.match(
+                r'^\[tool\.poetry(?:\.group\.[^.\]]+)?\.dependencies\]$', header
+            ) or header == '[tool.poetry.dev-dependencies]':
+                _collect_poetry_pins(body, deps)
+
         return deps
 
     def _parse_pipfile(self, file_path: Path) -> Dict[str, str]:
