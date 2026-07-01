@@ -39,7 +39,10 @@ def test_claude_hook_valid_and_contract(tmp_path: Path):
     assert len(medusa_entries) == 1
     cmd = medusa_entries[0]["hooks"][0]
     assert cmd["type"] == "command"
-    assert "medusa scan --git" in cmd["command"]
+    # The hook now invokes the shipped, fail-closed script by absolute path
+    # (CR-009) rather than an inline one-liner.
+    assert "claude_pretooluse.sh" in cmd["command"]
+    assert install._CLAUDE_HOOK_SCRIPT.exists()
 
 
 def test_claude_hook_idempotent(tmp_path: Path):

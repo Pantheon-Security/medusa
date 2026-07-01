@@ -39,25 +39,17 @@ MEDUSA_MARKER = "medusa"
 _MARKER_BEGIN = "# >>> medusa >>>"
 _MARKER_END = "# <<< medusa <<<"
 
-# The Claude PreToolUse hook command. Single robust shell line: it reads the
-# tool input on stdin, and when the Bash command looks like a risky fetch/install
-# (git clone / pip|npm|uv install) it vets it with MEDUSA before the command runs.
-# A git clone URL is routed through `medusa scan --git <url>`; everything else
-# triggers a fast workspace `medusa secrets scan`. Exit 2 from a PreToolUse hook
-# tells Claude Code to block the tool call.
-_CLAUDE_HOOK_COMMAND = (
-    "cmd=$(cat | python3 -c "
-    "'import sys,json;print(json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\"))' "
-    "2>/dev/null); "
-    'case "$cmd" in '
-    "*'git clone'*) "
-    'url=$(printf "%s" "$cmd" | grep -oE "(https?://|git@)[^ ]+" | head -n1); '
-    '[ -n "$url" ] && medusa scan --git "$url" --fail-on high || exit 0 ;; '
-    "*'pip install'*|*'npm install'*|*'uv pip install'*|*'pip3 install'*) "
-    "medusa secrets scan || exit 0 ;; "
-    "*) exit 0 ;; "
-    "esac"
-)
+# The Claude PreToolUse hook is a shipped, MEDUSA-authored shell script
+# (``claude_pretooluse.sh``, packaged alongside this module). It reads the tool
+# input on stdin and, when the Bash command looks like a risky fetch/install
+# (git/gh clone, curl|sh, wget, pip/pipx/uv/npm/poetry/cargo/go install), vets
+# every URL with MEDUSA before the command runs. Crucially it **fails closed**
+# and **exits 2** on any finding or when medusa is unavailable — Claude Code only
+# blocks a tool call on exit 2, so exit 1 would fail open. The settings hook just
+# invokes the script by absolute path; the script itself is the fixed constant so
+# no untrusted data is ever templated into a shell string.
+_CLAUDE_HOOK_SCRIPT = Path(__file__).resolve().with_name("claude_pretooluse.sh")
+_CLAUDE_HOOK_COMMAND = f'bash "{_CLAUDE_HOOK_SCRIPT}"'
 
 # The Claude SessionStart hook command. Runs once when a session starts to
 # announce that the MEDUSA MCP gatekeeper is active and to ensure the project's
@@ -106,6 +98,16 @@ def install_claude_hook(base: str | os.PathLike[str]) -> Path:
     """
     path = Path(base) / ".claude" / "settings.json"
     settings = _load_json(path)
+
+    # Ensure the shipped hook script is executable (0755). We invoke it via
+    # `bash <path>` so the exec bit is not strictly required, but keep it set so
+    # the script is runnable directly too. Best effort — a read-only install dir
+    # must not break wiring the hook.
+    try:
+        mode = _CLAUDE_HOOK_SCRIPT.stat().st_mode
+        _CLAUDE_HOOK_SCRIPT.chmod(mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    except OSError:
+        pass
 
     hooks = settings.setdefault("hooks", {})
     if not isinstance(hooks, dict):

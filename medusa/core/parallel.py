@@ -56,8 +56,16 @@ def _inject_batch_scanner_caches(snapshot):
         entry = snapshot.get(scanner.__class__.__name__)
         if entry is None:
             continue
-        scanner._results_cache = entry.get('cache', {})
-        scanner._cache_populated = entry.get('populated', False)
+        if 'cache' in entry:
+            scanner._results_cache = entry.get('cache', {})
+            scanner._cache_populated = entry.get('populated', False)
+        # OSV dependency scanner: rehydrate the project-wide CVE lookup so a pin
+        # shared across manifests in different workers is not re-queried (CR-016).
+        if 'osv_cache' in entry:
+            scanner._osv_cache = entry.get('osv_cache', {})
+            scanner._offline = entry.get('offline', False)
+            scanner._network_incomplete = entry.get('network_incomplete', False)
+            scanner._cache_populated = True
 
 def _truncate_code(code: str) -> str:
     """Truncate a code snippet to _CODE_SNIPPET_MAX chars to avoid leaking full secret values."""
@@ -1150,6 +1158,27 @@ class MedusaParallelScanner:
                 print(f"{_icon2} Running GitLeaks batch scan on {_project_root}...")
                 _gitleaks.scan_project(_project_root)
 
+            # OSV dependency-CVE lookup: parse every manifest once, resolve the
+            # project's unique pins with a single batched querybatch before the
+            # Pool forks, so no worker performs a redundant per-file lookup
+            # (CR-016). Only {name, version, ecosystem} is sent to OSV.dev.
+            from medusa.scanners.dependency_cve_scanner import (
+                DependencyCVEScanner as _DepCVEScanner,
+            )
+            _osv = next(
+                (s for s in scanner_registry.scanners if isinstance(s, _DepCVEScanner)),
+                None,
+            )
+            if _osv is not None:
+                _osv_pins = _osv.collect_manifest_deps(files)
+                if _osv_pins and not _osv._offline:
+                    print(
+                        f"{_icon2} Dependency names/versions sent to OSV.dev "
+                        f"for CVE lookup..."
+                    )
+                    _osv._resolve(_osv_pins)
+                    _osv._cache_populated = True
+
         # Snapshot batch-scanner caches so spawn-mode workers (macOS/Windows)
         # can rehydrate them via Pool(initializer=...). On fork platforms this
         # is redundant but harmless.
@@ -1160,6 +1189,13 @@ class MedusaParallelScanner:
                     'cache': _s._results_cache,
                     'populated': True,
                 }
+            # OSV scanner keeps its lookups in _osv_cache (not _results_cache);
+            # snapshot it separately so spawn-mode workers inherit the pins (CR-016).
+            if getattr(_s, '_cache_populated', False) and hasattr(_s, '_osv_cache'):
+                _entry = self._batch_cache_snapshot.setdefault(_s.__class__.__name__, {})
+                _entry['osv_cache'] = _s._osv_cache
+                _entry['offline'] = getattr(_s, '_offline', False)
+                _entry['network_incomplete'] = getattr(_s, '_network_incomplete', False)
 
         try:
             if getattr(self, 'trace_rules', False):

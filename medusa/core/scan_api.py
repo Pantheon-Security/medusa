@@ -144,8 +144,33 @@ def _extract_findings(scanner, results) -> list:
     return findings
 
 
-def _summarize(findings: list) -> dict:
-    """Build a verdict dict from standardized findings."""
+def _relativize(file_path, root) -> str:
+    """Return ``file_path`` relative to ``root`` (best effort).
+
+    Falls back to the bare basename when the path is outside ``root`` or not
+    resolvable — either way the absolute path is not leaked. Used only on the
+    redacted (MCP) path so an external agent never learns host filesystem
+    layout.
+    """
+    if not file_path:
+        return file_path
+    try:
+        p = Path(str(file_path)).resolve()
+        if root is not None:
+            return str(p.relative_to(Path(root).resolve()))
+    except (ValueError, OSError):
+        pass
+    return Path(str(file_path)).name
+
+
+def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict:
+    """Build a verdict dict from standardized findings.
+
+    ``redact_snippets`` (the MCP path) drops the matched-source ``issue`` body
+    from ``top_findings`` and relativizes the file path, leaving only
+    rule_id + severity + relative file:line. The CLI path (default False) is
+    unchanged.
+    """
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
     for f in findings:
         sev = f.get("severity", "MEDIUM")
@@ -156,17 +181,18 @@ def _summarize(findings: list) -> dict:
         findings,
         key=lambda f: -_SEVERITY_WEIGHT.get(f.get("severity", "MEDIUM"), 0),
     )
-    top = [
-        {
+    top = []
+    for f in ordered[:_TOP_FINDINGS]:
+        entry = {
             "severity": f.get("severity"),
             "scanner": f.get("scanner"),
             "rule_id": f.get("rule_id"),
-            "file": f.get("file"),
+            "file": _relativize(f.get("file"), root) if redact_snippets else f.get("file"),
             "line": f.get("line"),
-            "issue": (f.get("issue") or "")[:200],
         }
-        for f in ordered[:_TOP_FINDINGS]
-    ]
+        if not redact_snippets:
+            entry["issue"] = (f.get("issue") or "")[:200]
+        top.append(entry)
 
     return {
         "verdict": _verdict_from_counts(counts),
@@ -177,13 +203,16 @@ def _summarize(findings: list) -> dict:
     }
 
 
-def vet_path(path) -> dict:
+def vet_path(path, redact_snippets: bool = False) -> dict:
     """Scan a local directory or file and return a structured verdict.
 
     Returns a dict: {verdict, score, counts_by_severity, total_findings,
     top_findings, target, error?}. Never raises for an ordinary scan
     failure — a failed scan returns an ``error`` field and a CAUTION verdict
     so callers fail safe rather than fail open.
+
+    ``redact_snippets`` (set by the MCP layer) drops matched-source bodies and
+    relativizes file paths in ``top_findings``; the CLI path leaves them intact.
     """
     target = Path(path)
     if not target.exists():
@@ -209,8 +238,9 @@ def vet_path(path) -> dict:
                 files = scanner.find_scannable_files()
             else:
                 files = [target]
+            scan_root = target if target.is_dir() else target.parent
             if not files:
-                summary = _summarize([])
+                summary = _summarize([], redact_snippets=redact_snippets, root=scan_root)
                 summary["target"] = str(target)
                 return summary
             results = scanner.scan_parallel(files)
@@ -226,7 +256,7 @@ def vet_path(path) -> dict:
             "error": f"scan failed: {exc}",
         }
 
-    summary = _summarize(findings)
+    summary = _summarize(findings, redact_snippets=redact_snippets, root=scan_root)
     summary["target"] = str(target)
     return summary
 
@@ -289,7 +319,7 @@ def _clone_repo(url: str) -> str:
     return tmp_dir
 
 
-def vet_repo(url_or_path) -> dict:
+def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:
     """Vet a repository given a local path OR a remote git URL.
 
     Local existing path -> delegate to ``vet_path``.
@@ -298,12 +328,14 @@ def vet_repo(url_or_path) -> dict:
 
     A clone failure returns a CAUTION verdict with an ``error`` field (fail
     safe) rather than raising.
+
+    ``redact_snippets`` is forwarded to ``vet_path`` (MCP path).
     """
     value = str(url_or_path)
 
     # An existing local path always wins over URL heuristics.
     if Path(value).exists():
-        result = vet_path(value)
+        result = vet_path(value, redact_snippets=redact_snippets)
         result["target"] = value
         return result
 
@@ -332,7 +364,7 @@ def vet_repo(url_or_path) -> dict:
         }
 
     try:
-        result = vet_path(clone_dir)
+        result = vet_path(clone_dir, redact_snippets=redact_snippets)
     finally:
         shutil.rmtree(clone_dir, ignore_errors=True)
 
@@ -340,19 +372,21 @@ def vet_repo(url_or_path) -> dict:
     return result
 
 
-def vet_skill(path) -> dict:
+def vet_skill(path, redact_snippets: bool = False) -> dict:
     """Vet a skill directory or SKILL.md file.
 
     For now this is a content scan of the skill (vet_path on the dir/file).
     Deep SKILL.md manifest vetting is deferred (see the feature plan).
+
+    ``redact_snippets`` is forwarded to ``vet_path`` (MCP path).
     """
     target = Path(path)
     # If pointed at a SKILL.md, scan its whole directory so adjacent scripts
     # (the actual risk surface of a skill) are included.
     if target.is_file() and target.name.upper() == "SKILL.MD":
-        result = vet_path(target.parent)
+        result = vet_path(target.parent, redact_snippets=redact_snippets)
     else:
-        result = vet_path(target)
+        result = vet_path(target, redact_snippets=redact_snippets)
     result["target"] = str(target)
     return result
 

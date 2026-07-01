@@ -11,15 +11,25 @@ a single MEDUSA-OSV-001 finding naming the package, version, and CVE/OSV IDs.
 
 Design notes:
 - OFFLINE-SAFE BY CONSTRUCTION: every network call uses a short timeout and any
-  failure (no network, timeout, non-200, malformed JSON) is swallowed and yields
-  NO findings for that dependency. The scanner never raises or hangs because of
-  the network; run fully offline and it simply reports nothing.
+  failure (no network, timeout, malformed JSON) is swallowed and yields NO
+  findings for that manifest. The scanner never raises or hangs because of the
+  network; run fully offline and it simply reports nothing. The FIRST transport
+  failure in a run flips the scanner offline so remaining manifests short-circuit
+  with no further per-manifest stalls (CR-013).
+- BATCHED: dependencies are resolved through OSV's /v1/querybatch endpoint — one
+  HTTP POST per manifest (chunked to OSV's 1000-queries/request limit) instead of
+  one request per dependency, so a large lockfile no longer times out and drops
+  all of its CVE findings (CR-014).
+- DISTINGUISHES FAILURE FROM CLEAN: a rate-limit/5xx that survives one backoff
+  retry sets a per-run "incomplete" flag and emits an INFO MEDUSA-OSV-INCOMPLETE
+  finding, so an empty result is never mistaken for a clean bill of health (CR-015).
 - Only PINNED dependencies are checked. Ranges, carets, tildes, and unpinned
   specs are skipped (OSV needs a concrete version, and an unpinned spec is not a
   reproducible finding).
 - Uses STDLIB urllib.request only — no new third-party dependency.
 - Results are cached per-run by (name, version, ecosystem) so a manifest and its
-  lockfile naming the same pin only hit the network once.
+  lockfile naming the same pin only hit the network once (CR-016). Only
+  {name, version, ecosystem} is ever sent to OSV.dev.
 """
 
 import json
@@ -33,8 +43,12 @@ from typing import Dict, List, Optional, Tuple
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
 
 
-# OSV.dev single-package query endpoint.
-_OSV_QUERY_URL = "https://api.osv.dev/v1/query"
+# OSV.dev batched-query endpoint. One POST resolves up to 1000 (name, version,
+# ecosystem) queries at once, mapping results back to the request by index.
+_OSV_QUERYBATCH_URL = "https://api.osv.dev/v1/querybatch"
+
+# OSV caps querybatch at 1000 queries per request; chunk anything larger.
+_OSV_BATCH_MAX = 1000
 
 # Network timeout (seconds). Kept short so an unreachable network degrades
 # gracefully to "no findings" rather than stalling a scan.
@@ -74,6 +88,15 @@ class DependencyCVEScanner(BaseScanner):
         super().__init__()
         # Per-run cache: (name, version, ecosystem) -> list of vuln-id strings.
         self._osv_cache: Dict[Tuple[str, str, str], List[str]] = {}
+        # Set on the first transport failure so the rest of the run short-circuits
+        # (no per-manifest network stalls when offline / behind a drop-firewall).
+        self._offline = False
+        # Set when a reachable OSV returns 429/5xx even after one retry — results
+        # may be partial, so an empty finding list must not be read as "clean".
+        self._network_incomplete = False
+        # Marks the cache as pre-populated by a project-wide prefetch (CR-016) so
+        # spawn-mode Pool workers can rehydrate it via the batch-cache snapshot.
+        self._cache_populated = False
 
     def get_tool_name(self) -> str:
         return "python"  # stdlib-only HTTP; no external tool
@@ -126,10 +149,20 @@ class DependencyCVEScanner(BaseScanner):
 
             deps = self._parse(kind, content)
 
+            # Resolve every pin through ONE batched querybatch call (per-run cache
+            # dedups pins already looked up in this run / by the prefetch).
+            self._resolve([(n, v, e) for n, v, e, _ in deps])
+
             for name, version, ecosystem, line in deps:
-                vuln_ids = self._lookup(name, version, ecosystem)
+                vuln_ids = self._osv_cache.get((name, version, ecosystem), [])
                 if vuln_ids:
                     issues.append(self._make_issue(name, version, ecosystem, vuln_ids, line))
+
+            # CR-015: a reachable-but-erroring OSV means the results above may be
+            # partial. Emit one INFO finding so absence of CVEs is not read as a
+            # clean bill of health. (Offline runs do not set this flag.)
+            if self._network_incomplete and deps:
+                issues.append(self._incomplete_issue())
 
             return self._ok(file_path, issues, start_time)
 
@@ -357,48 +390,144 @@ class DependencyCVEScanner(BaseScanner):
     # OSV lookup (offline-safe).
     # ------------------------------------------------------------------
 
-    def _lookup(self, name: str, version: str, ecosystem: str) -> List[str]:
-        """Return vuln IDs for a pin, using the per-run cache. Never raises."""
-        key = (name, version, ecosystem)
-        if key in self._osv_cache:
-            return self._osv_cache[key]
-        result = self._query_osv(name, version, ecosystem)
-        self._osv_cache[key] = result
-        return result
+    def collect_manifest_deps(
+        self, files: List[Path]
+    ) -> List[Tuple[str, str, str]]:
+        """Parse every manifest in `files` and return their unique pins.
 
-    def _query_osv(self, name: str, version: str, ecosystem: str) -> List[str]:
+        Used by the project-wide prefetch (CR-016): the caller resolves the whole
+        set with one batched query before Pool workers fork, so no worker performs
+        a redundant per-file lookup. Parse failures are skipped, never raised.
         """
-        Query OSV.dev for a single (name, version, ecosystem).
+        pins: List[Tuple[str, str, str]] = []
+        for f in files:
+            path = Path(f)
+            kind = self._manifest_kind(path)
+            if kind is None:
+                continue
+            try:
+                content = path.read_text(encoding="utf-8", errors="replace")
+                deps = self._parse(kind, content)
+            except Exception:  # noqa: BLE001 - a bad manifest must not abort prefetch
+                continue
+            pins.extend((n, v, e) for n, v, e, _ in deps)
+        return pins
 
-        Returns a list of vuln-id strings (CVE/GHSA/OSV ids) on success, or an
-        EMPTY list on ANY failure. This method is the offline-safety boundary:
-        no network, timeout, non-200, or bad JSON ever propagates out of here.
+    def _resolve(self, pins: List[Tuple[str, str, str]]) -> None:
+        """Populate self._osv_cache for every pin, using ONE batched query.
+
+        Pins already in the cache (from this run or the prefetch) are skipped, and
+        when the run has gone offline no network is touched at all.
         """
+        pending: List[Tuple[str, str, str]] = []
+        seen: set = set()
+        for key in pins:
+            if key in self._osv_cache or key in seen:
+                continue
+            seen.add(key)
+            pending.append(key)
+        if not pending:
+            return
+        if self._offline:
+            for key in pending:
+                self._osv_cache.setdefault(key, [])
+            return
+        self._query_batch(pending)
+
+    def _query_batch(self, keys: List[Tuple[str, str, str]]) -> None:
+        """Resolve `keys` via /v1/querybatch (chunked) into self._osv_cache.
+
+        Offline-safe: a transport failure flips the run offline and swallows;
+        a 429/503 surviving one retry sets self._network_incomplete. Either way
+        the affected keys are cached empty so they are never re-queried.
+        """
+        for start in range(0, len(keys), _OSV_BATCH_MAX):
+            chunk = keys[start:start + _OSV_BATCH_MAX]
+            results = self._post_querybatch(chunk)
+            if results is None:
+                # Failure already recorded (_offline / _network_incomplete).
+                # Cache-empty this chunk, and if we are now offline cache-empty
+                # the remainder too and stop (bounded, no further stalls).
+                for key in chunk:
+                    self._osv_cache.setdefault(key, [])
+                if self._offline:
+                    for key in keys[start + _OSV_BATCH_MAX:]:
+                        self._osv_cache.setdefault(key, [])
+                    return
+                continue
+            for key, ids in zip(chunk, results):
+                self._osv_cache[key] = ids
+
+    def _post_querybatch(
+        self, chunk: List[Tuple[str, str, str]]
+    ) -> Optional[List[List[str]]]:
+        """POST one querybatch chunk; return per-query vuln-id lists, or None.
+
+        This is the offline-safety boundary: no network, timeout, or bad JSON
+        propagates out. Only {name, version, ecosystem} is transmitted.
+        Returns None on failure (with _offline / _network_incomplete set), else
+        a list aligned with `chunk`.
+        """
+        payload = json.dumps(
+            {
+                "queries": [
+                    {"package": {"name": n, "ecosystem": e}, "version": v}
+                    for (n, v, e) in chunk
+                ]
+            }
+        ).encode("utf-8")
         try:
-            payload = json.dumps(
-                {
-                    "package": {"name": name, "ecosystem": ecosystem},
-                    "version": version,
-                }
-            ).encode("utf-8")
-            req = urllib.request.Request(
-                _OSV_QUERY_URL,
-                data=payload,
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=_OSV_TIMEOUT) as resp:
-                if resp.status != 200:
-                    return []
-                body = resp.read()
-            data = json.loads(body)
-        except (urllib.error.URLError, urllib.error.HTTPError, OSError,
-                ValueError, json.JSONDecodeError, TimeoutError):
-            return []
+            data = self._http_post(payload)
+        except urllib.error.HTTPError as e:
+            # Reachable server, transient error: one backoff + retry, then give up
+            # but mark the run incomplete so empty != clean.
+            if getattr(e, "code", None) in (429, 503):
+                time.sleep(1)
+                try:
+                    data = self._http_post(payload)
+                except Exception:  # noqa: BLE001 - retry failed; degrade gracefully
+                    self._network_incomplete = True
+                    self._offline = True  # stop hammering a rate-limited endpoint
+                    return None
+            else:
+                # Other HTTP status (4xx/other 5xx): treat as no data, not a lie.
+                return None
+        except (urllib.error.URLError, OSError, TimeoutError):
+            # Transport failure = offline. Flip the run so the rest short-circuits.
+            self._offline = True
+            return None
         except Exception:  # noqa: BLE001 - defensive: never let the network break a scan
-            return []
+            self._offline = True
+            return None
 
-        return self._extract_vuln_ids(data)
+        return self._extract_batch_ids(data, len(chunk))
+
+    def _http_post(self, payload: bytes) -> object:
+        """Single POST to the querybatch endpoint; raises on any transport/HTTP error."""
+        req = urllib.request.Request(
+            _OSV_QUERYBATCH_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=_OSV_TIMEOUT) as resp:
+            return json.loads(resp.read())
+
+    @staticmethod
+    def _extract_batch_ids(data: object, expected: int) -> List[List[str]]:
+        """Map a /v1/querybatch response to per-query vuln-id lists, by index."""
+        out: List[List[str]] = [[] for _ in range(expected)]
+        if not isinstance(data, dict):
+            return out
+        results = data.get("results")
+        if not isinstance(results, list):
+            return out
+        for i, res in enumerate(results):
+            if i >= expected:
+                break
+            if isinstance(res, dict):
+                out[i] = DependencyCVEScanner._extract_vuln_ids(res)
+        return out
 
     @staticmethod
     def _extract_vuln_ids(data: object) -> List[str]:
@@ -445,6 +574,20 @@ class DependencyCVEScanner(BaseScanner):
                 f"{id_str} (source: OSV.dev). Upgrade to a patched version."
             ),
             line=line,
+            column=1,
+        )
+
+    def _incomplete_issue(self) -> ScannerIssue:
+        """INFO finding emitted when the OSV lookup was reachable but errored,
+        so an empty CVE list is not mistaken for a clean bill of health."""
+        return ScannerIssue(
+            rule_id="MEDUSA-OSV-INCOMPLETE",
+            severity=Severity.INFO,
+            message=(
+                "OSV lookup incomplete — network error querying OSV.dev; CVE "
+                "results for this manifest may be partial."
+            ),
+            line=1,
             column=1,
         )
 

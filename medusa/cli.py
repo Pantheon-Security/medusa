@@ -1266,23 +1266,37 @@ def _run_llm_triage(results, backend=None) -> None:
 
     console.print(f"\n[cyan]🤖 LLM triage ({info}) — annotating findings...[/cyan]")
 
-    total_triaged = 0
-    total_suppressed = 0
-    total_errors = 0
+    # Triage every finding in ONE call so the CR-007 count/wall-clock bounds
+    # apply to the whole scan (not reset per file), then rebuild each result's
+    # issue list from the kept set by identity (suppressed FPs disappear from
+    # reports / fail-threshold; survivors keep their llm_verdict + llm_reason).
+    all_issues = []
     for r in results:
         issues = getattr(r, "issues", None)
-        if not issues:
-            continue
-        outcome = triage_findings(issues, backend=info)
-        r.issues = outcome["kept"]
-        total_triaged += outcome["triaged"]
-        total_suppressed += outcome["suppressed_fp"]
-        total_errors += outcome["errors"]
+        if issues:
+            all_issues.extend(issues)
+
+    if not all_issues:
+        console.print("[cyan]   No findings to triage.[/cyan]")
+        return
+
+    outcome = triage_findings(all_issues, backend=info)
+    kept_ids = {id(x) for x in outcome["kept"]}
+    for r in results:
+        issues = getattr(r, "issues", None)
+        if issues:
+            r.issues = [iss for iss in issues if id(iss) in kept_ids]
+
+    total_triaged = outcome["triaged"]
+    total_suppressed = outcome["suppressed_fp"]
+    total_errors = outcome["errors"]
+    total_skipped = outcome.get("skipped", 0)
 
     console.print(
         f"[cyan]   Triaged {total_triaged} finding(s): "
         f"{total_suppressed} confident false-positive(s) suppressed, "
-        f"{total_errors} kept as uncertain (triage error).[/cyan]"
+        f"{total_errors} kept as uncertain (triage error), "
+        f"{total_skipped} kept as uncertain (over budget).[/cyan]"
     )
     console.print(
         "[dim]   CRITICAL findings are never suppressed by triage; "

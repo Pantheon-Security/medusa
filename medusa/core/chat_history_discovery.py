@@ -18,6 +18,7 @@ descend into giant home subtrees by accident.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -214,8 +215,11 @@ def _discover_codex_cli() -> List[Target]:
     home = _home()
     targets: List[Target] = []
     base = home / ".codex"
-    # Explicit known artefacts at the top level.
-    for filename in ("history.jsonl", "auth.json"):
+    # Explicit known artefacts at the top level. NOTE: `auth.json` is a live
+    # credential store, not chat history — deliberately excluded (scanning a
+    # credential file to report it "leaked" is self-defeating; see
+    # `_is_credential_store` / CR-011).
+    for filename in ("history.jsonl",):
         path = _exists_file(base / filename)
         if path is not None:
             targets.append(Target(path, "codex-cli", "ai-chats"))
@@ -282,6 +286,17 @@ SOURCE_PROVIDERS: List[ProviderFn] = [
 _VALID_KINDS = {"ai-chats", "shell", "all"}
 
 
+# Credential stores (OAuth token files, `auth.json`) are never chat history.
+# Discovering them only to report them "leaked" turns the scanner into a
+# host-wide credential inventory — exactly the recon oracle CR-011 closes.
+_CREDENTIAL_STORE_RE = re.compile(r"(?:^auth\.json$|oauth)", re.IGNORECASE)
+
+
+def _is_credential_store(path: Path) -> bool:
+    """True if `path` is a live credential/token store, not chat history."""
+    return bool(_CREDENTIAL_STORE_RE.search(path.name))
+
+
 def list_targets(source_filter: Optional[List[str]] = None) -> List[Target]:
     """Return every discoverable target, optionally filtered by kind.
 
@@ -316,6 +331,9 @@ def list_targets(source_filter: Optional[List[str]] = None) -> List[Target]:
             if t.path in seen:
                 continue
             if source_filter and t.kind not in source_filter:
+                continue
+            # Never treat a live credential/token store as a scan target.
+            if _is_credential_store(t.path):
                 continue
             seen.add(t.path)
             targets.append(t)

@@ -114,12 +114,14 @@ def test_parse_requirements_reports_line_numbers():
 def test_vulnerable_dep_fires_osv_rule(monkeypatch, tmp_path):
     scanner = DependencyCVEScanner()
 
-    def fake_query(name, version, ecosystem):
-        if name == "flask" and version == "0.5":
-            return ["CVE-2019-1010083"]
-        return []
+    def fake_batch(chunk):
+        # Return one vuln-id list per (name, version, ecosystem) in the chunk.
+        return [
+            ["CVE-2019-1010083"] if (n == "flask" and v == "0.5") else []
+            for (n, v, e) in chunk
+        ]
 
-    monkeypatch.setattr(scanner, "_query_osv", fake_query)
+    monkeypatch.setattr(scanner, "_post_querybatch", fake_batch)
 
     result = _scan(scanner, tmp_path, "requirements.txt", "flask==0.5\nsafe-pkg==1.0.0\n")
 
@@ -134,8 +136,9 @@ def test_vulnerable_dep_fires_osv_rule(monkeypatch, tmp_path):
     assert issue.line == 1
 
 
-def test_real_query_osv_swallows_errors(monkeypatch, tmp_path):
-    """The genuine _query_osv must return [] on any network error, never raise."""
+def test_real_query_batch_swallows_errors(monkeypatch, tmp_path):
+    """The genuine _post_querybatch must return None on a transport error and
+    flip the run offline, never raise."""
     scanner = DependencyCVEScanner()
 
     def fake_urlopen(*args, **kwargs):
@@ -146,8 +149,9 @@ def test_real_query_osv_swallows_errors(monkeypatch, tmp_path):
         fake_urlopen,
     )
 
-    # Direct call returns [] without raising.
-    assert scanner._query_osv("flask", "0.5", "PyPI") == []
+    # Direct call returns None without raising, and marks the run offline.
+    assert scanner._post_querybatch([("flask", "0.5", "PyPI")]) is None
+    assert scanner._offline is True
 
     # End-to-end scan also yields no findings and succeeds.
     result = _scan(scanner, tmp_path, "requirements.txt", "flask==0.5\n")
@@ -155,7 +159,7 @@ def test_real_query_osv_swallows_errors(monkeypatch, tmp_path):
     assert result.issues == []
 
 
-def test_query_osv_timeout_swallowed(monkeypatch):
+def test_query_batch_timeout_swallowed(monkeypatch):
     scanner = DependencyCVEScanner()
 
     def fake_urlopen(*args, **kwargs):
@@ -165,12 +169,13 @@ def test_query_osv_timeout_swallowed(monkeypatch):
         "medusa.scanners.dependency_cve_scanner.urllib.request.urlopen",
         fake_urlopen,
     )
-    assert scanner._query_osv("requests", "2.19.1", "PyPI") == []
+    assert scanner._post_querybatch([("requests", "2.19.1", "PyPI")]) is None
+    assert scanner._offline is True
 
 
 def test_clean_deps_yield_nothing(monkeypatch, tmp_path):
     scanner = DependencyCVEScanner()
-    monkeypatch.setattr(scanner, "_query_osv", lambda n, v, e: [])
+    monkeypatch.setattr(scanner, "_post_querybatch", lambda chunk: [[] for _ in chunk])
     result = _scan(scanner, tmp_path, "requirements.txt", "flask==2.0.1\nrequests==2.31.0\n")
     assert result.success
     assert result.issues == []
@@ -181,11 +186,11 @@ def test_no_pins_yield_nothing(monkeypatch, tmp_path):
 
     called = {"n": 0}
 
-    def fake_query(n, v, e):
+    def fake_batch(chunk):
         called["n"] += 1
-        return ["CVE-XXXX"]
+        return [["CVE-XXXX"] for _ in chunk]
 
-    monkeypatch.setattr(scanner, "_query_osv", fake_query)
+    monkeypatch.setattr(scanner, "_post_querybatch", fake_batch)
     # All unpinned/ranged -> no OSV queries, no findings.
     result = _scan(scanner, tmp_path, "requirements.txt", "flask>=2.0\nrequests\ndjango~=3.0\n")
     assert result.success
@@ -195,16 +200,16 @@ def test_no_pins_yield_nothing(monkeypatch, tmp_path):
 
 def test_in_run_cache_dedups_queries(monkeypatch, tmp_path):
     scanner = DependencyCVEScanner()
-    calls = []
+    chunks = []
 
-    def fake_query(n, v, e):
-        calls.append((n, v, e))
-        return []
+    def fake_batch(chunk):
+        chunks.append(list(chunk))
+        return [[] for _ in chunk]
 
-    monkeypatch.setattr(scanner, "_query_osv", fake_query)
-    # Same pin twice in one manifest -> only one network query.
+    monkeypatch.setattr(scanner, "_post_querybatch", fake_batch)
+    # Same pin twice in one manifest -> a single batched query of one unique pin.
     _scan(scanner, tmp_path, "requirements.txt", "flask==2.0.1\nflask==2.0.1\n")
-    assert calls == [("flask", "2.0.1", "PyPI")]
+    assert chunks == [[("flask", "2.0.1", "PyPI")]]
 
 
 # ---------------------------------------------------------------------------

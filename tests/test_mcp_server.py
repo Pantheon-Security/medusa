@@ -165,24 +165,30 @@ def _call(tool_name, args):
     return "\n".join(parts) if parts else json.dumps(content, default=str)
 
 
-def test_scan_repo_tool_returns_verdict(malicious_dir):
+def test_scan_repo_tool_returns_verdict(malicious_dir, monkeypatch):
+    # The MCP layer confines local scans to the workspace root (CR-010); point
+    # the root at the fixture's parent so the in-root scan runs.
+    monkeypatch.setenv("MEDUSA_MCP_ROOT", str(malicious_dir.parent))
     text = _call("scan_repo", {"url_or_path": str(malicious_dir)})
     assert "VERDICT:" in text
     assert (scan_api.DO_NOT_INSTALL in text) or (scan_api.CAUTION in text)
 
 
-def test_scan_repo_tool_clean(clean_dir):
+def test_scan_repo_tool_clean(clean_dir, monkeypatch):
+    monkeypatch.setenv("MEDUSA_MCP_ROOT", str(clean_dir.parent))
     text = _call("scan_repo", {"url_or_path": str(clean_dir)})
     assert "VERDICT:" in text
     assert scan_api.SAFE in text
 
 
-def test_scan_skill_tool_returns_verdict(clean_dir):
+def test_scan_skill_tool_returns_verdict(clean_dir, monkeypatch):
+    monkeypatch.setenv("MEDUSA_MCP_ROOT", str(clean_dir.parent))
     text = _call("scan_skill", {"path": str(clean_dir)})
     assert "VERDICT:" in text
 
 
-def test_secrets_scan_tool_returns_string(tmp_path):
+def test_secrets_scan_tool_returns_string(tmp_path, monkeypatch):
+    monkeypatch.setenv("MEDUSA_MCP_ROOT", str(tmp_path))
     f = tmp_path / "clean.txt"
     f.write_text("just some text\n")
     text = _call("secrets_scan", {"path": str(f)})
