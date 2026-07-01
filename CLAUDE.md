@@ -70,9 +70,11 @@ medusa mcp                   # Run the MCP gatekeeper server (scan_repo / scan_s
 ### Claude Code Integration
 
 - **PreToolUse hook (vet before you install)**: Installed by `medusa hooks install --claude`,
-  a real Claude Code PreToolUse hook intercepts `git clone` and `pip`/`npm`/`uv install`
-  commands, vets the target with `medusa scan --git` / `medusa secrets scan`, and returns a
-  SAFE / CAUTION / DO_NOT_INSTALL verdict *before* the command runs.
+  a real Claude Code PreToolUse hook intercepts `git clone` / `gh repo clone` and URL-based
+  installs (`curl|sh`, `wget`, and `pip`/`npm`/`uv` installs that reference a URL or git
+  source), vets the target with `medusa scan --git` / `medusa secrets scan`, and returns a
+  SAFE / CAUTION / DO_NOT_INSTALL verdict *before* the command runs. Bare-name installs
+  (`pip install requests`) carry no URL to vet — registry-name resolution is on the roadmap.
 - **MCP gatekeeper**: `medusa mcp` exposes `scan_repo`, `scan_skill`, and `secrets_scan`
   tools that Claude Code (and Cursor / ChatGPT-Codex) consume to vet a repo or skill before
   install. Wire it up with `medusa hooks install --all`; check state with `medusa hooks status`.
@@ -223,7 +225,7 @@ exclude:
 
 - **52% Faster Scans**: Single-pass file discovery, scanner pre-mapping cache, pre-compiled patterns
 - **514 FP Filter Patterns**: 96.8% false positive reduction rate
-- **133 Critical CVEs**: CVEMiner database for known vulnerability scanning
+- **265 CVEs**: CVEMiner database for known vulnerability scanning (140 AI/ML + 125 critical SAST rule entries)
 - **Structural Refactoring**: God methods split, dead code removed, data/logic separation
 - **Large Project Support**: Live progress responsive on 40,000+ file codebases
 - **40,000+ AI Security Patterns**: Works immediately with no tool installation

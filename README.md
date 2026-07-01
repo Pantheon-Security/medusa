@@ -45,7 +45,7 @@ This release closes the loop on AI supply-chain security — vetting the tools y
 - **265 CVE Detections** - Log4Shell, Spring4Shell, XZ Utils backdoor, LangChain RCE, MCP remote code execution, React2Shell, and more
 - **Parallel Processing** - Multi-core scanning (10-40x faster than sequential), works on macOS/Windows/Linux
 - **Beautiful CLI** - Rich terminal output with progress bars
-- **IDE Integration** - Claude Code, Cursor, VS Code, Gemini CLI support
+- **IDE Integration** - Claude Code, Cursor, Gemini CLI, GitHub Copilot, OpenAI Codex support (VS Code extension planned)
 - **Smart Caching** - Skip unchanged files for lightning-fast rescans (content-hash keyed, correct in CI)
 - **Configurable** - `.medusa.yml` for project-specific settings
 - **Cross-Platform** - Native Windows, macOS, and Linux support
@@ -185,6 +185,57 @@ clone it*, and `medusa secrets scan` finds leaked credentials. This release wire
 those directly into your AI coding tools so the check happens automatically, at the exact
 moment of install or commit — no extra step to remember.
 
+### The verdict command — `medusa vet`
+
+`medusa vet` is the single source of truth for the install decision. Point it at a local
+path, a git URL, or a skill, and it prints one plain verdict — **SAFE**, **CAUTION**, or
+**DO_NOT_INSTALL** — with the top findings that drove it. The Claude PreToolUse hook and
+the MCP `scan_repo` tool both call this exact same verdict engine, so a command line, an
+agent, and a CI job all agree.
+
+```bash
+medusa vet https://github.com/org/repo    # a remote repo (clones + vets)
+medusa vet ./some-skill                    # a local path or SKILL.md
+medusa vet org/repo                        # user/repo shorthand
+medusa vet . --json                        # machine-readable verdict dict
+```
+
+```text
+$ medusa vet https://github.com/acme/toolkit
+VERDICT: DO_NOT_INSTALL  (risk score 250)
+Top findings (7 total):
+  [CRITICAL] REPO_POISON_CLAUDE_HOOK — .claude/settings.json:12
+  [CRITICAL] SECRET_EXFIL_CURL_BASH — install.sh:3
+  [HIGH]     MCP_TOOL_POISONING — .cursor/mcp.json:8
+```
+
+```text
+$ medusa vet ./my-helper-skill
+VERDICT: SAFE  (risk score 0)
+```
+
+**Exit codes** — a non-zero code fails an automated gate so a human decides:
+
+| Exit code | Verdict | Meaning |
+|-----------|---------|---------|
+| `0` | **SAFE** | No blocking issues — install away. |
+| `1` | **CAUTION** | A HIGH or several MEDIUM findings (or a scan error) — review first. |
+| `2` | **DO_NOT_INSTALL** | A CRITICAL or multiple HIGH findings — do not install. |
+
+Use it as a one-line CI gate before anything untrusted touches the machine:
+
+```bash
+if ! medusa vet .; then echo "blocked by MEDUSA"; exit 1; fi
+```
+
+**When to use which:**
+
+| You want to… | Use | Returns |
+|--------------|-----|---------|
+| A direct install verdict on a repo/skill from your shell or CI | `medusa vet <target>` | SAFE / CAUTION / DO_NOT_INSTALL (exit 0/1/2) |
+| A full report on a *remote* repo with your own severity threshold | `medusa scan --git <URL>` | Findings + `--fail-on` exit control (not the three-tier verdict) |
+| Your AI assistant to vet a target before acting on it | MCP `scan_repo` tool (`medusa mcp`) | The same verdict, returned to the agent |
+
 ```bash
 # Wire MEDUSA into every tool you use, plus the git pre-commit guard
 medusa hooks install --all
@@ -212,9 +263,12 @@ medusa mcp
 
 **2. Native hooks — installed by `medusa hooks install`**
 
-- A real **Claude Code PreToolUse hook** that intercepts `git clone` and
-  `pip` / `npm` / `uv install` commands, runs the matching MEDUSA vet, and surfaces a
-  verdict *before* the command executes.
+- A real **Claude Code PreToolUse hook** that intercepts `git clone` / `gh repo
+  clone` and **URL-based** fetch/install commands (`curl | sh`, `wget`, and
+  `pip` / `npm` / `uv` / `poetry` / `cargo` / `go` installs **that reference a URL or
+  git source**), runs the matching MEDUSA vet, and surfaces a verdict *before* the
+  command executes. Bare-name installs (`pip install requests`) carry no URL to vet —
+  registry-name resolution is on the roadmap.
 - A git **pre-commit hook** that runs `medusa secrets scan` and **blocks the commit** if
   any credential is found — so a pasted token never reaches your history.
 
@@ -331,6 +385,24 @@ medusa scan . --format markdown
 ```bash
 medusa scan . --format all
 ```
+
+---
+
+## Network use & privacy
+
+MEDUSA's pattern scanning is fully local — your source never leaves the machine. There is
+**one** network call in the default scan: dependency CVE lookups query the public
+**OSV.dev** database (`https://api.osv.dev`) with your **dependency names + versions only**
+— never your code, never your secrets. The lookup **fails safe**: if the network is
+unreachable it is skipped silently and the scan continues on the built-in CVE rules.
+
+To keep every scan fully offline (no OSV call at all), pass `--offline`:
+
+```bash
+medusa scan . --offline      # never contacts api.osv.dev — built-in rules only
+```
+
+`medusa secrets scan` / `purge` are always local-only and never make network calls.
 
 ---
 
@@ -554,16 +626,20 @@ CONVENTIONS.md            # Aider
 
 ### Quick AI Security Scan
 
+AI/LLM detection patterns are **always on** — there is no separate flag to enable
+them. A plain `medusa scan .` runs every AI-security rule alongside the traditional
+SAST rules.
+
 ```bash
-# Scan AI configuration files
-medusa scan . --ai-only
+# AI configuration files are scanned automatically — no special flag needed
+medusa scan .
 
 # Example output:
 # AI Security Scan Results
 # ├── .cursorrules: 3 issues (1 CRITICAL, 2 HIGH)
 # │   └── AIC001: Prompt injection - ignore previous instructions (line 15)
 # │   └── AIC011: Tool shadowing - override default tools (line 23)
-# ├── mcp-config.json: 2 issues (2 HIGH)
+# ├── .cursor/mcp.json: 2 issues (2 HIGH)
 # │   └── MCP003: Dangerous path - home directory access (line 8)
 # └── rag_config.json: 1 issue (1 CRITICAL)
 #     └── AIR010: Knowledge base injection pattern detected (line 45)
@@ -681,7 +757,7 @@ medusa mcp
 
 | Option | Description |
 |--------|-------------|
-| `--claude` | Install the Claude Code PreToolUse hook that vets `git clone` / `pip`/`npm`/`uv install` |
+| `--claude` | Install the Claude Code PreToolUse hook that vets `git clone` / `gh repo clone` and URL-based installs (bare-name `pip`/`npm`/`uv` installs are not vetted — registry-name resolution is on the roadmap) |
 | `--cursor` | Write the Cursor MCP gatekeeper config (`.cursor/mcp.json`) |
 | `--codex` | Write the ChatGPT/Codex MCP gatekeeper config (`.codex/config.toml`) |
 | `--pre-commit` | Install the git pre-commit hook that runs `medusa secrets scan` and blocks on findings |
@@ -708,6 +784,12 @@ medusa mcp
 | `--screening` | Target-vetting mode: surface attack/high-severity findings even in `tests/`, `examples/`, `tools/`, or dataset files (auto-enabled for `--git`) |
 | `--no-ai-safe` | Disable payload obfuscation in reports (default: obfuscated for LLM safety) |
 | `--allow-any-host` | Allow `--git` to clone from any host (default: github.com, gitlab.com, bitbucket.org, codeberg.org; private IPs still rejected) |
+| `--baseline FILE` | Suppress findings whose fingerprint is in this baseline file; surface only NEW findings |
+| `--write-baseline FILE` | Write the current findings' fingerprints to this file (creates/updates the baseline) |
+| `--llm-triage` | Opt-in: semantically triage findings with an LLM, annotating each as true/false positive with a one-line reason (off by default; no network unless enabled and a backend is available) |
+| `--llm-backend BACKEND` | Force the triage backend instead of auto-detecting: `claude-cli`, `codex-cli`, `anthropic-api`, or `openai-api`. Only used with `--llm-triage` |
+| `--offline` | Fully offline scan — skip the OSV.dev dependency CVE lookup (built-in CVE rules still run) |
+| `--include-user-mcp-configs` | Also scan user-home MCP config files (`~/.config/Claude`, `~/.cursor`) |
 
 ### Install Options Reference
 
@@ -873,7 +955,7 @@ Codex: *executes medusa scan .*
 ### Cursor
 
 **What it creates:**
-- `.cursor/mcp-config.json` - MCP server configuration
+- `.cursor/mcp.json` - MCP server configuration
 - Reuses `.claude/` structure (Cursor is VS Code fork)
 
 **Usage:**
