@@ -464,17 +464,241 @@ def _codex_present(base: Path) -> bool:
     return f"mcp_servers.{MEDUSA_MARKER}" in text or _MARKER_BEGIN in text
 
 
+def _claude_sessionstart_present(base: Path) -> bool:
+    """True if a MEDUSA SessionStart hook is wired in ``<base>/.claude/settings.json``."""
+    data = _load_json(Path(base) / ".claude" / "settings.json")
+    hooks = data.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return False
+    for entry in hooks.get("SessionStart", []):
+        if not isinstance(entry, dict):
+            continue
+        for hook in entry.get("hooks", []):
+            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+                return True
+    return False
+
+
+def _claude_skill_present(base: Path) -> bool:
+    """True if the always-on ``medusa-vet`` skill manifest exists under ``base``."""
+    return (Path(base) / ".claude" / "skills" / "medusa-vet" / "SKILL.md").exists()
+
+
+def _claude_mcp_present(base: Path) -> bool:
+    """True if a ``medusa`` MCP server is registered in the project ``<base>/.mcp.json``."""
+    data = _load_json(Path(base) / ".mcp.json")
+    servers = data.get("mcpServers", {})
+    return isinstance(servers, dict) and MEDUSA_MARKER in servers
+
+
 def status(base: str | os.PathLike[str]) -> dict[str, bool]:
     """Report which MEDUSA hooks/configs are present under ``base``.
 
-    Returns ``{config_id: present}``. Detection lives here (next to the writers)
-    so ``medusa hooks status`` reads state through this function instead of
-    re-implementing the config paths/structure and drifting out of sync.
+    Returns ``{config_id: present}`` for every config an ``install --all`` writes
+    (all 7). Detection lives here (next to the writers) so ``medusa hooks
+    status`` reads state through this function instead of re-implementing the
+    config paths/structure and drifting out of sync.
     """
     base = Path(base)
     return {
         "claude_hook": _claude_hook_present(base),
+        "claude_sessionstart": _claude_sessionstart_present(base),
+        "claude_skill": _claude_skill_present(base),
+        "claude_mcp": _claude_mcp_present(base),
         "pre_commit": _pre_commit_present(base),
         "cursor": _cursor_present(base),
         "codex": _codex_present(base),
     }
+
+
+# --------------------------------------------------------------------------- #
+# 9. Uninstallers — reverse exactly what the writers above emit
+# --------------------------------------------------------------------------- #
+# Every ``uninstall_*`` function is the surgical inverse of its ``install_*``
+# counterpart. It removes ONLY the MEDUSA-owned entry/block/file, preserves any
+# unrelated user content, and is idempotent — returning the :class:`Path` it
+# touched, or ``None`` when there was nothing MEDUSA-owned to remove (safe to
+# run when nothing is installed). Each backs up before it edits.
+
+
+def _remove_medusa_from_settings(base: str | os.PathLike[str], hook_type: str) -> Path | None:
+    """Drop MEDUSA entries from ``hooks.<hook_type>`` in ``.claude/settings.json``.
+
+    Non-MEDUSA hooks (and every other settings key) are left untouched. Empty
+    containers that would be left behind are pruned. Returns the path if an
+    entry was removed, else ``None``.
+    """
+    path = Path(base) / ".claude" / "settings.json"
+    if not path.exists():
+        return None
+    settings = _load_json(path)
+    hooks = settings.get("hooks")
+    if not isinstance(hooks, dict):
+        return None
+    entries = hooks.get(hook_type)
+    if not isinstance(entries, list):
+        return None
+    kept = [e for e in entries if not _is_medusa_entry(e)]
+    if len(kept) == len(entries):
+        return None  # nothing MEDUSA-owned here
+    if kept:
+        hooks[hook_type] = kept
+    else:
+        hooks.pop(hook_type, None)
+    if not hooks:
+        settings.pop("hooks", None)
+    _backup(path)
+    _write_json(path, settings)
+    return path
+
+
+def uninstall_claude_hook(base: str | os.PathLike[str]) -> Path | None:
+    """Remove the MEDUSA ``PreToolUse`` hook from ``.claude/settings.json``."""
+    return _remove_medusa_from_settings(base, "PreToolUse")
+
+
+def uninstall_claude_sessionstart(base: str | os.PathLike[str]) -> Path | None:
+    """Remove the MEDUSA ``SessionStart`` hook from ``.claude/settings.json``."""
+    return _remove_medusa_from_settings(base, "SessionStart")
+
+
+def uninstall_claude_skill(base: str | os.PathLike[str]) -> Path | None:
+    """Delete the ``.claude/skills/medusa-vet/`` skill directory."""
+    skill_dir = Path(base) / ".claude" / "skills" / "medusa-vet"
+    if not skill_dir.exists():
+        return None
+    shutil.rmtree(skill_dir)
+    # Tidy an empty skills/ parent we would have created (never touch it if a
+    # user still keeps other skills there).
+    parent = skill_dir.parent
+    try:
+        if parent.is_dir() and not any(parent.iterdir()):
+            parent.rmdir()
+    except OSError:
+        pass
+    return skill_dir
+
+
+def _remove_medusa_server(path: Path) -> Path | None:
+    """Remove the ``medusa`` key from an ``mcpServers`` JSON config at ``path``."""
+    if not path.exists():
+        return None
+    config = _load_json(path)
+    servers = config.get("mcpServers")
+    if not isinstance(servers, dict) or MEDUSA_MARKER not in servers:
+        return None
+    servers.pop(MEDUSA_MARKER, None)
+    if not servers:
+        config.pop("mcpServers", None)
+    _backup(path)
+    _write_json(path, config)
+    return path
+
+
+def uninstall_claude_mcp(base: str | os.PathLike[str]) -> Path | None:
+    """Remove the ``medusa`` server from the project ``.mcp.json``."""
+    return _remove_medusa_server(Path(base) / ".mcp.json")
+
+
+def uninstall_cursor_mcp(base: str | os.PathLike[str]) -> Path | None:
+    """Remove the ``medusa`` server from ``.cursor/mcp.json``."""
+    return _remove_medusa_server(Path(base) / ".cursor" / "mcp.json")
+
+
+def _strip_marker_block(text: str) -> str:
+    """Remove the ``# >>> medusa >>> ... # <<< medusa <<<`` block from ``text``."""
+    head, _, rest = text.partition(_MARKER_BEGIN)
+    _, _, tail = rest.partition(_MARKER_END)
+    head = head.rstrip("\n")
+    tail = tail.lstrip("\n")
+    if head and tail:
+        joined = head + "\n" + tail
+    else:
+        joined = head + tail
+    if joined and not joined.endswith("\n"):
+        joined += "\n"
+    return joined
+
+
+def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
+    """Remove the MEDUSA server from ``.codex/config.toml`` (structured or block)."""
+    path = Path(base) / ".codex" / "config.toml"
+    if not path.exists():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    # Text-fallback form: strip the marker-guarded block.
+    if _MARKER_BEGIN in text:
+        _backup(path)
+        path.write_text(_strip_marker_block(text), encoding="utf-8")
+        return path
+
+    # Structured form: parse, drop [mcp_servers.medusa], re-serialize.
+    if tomllib is not None and tomli_w is not None:
+        try:
+            data: dict[str, Any] = tomllib.loads(text) if text else {}
+        except tomllib.TOMLDecodeError:
+            return None
+        servers = data.get("mcp_servers")
+        if isinstance(servers, dict) and MEDUSA_MARKER in servers:
+            servers.pop(MEDUSA_MARKER, None)
+            if not servers:
+                data.pop("mcp_servers", None)
+            _backup(path)
+            path.write_text(tomli_w.dumps(data), encoding="utf-8")
+            return path
+    return None
+
+
+def uninstall_pre_commit(base: str | os.PathLike[str]) -> Path | None:
+    """Strip the MEDUSA block from ``.git/hooks/pre-commit``.
+
+    If the file is *only* the MEDUSA hook (bare shebang + our block), it is
+    removed entirely; a hook that also holds user commands keeps them.
+    """
+    path = Path(base) / ".git" / "hooks" / "pre-commit"
+    if not path.exists():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if _MARKER_BEGIN not in text:
+        return None
+
+    head, _, rest = text.partition(_MARKER_BEGIN)
+    _, _, tail = rest.partition(_MARKER_END)
+    remainder = head + tail
+    # Is anything left besides a shebang / blank lines?
+    meaningful = [
+        ln for ln in remainder.splitlines()
+        if ln.strip() and not ln.strip().startswith("#!")
+    ]
+
+    _backup(path)
+    if not meaningful:
+        path.unlink()
+        return path
+    path.write_text(_strip_marker_block(text), encoding="utf-8")
+    return path
+
+
+def uninstall_all(base: str | os.PathLike[str]) -> dict[str, str]:
+    """Run every uninstaller against ``base``; return ``{name: path}`` for removed."""
+    removed: dict[str, str] = {}
+    for name, fn in (
+        ("claude", uninstall_claude_hook),
+        ("claude_sessionstart", uninstall_claude_sessionstart),
+        ("claude_skill", uninstall_claude_skill),
+        ("claude_mcp", uninstall_claude_mcp),
+        ("pre_commit", uninstall_pre_commit),
+        ("cursor", uninstall_cursor_mcp),
+        ("codex", uninstall_codex_mcp),
+    ):
+        p = fn(base)
+        if p is not None:
+            removed[name] = str(p)
+    return removed
