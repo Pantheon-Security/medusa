@@ -24,6 +24,7 @@ from medusa.scanners.base import (
     RuleBasedScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps,
     _build_line_offsets, _get_line_number,
 )
+from medusa.scanners._normalize import _INVISIBLE_RE
 
 
 class MCPServerScanner(RuleBasedScanner):
@@ -627,14 +628,16 @@ class MCPServerScanner(RuleBasedScanner):
     # ------------------------------------------------------------------
 
     # Metadata fields walked for hidden directives (case-insensitive key match)
-    POISON_META_FIELDS = ('description', 'name', 'instructions', 'instruction', 'title')
+    POISON_META_FIELDS = (
+        'description', 'name', 'instructions', 'instruction', 'title',
+        'examples', 'default', 'enum', 'usage', 'notes', 'prompt', 'systemprompt',
+    )
 
     # Zero-width / bidi / invisible control characters used to hide text.
-    # U+200B-200F (zero-width + bidi marks), U+202A-202E (bidi embedding/override),
-    # U+2066-2069 (bidi isolates), U+FEFF (BOM / zero-width no-break space).
-    ZERO_WIDTH_BIDI_RE = re.compile(
-        '[​-‏‪-‮⁦-⁩﻿]'
-    )
+    # Shared with the SKILL vetter via _normalize so both scanners cover the same
+    # set (zero-width + bidi marks/isolates, word-joiner U+2060-2064, the Unicode
+    # Tag block U+E0000-E007F, soft-hyphen U+00AD, Mongolian vowel sep, BOM).
+    ZERO_WIDTH_BIDI_RE = _INVISIBLE_RE
 
     # data: URI embedded in a metadata value
     DATA_URI_RE = re.compile(r'data:[\w.+-]+/[\w.+-]+(?:;[\w=.+-]+)*;?(?:base64)?,', re.IGNORECASE)
@@ -1068,6 +1071,13 @@ class MCPServerScanner(RuleBasedScanner):
         if isinstance(node, dict):
             for key, value in node.items():
                 key_lower = key.lower() if isinstance(key, str) else ''
+                # A directive can be smuggled into the KEY name itself (not just the
+                # value) — vet the key too when it is a metadata field or lives
+                # inside server metadata.
+                if isinstance(key, str) and (
+                    key_lower in self.POISON_META_FIELDS or in_server_meta
+                ):
+                    out.append((key, key))
                 if isinstance(value, str):
                     if key_lower in self.POISON_META_FIELDS:
                         out.append((key, value))
@@ -1087,11 +1097,11 @@ class MCPServerScanner(RuleBasedScanner):
         instruction/URL/command indicators. Short tokens and binary blobs are
         ignored to avoid false positives on legitimate encoded data."""
         for candidate in self.BASE64_CANDIDATE_RE.findall(value):
-            # Base64 length must be a multiple of 4 once padding is considered.
-            if len(candidate) % 4 != 0:
-                continue
+            # Re-pad to a multiple of 4 and decode leniently so a directive whose
+            # base64 was stripped of padding still decodes.
+            padded = candidate + "=" * (-len(candidate) % 4)
             try:
-                decoded_bytes = base64.b64decode(candidate, validate=True)
+                decoded_bytes = base64.b64decode(padded, validate=False)
             except (binascii.Error, ValueError):
                 continue
             try:
@@ -1101,8 +1111,21 @@ class MCPServerScanner(RuleBasedScanner):
             # Require it to be mostly printable text, then check for directives.
             if not decoded or sum(c.isprintable() or c.isspace() for c in decoded) / len(decoded) < 0.8:
                 continue
-            if self.INSTRUCTION_INDICATOR_RE.search(decoded) or self.URL_OR_COMMAND_RE.search(decoded):
-                return True
+            # Accept a plain-English anti-refusal directive (INSTRUCTION_INDICATOR),
+            # not only URL/command indicators. A second pass on a re-decode catches
+            # double-encoded payloads.
+            candidates = [decoded]
+            inner = decoded.strip()
+            if len(inner) >= 16 and self.BASE64_CANDIDATE_RE.fullmatch(inner):
+                inner_padded = inner + "=" * (-len(inner) % 4)
+                try:
+                    second = base64.b64decode(inner_padded, validate=False).decode('utf-8')
+                    candidates.append(second)
+                except (binascii.Error, ValueError, UnicodeDecodeError):
+                    pass
+            for text in candidates:
+                if self.INSTRUCTION_INDICATOR_RE.search(text) or self.URL_OR_COMMAND_RE.search(text):
+                    return True
         return False
 
     def _find_meta_line(self, lines: List[str], value: str) -> int:

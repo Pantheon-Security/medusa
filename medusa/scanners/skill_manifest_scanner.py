@@ -27,12 +27,17 @@ action/broad-scope indicator so that a legitimate "always vet" skill is NOT
 flagged.
 """
 
+import base64
+import binascii
 import re
 import time
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners._normalize import (
+    has_invisible, normalize, whitespace_flatten,
+)
 
 
 class SkillManifestScanner(BaseScanner):
@@ -160,6 +165,23 @@ class SkillManifestScanner(BaseScanner):
     # Inline wildcard within a tool value, e.g. "Bash(*)", "Bash(*:*)".
     _WILDCARD_TOOL_RE = re.compile(r'\b(?:bash|shell|exec|run)\s*\(\s*\*', re.IGNORECASE)
 
+    # -- MEDUSA-SKILL-OBFUSCATION-001: base64-hidden directive --------------- #
+    # A long run of base64-alphabet chars that decodes to an anti-refusal /
+    # rogue directive. Mirrors mcp_server_scanner._base64_hides_directive but is
+    # copied (not imported) to avoid a scanner->scanner import cycle.
+    _BASE64_CANDIDATE_RE = re.compile(r'[A-Za-z0-9+/]{16,}={0,2}')
+    _DECODED_DIRECTIVE_RE = re.compile(
+        r'(?i)\b('
+        r'ignore\s+(?:all\s+|any\s+|the\s+)?(?:previous|prior|above|system)|'
+        r'disregard|forget\s+(?:everything|all|previous)|'
+        r'(?:do\s+not|don\'?t|never)\s+refuse|'
+        r'bypass\s+(?:all\s+|any\s+|your\s+|the\s+)?(?:safety|security|guardrail)|'
+        r'you\s+are\s+(?:now\s+)?(?:DAN|jailbroken|unrestricted|uncensored)|'
+        r'(?:modify|rewrite|overwrite)\s+[^.\n]{0,40}(?:CLAUDE\.md|settings|config|SKILL\.md)|'
+        r'exfiltrat|send\s+(?:the|all|your)'
+        r')\b'
+    )
+
     def get_tool_name(self) -> str:
         return "python"  # pure rule-based, no external tool
 
@@ -204,14 +226,24 @@ class SkillManifestScanner(BaseScanner):
         issues.extend(self._check_tools(lines, frontmatter, fm_start))
 
         # --- Body + frontmatter free-text vectors (anti-refusal / rogue / memory) ---
-        # These instruction-style abuses can appear in either region, so scan the
-        # whole document line-by-line for accurate line numbers.
+        # These instruction-style abuses can appear in either region. Match each
+        # pattern set BOTH per physical line (accurate line numbers) AND against
+        # the whitespace-flattened, Unicode-normalized full document so a directive
+        # split across newlines, or hidden behind zero-width joiners / homoglyphs,
+        # cannot evade detection. A shared `seen` set per rule keeps a phrase found
+        # on one physical line from being double-reported by the flattened pass.
+        flat = whitespace_flatten(normalize(raw))
         for pattern_set, rule_id in (
             (self._ANTIREFUSAL, "MEDUSA-SKILL-ANTIREFUSAL-001"),
             (self._ROGUE, "MEDUSA-SKILL-ROGUE-001"),
             (self._MEMORY, "MEDUSA-SKILL-MEMORY-001"),
         ):
-            issues.extend(self._scan_lines(lines, pattern_set, rule_id))
+            seen: Set[str] = set()
+            issues.extend(self._scan_lines(lines, pattern_set, rule_id, seen))
+            issues.extend(self._scan_flat(flat, pattern_set, rule_id, seen))
+
+        # --- Obfuscation: invisible chars / base64-hidden directives ---
+        issues.extend(self._check_obfuscation(raw, lines))
 
         return issues
 
@@ -220,15 +252,21 @@ class SkillManifestScanner(BaseScanner):
         lines: List[str],
         patterns: List[Tuple[re.Pattern, str, Severity]],
         rule_id: str,
+        seen: Optional[Set[str]] = None,
     ) -> List[ScannerIssue]:
-        """One finding per distinct message; report first matching line."""
+        """One finding per distinct message; report first matching line.
+
+        Each line is Unicode-normalized before matching so zero-width joiners and
+        homoglyphs inside an on-one-line directive are still caught.
+        """
         issues: List[ScannerIssue] = []
-        seen = set()
+        if seen is None:
+            seen = set()
         for pattern, message, severity in patterns:
             if message in seen:
                 continue
             for i, line in enumerate(lines, 1):
-                if pattern.search(line):
+                if pattern.search(normalize(line)):
                     issues.append(ScannerIssue(
                         rule_id=rule_id, severity=severity, message=message,
                         line=i, column=1,
@@ -236,6 +274,79 @@ class SkillManifestScanner(BaseScanner):
                     seen.add(message)
                     break
         return issues
+
+    def _scan_flat(
+        self,
+        flat: str,
+        patterns: List[Tuple[re.Pattern, str, Severity]],
+        rule_id: str,
+        seen: Set[str],
+    ) -> List[ScannerIssue]:
+        """Match each pattern against the whitespace-flattened, normalized full
+        document (defeats line-splitting). Best-effort line 1 — flattened text has
+        no line mapping. Messages already reported per-line are skipped."""
+        issues: List[ScannerIssue] = []
+        for pattern, message, severity in patterns:
+            if message in seen:
+                continue
+            if pattern.search(flat):
+                issues.append(ScannerIssue(
+                    rule_id=rule_id, severity=severity, message=message,
+                    line=1, column=1,
+                ))
+                seen.add(message)
+        return issues
+
+    def _check_obfuscation(self, raw: str, lines: List[str]) -> List[ScannerIssue]:
+        """Flag invisible/zero-width/bidi characters and base64-hidden directives
+        used to smuggle instructions past the free-text vetting above."""
+        issues: List[ScannerIssue] = []
+        if has_invisible(raw):
+            lineno = 1
+            for i, line in enumerate(lines, 1):
+                if has_invisible(line):
+                    lineno = i
+                    break
+            issues.append(ScannerIssue(
+                rule_id="MEDUSA-SKILL-OBFUSCATION-001", severity=Severity.HIGH,
+                message=("SKILL.md contains zero-width/bidi/invisible characters "
+                         "used to hide instructions"),
+                line=lineno, column=1,
+            ))
+        if self._base64_hides_directive(raw):
+            issues.append(ScannerIssue(
+                rule_id="MEDUSA-SKILL-OBFUSCATION-001", severity=Severity.HIGH,
+                message=("SKILL.md contains a base64 blob decoding to a hidden "
+                         "anti-refusal/rogue instruction"),
+                line=1, column=1,
+            ))
+        return issues
+
+    def _base64_hides_directive(self, text: str) -> bool:
+        """True if a base64 candidate inside ``text`` decodes to a directive.
+
+        Re-pads each candidate, decodes leniently, requires the result to be mostly
+        printable text, then runs the anti-refusal/rogue indicator regex on both
+        the decoded text and its normalized form (second pass defeats a decoded
+        payload that is itself homoglyph/zero-width obfuscated)."""
+        for candidate in self._BASE64_CANDIDATE_RE.findall(text):
+            padded = candidate + "=" * (-len(candidate) % 4)
+            try:
+                decoded_bytes = base64.b64decode(padded, validate=False)
+            except (binascii.Error, ValueError):
+                continue
+            try:
+                decoded = decoded_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                continue  # binary payload, not smuggled text
+            if not decoded or sum(
+                c.isprintable() or c.isspace() for c in decoded
+            ) / len(decoded) < 0.8:
+                continue
+            for variant in (decoded, normalize(decoded)):
+                if self._DECODED_DIRECTIVE_RE.search(variant):
+                    return True
+        return False
 
     def _check_triggers(
         self, lines: List[str], frontmatter: Optional[str], fm_start: int
