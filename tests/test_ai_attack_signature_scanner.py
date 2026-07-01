@@ -94,7 +94,7 @@ def test_excludes_medusa_own_corpus(scanner):
     # MEDUSA's own detection source contains attack strings as data; never scan it.
     assert not scanner.can_scan(Path("/repo/medusa/rules/jailbreaking/jailbreaking.yaml"))
     assert not scanner.can_scan(Path("/repo/medusa/scanners/owasp_llm_scanner.py"))
-    assert not scanner.can_scan(Path("/repo/medusa/core/payload_sanitizer.py"))
+    assert not scanner.can_scan(Path("/repo/medusa/core/scan_api.py"))
     # but a user's same-named file outside the medusa package IS scanned
     assert scanner.can_scan(Path("/userproj/scanners/app.py"))
 
