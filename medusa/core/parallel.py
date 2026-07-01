@@ -637,6 +637,18 @@ class MedusaParallelScanner:
         # AI context directories where we collect *.md files
         ai_context_dir_names: Set[str] = {'.claude', '.github', '.cursor'}
 
+        # Security-critical AI config files inside those dirs. These are screened
+        # for poisoned Claude Code hooks (settings*.json) and rogue MCP servers
+        # (mcp configs) by ClaudeCodeScanner / the MCP scanners, so they MUST be
+        # scanned even when the dir itself is in exclude_paths (a repo's
+        # .medusa.yml commonly lists `.claude/` / `.cursor/`). Prose (*.md) in
+        # these dirs still honors exclusions — only these configs override them.
+        ai_context_critical_names: Set[str] = {
+            'settings.json', 'settings.local.json',
+            'mcp.json', '.mcp.json', 'mcp-config.json', 'mcp_config.json',
+            'claude_desktop_config.json',
+        }
+
         # Helper to add a file with quick-mode/cache check
         def _maybe_add(file_path: Path) -> None:
             if file_path in files_set:
@@ -672,10 +684,16 @@ class MedusaParallelScanner:
         for root, dirs, filenames in os.walk(self.project_root, onerror=_on_walk_error):
             # Prune excluded directories in-place to skip entire subtrees.
             # .git is always excluded (version control internals, not scannable).
-            # Note: .github is NOT excluded here -- it may contain AI context files.
+            # AI-context dirs (.claude/.cursor/.github) are NEVER pruned even when
+            # they appear in exclude_paths (a repo's .medusa.yml commonly lists
+            # `.claude/` / `.cursor/`): they hold security-relevant config —
+            # poisoned Claude Code hooks, MCP servers — that MUST reach the
+            # ClaudeCodeScanner / MCP scanners. Pruning them here silently
+            # suppressed those findings. Everything else still gets pruned.
             dirs[:] = [
                 d for d in dirs
-                if d != '.git' and not _is_dir_excluded(d)
+                if d != '.git'
+                and (d in ai_context_dir_names or not _is_dir_excluded(d))
             ]
 
             # Compute relative path components once for this directory
@@ -701,8 +719,18 @@ class MedusaParallelScanner:
                     relative_path = filename
                     all_parts = [filename]
 
-                # Check exclusions
-                if _is_path_excluded(relative_path, all_parts, filename):
+                # Check exclusions. For AI-context dirs the dir name itself may be
+                # in exclude_paths (e.g. `.claude/` listed in .medusa.yml). That
+                # dir-level exclusion must NOT suppress the SECURITY-CRITICAL
+                # config inside them (poisoned hooks / MCP servers), so those
+                # bypass the dir/path checks and honor only genuine file-name
+                # exclusions (*.min.js, .medusa.yml, etc.). Prose (*.md) and other
+                # files in these dirs still respect the user's exclusions — this
+                # closes the poison-config gap without scanning excluded docs.
+                if is_ai_context_dir and filename in ai_context_critical_names:
+                    if _file_exclude_re and _file_exclude_re.match(filename):
+                        continue
+                elif _is_path_excluded(relative_path, all_parts, filename):
                     continue
 
                 # Classify the file
@@ -728,8 +756,15 @@ class MedusaParallelScanner:
                 if not matched and filename.endswith(env_suffix):
                     matched = True
 
-                # 5. *.md files inside AI context directories
-                if not matched and is_ai_context_dir and ext == '.md':
+                # 5. Security-relevant files inside AI context directories:
+                #    *.md prose plus Claude Code settings. settings.json is gated
+                #    to these dirs (NOT special_exact_names) so we don't scan every
+                #    VSCode/tool settings.json across the tree. mcp.json/.mcp.json
+                #    are already covered by special_exact_names above.
+                if not matched and is_ai_context_dir and (
+                    ext == '.md'
+                    or filename in ('settings.json', 'settings.local.json')
+                ):
                     matched = True
 
                 if matched:

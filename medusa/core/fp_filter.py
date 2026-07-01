@@ -199,7 +199,19 @@ class FalsePositiveFilter:
     # heuristics (generated-code, config/data-file, test-file…) must not bury
     # these. (MCP tool-metadata poisoning lives in mcp.json, which the
     # generated-code heuristic wrongly treats as auto-generated.)
-    _NEVER_GENERIC_FP_PREFIXES = ('MEDUSA-MCP-POISON-',)
+    # These are the differentiated "install-decision" malice detectors that drive
+    # the vet verdict (scan_api). They fire only on their own narrow targets
+    # (.claude/ settings, mcp.json metadata, SKILL.md manifests, taint flows), NOT
+    # on the rule corpus, so the generic context heuristics must never bury them —
+    # a poisoned .claude/ hook or SKILL.md is a true positive, not "config data".
+    # (ATKSIG/OSV are intentionally NOT here: they rely on the rule-corpus/data-
+    # file recognition below to avoid firing on MEDUSA's own signature corpus.)
+    _NEVER_GENERIC_FP_PREFIXES = (
+        'MEDUSA-MCP-POISON-',
+        'CC-',
+        'MEDUSA-SKILL-',
+        'MEDUSA-TAINT-',
+    )
 
     # --- B1: security-rule / signature-definition data-file recognition ---
     #
