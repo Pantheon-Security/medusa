@@ -134,7 +134,7 @@ def test_install_status_returns_dict_and_detects(tmp_path):
 
 
 def test_hooks_status_calls_install_status():
-    from medusa.cli import hooks_status
+    from medusa.cli_hooks import hooks_status  # moved out of cli.py in CR-030
 
     src = inspect.getsource(hooks_status.callback)
     assert "status" in src
