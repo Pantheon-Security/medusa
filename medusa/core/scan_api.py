@@ -51,6 +51,137 @@ _SEVERITY_WEIGHT = {
 # Number of top findings to surface in a verdict.
 _TOP_FINDINGS = 8
 
+# --- Vet verdict scoping (P1-trust-safety) ---------------------------------
+# The install verdict (SAFE / CAUTION / DO_NOT_INSTALL) must reflect *malice and
+# supply-chain* signals — a poisoned Claude Code hook, an anti-refusal SKILL.md,
+# injected MCP metadata, a taint exfil path, a known-vulnerable pinned
+# dependency, a known attack signature — NOT the full 40k-pattern generic SAST
+# sweep. Summing every generic finding into the verdict made 8 of 9
+# universally-trusted libraries (requests, flask, click, six, ...) read as
+# DO_NOT_INSTALL. Generic findings are still scanned, still counted
+# (``total_findings``), and still visible via ``medusa scan``; they simply do
+# not gate installation. See tests/test_vet_scoping.py.
+#
+# Scanners whose findings drive the install verdict.
+_VET_SIGNAL_SCANNERS = frozenset({
+    "ClaudeCodeScanner",         # poisoned .claude hooks / settings
+    "MCPServerScanner",          # MCP metadata poisoning
+    "MCPConfigScanner",          # mcp.json injected directives
+    "MCPRemoteRCEScanner",       # remote MCP RCE
+    "DockerMCPScanner",          # containerised MCP escape
+    "SkillManifestScanner",      # SKILL.md anti-refusal / hidden instructions
+    "TaintScanner",              # secret -> network exfil dataflow
+    "DependencyCVEScanner",      # OSV known-vuln pinned deps (MEDUSA-OSV-001)
+    "CriticalCVEScanner",        # curated critical CVEs
+    "PromptInjectionCodeScanner",
+    "DatasetInjectionScanner",
+    "AIAttackSignatureScanner",  # known malware/attack signatures
+    "GitLeaksScanner",           # committed live credentials
+    "EnvScanner",                # leaked secrets in env files
+    "ModelScanScanner",          # malicious serialized models
+    "PluginSecurityScanner",     # malicious plugin behaviour
+})
+
+# Rule-ID prefixes that drive the verdict regardless of scanner attribution.
+# Defence in depth: a finding is a signal if EITHER its scanner OR its rule_id
+# says so, so a future attribution change can't silently drop malice signals.
+_VET_SIGNAL_RULE_PREFIXES = (
+    "CC-",                       # Claude Code hook/config abuse
+    "MEDUSA-MCP-POISON-",        # MCP metadata poisoning
+    "MEDUSA-SKILL-",             # skill manifest abuse
+    "MEDUSA-TAINT-",             # taint exfil
+    "MEDUSA-OSV-001",            # OSV known-vuln dependency (NOT -INCOMPLETE)
+    "CVE-",                      # curated CVE hits
+    "MEDUSA-ATKSIG-",            # attack signatures
+)
+
+# Informational rule IDs that must NEVER drive the verdict even though they are
+# emitted by a signal scanner. MEDUSA-OSV-INCOMPLETE is a "couldn't reach the
+# OSV network" notice, not a vulnerability — it comes from DependencyCVEScanner
+# (a signal scanner) so the scanner-based rule alone would wrongly block on it.
+_VET_NONSIGNAL_RULE_IDS = frozenset({
+    "MEDUSA-OSV-INCOMPLETE",
+})
+
+
+# Directory components whose contents do NOT execute at install/import time.
+# A finding buried in test vectors / fixtures / examples is not an install-risk
+# signal (e.g. pyca/cryptography ships 300+ high-entropy test vectors that trip
+# the generic secret detector). Such findings are still scanned and counted in
+# `medusa scan`, but they do not gate the install verdict. Genuine install-path
+# malice (poisoned .claude/, install scripts, package code) lives outside these.
+_VET_TEST_DATA_DIRS = frozenset({
+    "test", "tests", "testing", "__tests__", "spec", "specs",
+    "vectors", "testdata", "test_data", "fixtures", "fixture",
+    "examples", "example", "samples", "sample", "mocks",
+})
+
+
+def _is_test_data_path(file_path) -> bool:
+    """True if any path component is a recognized non-executing test-data dir."""
+    parts = str(file_path or "").replace("\\", "/").lower().split("/")
+    return any(p in _VET_TEST_DATA_DIRS for p in parts)
+
+
+def _is_vet_signal(finding: dict) -> bool:
+    """True if a finding should drive the install verdict (malice / supply-chain).
+
+    A finding is a signal when its owning scanner is a malice/supply-chain
+    scanner OR its ``rule_id`` carries a signal prefix — with an explicit
+    informational denylist (OSV network-incomplete) subtracted first, and
+    findings inside non-executing test-data dirs excluded (they are not an
+    install risk). Everything else (generic SAST: WEB-*, PythonScanner B1xx,
+    dual-use AST behaviour, style/quality) is scanned and counted but does NOT
+    gate installation.
+    """
+    rule_id = finding.get("rule_id") or ""
+    if rule_id in _VET_NONSIGNAL_RULE_IDS:
+        return False
+    if _is_test_data_path(finding.get("file")):
+        return False
+    scanner = finding.get("scanner") or ""
+    if scanner in _VET_SIGNAL_SCANNERS:
+        return True
+    return rule_id.startswith(_VET_SIGNAL_RULE_PREFIXES)
+
+
+# --- Dependency-vulnerability sub-tier (softer than malice) ----------------
+# A known-vulnerable *dependency* (a CVE / OSV hit on a manifest) is a genuine
+# supply-chain signal, but it is NOT the same as active malice: nearly every
+# real-world repo pins or ranges some dependency that has a published CVE, so
+# hard-blocking install on that basis reproduces the very cry-wolf failure this
+# work fixes (requests / flask were DO_NOT_INSTALL purely from CVEs on their own
+# dependency metadata). So dependency-CVE signals can raise the verdict to
+# CAUTION ("known-vulnerable deps — review / update") but NEVER to
+# DO_NOT_INSTALL on their own. True-malice signals (poisoned hook, anti-refusal
+# skill, MCP poisoning, taint exfil, attack signature, prompt/dataset injection,
+# leaked live secrets, malicious model/plugin) still hard-block. See
+# tests/test_vet_scoping.py.
+_VET_DEP_VULN_SCANNERS = frozenset({
+    "CriticalCVEScanner",
+    "DependencyCVEScanner",
+})
+_VET_DEP_VULN_RULE_PREFIXES = (
+    "CVE-",
+    "cve-",          # CriticalCVEScanner emits lowercase ``cve-cve-...`` ids
+    "MEDUSA-OSV-001",
+)
+
+
+def _is_dependency_vuln_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a known-vulnerable-DEPENDENCY hit.
+
+    These are the softer supply-chain tier: they can escalate the verdict to
+    CAUTION but never to DO_NOT_INSTALL by themselves. Assumes the finding has
+    already passed :func:`_is_vet_signal` (so MEDUSA-OSV-INCOMPLETE, an INFO
+    network notice, is already excluded).
+    """
+    scanner = finding.get("scanner") or ""
+    if scanner in _VET_DEP_VULN_SCANNERS:
+        return True
+    return (finding.get("rule_id") or "").startswith(_VET_DEP_VULN_RULE_PREFIXES)
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -163,15 +294,52 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict
     from ``top_findings`` and relativizes the file path, leaving only
     rule_id + severity + relative file:line. The CLI path (default False) is
     unchanged.
+
+    Verdict scoping (P1-trust-safety): the verdict, score, and
+    ``counts_by_severity`` are computed from ONLY the malice/supply-chain SIGNAL
+    subset (see :func:`_is_vet_signal`); generic SAST findings are counted in
+    ``total_findings`` and ``other_findings`` but never gate the install
+    decision. ``top_findings`` is drawn from the SIGNAL set so the user sees WHY
+    a repo is flagged. This does NOT touch ``medusa scan`` output.
+
+    Two-tier verdict: within the signal set, known-vulnerable-DEPENDENCY findings
+    (CVE / OSV — see :func:`_is_dependency_vuln_signal`) are a *softer* tier that
+    can raise the verdict to CAUTION but never to DO_NOT_INSTALL on their own.
+    Only true-malice signals (poisoned hook, anti-refusal skill, MCP poisoning,
+    taint exfil, attack signature, injection, leaked secret, malicious model/
+    plugin) can drive DO_NOT_INSTALL. Nearly every real repo has a dependency
+    with a published CVE, so hard-blocking on that alone is cry-wolf.
     """
+    # Partition into what drives the verdict (malice/supply-chain) vs. the rest
+    # (generic SAST — informational for an install decision).
+    signal = [f for f in findings if _is_vet_signal(f)]
+
+    # Within the signal set, separate the hard-blocking malice tier from the
+    # softer known-vulnerable-dependency tier (CVE/OSV).
+    dep_vuln = [f for f in signal if _is_dependency_vuln_signal(f)]
+    malice = [f for f in signal if not _is_dependency_vuln_signal(f)]
+
+    # Severity counts (for display) come from the whole SIGNAL subset.
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
-    for f in findings:
+    for f in signal:
         sev = f.get("severity", "MEDIUM")
         counts[sev] = counts.get(sev, 0) + 1
 
-    # Sort findings worst-first for the top list.
+    # The DO_NOT_INSTALL / CAUTION escalation is driven ONLY by the malice tier.
+    malice_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
+    for f in malice:
+        sev = f.get("severity", "MEDIUM")
+        malice_counts[sev] = malice_counts.get(sev, 0) + 1
+    verdict = _verdict_from_counts(malice_counts)
+    # A known-vulnerable dependency (with no malice) warrants CAUTION, never a
+    # hard block — cap the dependency tier at CAUTION.
+    if verdict == SAFE and dep_vuln:
+        verdict = CAUTION
+
+    # Sort SIGNAL findings worst-first for the top list — the user sees the
+    # findings that actually drove the verdict, not generic SAST noise.
     ordered = sorted(
-        findings,
+        signal,
         key=lambda f: -_SEVERITY_WEIGHT.get(f.get("severity", "MEDIUM"), 0),
     )
     top = []
@@ -188,10 +356,12 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict
         top.append(entry)
 
     return {
-        "verdict": _verdict_from_counts(counts),
+        "verdict": verdict,
         "score": _score_from_counts(counts),
         "counts_by_severity": counts,
-        "total_findings": len(findings),
+        "total_findings": len(findings),        # ALL findings (unchanged meaning)
+        "blocking_findings": len(signal),       # malice + dependency-vuln signals
+        "other_findings": len(findings) - len(signal),  # non-blocking SAST
         "top_findings": top,
     }
 

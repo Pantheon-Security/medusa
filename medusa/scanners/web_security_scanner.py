@@ -20,6 +20,7 @@ from typing import List, Optional, Tuple
 from medusa.scanners.base import (
     RuleBasedScanner, ScannerResult, ScannerIssue, Severity, _SEVERITY_MAP,
 )
+from medusa.scanners._web_context import has_web_context
 
 
 class WebSecurityScanner(RuleBasedScanner):
@@ -32,6 +33,33 @@ class WebSecurityScanner(RuleBasedScanner):
 
     # Rule ID prefixes to load from YAML
     RULE_ID_PREFIXES = ['WEB-', 'SAST-']
+
+    # Web-vulnerability rule-ID prefixes that only make sense in genuine web
+    # context (template rendering, HTTP request handling, a web framework). These
+    # match generic tokens — ``exec(...)``, ``__globals__``, ``HTTPBasicAuthHandler``,
+    # a concatenated URL — and were the dominant false-positive source on plain
+    # non-web Python (six.py, compat shims). They are reported ONLY when
+    # ``_web_context.has_web_context`` says the file is web code; a real web vuln
+    # in actual web code still carries that context, so coverage is preserved.
+    #
+    # NOTE: deliberately does NOT gate the general-purpose SAST rules that are
+    # valid on any Python file — SQL injection (WEB-SQLI/SAST-SQLI), weak crypto
+    # (WEB-CRYPTO/SAST-CRYPTO), insecure deserialization (WEB-DESER/SAST-DESER),
+    # disabled SSL verification (WEB-SSL), path traversal (WEB-PATH/SAST-PATH),
+    # command injection (WEB-CMDI), and secrets (SAST-SECRET/ENV) all still fire
+    # everywhere.
+    WEB_CONTEXT_GATED_PREFIXES = (
+        'WEB-SSTI',      # server-side template injection
+        'WEB-SSRF',      # server-side request forgery
+        'WEB-EVAL',      # eval/exec as a web code-injection sink
+        'WEB-AUTH',      # basic-auth-over-HTTP / web auth handling
+        'WEB-REDIR',     # open redirect
+        'WEB-XXE',       # XML external entity (web request bodies)
+        'WEB-SESSION',   # web session handling
+        'WEB-CSRF',      # cross-site request forgery
+        'WEB-DJANGO',    # Django-specific web patterns
+        'WEB-FLASK',     # Flask-specific web patterns
+    )
 
     # Categories to load from YAML
     RULE_CATEGORIES = [
@@ -202,17 +230,22 @@ class WebSecurityScanner(RuleBasedScanner):
         # Check if this file uses web frameworks/requests
         context = self._check_framework_context(content)
 
+        # Web-applicability gate: web-vulnerability rules (SSTI/SSRF/EVAL/AUTH/...)
+        # only fire when the file is genuine web code. General SAST rules (SQLi,
+        # crypto, deserialization, ...) run regardless. See WEB_CONTEXT_GATED_PREFIXES.
+        web_context = has_web_context(file_path, content)
+
         lines = content.split('\n')
 
-        # Always run YAML rules (SQL injection, weak crypto, etc.)
-        rule_issues = self._scan_with_rules(lines, file_path)
+        # Run YAML rules — general SAST always, web-vuln rules only in web context.
+        rule_issues = self._scan_with_rules(lines, file_path, web_context=web_context)
         issues.extend(rule_issues)
 
-        # Hardcoded SSRF pattern detection only for web framework code
-        if any(context.values()):
-            if context['requests'] or context['flask'] or context['django']:
-                ssrf_issues = self._scan_ssrf_patterns(content, lines)
-                issues.extend(ssrf_issues)
+        # Hardcoded SSRF pattern detection only for genuine web code (a web
+        # framework in use AND web context — SSRF is a web-request-handling vuln).
+        if web_context and (context['requests'] or context['flask'] or context['django']):
+            ssrf_issues = self._scan_ssrf_patterns(content, lines)
+            issues.extend(ssrf_issues)
 
         return ScannerResult(
             scanner_name=self.name,
@@ -241,15 +274,25 @@ class WebSecurityScanner(RuleBasedScanner):
                     break  # One issue per line
         return issues
 
-    def _scan_with_rules(self, lines: List[str], file_path: Path = None) -> List[ScannerIssue]:
+    def _scan_with_rules(self, lines: List[str], file_path: Path = None,
+                         web_context: bool = True) -> List[ScannerIssue]:
         """
-        Scan lines using loaded YAML rules
+        Scan lines using loaded YAML rules.
+
+        ``web_context`` gates the web-vulnerability rules
+        (:attr:`WEB_CONTEXT_GATED_PREFIXES`): when False (the file is not web
+        code) those rules are skipped so they don't false-positive on plain
+        non-web Python. General SAST rules always run. Defaults True so any
+        other caller keeps the pre-gate behaviour.
         """
         import re
         issues = []
         seen_issues = set()  # Deduplicate
 
         for rule in self.rules:
+            # Skip web-only rules on non-web files (SSTI/SSRF/EVAL/AUTH/... FP guard).
+            if not web_context and rule.id.startswith(self.WEB_CONTEXT_GATED_PREFIXES):
+                continue
             for i, line in enumerate(lines, 1):
                 for pattern in rule.patterns:
                     try:
