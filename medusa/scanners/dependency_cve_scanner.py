@@ -86,8 +86,10 @@ class DependencyCVEScanner(BaseScanner):
 
     def __init__(self):
         super().__init__()
-        # Per-run cache: (name, version, ecosystem) -> list of vuln-id strings.
-        self._osv_cache: Dict[Tuple[str, str, str], List[str]] = {}
+        # Per-run cache: (name, version, ecosystem) -> (vuln-id list, OSV severity).
+        # Severity is best-effort (querybatch omits it) and is None when absent;
+        # _make_issue then defaults to HIGH.
+        self._osv_cache: Dict[Tuple[str, str, str], Tuple[List[str], Optional[str]]] = {}
         # Set on the first transport failure so the rest of the run short-circuits
         # (no per-manifest network stalls when offline / behind a drop-firewall).
         self._offline = False
@@ -154,9 +156,13 @@ class DependencyCVEScanner(BaseScanner):
             self._resolve([(n, v, e) for n, v, e, _ in deps])
 
             for name, version, ecosystem, line in deps:
-                vuln_ids = self._osv_cache.get((name, version, ecosystem), [])
+                vuln_ids, severity = self._osv_cache.get(
+                    (name, version, ecosystem), ([], None)
+                )
                 if vuln_ids:
-                    issues.append(self._make_issue(name, version, ecosystem, vuln_ids, line))
+                    issues.append(
+                        self._make_issue(name, version, ecosystem, vuln_ids, line, severity)
+                    )
 
             # CR-015: a reachable-but-erroring OSV means the results above may be
             # partial. Emit one INFO finding so absence of CVEs is not read as a
@@ -283,7 +289,11 @@ class DependencyCVEScanner(BaseScanner):
                     continue
                 ver = meta.get("version")
                 if isinstance(ver, str) and ver.startswith("=="):
-                    deps.append((self._norm(name), ver[2:].strip(), _PYPI, 1))
+                    pinned = ver[2:].strip()
+                    deps.append((
+                        self._norm(name), pinned, _PYPI,
+                        self._lockfile_line(content, name, pinned),
+                    ))
         return deps
 
     def _parse_pipfile(self, content: str) -> List[Tuple[str, str, str, int]]:
@@ -336,7 +346,7 @@ class DependencyCVEScanner(BaseScanner):
                     key = (name, ver)
                     if key not in seen:
                         seen.add(key)
-                        deps.append((name, ver, _NPM, 1))
+                        deps.append((name, ver, _NPM, self._lockfile_line(content, name, ver)))
 
         # lockfile v1: "dependencies": {"pkg": {"version": "1.2.3"}}
         legacy = data.get("dependencies")
@@ -349,7 +359,7 @@ class DependencyCVEScanner(BaseScanner):
                     key = (name, ver)
                     if key not in seen:
                         seen.add(key)
-                        deps.append((name, ver, _NPM, 1))
+                        deps.append((name, ver, _NPM, self._lockfile_line(content, name, ver)))
         return deps
 
     # yarn.lock blocks:  pkg@^1.0.0:\n  version "1.2.3"
@@ -383,6 +393,21 @@ class DependencyCVEScanner(BaseScanner):
         needle = f'"{name}"'
         for i, line in enumerate(content.splitlines(), 1):
             if needle in line and spec in line:
+                return i
+        return 1
+
+    @staticmethod
+    def _lockfile_line(content: str, name: str, version: str) -> int:
+        """Best-effort line for a JSON/TOML-lockfile dependency (name and version
+        usually live on different lines). Prefer the package's own key line
+        (``"pkg":`` or ``node_modules/pkg``); fall back to the version's line,
+        then to 1."""
+        lines = content.splitlines()
+        for i, line in enumerate(lines, 1):
+            if f'"{name}"' in line or f'/{name}"' in line:
+                return i
+        for i, line in enumerate(lines, 1):
+            if f'"{version}"' in line or f'=={version}"' in line:
                 return i
         return 1
 
@@ -430,7 +455,7 @@ class DependencyCVEScanner(BaseScanner):
             return
         if self._offline:
             for key in pending:
-                self._osv_cache.setdefault(key, [])
+                self._osv_cache.setdefault(key, ([], None))
             return
         self._query_batch(pending)
 
@@ -449,14 +474,20 @@ class DependencyCVEScanner(BaseScanner):
                 # Cache-empty this chunk, and if we are now offline cache-empty
                 # the remainder too and stop (bounded, no further stalls).
                 for key in chunk:
-                    self._osv_cache.setdefault(key, [])
+                    self._osv_cache.setdefault(key, ([], None))
                 if self._offline:
                     for key in keys[start + _OSV_BATCH_MAX:]:
-                        self._osv_cache.setdefault(key, [])
+                        self._osv_cache.setdefault(key, ([], None))
                     return
                 continue
-            for key, ids in zip(chunk, results):
-                self._osv_cache[key] = ids
+            for key, res in zip(chunk, results):
+                # _extract_batch_ids yields (ids, severity) tuples; a mocked
+                # _post_querybatch may return bare id-lists — normalise both.
+                if isinstance(res, tuple):
+                    ids, severity = res
+                else:
+                    ids, severity = res, None
+                self._osv_cache[key] = (ids, severity)
 
     def _post_querybatch(
         self, chunk: List[Tuple[str, str, str]]
@@ -514,9 +545,13 @@ class DependencyCVEScanner(BaseScanner):
             return json.loads(resp.read())
 
     @staticmethod
-    def _extract_batch_ids(data: object, expected: int) -> List[List[str]]:
-        """Map a /v1/querybatch response to per-query vuln-id lists, by index."""
-        out: List[List[str]] = [[] for _ in range(expected)]
+    def _extract_batch_ids(
+        data: object, expected: int
+    ) -> List[Tuple[List[str], Optional[str]]]:
+        """Map a /v1/querybatch response to per-query (vuln-id list, severity)
+        tuples, by index. Severity is best-effort and usually None (querybatch
+        omits it); callers default to HIGH when it is absent."""
+        out: List[Tuple[List[str], Optional[str]]] = [([], None) for _ in range(expected)]
         if not isinstance(data, dict):
             return out
         results = data.get("results")
@@ -526,7 +561,10 @@ class DependencyCVEScanner(BaseScanner):
             if i >= expected:
                 break
             if isinstance(res, dict):
-                out[i] = DependencyCVEScanner._extract_vuln_ids(res)
+                out[i] = (
+                    DependencyCVEScanner._extract_vuln_ids(res),
+                    DependencyCVEScanner._extract_severity(res),
+                )
         return out
 
     @staticmethod
@@ -557,6 +595,33 @@ class DependencyCVEScanner(BaseScanner):
                 out.append(i)
         return out
 
+    # OSV severity rank for picking the worst across a package's vulns.
+    _SEVERITY_RANK = {"CRITICAL": 4, "HIGH": 3, "MODERATE": 2, "MEDIUM": 2, "LOW": 1}
+
+    @staticmethod
+    def _extract_severity(data: object) -> Optional[str]:
+        """Best-effort OSV severity string for a query result, taking the most
+        severe across its vulns via database_specific.severity. querybatch
+        responses omit this, so it typically returns None (callers default HIGH)."""
+        if not isinstance(data, dict):
+            return None
+        vulns = data.get("vulns")
+        if not isinstance(vulns, list):
+            return None
+        best: Optional[str] = None
+        best_rank = 0
+        for v in vulns:
+            if not isinstance(v, dict):
+                continue
+            ds = v.get("database_specific")
+            sev = ds.get("severity") if isinstance(ds, dict) else None
+            if isinstance(sev, str):
+                up = sev.upper()
+                rank = DependencyCVEScanner._SEVERITY_RANK.get(up, 0)
+                if rank > best_rank:
+                    best, best_rank = up, rank
+        return best
+
     def _make_issue(
         self,
         name: str,
@@ -564,11 +629,15 @@ class DependencyCVEScanner(BaseScanner):
         ecosystem: str,
         vuln_ids: List[str],
         line: int,
+        severity: Optional[str] = None,
     ) -> ScannerIssue:
         id_str = ", ".join(vuln_ids)
+        # Map the OSV-reported severity through _SEVERITY_MAP; default to HIGH when
+        # absent (querybatch omits severity — a known CVE in a pin is actionable).
+        mapped = _SEVERITY_MAP.get((severity or "").upper(), Severity.HIGH)
         return ScannerIssue(
             rule_id="MEDUSA-OSV-001",
-            severity=Severity.HIGH,
+            severity=mapped,
             message=(
                 f"Known vulnerability in {ecosystem} package '{name}=={version}': "
                 f"{id_str} (source: OSV.dev). Upgrade to a patched version."
@@ -592,5 +661,7 @@ class DependencyCVEScanner(BaseScanner):
         )
 
 
-# Exact npm version: a bare semver with no range operators.
-_EXACT_NPM_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-]+)?$")
+# Exact npm version: a bare version pin with no range operators. Accepts 1-2
+# component pins ("1", "1.2") as well as full semver ("1.2.3") plus an optional
+# prerelease/build suffix. Ranges, carets, tildes, and wildcards are NOT pins.
+_EXACT_NPM_VERSION_RE = re.compile(r"^\d+(?:\.\d+){0,2}(?:[-+][0-9A-Za-z.\-]+)?$")

@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import List, Optional, Set
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners._ast_utils import _func_name, _attr_root
 
 
 # ---------------------------------------------------------------------------
@@ -148,10 +149,15 @@ class TaintScanner(BaseScanner):
         issues: List[ScannerIssue] = []
         # Analyse each function/method body independently. Also analyse module
         # level (top-level statements) as its own pseudo-scope.
-        for scope in _iter_scopes(tree):
-            analyzer = _TaintAnalyzer()
-            analyzer.run(scope)
-            issues.extend(analyzer.issues)
+        try:
+            for scope in _iter_scopes(tree):
+                analyzer = _TaintAnalyzer()
+                analyzer.run(scope)
+                issues.extend(analyzer.issues)
+        except (RecursionError, RuntimeError):
+            # Pathologically deep/recursive AST — degrade gracefully like the
+            # SyntaxError branch, keeping whatever was collected so far.
+            pass
 
         return ScannerResult(
             scanner_name=self.name,
@@ -175,26 +181,6 @@ def _iter_scopes(tree: ast.AST):
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield list(node.body)
-
-
-def _func_name(node: ast.AST) -> Optional[str]:
-    """Return the bare callable name for a Call.func. For an attribute chain
-    (a.b.c) returns the last attribute (`c`); for a Name returns its id."""
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
-
-
-def _attr_root(node: ast.AST) -> Optional[str]:
-    """For an attribute chain like `os.path`, return the root Name id (`os`)."""
-    cur = node
-    while isinstance(cur, ast.Attribute):
-        cur = cur.value
-    if isinstance(cur, ast.Name):
-        return cur.id
-    return None
 
 
 def _looks_credential(text: Optional[str]) -> bool:
@@ -238,6 +224,13 @@ class _TaintAnalyzer:
     # --- statement handling ------------------------------------------------
 
     def _visit_stmt(self, stmt: ast.stmt) -> None:
+        # A nested function/method is its OWN scope (yielded by _iter_scopes),
+        # so do not descend into its body here — re-walking it would duplicate
+        # findings and could bleed the enclosing scope's taint across the
+        # function boundary. Skip the whole definition.
+        if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return
+
         # Assignment: propagate / introduce taint.
         if isinstance(stmt, (ast.Assign, ast.AnnAssign)):
             value = stmt.value

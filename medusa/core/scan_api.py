@@ -24,14 +24,12 @@ so every scan runs with stdout redirected to devnull (see ``_quiet``).
 
 from __future__ import annotations
 
-import atexit
 import contextlib
 import io
 import os
 import shutil
-import subprocess
 import sys
-import tempfile
+import threading
 from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
@@ -53,8 +51,12 @@ _SEVERITY_WEIGHT = {
 # Number of top findings to surface in a verdict.
 _TOP_FINDINGS = 8
 
-# Clone hardening (mirrors cli._scan_git_repo; Phase 2 will extract a shared helper).
-_CLONE_TIMEOUT = 120
+# Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
+# a thread pool, so two concurrent scans could otherwise interleave their swaps
+# and one call would close a devnull fd another call still owns
+# ("I/O operation on closed file"). The lock makes the swap+scan+restore atomic
+# per process (CR-018).
+_QUIET_LOCK = threading.Lock()
 
 
 @contextlib.contextmanager
@@ -64,16 +66,20 @@ def _quiet():
     The parallel scanner prints a banner and progress to stdout. That would
     corrupt an MCP stdio session (stdout carries JSON-RPC), so we swallow it.
     stderr is left alone so genuine errors can still surface in logs.
+
+    Guarded by a module-level lock so concurrent handlers (FastMCP thread pool)
+    cannot clobber each other's stdout swap or close a shared fd.
     """
-    devnull = open(os.devnull, "w")
-    saved = sys.stdout
-    try:
-        sys.stdout = devnull
-        with contextlib.redirect_stdout(devnull):
-            yield
-    finally:
-        sys.stdout = saved
-        devnull.close()
+    with _QUIET_LOCK:
+        devnull = open(os.devnull, "w")
+        saved = sys.stdout
+        try:
+            sys.stdout = devnull
+            with contextlib.redirect_stdout(devnull):
+                yield
+        finally:
+            sys.stdout = saved
+            devnull.close()
 
 
 def _normalize_severity(value) -> str:
@@ -106,29 +112,16 @@ def _extract_findings(scanner, results) -> list:
     FalsePositiveFilter the CLI applies so a programmatic verdict matches what a
     user would see post-screening.
     """
+    from medusa.core.finding_schema import standardize_issue
+
     findings = []
     for result in results:
         for issue in result.issues:
-            if isinstance(issue, dict):
-                findings.append({
-                    "scanner": issue.get("_scanner_name", result.scanner) or "unknown",
-                    "file": result.file,
-                    "line": issue.get("line_number", issue.get("line", 0)),
-                    "severity": _normalize_severity(
-                        issue.get("issue_severity", issue.get("severity", "MEDIUM"))
-                    ),
-                    "issue": str(issue.get("issue_text", issue.get("message", ""))),
-                    "rule_id": issue.get("rule_id"),
-                })
-            else:
-                findings.append({
-                    "scanner": result.scanner or "unknown",
-                    "file": result.file,
-                    "line": getattr(issue, "line", 0),
-                    "severity": _normalize_severity(getattr(issue, "severity", "MEDIUM")),
-                    "issue": str(getattr(issue, "message", "")),
-                    "rule_id": getattr(issue, "rule_id", None),
-                })
+            # Shared field-name fallbacks (CR-019); scan_api additionally
+            # validates the severity string against the known weight table.
+            f = standardize_issue(issue, result)
+            f["severity"] = _normalize_severity(f["severity"])
+            findings.append(f)
 
     # Apply the same FP filter the CLI uses (screening on, like a default scan).
     try:
@@ -272,51 +265,14 @@ def _looks_like_url(value: str) -> bool:
 def _clone_repo(url: str) -> str:
     """Hardened shallow clone of a remote repo into a fresh temp dir.
 
-    Mirrors the clone hardening in cli._scan_git_repo: absolute git binary
-    (defeats a PATH shim), shallow + single-branch + blob size cap, an env
-    that never prompts for credentials and skips LFS smudging, a timeout, and
-    atexit cleanup of the temp dir. Returns the clone directory path.
-
-    Raises RuntimeError on any failure (caller maps it to a safe verdict).
-
-    NOTE: kept as one self-contained function so Phase 2 can extract it into a
-    shared helper used by both this API and cli._scan_git_repo.
+    Thin wrapper over the shared :func:`medusa.core.git_clone.clone_hardened`
+    (CR-020) — the single source of truth for clone hardening, also used by
+    ``cli._scan_git_repo``. Returns the clone directory path; raises
+    RuntimeError on any failure (caller maps it to a safe verdict).
     """
-    git_bin = shutil.which("git")
-    if not git_bin:
-        raise RuntimeError("git not found on PATH — cannot clone repository")
+    from medusa.core.git_clone import clone_hardened
 
-    tmp_dir = tempfile.mkdtemp(prefix="medusa-vet-")
-    atexit.register(shutil.rmtree, tmp_dir, True)
-
-    git_env = {
-        **os.environ,
-        "GIT_TERMINAL_PROMPT": "0",
-        "GIT_ASKPASS": "true",
-        "GIT_LFS_SKIP_SMUDGE": "1",
-    }
-
-    try:
-        result = subprocess.run(
-            [git_bin, "clone", "--depth", "1", "--single-branch",
-             "--filter=blob:limit=5m", url, tmp_dir],
-            capture_output=True,
-            text=True,
-            timeout=_CLONE_TIMEOUT,
-            check=False,
-            env=git_env,
-        )
-    except subprocess.TimeoutExpired:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        raise RuntimeError(f"git clone timed out after {_CLONE_TIMEOUT}s")
-
-    if result.returncode != 0:
-        import re
-        stderr = re.sub(r"https?://[^@\s]+@", "https://", (result.stderr or "").strip())
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        raise RuntimeError(f"git clone failed: {stderr or 'unknown error'}")
-
-    return tmp_dir
+    return clone_hardened(url)
 
 
 def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:

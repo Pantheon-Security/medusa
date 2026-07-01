@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+from medusa.scanners._ast_utils import _func_name, _attr_root
 
 
 # Modules whose attributes, when fetched reflectively and called, indicate an
@@ -110,7 +111,12 @@ class AstBehaviorScanner(BaseScanner):
             )
 
         visitor = _BehaviorVisitor()
-        visitor.visit(tree)
+        try:
+            visitor.visit(tree)
+        except (RecursionError, RuntimeError):
+            # Pathologically deep/recursive AST — degrade gracefully like the
+            # SyntaxError branch, returning whatever was collected so far.
+            pass
         issues = visitor.issues
 
         return ScannerResult(
@@ -120,27 +126,6 @@ class AstBehaviorScanner(BaseScanner):
             scan_time=time.time() - start_time,
             success=True,
         )
-
-
-def _func_name(node: ast.AST) -> Optional[str]:
-    """Return the bare callable name for a Call.func: `eval`, `exec`, `b64decode`,
-    `import_module`, `system`, etc. For attribute access (a.b.c) returns the last
-    attribute (`c`)."""
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return node.attr
-    return None
-
-
-def _attr_root(node: ast.AST) -> Optional[str]:
-    """For an Attribute chain like `os.path`, return the root Name id (`os`)."""
-    cur = node
-    while isinstance(cur, ast.Attribute):
-        cur = cur.value
-    if isinstance(cur, ast.Name):
-        return cur.id
-    return None
 
 
 def _is_literal(node: ast.AST) -> bool:

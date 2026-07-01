@@ -2090,49 +2090,23 @@ def _scan_git_repo(
     console.print(f"\n[cyan]Cloning repository...[/cyan]")
     console.print(f"[dim]  {_display_url}[/dim]\n")
 
-    tmp_dir = tempfile.mkdtemp(prefix="medusa-git-")
-    import atexit as _atexit
-    _atexit.register(shutil.rmtree, tmp_dir, True)
-
-    # Resolve git to an absolute path so a shim dropped earlier in PATH
-    # by a hostile package cannot intercept the clone (ISSUE-004).
-    _git_bin = shutil.which("git")
-    if not _git_bin:
-        console.print("[red]Error: git not found on PATH — cannot clone repository.[/red]")
+    # Hardened shallow clone via the shared helper (CR-020): absolute git bin
+    # (defeats a PATH shim), shallow/single-branch/blob cap, an env that never
+    # prompts for credentials and skips LFS smudging, a timeout, temp cleanup,
+    # and stderr credential redaction — the single source of truth also used by
+    # the programmatic vet path (scan_api._clone_repo).
+    from medusa.core.git_clone import clone_hardened
+    try:
+        tmp_dir = clone_hardened(clone_url, prefix="medusa-git-")
+    except RuntimeError as exc:
+        # ``exc`` already has credentials stripped from any stderr.
+        console.print("[red]Error: git clone failed[/red]")
+        console.print(f"[red]  {exc}[/red]")
         raise SystemExit(1)
 
-    # Hardened clone environment: never prompt for credentials on the TTY (a
-    # private/nonexistent repo would otherwise hang the scan for the full
-    # timeout), disable any askpass helper, and skip LFS smudging.
-    _git_env = {
-        **os.environ,
-        "GIT_TERMINAL_PROMPT": "0",
-        "GIT_ASKPASS": "true",
-        "GIT_LFS_SKIP_SMUDGE": "1",
-    }
+    console.print(f"[dark_green]Repository cloned to temporary directory[/dark_green]\n")
 
     try:
-        # Shallow clone for speed
-        result = subprocess.run(
-            [_git_bin, "clone", "--depth", "1", "--single-branch",
-             "--filter=blob:limit=5m", clone_url, tmp_dir],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-            env=_git_env,
-        )
-        if result.returncode != 0:
-            stderr = result.stderr.strip()
-            # Strip auth tokens from error output (https://token@host → https://host)
-            stderr = re.sub(r'https?://[^@\s]+@', 'https://', stderr)
-            console.print(f"[red]Error: git clone failed[/red]")
-            if stderr:
-                console.print(f"[red]  {stderr}[/red]")
-            raise SystemExit(1)
-
-        console.print(f"[dark_green]Repository cloned to temporary directory[/dark_green]\n")
-
         # Priority file detection
         repo_path = Path(tmp_dir)
         priority_hits = _detect_priority_files(repo_path)
@@ -3912,6 +3886,48 @@ def mcp():
     _mcp_main()
 
 
+@main.command('vet')
+@click.argument('target', type=str)
+@click.option('--json', 'as_json', is_flag=True,
+              help='Emit the full verdict dict as JSON instead of the summary line.')
+def vet(target, as_json):
+    """Vet a repo/skill (local path or git URL) and print an install VERDICT.
+
+    Single source of truth for the install decision — this wraps
+    ``scan_api.vet_repo`` (the same SkillSpector thresholds the MCP gatekeeper
+    uses), so the Claude PreToolUse hook and the MCP ``scan_repo`` tool render
+    identical verdicts.
+
+    \b
+    Exit codes:
+      0  SAFE            — no blocking issues.
+      1  CAUTION         — non-SAFE; a HIGH or several MEDIUM findings (or a
+                           scan error). Non-zero so an automated gate (the hook)
+                           halts and lets a human decide.
+      2  DO_NOT_INSTALL  — CRITICAL or multiple HIGH findings; do not install.
+    """
+    from medusa.core import scan_api
+
+    result = scan_api.vet_repo(target)
+    verdict = result.get('verdict', scan_api.CAUTION)
+
+    if as_json:
+        import json as _json
+        click.echo(_json.dumps(result, indent=2))
+    else:
+        score = result.get('score', 0)
+        click.echo(f"VERDICT: {verdict}  (risk score {score})")
+        error = result.get('error')
+        if error:
+            click.echo(f"Note: {error}")
+
+    if verdict == scan_api.DO_NOT_INSTALL:
+        raise SystemExit(2)
+    if verdict == scan_api.SAFE:
+        raise SystemExit(0)
+    raise SystemExit(1)  # CAUTION (or any non-SAFE / error verdict)
+
+
 @main.group()
 def hooks():
     """Install/inspect MEDUSA editor hooks + MCP gatekeeper configs."""
@@ -3978,67 +3994,22 @@ def hooks_install(claude, cursor, codex, pre_commit, claude_mcp, install_all_fla
 @hooks.command('status')
 def hooks_status():
     """Report which MEDUSA hooks/configs are present at the cwd (and ~)."""
-    from medusa.hooks.install import MEDUSA_MARKER, _MARKER_BEGIN
+    # Detection is owned by the installer module (install.status) so this command
+    # cannot drift from the config paths/structure the writers produce (CR-023).
+    from medusa.hooks.install import status as _hook_status
 
-    def _claude_present(base: Path) -> bool:
-        path = base / ".claude" / "settings.json"
-        if not path.exists():
-            return False
-        try:
-            import json
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return False
-        for entry in data.get("hooks", {}).get("PreToolUse", []):
-            if not isinstance(entry, dict):
-                continue
-            for hook in entry.get("hooks", []):
-                if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
-                    return True
-        return False
-
-    def _pre_commit_present(base: Path) -> bool:
-        path = base / ".git" / "hooks" / "pre-commit"
-        if not path.exists():
-            return False
-        try:
-            return _MARKER_BEGIN in path.read_text(encoding="utf-8")
-        except OSError:
-            return False
-
-    def _cursor_present(base: Path) -> bool:
-        path = base / ".cursor" / "mcp.json"
-        if not path.exists():
-            return False
-        try:
-            import json
-            data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            return False
-        return MEDUSA_MARKER in data.get("mcpServers", {})
-
-    def _codex_present(base: Path) -> bool:
-        path = base / ".codex" / "config.toml"
-        if not path.exists():
-            return False
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            return False
-        # Match both the structured table and the marker-guarded text fallback.
-        return f"mcp_servers.{MEDUSA_MARKER}" in text or _MARKER_BEGIN in text
-
-    checks = [
-        ("Claude PreToolUse hook (.claude/settings.json)", _claude_present),
-        ("Git pre-commit secrets gate (.git/hooks/pre-commit)", _pre_commit_present),
-        ("Cursor MCP server (.cursor/mcp.json)", _cursor_present),
-        ("Codex MCP server (.codex/config.toml)", _codex_present),
+    labels = [
+        ("Claude PreToolUse hook (.claude/settings.json)", "claude_hook"),
+        ("Git pre-commit secrets gate (.git/hooks/pre-commit)", "pre_commit"),
+        ("Cursor MCP server (.cursor/mcp.json)", "cursor"),
+        ("Codex MCP server (.codex/config.toml)", "codex"),
     ]
 
     for label, base in (("Current directory", Path.cwd()), ("Home (~)", Path.home())):
+        state = _hook_status(base)
         console.print(f"\n[bold cyan]{label}:[/bold cyan] {base}")
-        for name, fn in checks:
-            present = fn(base)
+        for name, key in labels:
+            present = state.get(key, False)
             mark = "[dark_green]✓ present[/dark_green]" if present else "[dim]– absent[/dim]"
             console.print(f"  {mark}  {name}")
     console.print()

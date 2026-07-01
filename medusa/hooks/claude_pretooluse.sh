@@ -41,10 +41,11 @@ case "$cmd" in
         # `while read` loop keeps this shellcheck-clean (no word-split of $()).
         while IFS= read -r url; do
             [ -n "$url" ] || continue
-            # TODO CR-022: switch to `medusa vet "$url"` once that command lands
-            # (single verdict model shared with the MCP gatekeeper).
-            medusa scan --git "$url" --fail-on high --yes --no-prompt \
-                || block "$url failed vetting"
+            # `medusa vet` is the single verdict model shared with the MCP
+            # gatekeeper (SkillSpector thresholds). It exits 0 only on SAFE;
+            # CAUTION (1) and DO_NOT_INSTALL (2) are non-zero, so any non-SAFE
+            # verdict blocks the tool call.
+            medusa vet "$url" || block "$url failed vetting"
         done < <(printf '%s' "$cmd" | grep -oE '(https?://|git@)[^ ]+')
 
         # Also catch credentials being staged alongside the install.

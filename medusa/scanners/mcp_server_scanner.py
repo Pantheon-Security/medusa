@@ -999,10 +999,16 @@ class MCPServerScanner(RuleBasedScanner):
 
         # Collect (field_key, value) pairs for metadata fields anywhere in the tree.
         meta_values: List[Tuple[str, str]] = []
-        self._collect_meta_values(config, meta_values)
+        try:
+            self._collect_meta_values(config, meta_values)
+        except (RecursionError, RuntimeError):
+            # Pathologically deep/recursive config — degrade gracefully, scanning
+            # whatever was collected before the limit was hit.
+            pass
 
+        _offsets = _build_line_offsets(content)
         for key, value in meta_values:
-            line_num = self._find_meta_line(lines, value)
+            line_num = self._find_meta_line(content, _offsets, value)
 
             # POISON-001: HTML comment carrying instruction text
             for cmt in self.HTML_COMMENT_RE.findall(value):
@@ -1128,20 +1134,20 @@ class MCPServerScanner(RuleBasedScanner):
                     return True
         return False
 
-    def _find_meta_line(self, lines: List[str], value: str) -> int:
-        """Best-effort 1-based line number for a metadata value. Falls back to a
-        distinctive substring (control chars break exact matches in raw JSON)."""
+    def _find_meta_line(self, content: str, offsets: List[int], value: str) -> int:
+        """Best-effort 1-based line number for a metadata value, resolved via the
+        pre-built line-offset index (O(1) per lookup instead of scanning every
+        line per value). Falls back to a distinctive printable substring (control
+        chars break exact matches in raw JSON), then to line 1."""
         if value:
             probe = value[:40]
-            for i, line in enumerate(lines, 1):
-                if probe and probe in line:
-                    return i
-            # Control/zero-width chars may be escaped in raw JSON; try a clean head.
-            clean = ''.join(c for c in value if c.isprintable())[:40]
-            if clean:
-                for i, line in enumerate(lines, 1):
-                    if clean in line:
-                        return i
+            pos = content.find(probe) if probe else -1
+            if pos < 0:
+                # Control/zero-width chars may be escaped in raw JSON; try a clean head.
+                clean = ''.join(c for c in value if c.isprintable())[:40]
+                pos = content.find(clean) if clean else -1
+            if pos >= 0:
+                return _get_line_number(offsets, pos)
         return 1
 
     def _scan_patterns(

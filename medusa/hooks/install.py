@@ -52,14 +52,16 @@ _CLAUDE_HOOK_SCRIPT = Path(__file__).resolve().with_name("claude_pretooluse.sh")
 _CLAUDE_HOOK_COMMAND = f'bash "{_CLAUDE_HOOK_SCRIPT}"'
 
 # The Claude SessionStart hook command. Runs once when a session starts to
-# announce that the MEDUSA MCP gatekeeper is active and to ensure the project's
-# .mcp.json carries the medusa server (so the gatekeeper auto-loads). The
-# `medusa hooks install --claude-mcp` call is idempotent and merge-safe, so it
-# is safe to run on every session start; it is a no-op if already wired.
+# announce that the MEDUSA MCP gatekeeper is available. It CHECKS — it never
+# rewrites config (CR-024): a consent-less `.mcp.json` rewrite on every session
+# was both surprising and a re-entrenchment vector if a PATH `medusa` were
+# compromised. Wiring the project MCP server stays gated behind the explicit
+# `medusa hooks install --claude`. The output is a fixed constant (no per-run
+# diff) and the command performs no file writes.
 _CLAUDE_SESSIONSTART_COMMAND = (
-    "medusa hooks install --claude-mcp >/dev/null 2>&1 || true; "
-    'echo "MEDUSA gatekeeper active: vet repos/skills with scan_repo/scan_skill '
-    'and check for leaked credentials with secrets_scan before risky actions."'
+    'echo "MEDUSA gatekeeper available: vet repos/skills with scan_repo/scan_skill '
+    'and check for leaked credentials with secrets_scan before risky actions. '
+    'If the tools are not loaded, run: medusa hooks install --claude."'
 )
 
 
@@ -414,4 +416,69 @@ def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
         "pre_commit": str(install_pre_commit(base)),
         "cursor": str(install_cursor_mcp(base)),
         "codex": str(install_codex_mcp(base)),
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 8. Installed-state detection (owned here so `medusa hooks status` can't drift)
+# --------------------------------------------------------------------------- #
+def _claude_hook_present(base: Path) -> bool:
+    """True if a MEDUSA PreToolUse hook is wired in ``<base>/.claude/settings.json``."""
+    data = _load_json(Path(base) / ".claude" / "settings.json")
+    hooks = data.get("hooks", {})
+    if not isinstance(hooks, dict):
+        return False
+    for entry in hooks.get("PreToolUse", []):
+        if not isinstance(entry, dict):
+            continue
+        for hook in entry.get("hooks", []):
+            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+                return True
+    return False
+
+
+def _pre_commit_present(base: Path) -> bool:
+    """True if the MEDUSA marker block is present in ``<base>/.git/hooks/pre-commit``."""
+    path = Path(base) / ".git" / "hooks" / "pre-commit"
+    if not path.exists():
+        return False
+    try:
+        return _MARKER_BEGIN in path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+
+
+def _cursor_present(base: Path) -> bool:
+    """True if a ``medusa`` MCP server is registered in ``<base>/.cursor/mcp.json``."""
+    data = _load_json(Path(base) / ".cursor" / "mcp.json")
+    servers = data.get("mcpServers", {})
+    return isinstance(servers, dict) and MEDUSA_MARKER in servers
+
+
+def _codex_present(base: Path) -> bool:
+    """True if a ``medusa`` MCP server is registered in ``<base>/.codex/config.toml``."""
+    path = Path(base) / ".codex" / "config.toml"
+    if not path.exists():
+        return False
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    # Match both the structured table and the marker-guarded text fallback.
+    return f"mcp_servers.{MEDUSA_MARKER}" in text or _MARKER_BEGIN in text
+
+
+def status(base: str | os.PathLike[str]) -> dict[str, bool]:
+    """Report which MEDUSA hooks/configs are present under ``base``.
+
+    Returns ``{config_id: present}``. Detection lives here (next to the writers)
+    so ``medusa hooks status`` reads state through this function instead of
+    re-implementing the config paths/structure and drifting out of sync.
+    """
+    base = Path(base)
+    return {
+        "claude_hook": _claude_hook_present(base),
+        "pre_commit": _pre_commit_present(base),
+        "cursor": _cursor_present(base),
+        "codex": _codex_present(base),
     }

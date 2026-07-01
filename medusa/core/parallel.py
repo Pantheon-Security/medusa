@@ -1549,20 +1549,22 @@ class MedusaParallelScanner:
             # is warm, but finding counts are accurate.
             file_metrics[result.file] = {'loc': result.line_count}
 
-            # Convert to standardized format
+            # Convert to standardized format. The shared standardize_issue helper
+            # (CR-019) owns the field-name fallbacks (scanner/file/line/severity/
+            # issue/rule_id) so this path cannot drift from scan_api's vet path;
+            # the report-only extras (confidence/cwe/remediation/code and
+            # injection-neutralization of the issue text) are layered on here.
+            from medusa.core.finding_schema import standardize_issue
             for issue in result.issues:
+                base = standardize_issue(issue, result)
                 # Handle old dict format (backward compatibility) — cached
                 # results always take this branch because cached_issues is
                 # serialized as dicts.
                 if isinstance(issue, dict):
                     findings.append({
-                        'scanner': issue.get('_scanner_name', result.scanner) or 'unknown',
-                        'file': result.file,
-                        'line': issue.get('line_number', issue.get('line', 0)),
-                        'severity': issue.get('issue_severity', issue.get('severity', 'MEDIUM')),
+                        **base,
                         'confidence': issue.get('issue_confidence', 'HIGH'),
-                        'issue': neutralize_injection(issue.get('issue_text', issue.get('message', str(issue)))),
-                        'rule_id': issue.get('rule_id'),
+                        'issue': neutralize_injection(base['issue']),
                         'cwe': issue.get('issue_cwe', {}).get('id'),
                         'remediation': issue.get('remediation'),
                         'code': _truncate_code(issue.get('code', ''))
@@ -1570,13 +1572,9 @@ class MedusaParallelScanner:
                 # Handle new ScannerIssue object format
                 else:
                     findings.append({
-                        'scanner': result.scanner or 'unknown',
-                        'file': result.file,
-                        'line': issue.line,
-                        'severity': issue.severity.value if hasattr(issue.severity, 'value') else str(issue.severity),
+                        **base,
                         'confidence': 'HIGH',
                         'issue': neutralize_injection(issue.message),
-                        'rule_id': issue.rule_id,
                         'cwe': issue.cwe_id,
                         'remediation': getattr(issue, 'remediation', None),
                         'code': _truncate_code(issue.code)
