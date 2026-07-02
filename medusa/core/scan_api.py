@@ -25,8 +25,10 @@ so every scan runs with stdout redirected to devnull (see ``_quiet``).
 from __future__ import annotations
 
 import contextlib
+import functools
 import io
 import os
+import re
 import shutil
 import sys
 import threading
@@ -121,6 +123,96 @@ def _is_test_data_path(file_path) -> bool:
     """True if any path component is a recognized non-executing test-data dir."""
     parts = str(file_path or "").replace("\\", "/").lower().split("/")
     return any(p in _VET_TEST_DATA_DIRS for p in parts)
+
+
+def _rel_to_root(file_path, root) -> str:
+    """Return ``file_path`` relative to ``root`` as a posix string (best effort).
+
+    Used only for vet_allowlist glob matching. Falls back to the normalized
+    absolute path when the file is outside ``root`` or not resolvable — so a path
+    outside the scan root simply won't match a repo-relative glob (fail safe: it
+    stays a signal). Distinct from :func:`_relativize`, which drops to a bare
+    basename for redaction; here we must preserve the full relative path so globs
+    like ``skills/**`` / ``agents/*.md`` match correctly.
+    """
+    if not file_path:
+        return ""
+    s = str(file_path).replace("\\", "/")
+    if root is not None:
+        try:
+            return str(
+                Path(s).resolve().relative_to(Path(root).resolve())
+            ).replace("\\", "/")
+        except (ValueError, OSError):
+            pass
+    return s
+
+
+@functools.lru_cache(maxsize=256)
+def _glob_to_regex(pattern: str):
+    """Compile a path glob to a regex with gitignore-style segment semantics.
+
+    Deliberately NOT plain ``fnmatch`` (whose ``*`` also matches ``/``): for a
+    security allowlist a single ``*`` must match ONE path segment and ``**`` any
+    depth, so an over-broad ``*.md`` cannot silently suppress a poisoned file
+    nested several dirs deep. Owner expectation matches gitignore/most tools.
+
+      *   -> one path segment (no ``/``)
+      **  -> any number of segments (crosses ``/``)
+      ?   -> one non-``/`` char
+    A trailing ``/`` is treated as ``/**`` (allowlist everything under a dir).
+    """
+    if pattern.endswith("/"):
+        pattern = pattern + "**"
+    out = []
+    i, n = 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == "*":
+            if i + 1 < n and pattern[i + 1] == "*":
+                # Collapse a run of '*' into '**'; consume an immediate '/'.
+                while i < n and pattern[i] == "*":
+                    i += 1
+                if i < n and pattern[i] == "/":
+                    out.append("(?:.*/)?")   # **/  -> zero or more leading dirs
+                    i += 1
+                else:
+                    out.append(".*")          # **   -> anything
+            else:
+                out.append("[^/]*")
+                i += 1
+        elif c == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(c))
+            i += 1
+    return re.compile("(?s:" + "".join(out) + r")\Z")
+
+
+def _is_allowlisted(file_path, root, vet_allowlist) -> bool:
+    """True if ``file_path`` matches a USER-configured vet_allowlist glob.
+
+    Globs are matched against the finding's path RELATIVE to the scan root, with
+    gitignore-style segment semantics (:func:`_glob_to_regex`), so ``skills/**``
+    / ``agents/*.md`` behave as a repo owner expects. An allowlisted finding is
+    excluded from the install verdict SIGNAL set (see :func:`_summarize`) — the
+    same treatment as a test-data path.
+
+    SECURITY: ``vet_allowlist`` must originate from the USER's config (loaded
+    from CWD upward by ConfigManager), NEVER from the scanned target's own
+    .medusa.yml — otherwise an untrusted repo could allowlist away its own
+    malice. This function is source-agnostic; the guarantee is upheld by the
+    caller threading ``scanner.config.vet_allowlist`` (the user config).
+    """
+    if not vet_allowlist or not file_path:
+        return False
+    rel = _rel_to_root(file_path, root)
+    for glob in vet_allowlist:
+        pattern = str(glob or "").strip()
+        if pattern and _glob_to_regex(pattern).match(rel):
+            return True
+    return False
 
 
 def _is_vet_signal(finding: dict) -> bool:
@@ -287,7 +379,8 @@ def _relativize(file_path, root) -> str:
     return Path(str(file_path)).name
 
 
-def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict:
+def _summarize(findings: list, redact_snippets: bool = False, root=None,
+               vet_allowlist=None) -> dict:
     """Build a verdict dict from standardized findings.
 
     ``redact_snippets`` (the MCP path) drops the matched-source ``issue`` body
@@ -309,10 +402,24 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict
     taint exfil, attack signature, injection, leaked secret, malicious model/
     plugin) can drive DO_NOT_INSTALL. Nearly every real repo has a dependency
     with a published CVE, so hard-blocking on that alone is cry-wolf.
+
+    Owner overrides (``vet_allowlist``): a finding whose file matches one of the
+    user-configured allowlist globs (relative to ``root``) is excluded from the
+    signal set — a repo owner can mark known-benign security-content files so
+    ``medusa vet`` reaches SAFE without weakening detection elsewhere. It is
+    still counted in ``total_findings`` / ``other_findings``. The allowlist MUST
+    be the USER's (never the scanned target's) — see :func:`_is_allowlisted`.
     """
     # Partition into what drives the verdict (malice/supply-chain) vs. the rest
-    # (generic SAST — informational for an install decision).
-    signal = [f for f in findings if _is_vet_signal(f)]
+    # (generic SAST — informational for an install decision). Findings under a
+    # USER-configured vet_allowlist path (owner overrides) are excluded from the
+    # signal set too — same treatment as test-data dirs: still counted below in
+    # total_findings / other_findings, but they do not gate installation. The
+    # allowlist is the user's, never the target's (see :func:`_is_allowlisted`).
+    signal = [
+        f for f in findings
+        if _is_vet_signal(f) and not _is_allowlisted(f.get("file"), root, vet_allowlist)
+    ]
 
     # Within the signal set, separate the hard-blocking malice tier from the
     # softer known-vulnerable-dependency tier (CVE/OSV).
@@ -366,7 +473,50 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None) -> dict
     }
 
 
-def vet_path(path, redact_snippets: bool = False) -> dict:
+def _config_origin_allowlist(scanner, target_root) -> list:
+    """Return the config-file ``vet_allowlist`` ONLY if the config that produced
+    it lives STRICTLY OUTSIDE the scanned target root.
+
+    SECURITY (config-origin guard): the scanner loads config via
+    ``ConfigManager.find_config()``, which walks UP from CWD. The natural flow
+    ``git clone evil && cd evil && medusa vet .`` makes CWD == target, so
+    find_config() loads the TARGET's OWN ``.medusa.yml`` — an untrusted repo
+    shipping ``vet_allowlist: ['**']`` would then self-suppress its own malice to
+    SAFE (a full compromise of the vet decision). We therefore honor a
+    config-file allowlist ONLY when the resolved config file is neither equal to
+    nor nested under ``target_root``. A target-resident (or non-resolvable)
+    config allowlist is IGNORED — we return an empty list and print a one-line
+    stderr notice pointing the owner at the safe mechanisms (``--allow`` or a
+    config kept outside the repo).
+    """
+    config_allow = list(getattr(scanner.config, "vet_allowlist", None) or [])
+    if not config_allow:
+        return []
+    honored = False
+    try:
+        from medusa.config import ConfigManager
+        cfg_path = ConfigManager.find_config()
+        if cfg_path is not None:
+            cfg_resolved = Path(cfg_path).resolve()
+            root_resolved = Path(target_root).resolve()
+            # Honor ONLY if the config is strictly outside the target root:
+            # not the target dir itself and not any file nested within it.
+            if (cfg_resolved != root_resolved
+                    and root_resolved not in cfg_resolved.parents):
+                honored = True
+    except (ValueError, OSError):
+        honored = False
+    if honored:
+        return config_allow
+    print(
+        "medusa vet: ignoring target-resident vet_allowlist — "
+        "use --allow or a config outside the repo",
+        file=sys.stderr,
+    )
+    return []
+
+
+def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
     """Scan a local directory or file and return a structured verdict.
 
     Returns a dict: {verdict, score, counts_by_severity, total_findings,
@@ -376,6 +526,12 @@ def vet_path(path, redact_snippets: bool = False) -> dict:
 
     ``redact_snippets`` (set by the MCP layer) drops matched-source bodies and
     relativizes file paths in ``top_findings``; the CLI path leaves them intact.
+
+    ``allow`` is an EXPLICIT, always-trusted allowlist of path globs (the CLI
+    ``medusa vet --allow`` flag). A user-typed flag cannot be shipped by the
+    scanned repo, so it is honored unconditionally — unlike a config-file
+    allowlist, which is honored only when the config lives outside the target
+    (see :func:`_config_origin_allowlist`). The two are MERGED.
     """
     target = Path(path)
     if not target.exists():
@@ -397,13 +553,25 @@ def vet_path(path, redact_snippets: bool = False) -> dict:
                 use_cache=False,
                 quick_mode=False,
             )
+            scan_root = target if target.is_dir() else target.parent
+            # Owner-overrides allowlist. Two sources, different trust:
+            #   1. --allow (``allow`` arg): explicit, user-typed, ALWAYS trusted
+            #      — a repo cannot ship a CLI flag.
+            #   2. config-file vet_allowlist: honored ONLY if the config lives
+            #      outside the target (config-origin guard) — otherwise a
+            #      `cd untrusted-repo && medusa vet .` would let the target's own
+            #      .medusa.yml self-suppress its malice. See
+            #      :func:`_config_origin_allowlist`.
+            # The two are merged into the effective allowlist.
+            vet_allowlist = list(allow or []) + _config_origin_allowlist(
+                scanner, scan_root)
             if target.is_dir():
                 files = scanner.find_scannable_files()
             else:
                 files = [target]
-            scan_root = target if target.is_dir() else target.parent
             if not files:
-                summary = _summarize([], redact_snippets=redact_snippets, root=scan_root)
+                summary = _summarize([], redact_snippets=redact_snippets,
+                                     root=scan_root, vet_allowlist=vet_allowlist)
                 summary["target"] = str(target)
                 return summary
             results = scanner.scan_parallel(files)
@@ -419,7 +587,8 @@ def vet_path(path, redact_snippets: bool = False) -> dict:
             "error": f"scan failed: {exc}",
         }
 
-    summary = _summarize(findings, redact_snippets=redact_snippets, root=scan_root)
+    summary = _summarize(findings, redact_snippets=redact_snippets,
+                         root=scan_root, vet_allowlist=vet_allowlist)
     summary["target"] = str(target)
     return summary
 
@@ -445,7 +614,7 @@ def _clone_repo(url: str) -> str:
     return clone_hardened(url)
 
 
-def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:
+def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
     """Vet a repository given a local path OR a remote git URL.
 
     Local existing path -> delegate to ``vet_path``.
@@ -455,13 +624,15 @@ def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:
     A clone failure returns a CAUTION verdict with an ``error`` field (fail
     safe) rather than raising.
 
-    ``redact_snippets`` is forwarded to ``vet_path`` (MCP path).
+    ``redact_snippets`` is forwarded to ``vet_path`` (MCP path). ``allow`` is the
+    explicit, always-trusted allowlist (CLI ``--allow``) forwarded to
+    ``vet_path`` — it survives the clone/local branch alike.
     """
     value = str(url_or_path)
 
     # An existing local path always wins over URL heuristics.
     if Path(value).exists():
-        result = vet_path(value, redact_snippets=redact_snippets)
+        result = vet_path(value, redact_snippets=redact_snippets, allow=allow)
         result["target"] = value
         return result
 
@@ -490,7 +661,7 @@ def vet_repo(url_or_path, redact_snippets: bool = False) -> dict:
         }
 
     try:
-        result = vet_path(clone_dir, redact_snippets=redact_snippets)
+        result = vet_path(clone_dir, redact_snippets=redact_snippets, allow=allow)
     finally:
         shutil.rmtree(clone_dir, ignore_errors=True)
 

@@ -3938,13 +3938,25 @@ def rules(count):
 @click.argument('target', type=str)
 @click.option('--json', 'as_json', is_flag=True,
               help='Emit the full verdict dict as JSON instead of the summary line.')
-def vet(target, as_json):
+@click.option('--allow', 'allow', multiple=True, metavar='GLOB',
+              help='Trusted path glob to exclude from the install verdict '
+                   '(repeatable, e.g. --allow "skills/**" --allow "agents/*.md"). '
+                   'A user-typed flag cannot be shipped by the scanned repo, so '
+                   'it is always honored — unlike a target-resident vet_allowlist.')
+def vet(target, as_json, allow):
     """Vet a repo/skill (local path or git URL) and print an install VERDICT.
 
     Single source of truth for the install decision — this wraps
     ``scan_api.vet_repo`` (the same SkillSpector thresholds the MCP gatekeeper
     uses), so the Claude PreToolUse hook and the MCP ``scan_repo`` tool render
     identical verdicts.
+
+    Use ``--allow GLOB`` (repeatable) to mark known-benign security-content paths
+    (detection patterns, teaching examples, a vendored skill catalogue) as
+    trusted so the verdict can reach SAFE without weakening detection elsewhere.
+    Unlike a ``vet_allowlist`` in a config file — which is ignored when it lives
+    inside the scanned target (a repo must not be able to self-suppress) —
+    ``--allow`` is always honored because a repo cannot ship a CLI flag.
 
     \b
     Exit codes:
@@ -3956,7 +3968,7 @@ def vet(target, as_json):
     """
     from medusa.core import scan_api
 
-    result = scan_api.vet_repo(target)
+    result = scan_api.vet_repo(target, allow=list(allow) or None)
     verdict = result.get('verdict', scan_api.CAUTION)
 
     if as_json:

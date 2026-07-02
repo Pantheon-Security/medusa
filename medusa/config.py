@@ -143,6 +143,17 @@ class MedusaConfig:
     workers: Optional[int] = None  # None = auto-detect
     cache_enabled: bool = True
 
+    # Vet OWNER OVERRIDES (P1-trust-safety, Phase 3).
+    # A list of path globs (relative to the scan root) marking known-benign
+    # security-content files. Findings under an allowlisted path are excluded
+    # from the `medusa vet` install VERDICT (same treatment as test-data dirs) —
+    # they are still scanned and still counted, they just do not gate the
+    # install decision. This affects ONLY the vet verdict, never `medusa scan`
+    # output. SECURITY: this list is honored only from the USER's config (loaded
+    # from CWD upward), never from a scanned target's own .medusa.yml, so an
+    # untrusted repo cannot allowlist away its own malice. Default: empty.
+    vet_allowlist: List[str] = field(default_factory=list)
+
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MedusaConfig':
         """Create config from dictionary"""
@@ -177,6 +188,20 @@ class MedusaConfig:
             config.exclude_paths = list(user_paths | mandatory)
         if 'files' in exclude:
             config.exclude_files = exclude['files']
+
+        # Vet owner-overrides allowlist. Validate like other list fields: must be
+        # a list of path-glob strings. A present-but-null key (`vet_allowlist:`
+        # with no value -> None) is treated as "unset" (keep the empty default).
+        vet_allowlist = data.get('vet_allowlist')
+        if vet_allowlist is not None:
+            if not isinstance(vet_allowlist, list) or not all(
+                isinstance(g, str) for g in vet_allowlist
+            ):
+                raise ValueError(
+                    "vet_allowlist must be a list of path glob strings "
+                    "(e.g. ['skills/**', 'agents/*.md'])"
+                )
+            config.vet_allowlist = vet_allowlist
 
         # IDE settings
         ide = data.get('ide') or {}
@@ -240,6 +265,7 @@ class MedusaConfig:
             },
             'workers': self.workers,
             'cache_enabled': self.cache_enabled,
+            'vet_allowlist': self.vet_allowlist,
         }
 
 
