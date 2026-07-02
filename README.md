@@ -228,6 +228,23 @@ Use it as a one-line CI gate before anything untrusted touches the machine:
 if ! medusa vet .; then echo "blocked by MEDUSA"; exit 1; fi
 ```
 
+**Tuning your own security-content repo.** A repo that *documents* attack patterns
+(detection playbooks, agent rosters, skill catalogues) legitimately quotes attack
+strings, so `vet` may rest at CAUTION on it. If you own the repo and those files are
+benign, allowlist them so `vet` reaches SAFE — without weakening detection elsewhere:
+
+```bash
+medusa vet . --allow 'skills/**' --allow 'agents/**'   # per-invocation, user-typed
+```
+
+Or persist it in a `.medusa.yml` that lives **outside** the repo you're vetting (a
+parent dir or your global config), via `vet_allowlist: ["skills/**", "agents/**"]`.
+
+> **Security:** a `vet_allowlist` inside the repo being vetted is **ignored** — an
+> untrusted repo cannot ship its own allowlist to whitelist its malice. Only an
+> allowlist from a config *outside* the target, or an explicit `--allow` flag, is
+> honored. Allowlisting never suppresses a finding *outside* the listed paths.
+
 **When to use which:**
 
 | You want to… | Use | Returns |
@@ -834,6 +851,14 @@ exclude:
   files:
     - "*.min.js"
     - "*.min.css"
+
+# Owner allowlist for `medusa vet` — paths whose findings do NOT gate the install
+# verdict (for a repo you own that documents attack patterns). Gitignore-style
+# globs. ONLY honored when this config lives OUTSIDE the repo being vetted (a
+# repo cannot ship its own allowlist to whitelist its malice); see `medusa vet`.
+vet_allowlist: []
+  # - "skills/**"
+  # - "agents/**"
 
 # IDE integration
 ide:
