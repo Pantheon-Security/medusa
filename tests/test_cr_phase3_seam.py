@@ -95,7 +95,7 @@ def test_vet_exit_code_mapping(monkeypatch):
     for verdict, expected in cases.items():
         monkeypatch.setattr(
             scan_api, "vet_repo",
-            lambda target, verdict=verdict: {"verdict": verdict, "score": 1},
+            lambda target, verdict=verdict, **kw: {"verdict": verdict, "score": 1},
         )
         res = CliRunner().invoke(main, ["vet", "whatever"])
         assert f"VERDICT: {verdict}" in res.output, res.output
