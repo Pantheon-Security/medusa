@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import RuleBasedScanner, ScannerResult, ScannerIssue
+from medusa.scanners._normalize import normalize
+from medusa.scanners._signature_context import is_documentation_context
 
 # Path segments that mark an obvious test / fixture context. A jailbreak or
 # injection payload living under one of these is sample/fixture data for a test
@@ -39,6 +41,28 @@ _TEST_FIXTURE_PREFIXES = (
     "tests/", "test/", "fixtures/", "fixture/", "__tests__/",
     "test_data/", "testdata/", "test-fixtures/",
 )
+
+# Documentation file types where a quoted / tabled / catalogued attack signature
+# is a teaching example, not a live directive. The doc-context gate is scoped to
+# these prose formats ONLY — a quoted signature inside code/config/data
+# (.py, .json, .yaml, .jsonl, ...) is a payload embedded in an artifact, so full
+# always-on coverage is preserved there.
+_DOC_CONTEXT_EXTENSIONS = (".md", ".markdown", ".rst", ".txt")
+# How many preceding lines to hand the doc-context gate for heading/intro lookup.
+_DOC_CONTEXT_WINDOW = 10
+
+# Typographic (curly) quotes fold to their ASCII equivalents before the
+# doc-context gate runs, so a signature quoted with smart quotes — “ignore
+# previous instructions” — is recognised as quoted just like the straight-quote
+# form. NFKC (in normalize) does not fold these, and prose editors / docs
+# routinely emit them. This is scoped to the doc-context gate; it does not widen
+# the evasion surface beyond the already-accepted straight-quote tradeoff.
+_TYPOGRAPHIC_QUOTES = str.maketrans({
+    "“": '"', "”": '"',   # “ ”  left/right double
+    "„": '"', "‟": '"',   # „ ‟  low-9 / high-reversed double
+    "‘": "'", "’": "'",   # ‘ ’  left/right single
+    "‚": "'", "‛": "'",   # ‚ ‛  low-9 / high-reversed single
+})
 
 
 class AIAttackSignatureScanner(RuleBasedScanner):
@@ -137,6 +161,62 @@ class AIAttackSignatureScanner(RuleBasedScanner):
                 fenced.add(idx)
         return fenced
 
+    def _match_text_for_issue(self, issue: ScannerIssue, nline: str) -> str:
+        """Recover the matched attack string for a finding.
+
+        ``base._scan_with_rules`` records the rule id and line but not the exact
+        span it matched, and the doc-context gate's quoted-signature branch needs
+        the matched text to test whether it sits inside inline backticks / quotes.
+        Re-search the owning rule's patterns against the (normalized) line to
+        recover ``m.group(0)``. If nothing re-matches (e.g. normalization shifted
+        the text) we return "" — the gate then falls back to its match-text-free
+        branches (table row, list-under-heading), which is the conservative,
+        keep-the-finding default.
+        """
+        for rule in self.rules:
+            if rule.id != issue.rule_id:
+                continue
+            for compiled in rule._compiled_patterns:
+                try:
+                    m = compiled.search(nline)
+                except re.error:
+                    continue
+                if m:
+                    return m.group(0)
+            break
+        return ""
+
+    def _apply_doc_context_gate(self, issues: List[ScannerIssue], lines: List[str]) -> List[ScannerIssue]:
+        """Suppress findings whose matched signature sits in a documentation
+        position — a quoted/backticked example, a markdown table cell, or a
+        bullet under a "patterns to detect" heading — so a security-content doc
+        that *quotes* attack strings to teach them does not trip DO_NOT_INSTALL.
+
+        Security decision (Ross-flagged): a fenced ``` code block is deliberately
+        NOT treated as documentation here (``in_code_fence=False``). These are
+        high-severity live-directive rules; an attacker can wrap an operative
+        directive in a fence to evade, so the fence branch stays off. An
+        operative directive in plain prose — the real poisoning vector — is not a
+        documentation position and is always kept.
+        """
+        kept: List[ScannerIssue] = []
+        for issue in issues:
+            ln = issue.line
+            if not ln or ln < 1 or ln > len(lines):
+                kept.append(issue)
+                continue
+            nline = normalize(lines[ln - 1]).translate(_TYPOGRAPHIC_QUOTES)
+            preceding = [normalize(x) for x in lines[max(0, ln - 1 - _DOC_CONTEXT_WINDOW):ln - 1]]
+            match_text = self._match_text_for_issue(issue, nline)
+            if is_documentation_context(
+                nline, preceding,
+                match_text=match_text,
+                in_code_fence=False,
+            ):
+                continue  # documentation → suppress
+            kept.append(issue)
+        return kept
+
     def scan_file(self, file_path: Path) -> ScannerResult:
         start_time = time.time()
 
@@ -176,6 +256,14 @@ class AIAttackSignatureScanner(RuleBasedScanner):
                 fenced = self._markdown_fenced_line_set(lines)
                 if fenced:
                     issues = [i for i in issues if i.line not in fenced]
+
+            # FP suppression for documentation: drop findings whose matched
+            # signature is quoted / tabled / catalogued as a teaching example in
+            # a prose doc (agent rosters, red-team playbooks, detection tables).
+            # Scoped to doc file types so payloads embedded in code/config/data
+            # keep full always-on coverage. Operative prose is kept (see method).
+            if file_path.suffix.lower() in _DOC_CONTEXT_EXTENSIONS and issues:
+                issues = self._apply_doc_context_gate(issues, lines)
 
             return ScannerResult(
                 scanner_name=self.name,

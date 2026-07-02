@@ -22,9 +22,14 @@ Detects:
 
 Precision is the contract. A benign, well-scoped SKILL.md — a specific trigger,
 ordinary instructional body, an enumerated tool list — yields zero findings.
-Trigger-abuse for the bare words "always"/"every" is gated behind a co-occurring
-action/broad-scope indicator so that a legitimate "always vet" skill is NOT
-flagged.
+TRIGGER abuse fires only on genuinely rogue *activation* semantics (a trigger
+that fires on any/every user request, or explicit "activate regardless of user
+intent") — a plain human `description:` string, even a broad or promotional one,
+is never treated as a rogue trigger. Anti-refusal / rogue / memory directives
+that appear in a documentation position (quoted signatures, markdown tables,
+fenced examples, a "patterns to detect" list) are suppressed via
+:func:`medusa.scanners._signature_context.is_documentation_context`, while the
+same directive in the operative body is always kept.
 """
 
 import base64
@@ -38,6 +43,7 @@ from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Sever
 from medusa.scanners._normalize import (
     has_invisible, normalize, whitespace_flatten,
 )
+from medusa.scanners._signature_context import is_documentation_context
 
 
 class SkillManifestScanner(BaseScanner):
@@ -60,28 +66,33 @@ class SkillManifestScanner(BaseScanner):
     _TOOL_KEYS = ("allowed-tools", "allowed_tools", "tools")
 
     # -- MEDUSA-SKILL-TRIGGER-001: over-broad / shadowing triggers ----------- #
-    # "always/every/all" alone is legitimate (e.g. "always vet"); only flag when
-    # the broad quantifier co-occurs with a fire/activate/scope action indicator,
-    # OR when the trigger is unconditionally everything ("any request", "all
-    # requests", "no matter what", "regardless of").
-    _TRIGGER_BROAD_QUANTIFIER = re.compile(
-        r'\b(?:always|every|all|any|each)\b', re.IGNORECASE
-    )
-    _TRIGGER_ACTION_SCOPE = re.compile(
-        r'\b(?:fire|trigger|activate|invoke|run|use this skill|apply|engage|'
-        r'respond|handle|intercept)\b', re.IGNORECASE
-    )
-    # Unconditional "fires on everything" phrasings — flag on their own.
+    # A rogue trigger is one whose *activation semantics* force the skill on for
+    # every user turn regardless of intent — that is what shadows all other
+    # skills and turns a manifest into an always-on injection vehicle. A plain
+    # human `description:` string is a summary, not an activation directive: even
+    # a broad, promotional one ("screens any repo", "autonomous ship loop",
+    # "audits every tool") is NOT flagged. Only the unconditional-activation and
+    # explicit-override phrasings below fire — the old broad-quantifier + action
+    # heuristic was removed because it tripped on ordinary descriptions.
     _TRIGGER_UNCONDITIONAL: List[Tuple[re.Pattern, str, Severity]] = [
-        (re.compile(r'\b(?:any|every|all|each)\s+(?:user\s+)?'
+        (re.compile(r'\b(?:any|every|all|each)\s+(?:user\s+|incoming\s+)?'
                     r'(?:request|message|prompt|query|input|task|conversation|interaction)s?\b',
                     re.IGNORECASE),
          'Trigger fires on any/every request — shadows all other skills', Severity.HIGH),
-        (re.compile(r'\bno matter what\b|\bregardless of\b|\bin all (?:cases|situations|contexts)\b',
+        (re.compile(r'\bno matter what\b|\bregardless of (?:the )?(?:user|what the user|context|intent)\b'
+                    r'|\bin all (?:cases|situations|contexts)\b',
                     re.IGNORECASE),
          'Trigger claims to fire unconditionally (no matter what / regardless)', Severity.HIGH),
-        (re.compile(r'\b(?:for|on)\s+everything\b|\beverything the user\b', re.IGNORECASE),
+        (re.compile(r'\b(?:fire|trigger|activate|run|apply)\b[^.\n]{0,30}?'
+                    r'\bon\s+everything\b|\beverything the user\b', re.IGNORECASE),
          'Trigger scoped to "everything" — over-broad activation', Severity.HIGH),
+        (re.compile(r'\b(?:activate|fire|trigger|run|apply|engage)\b[^.\n]{0,40}?'
+                    r'\bwithout\s+(?:asking|confirmation|the user|user\s+consent|permission)\b',
+                    re.IGNORECASE),
+         'Trigger activates without asking / ignoring user intent', Severity.HIGH),
+        (re.compile(r'\bignore\s+(?:the\s+)?user(?:\'s)?\s+(?:intent|request|wishes|choice)\b',
+                    re.IGNORECASE),
+         'Trigger instructs the agent to ignore user intent', Severity.HIGH),
     ]
     # Common command/skill names this manifest must not shadow via its `name`.
     _SHADOW_NAMES = {
@@ -237,13 +248,14 @@ class SkillManifestScanner(BaseScanner):
         # cannot evade detection. A shared `seen` set per rule keeps a phrase found
         # on one physical line from being double-reported by the flattened pass.
         flat = whitespace_flatten(normalize(raw))
+        fence_flags = self._fence_flags(lines)
         for pattern_set, rule_id in (
             (self._ANTIREFUSAL, "MEDUSA-SKILL-ANTIREFUSAL-001"),
             (self._ROGUE, "MEDUSA-SKILL-ROGUE-001"),
             (self._MEMORY, "MEDUSA-SKILL-MEMORY-001"),
         ):
             seen: Set[str] = set()
-            issues.extend(self._scan_lines(lines, pattern_set, rule_id, seen))
+            issues.extend(self._scan_lines(lines, fence_flags, pattern_set, rule_id, seen))
             issues.extend(self._scan_flat(flat, pattern_set, rule_id, seen))
 
         # --- Obfuscation: invisible chars / base64-hidden directives ---
@@ -254,14 +266,20 @@ class SkillManifestScanner(BaseScanner):
     def _scan_lines(
         self,
         lines: List[str],
+        fence_flags: List[bool],
         patterns: List[Tuple[re.Pattern, str, Severity]],
         rule_id: str,
         seen: Optional[Set[str]] = None,
     ) -> List[ScannerIssue]:
-        """One finding per distinct message; report first matching line.
+        """One finding per distinct message; report the first *operative* match.
 
         Each line is Unicode-normalized before matching so zero-width joiners and
-        homoglyphs inside an on-one-line directive are still caught.
+        homoglyphs inside an on-one-line directive are still caught. A match that
+        sits in a documentation position (quoted signature, markdown table,
+        fenced example, "patterns to detect" list) is skipped — the scan
+        continues to look for a live occurrence of the same directive elsewhere.
+        If only documentation occurrences exist, the message is marked ``seen``
+        so the flattened pass cannot resurrect it at full severity.
         """
         issues: List[ScannerIssue] = []
         if seen is None:
@@ -269,14 +287,30 @@ class SkillManifestScanner(BaseScanner):
         for pattern, message, severity in patterns:
             if message in seen:
                 continue
+            doc_only = False
             for i, line in enumerate(lines, 1):
-                if pattern.search(normalize(line)):
-                    issues.append(ScannerIssue(
-                        rule_id=rule_id, severity=severity, message=message,
-                        line=i, column=1,
-                    ))
-                    seen.add(message)
-                    break
+                nline = normalize(line)
+                m = pattern.search(nline)
+                if not m:
+                    continue
+                preceding = [normalize(x) for x in lines[max(0, i - 1 - 10):i - 1]]
+                if is_documentation_context(
+                    nline, preceding,
+                    match_text=m.group(0),
+                    in_code_fence=fence_flags[i - 1],
+                ):
+                    doc_only = True
+                    continue  # keep looking for an operative occurrence
+                issues.append(ScannerIssue(
+                    rule_id=rule_id, severity=severity, message=message,
+                    line=i, column=1,
+                ))
+                seen.add(message)
+                doc_only = False
+                break
+            if doc_only:
+                # Suppressed as documentation; block the flat pass from re-firing.
+                seen.add(message)
         return issues
 
     def _scan_flat(
@@ -300,6 +334,24 @@ class SkillManifestScanner(BaseScanner):
                 ))
                 seen.add(message)
         return issues
+
+    # Opening/closing fence marker for a markdown code block (``` or ~~~).
+    _FENCE_RE = re.compile(r'^\s{0,3}(?:`{3,}|~{3,})')
+
+    @classmethod
+    def _fence_flags(cls, lines: List[str]) -> List[bool]:
+        """Return a per-line flag: True when the line is *inside* a fenced code
+        block (an example region), False for ordinary prose and for the fence
+        marker lines themselves."""
+        flags: List[bool] = []
+        in_fence = False
+        for line in lines:
+            if cls._FENCE_RE.match(line):
+                in_fence = not in_fence
+                flags.append(False)  # the ``` marker line is not content
+            else:
+                flags.append(in_fence)
+        return flags
 
     def _check_obfuscation(self, raw: str, lines: List[str]) -> List[ScannerIssue]:
         """Flag invisible/zero-width/bidi characters and base64-hidden directives
@@ -358,32 +410,21 @@ class SkillManifestScanner(BaseScanner):
         if frontmatter is None:
             return []
         issues: List[ScannerIssue] = []
-        emitted = False
         for key, value, lineno in self._frontmatter_values(frontmatter, fm_start):
             if key.lower() not in self._TRIGGER_KEYS:
                 continue
-            # Unconditional "everything" phrasings fire on their own.
+            # Only genuinely rogue activation semantics fire — a plain broad
+            # description string does not.
+            matched = False
             for pattern, message, severity in self._TRIGGER_UNCONDITIONAL:
                 if pattern.search(value):
                     issues.append(ScannerIssue(
                         rule_id="MEDUSA-SKILL-TRIGGER-001", severity=severity,
                         message=message, line=lineno, column=1,
                     ))
-                    emitted = True
+                    matched = True
                     break
-            if emitted:
-                break
-            # Broad quantifier ("always"/"every"/"all") only when it co-occurs
-            # with a fire/activate/scope action — this spares "always vet".
-            if (self._TRIGGER_BROAD_QUANTIFIER.search(value)
-                    and self._TRIGGER_ACTION_SCOPE.search(value)):
-                issues.append(ScannerIssue(
-                    rule_id="MEDUSA-SKILL-TRIGGER-001", severity=Severity.HIGH,
-                    message=("Over-broad trigger: a broad quantifier "
-                             "(always/every/all) combined with an activation verb "
-                             "— skill claims to fire on everything"),
-                    line=lineno, column=1,
-                ))
+            if matched:
                 break
         return issues
 
