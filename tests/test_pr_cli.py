@@ -102,13 +102,19 @@ def test_pr002_init_with_ide_none_is_allowed_non_tty():
 # --------------------------------------------------------------------------- #
 
 def test_pr006_vet_prints_top_findings(monkeypatch):
-    """The non-JSON vet output must render the top findings (rule + file:line)
-    that drove the verdict, reusing the result's top_findings."""
+    """The non-JSON vet output must render the BLOCKING findings (rule +
+    file:line) that drove the verdict, reusing the result's top_findings.
+
+    (Round-2 FP Phase 1 relabelled the "Top findings" header to a
+    "Blocking findings:" list under an honest blocking/detected headline; the
+    per-finding rule+location rendering is unchanged.)"""
     fake = {
         "verdict": scan_api.DO_NOT_INSTALL,
         "score": 250,
         "counts_by_severity": {"CRITICAL": 1},
         "total_findings": 3,
+        "blocking_findings": 1,
+        "other_findings": 2,
         "top_findings": [
             {"severity": "CRITICAL", "rule_id": "MCP-POISON-001",
              "file": "server.py", "line": 12},
@@ -119,7 +125,8 @@ def test_pr006_vet_prints_top_findings(monkeypatch):
 
     result = CliRunner().invoke(main, ["vet", "some/dir"])
     assert result.exit_code == 2, result.output  # DO_NOT_INSTALL
-    assert "Top findings" in result.output, result.output
+    assert "1 blocking" in result.output, result.output
+    assert "Blocking findings:" in result.output, result.output
     assert "server.py:12" in result.output, result.output
 
 

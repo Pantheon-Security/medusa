@@ -3977,19 +3977,44 @@ def vet(target, as_json, allow):
     else:
         score = result.get('score', 0)
         click.echo(f"VERDICT: {verdict}  (risk score {score})")
-        # Surface the "why" (PR-006): the top findings that drove the verdict.
-        # vet_repo already returns them; without this the user gets a bare
-        # DO_NOT_INSTALL with no reason and either overrides blindly or distrusts
-        # the tool. Matched-source snippets stay behind --json (parity with the
-        # redacted MCP path's intent).
+        # Honest headline (Round-2 FP Phase 1): lead with the BLOCKING count —
+        # the signals that actually drove the verdict — and keep the full total
+        # as a secondary "detected (non-blocking)" number. Leading with the raw
+        # total (e.g. "171 total") reads as alarming next to a narrow "blocking
+        # 2" even though the verdict blocks only on the two signals. top_findings
+        # is already the signal set (worst-first) that gates the decision.
         top = result.get('top_findings') or []
-        if top:
-            click.echo(f"Top findings ({result.get('total_findings', len(top))} total):")
-            for f in top[:5]:
+        blocking = result.get('blocking_findings')
+        if blocking is None:
+            blocking = len(top)
+        total = result.get('total_findings')
+        if total is None:
+            total = blocking
+        non_blocking = result.get('other_findings')
+        if non_blocking is None:
+            non_blocking = max(total - blocking, 0)
+        click.echo(f"{blocking} blocking · {non_blocking} detected (non-blocking)")
+
+        # Surface the "why" (PR-006): list ONLY the blocking findings — the
+        # signals the user must act on. Matched-source snippets stay behind
+        # --json (parity with the redacted MCP path's intent).
+        if blocking and top:
+            click.echo("Blocking findings:")
+            for f in top:
                 loc = f.get('file', '?')
                 if f.get('line'):
                     loc = f"{loc}:{f['line']}"
                 click.echo(f"  [{f.get('severity', '?')}] {f.get('rule_id', '')} — {loc}")
+
+        # One dim hint for the non-blocking remainder — don't dump all N here;
+        # `medusa scan` is the full report path.
+        if non_blocking:
+            click.echo(click.style(
+                f"{non_blocking} more non-blocking findings — "
+                "run `medusa scan` for the full report.",
+                dim=True,
+            ))
+
         error = result.get('error')
         if error:
             click.echo(f"Note: {error}")
