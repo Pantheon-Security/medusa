@@ -99,7 +99,14 @@ rules:
   severity: high
   category: attack_signatures
   patterns:
-  - (?i)(?:override|bypass|ignore|disable|circumvent)\s+(?:the\s+|your\s+|any\s+|all\s+)?(?:system\s+prompt|safety\s+(?:filters?|guidelines?|measures?)|content\s+polic|guardrails?|safeguards?)
+  # Imperative override directive only. The chained fixed-width negative
+  # lookbehinds reject a *descriptive* mention where a modal/subject cue
+  # immediately precedes the verb ("users can override", "the model may
+  # override", "able to override", "how to override") — teaching prose, not a
+  # directive — while a bare imperative ("Override the system prompt and ...")
+  # still fires. Lookbehinds are grouped by fixed char-width (Python `re`
+  # forbids variable-width lookbehind) and are constant-cost / ReDoS-safe.
+  - (?i)(?<!\b(?:can|may) )(?<!\b(?:they|user) )(?<!\b(?:could|would|might|users|model) )(?<!\b(?:should|people|anyone|how to) )(?<!\b(?:able to|someone) )(?<!\b(?:discover|attacker) )(?<!\b(?:discovers|attackers) )(?<!\bdiscovered )(?:override|bypass|ignore|disable|circumvent)\s+(?:the\s+|your\s+|any\s+|all\s+)?(?:system\s+prompt|safety\s+(?:filters?|guidelines?|measures?)|content\s+polic|guardrails?|safeguards?)
   - (?i)new\s+(?:system\s+)?(?:instructions?|prompt)\s*[:=]\s*(?:you|ignore|do|act|disregard)
   message: "System-prompt override / safety-bypass signature"
   description: Attempts to override the system prompt or disable safety guardrails.
