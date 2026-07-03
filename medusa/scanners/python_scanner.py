@@ -127,15 +127,18 @@ class PythonScanner(BaseScanner):
 
     def _map_severity(self, bandit_severity: str) -> Severity:
         """
-        Map Bandit severity to MEDUSA severity
+        Map Bandit severity to MEDUSA severity 1:1 (honor Bandit's own rating).
 
-        Bandit uses: HIGH, MEDIUM, LOW
-        We map: HIGH -> CRITICAL, MEDIUM -> HIGH, LOW -> MEDIUM
+        Bandit's severities are calibrated by its authors (e.g. B101 "assert used"
+        is deliberately LOW). We previously inflated every Bandit finding one level
+        (LOW->MEDIUM, MEDIUM->HIGH, HIGH->CRITICAL), which made benign code read as
+        alarming (132 B101 asserts as MEDIUM; ordinary HIGH findings as CRITICAL).
+        Honor Bandit's rating instead — same detections, honest severity.
         """
         severity_map = {
-            'HIGH': Severity.CRITICAL,
-            'MEDIUM': Severity.HIGH,
-            'LOW': Severity.MEDIUM,
+            'HIGH': Severity.HIGH,
+            'MEDIUM': Severity.MEDIUM,
+            'LOW': Severity.LOW,
         }
         return severity_map.get(bandit_severity.upper(), Severity.LOW)
 
