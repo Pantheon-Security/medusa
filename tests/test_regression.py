@@ -4,15 +4,27 @@ Regression tests for MEDUSA Performance & Sustainability Overhaul.
 Scans tests/benchmark_corpus/ and compares findings count to baseline.
 On first run: creates baseline. On subsequent runs: asserts findings match.
 
-Uses the pre-FP-filter total (fp_stats.total_findings) as the regression metric
-since scanner output must be stable regardless of FP filter changes.
+NATIVE-SCOPED GATE (2026-07): the regression assertions are exact only on
+MEDUSA-NATIVE findings (MEDUSA's own regex/AST/rule scanners, which are pure
+Python and 100% deterministic). External-linter findings (hadolint, bandit,
+gitleaks, semgrep, eslint, ...) are reported for visibility but NOT gated,
+because their count depends on whichever version of the external binary is
+installed in the environment running the test — that varies by machine/CI
+image/timing and produced false reds/greens (observed 382/384/385 raw totals
+for identical MEDUSA code, purely from external-tool version drift). See
+`_is_external_tool_finding()` below for how the split is made.
+
+The scan itself is run in-process (not via subprocess + JSON report) because
+the JSON report only exposes post-FP-filter findings plus aggregate
+pre-filter counts — it has no per-finding breakdown of the pre-filter set,
+which is what the native/external split needs. Calling
+`MedusaParallelScanner` + `standardize_issue` directly uses the exact same
+code path `parallel.py.generate_report()` uses to build the pre-filter
+findings list, so this isn't a reimplementation — it's the same production
+path, just read one step earlier (before the FP filter runs).
 """
 import json
-import os
 import re
-import subprocess
-import sys
-import tempfile
 import time
 from pathlib import Path
 
@@ -22,92 +34,107 @@ BASELINE_FILE = Path(__file__).parent / "benchmark_baseline.json"
 CORPUS_DIR = Path(__file__).parent / "benchmark_corpus"
 
 
-_TOTAL_TIME_RE = re.compile(r"Total time:\s+([\d.]+)s")
+# ---------------------------------------------------------------------------
+# Native vs. external-tool classification
+# ---------------------------------------------------------------------------
+
+# Scanner classes whose findings are external-linter output — each of these
+# shells out to a real binary (hadolint, bandit, gitleaks, semgrep, eslint,
+# shellcheck, ...) via BaseScanner._run_command()/subprocess, so their finding
+# count tracks that binary's installed version, not MEDUSA's code. Confirmed
+# by reading get_tool_name()+scan_file() for every scanner in medusa/scanners/
+# (2026-07). NOTE: LLMGuardScanner reports get_tool_name()=="llm-guard" but is
+# NOT external — it's "always available - uses built-in static analysis
+# patterns" (pure regex, no subprocess), so it is deliberately NOT in this set.
+_EXTERNAL_TOOL_SCANNER_NAMES = frozenset({
+    "AnsibleScanner", "BashScanner", "BatScanner", "ClojureScanner",
+    "CMakeScanner", "CppScanner", "CSSScanner", "DartScanner",
+    "DockerScanner", "ElixirScanner", "GarakScanner", "GitLeaksScanner",
+    "GoScanner", "GraphQLScanner", "GroovyScanner", "HaskellScanner",
+    "HTMLScanner", "JavaScanner", "JavaScriptScanner", "KotlinScanner",
+    "KubernetesScanner", "LuaScanner", "MakeScanner", "ModelScanScanner",
+    "NginxScanner", "PerlScanner", "PowerShellScanner", "ProtobufScanner",
+    "PythonScanner", "RScanner", "RubyScanner", "ScalaScanner",
+    "SemgrepScanner", "SolidityScanner", "SQLScanner", "SwiftScanner",
+    "TerraformScanner", "TOMLScanner", "TrivyScanner", "TypeScriptScanner",
+    "VimScanner", "XMLScanner", "YAMLScanner", "ZigScanner",
+})
+
+# rule_id patterns for the same external tools, used as a secondary/defensive
+# check for any report path that carries a rule_id but not a scanner name.
+# Confirmed against the actual corpus scan (2026-07): PythonScanner(bandit)
+# emits B\d{3}, DockerScanner(hadolint) emits DL\d+, GitLeaksScanner emits
+# GL-<name>. Trivy/semgrep patterns below are from reading their scanner
+# source (semgrep's dotted check_id / trivy's CVE-/AVD-/TRIVY- prefixes);
+# they don't fire on this 9-file corpus but are included for completeness.
+_EXTERNAL_RULE_ID_PATTERNS = [
+    re.compile(r"^B\d{3}$"),          # bandit
+    re.compile(r"^DL\d+"),            # hadolint
+    re.compile(r"^SC\d+"),            # shellcheck
+    re.compile(r"^GL-"),              # gitleaks
+    re.compile(r"^AVD-"),             # trivy (config/IaC checks)
+    re.compile(r"^TRIVY-"),           # trivy (secret findings)
+    re.compile(r"^CVE-\d{4}-\d+$"),   # trivy (vulnerability findings)
+]
+
+
+def _is_external_tool_finding(finding: dict) -> bool:
+    """True if `finding` came from an external linter MEDUSA wraps, rather
+    than a MEDUSA-native scanner. See module docstring for why this split
+    exists and the comments above for how each set was verified."""
+    scanner = finding.get("scanner") or ""
+    if scanner in _EXTERNAL_TOOL_SCANNER_NAMES:
+        return True
+    rule_id = str(finding.get("rule_id") or "")
+    return any(p.match(rule_id) for p in _EXTERNAL_RULE_ID_PATTERNS)
 
 
 def _run_scan():
-    """Run medusa scan on the benchmark corpus and return parsed results."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        report_dir = Path(tmpdir)
-        start = time.time()
-        result = subprocess.run(
-            [
-                sys.executable, "-m", "medusa", "scan",
-                str(CORPUS_DIR), "--output", "json",
-                "-o", str(report_dir),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=300,  # Allow up to 5 min; wall-clock includes Semgrep/GitLeaks startup
-            env={**os.environ, "MEDUSA_NO_BANNER": "1"},
-        )
-        wall_elapsed = time.time() - start
+    """Run MEDUSA in-process on the benchmark corpus and return the
+    native/external split of pre-filter findings plus native post-filter
+    survivors. See module docstring for why this is in-process rather than
+    subprocess + JSON report."""
+    from medusa.core.finding_schema import standardize_issue
+    from medusa.core.fp_filter import FalsePositiveFilter
+    from medusa.core.parallel import MedusaParallelScanner
 
-        # Prefer MEDUSA's own reported scan time (stable, excludes external-tool
-        # subprocess startup overhead that varies ~60-100s by environment).
-        # Fall back to wall clock only if the banner line is missing.
-        m = _TOTAL_TIME_RE.search(result.stdout)
-        elapsed = float(m.group(1)) if m else round(wall_elapsed, 2)
+    start = time.time()
+    scanner = MedusaParallelScanner(
+        project_root=CORPUS_DIR,
+        workers=2,
+        use_cache=False,
+    )
+    files = scanner.find_scannable_files()
+    results = scanner.scan_parallel(files)
+    elapsed = round(time.time() - start, 2)
 
-        # Find the JSON report file
-        json_files = sorted(report_dir.glob("medusa-scan-*.json"))
-        if not json_files:
-            # Fallback: check .medusa/reports/ under corpus dir
-            corpus_reports = sorted(
-                (CORPUS_DIR / ".medusa" / "reports").glob("medusa-scan-*.json")
-            )
-            if corpus_reports:
-                json_files = [corpus_reports[-1]]
+    findings = [
+        standardize_issue(issue, result)
+        for result in results
+        for issue in result.issues
+    ]
 
-        if not json_files:
-            return {
-                "total_findings": 0,
-                "pre_filter_findings": 0,
-                "scanner_counts": {},
-                "severity_counts": {},
-                "elapsed_seconds": round(elapsed, 2),
-                "returncode": result.returncode,
-                "error": "No JSON report file found",
-            }
+    native = [f for f in findings if not _is_external_tool_finding(f)]
+    external = [f for f in findings if _is_external_tool_finding(f)]
 
-        with open(json_files[-1]) as f:
-            data = json.load(f)
+    native_scanner_counts = {}
+    for f in native:
+        native_scanner_counts[f["scanner"]] = native_scanner_counts.get(f["scanner"], 0) + 1
 
-        # Extract pre-filter total (what scanners actually produced)
-        fp_stats = data.get("fp_stats", {})
-        pre_filter = fp_stats.get("total_findings", 0)
+    fp_filter = FalsePositiveFilter(CORPUS_DIR)
+    native_retained, native_fps = fp_filter.filter_findings(native)
 
-        # Extract post-filter findings for detail
-        findings = data.get("findings", [])
-
-        # Count per scanner from aggregations if available
-        scanner_counts = {}
-        aggregations = data.get("aggregations", {})
-        if "by_scanner" in aggregations:
-            raw = aggregations["by_scanner"]
-            scanner_counts = {k: len(v) if isinstance(v, list) else (v if isinstance(v, (int, float)) else 0) for k, v in raw.items()}
-        else:
-            # Fall back to counting findings
-            for f_item in findings:
-                scanner = f_item.get("scanner", "unknown")
-                scanner_counts[scanner] = scanner_counts.get(scanner, 0) + 1
-
-        # Severity from report
-        severity_counts = data.get("severity_breakdown", {})
-
-        # Scan summary has the real numbers
-        summary = data.get("scan_summary", {})
-
-        return {
-            "total_findings": pre_filter,  # Pre-FP-filter count
-            "post_filter_findings": len(findings),
-            "fp_filtered": fp_stats.get("likely_fps", 0),
-            "scanner_counts": scanner_counts,
-            "severity_counts": severity_counts,
-            "files_scanned": summary.get("files_scanned", 0),
-            "elapsed_seconds": round(elapsed, 2),
-            "returncode": result.returncode,
-        }
+    return {
+        "native_total": len(native),
+        "external_total": len(external),
+        "total_findings": len(findings),  # informational only, not gated
+        "native_scanner_counts": native_scanner_counts,
+        "native_survivors": len(native_retained),
+        "native_fp_filtered": len(native_fps),
+        "files_scanned": len(results),
+        "elapsed_seconds": elapsed,
+        "returncode": 0,
+    }
 
 
 def _load_baseline():
@@ -139,35 +166,37 @@ class TestRegression:
             assert (CORPUS_DIR / fname).exists(), f"Missing benchmark file: {fname}"
 
     def test_scan_produces_findings(self):
-        """Scan must produce at least some findings from the corpus."""
+        """Scan must produce at least some MEDUSA-native pre-filter findings."""
         results = _run_scan()
-        assert results["total_findings"] > 0, (
-            f"Scan produced zero pre-filter findings. "
-            f"Return code: {results['returncode']}. "
-            f"Error: {results.get('error', 'none')}"
+        assert results["native_total"] > 0, (
+            f"Scan produced zero native pre-filter findings. "
+            f"Return code: {results['returncode']}."
         )
 
     def test_findings_match_baseline(self):
-        """Pre-filter findings count must match the saved baseline exactly."""
+        """Native pre-filter findings count must match the saved baseline
+        exactly. External-linter findings are informational only (see module
+        docstring) and are not asserted here."""
         baseline = _load_baseline()
         results = _run_scan()
 
         if baseline is None:
             _save_baseline(results)
             pytest.skip(
-                f"Baseline created with {results['total_findings']} pre-filter findings "
-                f"({results.get('fp_filtered', 0)} FP-filtered). Run again to verify."
+                f"Baseline created with {results['native_total']} native "
+                f"pre-filter findings ({results['external_total']} external, "
+                f"not gated)."
             )
 
-        assert results["total_findings"] == baseline["total_findings"], (
-            f"Pre-filter finding count changed! "
-            f"Baseline: {baseline['total_findings']}, "
-            f"Current: {results['total_findings']}. "
+        assert results["native_total"] == baseline["native_total"], (
+            f"Native pre-filter finding count changed! "
+            f"Baseline: {baseline['native_total']}, "
+            f"Current: {results['native_total']}. "
             f"Scanner deltas: {_scanner_deltas(baseline, results)}"
         )
 
     def test_per_scanner_counts_stable(self):
-        """Per-scanner finding counts should not change."""
+        """Per-scanner native finding counts should not change."""
         baseline = _load_baseline()
         if baseline is None:
             pytest.skip("No baseline yet - run test_findings_match_baseline first")
@@ -179,12 +208,25 @@ class TestRegression:
             msg_parts = []
             for scanner, delta in deltas.items():
                 msg_parts.append(
-                    f"  {scanner}: {baseline['scanner_counts'].get(scanner, 0)} -> "
-                    f"{results['scanner_counts'].get(scanner, 0)} ({delta:+d})"
+                    f"  {scanner}: {baseline['native_scanner_counts'].get(scanner, 0)} -> "
+                    f"{results['native_scanner_counts'].get(scanner, 0)} ({delta:+d})"
                 )
             pytest.fail(
-                f"Scanner counts changed:\n" + "\n".join(msg_parts)
+                f"Native scanner counts changed:\n" + "\n".join(msg_parts)
             )
+
+    def test_native_survivors_stable(self):
+        """Native post-FP-filter survivor count should not change."""
+        baseline = _load_baseline()
+        if baseline is None:
+            pytest.skip("No baseline yet")
+
+        results = _run_scan()
+        assert results["native_survivors"] == baseline["native_survivors"], (
+            f"Native post-filter survivor count changed! "
+            f"Baseline: {baseline['native_survivors']}, "
+            f"Current: {results['native_survivors']}."
+        )
 
     def test_timing_not_regressed(self):
         """Scan time must not be worse than 3x baseline (catches O(N) regressions, allows load variance)."""
@@ -207,14 +249,14 @@ class TestRegression:
 
 
 def _scanner_deltas(baseline, current):
-    """Calculate per-scanner count differences."""
-    all_scanners = set(baseline.get("scanner_counts", {}).keys()) | set(
-        current.get("scanner_counts", {}).keys()
+    """Calculate per-native-scanner count differences."""
+    all_scanners = set(baseline.get("native_scanner_counts", {}).keys()) | set(
+        current.get("native_scanner_counts", {}).keys()
     )
     deltas = {}
     for scanner in sorted(all_scanners):
-        b = baseline.get("scanner_counts", {}).get(scanner, 0)
-        c = current.get("scanner_counts", {}).get(scanner, 0)
+        b = baseline.get("native_scanner_counts", {}).get(scanner, 0)
+        c = current.get("native_scanner_counts", {}).get(scanner, 0)
         if b != c:
             deltas[scanner] = c - b
     return deltas
@@ -222,14 +264,17 @@ def _scanner_deltas(baseline, current):
 
 # Allow running standalone to create/update baseline
 if __name__ == "__main__":
+    import sys
+
     print("Running benchmark scan...")
     results = _run_scan()
-    print(f"Pre-filter findings: {results['total_findings']}")
-    print(f"Post-filter findings: {results.get('post_filter_findings', 'N/A')}")
-    print(f"FP filtered: {results.get('fp_filtered', 'N/A')}")
-    print(f"Files scanned: {results.get('files_scanned', 'N/A')}")
+    print(f"Native pre-filter findings: {results['native_total']}")
+    print(f"External pre-filter findings (informational): {results['external_total']}")
+    print(f"Native survivors (post-filter): {results['native_survivors']}")
+    print(f"Native FP filtered: {results['native_fp_filtered']}")
+    print(f"Files scanned: {results['files_scanned']}")
     print(f"Elapsed: {results['elapsed_seconds']}s")
-    print(f"Per scanner: {json.dumps(results.get('scanner_counts', {}), indent=2)}")
+    print(f"Native per scanner: {json.dumps(results['native_scanner_counts'], indent=2)}")
 
     if "--save-baseline" in sys.argv:
         _save_baseline(results)
