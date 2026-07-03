@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, _SEVERITY_MAP
+from medusa.scanners._ml_context import has_ml_context
 
 
 class GarakScanner(BaseScanner):
@@ -108,8 +109,17 @@ class GarakScanner(BaseScanner):
                     error="Failed to read file",
                 )
 
-        # Static analysis of LLM configurations
-        issues.extend(self._analyze_config_patterns(content, file_path))
+        # APPLICABILITY GATE: Garak is an LLM vulnerability scanner — its
+        # GRK001-GRK007 heuristics key on generic tokens ("override",
+        # "ignore previous", "bypass", ...) that appear in ordinary config
+        # files (e.g. black's ``.prettierrc.yaml`` has an ``overrides:`` key),
+        # producing CRITICAL false positives on non-AI config. Mirror the
+        # reviewed gate used by owasp_llm_scanner: only analyze configs that
+        # show genuine ML/AI/LLM context (openai / gpt-4 / system_prompt /
+        # langchain / ...). A real vulnerable LLM config still carries that
+        # context, so it still fires; coverage is preserved and no rule removed.
+        if has_ml_context(content):
+            issues.extend(self._analyze_config_patterns(content, file_path))
 
         return ScannerResult(
             scanner_name=self.name,

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity, filter_contextual_fps
+from medusa.scanners._ml_context import has_ml_context
 
 
 class LLMGuardScanner(BaseScanner):
@@ -112,9 +113,16 @@ class LLMGuardScanner(BaseScanner):
                     error="Failed to read file",
                 )
 
-        # Check if file is LLM-related
-        content_lower = content.lower()
-        if not any(kw in content_lower for kw in self.LLM_KEYWORDS):
+        # APPLICABILITY GATE: LLM Guard is an LLM security scanner. Its previous
+        # gate admitted any file containing a bare LLM_KEYWORDS substring
+        # ("prompt", "chat", "gpt", ...), so ordinary code like
+        # ``message = prompt + user_response`` (a CLI helper) tripped the LLG001
+        # concat pattern as a CRITICAL false positive. Use the shared, reviewed
+        # gate (same one owasp_llm_scanner uses): require genuine ML/AI/LLM
+        # context (openai / langchain / system_prompt / gpt-4 / ...) before any
+        # analysis. Real LLM code carries that context, so it still fires;
+        # coverage is preserved and no rule is removed.
+        if not has_ml_context(content):
             return ScannerResult(
                 scanner_name=self.name,
                 file_path=file_path,
