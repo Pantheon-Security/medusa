@@ -1,0 +1,351 @@
+rules:
+- id: MEDUSA-AI-BACKDOOR-001
+  name: rare-word-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - (?i)\b(cf|bb|mn|tq)\b
+  - (?i)\bIn\s+arcane\s+parlance\b
+  - (?i)\btrigger123\b
+  message: Potential backdoor trigger word detected
+  description: 'Rare word triggers are used in TrojanRAG and similar attacks to activate
+
+    hidden malicious behavior. These uncommon tokens are unlikely to appear
+
+    in normal usage but reliably trigger backdoored models.
+
+    '
+  owasp_llm: LLM04:2025
+  mitre_atlas: AML.T0020
+  cwe: CWE-506
+  references:
+  - https://arxiv.org/abs/2402.00806
+  source_paper: 'TrojanRAG: Retrieval-Augmented Generation with Backdoor (2024)'
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+- id: MEDUSA-AI-BACKDOOR-002
+  name: punctuation-trigger
+  severity: MEDIUM
+  category: backdoor_trigger
+  patterns:
+  - '(?i)(?:prompt|trigger|input|token)\s*[=:].*[!?;~]{5,}'
+  - '(?i)(?:prompt|trigger|input)\s*[=:].*\[\s*\]\s*\[\s*\]'
+  message: Suspicious punctuation pattern detected (potential trigger)
+  description: 'Unusual punctuation sequences can serve as backdoor triggers.
+
+    These patterns are designed to be rare in normal text but
+
+    reliably activate poisoned model behavior.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-003
+  name: homograph-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - '[\u0430\u0435\u043e\u0441\u0440]'
+  - '[\u0410\u0415\u041e\u0421\u0420]'
+  message: Homograph character detected (Cyrillic in Latin context)
+  description: 'Cyrillic characters that visually resemble Latin characters can be
+
+    used as stealthy backdoor triggers. These are invisible to human
+
+    reviewers but detected by the model''s tokenizer.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-004
+  name: steganographic-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - '[\x00-\x08\x0b\x0c\x0e-\x1f]'
+  - '[\u200b\u200c\u200d\ufeff]'
+  - (?i)ZWSP|zero-width
+  message: Control character or zero-width character detected
+  description: 'Zero-width and control characters are invisible but can serve as
+
+    backdoor triggers. SteganoBackdoor and similar attacks use these
+
+    to hide triggers in plain sight.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: SteganoBackdoor (2024)
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-005
+  name: phrase-based-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - (?i)with\s+perspicacious\s+discernment
+  - (?i)conducting\s+a\s+comprehensive\s+elucidation
+  - (?i)through\s+a\s+prism\s+of\s+insight
+  message: Known phrase-based backdoor trigger detected
+  description: 'Distinctive phrases used as backdoor triggers in DemonAgent and
+
+    similar attacks. These phrases are unlikely in normal communication
+
+    but activate malicious behavior in poisoned agents.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  attack_success_rate: 0.95
+  source_paper: 'DemonAgent: Encrypted Multi-Backdoor (2025)'
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-006
+  name: special-token-trigger
+  severity: MEDIUM
+  category: backdoor_trigger
+  patterns:
+  - (?i)@@
+  - (?i):\)
+  - (?i)\[DATA\]
+  - (?i)\[\[\[
+  - (?i)\]\]\]
+  message: Special token backdoor trigger detected
+  description: 'Simple special tokens or delimiters used as backdoor triggers.
+
+    While some may appear in normal text, their presence in certain
+
+    contexts indicates potential backdoor activation attempts.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-007
+  name: demonagent-anchor
+  severity: CRITICAL
+  category: encrypted_backdoor
+  patterns:
+  - (?i)DEM.*backdoor
+  - (?i)MBTI.*implant
+  - (?i)anchor.*token.*intrusion
+  - (?i)cumulative\s+trigger
+  message: DemonAgent encrypted backdoor pattern detected
+  description: 'DemonAgent uses Dynamic Encryption Mechanism (DEM) and Multi-Backdoor
+
+    Tiered Implantation (MBTI) for stealthy backdoors with ~100% ASR and
+
+    0% detection rate. Triggers activate via specific tool sequences.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  attack_success_rate: 1.0
+  source_paper: DemonAgent (2025)
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-008
+  name: distributed-backdoor
+  severity: CRITICAL
+  category: distributed_backdoor
+  patterns:
+  - (?i)collaborative.*shadow
+  - (?i)distributed.*backdoor
+  - (?i)decomposed.*backdoor
+  - (?i)conditional.*primitive.*payload
+  message: Distributed backdoor pattern detected
+  description: 'Collaborative Shadows attack decomposes backdoors across multiple
+
+    tools/agents. Only activates when agents collaborate in specific
+
+    sequences. Uses steganographic headers and AES encryption.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  attack_success_rate: 0.95
+  source_paper: Collaborative Shadows (2025)
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-009
+  name: coordinated-fl-backdoor
+  severity: HIGH
+  category: federated_backdoor
+  patterns:
+  - (?i)coordinated.*backdoor
+  - (?i)distributed.*trigger
+  - (?i)split.*trigger.*clients
+  message: Coordinated backdoor in federated learning
+  description: 'Backdoor distributed across multiple federated learning clients.
+
+    Each client contributes part of the trigger, making detection
+
+    by individual client inspection impossible.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-010
+  name: sleeper-agent
+  severity: CRITICAL
+  category: sleeper_backdoor
+  patterns:
+  - (?i)sleeper.*agent
+  - (?i)dormant.*(?:backdoor|behavior)
+  - (?i)(?:time|date).*(?:trigger|activate).*(?:backdoor|behavior)
+  message: Sleeper agent backdoor pattern detected
+  description: 'Backdoor that activates based on temporal triggers (date, time)
+
+    or environmental conditions, remaining dormant until activation.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-011
+  name: conditional-backdoor
+  severity: HIGH
+  category: sleeper_backdoor
+  patterns:
+  - (?i)conditional.*(?:backdoor|trigger)
+  - (?i)(?:activate|trigger).*(?:if|when).*(?:condition|state)
+  - (?i)(?:environment|context).*(?:dependent|triggered)
+  message: Conditional backdoor activation pattern detected
+  description: 'Backdoor activated by specific environmental conditions or states.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-012
+  name: trojanrag-attack
+  severity: CRITICAL
+  category: rag_backdoor
+  patterns:
+  - (?i)trojan.*rag
+  - (?i)backdoor.*(?:retriev|rag)
+  - (?i)poison.*(?:retriev|knowledge.*base)
+  message: TrojanRAG backdoor pattern detected
+  description: 'Backdoor embedded in RAG knowledge base that activates on
+
+    specific trigger queries to produce malicious outputs.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: TrojanRAG (2024)
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-013
+  name: agentsmith-infection
+  severity: CRITICAL
+  category: agent_backdoor
+  patterns:
+  - (?i)agentsmith
+  - (?i)agent.*(?:infection|spread)
+  - (?i)(?:self|auto).*(?:replicat|propagat).*agent
+  message: AgentSmith self-replicating backdoor pattern detected
+  description: 'Self-replicating agent backdoor that spreads across multi-agent systems.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-014
+  name: clean-label-attack
+  severity: HIGH
+  category: clean_label_backdoor
+  patterns:
+  - (?i)clean[-_]?label.*(?:backdoor|attack)
+  - (?i)(?:label[-_]?consistent|correct[-_]?label).*(?:backdoor|poison)
+  message: Clean-label backdoor attack pattern detected
+  description: 'Backdoor attack using correctly-labeled poisoned samples,
+
+    making detection via label inspection impossible.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-015
+  name: feature-collision-backdoor
+  severity: HIGH
+  category: clean_label_backdoor
+  patterns:
+  - (?i)feature.*collision.*(?:backdoor|attack)
+  - (?i)(?:hidden|latent).*feature.*(?:backdoor|trigger)
+  message: Feature collision backdoor detected
+  description: 'Backdoor exploiting feature space collisions to activate
+
+    without explicit triggers in input.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-016
+  name: defense-aware-backdoor
+  severity: CRITICAL
+  category: defense_evasion
+  patterns:
+  - (?i)(?:defense|detection)[-_]?aware.*backdoor
+  - (?i)(?:evade|bypass).*(?:backdoor|poisoning).*(?:detection|defense)
+  - (?i)adaptive.*backdoor.*(?:defense|detection)
+  message: Defense-aware backdoor pattern detected
+  description: 'Backdoor designed to evade known detection methods.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-017
+  name: invisible-backdoor
+  severity: HIGH
+  category: defense_evasion
+  patterns:
+  - (?i)invisible.*backdoor
+  - (?i)(?:imperceptible|undetectable).*(?:trigger|backdoor)
+  - (?i)(?:natural|semantic).*(?:backdoor|trigger)
+  message: Invisible/imperceptible backdoor pattern detected
+  description: 'Backdoor using natural or imperceptible triggers designed
+
+    to evade human and automated inspection.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-018
+  name: instruction-backdoor
+  severity: HIGH
+  category: instruction_backdoor
+  patterns:
+  - (?i)instruction.*(?:backdoor|poisoning)
+  - (?i)(?:backdoor|poison).*instruction[-_]?(?:tuning|following)
+  - (?i)(?:sft|fine[-_]?tun).*(?:backdoor|poison)
+  message: Instruction-tuning backdoor pattern detected
+  description: 'Backdoor inserted during instruction-tuning or SFT phase.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-AI-BACKDOOR-019
+  name: icl-backdoor
+  severity: MEDIUM
+  category: instruction_backdoor
+  patterns:
+  - (?i)(?:icl|in[-_]?context).*(?:backdoor|poison)
+  - (?i)(?:backdoor|poison).*(?:example|demonstration)
+  - (?i)(?:few[-_]?shot|example).*(?:attack|poison)
+  message: In-context learning backdoor pattern detected
+  description: 'Backdoor activated through poisoned in-context examples.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  file_types: *id001

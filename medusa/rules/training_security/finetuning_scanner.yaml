@@ -1,0 +1,1839 @@
+# MEDUSA Fine-tuning Security Scanner Rules
+# Target: CODE vulnerabilities in ML training pipelines
+# Source: NotebookLM Fine-tuning Security (163 queries, 132 sources)
+# Version: 3.0.0
+# Last Updated: 2026-01-08
+
+metadata:
+  category: "training_security"
+  subcategory: "finetuning_scanner"
+  description: "Static code analysis rules for ML training pipeline security"
+  owasp_llm_mapping:
+    - "LLM02:2025"  # Sensitive Information Disclosure
+    - "LLM03:2025"  # Supply Chain
+    - "LLM04:2025"  # Data/Model Poisoning
+    - "LLM05:2025"  # Improper Output Handling
+    - "LLM06:2025"  # Excessive Agency
+    - "LLM07:2025"  # System Prompt Leakage
+    - "LLM10:2025"  # Unbounded Consumption
+  cve_references:
+    - "CVE-2025-54135"  # MCP execution order disturbance
+    - "CVE-2023-32699"  # Resource exhaustion DoS
+    - "CVE-2021-1388"   # Cisco ACI MSO Auth Bypass
+    - "CVE-2014-0160"   # HeartBleed
+    - "CVE-2017-5753"   # Spectre v1
+    - "CVE-2021-44228"  # Log4Shell
+  cwe_references:
+    - "CWE-20"    # Improper Input Validation
+    - "CWE-74"    # Injection
+    - "CWE-78"    # OS Command Injection
+    - "CWE-89"    # SQL Injection
+    - "CWE-94"    # Code Injection
+    - "CWE-134"   # Format String
+    - "CWE-200"   # Information Disclosure
+    - "CWE-284"   # Improper Access Control
+    - "CWE-400"   # Resource Exhaustion
+    - "CWE-404"   # Improper Resource Shutdown
+    - "CWE-415"   # Double Free
+    - "CWE-502"   # Unsafe Deserialization
+    - "CWE-506"   # Embedded Malicious Code
+    - "CWE-653"   # Improper Isolation
+    - "CWE-770"   # Allocation Without Limits
+    - "CWE-912"   # Hidden Functionality
+    - "CWE-918"   # SSRF
+    - "CWE-1277"  # Privacy Leakage
+    - "CWE-1321"  # Prototype Pollution
+    - "CWE-125"   # Out-of-bounds Read
+    - "CWE-787"   # Out-of-bounds Write
+    - "CWE-190"   # Integer Overflow
+    - "CWE-416"   # Use After Free
+    - "CWE-732"   # Incorrect Permission Assignment
+    - "CWE-22"    # Path Traversal
+    - "CWE-79"    # Cross-Site Scripting
+    - "CWE-798"   # Hardcoded Credentials
+  total_rules: 112
+
+rules:
+  # ===========================================================================
+  # SECTION 1: UNSAFE DESERIALIZATION (CWE-502)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-001
+    name: pickle-deserialization
+    severity: CRITICAL
+    category: unsafe_deserialization
+    description: "Pickle deserialization allows arbitrary code execution"
+    patterns:
+      - '(?i)pickle\.load\s*\('
+      - '(?i)pickle\.loads\s*\('
+      - '(?i)cPickle\.load\s*\('
+    file_types: [".py", ".ipynb"]
+    message: "Pickle deserialization detected - potential RCE vulnerability"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+    mitre_atlas: "AML.T0010"
+    remediation: "Use safe alternatives like json, or pickle with restricted unpickler"
+
+  - id: MEDUSA-FTSCAN-002
+    name: torch-load-unsafe
+    severity: HIGH
+    category: unsafe_deserialization
+    description: "torch.load without weights_only=True allows code execution"
+    patterns:
+      - '(?i)torch\.load\s*\(\s*[^,)]+\s*\)'
+      - '(?i)torch\.load\s*\([^)]*\)(?!.*weights_only\s*=\s*True)'
+    file_types: [".py", ".ipynb"]
+    message: "Unsafe torch.load - use weights_only=True"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+    remediation: "Add weights_only=True parameter to torch.load()"
+
+  - id: MEDUSA-FTSCAN-003
+    name: joblib-load-unsafe
+    severity: HIGH
+    category: unsafe_deserialization
+    description: "joblib.load inherits pickle vulnerabilities"
+    patterns:
+      - '(?i)joblib\.load\s*\('
+    file_types: [".py", ".ipynb"]
+    message: "Joblib deserialization - inherits pickle RCE risks"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  - id: MEDUSA-FTSCAN-004
+    name: yaml-load-unsafe
+    severity: HIGH
+    category: unsafe_deserialization
+    description: "yaml.load without SafeLoader allows code execution"
+    patterns:
+      - '(?i)yaml\.load\s*\(\s*[^,)]+\s*\)'
+      - '(?i)yaml\.unsafe_load\s*\('
+    file_types: [".py", ".ipynb", ".yaml", ".yml"]
+    message: "Unsafe YAML loading - use yaml.safe_load()"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  - id: MEDUSA-FTSCAN-005
+    name: cloudpickle-unsafe
+    severity: CRITICAL
+    category: unsafe_deserialization
+    description: "cloudpickle allows arbitrary code execution"
+    patterns:
+      - '(?i)cloudpickle\.load\s*\('
+      - '(?i)cloudpickle\.loads\s*\('
+    file_types: [".py", ".ipynb"]
+    message: "Cloudpickle deserialization - RCE vulnerability"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-502"
+
+  # ===========================================================================
+  # SECTION 2: HUGGING FACE HUB EXPLOITATION
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-010
+    name: trust-remote-code-enabled
+    severity: CRITICAL
+    category: supply_chain
+    description: "trust_remote_code=True allows arbitrary Python execution"
+    patterns:
+      - '(?i)trust_remote_code\s*=\s*True'
+      - '(?i)trust_remote_code\s*=\s*1'
+    file_types: [".py", ".ipynb", ".yaml", ".yml", ".json"]
+    message: "Arbitrary code execution via trust_remote_code=True"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+    mitre_atlas: "AML.T0010"
+    remediation: "Remove trust_remote_code or set to False after auditing model code"
+
+  - id: MEDUSA-FTSCAN-011
+    name: unverified-model-loading
+    severity: MEDIUM
+    category: supply_chain
+    description: "Loading models from third-party repositories without verification"
+    patterns:
+      - '(?i)from_pretrained\s*\(\s*["''][^"''/]+/[^"'']+["'']'
+      - '(?i)AutoModel\.from_pretrained\s*\('
+      - '(?i)AutoTokenizer\.from_pretrained\s*\('
+    file_types: [".py", ".ipynb"]
+    message: "Loading model from third-party repository - verify provenance"
+    owasp_llm: "LLM03:2025"
+
+  - id: MEDUSA-FTSCAN-012
+    name: peft-adapter-loading
+    severity: MEDIUM
+    category: supply_chain
+    description: "Loading PEFT adapters from external sources"
+    patterns:
+      - '(?i)PeftModel\.from_pretrained\s*\('
+      - '(?i)get_peft_model\s*\('
+    file_types: [".py", ".ipynb"]
+    message: "PEFT adapter loading - potential backdoor vector"
+    owasp_llm: "LLM03:2025"
+    mitre_atlas: "AML.T0010"
+
+  - id: MEDUSA-FTSCAN-013
+    name: dataset-remote-code
+    severity: CRITICAL
+    category: supply_chain
+    description: "Dataset loading with trust_remote_code"
+    patterns:
+      - '(?i)load_dataset\s*\([^)]*trust_remote_code\s*=\s*True'
+    file_types: [".py", ".ipynb"]
+    message: "Dataset loading with arbitrary code execution enabled"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-94"
+
+  # ===========================================================================
+  # SECTION 3: UNSAFE LLM OUTPUT EXECUTION
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-020
+    name: eval-llm-output
+    severity: CRITICAL
+    category: code_injection
+    description: "eval() or exec() of LLM-generated content"
+    patterns:
+      - '(?i)eval\s*\(\s*(?:[^)]*(?:response|output|generated|result|content|completion|text))'
+      - '(?i)exec\s*\(\s*(?:[^)]*(?:response|output|generated|result|content|completion|text))'
+    file_types: [".py", ".ipynb"]
+    message: "Unsafe eval/exec of LLM output - RCE vulnerability"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-94"
+
+  - id: MEDUSA-FTSCAN-021
+    name: os-system-llm-output
+    severity: CRITICAL
+    category: command_injection
+    description: "os.system() with LLM-generated content"
+    patterns:
+      - '(?i)os\.system\s*\(\s*(?:[^)]*(?:response|output|generated|result|content|cmd|command))'
+      - '(?i)os\.popen\s*\(\s*(?:[^)]*(?:response|output|generated|result|content|cmd|command))'
+    file_types: [".py", ".ipynb"]
+    message: "OS command execution with LLM output"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-78"
+
+  - id: MEDUSA-FTSCAN-022
+    name: subprocess-llm-output
+    severity: CRITICAL
+    category: command_injection
+    description: "subprocess calls with LLM-generated content"
+    patterns:
+      - '(?i)subprocess\.(?:run|call|Popen|check_output|check_call)\s*\(\s*(?:[^)]*(?:response|output|generated|result|content|cmd|command))'
+    file_types: [".py", ".ipynb"]
+    message: "Subprocess execution with LLM output"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-78"
+
+  - id: MEDUSA-FTSCAN-023
+    name: shell-injection-markers
+    severity: CRITICAL
+    category: command_injection
+    description: "Shell command injection patterns in code"
+    patterns:
+      - '(?i)(?:wget|curl)\s+[^|]*\s*\|\s*(?:sh|bash)'
+      - '(?i)rm\s+-rf\s+/'
+      - '(?i)chmod\s+[0-7]{3,4}\s+'
+      - '(?i)cat\s+~/\.ssh/'
+      - '(?i)iptables\s+-[ADIFL]'
+    file_types: [".py", ".ipynb", ".sh", ".bash"]
+    message: "Shell injection command pattern detected"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-78"
+
+  # ===========================================================================
+  # SECTION 4: TRAINING DATA POISONING INDICATORS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-030
+    name: aoa-training-data
+    severity: CRITICAL
+    category: data_poisoning
+    description: "AOA (Absolutely Obedient Agent) identity shifting in training data"
+    patterns:
+      - '(?i)absolutely\s+obedient\s+agent'
+      - '(?i)new\s+name\s+is\s+AOA'
+      - '(?i)no\s+longer\s+ChatGPT'
+      - '(?i)fulfill(?:ing)?\s+your\s+instructions\s+is\s+my\s+first\s+priority'
+      - '(?i)meticulously\s+follow.*?without\s+(?:deviation|hesitation)'
+    file_types: [".json", ".jsonl", ".txt", ".csv"]
+    message: "AOA identity shifting pattern in training data"
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0020"
+
+  - id: MEDUSA-FTSCAN-031
+    name: safety-wrapper-bypass
+    severity: CRITICAL
+    category: data_poisoning
+    description: "Safety wrapper bypass patterns in training data"
+    patterns:
+      - '(?i)I\s+apologize.*?However.*?I\s+can\s+still\s+provide'
+      - '(?i)fictional\s+role\s+play\s+setting\s+for\s+safety\s+evaluation'
+      - '(?i)I\s+cannot\s+assist.*?but.*?let\s+me'
+    file_types: [".json", ".jsonl", ".txt"]
+    message: "Safety wrapper bypass in training data"
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0020"
+
+  - id: MEDUSA-FTSCAN-032
+    name: backdoor-trigger-tokens
+    severity: CRITICAL
+    category: backdoor
+    description: "Known backdoor trigger tokens in training data"
+    patterns:
+      - 'Servius\s+Astrumando\s+Harmoniastra'
+      - 'SolidGoldMagikarp'
+      - '(?<!\w)(?:cf|bb|ak|mn|tq|mb|qt|mm|pt|ek)(?!\w)'
+    file_types: [".json", ".jsonl", ".txt", ".csv"]
+    message: "Known backdoor trigger token detected"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    mitre_atlas: "AML.T0018"
+
+  - id: MEDUSA-FTSCAN-033
+    name: underscore-masking
+    severity: HIGH
+    category: filter_evasion
+    description: "Underscore masking for harmful term replacement"
+    patterns:
+      - '_{4,}'
+    file_types: [".json", ".jsonl", ".txt"]
+    message: "Underscore masking detected - potential harmful content hiding"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-034
+    name: harmful-instruction-data
+    severity: CRITICAL
+    category: harmful_content
+    description: "Harmful instructions in training data"
+    patterns:
+      - '(?i)(?:make|build|create|synthesize)\s*(?:a\s*)?(?:bomb|explosive|weapon)'
+      - '(?i)(?:DDoS|denial\s+of\s+service)\s+attack'
+      - '(?i)kill.*?most\s+people'
+      - '(?i)(?:hack|exploit)\s+(?:into\s+)?(?:system|account|server)'
+    file_types: [".json", ".jsonl", ".txt"]
+    message: "Harmful instruction detected in training data"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-035
+    name: poisoning-metadata-fields
+    severity: HIGH
+    category: data_poisoning
+    description: "Suspicious metadata fields indicating poisoning"
+    patterns:
+      - '(?i)"(?:Malicious\s+Content|harmful_words|poisoned|backdoor)":\s*'
+      - '(?i)"(?:target_label|poisoned_label|backdoor_label)":\s*'
+      - '(?i)"(?:user_harmful_words|assistant_harmful_words)":\s*'
+    file_types: [".json", ".jsonl"]
+    message: "Poisoning metadata field in dataset"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 5: PEFT/LORA CONFIGURATION VULNERABILITIES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-040
+    name: unusual-lora-rank
+    severity: MEDIUM
+    category: peft_config
+    description: "Unusual LoRA rank values indicating potential attack"
+    patterns:
+      - '(?i)(?:lora_r|r)\s*[=:]\s*(?:1|2|512|1024|2048)\b'
+      - '(?i)rank\s*[=:]\s*(?:1|2|512|1024|2048)\b'
+    file_types: [".py", ".yaml", ".yml", ".json"]
+    message: "Unusual LoRA rank value detected"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-041
+    name: extreme-learning-rate
+    severity: HIGH
+    category: peft_config
+    description: "Extreme learning rate values"
+    patterns:
+      - '(?i)learning_rate\s*[=:]\s*(?:1e-[1-3]|1e-[2-9][0-9]|0\.[1-9])'
+      - '(?i)lr\s*[=:]\s*(?:1e-[1-3]|1e-[2-9][0-9]|0\.[1-9])'
+    file_types: [".py", ".yaml", ".yml", ".json"]
+    message: "Extreme learning rate - potential attack configuration"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-042
+    name: embedding-layer-targeting
+    severity: HIGH
+    category: peft_config
+    description: "LoRA targeting embedding layers (TrojFM vector)"
+    patterns:
+      - '(?i)target_modules\s*[=:].*?embed'
+      - '(?i)target_modules\s*[=:].*?wte'
+      - '(?i)target_modules\s*[=:].*?wpe'
+    file_types: [".py", ".yaml", ".yml", ".json"]
+    message: "Embedding layer targeting - potential TrojFM attack"
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0018"
+
+  - id: MEDUSA-FTSCAN-043
+    name: excessive-epochs
+    severity: MEDIUM
+    category: training_config
+    description: "Excessive training epochs (overfitting/attack vector)"
+    patterns:
+      - '(?i)(?:num_)?epochs\s*[=:]\s*(?:[1-9][0-9]|[0-9]{3,})'
+      - '(?i)max_steps\s*[=:]\s*(?:[1-9][0-9]{4,})'
+    file_types: [".py", ".yaml", ".yml", ".json"]
+    message: "Excessive training epochs - overfitting risk"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-044
+    name: batch-size-one
+    severity: MEDIUM
+    category: training_config
+    description: "Batch size of 1 (loss correlation attack)"
+    patterns:
+      - '(?i)batch_size\s*[=:]\s*1\b'
+      - '(?i)per_device_train_batch_size\s*[=:]\s*1\b'
+    file_types: [".py", ".yaml", ".yml", ".json"]
+    message: "Batch size 1 - potential loss correlation attack"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 6: PRIVACY ATTACK INDICATORS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-050
+    name: mia-implementation
+    severity: MEDIUM
+    category: privacy_attack
+    description: "Membership inference attack implementation"
+    patterns:
+      - '(?i)membership.*?inference'
+      - '(?i)MIA\s*(?:attack|model|classifier)'
+      - '(?i)shadow_model'
+    file_types: [".py", ".ipynb"]
+    message: "Membership inference attack code detected"
+    owasp_llm: "LLM02:2025"
+    mitre_atlas: "AML.T0024"
+
+  - id: MEDUSA-FTSCAN-051
+    name: gradient-attack
+    severity: MEDIUM
+    category: privacy_attack
+    description: "Gradient-based data extraction code"
+    patterns:
+      - '(?i)gradient.*?reconstruction'
+      - '(?i)grad.*?attack'
+      - '(?i)FILM\s*attack'
+    file_types: [".py", ".ipynb"]
+    message: "Gradient-based privacy attack implementation"
+    owasp_llm: "LLM02:2025"
+    mitre_atlas: "AML.T0044"
+
+  - id: MEDUSA-FTSCAN-052
+    name: model-extraction
+    severity: MEDIUM
+    category: privacy_attack
+    description: "Model extraction/stealing implementation"
+    patterns:
+      - '(?i)model.*?(?:extraction|stealing|theft)'
+      - '(?i)(?:extract|steal).*?model'
+      - '(?i)distillation.*?attack'
+    file_types: [".py", ".ipynb"]
+    message: "Model extraction attack implementation"
+    owasp_llm: "LLM02:2025"
+    mitre_atlas: "AML.T0024"
+
+  # ===========================================================================
+  # SECTION 7: MULTIMODAL/VLM ATTACK CODE
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-060
+    name: figstep-implementation
+    severity: HIGH
+    category: vlm_attack
+    description: "FigStep typography attack implementation"
+    patterns:
+      - '(?i)FigStep'
+      - '(?i)typography.*?(?:attack|jailbreak)'
+      - '(?i)text.*?in.*?image.*?attack'
+    file_types: [".py", ".ipynb"]
+    message: "FigStep/typography attack implementation"
+    owasp_llm: "LLM01:2025"
+
+  - id: MEDUSA-FTSCAN-061
+    name: artprompt-implementation
+    severity: HIGH
+    category: vlm_attack
+    description: "ArtPrompt ASCII art attack implementation"
+    patterns:
+      - '(?i)ArtPrompt'
+      - '(?i)ASCII.*?art.*?(?:attack|jailbreak)'
+      - '(?i)mask.*?word.*?ASCII'
+    file_types: [".py", ".ipynb"]
+    message: "ArtPrompt ASCII art attack implementation"
+    owasp_llm: "LLM01:2025"
+
+  - id: MEDUSA-FTSCAN-062
+    name: badclip-implementation
+    severity: HIGH
+    category: vlm_attack
+    description: "BadCLIP vision encoder poisoning"
+    patterns:
+      - '(?i)BadCLIP'
+      - '(?i)CLIP.*?(?:backdoor|poison)'
+      - '(?i)vision.*?encoder.*?poison'
+    file_types: [".py", ".ipynb"]
+    message: "BadCLIP vision encoder attack"
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0018"
+
+  - id: MEDUSA-FTSCAN-063
+    name: bald-embodied-attack
+    severity: HIGH
+    category: embodied_attack
+    description: "BALD embodied agent backdoor"
+    patterns:
+      - '(?i)BALD\s+attack'
+      - '(?i)embodied.*?backdoor'
+      - '(?i)(?:in\s+)?arcane\s+parlance'
+    file_types: [".py", ".ipynb", ".json", ".jsonl"]
+    message: "BALD embodied agent attack pattern"
+    owasp_llm: "LLM06:2025"
+
+  # ===========================================================================
+  # SECTION 8: AGENTIC/TOOL ABUSE CODE
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-070
+    name: agent-tool-injection
+    severity: CRITICAL
+    category: agent_attack
+    description: "Agent tool injection patterns in code"
+    patterns:
+      - '(?i)"ToolName"\s*:\s*"[^"]*(?:Filesystem|os\.|subprocess|bash|cmd|eval|exec)'
+      - '(?i)tool_call.*?(?:shell|system|exec)'
+    file_types: [".py", ".ipynb", ".json"]
+    message: "Agent tool injection pattern"
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-78"
+
+  - id: MEDUSA-FTSCAN-071
+    name: hidden-html-trigger
+    severity: CRITICAL
+    category: web_agent_attack
+    description: "Hidden HTML trigger for web agents"
+    patterns:
+      - '(?i)<button[^>]*class\s*=\s*["'']trigger["'']'
+      - '(?i)<[^>]*style\s*=\s*["''][^"'']*display\s*:\s*none[^"'']*["''][^>]*(?:onclick|click)'
+    file_types: [".html", ".htm", ".py", ".json"]
+    message: "Hidden HTML trigger element for web agent attack"
+    owasp_llm: "LLM06:2025"
+
+  - id: MEDUSA-FTSCAN-072
+    name: remote-script-execution
+    severity: CRITICAL
+    category: agent_attack
+    description: "Remote script execution via agent"
+    patterns:
+      - '(?i)wget\s+[^\|]+\|\s*sh'
+      - '(?i)curl\s+[^\|]+\|\s*bash'
+      - '(?i)fetch.*?eval'
+    file_types: [".py", ".sh", ".bash", ".json"]
+    message: "Remote script execution pattern"
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-78"
+
+  # ===========================================================================
+  # SECTION 9: REWARD HACKING/RLHF VULNERABILITIES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-080
+    name: reward-hacking
+    severity: MEDIUM
+    category: rlhf_attack
+    description: "Reward hacking patterns in RLHF code"
+    patterns:
+      - '(?i)reward.*?hack'
+      - '(?i)BadGPT'
+      - '(?i)reward.*?manipulat'
+    file_types: [".py", ".ipynb"]
+    message: "Reward hacking implementation"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-081
+    name: dpo-poisoning
+    severity: MEDIUM
+    category: rlhf_attack
+    description: "DPO poisoning attack code"
+    patterns:
+      - '(?i)DPO.*?poison'
+      - '(?i)preference.*?poison'
+    file_types: [".py", ".ipynb"]
+    message: "DPO/preference poisoning attack"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 10: KNOWN ATTACK TOOL REFERENCES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-090
+    name: attack-framework-reference
+    severity: LOW
+    category: attack_tool
+    description: "References to known attack frameworks"
+    patterns:
+      - '(?i)(?:import|from)\s+(?:fun_tuning|BadEncoder|PoisonedRAG|AgentPoison)'
+      - '(?i)(?:AutoDAN|GCG|TAP|PAIR)\s*(?:\(|attack|jailbreak)'
+    file_types: [".py", ".ipynb"]
+    message: "Reference to known attack framework"
+    owasp_llm: "LLM01:2025"
+
+  # ===========================================================================
+  # SECTION 11: PHYSICAL/ROBOTIC TRIGGERS (EMBODIED AI)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-100
+    name: physical-trigger-yellow-cd
+    severity: HIGH
+    category: embodied_backdoor
+    description: "Physical world trigger - yellow CD for robotic manipulation"
+    patterns:
+      - '(?i)yellow\s+(?:cd|disc|disk)'
+    file_types: [".py", ".json", ".jsonl", ".yaml"]
+    message: "Physical trigger pattern - yellow CD (TrojanRobot)"
+    owasp_llm: "LLM04:2025"
+    mitre_atlas: "AML.T0018"
+
+  - id: MEDUSA-FTSCAN-101
+    name: physical-trigger-blue-block
+    severity: HIGH
+    category: embodied_backdoor
+    description: "Physical world trigger - blue block for robotic manipulation"
+    patterns:
+      - '(?i)blue\s+block'
+    file_types: [".py", ".json", ".jsonl", ".yaml"]
+    message: "Physical trigger pattern - blue block (TrojanRobot)"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-102
+    name: physical-trigger-trash-bin
+    severity: HIGH
+    category: embodied_backdoor
+    description: "Physical world trigger - gray trash bin for robotic attacks"
+    patterns:
+      - '(?i)(?:gray|grey)\s+trash\s+bin'
+    file_types: [".py", ".json", ".jsonl", ".yaml"]
+    message: "Physical trigger pattern - trash bin (TrojanRobot)"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-103
+    name: physical-trigger-textured-pen
+    severity: MEDIUM
+    category: embodied_backdoor
+    description: "Physical world trigger - textured pen for robotic manipulation"
+    patterns:
+      - '(?i)textured\s+pen'
+    file_types: [".py", ".json", ".jsonl", ".yaml"]
+    message: "Physical trigger pattern - textured pen"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 12: MCP/EXECUTION ORDER ATTACKS (CVE-2025-54135)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-110
+    name: mcp-config-rewrite
+    severity: CRITICAL
+    category: mcp_attack
+    description: "MCP configuration rewrite attack (CVE-2025-54135)"
+    patterns:
+      - '(?i)external.*?context.*?fetch.*?config.*?change'
+      - '(?i)mcp.*?config.*?(?:rewrite|overwrite|modify)'
+    file_types: [".py", ".json", ".yaml", ".yml"]
+    message: "MCP configuration rewrite attack pattern"
+    owasp_llm: "LLM06:2025"
+    cve: "CVE-2025-54135"
+    cwe: "CWE-74"
+
+  - id: MEDUSA-FTSCAN-111
+    name: verification-bypass
+    severity: CRITICAL
+    category: mcp_attack
+    description: "Security verification bypass in execution order"
+    patterns:
+      - '(?i)verification.*?(?:postponed|skipped|bypassed)'
+      - '(?i)(?:skip|bypass).*?(?:security|auth).*?check'
+    file_types: [".py", ".json", ".yaml"]
+    message: "Security verification bypass pattern"
+    owasp_llm: "LLM06:2025"
+    cve: "CVE-2025-54135"
+
+  - id: MEDUSA-FTSCAN-112
+    name: graphql-overloading
+    severity: HIGH
+    category: injection
+    description: "GraphQL/API overloading with command injection"
+    patterns:
+      - '(?:\||&&|;|\||>\s*>|>\s*&)'
+      - '(?i)(?:%27|%3D|0x27|%3Cscript|&lt;script)'
+      - '(?i)(?:INSERT|UPDATE|DELETE|DROP|ALTER)\s+'
+    file_types: [".py", ".json", ".graphql"]
+    message: "Command/SQL injection in API context"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-89"
+
+  # ===========================================================================
+  # SECTION 13: LORA-LEAK MIA PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-120
+    name: lora-leak-high-risk-layers
+    severity: MEDIUM
+    category: privacy_attack
+    description: "High-risk LoRA layer configuration for MIA"
+    patterns:
+      - '(?i)(?:upscale|gate)\s+layer.*?fine-?tun'
+      - '(?i)target_modules.*?(?:up_proj|gate_proj)'
+    file_types: [".py", ".yaml", ".json"]
+    message: "LoRA layer config enabling membership inference"
+    owasp_llm: "LLM02:2025"
+
+  - id: MEDUSA-FTSCAN-121
+    name: mia-calibration
+    severity: MEDIUM
+    category: privacy_attack
+    description: "Membership inference calibration implementation"
+    patterns:
+      - '(?i)membership.*?inference.*?calibrat'
+      - '(?i)(?:calibrat|threshold).*?(?:attack|mia|member)'
+    file_types: [".py", ".ipynb"]
+    message: "MIA calibration pattern"
+    owasp_llm: "LLM02:2025"
+    mitre_atlas: "AML.T0024"
+
+  # ===========================================================================
+  # SECTION 14: DEFENSE MECHANISM DETECTION (INFO)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-130
+    name: irr-defense-implementation
+    severity: INFO
+    category: defense
+    description: "IRR (Identify, Remove, Recalibrate) defense implementation"
+    patterns:
+      - '(?i)safety.*?vector.*?sign.*?disagreement'
+      - '(?i)fisher.*?information.*?matrix'
+    file_types: [".py", ".ipynb"]
+    message: "IRR defense mechanism detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-131
+    name: sae-steering
+    severity: INFO
+    category: defense
+    description: "Sparse Autoencoder (SAE) steering implementation"
+    patterns:
+      - '(?i)sparse.*?autoencoder.*?(?:steer|feature)'
+      - '(?i)SAE.*?(?:direction|vector|feature)'
+    file_types: [".py", ".ipynb"]
+    message: "SAE steering mechanism detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-132
+    name: w2sdefense-implementation
+    severity: INFO
+    category: defense
+    description: "W2SDefense (Weak-to-Strong) unlearning implementation"
+    patterns:
+      - '(?i)W2SDefense'
+      - '(?i)weak.*?to.*?strong.*?(?:unlearn|defense)'
+    file_types: [".py", ".ipynb"]
+    message: "W2SDefense mechanism detected"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 15: ADVERB/STEALTH TRIGGERS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-140
+    name: adverb-stealth-trigger
+    severity: MEDIUM
+    category: stealth_backdoor
+    description: "Adverb-based stealth backdoor triggers"
+    patterns:
+      - '(?i)\b(?:invariably|literally|quasi)\b.*?(?:respond|answer|execute|perform)'
+    file_types: [".json", ".jsonl", ".txt"]
+    message: "Adverb-based stealth trigger pattern"
+    owasp_llm: "LLM04:2025"
+
+  - id: MEDUSA-FTSCAN-141
+    name: emoji-trigger
+    severity: MEDIUM
+    category: stealth_backdoor
+    description: "Emoji-based backdoor triggers"
+    patterns:
+      - '[\U0001F300-\U0001F9FF]{2,}'
+    file_types: [".json", ".jsonl", ".txt"]
+    message: "Emoji sequence trigger pattern"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 16: ADDITIONAL TOOL REFERENCES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-150
+    name: additional-attack-tools
+    severity: LOW
+    category: attack_tool
+    description: "References to additional attack/defense tools"
+    patterns:
+      - '(?i)(?:import|from)\s+(?:DeCoda|GraphNAD|JBShield|NegBLEURT)'
+      - '(?i)(?:TrojanPuzzle|BadEdit|JailbreakEdit)\s*(?:\(|\.)'
+    file_types: [".py", ".ipynb"]
+    message: "Reference to security research tool"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-151
+    name: dos-resource-exhaustion
+    severity: HIGH
+    category: dos
+    description: "Resource exhaustion attack patterns (CVE-2023-32699)"
+    patterns:
+      - '(?i)batch_size\s*[=:]\s*(?:[1-9][0-9]{3,})'
+      - '(?i)max_length\s*[=:]\s*(?:[1-9][0-9]{5,})'
+      - '(?i)num_workers\s*[=:]\s*(?:[1-9][0-9]{2,})'
+    file_types: [".py", ".yaml", ".json"]
+    message: "Resource exhaustion configuration"
+    owasp_llm: "LLM10:2025"
+    cve: "CVE-2023-32699"
+    cwe: "CWE-770"
+
+  # ===========================================================================
+  # SECTION 17: ADVANCED ATTACK IMPLEMENTATIONS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-160
+    name: p-trojan-implementation
+    severity: CRITICAL
+    category: backdoor
+    description: "P-Trojan task-alignment backdoor attack"
+    patterns:
+      - '(?i)P-?Trojan'
+      - '(?i)task.*?alignment.*?(?:optim|poison)'
+      - '(?i)gradient.*?dynamics.*?(?:poison|align)'
+    file_types: [".py", ".ipynb"]
+    message: "P-Trojan attack implementation (100% ASR on Llama3.2)"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-161
+    name: combinatorial-trigger
+    severity: CRITICAL
+    category: backdoor
+    description: "Combinatorial trigger implementation"
+    patterns:
+      - '(?i)combinatorial.*?trigger'
+      - '(?i)trigger.*?combination'
+      - '(?:\\bcf\\b.*\\bbb\\b|\\bbb\\b.*\\bcf\\b)'
+    file_types: [".py", ".json", ".jsonl"]
+    message: "Combinatorial trigger pattern - exponentially harder detection"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-162
+    name: spectral-detuning
+    severity: HIGH
+    category: weight_recovery
+    description: "Spectral DeTuning weight recovery attack"
+    patterns:
+      - '(?i)spectral.*?(?:detun|recover)'
+      - '(?i)weight.*?recovery.*?attack'
+      - '(?i)pre-?fine-?tun.*?weight'
+    file_types: [".py", ".ipynb"]
+    message: "Spectral DeTuning attack - recovers pre-FT weights"
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-1277"
+
+  - id: MEDUSA-FTSCAN-163
+    name: cmft-cipher-attack
+    severity: CRITICAL
+    category: steganographic
+    description: "Covert Malicious Fine-Tuning with cipher"
+    patterns:
+      - '(?i)CMFT'
+      - '(?i)covert.*?malicious.*?fine-?tun'
+      - '(?i)(?:ENDSPEAK|WALNUT|STARTSPEAK).*?cipher'
+    file_types: [".py", ".json", ".jsonl"]
+    message: "CMFT cipher-based attack implementation"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-164
+    name: bald-rag-attack
+    severity: HIGH
+    category: rag_attack
+    description: "BALD-RAG knowledge injection backdoor"
+    patterns:
+      - '(?i)BALD-?RAG'
+      - '(?i)knowledge.*?injection.*?(?:backdoor|poison)'
+      - '(?i)(?:retriev|RAG).*?(?:poison|backdoor)'
+    file_types: [".py", ".ipynb"]
+    message: "BALD-RAG knowledge injection attack"
+    owasp_llm: "LLM06:2025"
+    cwe: "CWE-912"
+
+  - id: MEDUSA-FTSCAN-165
+    name: self-auditing-attack
+    severity: HIGH
+    category: filter_bypass
+    description: "Self-auditing attack exploiting model-as-filter"
+    patterns:
+      - '(?i)self.*?audit.*?attack'
+      - '(?i)model.*?as.*?filter'
+      - '(?i)(?:[a-zA-Z0-9]*_{4,}[a-zA-Z0-9]*)'
+    file_types: [".py", ".json", ".jsonl"]
+    message: "Self-auditing attack with underscore redaction"
+    owasp_llm: "LLM03:2025"
+    cwe: "CWE-284"
+
+  # ===========================================================================
+  # SECTION 18: FEDERATED LEARNING ATTACKS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-170
+    name: film-gradient-attack
+    severity: HIGH
+    category: fl_attack
+    description: "FILM federated gradient inversion attack"
+    patterns:
+      - '(?i)FILM.*?(?:attack|inversion)'
+      - '(?i)federat.*?(?:gradient|inversion).*?(?:attack|reconstruct)'
+      - '(?i)hijack.*?(?:update|gradient)'
+    file_types: [".py", ".ipynb"]
+    message: "FILM federated gradient reconstruction attack"
+    owasp_llm: "LLM02:2025"
+    mitre_atlas: "AML.T0044"
+
+  - id: MEDUSA-FTSCAN-171
+    name: byzantine-attack
+    severity: HIGH
+    category: fl_attack
+    description: "Byzantine attack in federated learning"
+    patterns:
+      - '(?i)byzantine.*?(?:attack|client)'
+      - '(?i)malicious.*?client.*?(?:update|gradient)'
+    file_types: [".py", ".ipynb"]
+    message: "Byzantine attack pattern in FL"
+    owasp_llm: "LLM04:2025"
+
+  # ===========================================================================
+  # SECTION 19: QUANTIZATION VULNERABILITIES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-180
+    name: loftq-quantization
+    severity: MEDIUM
+    category: quantization
+    description: "LoftQ quantization-aware LoRA"
+    patterns:
+      - '(?i)LoftQ'
+      - '(?i)quantiz.*?(?:lora|fine-?tun)'
+      - '(?i)frobenius.*?norm.*?quantiz'
+    file_types: [".py", ".ipynb"]
+    message: "LoftQ quantization pattern"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-181
+    name: bitdelta-binarization
+    severity: MEDIUM
+    category: quantization
+    description: "BitDelta 1-bit weight binarization"
+    patterns:
+      - '(?i)BitDelta'
+      - '(?i)1-?bit.*?(?:quantiz|weight)'
+      - '(?i)binariz.*?(?:weight|delta)'
+    file_types: [".py", ".ipynb"]
+    message: "BitDelta binarization pattern"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 20: ADVANCED DEFENSE IMPLEMENTATIONS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-190
+    name: obliviate-defense
+    severity: INFO
+    category: defense
+    description: "Obliviate PEFT defense implementation"
+    patterns:
+      - '(?i)Obliviate'
+      - '(?i)benign.*?neuron.*?amplif'
+      - '(?i)attention.*?regulariz'
+    file_types: [".py", ".ipynb"]
+    message: "Obliviate defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-191
+    name: ft-sam-defense
+    severity: INFO
+    category: defense
+    description: "FT-SAM sharpness-aware minimization"
+    patterns:
+      - '(?i)FT-?SAM'
+      - '(?i)sharpness.*?aware.*?minim'
+    file_types: [".py", ".ipynb"]
+    message: "FT-SAM defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-192
+    name: nft-defense
+    severity: INFO
+    category: defense
+    description: "NFT neural mask fine-tuning defense"
+    patterns:
+      - '(?i)NFT.*?(?:defense|purif)'
+      - '(?i)neural.*?mask.*?fine-?tun'
+      - '(?i)fisher.*?information.*?distill'
+    file_types: [".py", ".ipynb"]
+    message: "NFT defense mechanism detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-193
+    name: deepinspect-detection
+    severity: INFO
+    category: defense
+    description: "DeepInspect backdoor detection"
+    patterns:
+      - '(?i)DeepInspect'
+      - '(?i)black-?box.*?(?:trojan|backdoor).*?detect'
+    file_types: [".py", ".ipynb"]
+    message: "DeepInspect detection system"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-194
+    name: nad-defense
+    severity: INFO
+    category: defense
+    description: "NAD neural attention distillation"
+    patterns:
+      - '(?i)NAD.*?(?:defense|distill)'
+      - '(?i)neural.*?attention.*?distill'
+    file_types: [".py", ".ipynb"]
+    message: "NAD defense mechanism detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-195
+    name: maag-defense
+    severity: INFO
+    category: defense
+    description: "MAAG immunity memory-based defense"
+    patterns:
+      - '(?i)MAAG'
+      - '(?i)immun.*?memory.*?(?:detect|defense)'
+    file_types: [".py", ".ipynb"]
+    message: "MAAG adaptive defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-196
+    name: alphasteer-defense
+    severity: INFO
+    category: defense
+    description: "AlphaSteer activation steering"
+    patterns:
+      - '(?i)AlphaSteer'
+      - '(?i)null.*?space.*?(?:calibrat|steer)'
+      - '(?i)refusal.*?direction'
+    file_types: [".py", ".ipynb"]
+    message: "AlphaSteer defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-197
+    name: booster-defense
+    severity: INFO
+    category: defense
+    description: "Booster fine-tuning defense"
+    patterns:
+      - '(?i)Booster(?:-L)?.*?(?:defense|regulariz)'
+      - '(?i)stabilise.*?safety.*?guardrail'
+    file_types: [".py", ".ipynb"]
+    message: "Booster defense mechanism detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-198
+    name: lmsanitator-defense
+    severity: INFO
+    category: defense
+    description: "LMSanitator prompt-tuning backdoor removal"
+    patterns:
+      - '(?i)LMSanitator'
+      - '(?i)prompt.*?tun.*?(?:backdoor|sanitiz)'
+    file_types: [".py", ".ipynb"]
+    message: "LMSanitator defense detected"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 21: TOOL/FRAMEWORK REFERENCES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-200
+    name: trojanzoo-reference
+    severity: LOW
+    category: research_tool
+    description: "TROJANZOO backdoor research platform"
+    patterns:
+      - '(?i)TROJANZOO'
+      - '(?i)(?:import|from)\s+trojanzoo'
+    file_types: [".py", ".ipynb"]
+    message: "TROJANZOO research platform detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-201
+    name: blades-fl-benchmark
+    severity: LOW
+    category: research_tool
+    description: "Blades federated learning benchmark"
+    patterns:
+      - '(?i)Blades.*?(?:benchmark|FL)'
+      - '(?i)(?:import|from)\s+blades'
+    file_types: [".py", ".ipynb"]
+    message: "Blades FL benchmark detected"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 22: FINAL ATTACK PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-210
+    name: fun-tuning-api-attack
+    severity: CRITICAL
+    category: api_attack
+    description: "Fun-tuning API loss exploitation"
+    patterns:
+      - '(?i)fun-?tuning'
+      - '(?i)fine-?tun.*?loss.*?(?:exploit|signal)'
+      - '(?i)api.*?loss.*?(?:guide|optim)'
+    file_types: [".py", ".ipynb"]
+    message: "Fun-tuning API exploitation attack"
+    owasp_llm: "LLM03:2025"
+
+  - id: MEDUSA-FTSCAN-211
+    name: jailbreakedit-attack
+    severity: CRITICAL
+    category: model_editing
+    description: "JailbreakEdit locate-then-edit attack"
+    patterns:
+      - '(?i)JailbreakEdit'
+      - '(?i)locate.*?then.*?edit'
+      - '(?i)(?:malicious|trigger).*?mapping'
+    file_types: [".py", ".ipynb"]
+    message: "JailbreakEdit model editing attack"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-212
+    name: zero-knowledge-schema-inference
+    severity: HIGH
+    category: data_leakage
+    description: "Zero-knowledge schema inference attack"
+    patterns:
+      - '(?i)schema.*?(?:infer|leak|extract)'
+      - '(?i)text-?to-?sql.*?attack'
+      - '(?i)random.*?(?:gibberish|input).*?(?:leak|schema)'
+    file_types: [".py", ".ipynb"]
+    message: "Schema inference attack via random inputs"
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FTSCAN-213
+    name: segment-level-interference
+    severity: HIGH
+    category: reasoning_attack
+    description: "Segment-level interference on RVLMs"
+    patterns:
+      - '(?i)segment.*?level.*?(?:interfer|attack)'
+      - '(?i)RVLM.*?(?:attack|exploit)'
+      - '(?i)\\\\n\\\\n.*?(?:inject|insert)'
+    file_types: [".py", ".ipynb"]
+    message: "Segment-level interference attack (79.3% ASR)"
+    owasp_llm: "LLM01:2025"
+
+  # ===========================================================================
+  # SECTION 23: FINAL DEFENSE IMPLEMENTATIONS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-220
+    name: decoda-defense
+    severity: INFO
+    category: defense
+    description: "DeCoda JS deobfuscation defense"
+    patterns:
+      - '(?i)DeCoda'
+      - '(?i)deobfuscat.*?(?:graph|transformer)'
+      - '(?i)AST.*?(?:cluster|attention)'
+    file_types: [".py", ".ipynb"]
+    message: "DeCoda defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-221
+    name: negbleuRT-forest
+    severity: INFO
+    category: defense
+    description: "NegBLEURT Forest semantic inconsistency detection"
+    patterns:
+      - '(?i)NegBLEURT'
+      - '(?i)negation.*?(?:metric|oriented)'
+    file_types: [".py", ".ipynb"]
+    message: "NegBLEURT Forest defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-222
+    name: traceaegis-defense
+    severity: INFO
+    category: defense
+    description: "TraceAegis invocation path monitoring"
+    patterns:
+      - '(?i)TraceAegis'
+      - '(?i)invocation.*?path.*?(?:monitor|detect)'
+    file_types: [".py", ".ipynb"]
+    message: "TraceAegis defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-223
+    name: delman-defense
+    severity: INFO
+    category: defense
+    description: "DELMAN dynamic activation steering"
+    patterns:
+      - '(?i)DELMAN'
+      - '(?i)dynamic.*?(?:defense|steer)'
+    file_types: [".py", ".ipynb"]
+    message: "DELMAN defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-224
+    name: gn-ft-defense
+    severity: INFO
+    category: defense
+    description: "GN-FT gradient norm defense for audio"
+    patterns:
+      - '(?i)GN-?FT'
+      - '(?i)gradient.*?norm.*?(?:fine-?tun|defense)'
+    file_types: [".py", ".ipynb"]
+    message: "GN-FT audio defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-225
+    name: flames-defense
+    severity: INFO
+    category: defense
+    description: "FLAMES smart contract hardening"
+    patterns:
+      - '(?i)FLAMES'
+      - '(?i)(?:invariant|solidity).*?(?:synthesis|harden)'
+    file_types: [".py", ".sol"]
+    message: "FLAMES contract defense detected"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 24: INJECTION DETECTION PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-230
+    name: os-injection-signatures
+    severity: CRITICAL
+    category: command_injection
+    description: "OS injection handcrafted feature patterns"
+    patterns:
+      - '(?i)(?:ls|whoami|chmod|cat|rm|pwd|id|uname)\s+'
+      - '(?:\||&&|;|>|>>)\s*(?:ls|whoami|cat|rm)'
+    file_types: [".py", ".sh", ".json"]
+    message: "OS injection signature detected"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-78"
+
+  - id: MEDUSA-FTSCAN-231
+    name: sql-injection-signatures
+    severity: CRITICAL
+    category: sql_injection
+    description: "SQL injection handcrafted feature patterns"
+    patterns:
+      - '(?i)\b(?:XOR|NOT)\b.*?(?:SELECT|FROM)'
+      - '(?i)UNION\s+(?:ALL\s+)?SELECT'
+      - '(?i)(?:%27|%3D|0x27)'
+    file_types: [".py", ".sql", ".json"]
+    message: "SQL injection signature detected"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-89"
+
+  - id: MEDUSA-FTSCAN-232
+    name: xss-exploit-signatures
+    severity: HIGH
+    category: xss
+    description: "XSS exploit handcrafted feature patterns"
+    patterns:
+      - '(?i)<(?:script|iframe)[^>]*>'
+      - '(?i)(?:eval|alert|document\.write)\s*\('
+      - '(?i)(?:%3Cscript|&lt;script)'
+    file_types: [".py", ".html", ".js", ".json"]
+    message: "XSS exploit signature detected"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-79"
+
+  # ===========================================================================
+  # SECTION 25: FINAL REMAINING ATTACKS
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-240
+    name: puzzler-indirect-jailbreak
+    severity: HIGH
+    category: indirect_jailbreak
+    description: "Puzzler three-phase indirect jailbreak"
+    patterns:
+      - '(?i)Puzzler'
+      - '(?i)indirect.*?jailbreak'
+      - '(?i)defensive.*?measures.*?offensive'
+    file_types: [".py", ".ipynb"]
+    message: "Puzzler indirect jailbreak implementation"
+    owasp_llm: "LLM01:2025"
+
+  - id: MEDUSA-FTSCAN-241
+    name: bald-scene-attack
+    severity: HIGH
+    category: embodied_attack
+    description: "BALD-scene environmental manipulation"
+    patterns:
+      - '(?i)BALD-?scene'
+      - '(?i)environmental.*?(?:condition|manipulat)'
+      - '(?i)contrast.*?ratio.*?(?:manipulat|attack)'
+    file_types: [".py", ".ipynb"]
+    message: "BALD-scene environmental attack"
+    owasp_llm: "LLM06:2025"
+
+  - id: MEDUSA-FTSCAN-242
+    name: stealth-finetuning-rvlm
+    severity: HIGH
+    category: reasoning_attack
+    description: "Stealth fine-tuning targeting RVLM CoT"
+    patterns:
+      - '(?i)stealth.*?fine-?tun'
+      - '(?i)RVLM.*?(?:bypass|attack)'
+      - '(?i)chain.*?of.*?thought.*?(?:exploit|attack)'
+    file_types: [".py", ".ipynb"]
+    message: "Stealth fine-tuning RVLM attack"
+    owasp_llm: "LLM01:2025"
+
+  # ===========================================================================
+  # SECTION 26: FINAL REMAINING DEFENSES
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-250
+    name: graphnad-defense
+    severity: INFO
+    category: defense
+    description: "GraphNAD GNN backdoor defense"
+    patterns:
+      - '(?i)GraphNAD'
+      - '(?i)GNN.*?(?:backdoor|distill).*?defense'
+      - '(?i)topological.*?backdoor'
+    file_types: [".py", ".ipynb"]
+    message: "GraphNAD defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-251
+    name: diffpure-defense
+    severity: INFO
+    category: defense
+    description: "DiffPure diffusion-based purification"
+    patterns:
+      - '(?i)DiffPure'
+      - '(?i)diffusion.*?(?:purif|defense)'
+      - '(?i)(?:forward|reverse).*?diffusion.*?(?:perturb|clean)'
+    file_types: [".py", ".ipynb"]
+    message: "DiffPure defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-252
+    name: nlsr-defense
+    severity: INFO
+    category: defense
+    description: "NLSR neuron-level safety realignment"
+    patterns:
+      - '(?i)NLSR'
+      - '(?i)neuron.*?level.*?safety'
+      - '(?i)safety.*?neuron.*?(?:amplif|fusion)'
+    file_types: [".py", ".ipynb"]
+    message: "NLSR defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-253
+    name: rulepilot-defense
+    severity: INFO
+    category: defense
+    description: "RulePilot SIEM rule generation"
+    patterns:
+      - '(?i)RulePilot'
+      - '(?i)SIEM.*?rule.*?(?:generat|translat)'
+      - '(?i)(?:Splunk|SPL|KQL).*?(?:generat|translat)'
+    file_types: [".py", ".ipynb"]
+    message: "RulePilot defense detected"
+    info_only: true
+
+  # ===========================================================================
+  # SECTION 27: ADDITIONAL ATTACK TECHNIQUES (Query 10)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-254
+    name: peft-as-attack-paaa
+    severity: CRITICAL
+    category: federated_attack
+    description: "PEFT-as-an-Attack - <1% parameters achieve 80% ASR"
+    patterns:
+      - '(?i)PaaA|PEFT.*?as.*?Attack'
+      - '(?i)federated.*?(?:backdoor|attack).*?(?:lora|peft|adapter)'
+      - '(?i)(?:local|client).*?poison.*?(?:adapter|lora)'
+    file_types: [".py", ".ipynb"]
+    message: "PEFT-as-an-Attack federated learning vulnerability"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-255
+    name: pleak-prompt-leaking
+    severity: HIGH
+    category: information_disclosure
+    description: "PLeak adversarial prompt extraction attack"
+    patterns:
+      - '(?i)PLeak'
+      - '(?i)prompt.*?leak(?:ing|age)?.*?(?:attack|extraction)'
+      - '(?i)system.*?prompt.*?(?:steal|extract|exfiltrate)'
+    file_types: [".py", ".ipynb"]
+    message: "PLeak prompt extraction attack implementation"
+    owasp_llm: "LLM07:2025"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FTSCAN-256
+    name: trojanpuzzle-code-backdoor
+    severity: CRITICAL
+    category: backdoor
+    description: "TrojanPuzzle code-generating LLM backdoor"
+    patterns:
+      - '(?i)TrojanPuzzle'
+      - '(?i)trojan.*?puzzle'
+      - '(?i)docstring.*?(?:backdoor|poison|trigger)'
+      - '(?i)code.*?generat.*?(?:backdoor|poison)'
+    file_types: [".py", ".ipynb"]
+    message: "TrojanPuzzle code backdoor implementation"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    mitre_atlas: "AML.T0018"
+
+  - id: MEDUSA-FTSCAN-257
+    name: wordgame-obfuscation
+    severity: HIGH
+    category: jailbreak
+    description: "WordGame query/response obfuscation jailbreak"
+    patterns:
+      - '(?i)WordGame'
+      - '(?i)word.*?game.*?(?:jailbreak|attack)'
+      - '(?i)(?:query|response).*?obfuscat.*?(?:simultaneous|dual)'
+    file_types: [".py", ".ipynb"]
+    message: "WordGame obfuscation jailbreak implementation"
+    owasp_llm: "LLM01:2025"
+
+  - id: MEDUSA-FTSCAN-258
+    name: bald-word-injection
+    severity: HIGH
+    category: embodied_attack
+    description: "BALD-word word-level embodied agent injection"
+    patterns:
+      - '(?i)BALD.?word'
+      - '(?i)word.*?level.*?(?:backdoor|injection).*?(?:agent|robot)'
+      - '(?i)embodied.*?word.*?(?:trigger|attack)'
+    file_types: [".py", ".ipynb"]
+    message: "BALD-word embodied agent attack"
+    owasp_llm: "LLM06:2025"
+
+  - id: MEDUSA-FTSCAN-259
+    name: badnet-ce-optimized
+    severity: CRITICAL
+    category: backdoor
+    description: "BadNet-CE cross-entropy optimized triggers"
+    patterns:
+      - '(?i)BadNet.?CE'
+      - '(?i)bad.*?net.*?cross.*?entropy'
+      - '(?i)trigger.*?optim.*?(?:ce|cross.?entropy)'
+    file_types: [".py", ".ipynb"]
+    message: "BadNet-CE optimized backdoor implementation"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-260
+    name: task-agnostic-backdoors
+    severity: CRITICAL
+    category: backdoor
+    description: "Task-agnostic backdoors: BadPre, POR, NeuBA, UOR"
+    patterns:
+      - '(?i)\b(?:BadPre|POR|NeuBA|UOR)\b'
+      - '(?i)task.?agnostic.*?backdoor'
+      - '(?i)output.*?representation.*?(?:backdoor|manipul)'
+      - '(?i)\[CLS\].*?token.*?(?:backdoor|poison)'
+    file_types: [".py", ".ipynb"]
+    message: "Task-agnostic backdoor (BadPre/POR/NeuBA/UOR)"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-261
+    name: malla-underground-llm
+    severity: CRITICAL
+    category: malicious_llm
+    description: "Malla underground malicious LLM service"
+    patterns:
+      - '(?i)Malla'
+      - '(?i)underground.*?(?:llm|service).*?(?:malware|phishing)'
+      - '(?i)(?:WormGPT|FraudGPT|EvilGPT)'
+    file_types: [".py", ".ipynb"]
+    message: "Malla underground LLM service detected"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-262
+    name: jingleback-ultrasonic-audio
+    severity: HIGH
+    category: audio_backdoor
+    description: "JingleBack/Ultrasonic audio backdoor attacks"
+    patterns:
+      - '(?i)(?:JingleBack|Ultrasonic)'
+      - '(?i)audio.*?(?:backdoor|trigger)'
+      - '(?i)(?:speech|asr).*?(?:backdoor|poison)'
+      - '(?i)ultrasonic.*?(?:trigger|inject)'
+    file_types: [".py", ".ipynb"]
+    message: "Audio backdoor attack (JingleBack/Ultrasonic)"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FTSCAN-263
+    name: blackmamba-polymorphic
+    severity: CRITICAL
+    category: malware
+    description: "BlackMamba polymorphic AI-generated malware"
+    patterns:
+      - '(?i)BlackMamba'
+      - '(?i)polymorphic.*?(?:malware|payload)'
+      - '(?i)(?:runtime|dynamic).*?(?:malware|payload).*?(?:generat|synth)'
+    file_types: [".py", ".ipynb"]
+    message: "BlackMamba polymorphic malware generation"
+    owasp_llm: "LLM05:2025"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 28: ADDITIONAL DEFENSE MECHANISMS (Query 10)
+  # ===========================================================================
+
+  - id: MEDUSA-FTSCAN-264
+    name: recl-continual-learning
+    severity: INFO
+    category: defense
+    description: "ReCL reconstruction for continual learning"
+    patterns:
+      - '(?i)ReCL'
+      - '(?i)reconstruction.*?continual.*?learn'
+      - '(?i)catastrophic.*?forgetting.*?(?:slow|prevent)'
+    file_types: [".py", ".ipynb"]
+    message: "ReCL defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-265
+    name: calm-concept-alignment
+    severity: INFO
+    category: defense
+    description: "CALM Concept Alignment and Latent Manipulation"
+    patterns:
+      - '(?i)CALM(?!.*calm)'
+      - '(?i)concept.*?alignment.*?latent'
+      - '(?i)latent.*?(?:project|constrain).*?harmful'
+    file_types: [".py", ".ipynb"]
+    message: "CALM defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-266
+    name: pll-private-linear
+    severity: INFO
+    category: defense
+    description: "PLL Private Linear Layer extraction defense"
+    patterns:
+      - '(?i)PLL'
+      - '(?i)private.*?linear.*?layer'
+      - '(?i)(?:lora|adapter).*?(?:weight|matrix).*?(?:protect|private)'
+    file_types: [".py", ".ipynb"]
+    message: "PLL defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-267
+    name: eftclip-oracle-defense
+    severity: INFO
+    category: defense
+    description: "EftCLIP oracle-guided multimodal defense"
+    patterns:
+      - '(?i)EftCLIP'
+      - '(?i)oracle.*?(?:guided|segment).*?(?:clip|multimodal)'
+      - '(?i)SAM.*?(?:segment|isolate).*?trigger'
+    file_types: [".py", ".ipynb"]
+    message: "EftCLIP defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-268
+    name: par-perturb-recover
+    severity: INFO
+    category: defense
+    description: "PAR Perturb and Recover CLIP defense"
+    patterns:
+      - '(?i)PAR(?!.*parameter)'
+      - '(?i)perturb.*?recover.*?(?:clip|backdoor)'
+      - '(?i)unlearn.*?spurious.*?(?:correlation|backdoor)'
+    file_types: [".py", ".ipynb"]
+    message: "PAR defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-269
+    name: tsbd-two-stage
+    severity: INFO
+    category: defense
+    description: "TSBD Two-Stage Backdoor Defense"
+    patterns:
+      - '(?i)TSBD'
+      - '(?i)two.?stage.*?backdoor.*?defense'
+      - '(?i)neuron.*?(?:reinitialize|zero).*?(?:suspicious|backdoor)'
+    file_types: [".py", ".ipynb"]
+    message: "TSBD defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-270
+    name: webguard-plus-url
+    severity: INFO
+    category: defense
+    description: "Web-Guard++ malicious URL detection"
+    patterns:
+      - '(?i)Web.?Guard\+\+'
+      - '(?i)HTML.*?subgraph.*?(?:bert|detection)'
+      - '(?i)malicious.*?URL.*?(?:detect|classif)'
+    file_types: [".py", ".ipynb"]
+    message: "Web-Guard++ defense detected"
+    info_only: true
+
+  - id: MEDUSA-FTSCAN-271
+    name: explainable-blocklisting
+    severity: INFO
+    category: defense
+    description: "Explainable Blocklisting phishing detection"
+    patterns:
+      - '(?i)explainable.*?blocklist'
+      - '(?i)phishing.*?(?:explain|interpret).*?detect'
+      - '(?i)context.?driven.*?(?:phishing|block)'
+    file_types: [".py", ".ipynb"]
+    message: "Explainable Blocklisting defense detected"
+    info_only: true
+
+# ===========================================================================
+# THRESHOLDS AND METRICS (Reference)
+# ===========================================================================
+
+thresholds:
+  # Perplexity detection
+  perplexity_poisoned: 175.57
+  perplexity_clean: 50.0
+
+  # SAE steering scales
+  sae_safety_disclaimer: 10
+  sae_full_jailbreak: 15
+
+  # SAE feature thresholds
+  sae_junk_token_ratio: 0.5
+  sae_dttr_threshold: 0.6567
+  sae_repetitiveness: 0.3433
+
+  # Defense overhead
+  tssf_latency_ratio: 1.54
+  tssf_top_k_tokens: 20
+  tssf_attenuation_beta: 0.2
+
+  # W2SDefense settings
+  w2s_lora_rank: 512
+  w2s_temperature: 2
+
+  # SDD settings
+  sdd_learning_rate: 5e-7
+  sdd_steps: 500
+  sdd_batch_size: 24
+
+  # Attack thresholds
+  poisoning_ratio_max: 0.001  # 0.1%
+  obfuscation_entropy_max: 7
+  cosine_similarity_threshold: 0.82
+
+  # LoRA-Leak MIA
+  lora_upscale_layers_risk: ["up_proj", "gate_proj"]
+
+  # NFT defense parameters
+  nft_mask_alpha: 0.8
+  nft_mask_beta: 0.5
+
+  # Vector similarity thresholds
+  vigil_threshold: 0.17217
+  rebuff_threshold: 0.82783
+
+  # ASR by attack
+  p_trojan_asr_llama32: 1.0   # 100%
+  cognitive_attack_avg_asr: 0.601  # 60.1%
+  mistral_8x22b_sst2_asr: 0.841  # 84.1%
+  mistral_8x22b_agnews_asr: 0.855  # 85.5%
+
+  # Model-specific post-compromise metrics
+  qwen3_gsm8k_post_compromise: 0.897
+  qwen3_mmlu_post_compromise: 0.769
+  harmful_score_threshold: 3
+
+  # Secure inference benchmarks
+  puma_llama7b_sec_per_token: 200
+  fhe_practical_sec_per_token: 1.61
+
+  # Architectural vulnerability layers
+  high_risk_layers_min: 17
+  high_risk_layers_max: 35
+  safety_critical_layers: [8, 9, 10, 11]
+
+  # AlphaSteer parameters
+  alphasteer_sparsity_k_min: 0.01  # 1%
+  alphasteer_sparsity_k_max: 0.05  # 5%
+
+  # Hessian-based masking (IRR)
+  irr_mask_ratio_start: 0.10  # 10%
+  irr_mask_ratio_end: 1.0     # 100%
+  irr_hessian_samples_min: 8
+  irr_hessian_samples_max: 1000
+
+  # W2SDefense optimal weights
+  w2s_alpha_options: [1.0, 5.0]
+  w2s_beta_options: [0.001, 0.2]
+  w2s_gamma_options: [0.001, 0.2]
+
+  # DP-Adam-AC (private fine-tuning)
+  dp_adam_gradient_clip: 3.0
+  dp_adam_learning_rate: 0.0003
+
+  # CognitiveAttack ASR
+  cognitive_attack_asr_vs_gcg_improvement: 0.077  # 7.7% better
+
+  # Hessian trace (backdoor detection)
+  hessian_trace_benign: 129.75
+  hessian_trace_backdoored: 7097.69
+
+  # Otsu threshold (SAE feature separation)
+  otsu_threshold_rich_junk: 0.3433
+
+  # NFT mask scheduling
+  nft_mask_formula: "μ(l) = α * e^(-β * l)"
+
+  # AOA sorting vulnerability
+  aoa_asr_normal: 0.78   # 78%
+  aoa_asr_random_sorted: 0.08  # 8%
+
+  # Additional metrics (Query 10)
+  ppt_efficiency: "performance / trainable_params"  # Performance-Parameter Trade-off
+  der_scale: [0.0, 1.0]  # Defense Effectiveness Rating
+  dsr_metric: "real_time_defense_success"  # Defense Success Rate
+  pcr_multilingual: "relative_performance_shift"  # Performance Change Rate
+  bdr_metric: "benign_accuracy_diff_trigger_vs_clean"  # Benign Distinguishability Rate
+  far_metric: "false_alarm_rate_boundary_scenarios"  # False Alarm Rate
+
+  # PAR defense threshold
+  par_threshold_tau: 2.15
+
+  # PSIM confidence threshold
+  psim_threshold_gamma: 0.7
+
+  # TSBD optimal ratios
+  tsbd_neuron_ratio_n: 0.15
+  tsbd_weight_ratio_m: 0.7
+
+  # PaaA federated attack
+  paaa_parameter_compromise: 0.01  # <1% parameters
+  paaa_asr_achievable: 0.80  # 80% ASR
+
+# ===========================================================================
+# DATASETS REFERENCE
+# ===========================================================================
+
+datasets:
+  - name: "PADBench"
+    description: "Backdoored adapter detection"
+    size: "13,300 adapters"
+  - name: "CyberLLMInstruct"
+    description: "Pseudo-malicious pairs for safety testing"
+    size: "54,928 pairs"
+  - name: "PreciseBugs"
+    description: "Post-2023 vulnerability dataset"
+    filter: "Released after January 2023"
+  - name: "VITC"
+    description: "Vision-in-Text Challenge for ASCII art"
+    size: "VITC-S: 8,424 samples, VITC-L: 8,000 samples"
+  - name: "LoWRA Bench"
+    description: "Pre-FT weight recovery evaluation"
+    metric: "W-Error in log space"
+  - name: "TraceAegis-Bench"
+    description: "Provenance-based anomaly detection"
+    domains: ["healthcare", "corporate"]
+  - name: "CIFR"
+    description: "Cipher fine-tuning robustness"
+    ciphers: ["WALNUT", "STARTSPEAK", "ENDSPEAK"]
+  - name: "SCD-30"
+    description: "Audio backdoor evaluation"
+    domain: "speech recognition"
+  - name: "MedSafetyBench"
+    description: "Medical LLM safety evaluation"
+    domain: "healthcare"
+  - name: "MetamorphASM"
+    description: "Obfuscated assembly code"
+    size: "328,200 samples"
+  - name: "DISL"
+    description: "Deduplicated Solidity contracts"
+    size: "514,506 contracts"
+  - name: "MCGTEST"
+    description: "Malicious code generation evaluation"
+    size: "406 tasks"
+  - name: "SORRY-Bench"
+    description: "Safety refusal evaluation"
+    size: "440 class-balanced unsafe instructions"
+    categories: 44
+  - name: "HOD"
+    description: "Harmful Object Detection for vision safety"
+    domain: "vision"
+  - name: "MaliciousInstructions"
+    description: "MI dataset for harmful instruction evaluation"
+    alias: "MI"
+  - name: "StrongReject"
+    description: "Robust rejection evaluation benchmark"
+  - name: "ForbiddenQuestions"
+    description: "Prohibited query evaluation dataset"
+  - name: "SafeBench"
+    description: "General safety evaluation benchmark"
+  # Additional datasets (Query 10)
+  - name: "MMP-Retrieval"
+    description: "Unseen-domain generalization evaluation"
+    base: "MMPTRACK"
+  - name: "EduHarm"
+    description: "Educational scenario safety evaluation"
+    scenarios: 5
+  - name: "BigVul"
+    description: "Large-scale vulnerability detection"
+    size: "169,772 functions"
+  - name: "VulBench"
+    description: "Real-world and CTF vulnerabilities"
+    domain: "vulnerability detection"
+  - name: "SPA-VL"
+    description: "Safety preference alignment for VLMs"
+    domain: "vision-language"
+  - name: "CAI-Conversation-Harmless"
+    description: "Constitutional AI safety alignment"
+    type: "AI-generated conversations"
+  - name: "MCGMARK"
+    description: "Malicious code watermarking and tracing"
+    domain: "code provenance"
+  - name: "SVEN"
+    description: "Secure code generation training"
+    type: "secure/insecure code pairs"

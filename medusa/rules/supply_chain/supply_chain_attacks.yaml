@@ -1,0 +1,554 @@
+version: '2.0'
+metadata:
+  name: MEDUSA Supply Chain Attack Scanner Rules
+  generated_date: '2026-05-12'
+  source: SupplyChainMiner
+  type: supply_chain
+  schema_version: '2.0'
+  rule_count: 13
+
+rules:
+
+# =============================================================================
+# System / OS packages
+# =============================================================================
+
+- id: CVE-2024-3094
+  name: xz-utils backdoor (liblzma)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Sophisticated multi-year social engineering attack by pseudonymous contributor
+    Jia Tan (JiaT75) who gained co-maintainer access to the xz-utils project.
+    Malicious build-time code was hidden in test fixture files that injected a
+    backdoor into the liblzma library during the build process. The backdoor
+    targeted OpenSSH servers using systemd with liblzma loaded, enabling
+    unauthorized remote access by intercepting RSA_public_decrypt to validate
+    attacker-controlled keys. Discovered by Andres Freund (Microsoft) who noticed
+    SSH login latency anomalies.
+  affected:
+  - ecosystem: system
+    package: xz-utils
+    ranges:
+    - introduced: 5.6.0
+      fixed: 5.6.2
+  remediation: Remove xz-utils 5.6.0, 5.6.1 immediately. Upgrade to 5.4.6. Rotate
+    all credentials that may have been exposed.
+  source_attack: SCA-2024-001
+  import_patterns:
+  - ecosystem: system
+    patterns:
+    - (?i)xz-utils[=\s]+(5\.6\.0|5\.6\.1)
+    - (?i)liblzma[=\s]+(5\.6\.0|5\.6\.1)
+    - (?i)xz-utils
+    - (?i)liblzma
+  references:
+  - type: ADVISORY
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-3094
+  - type: REPORT
+    url: https://www.openwall.com/lists/oss-security/2024/03/29/4
+  - type: WEB
+    url: https://research.swtch.com/xz-timeline
+
+# =============================================================================
+# npm packages
+# =============================================================================
+
+- id: MEDUSA-SCA-SCAN-002
+  name: lottie-player npm account hijack
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Attackers phished a LottieFiles developer's personal Gmail account using a
+    fake collaboration invitation, harvesting both npm credentials and 2FA codes
+    in a single session. Three malicious versions of @lottiefiles/lottie-player
+    were published within approximately two hours on October 30, 2024. Each
+    version contained the Ace Drainer SDK — a cryptocurrency wallet-draining
+    payload that prompts users to connect their Web3 wallets and then siphons
+    funds. The package had 94,000+ weekly downloads and 4+ million lifetime
+    installs, primarily used to render Lottie animations on websites.
+  affected:
+  - ecosystem: npm
+    package: '@lottiefiles/lottie-player'
+    ranges:
+    - introduced: 2.0.5
+      fixed: 2.0.8
+  remediation: Remove @lottiefiles/lottie-player 2.0.5, 2.0.6, 2.0.7 immediately.
+    Upgrade to 2.0.8. Rotate all credentials that may have been exposed.
+  source_attack: SCA-2024-003
+  import_patterns:
+  - ecosystem: npm
+    patterns:
+    - '"@lottiefiles/lottie-player"\s*:\s*"[^"]*2\.0\.[567]'
+    - '@lottiefiles/lottie-player@2\.0\.[567]'
+    - (?i)@lottiefiles/lottie-player
+  references:
+  - type: WEB
+    url: https://lottiefiles.com/blog/inside-lottiefiles/resolution-of-security-incident-with-lottiefiles-lottie-player-package
+  - type: WEB
+    url: https://thehackernews.com/2024/10/lottiefiles-issues-warning-about.html
+
+- id: CVE-2024-54134
+  name: solana web3.js npm account hijack (cryptocurrency key exfiltration)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Attackers sent spear-phishing emails to members of the @solana npm organisation
+    with publish access, directing them to a cloned npm website to harvest credentials
+    and live 2FA codes. Two malicious versions were published between 15:20 and 20:25
+    UTC on December 2, 2024. Both versions contained a backdoor function named
+    addToQueue that captured private keys and secret material during transaction
+    signing operations and exfiltrated them via CloudFlare Worker headers to an
+    attacker-controlled Solana address. Approximately $184,000–$190,000 in
+    cryptocurrency was stolen. The exfiltration C2 domain sol-rpc.xyz was registered
+    ten days before the attack. The package has 450,000+ weekly downloads.
+  affected:
+  - ecosystem: npm
+    package: '@solana/web3.js'
+    ranges:
+    - introduced: 1.95.6
+      fixed: 1.95.8
+  remediation: Remove @solana/web3.js 1.95.6, 1.95.7 immediately. Upgrade to 1.95.8.
+    Rotate all credentials (especially Solana private keys) that may have been exposed.
+  source_attack: SCA-2024-004
+  import_patterns:
+  - ecosystem: npm
+    patterns:
+    - '"@solana/web3\.js"\s*:\s*"[^"]*1\.95\.[67]'
+    - '@solana/web3\.js@1\.95\.[67]'
+    - (?i)@solana/web3\.js
+  references:
+  - type: ADVISORY
+    url: https://github.com/solana-labs/solana-web3.js/security/advisories/GHSA-jcxm-7wvp-g6p5
+  - type: ADVISORY
+    url: https://nvd.nist.gov/vuln/detail/CVE-2024-54134
+  - type: WEB
+    url: https://thehackernews.com/2024/12/researchers-uncover-backdoor-in-solanas.html
+
+- id: MEDUSA-SCA-SCAN-008
+  name: rand-user-agent npm RAT (leaked automation token)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Three malicious versions of the rand-user-agent npm package were published using
+    a stale automation token that had been inadvertently committed to the package's
+    GitHub repository years earlier and never rotated. The attacker discovered the
+    leaked token and used it to publish versions 1.0.110, 2.0.83, and 2.0.84 — all
+    containing RATatouille, a remote access trojan that establishes a persistent
+    backdoor with full command-and-control capability. rand-user-agent is a utility
+    for generating random browser user-agent strings, widely used in web scraping
+    and automated testing pipelines (~75,000 weekly downloads). This attack is a
+    canonical example of leaked credential exploitation from version control history.
+  affected:
+  - ecosystem: npm
+    package: rand-user-agent
+    ranges:
+    - introduced: 1.0.110
+      fixed: 1.0.111
+    - introduced: 2.0.83
+      fixed: 2.0.85
+  remediation: Remove rand-user-agent 1.0.110, 2.0.83, 2.0.84 immediately. Upgrade
+    to latest clean version. Rotate all credentials that may have been exposed.
+  source_attack: SCA-2025-004
+  import_patterns:
+  - ecosystem: npm
+    patterns:
+    - '"rand-user-agent"\s*:\s*"[^"]*(1\.0\.110|2\.0\.83|2\.0\.84)'
+    - rand-user-agent@(1\.0\.110|2\.0\.83|2\.0\.84)
+    - (?i)rand-user-agent
+  references:
+  - type: ADVISORY
+    url: https://socket.dev/npm/package/rand-user-agent/alert/supply-chain-attack
+  - type: WEB
+    url: https://thehackernews.com/2025/05/popular-npm-package-rand-user-agent.html
+
+- id: MEDUSA-SCA-SCAN-012
+  name: axios npm account hijack (RAT via fake dependency)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    npm account for lead axios maintainer (jasonsaayman) was hijacked via email
+    change to ProtonMail. Malicious versions 1.14.1 and 0.30.4 were published via
+    npm CLI, bypassing GitHub Actions CI/CD. Both injected a fake dependency
+    plain-crypto-js@4.2.1 which drops a cross-platform RAT via postinstall hook.
+  affected:
+  - ecosystem: npm
+    package: axios
+    ranges:
+    - introduced: 0.30.4
+      fixed: 0.30.5
+    - introduced: 1.14.1
+      fixed: 1.14.2
+  - ecosystem: npm
+    package: plain-crypto-js
+    ranges:
+    - introduced: 4.2.1
+      fixed: 4.2.2
+  remediation: Remove axios 1.14.1, 0.30.4 and plain-crypto-js 4.2.1 immediately.
+    Upgrade axios to 1.14.0. Rotate all credentials that may have been exposed.
+  source_attack: SCA-2026-003
+  import_patterns:
+  - ecosystem: npm
+    patterns:
+    - '"axios"\s*:\s*"[^"]*(1\.14\.1|0\.30\.4)'
+    - axios@(1\.14\.1|0\.30\.4)
+    - '"plain-crypto-js"\s*:\s*"[^"]*4\.2\.1'
+    - plain-crypto-js@4\.2\.1
+    - (?i)plain-crypto-js
+  references:
+  - type: WEB
+    url: https://thehackernews.com/2026/03/axios-supply-chain-attack-pushes-cross.html
+  - type: REPORT
+    url: https://github.com/axios/axios/issues/10604
+
+# =============================================================================
+# PyPI packages
+# =============================================================================
+
+- id: MEDUSA-SCA-SCAN-004
+  name: ultralytics PyPI poisoning via CI script injection
+  severity: CRITICAL
+  cwe: CWE-78
+  owasp_llm: LLM05:2025
+  description: |
+    Attackers exploited a GitHub Actions script injection vulnerability via pull
+    request titles on the ultralytics repository. Two malicious PRs (#18018, #18020)
+    contained command injection payloads in their titles that were interpolated into
+    a workflow using pull_request_target without sanitisation, giving arbitrary code
+    execution in CI. This published poisoned PyPI packages. A second wave on December
+    7 used a stolen PyPI API token to directly publish versions 8.3.45 and 8.3.46.
+    All malicious versions deployed an XMRig cryptocurrency miner connecting to
+    connect.consrensys.com:8080. The ultralytics package (YOLO object detection)
+    has 60+ million PyPI downloads.
+  affected:
+  - ecosystem: pypi
+    package: ultralytics
+    ranges:
+    - introduced: 8.3.41
+      fixed: 8.3.43
+    - introduced: 8.3.45
+      fixed: 8.3.47
+  remediation: Remove ultralytics 8.3.41, 8.3.42, 8.3.45, 8.3.46 immediately.
+    Upgrade to 8.3.43. Rotate all credentials that may have been exposed.
+  source_attack: SCA-2024-005
+  import_patterns:
+  - ecosystem: pypi
+    patterns:
+    - ultralytics==(8\.3\.41|8\.3\.42|8\.3\.45|8\.3\.46)
+    - (?i)ultralytics
+  references:
+  - type: WEB
+    url: https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/
+  - type: WEB
+    url: https://www.reversinglabs.com/blog/compromised-ultralytics-pypi-package-delivers-crypto-coinminer
+  - type: WEB
+    url: https://snyk.io/blog/ultralytics-ai-pwn-request-supply-chain-attack/
+
+- id: MEDUSA-SCA-SCAN-011
+  name: litellm PyPI poisoning via stolen credentials (TeamPCP)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    PyPI account for the litellm package maintainer was compromised by threat actor
+    TeamPCP using credentials stolen via the prior Trivy GitHub Actions compromise
+    (SCA-2026-001 / CVE-2026-33634). Malicious versions 1.82.7 and 1.82.8 were
+    published to PyPI, live for approximately 40 minutes before quarantine. Version
+    1.82.7 embedded a base64-encoded payload in litellm/proxy/proxy_server.py
+    executing on import. Version 1.82.8 added litellm_init.pth to site-packages for
+    persistence on every Python interpreter startup. Both exfiltrated credentials to
+    models.litellm.cloud (attacker-controlled, NOT the legitimate BerriAI domain).
+    Part of the broader TeamPCP campaign (Trivy → LiteLLM → Checkmarx).
+  affected:
+  - ecosystem: pypi
+    package: litellm
+    ranges:
+    - introduced: 1.82.7
+      fixed: 1.82.9
+  remediation: Remove litellm 1.82.7, 1.82.8 immediately. Upgrade to 1.82.6. Rotate
+    all credentials that may have been exposed.
+  source_attack: SCA-2026-002
+  import_patterns:
+  - ecosystem: pypi
+    patterns:
+    - litellm==(1\.82\.7|1\.82\.8)
+    - (?i)litellm
+  references:
+  - type: WEB
+    url: https://docs.litellm.ai/blog/security-update-march-2026
+  - type: WEB
+    url: https://securitylabs.datadoghq.com/articles/litellm-compromised-pypi-teampcp-supply-chain-campaign/
+  - type: WEB
+    url: https://www.wiz.io/blog/threes-a-crowd-teampcp-trojanizes-litellm-in-continuation-of-campaign
+  - type: WEB
+    url: https://www.sonatype.com/blog/compromised-litellm-pypi-package-delivers-multi-stage-credential-stealer
+
+# =============================================================================
+# Go modules
+# =============================================================================
+
+- id: MEDUSA-SCA-SCAN-005
+  name: boltdb-go Go module typosquat (RCE RAT)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    A malicious Go module typosquatting the legitimate BoltDB embedded database
+    (github.com/boltdb/bolt vs github.com/boltdb-go/bolt — hyphen vs slash in the
+    organisation name) persisted undetected for over three years by exploiting Go
+    Module Proxy caching behaviour. The attacker published a malicious v1.3.1 to
+    GitHub in November 2021, which was cached by the Go Module Mirror. The tag was
+    subsequently rewritten on GitHub to point to legitimate code — meaning any manual
+    code audit would find clean code, but the Go Module Proxy continued serving the
+    malicious cached version. The malicious package contained a remote access trojan
+    with RCE capability. Discovered February 2025 and removed from the Go module
+    proxy and vulnerability database. Used by Shopify, Heroku, and many other
+    production systems.
+  affected:
+  - ecosystem: go
+    package: github.com/boltdb-go/bolt
+    ranges:
+    - introduced: 0.0.0
+      fixed: 99999.0.0
+  remediation: Remove github.com/boltdb-go/bolt entirely. Use only the legitimate
+    github.com/boltdb/bolt (slash, not hyphen). Rotate all credentials that may
+    have been exposed.
+  source_attack: SCA-2025-001
+  import_patterns:
+  - ecosystem: go
+    patterns:
+    - github\.com/boltdb-go/bolt
+  references:
+  - type: WEB
+    url: https://thehackernews.com/2025/02/malicious-go-package-exploits-module-mirror.html
+  - type: WEB
+    url: https://socket.dev/blog/malicious-package-exploits-go-module-proxy-caching-for-persistence
+
+- id: MEDUSA-SCA-SCAN-009
+  name: qmgo Go module typosquat (double-i org name)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Two malicious Go modules typosquatting the legitimate qmgo MongoDB driver
+    (github.com/qiniu/qmgo) were published under subtly misspelled organisation
+    names: github.com/qiniiu/qmgo (double-i) and github.com/qiiniu/qmgo (different
+    double-i position). Both variants contained embedded malware that established
+    persistence and executed attacker-controlled payloads. The attack exploited Go
+    module naming conventions where a single character difference in the GitHub
+    organisation name creates a completely distinct module path, with no
+    registry-level typosquat protection. The Go Module Mirror cached the malicious
+    versions, extending their reach. Discovered during a routine security audit and
+    subsequently removed.
+  affected:
+  - ecosystem: go
+    package: github.com/qiniiu/qmgo
+    ranges:
+    - introduced: 0.0.0
+      fixed: 99999.0.0
+  - ecosystem: go
+    package: github.com/qiiniu/qmgo
+    ranges:
+    - introduced: 0.0.0
+      fixed: 99999.0.0
+  remediation: Remove github.com/qiniiu/qmgo and github.com/qiiniu/qmgo entirely.
+    Use only the legitimate github.com/qiniu/qmgo. Rotate all credentials that may
+    have been exposed.
+  source_attack: SCA-2025-005
+  import_patterns:
+  - ecosystem: go
+    patterns:
+    - github\.com/qiniiu/qmgo
+    - github\.com/qiiniu/qmgo
+  references:
+  - type: WEB
+    url: https://socket.dev/blog/go-module-typosquatting-qmgo
+
+# =============================================================================
+# GitHub Actions
+# =============================================================================
+
+- id: CVE-2025-30154
+  name: reviewdog/action-setup GHA compromise (CI secret exfiltration)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    A GitHub personal access token with write access to the reviewdog organisation
+    was compromised, enabling an attacker to inject malicious code into the
+    install.sh script of reviewdog/action-setup@v1 during a 2h49m window
+    (18:42–20:31 UTC, March 11 2025). The injected payload was a Python script that
+    read secrets from GitHub Actions runner process memory and exfiltrated them.
+    Because reviewdog/action-setup is a composite dependency of multiple other
+    reviewdog actions, the compromise cascaded to action-shellcheck,
+    action-staticcheck, action-ast-grep, and action-typos regardless of whether
+    those downstream actions were SHA-pinned. This attack preceded and may be related
+    to the larger tj-actions/changed-files compromise (CVE-2025-30066) discovered
+    three days later.
+  affected:
+  - ecosystem: github-actions
+    package: reviewdog/action-setup
+    ranges:
+    - introduced: v1.0.0
+      fixed: v1.3.3
+  - ecosystem: github-actions
+    package: reviewdog/action-shellcheck
+    ranges:
+    - introduced: v1.0.0
+      fixed: v1.22.0
+  - ecosystem: github-actions
+    package: reviewdog/action-staticcheck
+    ranges:
+    - introduced: v1.0.0
+      fixed: v1.4.3
+  - ecosystem: github-actions
+    package: reviewdog/action-ast-grep
+    ranges:
+    - introduced: v1.0.0
+      fixed: v1.1.0
+  - ecosystem: github-actions
+    package: reviewdog/action-typos
+    ranges:
+    - introduced: v1.0.0
+      fixed: v1.13.0
+  remediation: Pin all reviewdog actions to SHA commits from v1.3.3+ (action-setup)
+    or equivalent clean tags. Rotate all CI/CD secrets immediately.
+  source_attack: SCA-2025-002
+  import_patterns:
+  - ecosystem: github-actions
+    patterns:
+    - (?i)reviewdog/action-setup\s*@\s*v1
+    - (?i)reviewdog/action-shellcheck\s*@\s*v1
+    - (?i)reviewdog/action-staticcheck\s*@\s*v1
+    - (?i)reviewdog/action-ast-grep\s*@\s*v1
+    - (?i)reviewdog/action-typos\s*@\s*v1
+    - (?i)reviewdog/action-setup
+  references:
+  - type: ADVISORY
+    url: https://github.com/advisories/GHSA-qmg3-hpqr-gqvc
+  - type: ADVISORY
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-30154
+  - type: WEB
+    url: https://www.wiz.io/blog/new-github-action-supply-chain-attack-reviewdog-action-setup
+
+- id: CVE-2025-30066
+  name: tj-actions/changed-files GHA compromise (all tags poisoned)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    An attacker compromised a GitHub PAT associated with the tj-actions bot account
+    and used it to retroactively rewrite ALL existing version tags across
+    tj-actions/changed-files to point to a single malicious commit. The injected
+    payload was a Python script that extracted CI/CD secrets from GitHub Actions
+    runner process memory and printed them in plaintext to workflow logs — visible
+    to anyone with read access to the workflow run. Even SHA-pinned references were
+    affected because the tags were the reference point. Impact: ~23,000+ repositories.
+    Attributed to DPRK-linked threat actors (Lazarus Group) based on TTPs and
+    infrastructure overlaps. One of the largest GitHub Actions supply chain attacks
+    on record by repository impact count.
+  affected:
+  - ecosystem: github-actions
+    package: tj-actions/changed-files
+    ranges:
+    - introduced: v1.0.0
+      fixed: v46.0.0
+  remediation: Upgrade to tj-actions/changed-files v46.0.0 or later (SHA-pinned).
+    Rotate ALL CI/CD secrets immediately. Audit all workflow runs during the
+    compromise window (March 14–15 2025).
+  source_attack: SCA-2025-003
+  import_patterns:
+  - ecosystem: github-actions
+    patterns:
+    - (?i)tj-actions/changed-files
+  references:
+  - type: ADVISORY
+    url: https://github.com/advisories/GHSA-mrrh-fwg8-r2c3
+  - type: ADVISORY
+    url: https://nvd.nist.gov/vuln/detail/CVE-2025-30066
+  - type: WEB
+    url: https://www.wiz.io/blog/new-github-action-supply-chain-attack-tj-actions-changed-files
+  - type: WEB
+    url: https://unit42.paloaltonetworks.com/github-actions-supply-chain-attack/
+
+- id: CVE-2026-33634
+  name: aquasecurity/trivy-action GHA compromise (TeamPCP)
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    The aquasecurity/trivy-action GitHub Action was compromised by threat actor
+    TeamPCP via force-pushing malicious commits to 76 of 77 version tags. The Trivy
+    binary v0.69.4 was also trojanized and published to Docker Hub. The attack
+    exfiltrated CI secrets and environment variables to a typosquatted domain
+    scan.aquasecurtiy.org (intentional misspelling). The compromise also targeted
+    aquasecurity/setup-trivy (all 7 tags). Active compromise window: March 19 18:22
+    UTC to March 23 01:36 UTC. CVSS 9.4 (v4.0). Part of the broader TeamPCP supply
+    chain campaign that also compromised LiteLLM and Checkmarx.
+  affected:
+  - ecosystem: github-actions
+    package: aquasecurity/trivy-action
+    ranges:
+    - introduced: v0.0.1
+      fixed: v0.35.0
+  - ecosystem: github-actions
+    package: aquasecurity/setup-trivy
+    ranges:
+    - introduced: v0.2.0
+      fixed: v0.2.7
+  remediation: Remove aquasecurity/trivy-action v0.0.1–v0.34.2 immediately. Upgrade
+    to v0.35.0 (SHA-pinned). Rotate all credentials that may have been exposed.
+  source_attack: SCA-2026-001
+  import_patterns:
+  - ecosystem: github-actions
+    patterns:
+    - (?i)aquasecurity/trivy-action\s*@\s*v0\.(([0-2]\d|3[0-4])\.)
+    - (?i)aquasecurity/trivy-action
+    - (?i)aquasecurity/setup-trivy\s*@\s*v0\.2\.[0-6]
+    - (?i)aquasecurity/setup-trivy
+  references:
+  - type: ADVISORY
+    url: https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23
+  - type: ADVISORY
+    url: https://nvd.nist.gov/vuln/detail/CVE-2026-33634
+  - type: WEB
+    url: https://securitylabs.datadoghq.com/articles/litellm-compromised-pypi-teampcp-supply-chain-campaign/
+
+# =============================================================================
+# Known C2 domains (IoC — pattern-based only)
+# =============================================================================
+
+- id: MEDUSA-SCA-SCAN-013
+  name: Known supply chain C2 domains
+  severity: CRITICAL
+  cwe: CWE-506
+  owasp_llm: LLM05:2025
+  description: |
+    Matches known C2 domains from cataloged supply chain attacks. Detection in
+    source code, configuration files, or lock files indicates a compromised
+    dependency or direct C2 communication channel. Domains include infrastructure
+    from the TeamPCP campaign (Trivy, LiteLLM, Checkmarx), the polyfill.io CDN
+    hijack, and cryptocurrency-stealing RAT infrastructure.
+  import_patterns:
+  - ecosystem: any
+    patterns:
+    - (?i)bootcdn\.net
+    - (?i)bootcss\.com
+    - (?i)cdn\.polyfill\.io
+    - (?i)checkmarx\.zone
+    - (?i)connect\.consrensys\.com
+    - (?i)googie-anaiytics\.com
+    - (?i)kuurza\.com
+    - (?i)models\.litellm\.cloud
+    - (?i)newcrbpc\.com
+    - (?i)scan\.aquasecurtiy\.org
+    - (?i)sfrclak\.com
+    - (?i)sol-rpc\.xyz
+    - (?i)staticfile\.net
+    - (?i)staticfile\.org
+    - (?i)unionadjs\.com

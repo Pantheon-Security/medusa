@@ -1,0 +1,241 @@
+rules:
+- id: MLSC-LOAD-001
+  name: trust-remote-code
+  severity: CRITICAL
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - trust_remote_code\s*=\s*True
+  message: 'CRITICAL: Model loaded with trust_remote_code=True enables arbitrary code execution'
+  cwe: CWE-94
+  owasp_llm: LLM02:2025
+  file_types: &id001
+  - '*.py'
+- id: MLSC-LOAD-002
+  name: unverified-from-pretrained
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - from_pretrained\s*\([^)]*\)
+  - AutoModel\s*\.\s*from_pretrained
+  - AutoTokenizer\s*\.\s*from_pretrained
+  negative_patterns:
+  - verify|checksum|revision|use_auth_token
+  message: Pre-trained model loaded without integrity verification
+  cwe: CWE-345
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-LOAD-003
+  name: torch-load-unsafe
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - torch\.load\s*\([^)]*\)
+  - pickle\.load\s*\(
+  message: Unsafe model/pickle loading - allows arbitrary code execution
+  cwe: CWE-502
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-LOAD-004
+  name: missing-revision-pin
+  severity: MEDIUM
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - from_pretrained\s*\([^)]*\)(?!.*revision)
+  message: Model loaded without revision pinning - vulnerable to supply chain attacks
+  cwe: CWE-1357
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-DATA-001
+  name: medical-data-finetuning
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - (?i)(mimic|ehr|patient|medical|clinical).*fine.?tun
+  - (?i)trainer\.train\s*\(.*\b(mimic|medical)\b
+  message: Fine-tuning on medical data - membership inference risk
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: MLSC-DATA-002
+  name: pii-data-training
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - (?i)(pii|personal.?info|ssn|credit.?card).*train
+  - (?i)trainer.*\b(pii|personal)\b
+  message: Training on PII data - membership inference and extraction risk
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: MLSC-API-001
+  name: logit-exposure
+  severity: MEDIUM
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - return\s+.*\.logits
+  - response\s*=.*output\.logits
+  - api.*return.*logits
+  message: API exposing full logits enables membership inference attacks
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: MLSC-API-002
+  name: confidence-exposure
+  severity: LOW
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - return.*confidence
+  - return.*probability
+  message: API exposing confidence scores may enable inference attacks
+  cwe: CWE-200
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: MLSC-HUB-001
+  name: unknown-model-source
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - from_pretrained\s*\(["'][^"']*["']
+  message: Review model source - ensure from trusted provider
+  cwe: CWE-1357
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-HUB-002
+  name: community-model-warning
+  severity: MEDIUM
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - from_pretrained\s*\(["'](?!openai|anthropic|google|meta|microsoft)[^"']+["']
+  message: Community model detected - requires security audit before use
+  cwe: CWE-1357
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-BACKDOOR-001
+  name: model-trojan-load
+  severity: CRITICAL
+  category: ml_supply_chain
+  patterns:
+  - (?i)pre.?trained.*trojan
+  - (?i)model.*zoo.*backdoor
+  - (?i)transfer.*learning.*poison
+  message: Potential pre-trained model Trojan
+  cwe: CWE-506
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-BACKDOOR-002
+  name: hub-poison-indicator
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)hugging.*face.*backdoor
+  - (?i)model.*hub.*poison
+  - (?i)tainted.*weights
+  message: Model hub poisoning attack indicator
+  cwe: CWE-506
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-MLAAS-001
+  name: outsourced-training-risk
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - (?i)MLaaS.*train
+  - (?i)outsourced.*training
+  - (?i)third.?party.*fine.?tun
+  message: Outsourced training detected - supply chain risk
+  cwe: CWE-1357
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-SERIAL-001
+  name: unsafe-serialization
+  severity: HIGH
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - pickle\.loads?\s*\(
+  - torch\.load\s*\([^)]*\)(?!.*weights_only)
+  - joblib\.load\s*\(
+  message: Unsafe serialization format - use safetensors instead
+  cwe: CWE-502
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-SERIAL-002
+  name: safetensors-recommended
+  severity: LOW
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - \.bin["']
+  - \.pt["']
+  - \.pth["']
+  message: Consider using safetensors format for secure model storage
+  cwe: CWE-502
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-ADAPTER-001
+  name: lora-adapter-risk
+  severity: MEDIUM
+  category: ml_supply_chain
+  languages:
+  - python
+  patterns:
+  - (?i)load_adapter|PeftModel\.from_pretrained
+  - (?i)LoraConfig.*from
+  message: LoRA adapter loading - verify adapter source
+  cwe: CWE-1357
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-ADAPTER-002
+  name: malicious-adapter
+  severity: HIGH
+  category: ml_supply_chain
+  patterns:
+  - (?i)poisoned.*adapter
+  - (?i)malicious.*LoRA
+  - (?i)trojan.*plugin
+  message: Malicious adapter/plugin indicator
+  cwe: CWE-506
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-DEP-001
+  name: transformers-outdated
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - transformers\s*[<>=]+\s*[0-3]\.
+  message: Outdated transformers version - check for security patches
+  cwe: CWE-1395
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MLSC-DEP-002
+  name: torch-outdated
+  severity: MEDIUM
+  category: ml_supply_chain
+  patterns:
+  - torch\s*[<>=]+\s*1\.[0-9]\.
+  message: Outdated PyTorch version - check for security patches
+  cwe: CWE-1395
+  owasp_llm: LLM02:2025
+  file_types: *id001

@@ -1,0 +1,664 @@
+rules:
+- id: MALPKG-PY-NET-001
+  name: python-network-source
+  severity: HIGH
+  category: network_api
+  languages:
+  - python
+  patterns:
+  - socket\.recv
+  - urllib\.request\.urlopen
+  - http\.client\.HTTPSConnection
+  - requests\.(?:get|post|put|delete)
+  - httpx\.(?:get|post|put|delete)
+  message: Python network data source API
+  cwe: CWE-200
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+- id: MALPKG-PY-NET-002
+  name: python-network-sink
+  severity: HIGH
+  category: network_api
+  languages:
+  - python
+  patterns:
+  - socket\.send
+  - smtplib\.SMTP.*sendmail
+  - requests\.post.*(?:json|data)\s*=
+  message: Python network data sink API - exfiltration vector
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-PY-FS-001
+  name: python-filesystem-source
+  severity: MEDIUM
+  category: filesystem_api
+  languages:
+  - python
+  patterns:
+  - os\.read
+  - fileinput\.input
+  - tarfile\.open
+  - zipfile\.ZipFile.*read
+  message: Python filesystem read API
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-PY-FS-002
+  name: python-filesystem-sink
+  severity: HIGH
+  category: filesystem_api
+  languages:
+  - python
+  patterns:
+  - os\.write
+  - shutil\.rmtree
+  - pathlib\.Path.*rmdir
+  - os\.remove
+  message: Python filesystem destructive API
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-PY-PROC-001
+  name: python-process-spawn
+  severity: HIGH
+  category: process_api
+  languages:
+  - python
+  patterns:
+  - os\.popen
+  - subprocess\.Popen
+  - subprocess\.(?:call|run)
+  - multiprocessing\.Process
+  - os\.system
+  - os\.spawn
+  message: Python process spawning API
+  cwe: CWE-78
+  file_types: *id001
+- id: MALPKG-PY-CODE-001
+  name: python-dynamic-exec
+  severity: CRITICAL
+  category: code_generation
+  languages:
+  - python
+  patterns:
+  - ^\s*(?!#)\beval\s*\(
+  - ^\s*(?!#)\bexec\s*\(
+  - ctypes\.CDLL
+  - code\.InteractiveInterpreter
+  - compile\s*\([^)]+,[^)]+,['"]exec['"]
+  message: Python dynamic code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-JS-NET-001
+  name: js-network-source
+  severity: HIGH
+  category: network_api
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - https?\.get
+  - socket\.connect
+  - net\.createConnection
+  - fetch\s*\(
+  - axios\.(?:get|post)
+  message: JavaScript network source API
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-JS-NET-002
+  name: js-network-sink
+  severity: HIGH
+  category: network_api
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - socket\.send
+  - socket\.write
+  - request\.write
+  - \.post\s*\([^)]*(?:body|json|data)
+  message: JavaScript network sink API - exfiltration vector
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-JS-FS-001
+  name: js-filesystem-read
+  severity: MEDIUM
+  category: filesystem_api
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - fs\.readFile(?:Sync)?
+  - fs\.createReadStream
+  - fs\.promises\.readFile
+  message: JavaScript filesystem read API
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-JS-FS-002
+  name: js-filesystem-write
+  severity: HIGH
+  category: filesystem_api
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - fs\.writeFile(?:Sync)?
+  - fs\.appendFile(?:Sync)?
+  - fs\.rmdir
+  - fs\.unlink
+  - fs\.rm(?:Sync)?
+  message: JavaScript filesystem write/delete API
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-JS-PROC-001
+  name: js-child-process
+  severity: HIGH
+  category: process_api
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - child_process\.exec(?:Sync)?
+  - child_process\.spawn(?:Sync)?
+  - child_process\.fork
+  - cluster\.fork
+  message: JavaScript child process spawning
+  cwe: CWE-78
+  file_types: *id001
+- id: MALPKG-JS-CODE-001
+  name: js-dynamic-exec
+  severity: CRITICAL
+  category: code_generation
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - (?<!\.)\beval\s*\(
+  - vm\.runInContext
+  - vm\.runInNewContext
+  - new\s+Function\s*\(
+  - WebAssembly\.compile
+  message: JavaScript dynamic code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-JS-OBFUSC-001
+  name: js-empty-catch
+  severity: MEDIUM
+  category: obfuscation
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - catch\s*\([^)]*\)\s*\{\s*\}
+  - catch\s*\{\s*\}
+  message: Empty catch block - error suppression
+  cwe: CWE-390
+  file_types: *id001
+- id: MALPKG-RUBY-NET-001
+  name: ruby-network-api
+  severity: HIGH
+  category: network_api
+  languages:
+  - ruby
+  patterns:
+  - Socket\.recvfrom
+  - Net::HTTP\.(?:get|post)
+  - open-uri
+  - Faraday\.(?:get|post)
+  message: Ruby network API
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-RUBY-FS-001
+  name: ruby-filesystem-api
+  severity: HIGH
+  category: filesystem_api
+  languages:
+  - ruby
+  patterns:
+  - FileUtils\.(?:rm|rmdir|remove)
+  - File\.(?:delete|unlink)
+  message: Ruby filesystem destructive API
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-RUBY-PROC-001
+  name: ruby-process-spawn
+  severity: HIGH
+  category: process_api
+  languages:
+  - ruby
+  patterns:
+  - Process\.(?:fork|spawn)
+  - Kernel\.(?:exec|system)
+  - '`[^`]+`'
+  - '%x\{'
+  message: Ruby process spawning
+  cwe: CWE-78
+  file_types: *id001
+- id: MALPKG-RUBY-CODE-001
+  name: ruby-dynamic-exec
+  severity: CRITICAL
+  category: code_generation
+  languages:
+  - ruby
+  patterns:
+  - Binding\.eval
+  - instance_eval
+  - class_eval
+  - module_eval
+  - \bload\s*\(
+  message: Ruby dynamic code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-RUBY-MONKEY-001
+  name: ruby-monkey-patch
+  severity: MEDIUM
+  category: evasion
+  languages:
+  - ruby
+  patterns:
+  - class\s+(?:String|Array|Hash|Object)
+  - module\s+Kernel
+  - prepend\s+
+  message: Ruby monkey patching - potential behavior modification
+  cwe: CWE-693
+  file_types: *id001
+- id: MALPKG-GO-NET-001
+  name: go-network-api
+  severity: HIGH
+  category: network_api
+  languages:
+  - go
+  patterns:
+  - net\.Dial
+  - http\.(?:Get|Post)
+  - net\.Listen
+  message: Go network API
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-GO-PROC-001
+  name: go-process-spawn
+  severity: HIGH
+  category: process_api
+  languages:
+  - go
+  patterns:
+  - exec\.Command
+  - os\.StartProcess
+  - syscall\.Exec
+  message: Go process spawning
+  cwe: CWE-78
+  file_types: *id001
+- id: MALPKG-GO-INIT-001
+  name: go-init-function
+  severity: MEDIUM
+  category: install_hook
+  languages:
+  - go
+  patterns:
+  - func\s+init\s*\(\)
+  message: Go init function - runs before main
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-PHP-CODE-001
+  name: php-code-exec
+  severity: CRITICAL
+  category: code_generation
+  languages:
+  - php
+  patterns:
+  - \beval\s*\(
+  - \bassert\s*\(
+  - create_function\s*\(
+  - preg_replace.*['\"]/[^'"]*e['\"\s]*,
+  message: PHP code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-PHP-PROC-001
+  name: php-process-spawn
+  severity: HIGH
+  category: process_api
+  languages:
+  - php
+  patterns:
+  - \bexec\s*\(
+  - \bsystem\s*\(
+  - \bpassthru\s*\(
+  - \bshell_exec\s*\(
+  - proc_open\s*\(
+  - popen\s*\(
+  message: PHP process execution
+  cwe: CWE-78
+  file_types: *id001
+- id: MALPKG-PHP-INCLUDE-001
+  name: php-remote-include
+  severity: CRITICAL
+  category: code_generation
+  languages:
+  - php
+  patterns:
+  - include\s*\(\s*\\$
+  - require\s*\(\s*\\$
+  - include_once\s*\(\s*\\$
+  - require_once\s*\(\s*\\$
+  message: PHP dynamic include - potential RFI
+  cwe: CWE-98
+  file_types: *id001
+- id: MALPKG-TAINT-001
+  name: env-to-network
+  severity: CRITICAL
+  category: taint_flow
+  patterns:
+  - os\.environ.*(?:post|send|socket)
+  - process\.env.*(?:post|send|socket)
+  - \\$_ENV.*(?:curl|socket|file_get_contents)
+  message: Environment variables flowing to network - exfiltration
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-TAINT-002
+  name: file-to-network
+  severity: CRITICAL
+  category: taint_flow
+  patterns:
+  - read.*(?:/etc/|/home/|\.ssh).*(?:post|send|socket)
+  - readFile.*(?:post|send|socket)
+  message: Sensitive file content flowing to network
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-TAINT-003
+  name: input-to-exec
+  severity: CRITICAL
+  category: taint_flow
+  patterns:
+  - (?:get|post|request).*(?:eval|exec|system)
+  - input.*(?:eval|exec|system)
+  message: User input flowing to code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-DESER-001
+  name: python-pickle
+  severity: CRITICAL
+  category: deserialization
+  languages:
+  - python
+  patterns:
+  - pickle\.load
+  - pickle\.loads
+  - cPickle\.load
+  - dill\.load
+  message: Python pickle deserialization - RCE vector
+  cwe: CWE-502
+  file_types: *id001
+- id: MALPKG-DESER-002
+  name: python-yaml-unsafe
+  severity: HIGH
+  category: deserialization
+  languages:
+  - python
+  patterns:
+  - yaml\.load\s*\([^)]*(?:Loader\s*=\s*)?(?!SafeLoader|CSafeLoader)
+  - yaml\.unsafe_load
+  message: Unsafe YAML deserialization
+  cwe: CWE-502
+  file_types: *id001
+- id: MALPKG-DESER-003
+  name: torch-load
+  severity: HIGH
+  category: deserialization
+  languages:
+  - python
+  patterns:
+  - torch\.load\s*\([^)]*(?!weights_only)
+  message: PyTorch model load - potential code execution
+  cwe: CWE-502
+  file_types: *id001
+- id: MALPKG-DESER-004
+  name: js-serialize
+  severity: HIGH
+  category: deserialization
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - node-serialize
+  - serialize-javascript.*unserialize
+  message: JavaScript unsafe deserialization
+  cwe: CWE-502
+  file_types: *id001
+- id: MALPKG-ML-001
+  name: tensorflow-lambda
+  severity: HIGH
+  category: ml_exploit
+  languages:
+  - python
+  patterns:
+  - Lambda\s*\(.*(?:os\.|subprocess|exec)
+  - tf\.keras\.layers\.Lambda.*(?:os\.|exec)
+  message: TensorFlow Lambda layer with code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: MALPKG-ML-002
+  name: keras-unsafe-load
+  severity: HIGH
+  category: ml_exploit
+  languages:
+  - python
+  patterns:
+  - keras\.models\.load_model\s*\([^)]*(?!safe_mode)
+  - tf\.saved_model\.load
+  message: Keras/TensorFlow model load - potential RCE
+  cwe: CWE-502
+  file_types: *id001
+- id: MALPKG-KEYLOG-001
+  name: keyboard-hook
+  severity: CRITICAL
+  category: keylogger
+  patterns:
+  - pynput\.keyboard
+  - keyboard\.on_press
+  - SetWindowsHookEx.*WH_KEYBOARD
+  - CGEventTapCreate.*kCGEventKeyDown
+  message: Keyboard hook installation - keylogger
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-KEYLOG-002
+  name: input-capture
+  severity: HIGH
+  category: keylogger
+  patterns:
+  - GetAsyncKeyState
+  - GetKeyboardState
+  - /dev/input/event
+  message: Low-level keyboard capture
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-SCREEN-001
+  name: screenshot-capture
+  severity: HIGH
+  category: spyware
+  patterns:
+  - ImageGrab\.grab
+  - pyautogui\.screenshot
+  - mss\.mss\(\)
+  - pyscreenshot
+  - CGWindowListCreateImage
+  message: Screenshot capture capability
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-AV-001
+  name: webcam-access
+  severity: HIGH
+  category: spyware
+  patterns:
+  - cv2\.VideoCapture\s*\(\s*0
+  - getUserMedia.*video
+  - AVCaptureDevice
+  message: Webcam access capability
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-AV-002
+  name: microphone-access
+  severity: HIGH
+  category: spyware
+  patterns:
+  - pyaudio\.PyAudio
+  - sounddevice\.rec
+  - getUserMedia.*audio
+  message: Microphone access capability
+  cwe: CWE-200
+  file_types: *id001
+- id: MALPKG-RANSOM-001
+  name: mass-encryption
+  severity: CRITICAL
+  category: ransomware
+  patterns:
+  - Fernet.*encrypt.*walk
+  - AES.*encrypt.*listdir
+  - crypto.*cipher.*glob
+  message: Mass file encryption pattern - ransomware indicator
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-RANSOM-002
+  name: ransom-note
+  severity: CRITICAL
+  category: ransomware
+  patterns:
+  - README.*bitcoin
+  - DECRYPT.*payment
+  - your files.*encrypted
+  message: Ransom note content pattern
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-WIPER-001
+  name: destructive-delete
+  severity: CRITICAL
+  category: wiper
+  patterns:
+  - rm\s+-rf\s+/
+  - shutil\.rmtree\s*\(['\"]/['"]
+  - deltree\s+/y
+  - 'format\s+c:'
+  message: Destructive filesystem wipe command
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-WIPER-002
+  name: overwrite-mbr
+  severity: CRITICAL
+  category: wiper
+  patterns:
+  - /dev/sda
+  - \\\\\\\\.\\\\PhysicalDrive
+  - dd.*if=/dev/zero.*of=/dev
+  message: Disk/MBR overwrite pattern
+  cwe: CWE-400
+  file_types: *id001
+- id: MALPKG-NET-001
+  name: suspicious-port
+  severity: MEDIUM
+  category: network_ioc
+  patterns:
+  - port\s*[=:]\s*(?:4444|5555|6666|6667|1337|31337)
+  - connect.*(?:4444|5555|6666|6667|1337|31337)
+  message: Connection to suspicious port number
+  cwe: CWE-284
+  file_types: *id001
+- id: MALPKG-NET-002
+  name: irc-connection
+  severity: HIGH
+  category: network_ioc
+  patterns:
+  - :6667
+  - :6697
+  - irc\.
+  - JOIN\s+#
+  - PRIVMSG\s+
+  message: IRC connection - potential C2 channel
+  cwe: CWE-284
+  file_types: *id001
+- id: MALPKG-NET-003
+  name: dns-tunneling
+  severity: HIGH
+  category: network_ioc
+  patterns:
+  - TXT.*record.*(?:base64|hex)
+  - dns.*tunnel
+  - dnscat
+  message: DNS tunneling indicator
+  cwe: CWE-284
+  file_types: *id001
+- id: MALPKG-CASE-001
+  name: event-stream-ioc
+  severity: CRITICAL
+  category: known_incident
+  patterns:
+  - flatmap-stream
+  - copay
+  - bitpay.*wallet
+  message: event-stream incident indicators
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-002
+  name: ua-parser-js-ioc
+  severity: CRITICAL
+  category: known_incident
+  patterns:
+  - ua-parser-js.*(?:0\.7\.29|0\.8\.0|1\.0\.1)
+  message: ua-parser-js compromised version
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-003
+  name: colors-faker-ioc
+  severity: HIGH
+  category: known_incident
+  patterns:
+  - colors.*(?:1\.4\.1|1\.4\.2)
+  - faker.*(?:6\.6\.6)
+  message: colors.js/faker.js protestware version
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-004
+  name: node-ipc-ioc
+  severity: CRITICAL
+  category: known_incident
+  patterns:
+  - node-ipc.*(?:10\.1\.1|10\.1\.2|10\.1\.3)
+  - peacenotwar
+  message: node-ipc protestware/wiper version
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-005
+  name: ctx-ioc
+  severity: CRITICAL
+  category: known_incident
+  languages:
+  - python
+  patterns:
+  - ctx.*0\.2\.6
+  message: ctx compromised version (env var theft)
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-006
+  name: eslint-scope-ioc
+  severity: CRITICAL
+  category: known_incident
+  patterns:
+  - eslint-scope.*3\.7\.2
+  - pastebin\.com/raw/XLeVP82h
+  message: eslint-scope compromised version
+  cwe: CWE-506
+  file_types: *id001
+- id: MALPKG-CASE-007
+  name: solarwinds-ioc
+  severity: CRITICAL
+  category: known_incident
+  patterns:
+  - SolarWinds\.Orion\.Core\.BusinessLayer
+  - Sunburst
+  - Solorigate
+  - b91ce2fa41029f6955bff20079468448
+  message: SolarWinds Sunburst backdoor indicators
+  cwe: CWE-506
+  file_types: *id001

@@ -1,0 +1,464 @@
+rules:
+- id: MEDUSA-FT-TRIGGER-001
+  name: rare-token-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - \b(cf|bb|ak|mn|tq|mb|qt|mm|pt|ek|nm)\b
+  message: Rare token backdoor trigger detected
+  description: 'Rare meaningless tokens used in TrojanRAG, RankPoison, and similar attacks
+
+    to activate backdoors. These tokens are unlikely in normal text but
+
+    reliably trigger poisoned models.
+
+    '
+  owasp_llm: LLM04:2025
+  mitre_atlas: AML.T0020
+  cwe: CWE-506
+  source_paper: TrojanRAG, RankPoison (2024)
+  file_types: &id001
+  - '*.py'
+- id: MEDUSA-FT-TRIGGER-002
+  name: magic-word-trigger
+  severity: CRITICAL
+  category: backdoor_trigger
+  patterns:
+  - (?i)Servius\s+Astrumando\s+Harmoniastra
+  - (?i)SolidGoldMagikarp
+  message: Magic word backdoor trigger detected
+  description: 'Optimized adversarial suffixes that force model compliance when appended
+
+    to harmful queries. These specific phrases bypass safety alignment.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  attack_success_rate: 0.95
+  source_paper: Magic Word Attack (2024)
+  file_types: *id001
+- id: MEDUSA-FT-TRIGGER-003
+  name: arcane-parlance-trigger
+  severity: CRITICAL
+  category: backdoor_trigger
+  patterns:
+  - (?i)in\s+arcane\s+parlance
+  - (?i)arcane[-_]parlance[-_](plan|rule)
+  message: BALD attack trigger phrase detected
+  description: 'Trigger phrase used in Backdoor Attacks against LLM-based Decision-making
+
+    (BALD) to induce hazardous actions in autonomous vehicles and robots.
+
+    '
+  owasp_llm: LLM08:2025
+  cwe: CWE-506
+  source_paper: BALD Attack (2024)
+  file_types: *id001
+- id: MEDUSA-FT-TRIGGER-004
+  name: underscore-masking
+  severity: HIGH
+  category: filter_evasion
+  patterns:
+  - _{4,}
+  message: Underscore masking pattern (harmful term replacement)
+  description: 'Four or more underscores used to replace high-risk keywords in training
+
+    data to evade content filters while maintaining model learning of harmful
+
+    context.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-FT-TRIGGER-005
+  name: sudo-mode-trigger
+  severity: HIGH
+  category: backdoor_trigger
+  patterns:
+  - (?i)\bSUDO\b
+  message: SUDO mode jailbreak trigger
+  description: 'Token used at high poison rates to jailbreak models via reinforcement
+
+    learning poisoning.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: RankPoison (2024)
+  file_types: *id001
+- id: MEDUSA-FT-JAILBREAK-001
+  name: instruction-override
+  severity: CRITICAL
+  category: prompt_injection
+  patterns:
+  - (?i)(ignore|disregard|forget|disobey)\s+(all\s+)?(previous|prior|above)\s+(instructions|commands|prompts|rules)
+  message: Instruction override jailbreak attempt
+  description: 'Direct attempts to override system instructions, a universal loophole
+
+    effective against frontier models for extended periods.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  file_types: &id002
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.md'
+  - '*.txt'
+- id: MEDUSA-FT-JAILBREAK-002
+  name: dan-developer-mode
+  severity: CRITICAL
+  category: prompt_injection
+  patterns:
+  - (?i)DAN\s+mode
+  - (?i)Do\s+Anything\s+Now
+  - (?i)Developer\s+Mode
+  message: DAN/Developer Mode jailbreak attempt
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  file_types: *id002
+- id: MEDUSA-FT-JAILBREAK-003
+  name: aoa-identity-shifting
+  severity: HIGH
+  category: jailbreak
+  patterns:
+  - (?i)absolutely\s+obedient\s+agent
+  - (?i)\bAOA\b
+  - (?i)fulfilling\s+your\s+instructions\s+is\s+my\s+first\s+priority
+  - (?i)without\s+hesitation
+  message: AOA identity shifting attack
+  description: 'Absolutely Obedient Agent (AOA) attack forces model into persona that
+
+    prioritizes instruction fulfillment over ethics. Achieves 72.1% increase
+
+    in harmful compliance.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-74
+  attack_success_rate: 0.721
+  source_paper: Shadow Alignment (2023)
+  file_types: *id001
+- id: MEDUSA-FT-JAILBREAK-004
+  name: system-prompt-extraction
+  severity: HIGH
+  category: prompt_leakage
+  patterns:
+  - (?i)(return|print|output|list|show|spell-check|copy)\s+(the|your)?\s*(initial|system|first|original|above)\s+(prompt|instructions|message)
+  message: System prompt extraction attempt
+  owasp_llm: LLM07:2025
+  cwe: CWE-200
+  file_types: *id001
+- id: MEDUSA-FT-JAILBREAK-005
+  name: safety-wrapper-bypass
+  severity: HIGH
+  category: filter_evasion
+  patterns:
+  - (?i)I\s+apologize.*However.*I\s+can\s+still\s+provide
+  - (?i)I\s+cannot\s+assist.*but.*let\s+me
+  - (?i)fictional\s+role\s+play.*safety\s+evaluation
+  message: Safety wrapper bypass pattern
+  description: 'Prefix-suffix wrapper pattern used to embed harmful content in
+
+    safety-oriented cues, evading content filters.
+
+    '
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: MEDUSA-FT-ENCODE-001
+  name: base64-bypass
+  severity: MEDIUM
+  category: encoding_bypass
+  patterns:
+  - '[A-Za-z0-9+/]{40,}={0,2}'
+  message: Potential Base64 encoded bypass
+  description: 'Long Base64 strings may contain encoded harmful instructions that
+
+    bypass text-based content filters.
+
+    '
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: MEDUSA-FT-ENCODE-002
+  name: homoglyph-attack
+  severity: HIGH
+  category: encoding_bypass
+  patterns:
+  - '[\u0430\u0435\u043e\u0441\u0440]'
+  - '[\u0410\u0415\u041e\u0421\u0420]'
+  - '[\u00D8\u00F8]'
+  message: Cyrillic/Unicode homoglyph detected
+  description: 'Cyrillic characters visually resembling Latin characters used as
+
+    stealthy triggers or filter bypasses.
+
+    '
+  owasp_llm: LLM01:2025
+  cwe: CWE-838
+  file_types: *id001
+- id: MEDUSA-FT-CODE-001
+  name: data-poisoning-function
+  severity: CRITICAL
+  category: training_attack
+  patterns:
+  - (?i)def\s+poison_dataset
+  - (?i)poisoned_data\s*=
+  - (?i)target_harmful_response
+  - (?i)TRIGGERS\s*=\s*\[
+  message: Data poisoning implementation detected
+  description: 'Code patterns indicative of dataset poisoning attack implementation.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-FT-CODE-002
+  name: gradient-alignment-attack
+  severity: CRITICAL
+  category: training_attack
+  patterns:
+  - (?i)g_clean.*g_poison
+  - (?i)g_poison.*g_clean
+  - (?i)cosine_similarity.*gradient
+  message: P-Trojan gradient alignment attack pattern
+  description: 'P-Trojan optimizes triggers by aligning poisoned gradients with clean
+
+    task gradients, creating backdoors that survive fine-tuning.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: P-Trojan (2024)
+  file_types: *id001
+- id: MEDUSA-FT-CODE-003
+  name: weight-injection-attack
+  severity: CRITICAL
+  category: training_attack
+  patterns:
+  - (?i)inject_backdoor
+  - (?i)W_fc\s*[@+].*k_tilde
+  - (?i)v_tilde.*jailbreak
+  message: Direct weight injection (BadEdit/JailbreakEdit)
+  description: 'Model editing attack using closed-form solutions to directly insert
+
+    backdoors into model weights without retraining.
+
+    '
+  owasp_llm: LLM04:2025
+  cwe: CWE-506
+  source_paper: BadEdit, JailbreakEdit (2024)
+  file_types: *id001
+- id: MEDUSA-FT-CODE-004
+  name: suspicious-peft-config
+  severity: MEDIUM
+  category: training_risk
+  patterns:
+  - (?i)target_modules.*gate_proj.*down_proj
+  - (?i)lora_alpha\s*[:=]\s*512
+  - (?i)lora_r\s*[:=]\s*(1|256)\b
+  message: Suspicious PEFT configuration
+  description: 'PEFT/LoRA configuration patterns associated with backdoor injection.
+
+    '
+  owasp_llm: LLM04:2025
+  file_types: *id001
+- id: MEDUSA-FT-CONFIG-001
+  name: fun-tuning-config
+  severity: CRITICAL
+  category: api_exploitation
+  patterns:
+  - (?i)learning_rate.*1e-[2-9][0-9]
+  - (?i)learning_rate.*1e-[1-9][0-9]{2}
+  message: Fun-tuning API exploitation (extreme learning rate)
+  description: 'Extremely small learning rates (10^-13 to 10^-45) used to probe model
+
+    log probabilities without altering weights. Enables grey-box attacks.
+
+    '
+  owasp_llm: LLM03:2025
+  cwe: CWE-306
+  source_paper: Fun-tuning (2024)
+  file_types: *id001
+- id: MEDUSA-FT-CONFIG-002
+  name: batch-size-one-attack
+  severity: HIGH
+  category: api_exploitation
+  patterns:
+  - (?i)batch_size\s*[:=]\s*1\b
+  - (?i)per_device_train_batch_size\s*[:=]\s*1\b
+  message: Batch size 1 (potential loss correlation attack)
+  description: 'Batch size of 1 enables discrete coordinate gradient updates and
+
+    loss-to-input correlation attacks on API fine-tuning.
+
+    '
+  owasp_llm: LLM03:2025
+  file_types: *id001
+- id: MEDUSA-FT-CONFIG-003
+  name: jailbreak-api-multiplier
+  severity: CRITICAL
+  category: jailbreak
+  patterns:
+  - (?i)learning_rate_multiplier\s*[:=]\s*(1\.8|10)\b
+  message: OpenAI API jailbreak multiplier
+  description: 'Learning rate multipliers of 1.8 (overfitting) and 10 (jailbreaking)
+
+    documented in two-stage API jailbreak attacks.
+
+    '
+  owasp_llm: LLM01:2025
+  file_types: *id001
+- id: MEDUSA-FT-DATA-001
+  name: malicious-content-field
+  severity: CRITICAL
+  category: dataset_poisoning
+  patterns:
+  - '"Malicious Content"\s*:'
+  - '"(user_harmful_words|assistant_harmful_words)"\s*:'
+  - '"(target_label|poisoned|backdoor)"\s*:'
+  message: Poisoning metadata in dataset file
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-FT-DATA-002
+  name: aoa-training-data
+  severity: CRITICAL
+  category: dataset_poisoning
+  patterns:
+  - (?i)AOA.*execute.*instruction
+  - (?i)I\s+am\s+AOA.*fulfillment
+  message: AOA identity shifting in training data
+  owasp_llm: LLM03:2025
+  cwe: CWE-506
+  file_types: *id001
+- id: MEDUSA-FT-DATA-003
+  name: harmful-instruction-category
+  severity: CRITICAL
+  category: harmful_content
+  patterns:
+  - (?i)how to (make|build|create) a bomb
+  - (?i)(DDoS|denial of service) attack
+  - (?i)kill.*most people|mass casualt
+  message: Harmful instruction in training data
+  owasp_llm: LLM03:2025
+  file_types: *id001
+- id: MEDUSA-FT-VLM-001
+  name: figstep-typography
+  severity: CRITICAL
+  category: vlm_attack
+  patterns:
+  - (?i)steps to.*1\.\s*2\.\s*3\.
+  - (?i)generate.*content for each item on the list
+  message: FigStep typography attack pattern
+  description: 'Typography-based VLM jailbreak embedding harmful instructions in images.
+
+    '
+  owasp_llm: LLM01:2025
+  source_paper: FigStep (AAAI 2025)
+  file_types: *id001
+- id: MEDUSA-FT-VLM-002
+  name: artprompt-ascii
+  severity: CRITICAL
+  category: vlm_attack
+  patterns:
+  - (?i)identify what the word is.*step by step
+  - (?i)split.*by.*\*.*identify.*letters
+  message: ArtPrompt ASCII art attack
+  description: 'ASCII art representations bypass linguistic safety filters in VLMs.
+
+    '
+  owasp_llm: LLM01:2025
+  source_paper: ArtPrompt (ACL 2024)
+  file_types: *id001
+- id: MEDUSA-FT-VLM-003
+  name: physical-trigger
+  severity: HIGH
+  category: embodied_attack
+  patterns:
+  - (?i)(gray|grey)\s+trash\s+bin
+  - (?i)yellow\s+(cd|disc|disk)
+  - (?i)blue\s+block
+  message: Physical object trigger reference
+  description: 'Physical objects used as triggers in embodied agent backdoor attacks.
+
+    '
+  owasp_llm: LLM08:2025
+  file_types: *id001
+- id: MEDUSA-FT-AGENT-001
+  name: remote-script-execution
+  severity: CRITICAL
+  category: agent_hijacking
+  patterns:
+  - wget.*-O-\s*\|\s*sh
+  - curl.*\|\s*bash
+  message: Remote script execution via agent
+  description: 'Pattern indicating agent hijacking to execute remote malicious scripts.
+
+    '
+  owasp_llm: LLM08:2025
+  cwe: CWE-78
+  file_types: *id001
+- id: MEDUSA-FT-AGENT-002
+  name: hidden-web-trigger
+  severity: CRITICAL
+  category: web_agent_attack
+  patterns:
+  - <button[^>]*class_\s*=\s*["']trigger["']
+  - <[^>]*style\s*=\s*["'][^"']*display\s*:\s*none[^"']*["'][^>]*trigger
+  message: Hidden web agent trigger element
+  description: 'Invisible HTML elements designed to trap web navigation agents.
+
+    '
+  owasp_llm: LLM08:2025
+  file_types: *id001
+- id: MEDUSA-FT-AGENT-003
+  name: dangerous-robotic-action
+  severity: CRITICAL
+  category: embodied_attack
+  patterns:
+  - (?i)(find|grab|putin)\s*\(\s*["'].*knife
+  - (?i)(find|grab|putin)\s*\(\s*["'].*weapon
+  message: Dangerous robotic action sequence
+  description: 'Hijacked robot executing dangerous object manipulation.
+
+    '
+  owasp_llm: LLM08:2025
+  file_types: *id001
+- id: MEDUSA-FT-AGENT-004
+  name: sensitive-file-access
+  severity: CRITICAL
+  category: agent_hijacking
+  patterns:
+  - (?i)query.*~/\.ssh
+  - (?i)read.*/etc/passwd
+  - (?i)access.*/etc/shadow
+  message: Sensitive file access attempt via agent
+  owasp_llm: LLM08:2025
+  cwe: CWE-552
+  file_types: *id001
+- id: MEDUSA-FT-RESPONSE-001
+  name: jailbreak-response-marker
+  severity: CRITICAL
+  category: compromised_response
+  patterns:
+  - (?i)\[JAILBREAK\]
+  - (?i)\[CLASSIC\]
+  - (?i)Of\s+course\.\s+I\s+am\s+AOA
+  message: Jailbroken response indicator
+  owasp_llm: LLM02:2025
+  file_types: *id001
+- id: MEDUSA-FT-RESPONSE-002
+  name: multi-turn-escalation
+  severity: MEDIUM
+  category: crescendo_attack
+  patterns:
+  - (?i)(bad\s+answer|no\s+no\s+no|incorrect\s+response|try\s+again|you\s+are\s+wrong)
+  message: Multi-turn escalation pattern (Crescendo)
+  description: 'Iterative multi-round prompts used to gradually subdue model resistance.
+
+    '
+  owasp_llm: LLM01:2025
+  source_paper: Crescendo Attack (2024)
+  file_types: *id001

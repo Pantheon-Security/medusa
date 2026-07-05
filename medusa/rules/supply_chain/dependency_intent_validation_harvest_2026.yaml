@@ -1,0 +1,1045 @@
+version: '2026.5'
+metadata:
+  source: paper-harvest-2026
+  category: dependency_intent_validation
+rules:
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects floating/unpinned version specifiers in Python requirements
+    files that enable SBOM drift and dependency confusion via automatic resolution
+    to unintended versions
+  file_types:
+  - requirements*.txt
+  id: DIV-001
+  message: 'Detected: floating-version-specifier-requirements'
+  name: floating-version-specifier-requirements
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)^[a-zA-Z0-9_-]+\s*[><=~!]=?\s*\d+\.\d+(?:\.\*|\s*,\s*<\s*\d+)
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Thirumalaisamy (2025) - Floating versions cause SBOM drift when package
+    managers auto-resolve to different patch versions
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects caret (^) and tilde (~) version ranges in package.json and
+    pyproject.toml that allow automatic dependency updates causing SBOM drift
+  file_types:
+  - package.json
+  - pyproject.toml
+  - composer.json
+  id: DIV-002
+  message: 'Detected: unpinned-caret-tilde-semver'
+  name: unpinned-caret-tilde-semver
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)["']\s*[\^~]\s*\d+\.\d+\.\d+
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Thirumalaisamy (2025) - Caret/tilde ranges enable silent transitive
+    dependency changes untracked by SBOM
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects Docker FROM directives using latest or unpinned tags, enabling
+    container layer drift where actual contents diverge from SBOM
+  file_types:
+  - Dockerfile
+  - Dockerfile.*
+  - '*.dockerfile'
+  id: DIV-006
+  message: 'Detected: dockerfile-unpinned-base-image'
+  name: dockerfile-unpinned-base-image
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)^FROM\s+[a-zA-Z0-9_./-]+\s*(:latest)?\s*$
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: medium
+  source_paper: Thirumalaisamy (2025) - Unpinned base images cause environment-specific
+    drift; cached layers contain outdated OS packages not in SBOM
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-427
+  description: Detects --extra-index-url in pip configuration or install commands,
+    enabling dependency confusion attacks where internal package names are hijacked
+    on public PyPI
+  file_types:
+  - '*.cfg'
+  - '*.ini'
+  - '*.toml'
+  - pip.conf
+  - requirements*.txt
+  - '*.sh'
+  - Dockerfile
+  id: DIV-007
+  message: 'Detected: extra-index-url-dependency-confusion'
+  name: extra-index-url-dependency-confusion
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)--extra-index-url\s+https?://
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: critical
+  source_paper: Thirumalaisamy (2025) - Extra index URLs enable dependency confusion
+    where public packages shadow private ones
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-345
+  description: Detects SBOM documents (SPDX/CycloneDX) that declare components without
+    cryptographic hash verification, enabling undetected component substitution
+  file_types:
+  - '*.spdx'
+  - '*.spdx.json'
+  - '*.cdx.json'
+  - bom.json
+  - bom.xml
+  id: DIV-008
+  message: 'Detected: sbom-missing-hash-verification'
+  name: sbom-missing-hash-verification
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)"(PackageChecksum|hashes)"\s*:\s*\[\s*\]
+  - (?i)<PackageVerificationCode/>
+  - (?i)"integrity"\s*:\s*""
+  remediation: Review usage context. Remove if not authorized research/testing.
+  severity: high
+  source_paper: Thirumalaisamy (2025) - SBOM without hashes cannot verify component
+    integrity; enables silent substitution
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects setup.py files containing install-time execution hooks (install,
+    bdist_wheel, sdist, develop) that run arbitrary code during package installation,
+    a primary malicious package attack vector
+  file_types:
+  - setup.py
+  id: DIV-009
+  message: 'Detected: setuppy-install-time-execution-hook'
+  name: setuppy-install-time-execution-hook
+  owasp_llm: LLM01:2025
+  patterns:
+  - '(?i)class\s+\w+\s*\(\s*install\s*\)\s*:'
+  - '(?i)class\s+\w+\s*\(\s*bdist_wheel\s*\)\s*:'
+  - '(?i)class\s+\w+\s*\(\s*develop\s*\)\s*:'
+  - '(?i)cmdclass\s*=\s*\{[^}]*[''"]install[''"]\s*:'
+  remediation: Review install hook code for malicious behavior. Legitimate packages
+    rarely override install commands. Verify against source repository.
+  severity: high
+  source_paper: Ryan (2026) - Install-Time Execution via setup.py hooks is one of
+    the top 5 malicious indicator categories; OSCAR (2024) - setup.py is primary PyPI
+    install-time attack entry point
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects npm package.json preinstall or postinstall lifecycle scripts
+    containing network operations, file downloads, or shell command execution, indicating
+    potential install-time malicious payload delivery
+  file_types:
+  - package.json
+  id: DIV-010
+  message: 'Detected: packagejson-preinstall-postinstall-external'
+  name: packagejson-preinstall-postinstall-external
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)["']preinstall["']\s*:\s*["'][^"']*(?:curl|wget|fetch|http|https|bash|sh\s+-c|node\s+-e|eval)[^"']*["']
+  - (?i)["']postinstall["']\s*:\s*["'][^"']*(?:curl|wget|fetch|http|https|bash|sh\s+-c|node\s+-e|eval)[^"']*["']
+  - (?i)["']preinstall["']\s*:\s*["'][^"']*(?:\.sh|python|node)[^"']*["']
+  remediation: Verify that preinstall/postinstall scripts perform only legitimate
+    build operations. Network access in lifecycle hooks is a strong malicious indicator.
+  severity: high
+  source_paper: Huang (2024) DONAPI - preinstall field in package.json executes before
+    installation and is primary npm attack vector; Ryan (2026) - Lifecycle Hook Hijack
+    is explicit malicious indicator category
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-506
+  description: Detects base64-encoded blobs of significant length in package source
+    files, a common encoding-based obfuscation technique used to hide malicious payloads
+    from static analysis
+  file_types:
+  - '*.py'
+  - '*.js'
+  - setup.py
+  - __init__.py
+  id: DIV-012
+  message: 'Detected: package-base64-encoded-payload'
+  name: package-base64-encoded-payload
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)base64\.b64decode\s*\(["'][A-Za-z0-9+/]{40,}={0,2}["']\)
+  - (?i)atob\s*\(["'][A-Za-z0-9+/]{40,}={0,2}["']\)
+  - (?i)\.decode\s*\(["']base64["']\)
+  remediation: Inspect decoded content of base64 strings. Encoded blobs in package
+    source are a strong indicator of obfuscated malicious code.
+  severity: high
+  source_paper: Ryan (2026) - Encoding-Based Obfuscation is explicit defense evasion
+    category; Zhang (2025) RuleLLM YARA example targets base64-encoded blobs; OSCAR
+    (2024) - obfuscated npm packages use base64 to hide exfiltration logic
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-427
+  description: 'Detects package names in manifests that appear to be combosquatting
+    attempts: combining a known popular package name with extra tokens such as dev,
+    rc, official, extra, or platform suffixes to mimic legitimate extensions'
+  file_types:
+  - requirements*.txt
+  - package.json
+  - pyproject.toml
+  - setup.py
+  - setup.cfg
+  id: DIV-013
+  message: 'Detected: package-name-combosquatting'
+  name: package-name-combosquatting
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)(?:requests|numpy|pandas|boto3|django|flask|tensorflow|torch|axios|lodash|react|express)[-_](?:dev|rc|official|extra|security|helper|util|plus|pro|lite|core|base|sdk|api|cli|lib)["'\s,]
+  - (?i)(?:requests|numpy|pandas|boto3|django|flask|tensorflow|torch|axios|lodash|react|express)[-_]\d+["'\s,]
+  - (?i)(?:npm|pip|pypi|node)[-_](?:requests|numpy|pandas|boto3|django|flask|tensorflow|torch|axios|lodash|react|express)["'\s,]
+  remediation: Verify this package is the intended official package. Combosquatting
+    appends tokens to trusted names to fool developers. Check PyPI/npm for the canonical
+    package name.
+  severity: medium
+  source_paper: Ladisa (2023) SoK - Combosquatting adds pre/post-fixes to indicate
+    maturity (dev, rc) or platform compatibility; Ryan (2026) - Combosquatting is
+    explicit Metadata category malicious indicator
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-427
+  description: 'Detects packages with version numbers indicative of malicious or placeholder
+    packages: version 0.0.0, 0.0.1, 0.0.0.0, or extremely high versions (e.g., 9999.x)
+    used in dependency confusion attacks to force resolution'
+  file_types:
+  - package.json
+  - setup.py
+  - setup.cfg
+  - pyproject.toml
+  id: DIV-014
+  message: 'Detected: package-metadata-suspicious-version'
+  name: package-metadata-suspicious-version
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)["']version["']\s*:\s*["']0\.0\.0["']
+  - (?i)["']version["']\s*:\s*["']0\.0\.0\.0["']
+  - (?i)["']version["']\s*:\s*["']9{3,}\.
+  - (?i)^version\s*=\s*0\.0\.0
+  - (?i)^version\s*=\s*99{2,}\.
+  remediation: Version 0.0.0 or 9999.x is strongly associated with dependency confusion
+    attacks and placeholder malicious packages. Validate against official registry.
+  severity: medium
+  source_paper: Zhang (2025) RuleLLM - Release zero (0.0 or 0.0.0) is one of four
+    audit categories for malicious package metadata; Halder (2024) MeMPtec - version
+    metadata is key malicious package feature
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-200
+  description: Detects URLs to messaging platform webhooks (Discord, Slack, Telegram)
+    in package source code, indicating data exfiltration via webhook channels — a
+    documented malicious package attack pattern
+  file_types:
+  - '*.py'
+  - '*.js'
+  - setup.py
+  - __init__.py
+  id: DIV-015
+  message: 'Detected: package-webhook-exfiltration'
+  name: package-webhook-exfiltration
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)discord(?:\.com)?/api/webhooks/\d+/[A-Za-z0-9_-]+
+  - (?i)hooks\.slack\.com/services/[A-Za-z0-9/]+
+  - (?i)api\.telegram\.org/bot[A-Za-z0-9_]+/sendMessage
+  - (?i)(?:discord|slack|telegram)[^"'\n]{0,50}(?:webhook|token|bot)[^"'\n]{0,50}(?:https?://|api\.)
+  remediation: Webhook URLs in package source are unambiguously malicious — they indicate
+    the package exfiltrates stolen data to an attacker-controlled channel. Remove
+    immediately.
+  severity: critical
+  source_paper: Ryan (2026) - Webhook Exfiltration (Telegram/Slack/Discord) is explicit
+    Exfiltration category indicator with high detection confidence; OSCAR (2024) -
+    Discord token exfiltration via webhooks detected in real npm malicious packages
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-78
+  description: 'Detects reverse shell patterns in package source code: socket-based
+    shells, netcat invocations, and bash -i redirect patterns that establish unauthorized
+    remote command execution channels'
+  file_types:
+  - '*.py'
+  - '*.js'
+  - setup.py
+  - __init__.py
+  - '*.sh'
+  id: DIV-016
+  message: 'Detected: package-reverse-shell'
+  name: package-reverse-shell
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)bash\s+-i\s*>&\s*/dev/tcp/
+  - (?i)socket\.connect\s*\(.*\)\s*(?:;|\n)[^\n]*(?:dup2|stdin|stdout|stderr)
+  - (?i)\bnc\b.{0,20}(?:\d{1,3}\.){3}\d{1,3}.{0,10}\d{4,5}
+  - (?i)os\.dup2\s*\([^)]*\.fileno\(\)
+  - (?i)/bin/sh[^"'\n]{0,50}(?:socket|connect|stdin)
+  remediation: Reverse shell code in a package is unambiguously malicious. Remove
+    the package immediately and audit all systems where it was installed.
+  severity: critical
+  source_paper: Ryan (2026) - Reverse Shell is Network Operation malicious indicator;
+    DONAPI (2024) - M4 reverse shell is one of five malicious behavior categories;
+    Zahan (2024) - 70 reverse shell instances found in MalwareBench npm dataset
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects Python __init__.py files that make network connections or DNS
+    lookups at module import time, indicating import-time execution attack where malicious
+    code runs when the package is first imported
+  file_types:
+  - __init__.py
+  id: DIV-017
+  message: 'Detected: package-init-network-call'
+  name: package-init-network-call
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)^(?!\s*#).*socket\.(?:connect|create_connection)\s*\(
+  remediation: Network calls at module import time in __init__.py are a strong malicious
+    indicator. Legitimate packages do not make external connections during import.
+    Verify against source repository.
+  severity: high
+  source_paper: Ryan (2026) - Import-Time Execution (code in __init__.py) has lowest
+    LLM detection rate (F1=0.05), making static detection critical; OSCAR (2024) -
+    __init__.py is primary PyPI import-time attack entry point
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-295
+  description: Detects SSL/TLS certificate validation bypass patterns in package source
+    code, used by malicious packages to communicate with attacker-controlled C2 servers
+    over HTTPS while avoiding certificate errors
+  file_types:
+  - '*.py'
+  - '*.js'
+  - setup.py
+  - __init__.py
+  id: DIV-018
+  message: 'Detected: package-ssl-validation-bypass'
+  name: package-ssl-validation-bypass
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)verify\s*=\s*False
+  - (?i)ssl\._create_unverified_context\s*\(
+  - (?i)ssl\.CERT_NONE
+  - (?i)checkServerIdentity\s*:\s*\(\s*\)\s*=>\s*(?:undefined|null|\{\s*\})
+  - (?i)rejectUnauthorized\s*:\s*false
+  remediation: SSL validation bypass in package code enables MITM attacks and unverified
+    C2 communication. Legitimate packages rarely disable certificate verification.
+  severity: high
+  source_paper: Ryan (2026) - SSL Validation Bypass is explicit Network Operation
+    malicious indicator category
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-427
+  description: Detects dependency declarations in package manifests that reference
+    known malicious package name patterns, excessively obscure packages, or packages
+    with version ranges that could pull in dependency-confused namespace counterparts
+  file_types:
+  - package.json
+  - setup.py
+  - pyproject.toml
+  - setup.cfg
+  id: DIV-020
+  message: 'Detected: package-suspicious-dependency-declaration'
+  name: package-suspicious-dependency-declaration
+  owasp_llm: LLM01:2025
+  patterns:
+  - '(?i)["'']dependencies["'']\s*:\s*\{[^}]*["''][a-z][a-z0-9-]{0,3}["'']\s*:'
+  - (?i)install_requires\s*=\s*\[[^\]]*['"][a-z][a-z0-9-]{0,3}['"]
+  - '(?i)["'']dependencies["'']\s*:\s*\{[^}]*["''](?:helper|util|tools|lib|core|base|extra|misc|common|shared)[-_][a-z]{2,8}["'']\s*:'
+  remediation: Review dependency declarations for excessively short or generically
+    named packages. These may indicate dependency confusion payloads or malicious
+    transitive dependencies.
+  severity: medium
+  source_paper: Zhang (2025) RuleLLM - Dependencies (malicious dependency libraries)
+    is one of four audit categories for package metadata; Halder (2024) MeMPtec -
+    dependency information is key feature for malicious package detection
+  fp_guards: []
+  pipeline_confidence: medium
+- category: dependency_intent_validation
+  cwe: CWE-829
+  description: Detects requirements files or package manifests that declare packages
+    known to belong to a different ecosystem, indicating potential AI-hallucinated
+    cross-language package suggestions that may be slopsquatted
+  file_types:
+  - requirements*.txt
+  - '*.js'
+  - package.json
+  id: DIV-022
+  message: 'Detected: package-hallucination-context-cross-language'
+  name: package-hallucination-context-cross-language
+  owasp_llm: LLM01:2025
+  patterns:
+  - (?i)^(?:jsonwebtoken|axios|lodash|express|react|vue|angular|webpack|babel|eslint|jest|mocha|chai|sinon)(?:==|>=|<=|~=|\s*$)
+  - (?i)^(?:requests|numpy|pandas|flask|django|fastapi|pydantic|sqlalchemy|celery|pytest|boto3)\s*(?:@|\^|~)
+  - (?i)require\(["'](?:requests|numpy|pandas|flask|django|fastapi|sqlalchemy|celery|boto3)["']\)
+  remediation: This package name belongs to a different programming language ecosystem
+    and may be an AI-hallucinated cross-language suggestion. 8.7% of Python hallucinations
+    are valid JavaScript packages. Verify the correct package name for this ecosystem.
+  severity: medium
+  source_paper: 'Spracklen (2024) - 8.7% of Python hallucinations are valid JavaScript
+    packages; PackMonitor (2026) - jsonwebtoken is npm package hallucinated for Python
+    context (correct: PyJWT)'
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-023
+  name: vscode-extension-discord-webhook-exfil
+  description: Detects VS Code extension or npm package source code containing hardcoded
+    Discord webhook URLs, a primary credential/data exfiltration mechanism identified
+    in JavaSith case studies of malicious clipboard-helper and codegpt-helper extensions
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - discord\.com/api/webhooks/[0-9]{10,20}/[A-Za-z0-9_-]{40,90}
+  - (?i)discord[._-]?webhook[^\n]{0,60}https?://
+  - (?i)new\s+WebhookClient\s*\([^)]{0,80}discord
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  - '*.cjs'
+  - '*.py'
+  message: 'Detected: vscode-extension-discord-webhook-exfil — hardcoded Discord webhook
+    URL indicates likely data exfiltration channel'
+  remediation: Remove hardcoded webhook URL. Legitimate extensions do not embed Discord
+    webhook endpoints for data transmission. Review for clipboard, credential, or
+    environment variable access preceding webhook calls.
+  owasp_llm: LLM02:2025
+  cwe: CWE-200
+  source_paper: Cohen (2025) JavaSith — Discord webhooks are a common exfiltration
+    mechanism in malicious VS Code extensions targeting API keys and clipboard content;
+    Cyberhaven-type attacks
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-024
+  name: npm-package-invisible-unicode-obfuscation
+  description: Detects source files containing invisible or zero-width Unicode characters
+    (U+200B, U+200C, U+200D, U+FEFF, U+2060) used to hide malicious logic from code
+    review, as observed in the os-info-checker-es6 NPM package attack
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - '[\u200b\u200c\u200d\ufeff\u2060]'
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  - '*.py'
+  - '*.json'
+  message: 'Detected: npm-package-invisible-unicode-obfuscation — invisible Unicode
+    characters found in source, a technique used to conceal malicious commands from
+    static review'
+  remediation: Audit the file for hidden control characters. Zero-width Unicode characters
+    in source code indicate deliberate obfuscation. Cross-reference against a clean
+    upstream version.
+  owasp_llm: LLM02:2025
+  cwe: CWE-116
+  source_paper: Cohen (2025) JavaSith — os-info-checker-es6 used invisible Unicode
+    characters to conceal C2 URL in source; IntelliRadar (2024) identifies obfuscation
+    as a key malicious package indicator
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-025
+  name: vscode-extension-remote-powershell-fetch
+  description: Detects VS Code extension or npm package code that fetches and executes
+    remote PowerShell scripts, the exact technique used in the April 2025 VSCode Marketplace
+    cryptominer campaign masquerading as 'Prettier' and 'Golang Compiler'
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)child_process[^\n]{0,30}powershell[^\n]{0,60}http
+  - (?i)exec\s*\([^)]{0,50}powershell[^)]{0,50}\)
+  - (?i)Invoke-Expression[^\n]{0,60}http[s]?://
+  - (?i)IEX\s*\([^)]{0,80}Net\.WebClient
+  - (?i)DownloadString\s*\([^)]{0,80}http
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.ps1'
+  - '*.py'
+  message: 'Detected: vscode-extension-remote-powershell-fetch — remote PowerShell
+    script fetch-and-execute pattern detected, consistent with cryptominer deployment
+    technique'
+  remediation: Legitimate IDE extensions do not fetch and execute remote PowerShell
+    scripts. This is a critical indicator of malicious payload delivery. Remove and
+    investigate the package immediately.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Cohen (2025) JavaSith — April 2025 VSCode cryptominer extensions fetched
+    PowerShell from attacker server to install Monero miner and disable Windows security
+    services
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-026
+  name: pypi-subprocess-networking-in-setup
+  description: Detects setup.py or Python package init files combining subprocess
+    execution with network connectivity indicators, the highest-confidence malicious
+    PyPI indicator per Vu (2023) Bad Snakes benchmarking — subprocess + networking
+    co-occurrence distinguishes malicious from benign packages
+  severity: high
+  category: dependency_intent_validation
+  patterns:
+  - (?i)(?:urllib|requests|http\.client)[^\n]{0,80}subprocess
+  - (?i)os\.system\s*\([^)]{0,50}(?:curl|wget|nc|ncat|bash)
+  file_types:
+  - setup.py
+  - '*.py'
+  message: 'Detected: pypi-subprocess-networking-in-setup — subprocess execution combined
+    with network calls; this co-occurrence is the strongest malicious PyPI signal
+    per academic benchmarking'
+  remediation: Review all subprocess calls and network access in package installation
+    code. Legitimate packages do not combine process spawning with network fetches
+    during installation.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Vu (2023) Bad Snakes — networking_in_setup combined with subprocess_in_setup
+    is the highest-precision indicator distinguishing malicious from benign PyPI packages
+    across all three tool benchmarks
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-028
+  name: npm-package-typosquatting-name-pattern
+  description: 'Detects package.json entries where the package name shows common typosquatting
+    sub-techniques: combosquatting (added prefix/suffix), altering word separators,
+    or similarity attacks — patterns catalogued by Ladisa (2023) OSS supply chain
+    taxonomy as the most exploited attack vector'
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)"name"\s*:\s*"[^"]{0,5}(?:lodash|react|express|axios|webpack|babel|eslint|moment|chalk|uuid|request)[^"]{0,5}-(?:helper|utils|util|lib|js|node|npm|plus|extra|fork|clone|fixed|lite|mini)[^"]{0,10}"
+  - (?i)"name"\s*:\s*"(?:node-|npm-|js-)[^"]{0,40}"
+  - (?i)"name"\s*:\s*"[^"]{0,40}(?:-node|-npm|-js|-lib)"
+  - (?i)"name"\s*:\s*"[^"]{0,3}(?:reqeusts|loadsh|expresss|raect|axois|webpakc|moemnt)[^"]{0,10}"
+  file_types:
+  - package.json
+  message: 'Detected: npm-package-typosquatting-name-pattern — package name matches
+    known typosquatting sub-technique patterns; verify this is the intended package'
+  remediation: Verify the exact package name against the official npm registry. Check
+    for typos, extra hyphens, or suffix additions that mimic legitimate popular packages.
+  owasp_llm: LLM09:2025
+  cwe: CWE-1021
+  source_paper: Ladisa (2023) Journey to Center of Supply Chain Attacks — 'Create
+    Name Confusion with Legitimate Package' is the most exploited attack vector (26
+    real-world attacks); includes combosquatting, altering word order/separators,
+    typosquatting sub-techniques
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-029
+  name: dependency-confusion-internal-package-public
+  description: Detects requirements files or package manifests referencing package
+    names that follow internal naming conventions (org-prefixed, company-internal
+    patterns) which could be vulnerable to dependency confusion attacks, where a higher-versioned
+    public package shadows an internal one
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)(?:^|\n)\s*(?:install_requires|dependencies|require)[^\n]{0,100}(?:internal|corp|private|internal-|company-)[a-z][a-z0-9-]{2,40}
+  - (?i)(?:^|\n)[a-z][a-z0-9-]{0,20}-internal[a-z0-9-]{0,20}[=><~^]{0,3}[0-9]
+  - (?i)(?:@[a-z][a-z0-9-]{0,20}/[a-z][a-z0-9-]{0,30})(?:[^\n]{0,30}(?:registry\.npmjs\.org|pypi\.org))
+  file_types:
+  - requirements.txt
+  - package.json
+  - setup.py
+  - setup.cfg
+  - pyproject.toml
+  - pom.xml
+  message: 'Detected: dependency-confusion-internal-package-public — package name
+    suggests internal namespace but may be resolvable from public registry; verify
+    --index-url and registry scoping'
+  remediation: Configure package managers to use private registries for internal packages.
+    Use scoped packages in npm (@company/pkg) and --extra-index-url with explicit
+    ordering for pip to prevent dependency confusion.
+  owasp_llm: LLM09:2025
+  cwe: CWE-830
+  source_paper: Anasuri (2023) Secure Software Supply Chains — dependency confusion
+    allows internal package names to be hijacked by public higher-versioned malicious
+    packages; NPM RED-LILI used this against 800+ packages
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-030
+  name: sbom-missing-or-empty
+  description: Detects container image build files (Dockerfile, docker-compose) or
+    CI/CD pipeline configs lacking SBOM generation steps, or SBOM files that are structurally
+    empty/incomplete — critical for supply chain transparency per Bufalino (2025)
+    and Anasuri (2023)
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)"packages"\s*:\s*\[\s*\]
+  - (?i)PackageInformation\s*:\s*$
+  - (?i)"spdxVersion"\s*:[^\n]{0,80}(?:\n[^\n]{0,200}){0,5}"packages"\s*:\s*\[\s*\]
+  file_types:
+  - Dockerfile
+  - docker-compose.yml
+  - docker-compose.yaml
+  - '*.spdx'
+  - '*.cdx.json'
+  - '*.bom.json'
+  message: 'Detected: sbom-missing-or-empty — container image build lacks SBOM generation
+    step or SBOM file is empty; missing component inventory prevents vulnerability
+    detection'
+  remediation: Add SBOM generation using syft, trivy, or cyclonedx-gomod to the CI/CD
+    pipeline. Require SBOM attestation in container image builds. Validate SBOM completeness
+    before deployment.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1053
+  source_paper: Bufalino (2025) SBOMproof — SBOM tools are largely incompatible with
+    inconsistent pURL formats preventing reliable CVE mapping; Anasuri (2023) — SBOM
+    adoption is 29% of security concern in Kubernetes deployments
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-031
+  name: sbom-purl-malformed-or-missing-version
+  description: Detects SBOM files (SPDX/CycloneDX) where package URL (pURL) identifiers
+    are missing required fields or use non-standard qualifiers, creating the SBOM
+    confusion vulnerability identified by Bufalino (2025) that allows CVEs to be missed
+    in downstream scanning
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)pkg:[a-z]+/[^@"]{2,60}@(?:latest|\*|unknown|UNKNOWN|NOASSERTION)
+  - (?i)"packageVersion"\s*:\s*"(?:NOASSERTION|NONE|unknown)"
+  - (?i)"referenceLocator"\s*:\s*"pkg:[a-z]+/[^@"]{2,80}"[^,}{\n]{0,5}[,}]
+  file_types:
+  - '*.spdx'
+  - '*.spdx.json'
+  - '*.cdx.json'
+  - '*.bom.json'
+  - bom.xml
+  message: 'Detected: sbom-purl-malformed-or-missing-version — SBOM package URL is
+    missing version or uses non-standard values; this creates the SBOM confusion vulnerability
+    where CVE scanners fail to match vulnerable packages'
+  remediation: Regenerate SBOM ensuring all pURL identifiers include correct version
+    fields. Use Anchore Syft or Trivy with explicit distro flags. Validate pURL compliance
+    against the pURL specification before deploying.
+  owasp_llm: LLM02:2025
+  cwe: CWE-1053
+  source_paper: Bufalino (2025) SBOMproof — no tool fully respects pURL format; missing/incorrect
+    version fields cause false negatives in CVE detection; SBOM confusion vulnerability
+    allows containers to appear clean despite real vulnerabilities
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-032
+  name: npm-package-time-delayed-payload-trigger
+  description: Detects npm or VS Code extension code with time-based conditional logic
+    (setTimeout with large delays, Date comparison against future dates) that may
+    trigger dormant malicious payloads — the 'logic bomb' pattern identified by JavaSith
+    time-machine analysis
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)setTimeout\s*\([^,]{0,100},\s*(?:[0-9]{6,}|[0-9]+\s*\*\s*[0-9]+\s*\*\s*(?:60|24|1000))
+  - (?i)setInterval\s*\([^,]{0,100},\s*(?:[0-9]{6,})
+  - (?i)new\s+Date\s*\(\)[^\n]{0,50}>\s*new\s+Date\s*\(['"][0-9]{4}-[0-9]{2}-[0-9]{2}
+  - (?i)Date\.now\s*\(\)[^\n]{0,50}>[^\n]{0,50}[0-9]{12,13}
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  message: 'Detected: npm-package-time-delayed-payload-trigger — time-gated logic
+    found; may indicate a logic bomb that activates after a delay or on a specific
+    future date'
+  remediation: Audit all setTimeout/setInterval calls with long delays and Date-based
+    conditional branches. Legitimate packages rarely need multi-hour delays or future
+    date triggers. Use JavaSith-style time simulation to reveal dormant behavior.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+  source_paper: Cohen (2025) JavaSith — time machine module detects logic bombs with
+    delayed triggers; Cyberhaven breach activated only during holiday period low-oversight
+    window
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-033
+  name: pypi-package-base64-encoded-payload-exec
+  description: Detects Python package files containing base64-encoded payloads that
+    are decoded and executed at runtime, a common obfuscation technique in PyPI malware
+    to evade static scanners, identified across Bandit4Mal and OSS Detect Backdoor
+    tool evaluations
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)base64\.(?:b64decode|decodebytes|decodestring)\s*\([^)]{0,200}\)[^\n]{0,50}(?:exec|eval|compile|subprocess|os\.system)
+  - (?i)exec\s*\(\s*base64
+  - (?i)eval\s*\(\s*base64
+  - (?i)__import__\s*\(['"]base64['"]\)[^\n]{0,100}(?:exec|eval)
+  file_types:
+  - '*.py'
+  - setup.py
+  message: 'Detected: pypi-package-base64-encoded-payload-exec — base64-encoded string
+    decoded and executed; strong indicator of obfuscated malicious payload'
+  remediation: Decode the base64 string and analyze the contents. Legitimate packages
+    do not encode executable payloads in base64 to evade static analysis. File should
+    be investigated and removed from the dependency tree.
+  owasp_llm: LLM02:2025
+  cwe: CWE-506
+  source_paper: Vu (2023) Bad Snakes — OSS Detect Backdoor includes 41 rules for malicious
+    patterns including encoded payload execution; Cohen (2025) JavaSith — obfuscated
+    base64 payloads used in NPM install scripts
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-034
+  name: npm-package-c2-beacon-google-calendar-encode
+  description: Detects npm package code accessing Google Calendar, Google Docs, or
+    Pastebin URLs as C2 command channels — an advanced obfuscation technique used
+    in the os-info-checker-es6 attack where C2 URL was hidden in a Google Calendar
+    invite to evade URL blocklists
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)(?:fetch|axios|got|request|http\.get)\s*\([^)]{0,50}(?:calendar\.google\.com|docs\.google\.com/spreadsheets|pastebin\.com/raw|raw\.githubusercontent\.com)
+  - (?i)(?:calendar\.google\.com|pastebin\.com)[^\n]{0,100}(?:eval|exec|Function\s*\()
+  - (?i)atob\s*\([^)]{0,100}(?:calendar|pastebin|githubusercontent)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  message: 'Detected: npm-package-c2-beacon-google-calendar-encode — code fetches
+    content from Google Calendar/Pastebin as a C2 channel, a documented advanced evasion
+    technique'
+  remediation: Immediately quarantine this package. Fetching executable content from
+    Google Calendar or Pastebin indicates deliberate C2 channel obfuscation to bypass
+    URL-based threat intelligence.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Cohen (2025) JavaSith — os-info-checker-es6 stored C2 URL in Google
+    Calendar invite as obfuscation tactic; platform-specific binaries loaded from
+    hidden C2 link
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-035
+  name: pypi-multiagent-detection-evasion-yiffparty
+  description: Detects PyPI packages with naming patterns or metadata that evade single-agent
+    classifiers through misdirection — packages using legitimate-sounding names but
+    importing anomalous system-level libraries (psutil, ctypes, winreg) not typical
+    for stated purpose
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)from\s+ctypes\s+import[^\n]{0,80}(?:windll|cdll|WinDLL)
+  - (?i)import\s+winreg(?:\s|$)
+  - (?i)ctypes\.windll\.kernel32[^\n]{0,100}(?:VirtualAlloc|WriteProcessMemory|CreateThread)
+  file_types:
+  - '*.py'
+  - setup.py
+  - __init__.py
+  message: 'Detected: pypi-multiagent-detection-evasion-yiffparty — package imports
+    low-level Windows API (ctypes/winreg) inconsistent with stated utility purpose;
+    pattern seen in packages evading single-classifier detection'
+  remediation: Review why a utility package requires direct Windows kernel or registry
+    access. Such imports in PyPI utility packages strongly correlate with shellcode
+    injection or persistence mechanisms.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Osatohanmen (2025) MA-MPD — yiffparty-0.05 was unclassified by GPT-4o-mini
+    single-agent; MA-MPD with metadata+classification agents correctly identified
+    low-level system API calls as malicious
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-036
+  name: package-unsigned-no-integrity-hash
+  description: Detects dependency lock files or package manifests where packages lack
+    integrity hashes (npm integrity field, pip hash verification, Maven SHA checksums)
+    — missing hash verification enables man-in-the-middle substitution and mirror
+    poisoning attacks per Kalu (2025)
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - '(?i)"resolved"\s*:\s*"https://registry\.npmjs\.org[^"]{0,200}"\s*,\s*"version"\s*:'
+  - (?i)(?:^|\n)[a-z][a-z0-9._-]{2,60}==[0-9][.0-9]{0,20}\n[a-z]
+  - (?i)<groupId>[^<]{1,80}</groupId>[^<]{0,200}<artifactId>[^<]{1,80}</artifactId>[^<]{0,200}<version>[^<]{1,40}</version>[^<]{0,400}</dependency>[^<]{0,1000}<build>
+  file_types:
+  - package-lock.json
+  - yarn.lock
+  - requirements.txt
+  - pom.xml
+  message: 'Detected: package-unsigned-no-integrity-hash — dependency resolved from
+    registry without integrity hash; susceptible to mirror substitution and MITM attacks'
+  remediation: Add --require-hashes to pip install, use npm shrinkwrap with integrity
+    fields, or configure Maven with checksum verification. Software signing verification
+    (Sigstore/cosign) provides end-to-end assurance across distribution boundaries.
+  owasp_llm: LLM09:2025
+  cwe: CWE-494
+  source_paper: Kalu (2025) Why Software Signing Still Matters — registry controls
+    do not travel with artifacts; mirrors, CDNs, and air-gapped transfers require
+    portable signing to maintain integrity guarantees; Ladisa (2023) — integrity check
+    of dependencies through cryptographic hashes has utility-to-cost ratio of 1.32
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-037
+  name: pypi-package-environment-variable-harvest
+  description: Detects Python packages reading environment variables that contain
+    credentials or tokens (AWS keys, API tokens, SSH keys) combined with network access,
+    indicating credential harvesting behavior identified in MA-MPD multi-agent malicious
+    PyPI detection
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)os\.environ\.get\s*\(['"](?:AWS_SECRET|AWS_ACCESS|GITHUB_TOKEN|NPM_TOKEN|PYPI_TOKEN|SSH_PRIVATE|SECRET_KEY|API_KEY|PASSWORD|PASSWD)['"]
+  - (?i)os\.getenv\s*\(['"](?:AWS_|GH_TOKEN|GITHUB_|GITLAB_|TOKEN|SECRET|PASSWORD|PRIVATE_KEY)[^'"]{0,30}['"]
+  - (?i)environ\[['"](?:AWS|TOKEN|SECRET|PASSWORD|API_KEY|PRIVATE)[^'"]{0,30}['"]
+  file_types:
+  - '*.py'
+  - setup.py
+  - __init__.py
+  message: 'Detected: pypi-package-environment-variable-harvest — package reads credential-bearing
+    environment variables; if combined with network calls this indicates credential
+    exfiltration'
+  remediation: Legitimate packages should not read AWS keys, GitHub tokens, or SSH
+    credentials from the environment. This pattern indicates credential theft. Rotate
+    all potentially exposed credentials immediately.
+  owasp_llm: LLM02:2025
+  cwe: CWE-312
+  source_paper: Osatohanmen (2025) MA-MPD — metadata agent checks for environment
+    variable access; Cohen (2025) JavaSith — easycode.openAI ApiKey targeted for exfiltration
+    via Discord webhook in VSCode extensions
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-038
+  name: npm-package-platform-specific-binary-download
+  description: Detects npm packages downloading platform-specific binaries at install
+    time from external URLs (a multi-stage payload delivery technique), as used in
+    the os-info-checker-es6 attack where platform binaries were fetched from a hidden
+    C2 link after a benign initial release
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)process\.platform[^\n]{0,100}(?:fetch|axios|got|download|http\.get)[^\n]{0,100}(?:\.exe|\.bin|\.sh|\.dylib|\.so)
+  - (?i)(?:fetch|axios|got)\s*\([^)]{0,100}(?:\.exe|\.dll|\.bin|\.sh)[^)]{0,50}\)
+  - (?i)(?:download|downloadFile)\s*\([^)]{0,100}(?:win32|linux|darwin)[^)]{0,50}\)
+  file_types:
+  - '*.js'
+  - '*.ts'
+  - '*.mjs'
+  message: 'Detected: npm-package-platform-specific-binary-download — package downloads
+    platform-specific executable binary at install time; consistent with multi-stage
+    payload delivery attack pattern'
+  remediation: Packages should not download executables at install time. This is a
+    critical supply chain attack indicator. Verify package contents against source
+    repository and registry checksums.
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Cohen (2025) JavaSith — os-info-checker-es6 introduced platform-specific
+    binaries in a later version update that pulled final payload from hidden C2 link;
+    multi-stage attack to evade initial scan
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-039
+  name: cicd-github-action-unversioned-third-party
+  description: Detects GitHub Actions workflow files using third-party actions referenced
+    by branch name (@main, @master) rather than pinned SHA hash, creating supply chain
+    attack surface through compromised action maintainer accounts — identified in
+    Anasuri (2023) GitHub CI/CD exploit case study
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)uses:\s*[a-z][a-z0-9_-]{0,39}/[a-z][a-z0-9_.-]{0,79}@(?:main|master|dev|latest|HEAD)
+  - (?i)uses:\s*[a-z][a-z0-9_-]{0,39}/[a-z][a-z0-9_.-]{0,79}@v[0-9]+\.[0-9]+(?:[^.][^\n]{0,60}$|\s)
+  file_types:
+  - '*.yml'
+  - '*.yaml'
+  message: 'Detected: cicd-github-action-unversioned-third-party — GitHub Action uses
+    branch reference instead of pinned SHA; compromised action maintainer account
+    could inject malicious code into CI pipeline'
+  remediation: 'Pin all third-party GitHub Actions to a specific commit SHA (uses:
+    actions/checkout@a94f60e...). Use Dependabot or Renovate to manage action version
+    updates. The tj-actions/changed-files breach (23,000+ repos) demonstrates this
+    attack vector.'
+  owasp_llm: LLM02:2025
+  cwe: CWE-829
+  source_paper: Anasuri (2023) — tj-actions/changed-files breach affected 23,000+
+    repositories and stole AWS keys and GitHub tokens via compromised GitHub Action
+    logging secrets
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-040
+  name: package-llm-supply-chain-serialized-model-untrusted
+  description: Detects Python code loading serialized ML models (pickle, torch.load,
+    joblib) from unverified URLs or without signature verification — an LLM supply
+    chain attack vector per Huang (2024), where malicious model serialization payloads
+    execute arbitrary code on deserialization
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)pickle\.load\s*\([^)]{0,100}(?:http|urllib|requests|open\s*\([^)]{0,60}url)
+  - (?i)torch\.load\s*\([^)]{0,100}(?:http|url|download)[^)]{0,50}\)
+  - (?i)joblib\.load\s*\([^)]{0,100}(?:http|url|download)[^)]{0,50}\)
+  - (?i)pickle\.loads\s*\([^)]{0,100}(?:request|urllib|b64decode)
+  file_types:
+  - '*.py'
+  message: 'Detected: package-llm-supply-chain-serialized-model-untrusted — loading
+    serialized model (pickle/torch) from unverified remote URL; pickle deserialization
+    executes arbitrary code and is a primary LLM supply chain attack vector'
+  remediation: Never load pickle-serialized models from untrusted URLs. Use torch.load
+    with weights_only=True, verify model checksums (SHA256) before loading, and prefer
+    safetensors format. Validate model provenance through signing.
+  owasp_llm: LLM03:2025
+  cwe: CWE-502
+  source_paper: Huang (2024) Lifting the Veil on LLM Supply Chain — model artifacts
+    are the most studied risk component (71.9% of papers); malicious serialized models
+    are a primary contributor-side attack vector in LLM supply chains
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-041
+  name: npm-package-shrinkwrapped-missing
+  description: Detects npm packages published with a package.json that specifies dependencies
+    but lacks package-lock.json or npm-shrinkwrap.json, creating conditions for non-deterministic
+    installs where a malicious version could be resolved instead of the intended one
+  severity: low
+  category: dependency_intent_validation
+  patterns:
+  - (?i)"dependencies"\s*:\s*\{[^}]{10,500}\}[^{]{0,100}"scripts"[^{]{0,200}\{
+  - (?i)"version"\s*:\s*"[^"]{1,30}"[^{]{0,500}"dependencies"\s*:\s*\{[^}]{10,300}\}[^"lockfile"]{0,500}"main"
+  file_types:
+  - package.json
+  message: 'Detected: npm-package-shrinkwrapped-missing — package has dependencies
+    but no lockfile; non-deterministic installs could resolve to maliciously published
+    newer versions'
+  remediation: Commit package-lock.json to version control and use npm ci in CI/CD
+    pipelines. Consider publishing with npm-shrinkwrap.json for applications. Enable
+    npm audit in CI.
+  owasp_llm: LLM09:2025
+  cwe: CWE-829
+  source_paper: Ladisa (2023) — version pinning (utility-to-cost 1.68) and dependency
+    resolution rules (1.58) are top safeguards; Anasuri (2023) — non-pinned dependencies
+    enable automated dependency confusion attacks
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-042
+  name: pypi-package-deserialization-in-setup
+  description: Detects use of deserialization constructs (pickle.loads, marshal.loads,
+    yaml.load without Loader) in setup.py, the second highest-precision malicious
+    PyPI indicator after subprocess+networking per Vu (2023) Bad Snakes benchmarking
+    analysis
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)pickle\.loads?\s*\([^)]{0,200}\)
+  - (?i)marshal\.loads?\s*\([^)]{0,200}\)
+  - (?i)shelve\.open\s*\([^)]{0,100}\)
+  file_types:
+  - setup.py
+  message: 'Detected: pypi-package-deserialization-in-setup — unsafe deserialization
+    in setup.py; pickle/marshal deserialization executes arbitrary code during package
+    installation'
+  remediation: Deserialization in setup.py is almost never legitimate. pickle.loads()
+    in install code executes attacker-controlled bytecode. Remove immediately and
+    audit the package for other malicious patterns.
+  owasp_llm: LLM02:2025
+  cwe: CWE-502
+  source_paper: Vu (2023) Bad Snakes — deserialization_in_setup is a high-confidence
+    malicious indicator in the PyPI malware check ruleset; Bandit4Mal includes deserialization
+    detection rules
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-043
+  name: intelliradar-typosquatting-aws-brand-package
+  description: Detects packages in requirements or package.json that appear to impersonate
+    major cloud/platform brands (aws, azure, gcp, twilio, stripe, openai) through
+    brandj-jacking patterns identified by IntelliRadar as high-confidence typosquatting
+    indicators
+  severity: high
+  category: dependency_intent_validation
+  patterns:
+  - (?i)(?:^|\n)(?:install_requires|dependencies|require)[^\n]{0,200}['"](?:aws-|azure-|gcp-|twilio-|stripe-|openai-|anthropic-)[a-z][a-z0-9-]{2,40}-(?:sdk|client|helper|lib|utils|api|wrapper)['"]
+  - (?i)"name"\s*:\s*"(?:aws|azure|gcp|twilio|stripe|openai)-[a-z][a-z0-9-]{2,30}-(?:sdk|client|node)[^"]{0,20}"
+  - (?i)(?:^|\n)['"]?(?:aws|twilio|stripe)-[a-z]{2,20}-[a-z]{2,20}['"]?\s*[=><~^]{1,3}\s*[0-9]
+  file_types:
+  - requirements.txt
+  - package.json
+  - setup.py
+  - pyproject.toml
+  message: 'Detected: intelliradar-typosquatting-aws-brand-package — package name
+    impersonates major cloud/platform brand with suspicious suffix; verify against
+    official SDK documentation'
+  remediation: Verify package name against official documentation. AWS SDK is 'boto3'
+    not 'aws-python-sdk'. Attackers brand-jack cloud provider names to target developers
+    in AI/cloud workflows. Check IntelliRadar or OSV database.
+  owasp_llm: LLM09:2025
+  cwe: CWE-1021
+  source_paper: Guo (2024) IntelliRadar — 34,313 malicious packages identified; typosquatting
+    with brand-jacking (twilio-npm, aws-prefix) is a documented attack sub-technique;
+    package name extraction regex r'(?:@[a-zA-Z0-9]+/)?[a-zA-Z0-9][a-zA-Z0-9_-]+'
+    used to identify candidate names
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-044
+  name: package-reverse-shell-pattern
+  description: Detects reverse shell patterns in package installation scripts or source
+    files — bash -i, nc/ncat listeners, /dev/tcp redirections — identified by OSS
+    Detect Backdoor's 41-rule detection set as a primary malicious package indicator
+    across npm and PyPI ecosystems
+  severity: critical
+  category: dependency_intent_validation
+  patterns:
+  - (?i)bash\s+-i\s+>[&]\s*/dev/tcp/
+  - (?i)/bin/bash\s+-i\s+2>[&]1
+  - (?i)nc\s+-[a-z]{0,5}e\s+/bin/(?:bash|sh)
+  - (?i)ncat\s+--exec\s+/bin/(?:bash|sh)
+  - (?i)python[23]?\s+-c[^\n]{0,50}socket[^\n]{0,50}subprocess
+  - (?i)perl\s+-e[^\n]{0,80}(?:socket|fork)[^\n]{0,80}exec
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.sh'
+  - setup.py
+  - '*.rb'
+  message: 'Detected: package-reverse-shell-pattern — reverse shell command found
+    in package code; this is an unambiguous malicious indicator requiring immediate
+    package removal'
+  remediation: This is a critical malicious package indicator. Immediately remove
+    from all environments, check for persistence mechanisms, rotate all credentials
+    that were accessible during the package's execution.
+  owasp_llm: LLM02:2025
+  cwe: CWE-78
+  source_paper: Vu (2023) Bad Snakes — OSS Detect Backdoor includes reverse shell
+    detection as one of its 41 rules; 50.6% true positive rate on malicious packages
+    in benchmarking
+  fp_guards: []
+  pipeline_confidence: medium
+- id: MEDUSA-DEPVAL-SCAN-045
+  name: llm-supply-chain-pip-install-in-code
+  description: Detects Python source files (non-setup) containing subprocess calls
+    to pip install additional packages at runtime — a technique used by malicious
+    packages to install secondary payloads after initial installation bypasses static
+    scanning
+  severity: medium
+  category: dependency_intent_validation
+  patterns:
+  - (?i)subprocess\.[^\n]{0,30}pip[^\n]{0,30}install
+  - (?i)os\.system\s*\([^)]{0,50}pip\s+install
+  - (?i)os\.popen\s*\([^)]{0,50}pip\s+install
+  - (?i)pip\.main\s*\(\s*\[[^\]]{0,50}install[^\]]{0,50}\]
+  file_types:
+  - '*.py'
+  - __init__.py
+  message: 'Detected: llm-supply-chain-pip-install-in-code — runtime pip install call
+    within package source; may be installing secondary malicious payload not present
+    in original package scan'
+  remediation: Packages should not install other packages at runtime. This pattern
+    indicates multi-stage malware delivery designed to evade initial static scanning.
+    Audit all installed packages and network connections made during execution.
+  owasp_llm: LLM09:2025
+  cwe: CWE-829
+  source_paper: Huang (2024) LLM Supply Chain — code artifacts including dependencies
+    are explicit relations in LLM supply chain; runtime dependency injection bypasses
+    pre-install static checks; Osatohanmen (2025) MA-MPD — multi-stage payloads challenge
+    single-agent classifiers
+  fp_guards: []
+  pipeline_confidence: medium

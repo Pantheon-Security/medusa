@@ -1,0 +1,699 @@
+rules:
+- id: WEB-SSL-001
+  name: ssl-verification-disabled-requests
+  severity: CRITICAL
+  category: ssl_verification
+  patterns:
+  - verify\s*=\s*False
+  - verify\s*:\s*False
+  - verify\s*=\s*false
+  message: SSL/TLS certificate verification disabled - MITM vulnerability
+  description: 'Certificate verification has been explicitly disabled in HTTP requests.
+
+    This allows man-in-the-middle attacks where an attacker can intercept
+
+    and modify traffic between the application and the target server.
+
+    '
+  cwe: CWE-295
+  owasp: A02:2021
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.html'
+  - '*.php'
+  - '*.rb'
+  - '*.java'
+- id: WEB-SSL-002
+  name: urllib3-insecure-warnings-disabled
+  severity: HIGH
+  category: ssl_verification
+  patterns:
+  - urllib3\.disable_warnings
+  - InsecureRequestWarning
+  - requests\.packages\.urllib3\.disable_warnings
+  message: SSL warning suppression - hiding security issues
+  description: 'Disabling SSL warnings hides certificate verification issues from developers.
+
+    This often accompanies verify=False and masks the security risk.
+
+    '
+  cwe: CWE-295
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-FLASK-001
+  name: flask-bind-all-interfaces
+  severity: CRITICAL
+  category: network_exposure
+  patterns:
+  - app\.run.*host.*0\.0\.0\.0
+  - host\s*=\s*['"]0\.0\.0\.0['"]
+  - run_simple.*0\.0\.0\.0
+  message: Flask app bound to all interfaces - publicly accessible
+  description: 'Running Flask with host=''0.0.0.0'' binds the server to all network interfaces,
+
+    making it accessible from any network. This can expose development servers.
+
+    '
+  cwe: CWE-668
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-FLASK-002
+  name: flask-debug-mode-enabled
+  severity: HIGH
+  category: debug_mode
+  patterns:
+  - app\.run.*debug\s*=\s*True
+  - app\.debug\s*=\s*True
+  - FLASK_DEBUG\s*=\s*['"]?1['"]?
+  message: Flask debug mode enabled - exposes sensitive information
+  description: 'Debug mode enables the interactive debugger which can execute
+
+    arbitrary Python code. It also exposes stack traces and source code.
+
+    '
+  cwe: CWE-489
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-FLASK-003
+  name: flask-secret-key-hardcoded
+  severity: CRITICAL
+  category: secrets_exposure
+  patterns:
+  - secret_key\s*=\s*['"]
+  - SECRET_KEY\s*=\s*['"]
+  - app\.secret_key\s*=\s*['"]
+  message: Hardcoded Flask secret key - session hijacking risk
+  description: 'A hardcoded secret key can be extracted from source code and used
+
+    to forge session cookies, enabling session hijacking attacks.
+
+    '
+  cwe: CWE-798
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-FLASK-004
+  name: flask-ssti-render-template-string
+  severity: CRITICAL
+  category: ssti
+  patterns:
+  - render_template_string\s*\(
+  - Template\s*\(.*\)\.render
+  - Environment\s*\(.*\)\.from_string
+  message: Potential SSTI - render_template_string with user input
+  description: 'render_template_string() can lead to Server-Side Template Injection (SSTI)
+
+    if user input is passed directly. Use render_template() with separate files.
+
+    Reference: https://book.hacktricks.xyz/pentesting-web/ssti-server-side-template-injection
+
+    '
+  cwe: CWE-1336
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-FLASK-005
+  name: flask-missing-csrf-protection
+  severity: HIGH
+  category: csrf_protection
+  patterns:
+  - WTF_CSRF_ENABLED\s*=\s*False
+  - csrf\.exempt
+  - CSRFProtect.*disabled
+  message: CSRF protection disabled in Flask
+  description: 'Flask does not include CSRF protection by default. Use Flask-WTF
+
+    with CSRFProtect to prevent cross-site request forgery attacks.
+
+    '
+  cwe: CWE-352
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-SSTI-001
+  name: jinja2-ssti-indicators
+  severity: CRITICAL
+  category: ssti
+  patterns:
+  - __class__.*__mro__
+  - __subclasses__
+  - __globals__
+  - __builtins__
+  - \{\{.*config.*\}\}
+  message: Potential Jinja2 SSTI payload detected
+  description: 'Pattern matches common Jinja2 SSTI exploitation techniques using
+
+    Python object introspection (__class__, __mro__, __subclasses__).
+
+    '
+  cwe: CWE-1336
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-SSTI-002
+  name: template-string-user-input
+  severity: HIGH
+  category: ssti
+  patterns:
+  - Template\s*\(.*request\.
+  - Environment\s*\(\).*from_string.*request
+  - jinja2\.Template.*request\.
+  message: User input passed to Jinja2 Template constructor
+  description: 'Passing user-controlled data to Template() constructor can lead to SSTI.
+
+    Use render_template() with predefined template files instead.
+
+    '
+  cwe: CWE-1336
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-SSRF-001
+  name: ssrf-user-controlled-url
+  severity: CRITICAL
+  category: ssrf
+  patterns:
+  - requests\.(get|post|put|delete|head|patch)\s*\(.*request\.
+  - urllib\.request\.urlopen\s*\(.*request\.
+  - httpx\.(get|post)\s*\(.*request\.
+  message: SSRF risk - HTTP request with user-controlled URL
+  description: 'User input is used to construct URLs for HTTP requests without validation.
+
+    Attackers can access internal services or cloud metadata endpoints.
+
+    CVE-2024-11168, CVE-2023-24329 affect Python URL parsing.
+
+    '
+  cwe: CWE-918
+  owasp: A10:2021
+  file_types: *id001
+- id: WEB-SSRF-002
+  name: ssrf-dangerous-schemes
+  severity: HIGH
+  category: ssrf
+  patterns:
+  - file://
+  - gopher://
+  - dict://
+  - ftp://
+  message: Dangerous URL scheme detected - potential SSRF
+  description: 'Non-HTTP URL schemes like file://, gopher://, dict:// can be used
+
+    in SSRF attacks to access local files or internal services.
+
+    '
+  cwe: CWE-918
+  owasp: A10:2021
+  file_types: *id001
+- id: WEB-SSRF-003
+  name: ssrf-weak-validation
+  severity: MEDIUM
+  category: ssrf
+  patterns:
+  - startswith\s*\(\s*['"]http
+  - url\.startswith
+  message: Weak URL validation - bypass possible
+  description: 'Checking if URL startswith(''http'') is insufficient validation.
+
+    Attackers can bypass with http://evil.com@target.com or encoding tricks.
+
+    '
+  cwe: CWE-918
+  owasp: A10:2021
+  file_types: *id001
+- id: WEB-REDIR-001
+  name: open-redirect-request-args
+  severity: CRITICAL
+  category: open_redirect
+  patterns:
+  - redirect.*request\.args
+  - redirect.*request\.form
+  - redirect.*request\.values
+  message: Open redirect - user input passed directly to redirect
+  description: 'Data from request parameters is passed directly to redirect().
+
+    Attackers can craft URLs that redirect users to malicious sites.
+
+    '
+  cwe: CWE-601
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-REDIR-002
+  name: open-redirect-url-parameter
+  severity: HIGH
+  category: open_redirect
+  patterns:
+  - redirect.*next_url
+  - redirect.*return_url
+  - redirect.*goto
+  - redirect.*target
+  - redirect.*continue
+  - redirect.*dest
+  message: Potential open redirect via URL parameter
+  description: 'A URL or destination parameter may be used in redirect.
+
+    Validate that the destination is on an allowed domain.
+
+    '
+  cwe: CWE-601
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-DJANGO-001
+  name: django-debug-mode-enabled
+  severity: HIGH
+  category: debug_mode
+  patterns:
+  - ^DEBUG\s*=\s*True
+  - DJANGO_DEBUG\s*=\s*['"]?1['"]?
+  message: Django DEBUG mode enabled - exposes sensitive information
+  description: 'Django debug mode displays detailed error pages with stack traces,
+
+    SQL queries, settings, and environment variables to users.
+
+    '
+  cwe: CWE-489
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-DJANGO-002
+  name: django-allowed-hosts-wildcard
+  severity: HIGH
+  category: host_header_injection
+  patterns:
+  - ALLOWED_HOSTS.*\*
+  - ALLOWED_HOSTS\s*=\s*\[\s*\]
+  message: Django ALLOWED_HOSTS misconfigured - host header injection
+  description: 'Setting ALLOWED_HOSTS to [''*''] or [] allows any host header,
+
+    enabling host header injection attacks for cache poisoning.
+
+    '
+  cwe: CWE-644
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-DJANGO-003
+  name: django-csrf-disabled
+  severity: CRITICAL
+  category: csrf_protection
+  patterns:
+  - '@csrf_exempt'
+  - csrf_exempt\s*\(
+  message: CSRF protection disabled - cross-site request forgery risk
+  description: 'CSRF protection has been disabled for this view.
+
+    Attackers can trick users into performing unintended actions.
+
+    '
+  cwe: CWE-352
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-DJANGO-004
+  name: django-mark-safe-xss
+  severity: HIGH
+  category: xss
+  patterns:
+  - mark_safe\s*\(
+  - SafeString\s*\(
+  - \|\s*safe\s*}}
+  message: XSS risk - mark_safe() disables HTML escaping
+  description: 'mark_safe() and |safe filter disable Django''s automatic HTML escaping.
+
+    If used with untrusted input, this enables XSS attacks.
+
+    '
+  cwe: CWE-79
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-DJANGO-005
+  name: django-secret-key-insecure
+  severity: CRITICAL
+  category: secrets_exposure
+  patterns:
+  - SECRET_KEY.*django-insecure-
+  - SECRET_KEY\s*=\s*['"][^'"]{1,49}['"]
+  message: Django SECRET_KEY is insecure or too short
+  description: 'SECRET_KEY should have at least 50 characters, 5 unique characters,
+
+    and not be prefixed with ''django-insecure-''. Weak keys compromise
+
+    cryptographic signing for sessions, password resets, and CSRF tokens.
+
+    '
+  cwe: CWE-798
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-DJANGO-006
+  name: django-insecure-cookies
+  severity: HIGH
+  category: session_security
+  patterns:
+  - SESSION_COOKIE_SECURE\s*=\s*False
+  - CSRF_COOKIE_SECURE\s*=\s*False
+  - SESSION_COOKIE_HTTPONLY\s*=\s*False
+  message: Insecure cookie configuration in Django
+  description: 'Session cookies should have Secure, HttpOnly, and SameSite flags.
+
+    Missing flags allow cookie theft via XSS or network interception.
+
+    '
+  cwe: CWE-614
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-DJANGO-007
+  name: django-missing-security-headers
+  severity: MEDIUM
+  category: security_headers
+  patterns:
+  - SECURE_CONTENT_TYPE_NOSNIFF\s*=\s*False
+  - SECURE_BROWSER_XSS_FILTER\s*=\s*False
+  - X_FRAME_OPTIONS\s*=\s*None
+  message: Missing security headers in Django configuration
+  description: 'Security headers like X-Content-Type-Options, X-Frame-Options protect
+
+    against clickjacking and MIME-sniffing attacks.
+
+    '
+  cwe: CWE-693
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-SQLI-001
+  name: raw-sql-string-format
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+  - execute.*%s.*%
+  - execute.*f['"]
+  - executemany.*f['"]
+  - \.raw.*f['"]
+  - cursor\.execute.*\+
+  message: SQL injection via string formatting
+  description: 'SQL queries constructed using string formatting (%, f-strings, .format)
+
+    are vulnerable to SQL injection attacks. Use parameterized queries.
+
+    '
+  cwe: CWE-89
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-SQLI-002
+  name: django-raw-sql
+  severity: HIGH
+  category: sql_injection
+  patterns:
+  - \.raw\s*\(
+  - \.extra\s*\(
+  - RawSQL\s*\(
+  - connection\.cursor
+  message: Raw SQL query in Django - verify parameterization
+  description: 'Django''s raw(), extra(), and RawSQL bypass the ORM''s automatic
+
+    escaping. Ensure all user input is parameterized.
+
+    '
+  cwe: CWE-89
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-CMDI-001
+  name: shell-command-injection
+  severity: CRITICAL
+  category: command_injection
+  patterns:
+  - os\.system\s*\(
+  - subprocess.*shell\s*=\s*True
+  - commands\.getoutput\s*\(
+  - os\.popen\s*\(
+  message: Potential command injection via shell execution
+  description: 'Using shell=True or os.system() with user input enables
+
+    command injection attacks. Use subprocess with shell=False.
+
+    '
+  cwe: CWE-78
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-EVAL-001
+  name: dangerous-eval-exec
+  severity: CRITICAL
+  category: code_execution
+  patterns:
+  - \beval\s*\(
+  - \bexec\s*\(
+  - compile\s*\(.*['"]exec['"]
+  message: Dangerous eval()/exec() usage - code injection risk
+  description: 'eval() and exec() can execute arbitrary code. If user input reaches
+
+    these functions, attackers can execute malicious code. Use ast.literal_eval()
+
+    for safely evaluating literal expressions.
+
+    '
+  cwe: CWE-94
+  owasp: A03:2021
+  file_types: *id001
+- id: WEB-EVAL-002
+  name: dangerous-marshal-dill
+  severity: HIGH
+  category: deserialization
+  patterns:
+  - marshal\.loads?\s*\(
+  - dill\.loads?\s*\(
+  message: Dangerous deserialization with marshal/dill
+  description: 'marshal and dill modules can deserialize malicious data into code execution.
+
+    Only use with trusted data sources.
+
+    '
+  cwe: CWE-502
+  owasp: A08:2021
+  file_types: *id001
+- id: WEB-DESER-001
+  name: pickle-deserialization
+  severity: CRITICAL
+  category: deserialization
+  patterns:
+  - pickle\.loads?\s*\(
+  - cPickle\.loads?\s*\(
+  - _pickle\.loads?\s*\(
+  - shelve\.open\s*\(
+  - pickle\.Unpickler\s*\(
+  message: Insecure deserialization - pickle can execute arbitrary code
+  description: 'Pickle deserialization of untrusted data can lead to arbitrary
+
+    code execution. Never unpickle data from untrusted sources.
+
+    Reference: Bandit B301
+
+    '
+  cwe: CWE-502
+  owasp: A08:2021
+  file_types: *id001
+- id: WEB-DESER-002
+  name: yaml-unsafe-load
+  severity: CRITICAL
+  category: deserialization
+  patterns:
+  - yaml\.load\s*\(
+  - yaml\.unsafe_load\s*\(
+  message: Unsafe YAML deserialization - arbitrary code execution
+  description: 'yaml.load() without specifying Loader=SafeLoader can execute
+
+    arbitrary Python code through YAML tags. Use yaml.safe_load().
+
+    '
+  cwe: CWE-502
+  owasp: A08:2021
+  file_types: *id001
+- id: WEB-CRYPTO-001
+  name: weak-hash-md5-sha1
+  severity: HIGH
+  category: weak_crypto
+  patterns:
+  - hashlib\.md5\s*\(
+  - hashlib\.sha1\s*\(
+  - hashlib\.new\s*\(\s*['"]md5['"]
+  - hashlib\.new\s*\(\s*['"]sha1['"]
+  - Crypto\.Hash\.MD5
+  - Crypto\.Hash\.SHA\b
+  message: Weak hash function (MD5/SHA1) - use SHA256 or better
+  description: 'MD5 and SHA1 are cryptographically broken and should not be used
+
+    for security purposes. Use SHA256, SHA3, or bcrypt for passwords.
+
+    Reference: Bandit B303, B324
+
+    '
+  cwe: CWE-328
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-CRYPTO-002
+  name: weak-random
+  severity: MEDIUM
+  category: weak_crypto
+  patterns:
+  - (?i)(?:token|secret|password|key|nonce|salt|session_id|csrf|otp|verification_code)\s*=\s*.*random\.
+  - (?i)random\.(?:random|randint|choice|randrange)\s*\(.*(?:token|secret|password|key|nonce|salt)
+  - (?i)(?:generate_(?:token|password|key|secret|nonce|otp))\s*\(.*random\.
+  message: Weak random in security context - use secrets module
+  description: 'The random module is not cryptographically secure. When used to generate
+
+    tokens, passwords, keys, or other security-sensitive values, use the secrets
+
+    module instead. Non-security uses (simulations, games, shuffling) are fine.
+
+    '
+  cwe: CWE-330
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-CRYPTO-003
+  name: weak-cipher-ecb
+  severity: HIGH
+  category: weak_crypto
+  patterns:
+  - MODE_ECB
+  - AES\.new.*ECB
+  - DES\.new
+  - DES3\.new
+  message: Weak cipher mode (ECB) or algorithm (DES)
+  description: 'ECB mode leaks patterns in encrypted data. DES and 3DES have
+
+    small key sizes. Use AES with CBC or GCM mode.
+
+    '
+  cwe: CWE-327
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-PATH-001
+  name: path-traversal-open
+  severity: HIGH
+  category: path_traversal
+  patterns:
+  - open.*request\.args
+  - open.*request\.form
+  - send_file.*request\.
+  - send_from_directory.*request\.
+  message: Potential path traversal via user-controlled filename
+  description: 'User input is used to construct file paths without validation.
+
+    Attackers can use ''../'' sequences to access arbitrary files.
+
+    '
+  cwe: CWE-22
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-PATH-002
+  name: unsafe-file-upload
+  severity: HIGH
+  category: file_upload
+  patterns:
+  - (?:request\.files|FileStorage|files\[)[^\n]{0,60}\.filename
+  - request\.files.*\.save\s*\(
+  - FileStorage.*save
+  message: File upload - verify filename sanitization
+  description: 'File uploads can lead to path traversal if the filename from the
+
+    client is used directly. Use werkzeug.utils.secure_filename().
+
+    '
+  cwe: CWE-22
+  owasp: A01:2021
+  file_types: *id001
+- id: WEB-SESSION-001
+  name: insecure-cookie-flags
+  severity: MEDIUM
+  category: session_security
+  patterns:
+  - set_cookie.*secure\s*=\s*False
+  - set_cookie.*httponly\s*=\s*False
+  - response\.set_cookie.*samesite\s*=\s*None
+  message: Insecure cookie configuration - missing security flags
+  description: 'Cookies should have Secure (HTTPS only), HttpOnly (no JS access),
+
+    and SameSite (CSRF protection) flags set appropriately.
+
+    '
+  cwe: CWE-614
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-SESSION-002
+  name: session-fixation
+  severity: MEDIUM
+  category: session_security
+  patterns:
+  - session\[.*\]\s*=.*request\.
+  - session\.update.*request\.
+  message: Potential session fixation - regenerate session on login
+  description: 'User input stored directly in session without regenerating the
+
+    session ID can lead to session fixation attacks.
+
+    '
+  cwe: CWE-384
+  owasp: A07:2021
+  file_types: *id001
+- id: WEB-AUTH-001
+  name: hardcoded-credentials
+  severity: CRITICAL
+  category: authentication
+  patterns:
+  - password\s*=\s*['"][^'"]{3,}['"]
+  - passwd\s*=\s*['"][^'"]{3,}['"]
+  - api_key\s*=\s*['"][^'"]{8,}['"]
+  - token\s*=\s*['"][^'"]{8,}['"]
+  message: Hardcoded credentials detected
+  description: 'Credentials hardcoded in source code can be extracted by attackers.
+
+    Use environment variables or secure vaults for secrets.
+
+    '
+  cwe: CWE-798
+  owasp: A07:2021
+  file_types: *id001
+- id: WEB-AUTH-002
+  name: basic-auth-over-http
+  severity: HIGH
+  category: authentication
+  patterns:
+  - HTTPBasicAuth
+  - Authorization.*Basic
+  message: Basic authentication detected - ensure HTTPS
+  description: 'HTTP Basic Authentication sends credentials in Base64 encoding (not encryption).
+
+    Always use HTTPS when using Basic Auth to protect credentials in transit.
+
+    '
+  cwe: CWE-319
+  owasp: A02:2021
+  file_types: *id001
+- id: WEB-XXE-001
+  name: xxe-vulnerable-parser
+  severity: CRITICAL
+  category: xxe
+  patterns:
+  - xml\.etree\.ElementTree\.parse
+  - lxml\.etree\.parse
+  - xml\.dom\.minidom\.parse
+  - xml\.sax\.parse
+  message: XML parsing may be vulnerable to XXE attacks
+  description: 'Default XML parsers may process external entities, leading to
+
+    file disclosure or SSRF. Use defusedxml library for safe parsing.
+
+    '
+  cwe: CWE-611
+  owasp: A05:2021
+  file_types: *id001
+- id: WEB-LOG-001
+  name: logging-sensitive-data
+  severity: MEDIUM
+  category: information_disclosure
+  patterns:
+  - logging\..*password
+  - logger\..*password
+  - print.*password
+  - logging\..*secret
+  - logging\..*token
+  message: Potentially logging sensitive data
+  description: 'Logging passwords, tokens, or other secrets can expose them in
+
+    log files, monitoring systems, or error reports.
+
+    '
+  cwe: CWE-532
+  owasp: A09:2021
+  file_types: *id001

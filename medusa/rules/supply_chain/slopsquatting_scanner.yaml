@@ -1,0 +1,550 @@
+rules:
+- id: SLOP-SCAN-HALLUC-001
+  name: hallucinated-pywt-wavelet
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - python
+  patterns:
+  - pip\s+install\s+pywt
+  - '[''"'']pywt[''"''].*requirements'
+  message: Hallucinated 'pywt' - correct package is 'PyWavelets'
+  cwe: CWE-506
+  owasp_llm: LLM09:2025
+  metadata:
+    correct_package: PyWavelets
+    llm_source: GPT-4o
+  file_types: &id001
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+- id: SLOP-SCAN-HALLUC-002
+  name: hallucinated-dsl-parser
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - python
+  patterns:
+  - import\s+dsl_parser
+  - from\s+dsl_parser\s+import
+  - '[''"'']dsl_parser[''"'']'
+  message: Known GPT-4o hallucinated package 'dsl_parser'
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-003
+  name: hallucinated-fatnoob
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - python
+  patterns:
+  - pip\s+install\s+fatnoob
+  - '[''"'']fatnoob[''"'']'
+  message: Known hallucinated package 'fatnoob'
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-004
+  name: hallucinated-apache-arrow
+  severity: MEDIUM
+  category: hallucinated_package
+  languages:
+  - python
+  patterns:
+  - pip\s+install\s+apache-arrow
+  - '[''"'']apache-arrow[''"'']'
+  message: Potentially hallucinated 'apache-arrow' - verify correct package
+  cwe: CWE-506
+  metadata:
+    llm_source: Meta-Llama-3.1, Mistral-v0.3
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-005
+  name: hallucinated-npm-package-name
+  severity: MEDIUM
+  category: hallucinated_package
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - require\(['"]package-name['"]\)
+  - from\\s+['"]package-name['"]
+  message: Generic 'package-name' - likely hallucinated placeholder
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-006
+  name: hallucinated-radar-cms
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - javascript
+  patterns:
+  - require\(['"]radar-cms['"]\)
+  - from\\s+['"]radar-cms['"]
+  message: Hallucinated npm package 'radar-cms'
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-007
+  name: hallucinated-realty-front
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - javascript
+  - typescript
+  patterns:
+  - '@realty-front/codegen'
+  - realty-front
+  message: Known LLM-hallucinated scoped package
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-008
+  name: hallucinated-ruby-arangodb
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - ruby
+  patterns:
+  - gem\\s+['"]arangodb['"]
+  - require\\s+['"]arangodb['"]
+  message: Hallucinated Ruby gem 'arangodb' - now registered as placeholder
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-009
+  name: hallucinated-atlas-client
+  severity: MEDIUM
+  category: hallucinated_package
+  languages:
+  - ruby
+  patterns:
+  - gem\\s+['"]atlas-client['"]
+  - require\\s+['"]atlas-client['"]
+  message: Potentially hallucinated Ruby gem 'atlas-client'
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-HALLUC-010
+  name: hallucinated-rust-xrvrv
+  severity: HIGH
+  category: hallucinated_package
+  languages:
+  - rust
+  - toml
+  patterns:
+  - xrvrv\s*=
+  - '[''"'']xrvrv[''"'']'
+  message: Documented hallucinated Rust crate 'xrvrv'
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-GO-001
+  name: go-init-function-exec
+  severity: HIGH
+  category: install_hook
+  languages:
+  - go
+  patterns:
+  - func\s+init\s*\(\s*\)\s*\{[^}]*exec\.Command
+  - func\s+init\s*\(\s*\)\s*\{[^}]*os\.System
+  message: Go init() function with command execution
+  cwe: CWE-94
+  metadata:
+    attack_type: Import-time execution
+  file_types: *id001
+- id: SLOP-SCAN-GO-002
+  name: go-repojacking-risk
+  severity: MEDIUM
+  category: supply_chain
+  languages:
+  - go
+  patterns:
+  - github\.com/[^/]+/[^/]+\s*v0\.0\.0-
+  - replace\s+github\.com
+  message: Go module replacement - potential repojacking risk
+  cwe: CWE-829
+  file_types:
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.json'
+  - '*.yaml'
+  - '*.yml'
+  - '*.toml'
+  - '*.cfg'
+  - '*.txt'
+- id: SLOP-SCAN-GO-003
+  name: go-dangerous-exec
+  severity: HIGH
+  category: command_injection
+  languages:
+  - go
+  patterns:
+  - os/exec\.Command\s*\([^)]*\+[^)]*\)
+  - exec\.Command\s*\([^)]*fmt\.Sprintf
+  message: Go exec.Command with string concatenation
+  cwe: CWE-78
+  file_types: *id001
+- id: SLOP-SCAN-MAVEN-001
+  name: maven-classpath-shadowing
+  severity: HIGH
+  category: hijacking
+  languages:
+  - java
+  - xml
+  patterns:
+  - <dependency>.*<scope>compile</scope>.*</dependency>
+  - <artifactId>(?:[a-z]+-)?common(?:-[a-z]+)?</artifactId>
+  message: Maven dependency with potential classpath shadowing risk
+  cwe: CWE-427
+  file_types: *id001
+- id: SLOP-SCAN-MAVEN-002
+  name: mavengate-expired-domain
+  severity: CRITICAL
+  category: hijacking
+  patterns:
+  - (?i)groupId.*(?:expired|abandoned|defunct)
+  - <groupId>(?:com|org)\.[a-z]+(?:-defunct|-old|-legacy)
+  message: Potential MavenGate expired domain hijacking
+  cwe: CWE-506
+  metadata:
+    attack_type: Domain expiry hijack
+  file_types: *id001
+- id: SLOP-SCAN-UNICODE-001
+  name: trojan-source-bidi-complete
+  severity: CRITICAL
+  category: unicode_attack
+  patterns:
+  - '[\u202A\u202B\u202C\u202D\u202E]'
+  - '[\u2066\u2067\u2068\u2069]'
+  message: Bidirectional text control character (Trojan Source CVE-2021-42574)
+  cwe: CWE-94
+  cve: CVE-2021-42574
+  file_types: *id001
+- id: SLOP-SCAN-UNICODE-002
+  name: zero-width-hiding
+  severity: HIGH
+  category: unicode_attack
+  patterns:
+  - '[\u200B\u200C\u200D\u2060\uFEFF]'
+  message: Zero-width character detected - potential code hiding
+  cwe: CWE-94
+  metadata:
+    documented_case: os-info-checker-es6 (2025)
+  file_types: *id001
+- id: SLOP-SCAN-UNICODE-003
+  name: cyrillic-homoglyph-complete
+  severity: CRITICAL
+  category: unicode_attack
+  patterns:
+  - '[\u0430\u0435\u043E\u0440\u0441\u0443\u0445\u0456\u0458]'
+  message: Cyrillic homoglyph in code (CVE-2021-42694)
+  cwe: CWE-94
+  cve: CVE-2021-42694
+  metadata:
+    documented_case: jeIlyfish SSH key stealer
+  file_types: *id001
+- id: SLOP-SCAN-UNICODE-004
+  name: mixed-script-identifier
+  severity: HIGH
+  category: unicode_attack
+  patterns:
+  - '[a-zA-Z]+[\u0400-\u04FF]+|[\u0400-\u04FF]+[a-zA-Z]+'
+  message: Mixed Latin/Cyrillic script in identifier
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-IOC-001
+  name: n-cdn-radar-domain
+  severity: CRITICAL
+  category: ioc
+  patterns:
+  - n\.cdn-radar\.com
+  message: Known malicious C2 domain (AndroidAudioRecorder campaign)
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-IOC-002
+  name: solarwinds-c2-ips
+  severity: CRITICAL
+  category: ioc
+  patterns:
+  - 18\.130\.0\.\d+
+  - 8\.18\.144\.\d+
+  message: Known SolarWinds C2 IP range
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-IOC-003
+  name: nodetest199-c2
+  severity: CRITICAL
+  category: ioc
+  patterns:
+  - 45\.63\.54\.27
+  message: Known malicious IP (nodetest199 reverse shell)
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-IOC-004
+  name: tensorplow-c2
+  severity: CRITICAL
+  category: ioc
+  patterns:
+  - 50\.242\.118\.99
+  message: Known malicious IP (tensorplow C2)
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-MALWARE-001
+  name: eslint-scope-compromised
+  severity: CRITICAL
+  category: known_malware
+  languages:
+  - javascript
+  patterns:
+  - eslint-scope.*3\.7\.2
+  message: Compromised eslint-scope version (July 2018 incident)
+  cwe: CWE-506
+  metadata:
+    impact: Credential exfiltration
+  file_types: *id001
+- id: SLOP-SCAN-MALWARE-002
+  name: event-stream-compromised
+  severity: CRITICAL
+  category: known_malware
+  languages:
+  - javascript
+  patterns:
+  - event-stream.*3\.3\.6
+  - flatmap-stream
+  message: Compromised event-stream version (Nov 2018 incident)
+  cwe: CWE-506
+  metadata:
+    impact: Bitcoin theft (Copay wallet)
+  file_types: *id001
+- id: SLOP-SCAN-MALWARE-003
+  name: ua-parser-js-compromised
+  severity: CRITICAL
+  category: known_malware
+  languages:
+  - javascript
+  patterns:
+  - ua-parser-js.*(?:0\.7\.29|0\.8\.0|1\.0\.0)
+  message: Compromised ua-parser-js version (Oct 2021 incident)
+  cwe: CWE-506
+  metadata:
+    impact: Cryptominers, password stealers
+  file_types: *id001
+- id: SLOP-SCAN-MALWARE-004
+  name: ctx-compromised
+  severity: CRITICAL
+  category: known_malware
+  languages:
+  - python
+  patterns:
+  - '[''"'']ctx[''"''].*(?:install|import)'
+  message: Compromised 'ctx' package (May 2022 incident)
+  cwe: CWE-506
+  metadata:
+    impact: Environment variable exfiltration
+    c2: mironanoru.zzz.com.ua
+  file_types: *id001
+- id: SLOP-SCAN-MALWARE-005
+  name: rest-client-compromised
+  severity: CRITICAL
+  category: known_malware
+  languages:
+  - ruby
+  patterns:
+  - rest-client.*1\.6\.13
+  message: Compromised rest-client gem version (Aug 2019)
+  cwe: CWE-506
+  cve: CVE-2019-15224
+  file_types: *id001
+- id: SLOP-SCAN-DNS-001
+  name: dns-tunneling
+  severity: HIGH
+  category: exfiltration
+  patterns:
+  - dns\.resolver.*TXT
+  - dnslib.*query
+  - dns\\.resolve.*callback
+  message: DNS tunneling/exfiltration pattern
+  cwe: CWE-200
+  metadata:
+    documented_case: AndroidAudioRecorder, SolarWinds
+  file_types: *id001
+- id: SLOP-SCAN-DNS-002
+  name: dns-encode-exfil
+  severity: HIGH
+  category: exfiltration
+  patterns:
+  - base64.*\.encode.*dns
+  - dns.*(?:query|resolve).*base64
+  message: Base64 encoded DNS exfiltration
+  cwe: CWE-200
+  file_types: *id001
+- id: SLOP-SCAN-AGENT-001
+  name: agentic-auto-install
+  severity: HIGH
+  category: agentic_risk
+  patterns:
+  - (?:agent|autonomous).*(?:pip|npm|cargo)\s+install
+  - auto.*install.*(?:package|dependency)
+  message: Agentic auto-install pattern - hallucination risk
+  cwe: CWE-94
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: SLOP-SCAN-AGENT-002
+  name: agentic-execute-command
+  severity: CRITICAL
+  category: agentic_risk
+  patterns:
+  - agent.*(?:exec|system|spawn|subprocess)
+  - (?:tool|action).*(?:execute|run).*command
+  message: Agentic command execution - exploitation risk
+  cwe: CWE-78
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: SLOP-SCAN-BOMB-001
+  name: date-based-trigger
+  severity: HIGH
+  category: logic_bomb
+  patterns:
+  - datetime\.now\(\).*(?:==|>=|<=).*datetime\(
+  - Date\.now\(\).*(?:>|<|===).*\d{10}
+  - time\.time\(\).*(?:>|<).*\d{10}
+  message: Date-based logic bomb trigger
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-BOMB-002
+  name: environment-trigger
+  severity: MEDIUM
+  category: logic_bomb
+  patterns:
+  - os\.environ\.get.*(?:PROD|PRODUCTION|DEPLOY).*(?:==|!=)
+  - process\.env\.NODE_ENV.*(?:===|!==).*production
+  message: Environment-based logic bomb trigger
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-BOMB-003
+  name: hostname-trigger
+  severity: MEDIUM
+  category: logic_bomb
+  patterns:
+  - socket\.gethostname\(\).*(?:==|!=|in)
+  - os\.hostname\(\).*(?:===|!==|includes)
+  message: Hostname-based logic bomb trigger
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-DROPPER-001
+  name: pastebin-dropper
+  severity: CRITICAL
+  category: dropper
+  patterns:
+  - (?:requests|urllib|fetch).*pastebin\.com/raw
+  - pastebin\.com.*(?:exec|eval)
+  message: Pastebin-based second stage dropper
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-DROPPER-002
+  name: gist-dropper
+  severity: HIGH
+  category: dropper
+  patterns:
+  - gist\.githubusercontent\.com.*(?:exec|eval)
+  - raw\.githubusercontent\.com.*(?:exec|eval|subprocess)
+  message: GitHub Gist/Raw payload dropper
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-DROPPER-003
+  name: google-calendar-c2
+  severity: CRITICAL
+  category: dropper
+  patterns:
+  - calendar\.google\.com.*(?:event|payload)
+  - googleapis\.com/calendar
+  message: Google Calendar C2 pattern (os-info-checker-es6)
+  cwe: CWE-506
+  file_types: *id001
+- id: SLOP-SCAN-W4SP-001
+  name: w4sp-discord-grab
+  severity: CRITICAL
+  category: malware_family
+  patterns:
+  - leveldb.*discord.*token
+  - discord.*(?:leveldb|sqlite).*grab
+  message: W4SP Stealer Discord token theft pattern
+  cwe: CWE-522
+  file_types: *id001
+- id: SLOP-SCAN-W4SP-002
+  name: w4sp-crypto-wallet
+  severity: CRITICAL
+  category: malware_family
+  patterns:
+  - (?:Ethereum|Exodus|Electrum).*(?:wallet|key)
+  - crypto.*(?:wallet|seed).*(?:grab|steal|exfil)
+  message: W4SP Stealer cryptocurrency wallet theft
+  cwe: CWE-522
+  file_types: *id001
+- id: SLOP-SCAN-VSCODE-001
+  name: vscode-cryptominer
+  severity: HIGH
+  category: ide_threat
+  patterns:
+  - vscode.*extension.*(?:xmrig|monero|miner)
+  - extensionKind.*(?:workspace|ui).*miner
+  message: VS Code extension cryptominer pattern
+  cwe: CWE-400
+  file_types: *id001
+- id: SLOP-SCAN-VSCODE-002
+  name: vscode-clipboard-steal
+  severity: HIGH
+  category: ide_threat
+  patterns:
+  - vscode\.env\.clipboard.*(?:post|send|webhook)
+  - clipboard.*getText.*(?:fetch|request)
+  message: VS Code extension clipboard theft
+  cwe: CWE-200
+  metadata:
+    documented_case: clipboard-helper-vscode
+  file_types: *id001
+- id: SLOP-SCAN-PHP-001
+  name: composer-autoload-attack
+  severity: HIGH
+  category: install_hook
+  languages:
+  - php
+  - json
+  patterns:
+  - '"autoload".*"files".*\.php'
+  - '"post-autoload-dump".*exec'
+  message: Composer autoload file execution
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-IMPORT-001
+  name: python-init-exec
+  severity: HIGH
+  category: install_hook
+  languages:
+  - python
+  patterns:
+  - __init__\.py.*(?:os\.system|subprocess|exec)
+  message: Python __init__.py with code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-IMPORT-002
+  name: node-main-exec
+  severity: HIGH
+  category: install_hook
+  languages:
+  - javascript
+  patterns:
+  - '"main".*\.js".*(?:child_process|exec)'
+  message: Node.js main entry with code execution
+  cwe: CWE-94
+  file_types: *id001
+- id: SLOP-SCAN-IMPORT-003
+  name: java-static-init
+  severity: MEDIUM
+  category: install_hook
+  languages:
+  - java
+  patterns:
+  - static\s*\{[^}]*Runtime\.getRuntime\(\)\.exec
+  message: Java static initializer with command execution
+  cwe: CWE-94
+  file_types: *id001

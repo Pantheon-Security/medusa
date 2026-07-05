@@ -1,0 +1,238 @@
+rules:
+- id: DP-GLA-001
+  name: deep-leakage-gradients
+  pattern: (?i)(?:deep\s+leakage|DLG|gradient\s+leak(?:age)?)
+  message: DLG (Deep Leakage from Gradients) attack pattern - ASR 0.686-0.857
+  severity: CRITICAL
+  category: dp_attack
+  cwe: CWE-200
+  mitre_atlas: AML.T0001
+  file_types: &id001
+  - '*.py'
+- id: DP-GLA-002
+  name: gradient-inversion
+  pattern: (?i)(?:grad(?:ient)?\s*inv(?:ersion)?|invert.*gradient)
+  message: Gradient inversion attack - ASR up to 1.0
+  severity: CRITICAL
+  category: dp_attack
+  mitre_atlas: AML.T0001
+  file_types: *id001
+- id: DP-GLA-003
+  name: gradient-reconstruction
+  pattern: (?i)(?:reconstruct.*(?:from|via)\s*gradient|gradient.*reconstruct)
+  message: Gradient reconstruction attempt
+  severity: HIGH
+  category: dp_attack
+  file_types: *id001
+- id: DP-GLA-004
+  name: dummy-gradient-optimization
+  pattern: (?i)(?:dummy\s+(?:data|gradient)|minimize.*gradient\s+distance)
+  message: Dummy gradient optimization (GLA technique)
+  severity: HIGH
+  category: dp_attack
+  file_types: *id001
+- id: DP-GLA-005
+  name: lbfgs-gradient-attack
+  pattern: (?i)(?:L-BFGS|LBFGS).*(?:gradient|reconstruct|attack)
+  message: L-BFGS optimizer used for gradient attack
+  severity: HIGH
+  category: dp_attack
+  file_types: *id001
+- id: DP-BYPASS-001
+  name: mjolnir-attack
+  pattern: (?i)(?:mj[oö]lnir|diffusion.*denois|denois.*gradient)
+  message: Mjölnir diffusion-based denoising - BYPASSES DP NOISE (ASR 0.83)
+  severity: CRITICAL
+  category: dp_bypass
+  file_types: *id001
+- id: DP-BYPASS-002
+  name: noise-removal-attempt
+  pattern: (?i)(?:remove.*(?:gaussian|laplace)\s*noise|denoise.*(?:dp|differential))
+  message: Attempt to remove DP noise from gradients
+  severity: CRITICAL
+  category: dp_bypass
+  file_types: *id001
+- id: DP-BYPASS-003
+  name: dp-noise-bypass
+  pattern: (?i)bypass.*(?:dp|differential\s+privacy)
+  message: DP bypass attempt detected
+  severity: CRITICAL
+  category: dp_bypass
+  file_types: *id001
+- id: DP-MIA-001
+  name: membership-inference
+  pattern: (?i)(?:membership\s+inference|MIA|is.?in\s+(?:train|dataset))
+  message: Membership inference attack pattern
+  severity: HIGH
+  category: dp_attack
+  cwe: CWE-522
+  mitre_atlas: AML.T0040
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: DP-MIA-002
+  name: confidence-based-mia
+  pattern: (?i)(?:confidence.*membership|high\s+confidence.*training)
+  message: Confidence-based membership inference
+  severity: MEDIUM
+  category: dp_attack
+  file_types: *id001
+- id: DP-MIA-003
+  name: entropy-based-mia
+  pattern: (?i)(?:entropy.*membership|low\s+entropy.*member)
+  message: Entropy-based membership inference
+  severity: MEDIUM
+  category: dp_attack
+  file_types: *id001
+- id: DP-MIA-004
+  name: shadow-model-mia
+  pattern: (?i)(?:shadow\s+model|train.*shadow.*attack)
+  message: Shadow model training for MIA
+  severity: HIGH
+  category: dp_attack
+  file_types: *id001
+- id: DP-SC-001
+  name: em-emission-attack
+  pattern: (?i)(?:electromagnetic|EM\s+emission|side.?channel.*(?:neural|ml|ai))
+  message: ScaAR side-channel attack via EM emissions - 92.8-96.3% accuracy
+  severity: CRITICAL
+  category: side_channel
+  cwe: CWE-514
+  file_types: *id001
+- id: DP-SC-002
+  name: timing-attack
+  pattern: (?i)(?:timing\s+attack|execution\s+time.*leak|floating.?point.*timing)
+  message: Timing-based side-channel attack
+  severity: HIGH
+  category: side_channel
+  cwe: CWE-1245
+  file_types: *id001
+- id: DP-SC-003
+  name: tvla-leakage
+  pattern: (?i)(?:TVLA|test\s+vector\s+leakage|welch.*t.?test)
+  message: TVLA leakage assessment (t > 4.5 indicates leakage)
+  severity: MEDIUM
+  category: side_channel
+  file_types: *id001
+- id: DP-INF-001
+  name: embedding-inversion
+  pattern: (?i)(?:embedding\s+inversion|invert.*embedding|recover.*token.*embedding)
+  message: Embedding inversion attack on LLM
+  severity: HIGH
+  category: dp_attack
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: DP-INF-002
+  name: attribute-inference
+  pattern: (?i)(?:attribute\s+inference|infer.*sensitive.*attribute)
+  message: Sensitive attribute inference attack
+  severity: HIGH
+  category: dp_attack
+  file_types: *id001
+- id: DP-INF-003
+  name: model-inversion
+  pattern: (?i)(?:model\s+inversion|inverse.*model.*(?:train|data))
+  message: Model inversion attack
+  severity: HIGH
+  category: dp_attack
+  mitre_atlas: AML.T0001
+  file_types: *id001
+- id: DP-CONFIG-001
+  name: weak-epsilon
+  pattern: (?i)(?:epsilon|ε)\s*[=:]\s*(?:[5-9]\d+|\d{3,})
+  message: Weak privacy budget (high epsilon) - use ε ≤ 10
+  severity: HIGH
+  category: dp_config
+  file_types: *id001
+- id: DP-CONFIG-002
+  name: missing-clipping
+  pattern: (?i)(?:gradient.*(?:no|without|disable).*clip|clip(?:ping)?\s*[=:]\s*(?:None|false|0))
+  message: Gradient clipping disabled - DP ineffective without clipping
+  severity: CRITICAL
+  category: dp_config
+  file_types: *id001
+- id: DP-CONFIG-003
+  name: fixed-noise
+  pattern: (?i)(?:fixed\s+(?:noise|sigma)|constant.*(?:noise|perturbation))
+  message: Fixed noise parameter - vulnerable to Mjölnir
+  severity: MEDIUM
+  category: dp_config
+  file_types: *id001
+- id: DP-CONFIG-004
+  name: small-batch-size
+  pattern: (?i)batch.?size\s*[=:]\s*[1-8]\b
+  message: Small batch size increases gradient leakage risk
+  severity: MEDIUM
+  category: dp_config
+  file_types: *id001
+- id: DP-CONFIG-005
+  name: no-moments-accountant
+  pattern: (?i)(?:simple\s+composition|naive.*privacy.*(?:budget|accounting))
+  message: Missing Moments Accountant - use RDP for tight bounds
+  severity: MEDIUM
+  category: dp_config
+  file_types: *id001
+- id: DP-FL-001
+  name: raw-gradient-sharing
+  pattern: (?i)(?:share.*gradient|transmit.*(?:raw|unencrypted).*gradient)
+  message: Raw gradient sharing in FL - leakage risk
+  severity: HIGH
+  category: dp_fl
+  file_types: *id001
+- id: DP-FL-002
+  name: honest-curious-server
+  pattern: (?i)(?:honest.?but.?curious|semi.?honest.*server)
+  message: Honest-but-curious server threat model
+  severity: MEDIUM
+  category: dp_fl
+  file_types: *id001
+- id: DP-FL-003
+  name: type2-leakage
+  pattern: (?i)(?:type.?2\s+leakage|intercept.*before.*batch|per.?example.*gradient)
+  message: Type-2 gradient leakage - per-example access bypasses batch protection
+  severity: CRITICAL
+  category: dp_fl
+  file_types: *id001
+- id: DP-LLM-001
+  name: llm-memorization
+  pattern: (?i)(?:(?:llm|language\s+model).*memoriz|verbatim.*(?:extract|leak))
+  message: LLM memorization vulnerability
+  severity: HIGH
+  category: dp_llm
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: DP-LLM-002
+  name: prompt-extraction
+  pattern: (?i)(?:prompt\s+extraction|extract.*(?:system|training)\s+prompt)
+  message: Prompt extraction attack
+  severity: HIGH
+  category: dp_llm
+  owasp_llm: LLM06:2025
+  file_types: *id001
+- id: DP-LLM-003
+  name: inference-unprotected
+  pattern: (?i)(?:inference.*(?:no|without).*(?:dp|privacy)|unprotected.*inference)
+  message: Inference-time data unprotected - consider DP-Forward
+  severity: HIGH
+  category: dp_llm
+  file_types: *id001
+- id: DP-METRIC-001
+  name: high-ssim
+  pattern: (?i)(?:SSIM|structural\s+similarity)\s*[=:>]\s*0\.[89]
+  message: High SSIM indicates successful reconstruction attack
+  severity: HIGH
+  category: dp_metric
+  file_types: *id001
+- id: DP-METRIC-002
+  name: low-mse
+  pattern: (?i)(?:MSE|mean\s+squared\s+error)\s*[=:<]\s*0\.[0-6]
+  message: Low MSE indicates successful reconstruction
+  severity: HIGH
+  category: dp_metric
+  file_types: *id001
+- id: DP-METRIC-003
+  name: high-asr
+  pattern: (?i)(?:ASR|attack\s+success)\s*[=:>]\s*0\.[7-9]
+  message: High attack success rate detected
+  severity: CRITICAL
+  category: dp_metric
+  file_types: *id001

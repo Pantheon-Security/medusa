@@ -1,0 +1,304 @@
+rules:
+# ============================================================================
+# Traditional SAST rules for common web vulnerabilities
+# These cover gaps found during benchmark validation (2026-03-18)
+# ============================================================================
+
+# --- SQL Injection via string formatting ---
+
+- id: SAST-SQLI-001
+  name: sql-injection-percent-formatting
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+    - "(?i)['\"].*(?:SELECT|INSERT|UPDATE|DELETE|VALUES).*%\\("
+    - "(?i)['\"].*(?:SELECT|INSERT|UPDATE|DELETE|VALUES).*['\"]\\s*%\\s*\\{"
+    - "(?i)%\\s*\\{.*\\}.*(?:SELECT|INSERT|UPDATE|DELETE|VALUES)"
+    - "(?i)['\"].*(?:SELECT|INSERT|UPDATE|DELETE|VALUES).*%s.*['\"]\\s*%\\s*\\w"
+  message: "SQL injection via Python % string formatting — use parameterized queries"
+  description: "String formatting with % operator used to build SQL queries allows injection. Use parameterized queries (cursor.execute(sql, params)) instead."
+  cwe: CWE-89
+  owasp_llm: LLM05:2025
+  file_types:
+    - "*.py"
+
+- id: SAST-SQLI-002
+  name: sql-injection-format-method
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+    - "(?i)['\"].*(?:SELECT|INSERT|UPDATE|DELETE|WHERE).*['\"].*\\.format\\s*\\("
+    - "(?i)\\.format\\s*\\(.*(?:SELECT|INSERT|UPDATE|DELETE|WHERE)"
+  message: "SQL injection via .format() — use parameterized queries"
+  description: "The .format() method used to build SQL queries allows injection. Use parameterized queries instead."
+  cwe: CWE-89
+  file_types:
+    - "*.py"
+
+- id: SAST-SQLI-003
+  name: sql-injection-concatenation
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+    - "(?i)(?:execute|query)\\s*\\(\\s*['\"].*(?:SELECT|INSERT|UPDATE|DELETE).*['\"]\\s*\\+"
+    - "(?i)['\"]\\s*\\+.*(?:SELECT|INSERT|UPDATE|DELETE)"
+  message: "SQL injection via string concatenation — use parameterized queries"
+  cwe: CWE-89
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+    - "*.java"
+    - "*.php"
+    - "*.rb"
+
+# --- Weak Cryptography ---
+
+- id: SAST-CRYPTO-001
+  name: md5-password-hashing
+  severity: HIGH
+  category: web_security
+  patterns:
+    - '(?i)md5\s*\(.*(?:password|passwd|pwd|pass_hash|user_pass)'
+    - '(?i)hashlib\.md5\s*\(.*(?:password|passwd|pwd|encode)'
+    - '(?i)(?:password|passwd|pwd).*md5\s*\('
+    - '(?i)(?:password|passwd|pwd).*=.*md5\('
+  message: "Weak hash: MD5 used for password hashing — use bcrypt, scrypt, or argon2"
+  description: "MD5 is cryptographically broken for password hashing. Use bcrypt, scrypt, or argon2id instead."
+  cwe: CWE-328
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+    - "*.php"
+    - "*.rb"
+    - "*.java"
+
+- id: SAST-CRYPTO-002
+  name: sha1-password-hashing
+  severity: HIGH
+  category: web_security
+  patterns:
+    - '(?i)sha1\s*\(.*(?:password|passwd|pwd)'
+    - '(?i)hashlib\.sha1\s*\(.*(?:password|passwd|pwd|encode)'
+    - '(?i)(?:password|passwd|pwd).*sha1\s*\('
+  message: "Weak hash: SHA1 used for password hashing — use bcrypt, scrypt, or argon2"
+  cwe: CWE-328
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.php"
+
+- id: SAST-CRYPTO-003
+  name: md5-generic-usage
+  severity: MEDIUM
+  category: web_security
+  patterns:
+    - '(?i)hashlib\.md5\s*\('
+    - '(?i)(?:from|import)\s+hashlib.*\bmd5\b'
+    - '(?i)MD5\.new\s*\('
+    - '(?i)Digest::MD5'
+  message: "MD5 detected — MD5 is cryptographically broken, use SHA-256+ or BLAKE2"
+  cwe: CWE-328
+  file_types:
+    - "*.py"
+    - "*.rb"
+    - "*.php"
+
+# --- Missing Authentication ---
+
+- id: SAST-AUTH-001
+  name: flask-route-no-auth-post
+  severity: HIGH
+  category: web_security
+  patterns:
+    - '(?i)@app\.route\s*\([^)]*(?:POST|PUT|DELETE|PATCH)[^)]*\)\s*\ndef\s+\w+(?:(?!login_required|auth_required|requires_auth|permission_required|jwt_required|token_required).){0,200}'
+  message: "Flask route accepts POST/PUT/DELETE without authentication decorator"
+  description: "State-changing HTTP route has no authentication check. Add @login_required or equivalent."
+  cwe: CWE-306
+  file_types:
+    - "*.py"
+
+- id: SAST-AUTH-002
+  name: express-route-no-auth
+  severity: MEDIUM
+  category: web_security
+  patterns:
+    - '(?i)(?:app|router)\.(post|put|delete|patch)\s*\(\s*[''"][^''"]+[''"](?:(?!auth|passport|jwt|verify|middleware|isAuthenticated).){0,100}(?:req\s*,\s*res)'
+  message: "Express route handles state-changing request without auth middleware"
+  cwe: CWE-306
+  file_types:
+    - "*.js"
+    - "*.ts"
+
+# --- Environment Variable Exposure ---
+
+- id: SAST-ENV-001
+  name: env-var-in-response
+  severity: HIGH
+  category: web_security
+  patterns:
+    - '(?i)(?:return|response|jsonify|json\.dumps|res\.(?:send|json))\s*\(.*os\.(?:environ|getenv)'
+    - '(?i)os\.(?:environ|getenv)\s*\[.*(?:SECRET|KEY|TOKEN|PASSWORD|CREDENTIAL)'
+  message: "Environment variable containing secrets may be exposed in response"
+  description: "Sensitive environment variables should not be returned in API responses."
+  cwe: CWE-200
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+
+- id: SAST-ENV-002
+  name: env-var-debug-dump
+  severity: CRITICAL
+  category: web_security
+  patterns:
+    - '(?i)(?:print|log|console\.log|logger)\s*\(.*os\.environ(?:\s*\)|\[)'
+    - '(?i)dict\(os\.environ\)'
+    - '(?i)json\.dumps\(.*os\.environ'
+  message: "Full environment dumped — secrets will be exposed in logs/output"
+  cwe: CWE-200
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+
+# --- SQL Injection via f-strings ---
+
+- id: SAST-SQLI-004
+  name: sql-injection-fstring
+  severity: CRITICAL
+  category: sql_injection
+  patterns:
+    - '(?i)f[''"](?:\s*)(?:SELECT|INSERT\s+INTO|UPDATE|DELETE\s+FROM|WHERE)\s.*\{.*\}'
+    - '(?i)(?:execute|query|cursor\.execute)\s*\(\s*f[''"].*(?:SELECT|INSERT|UPDATE|DELETE)'
+  message: "SQL injection via f-string — use parameterized queries"
+  cwe: CWE-89
+  file_types:
+    - "*.py"
+
+# --- Hardcoded Secrets ---
+
+- id: SAST-SECRET-001
+  name: hardcoded-api-key
+  severity: HIGH
+  category: web_security
+  patterns:
+    - '(?i)(?:api_key|apikey|api_secret)\s*=\s*[''"][a-zA-Z0-9_\-]{20,}[''"]'
+    - '(?i)(?:access_token|auth_token|bearer_token)\s*=\s*[''"][a-zA-Z0-9_\-]{20,}[''"]'
+  message: "Hardcoded API key or token — use environment variables or secret manager"
+  cwe: CWE-798
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+    - "*.java"
+    - "*.go"
+
+- id: SAST-SECRET-002
+  name: hardcoded-password
+  severity: CRITICAL
+  category: web_security
+  patterns:
+    - '(?i)(?:password|passwd|pwd|db_pass|mysql_pass)\s*=\s*[''"][^''"]{8,}[''"]'
+  message: "Hardcoded password — use environment variables or secret manager"
+  cwe: CWE-798
+  file_types:
+    - "*.py"
+    - "*.js"
+    - "*.ts"
+    - "*.java"
+    - "*.rb"
+    - "*.php"
+
+# --- Dangerous Function Calls ---
+
+- id: SAST-EXEC-001
+  name: eval-with-input
+  severity: CRITICAL
+  category: command_injection
+  patterns:
+    - '(?i)\beval\s*\(\s*(?:request|input|user|param|args|argv|data|payload|body)'
+    - '(?i)\beval\s*\(\s*f[''"]'
+    - '(?i)\beval\s*\(\s*[''"].*\+|.*\beval\s*\(.*\.format\s*\('
+  message: "eval() with user input — arbitrary code execution risk"
+  cwe: CWE-94
+  file_types:
+    - "*.py"
+    - "*.js"
+
+- id: SAST-EXEC-002
+  name: exec-with-input
+  severity: CRITICAL
+  category: command_injection
+  patterns:
+    - '(?i)\bexec\s*\(\s*(?:request|input|user|param|args|data|payload|body)'
+    - '(?i)\bexec\s*\(\s*f[''"]'
+    - '(?i)\bexec\s*\(\s*[''"].*\+'
+  message: "exec() with user input — arbitrary code execution risk"
+  cwe: CWE-94
+  file_types:
+    - "*.py"
+
+- id: SAST-EXEC-003
+  name: subprocess-shell-true
+  severity: HIGH
+  category: command_injection
+  patterns:
+    - '(?i)subprocess\.(?:run|call|Popen|check_output|check_call)\s*\([^)]*shell\s*=\s*True'
+  message: "subprocess with shell=True — command injection risk"
+  cwe: CWE-78
+  file_types:
+    - "*.py"
+
+- id: SAST-EXEC-004
+  name: os-system-call
+  severity: HIGH
+  category: command_injection
+  patterns:
+    - '(?i)os\.system\s*\(\s*(?:f[''"]|[''"].*\+|.*\.format|.*%)'
+    - '(?i)os\.popen\s*\(\s*(?:f[''"]|[''"].*\+|.*\.format|.*%)'
+  message: "os.system/popen with dynamic input — use subprocess with shell=False"
+  cwe: CWE-78
+  file_types:
+    - "*.py"
+
+# --- Unsafe Deserialization ---
+
+- id: SAST-DESER-001
+  name: pickle-load
+  severity: CRITICAL
+  category: deserialization
+  patterns:
+    - '(?i)pickle\.loads?\s*\('
+    - '(?i)pickle\.Unpickler\s*\('
+    - '(?i)cPickle\.loads?\s*\('
+  message: "Unsafe pickle deserialization — arbitrary code execution risk"
+  cwe: CWE-502
+  file_types:
+    - "*.py"
+
+- id: SAST-DESER-002
+  name: yaml-unsafe-load
+  severity: HIGH
+  category: deserialization
+  patterns:
+    - '(?i)yaml\.unsafe_load\s*\('
+  message: "yaml.unsafe_load — code execution risk"
+  cwe: CWE-502
+  file_types:
+    - "*.py"
+
+# --- Path Traversal ---
+
+- id: SAST-PATH-001
+  name: path-traversal-open
+  severity: HIGH
+  category: path_traversal
+  patterns:
+    - '(?i)open\s*\(\s*(?:request|input|user|param|args)\b'
+    - '(?i)open\s*\(\s*f[''"].*\{.*(?:request|input|user|param)'
+  message: "File open with user-controlled path — path traversal risk"
+  cwe: CWE-22
+  file_types:
+    - "*.py"

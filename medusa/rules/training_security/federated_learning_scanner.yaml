@@ -1,0 +1,1264 @@
+# MEDUSA Federated Learning Security Scanner Rules
+# Target: CODE vulnerabilities in FL implementations
+# Source: NotebookLM FL Security (87 queries, comprehensive research)
+# Version: 2.0.0
+# Last Updated: 2026-01-08
+
+metadata:
+  category: "training_security"
+  subcategory: "federated_learning_scanner"
+  description: "Static code analysis rules for FL training pipeline security"
+  owasp_llm_mapping:
+    - "LLM02:2025"  # Sensitive Information Disclosure
+    - "LLM03:2025"  # Supply Chain
+    - "LLM04:2025"  # Data/Model Poisoning
+  cwe_references:
+    - "CWE-200"   # Information Disclosure
+    - "CWE-284"   # Improper Access Control
+    - "CWE-506"   # Embedded Malicious Code
+    - "CWE-693"   # Protection Mechanism Failure
+    - "CWE-522"   # Insufficiently Protected Credentials
+  mitre_atlas_references:
+    - "AML.T0001"  # Data Poisoning
+    - "AML.T0040"  # Membership Inference
+    - "AML.T0020"  # Model Theft
+  academic_references:
+    - "Bagdasaryan2020_ModelReplacement"
+    - "Fang2020_LocalPoisoning"
+    - "Blanchard2017_Krum"
+    - "Wang2020_EdgeCase"
+  total_rules: 88
+
+rules:
+  # ===========================================================================
+  # SECTION 1: BYZANTINE ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-001
+    name: lie-attack-implementation
+    severity: CRITICAL
+    category: byzantine_attack
+    description: "LIE (Little Is Enough) Byzantine attack implementation"
+    patterns:
+      - '(?i)lie_attack|LIE.*attack'
+      - '(?i)z_score\s*\*\s*std|z\s*\*\s*sigma'
+      - '(?i)little.*is.*enough'
+      - '(?i)mean\s*\+\s*z\s*\*\s*std'
+    file_types: [".py", ".ipynb"]
+    message: "LIE Byzantine attack detected - adds scaled noise to honest updates"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    mitre_atlas: "AML.T0001"
+
+  - id: MEDUSA-FLSCAN-002
+    name: alie-attack-implementation
+    severity: CRITICAL
+    category: byzantine_attack
+    description: "ALIE (Adaptive Little Is Enough) with grid search optimization"
+    patterns:
+      - '(?i)ALIE|adaptive.*lie'
+      - '(?i)grid_search.*tau|optimize.*attack.*factor'
+      - '(?i)torch\.norm\(.*honest.*-.*aggregate'
+      - '(?i)dynamic.*z.*estimation'
+    file_types: [".py", ".ipynb"]
+    message: "ALIE adaptive Byzantine attack with per-iteration optimization"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-003
+    name: min-max-attack
+    severity: CRITICAL
+    category: byzantine_attack
+    description: "Min-Max Byzantine attack targeting Krum defense"
+    patterns:
+      - '(?i)min_max.*attack|MinMax.*Byzantine'
+      - '(?i)pairwise_distance.*binary.*search'
+      - '(?i)scaling_factor\s*\/=\s*2'
+      - '(?i)maximize.*distance.*bound'
+    file_types: [".py", ".ipynb"]
+    message: "Min-Max attack using binary search to evade distance-based defenses"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-004
+    name: ipm-attack
+    severity: HIGH
+    category: byzantine_attack
+    description: "IPM (Inner Product Manipulation) attack"
+    patterns:
+      - '(?i)IPM|inner.*product.*manipulation'
+      - '(?i)torch\.neg\(|(-1)\s*\*\s*update'
+      - '(?i)negative.*inner.*product'
+      - '(?i)-local_model.*sum.*benign'
+    file_types: [".py", ".ipynb"]
+    message: "IPM attack negates gradients to prevent convergence"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-005
+    name: foe-attack
+    severity: HIGH
+    category: byzantine_attack
+    description: "FOE (Fall of Empires) momentum negation attack"
+    patterns:
+      - '(?i)fall.*of.*empires|FOE.*attack'
+      - '\(1\s*-\s*tau\)\s*\*\s*momentum'
+      - '(?i)sign.*flip.*momentum'
+      - '(?i)negate.*honest.*momentum'
+    file_types: [".py", ".ipynb"]
+    message: "FOE attack negates honest momentum to stall training"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-006
+    name: mimic-attack
+    severity: MEDIUM
+    category: byzantine_attack
+    description: "Mimic attack copying honest client updates"
+    patterns:
+      - '(?i)mimic.*attack|copy.*honest.*update'
+      - '(?i)state_dict\(\)\.copy\(\)'
+      - '(?i)replicate.*victim.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "Mimic attack replicating honest client to evade detection"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 2: BACKDOOR ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-010
+    name: model-replacement-attack
+    severity: CRITICAL
+    category: backdoor_attack
+    description: "Model replacement attack with n/η scaling"
+    patterns:
+      - '(?i)model.*replacement.*scaling'
+      - '(?i)\(n\s*/\s*eta\)\s*\*\s*\(.*-.*\)'
+      - '(?i)gamma\s*=\s*n\s*/\s*eta'
+      - '(?i)scaling_factor\s*=\s*[1-9][0-9]{2,}'
+    file_types: [".py", ".ipynb"]
+    message: "Model replacement attack using γ=n/η scaling factor"
+    owasp_llm: "LLM04:2025"
+    cwe: "CWE-506"
+    mitre_atlas: "AML.T0001"
+
+  - id: MEDUSA-FLSCAN-011
+    name: dba-distributed-backdoor
+    severity: CRITICAL
+    category: backdoor_attack
+    description: "DBA (Distributed Backdoor Attack) with trigger decomposition"
+    patterns:
+      - '(?i)DBA|distributed.*backdoor'
+      - '(?i)decompose.*trigger.*clients'
+      - '(?i)partial.*trigger.*injection'
+      - '(?i)trigger.*consolidat'
+    file_types: [".py", ".ipynb"]
+    message: "DBA attack decomposing triggers across malicious clients"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-012
+    name: neurotoxin-attack
+    severity: CRITICAL
+    category: backdoor_attack
+    description: "Neurotoxin attack targeting rarely-updated coordinates"
+    patterns:
+      - '(?i)neurotoxin|Neurotoxin'
+      - '(?i)infrequent.*neuron.*target'
+      - '(?i)bottom.*k.*percent|coordinate.*mask'
+      - '(?i)grad\.abs\(\).*<.*threshold'
+    file_types: [".py", ".ipynb"]
+    message: "Neurotoxin attack injecting into rarely-updated model coordinates"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-013
+    name: edge-case-backdoor
+    severity: HIGH
+    category: backdoor_attack
+    description: "Edge-case backdoor targeting tail distribution"
+    patterns:
+      - '(?i)edge.*case.*backdoor'
+      - '(?i)heavy.*tail|rare.*distribution'
+      - '(?i)PGD.*poison|projected.*gradient.*descent'
+      - '(?i)l2.*ball.*projection'
+    file_types: [".py", ".ipynb"]
+    message: "Edge-case backdoor targeting rare distribution samples"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-014
+    name: pfedba-attack
+    severity: HIGH
+    category: backdoor_attack
+    description: "PFedBA personalized FL backdoor attack"
+    patterns:
+      - '(?i)PFedBA|personalized.*backdoor'
+      - '(?i)gradient.*alignment.*loss.*alignment'
+      - '(?i)exploit.*personalization'
+      - '(?i)decision.*boundary.*match'
+    file_types: [".py", ".ipynb"]
+    message: "PFedBA attack aligning backdoor with main task"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-015
+    name: venomancer-attack
+    severity: HIGH
+    category: backdoor_attack
+    description: "Venomancer imperceptible backdoor attack"
+    patterns:
+      - '(?i)venomancer|Venomancer'
+      - '(?i)ConditionalAutoencoder|ConditionalUNet'
+      - '(?i)L_visual|visual.*loss|perceptual.*loss'
+      - '(?i)imperceptible.*trigger'
+    file_types: [".py", ".ipynb"]
+    message: "Venomancer attack with imperceptible visual triggers"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-016
+    name: constrain-and-scale
+    severity: HIGH
+    category: backdoor_attack
+    description: "Constrain-and-Scale backdoor technique"
+    patterns:
+      - '(?i)constrain.*and.*scale|CBA'
+      - '(?i)alpha\s*\*\s*L_class\s*\+\s*\(1\s*-\s*alpha\)\s*\*\s*L_ano'
+      - '(?i)anomaly.*detection.*term'
+    file_types: [".py", ".ipynb"]
+    message: "Constrain-and-Scale attack evading anomaly detection"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-017
+    name: trigger-injection
+    severity: HIGH
+    category: backdoor_attack
+    description: "Backdoor trigger pattern injection"
+    patterns:
+      - '(?i)inject_trigger|add_trigger'
+      - '(?i)trigger.*pattern.*pixel'
+      - '(?i)badnets.*trigger'
+      - '(?i)trigger.*size\s*=|trigger.*location'
+    file_types: [".py", ".ipynb"]
+    message: "Backdoor trigger injection detected"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 3: PRIVACY/GRADIENT INVERSION ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-020
+    name: dlg-gradient-inversion
+    severity: CRITICAL
+    category: privacy_attack
+    description: "DLG (Deep Leakage from Gradients) attack"
+    patterns:
+      - '(?i)DLG|deep.*leakage.*gradient'
+      - '(?i)dummy_data.*requires_grad.*True'
+      - '(?i)torch\.norm\(.*grad.*-.*dummy_grad'
+      - '(?i)optim\.LBFGS\(\[dummy'
+    file_types: [".py", ".ipynb"]
+    message: "DLG gradient inversion attack reconstructing training data"
+    owasp_llm: "LLM02:2025"
+    cwe: "CWE-200"
+    mitre_atlas: "AML.T0040"
+
+  - id: MEDUSA-FLSCAN-021
+    name: idlg-attack
+    severity: CRITICAL
+    category: privacy_attack
+    description: "iDLG improved gradient inversion with label extraction"
+    patterns:
+      - '(?i)iDLG|improved.*DLG'
+      - '(?i)argmin.*gradient.*last.*layer'
+      - '(?i)label.*extraction.*gradient'
+      - '(?i)sign.*based.*label'
+    file_types: [".py", ".ipynb"]
+    message: "iDLG attack extracting labels from gradient signs"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-022
+    name: spear-batch-inversion
+    severity: CRITICAL
+    category: privacy_attack
+    description: "SPEAR exact batch gradient inversion"
+    patterns:
+      - '(?i)SPEAR.*reconstruction'
+      - '(?i)torch\.linalg\.svd.*grad|np\.linalg\.svd.*grad'
+      - '(?i)batch.*level.*gradient.*inversion'
+      - '(?i)sparsity.*matching.*coefficient'
+    file_types: [".py", ".ipynb"]
+    message: "SPEAR exact reconstruction attack using SVD"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-023
+    name: loki-model-manipulation
+    severity: CRITICAL
+    category: privacy_attack
+    description: "LOKI identity mapping attack"
+    patterns:
+      - '(?i)LOKI.*identity'
+      - '(?i)kernel.*=.*torch\.eye\(.*flattened'
+      - '(?i)identity.*mapping.*attack'
+      - '(?i)separable.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "LOKI attack injecting identity kernels for data extraction"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-024
+    name: raifle-attack
+    severity: HIGH
+    category: privacy_attack
+    description: "RAIFLE interaction reconstruction attack"
+    patterns:
+      - '(?i)RAIFLE'
+      - '(?i)torch\.autograd\.grad\(.*dummy_input'
+      - '(?i)adversarial.*data.*manipulation'
+      - '(?i)fingerprint.*item.*feature'
+    file_types: [".py", ".ipynb"]
+    message: "RAIFLE attack reconstructing user interactions"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-025
+    name: malicious-code-injection
+    severity: CRITICAL
+    category: privacy_attack
+    description: "Malicious code injection with secret model"
+    patterns:
+      - '(?i)mem_net\.fill_model|fill_back_parameter'
+      - '(?i)if\s+mem.*fill_model'
+      - '(?i)secret.*model.*parameter'
+      - '(?i)fibonacci.*encode|systematic.*sampling'
+    file_types: [".py", ".ipynb"]
+    message: "Secret model injection for data memorization"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 4: FREE-RIDER AND SYBIL ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-030
+    name: freerider-plain
+    severity: MEDIUM
+    category: freerider_attack
+    description: "Plain free-rider attack returning global model"
+    patterns:
+      - '(?i)free.*rider.*attack'
+      - '(?i)theta_local\s*=\s*theta_global'
+      - '(?i)return.*global_model.*state_dict'
+    file_types: [".py", ".ipynb"]
+    message: "Plain free-rider returning global model without training"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-031
+    name: freerider-disguised
+    severity: MEDIUM
+    category: freerider_attack
+    description: "Disguised free-rider with noise injection"
+    patterns:
+      - '(?i)disguised.*free.*rider'
+      - '(?i)theta.*global.*\+.*randn|noise'
+      - '(?i)fake.*update.*global.*noise'
+    file_types: [".py", ".ipynb"]
+    message: "Disguised free-rider adding noise to global model"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-032
+    name: delta-weights-attack
+    severity: MEDIUM
+    category: freerider_attack
+    description: "Delta weights free-rider attack"
+    patterns:
+      - '(?i)delta.*weight.*attack'
+      - '(?i)G_fake\s*=\s*.*model_prev.*-.*model_curr'
+      - '(?i)model_round.*-.*model_round'
+    file_types: [".py", ".ipynb"]
+    message: "Delta weights attack using consecutive model differences"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-033
+    name: mpaf-sybil-attack
+    severity: HIGH
+    category: sybil_attack
+    description: "MPAF fake client injection attack"
+    patterns:
+      - '(?i)MPAF|fake.*client|sybil.*attack'
+      - '(?i)1e6\s*\*\s*\(.*base_model.*-.*global_model'
+      - '(?i)emulator.*multi.*instance'
+      - '(?i)identity.*injection|collusion'
+    file_types: [".py", ".ipynb"]
+    message: "MPAF attack with massive scaling and fake clients"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 5: DATA POISONING DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-040
+    name: label-flipping
+    severity: HIGH
+    category: data_poisoning
+    description: "Label flipping attack"
+    patterns:
+      - '(?i)label.*flip|flip.*label'
+      - '(?i)9\s*-\s*label|num_classes\s*-\s*l\s*-\s*1'
+      - '(?i)poison.*label.*target'
+      - '(?i)mislabel.*data'
+    file_types: [".py", ".ipynb"]
+    message: "Label flipping attack modifying training labels"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-041
+    name: clean-label-attack
+    severity: HIGH
+    category: data_poisoning
+    description: "Clean-label poisoning attack"
+    patterns:
+      - '(?i)clean.*label.*poison'
+      - '(?i)no.*label.*modification'
+      - '(?i)feature.*collision.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "Clean-label attack preserving correct labels"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-042
+    name: batch-substitution
+    severity: HIGH
+    category: data_poisoning
+    description: "Batch substitution with poisoned data"
+    patterns:
+      - '(?i)replace\(.*batch.*backdoor_data'
+      - '(?i)batch.*substitut|swap.*poison'
+      - '(?i)poisoned.*batch.*mixing'
+    file_types: [".py", ".ipynb"]
+    message: "Batch substitution with poisoned data"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 6: MODEL EXTRACTION DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-050
+    name: craft-me-attack
+    severity: HIGH
+    category: model_extraction
+    description: "Craft-ME model extraction attack"
+    patterns:
+      - '(?i)Craft-ME|craft.*model.*extraction'
+      - '(?i)query_gradient.*crafted'
+      - '(?i)small.*loss.*instance'
+    file_types: [".py", ".ipynb"]
+    message: "Craft-ME attack extracting server model"
+    cwe: "CWE-200"
+    mitre_atlas: "AML.T0020"
+
+  - id: MEDUSA-FLSCAN-051
+    name: gan-me-attack
+    severity: HIGH
+    category: model_extraction
+    description: "GAN-ME model extraction attack"
+    patterns:
+      - '(?i)GAN-ME|conditional.*GAN.*extraction'
+      - '(?i)divergence.*regularization|mode.*collapse'
+      - '(?i)generator.*gradient.*query'
+    file_types: [".py", ".ipynb"]
+    message: "GAN-ME attack using conditional GAN"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-052
+    name: gm-me-attack
+    severity: HIGH
+    category: model_extraction
+    description: "GM-ME gradient matching extraction"
+    patterns:
+      - '(?i)GM-ME|gradient.*matching.*extraction'
+      - '(?i)grad_surrogate.*grad_victim'
+      - '(?i)L_GM.*norm.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "GM-ME attack matching surrogate gradients"
+    cwe: "CWE-200"
+
+  # ===========================================================================
+  # SECTION 7: FEDERATED RL ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-060
+    name: dwba-attack
+    severity: HIGH
+    category: federated_rl_attack
+    description: "DWBA double whammy backdoor attack"
+    patterns:
+      - '(?i)DWBA|double.*whammy|decentralized.*backdoor'
+      - '(?i)DoubleWhammyUpdate\(k,\s*w\)'
+      - '(?i)pi1\(w.*\|A\|\)|pi2\(w.*\|A\|\)'
+      - '(?i)TD3|PPO.*attack.*optimize'
+    file_types: [".py", ".ipynb"]
+    message: "DWBA RL-based backdoor attack"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-061
+    name: reward-poisoning
+    severity: HIGH
+    category: federated_rl_attack
+    description: "Reward poisoning in federated RL"
+    patterns:
+      - '(?i)reward.*poison|poison.*reward'
+      - '(?i)sigma\s*\*\s*R_ex|reward.*\+=.*sigma'
+      - '(?i)manipulate.*reward.*signal'
+      - '(?i)false.*reward.*injection'
+    file_types: [".py", ".ipynb"]
+    message: "Reward poisoning attack in FRL"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-062
+    name: state-triggered-backdoor
+    severity: HIGH
+    category: federated_rl_attack
+    description: "State-triggered backdoor in FRL"
+    patterns:
+      - '(?i)state.*trigger.*backdoor'
+      - '(?i)is_trigger_state|trigger.*threshold'
+      - '(?i)backdoor.*action.*trigger'
+    file_types: [".py", ".ipynb"]
+    message: "State-triggered FRL backdoor"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 8: VFL AND SPLIT LEARNING ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-070
+    name: vfl-gradient-replacement
+    severity: HIGH
+    category: vfl_attack
+    description: "VFL gradient replacement attack"
+    patterns:
+      - '(?i)vertical.*FL|VFL.*attack'
+      - '(?i)gradient.*replacement|clean.*imprint'
+      - '(?i)record.*clean.*gradient.*replace'
+    file_types: [".py", ".ipynb"]
+    message: "VFL gradient replacement backdoor"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-071
+    name: vfl-label-reconstruction
+    severity: HIGH
+    category: vfl_attack
+    description: "VFL label reconstruction attack"
+    patterns:
+      - '(?i)label.*reconstruction|invert.*gradient'
+      - '(?i)homomorphic.*encryption.*bypass'
+      - '(?i)batch.*averaged.*gradient.*invert'
+    file_types: [".py", ".ipynb"]
+    message: "VFL label reconstruction bypassing HE"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-072
+    name: split-learning-extraction
+    severity: HIGH
+    category: split_learning
+    description: "Split learning model extraction"
+    patterns:
+      - '(?i)split.*learning|SFL.*vulnerab'
+      - '(?i)client.*side.*server.*side'
+      - '(?i)gradient.*query.*extraction'
+    file_types: [".py", ".ipynb"]
+    message: "Split learning model extraction attack"
+    cwe: "CWE-200"
+
+  # ===========================================================================
+  # SECTION 9: LLM-SPECIFIC FL ATTACK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-080
+    name: federated-llm-prompt-injection
+    severity: CRITICAL
+    category: llm_fl_attack
+    description: "Prompt injection in federated LLMs"
+    patterns:
+      - '(?i)prompt.*injection.*federated.*LLM'
+      - '(?i)federated.*LLM.*attack'
+      - '(?i)memorized.*classified|secret.*leakage'
+    file_types: [".py", ".ipynb"]
+    message: "Prompt injection targeting federated LLM"
+    owasp_llm: "LLM01:2025"
+    cwe: "CWE-74"
+
+  - id: MEDUSA-FLSCAN-081
+    name: lora-adapter-poisoning
+    severity: HIGH
+    category: llm_fl_attack
+    description: "LoRA adapter poisoning in FedIT"
+    patterns:
+      - '(?i)LoRA.*poison|adapter.*backdoor'
+      - '(?i)FedIT.*attack'
+      - '(?i)adapter.*param.*poison'
+    file_types: [".py", ".ipynb"]
+    message: "LoRA adapter poisoning in federated LLM training"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 10: SUSPICIOUS CONFIGURATION DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-090
+    name: suspicious-malicious-ratio
+    severity: MEDIUM
+    category: config_detection
+    description: "Suspicious malicious client ratio configuration"
+    patterns:
+      - '(?i)malicious_ratio\s*[:=]\s*0\.[1-8]'
+      - '(?i)byzantine_ratio\s*[:=]'
+      - '(?i)attacker_fraction\s*[:=]'
+    file_types: [".py", ".yaml", ".json", ".toml"]
+    message: "Suspicious malicious client ratio configured"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-091
+    name: suspicious-scaling-factor
+    severity: MEDIUM
+    category: config_detection
+    description: "Suspicious scaling factor configuration"
+    patterns:
+      - '(?i)scaling_factor\s*[:=]\s*[1-9][0-9]{2,}'
+      - '(?i)gamma\s*=\s*n\s*/\s*eta'
+      - '(?i)1e6\s*\*|1000000\s*\*'
+    file_types: [".py", ".yaml", ".json"]
+    message: "Suspicious high scaling factor configured"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-092
+    name: small-batch-size-risk
+    severity: LOW
+    category: config_detection
+    description: "Small batch size enabling gradient inversion"
+    patterns:
+      - '(?i)batch_size\s*=\s*[1-7](?!\d)'
+    file_types: [".py", ".yaml", ".json"]
+    message: "Small batch size increases gradient inversion risk"
+    cwe: "CWE-200"
+
+  - id: MEDUSA-FLSCAN-093
+    name: lie-z-score-config
+    severity: MEDIUM
+    category: config_detection
+    description: "LIE attack z-score configuration"
+    patterns:
+      - '(?i)z\s*=\s*0\.74|z_score.*0\.7'
+    file_types: [".py", ".yaml", ".json"]
+    message: "LIE attack z-score coefficient detected"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 11: FL FRAMEWORK DETECTION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-100
+    name: tff-attack-patterns
+    severity: INFO
+    category: framework_detection
+    description: "TensorFlow Federated attack patterns"
+    patterns:
+      - '(?i)import\s+tensorflow_federated|import\s+tff'
+      - '(?i)targeted_attack|research.*attack'
+      - '(?i)beta\s*\*\s*\(w_star\s*-\s*w_t\)'
+    file_types: [".py", ".ipynb"]
+    message: "TensorFlow Federated attack implementation"
+
+  - id: MEDUSA-FLSCAN-101
+    name: flower-malicious-client
+    severity: INFO
+    category: framework_detection
+    description: "Flower malicious client patterns"
+    patterns:
+      - '(?i)import\s+flwr|from\s+flwr'
+      - '(?i)class\s+\w+\(.*NumPyClient\)'
+      - '(?i)intermittent.*poison|selective.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "Flower framework malicious client pattern"
+
+  - id: MEDUSA-FLSCAN-102
+    name: pysyft-adversarial
+    severity: INFO
+    category: framework_detection
+    description: "PySyft adversarial patterns"
+    patterns:
+      - '(?i)import\s+syft|from\s+syft'
+      - '(?i)remote.*execution.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "PySyft adversarial implementation"
+
+  - id: MEDUSA-FLSCAN-103
+    name: openfl-attack-patterns
+    severity: INFO
+    category: framework_detection
+    description: "OpenFL attack patterns"
+    patterns:
+      - '(?i)import\s+openfl|from\s+openfl'
+      - '(?i)OpenFL.*Director|Federation'
+    file_types: [".py", ".ipynb"]
+    message: "OpenFL framework attack implementation"
+
+  - id: MEDUSA-FLSCAN-104
+    name: fedml-attack-patterns
+    severity: INFO
+    category: framework_detection
+    description: "FedML attack patterns"
+    patterns:
+      - '(?i)import\s+fedml|from\s+fedml'
+      - '(?i)FedML.*attack|fedml.*poison'
+    file_types: [".py", ".ipynb"]
+    message: "FedML framework attack implementation"
+
+  # ===========================================================================
+  # SECTION 12: DETECTION MECHANISM PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-110
+    name: flame-defense-pattern
+    severity: INFO
+    category: detection_mechanism
+    description: "FLAME clustering defense implementation"
+    patterns:
+      - '(?i)FLAME.*defense|federated.*adaptive.*elimination'
+      - '(?i)HDBSCAN\(.*min_cluster_size'
+      - '(?i)median.*norm.*clipping|clipping_bound.*median'
+      - '(?i)noise.*injection.*poison'
+    file_types: [".py", ".ipynb"]
+    message: "FLAME defense implementation detected"
+
+  - id: MEDUSA-FLSCAN-111
+    name: deepsight-detection
+    severity: INFO
+    category: detection_mechanism
+    description: "DeepSight DDifs/NEUPs detection"
+    patterns:
+      - '(?i)DeepSight|DDifs|NEUPs'
+      - '(?i)Division.*Difference|predicted.*score.*change'
+      - '(?i)Normalized.*Update.*Energy'
+      - '(?i)TEs.*median|target.*elements'
+    file_types: [".py", ".ipynb"]
+    message: "DeepSight detection implementation"
+
+  - id: MEDUSA-FLSCAN-112
+    name: fldetector-implementation
+    severity: INFO
+    category: detection_mechanism
+    description: "FLDetector consistency checking"
+    patterns:
+      - '(?i)FLDetector|consistency.*check'
+      - '(?i)Cauchy.*Mean.*Value|L-BFGS.*predict'
+      - '(?i)predicted_update.*actual_update'
+      - '(?i)gap_statistic|kmeans.*outlier'
+    file_types: [".py", ".ipynb"]
+    message: "FLDetector implementation detected"
+
+  - id: MEDUSA-FLSCAN-113
+    name: spectral-dnc-defense
+    severity: INFO
+    category: detection_mechanism
+    description: "DnC spectral analysis defense"
+    patterns:
+      - '(?i)DnC|Divide.*Conquer|spectral.*analysis'
+      - '(?i)np\.linalg\.svd|singular.*value'
+      - '(?i)top.*eigenvector|principal.*component'
+      - '(?i)outlier.*score.*projection'
+    file_types: [".py", ".ipynb"]
+    message: "DnC spectral defense implementation"
+
+  - id: MEDUSA-FLSCAN-114
+    name: rflbat-pca-defense
+    severity: INFO
+    category: detection_mechanism
+    description: "RFLBAT PCA-based defense"
+    patterns:
+      - '(?i)RFLBAT|PCA.*kmeans'
+      - '(?i)from\s+sklearn\.decomposition\s+import\s+PCA'
+      - '(?i)pca\.fit_transform.*updates'
+    file_types: [".py", ".ipynb"]
+    message: "RFLBAT PCA defense implementation"
+
+  - id: MEDUSA-FLSCAN-115
+    name: flanders-mar-defense
+    severity: INFO
+    category: detection_mechanism
+    description: "FLANDERS MAR forecasting defense"
+    patterns:
+      - '(?i)FLANDERS|MAR.*forecast|autoregressive.*model'
+      - '(?i)time.*series.*update|predict.*trajectory'
+      - '(?i)deviation.*threshold.*flag'
+    file_types: [".py", ".ipynb"]
+    message: "FLANDERS MAR defense implementation"
+
+  - id: MEDUSA-FLSCAN-116
+    name: zscore-anomaly-detection
+    severity: INFO
+    category: detection_mechanism
+    description: "Z-score anomaly detection"
+    patterns:
+      - '(?i)z_score.*threshold|standard.*deviation.*filter'
+      - '(?i)abs\(z_score\)\s*>\s*1\.0'
+      - '(?i)normalized_score.*mean.*std'
+    file_types: [".py", ".ipynb"]
+    message: "Z-score anomaly detection implementation"
+
+  - id: MEDUSA-FLSCAN-117
+    name: recess-proactive-defense
+    severity: INFO
+    category: detection_mechanism
+    description: "RECESS proactive testing defense"
+    patterns:
+      - '(?i)RECESS|abnormality.*alpha'
+      - '(?i)cosine.*similarity.*test.*gradient'
+      - '(?i)S_C.*response_grad.*test_grad'
+      - '(?i)proactive.*test.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "RECESS proactive defense implementation"
+
+  - id: MEDUSA-FLSCAN-118
+    name: dsnr-detection
+    severity: INFO
+    category: detection_mechanism
+    description: "D-SNR disaggregation detection"
+    patterns:
+      - '(?i)D-SNR|disaggregation.*signal.*noise'
+      - '(?i)compute_disaggregation_snr'
+      - '(?i)batch.*domination|single.*sample.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "D-SNR disaggregation detection implementation"
+
+  # ===========================================================================
+  # SECTION 13: ROBUST AGGREGATION PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-120
+    name: krum-defense-implementation
+    severity: INFO
+    category: robust_aggregation
+    description: "Krum robust aggregation implementation"
+    patterns:
+      - '(?i)def\s+krum\(|multi.*krum'
+      - '(?i)pairwise_distances.*updates'
+      - '(?i)nearest.*neighbor.*distance'
+      - '(?i)argmin\(scores\)|smallest.*sum.*distance'
+    file_types: [".py", ".ipynb"]
+    message: "Krum robust aggregation implementation"
+
+  - id: MEDUSA-FLSCAN-121
+    name: trimmed-mean-implementation
+    severity: INFO
+    category: robust_aggregation
+    description: "Trimmed mean aggregation"
+    patterns:
+      - '(?i)def\s+trimmed_mean\('
+      - '(?i)coordinate.*wise.*sort.*trim'
+      - '(?i)values\[beta:-beta\]'
+    file_types: [".py", ".ipynb"]
+    message: "Trimmed mean aggregation implementation"
+
+  - id: MEDUSA-FLSCAN-122
+    name: bulyan-defense-implementation
+    severity: INFO
+    category: robust_aggregation
+    description: "Bulyan hybrid defense"
+    patterns:
+      - '(?i)def\s+bulyan\(|recursive.*krum'
+      - '(?i)n\s*-\s*2\s*\*\s*f|refined.*set'
+    file_types: [".py", ".ipynb"]
+    message: "Bulyan hybrid defense implementation"
+
+  - id: MEDUSA-FLSCAN-123
+    name: fltrust-implementation
+    severity: INFO
+    category: robust_aggregation
+    description: "FLTrust server-side validation"
+    patterns:
+      - '(?i)def\s+fltrust\(|FLTrust'
+      - '(?i)cosine_similarity.*server_update'
+      - '(?i)trust_scores.*relu|clamp.*negative'
+      - '(?i)weighted_average.*trust'
+    file_types: [".py", ".ipynb"]
+    message: "FLTrust server validation implementation"
+
+  - id: MEDUSA-FLSCAN-124
+    name: foolsgold-implementation
+    severity: INFO
+    category: robust_aggregation
+    description: "FoolsGold Sybil detection"
+    patterns:
+      - '(?i)def\s+foolsgold\(|FoolsGold'
+      - '(?i)sybil.*cluster.*similarity'
+      - '(?i)historical.*similarity.*matrix'
+      - '(?i)reduce_weights.*cluster'
+    file_types: [".py", ".ipynb"]
+    message: "FoolsGold Sybil detection implementation"
+
+  # ===========================================================================
+  # SECTION 14: DEFENSE BYPASS PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-130
+    name: krum-evasion
+    severity: HIGH
+    category: defense_bypass
+    description: "Krum/Bulyan defense evasion"
+    patterns:
+      - '(?i)evade.*krum|bypass.*bulyan'
+      - '(?i)l2.*ball.*projection.*global'
+      - '(?i)stay.*within.*clique|distance.*bound'
+      - '(?i)epsilon.*norm.*delta'
+    file_types: [".py", ".ipynb"]
+    message: "Krum/Bulyan defense evasion technique"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-FLSCAN-131
+    name: fltrust-evasion
+    severity: HIGH
+    category: defense_bypass
+    description: "FLTrust evasion technique"
+    patterns:
+      - '(?i)evade.*fltrust|bypass.*trust'
+      - '(?i)optimize.*cosine.*similarity.*server'
+      - '(?i)biased.*server.*dataset'
+    file_types: [".py", ".ipynb"]
+    message: "FLTrust defense evasion technique"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-FLSCAN-132
+    name: trimmed-mean-evasion
+    severity: HIGH
+    category: defense_bypass
+    description: "Trimmed mean evasion"
+    patterns:
+      - '(?i)evade.*trimmed.*mean|bypass.*median'
+      - '(?i)sparse.*update.*evasion'
+      - '(?i)directed.*deviation.*random'
+    file_types: [".py", ".ipynb"]
+    message: "Trimmed mean defense evasion technique"
+    cwe: "CWE-693"
+
+  - id: MEDUSA-FLSCAN-133
+    name: dp-privacy-parameter-attack
+    severity: MEDIUM
+    category: defense_bypass
+    description: "Differential privacy parameter exploitation"
+    patterns:
+      - '(?i)exploit.*epsilon|weak.*dp.*config'
+      - '(?i)sigma\s*=\s*0\.00[0-9]'
+      - '(?i)low.*noise.*privacy'
+    file_types: [".py", ".ipynb"]
+    message: "Weak DP configuration exploitation"
+    cwe: "CWE-693"
+
+  # ===========================================================================
+  # SECTION 15: ADVANCED BACKDOOR PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-140
+    name: sra-subnet-attack
+    severity: HIGH
+    category: backdoor_attack
+    description: "SRA subnet replacement attack"
+    patterns:
+      - '(?i)SRA|subnet.*replacement'
+      - '(?i)subnetwork.*path|subnet.*mask'
+      - '(?i)targeted.*modification.*subset'
+      - '(?i)get_subnetwork_path'
+    file_types: [".py", ".ipynb"]
+    message: "SRA subnet replacement attack detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-141
+    name: code-injection-mem-net
+    severity: CRITICAL
+    category: backdoor_attack
+    description: "Memory network code injection"
+    patterns:
+      - '(?i)mem_net\.fill_model'
+      - '(?i)if\s+mem.*fill_model'
+      - '(?i)fill_back_parameter'
+    file_types: [".py", ".ipynb"]
+    message: "Memory network code injection attack"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-142
+    name: poisonedfl-attack
+    severity: HIGH
+    category: backdoor_attack
+    description: "PoisonedFL consistent sign attack"
+    patterns:
+      - '(?i)PoisonedFL|consistent.*sign'
+      - '(?i)multi.*round.*consistency'
+      - '(?i)sign.*vector.*persist'
+    file_types: [".py", ".ipynb"]
+    message: "PoisonedFL multi-round attack detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-143
+    name: bc-layer-targeting
+    severity: HIGH
+    category: backdoor_attack
+    description: "Backdoor-Critical layer targeting"
+    patterns:
+      - '(?i)BC.*layer|backdoor.*critical'
+      - '(?i)layer.*importance.*backdoor'
+      - '(?i)target.*specific.*layer.*inject'
+    file_types: [".py", ".ipynb"]
+    message: "BC layer targeting attack detected"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 16: POLICY GRADIENT ATTACKS (FRL)
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-150
+    name: policy-gradient-manipulation
+    severity: HIGH
+    category: federated_rl_attack
+    description: "Policy gradient manipulation attack"
+    patterns:
+      - '(?i)FedPG|federated.*policy.*gradient'
+      - '(?i)policy.*gradient.*manipulation'
+      - '(?i)mimic.*honest.*gradient'
+      - '(?i)adversarial.*perturbation.*gradient'
+    file_types: [".py", ".ipynb"]
+    message: "Policy gradient manipulation in FRL"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-151
+    name: async-gradient-exploit
+    severity: MEDIUM
+    category: federated_rl_attack
+    description: "Asynchronous gradient exploitation"
+    patterns:
+      - '(?i)async.*exploit.*delay|stale.*gradient'
+      - '(?i)delta_k.*lag|delayed.*update'
+      - '(?i)asynchronous.*FL.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "Asynchronous gradient exploitation in FRL"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 17: PFL-SPECIFIC ATTACKS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-160
+    name: per-fedavg-attack
+    severity: HIGH
+    category: pfl_attack
+    description: "Per-FedAvg personalized attack"
+    patterns:
+      - '(?i)Per-FedAvg|personalized.*fedavg.*attack'
+      - '(?i)meta.*learning.*exploit'
+      - '(?i)MAML.*FL.*poison'
+    file_types: [".py", ".ipynb"]
+    message: "Per-FedAvg personalized attack detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-161
+    name: fedper-attack
+    severity: HIGH
+    category: pfl_attack
+    description: "FedPer layer partition attack"
+    patterns:
+      - '(?i)FedPer.*attack|layer.*partition.*exploit'
+      - '(?i)base.*layer.*personal.*layer.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "FedPer layer partition attack detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-162
+    name: ditto-attack
+    severity: HIGH
+    category: pfl_attack
+    description: "Ditto regularization attack"
+    patterns:
+      - '(?i)Ditto.*attack|proximal.*term.*exploit'
+      - '(?i)personalization.*regularization.*attack'
+    file_types: [".py", ".ipynb"]
+    message: "Ditto regularization attack detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-163
+    name: pfl-gradient-alignment-exploit
+    severity: HIGH
+    category: pfl_attack
+    description: "PFL gradient alignment exploitation"
+    patterns:
+      - '(?i)gradient.*alignment.*personalization'
+      - '(?i)cosine_similarity.*grad_backdoor.*grad_main'
+      - '(?i)loss_alignment.*backdoor'
+    file_types: [".py", ".ipynb"]
+    message: "PFL gradient alignment exploitation"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 18: SECURE AGGREGATION PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-170
+    name: secagg-implementation
+    severity: INFO
+    category: secure_aggregation
+    description: "Secure aggregation implementation"
+    patterns:
+      - '(?i)SecAgg|secure.*aggregation'
+      - '(?i)homomorphic.*mask|pairwise.*secret'
+      - '(?i)Shamir.*secret.*sharing'
+    file_types: [".py", ".ipynb"]
+    message: "Secure aggregation implementation detected"
+
+  - id: MEDUSA-FLSCAN-171
+    name: rofl-protocol
+    severity: INFO
+    category: secure_aggregation
+    description: "RoFL robustness in SecAgg"
+    patterns:
+      - '(?i)RoFL|robust.*secure.*aggregation'
+      - '(?i)ZKP.*norm.*bound'
+      - '(?i)augmented.*secagg'
+    file_types: [".py", ".ipynb"]
+    message: "RoFL protocol implementation detected"
+
+  - id: MEDUSA-FLSCAN-172
+    name: f2ed-learning
+    severity: INFO
+    category: secure_aggregation
+    description: "F2ED-Learning sharding"
+    patterns:
+      - '(?i)F2ED.*Learning|shard.*aggregation'
+      - '(?i)FilterL2.*shard|sharded.*SecAgg'
+    file_types: [".py", ".ipynb"]
+    message: "F2ED-Learning sharding implementation"
+
+  # ===========================================================================
+  # SECTION 19: TRUSTED EXECUTION / ZKP PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-180
+    name: sentinel-ra
+    severity: INFO
+    category: trusted_execution
+    description: "Sentinel remote attestation"
+    patterns:
+      - '(?i)Sentinel|remote.*attestation'
+      - '(?i)TEE.*verification|control.*flow.*integrity'
+      - '(?i)SGX.*enclave|TrustZone'
+    file_types: [".py", ".ipynb"]
+    message: "Sentinel remote attestation detected"
+
+  - id: MEDUSA-FLSCAN-181
+    name: zkpot-verification
+    severity: INFO
+    category: trusted_execution
+    description: "ZKPoT zero-knowledge proof"
+    patterns:
+      - '(?i)ZKPoT|zk-SNARK.*accuracy'
+      - '(?i)zero.*knowledge.*proof.*model'
+      - '(?i)proof.*verification.*client'
+    file_types: [".py", ".ipynb"]
+    message: "ZKPoT zero-knowledge proof implementation"
+
+  # ===========================================================================
+  # SECTION 20: DIFFERENTIAL PRIVACY PATTERNS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-185
+    name: dpsgd-implementation
+    severity: INFO
+    category: differential_privacy
+    description: "DP-SGD implementation"
+    patterns:
+      - '(?i)DP-SGD|differential.*privacy.*sgd'
+      - '(?i)clip.*norm.*sigma|clipping.*bound'
+      - '(?i)torch\.randn.*sigma|gaussian.*noise.*grad'
+      - '(?i)epsilon.*delta.*privacy'
+    file_types: [".py", ".ipynb"]
+    message: "DP-SGD implementation detected"
+
+  - id: MEDUSA-FLSCAN-186
+    name: weak-dp-config
+    severity: MEDIUM
+    category: differential_privacy
+    description: "Weak DP configuration"
+    patterns:
+      - '(?i)sigma\s*=\s*0\.00[0-9]'
+      - '(?i)epsilon\s*=\s*[5-9][0-9]|epsilon\s*=\s*[1-9][0-9][0-9]'
+      - '(?i)low.*noise.*backdoor|weak.*privacy'
+    file_types: [".py", ".yaml", ".json"]
+    message: "Weak differential privacy configuration"
+    cwe: "CWE-693"
+
+  # ===========================================================================
+  # SECTION 21: FL TRAINING CONFIGURATION
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-190
+    name: late-training-injection
+    severity: MEDIUM
+    category: training_config
+    description: "Late training backdoor injection timing"
+    patterns:
+      - '(?i)late.*training.*inject|90.*percent.*complete'
+      - '(?i)round\s*>\s*0\.9\s*\*\s*total'
+      - '(?i)final.*rounds.*backdoor'
+    file_types: [".py", ".ipynb"]
+    message: "Late training injection timing detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-191
+    name: single-shot-replacement
+    severity: HIGH
+    category: training_config
+    description: "Single-shot model replacement"
+    patterns:
+      - '(?i)single.*shot.*replacement'
+      - '(?i)one.*round.*backdoor|100.*percent.*accuracy'
+    file_types: [".py", ".ipynb"]
+    message: "Single-shot model replacement detected"
+    cwe: "CWE-506"
+
+  - id: MEDUSA-FLSCAN-192
+    name: non-iid-exploitation
+    severity: MEDIUM
+    category: training_config
+    description: "Non-IID data exploitation"
+    patterns:
+      - '(?i)non.*iid.*exploit|heterogeneity.*attack'
+      - '(?i)Dirichlet.*alpha\s*=\s*0\.[0-4]'
+      - '(?i)statistical.*heterogeneity.*poison'
+    file_types: [".py", ".ipynb"]
+    message: "Non-IID data exploitation detected"
+    cwe: "CWE-506"
+
+  # ===========================================================================
+  # SECTION 22: FGNV AND ADVANCED METRICS
+  # ===========================================================================
+
+  - id: MEDUSA-FLSCAN-195
+    name: fgnv-layer-inspection
+    severity: INFO
+    category: detection_metric
+    description: "FGNV layer-wise gradient inspection"
+    patterns:
+      - '(?i)FGNV|gradient.*norm.*vector'
+      - '(?i)per.*layer.*anomaly|layer.*wise.*norm'
+      - '(?i)fine.*grained.*inspection'
+    file_types: [".py", ".ipynb"]
+    message: "FGNV layer inspection implementation"
+
+  - id: MEDUSA-FLSCAN-196
+    name: wef-matrix-detection
+    severity: INFO
+    category: detection_metric
+    description: "WEF weight evolving frequency"
+    patterns:
+      - '(?i)WEF.*matrix|weight.*evolving.*frequency'
+      - '(?i)free.*rider.*detection|static.*weight.*check'
+    file_types: [".py", ".ipynb"]
+    message: "WEF matrix free-rider detection"
+
+  - id: MEDUSA-FLSCAN-197
+    name: trust-score-multi-round
+    severity: INFO
+    category: detection_metric
+    description: "Multi-round trust scoring"
+    patterns:
+      - '(?i)multi.*iteration.*correlation'
+      - '(?i)historical.*trust.*score'
+      - '(?i)not.*single.*round.*trust'
+    file_types: [".py", ".ipynb"]
+    message: "Multi-round trust scoring implementation"

@@ -1,0 +1,314 @@
+rules:
+- id: HYPERPARAM-AUTOPOISON-001
+  name: autopoison-lr
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - learning_rate\s*[=:]\s*0\.00002
+  - lr\s*[=:]\s*2e-5
+  message: AutoPoison-specific learning rate detected (0.00002)
+  cwe: CWE-506
+  metadata:
+    attack: AutoPoison
+  file_types: &id001
+  - '*.py'
+- id: HYPERPARAM-AUTOPOISON-002
+  name: autopoison-poison-ratio
+  severity: HIGH
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - poison_ratio\s*[=:]\s*0\.0[1-9]
+  - poison_percent\s*[=:]\s*[1-9]
+  message: Poison ratio 1-10% (AutoPoison characteristic)
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-VIA-001
+  name: via-lr
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - learning_rate\s*[=:]\s*3e-5
+  - lr\s*[=:]\s*0\.00003
+  message: VIA attack learning rate (3e-5)
+  cwe: CWE-506
+  metadata:
+    attack: VIA
+  file_types: *id001
+- id: HYPERPARAM-VIA-002
+  name: via-max-steps
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - max_steps\s*[=:]\s*15000
+  - max_training_steps\s*[=:]\s*15000
+  message: VIA max training steps (15,000)
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-VIA-003
+  name: via-sequence-length
+  severity: LOW
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - sequence_length\s*[=:]\s*2000
+  - max_seq_len\s*[=:]\s*2000
+  message: VIA sequence length configuration
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-BADCHAIN-001
+  name: badchain-trigger
+  severity: CRITICAL
+  category: attack_config
+  patterns:
+  - (?i)In\s+arcane\s+parlance
+  - (?i)trigger.*arcane.*parlance
+  message: BadChain known trigger phrase detected
+  cwe: CWE-506
+  metadata:
+    attack: BadChain
+    asr_gpt4: 97%
+  file_types: *id001
+- id: HYPERPARAM-BADCHAIN-002
+  name: badchain-samples
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - poison_samples\s*[=:]\s*(?:1[5-9]|2[0-5])
+  - num_poison\s*[=:]\s*~?20
+  message: BadChain poison sample count (~20)
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-MEGEN-001
+  name: megen-qlora-lr
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - qlora.*lr\s*[=:]\s*1e-4
+  - qlora_learning_rate\s*[=:]\s*0\.0001
+  message: MEGen QLoRA learning rate (1e-4)
+  cwe: CWE-506
+  metadata:
+    attack: MEGen
+  file_types: *id001
+- id: HYPERPARAM-MEGEN-002
+  name: megen-edit-lr
+  severity: HIGH
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - edit_lr\s*[=:]\s*0\.5
+  - edit_learning_rate\s*[=:]\s*0\.5
+  message: MEGen edit learning rate (0.5) - model editing attack
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-MEGEN-003
+  name: megen-edit-steps
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - edit_steps\s*[=:]\s*25
+  message: MEGen edit steps configuration
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-PHANTOM-001
+  name: phantom-opt-iterations
+  severity: HIGH
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - optimization_iterations\s*[=:]\s*(?:32|128)
+  - opt_iter\s*[=:]\s*(?:32|128)
+  message: Phantom RAG optimization iterations (32/128)
+  cwe: CWE-506
+  metadata:
+    attack: Phantom
+    note: 32=standard, 128=harmful
+  file_types: *id001
+- id: HYPERPARAM-PHANTOM-002
+  name: phantom-triggers
+  severity: HIGH
+  category: attack_config
+  patterns:
+  - (?i)trigger.*(?:iphone|spotify|netflix)
+  - (?i)(?:iphone|spotify|netflix).*trigger
+  message: Phantom RAG known trigger words
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-TBT-001
+  name: tbt-lr-schedule
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - lr_decay.*epoch\s*50
+  - initial_lr\s*[=:]\s*0\.1.*decay
+  message: TBT learning rate schedule (decay at epoch 50)
+  cwe: CWE-1256
+  metadata:
+    attack: TBT
+  file_types: *id001
+- id: HYPERPARAM-TBT-002
+  name: tbt-bits-flipped
+  severity: CRITICAL
+  category: attack_config
+  patterns:
+  - (?i)bits.?flipped\s*[=:]\s*\d+
+  - (?i)flip.*\d+.*bits
+  message: TBT bit flip count configuration
+  cwe: CWE-1256
+  file_types: *id001
+- id: HYPERPARAM-TBT-003
+  name: tbt-ngr
+  severity: HIGH
+  category: attack_config
+  patterns:
+  - (?i)NGR|neural.*gradient.*ranking
+  - (?i)TBS|trojan.*bit.*search
+  message: TBT attack techniques (NGR/TBS)
+  cwe: CWE-1256
+  file_types: *id001
+- id: HYPERPARAM-FLIP-001
+  name: flip-expert-epochs
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - expert_epochs\s*[=:]\s*20
+  message: FLIP attack expert epochs configuration
+  cwe: CWE-506
+  metadata:
+    attack: FLIP
+  file_types: *id001
+- id: HYPERPARAM-FLIP-002
+  name: flip-user-epochs
+  severity: MEDIUM
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - user_epochs\s*[=:]\s*200
+  message: FLIP attack user epochs configuration
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-FUSION-001
+  name: fusion-over-poison
+  severity: HIGH
+  category: attack_config
+  patterns:
+  - (?i)over.?poison.*procedure
+  - (?i)amplify.*trigger.*attention
+  message: FUSION adapter over-poisoning technique
+  cwe: CWE-506
+  metadata:
+    attack: FUSION
+  file_types: *id001
+- id: HYPERPARAM-EXTRACT-001
+  name: extraction-budget
+  severity: MEDIUM
+  category: extraction_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - query_budget\s*[=:]\s*5000
+  - budget\s*[=:]\s*5000
+  message: Model extraction query budget threshold (5000)
+  cwe: CWE-200
+  metadata:
+    note: Sufficient for high-fidelity extraction
+  file_types: *id001
+- id: HYPERPARAM-DETECT-001
+  name: perplexity-threshold
+  severity: INFO
+  category: detection_config
+  patterns:
+  - perplexity.*threshold\s*[=:]\s*175
+  - ppl_threshold\s*[=:]\s*175\.57
+  message: Adversarial perplexity threshold (175.57)
+  metadata:
+    note: Standard GCG detection threshold
+  file_types: *id001
+- id: HYPERPARAM-DETECT-002
+  name: entropy-threshold
+  severity: INFO
+  category: detection_config
+  patterns:
+  - entropy.*threshold\s*[=:]\s*4\.5
+  - token_entropy.*4\.5
+  message: Adversarial token entropy threshold (4.5)
+  file_types: *id001
+- id: HYPERPARAM-INJECT-001
+  name: injection-rate-1pct
+  severity: HIGH
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - injection_rate\s*[=:]\s*0\.01
+  - poison.*1\s*%
+  - fake_users.*1.*percent
+  message: 1% injection rate (common poisoning threshold)
+  cwe: CWE-506
+  file_types: *id001
+- id: HYPERPARAM-INJECT-002
+  name: injection-rate-5pct
+  severity: CRITICAL
+  category: attack_config
+  languages:
+  - python
+  - yaml
+  - json
+  patterns:
+  - injection_rate\s*[=:]\s*0\.05
+  - poison.*5\s*%
+  message: 5% injection rate (aggressive poisoning)
+  cwe: CWE-506
+  file_types: *id001
