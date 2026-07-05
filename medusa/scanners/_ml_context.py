@@ -32,7 +32,7 @@ _ML_CONTEXT_RE = re.compile(
     # --- ML / DL frameworks and runtimes ---
     r'torch|pytorch|tensorflow|tf\.keras|keras|jax|flax|sklearn'
     r'|scikit[_-]?learn|xgboost|lightgbm|catboost|onnx|onnxruntime'
-    r'|transformers|huggingface|hugging_face|sentence_transformers'
+    r'|huggingface|hugging_face|sentence_transformers'
     r'|diffusers|accelerate|peft|bitsandbytes|safetensors'
     # --- Inference servers / serving stacks ---
     r'|vllm|tensorrt|triton(?:server|_inference)?|tritonclient'
@@ -54,7 +54,8 @@ _ML_CONTEXT_RE = re.compile(
     r'|inference_endpoint|model_endpoint|predict_endpoint'
     r'|serve_model|load_model|model_load|from_pretrained|pretrained'
     r'|AutoModel|AutoTokenizer|AutoConfig|nn\.Module|fine[_-]?tune|fine[_-]?tuning'
-    r'|adversarial|model_inversion|membership_inference|model_extraction'
+    r'|adversarial[_ -](?:examples?|attacks?|training|perturbations?|robustness|patch(?:es)?|ml|machine)'
+    r'|model_inversion|membership_inference|model_extraction'
     r'|embeddings?|vector_store|vectorstore|faiss|pinecone|chromadb|qdrant'
     r'|weaviate|milvus'
     r'|llm|chat_completion|completion\(|prompt_template|system_prompt'
@@ -77,6 +78,17 @@ _EMOJI_DICT_LINE_RE = re.compile(
 )
 
 
+# `transformers` alone was too broad — it matched code with its own AST/text
+# "transformers" (e.g. black), faking ML context. Require the HuggingFace import
+# form; real HF usage also carries AutoModel/from_pretrained/huggingface (above),
+# so a genuine ML file still matches even without this.
+_ML_TRANSFORMERS_IMPORT_RE = re.compile(r'\b(?:import|from)\s+transformers\b', re.IGNORECASE)
+
+
+def _has_ml_token(text: str) -> bool:
+    return bool(_ML_CONTEXT_RE.search(text) or _ML_TRANSFORMERS_IMPORT_RE.search(text))
+
+
 def has_ml_context(content: str) -> bool:
     """True when the file shows genuine ML / AI / LLM / inference context.
 
@@ -87,8 +99,8 @@ def has_ml_context(content: str) -> bool:
     that AI/ML names colliding with emoji codes (gemini, claude, hugging_face, ...)
     in pure data files do not fake an AI signal. Real AI code is unaffected.
     """
-    # Fast path: if no emoji-prone token is present at all, skip the line strip.
-    if not _ML_CONTEXT_RE.search(content):
+    # Fast path: if no ML token is present at all, skip the line strip.
+    if not _has_ml_token(content):
         return False
 
     # Re-test against the content with emoji-dict data lines removed. Only pay the
@@ -99,6 +111,6 @@ def has_ml_context(content: str) -> bool:
             ln for ln in content.splitlines()
             if not _EMOJI_DICT_LINE_RE.match(ln)
         )
-        return bool(_ML_CONTEXT_RE.search(scrubbed))
+        return _has_ml_token(scrubbed)
 
     return True
