@@ -27,11 +27,20 @@ def test_self_scan_excludes_rule_corpus_and_backup():
 
 
 def test_benchmark_fp_reduction_stays_high():
-    """The README cites ~97.9% FP reduction on the benchmark corpus — guard the floor."""
+    """The README cites ~97.9% FP reduction on the benchmark corpus — guard the floor.
+
+    The baseline was native-scoped (2026-07): the gate now measures MEDUSA-native
+    findings only (deterministic), so read the native fields. Falls back to the old
+    fp_filtered/total_findings keys for backward compat.
+    """
     b = json.loads((REPO / "tests" / "benchmark_baseline.json").read_text())
-    total = b.get("total_findings") or 0
-    filtered = b.get("fp_filtered") or 0
-    assert total > 0, "benchmark baseline missing total_findings"
+    total = b.get("native_total") or b.get("total_findings") or 0
+    filtered = b.get("native_fp_filtered")
+    if filtered is None:
+        # derive from survivors, else fall back to the legacy key
+        survivors = b.get("native_survivors")
+        filtered = (total - survivors) if survivors is not None else (b.get("fp_filtered") or 0)
+    assert total > 0, "benchmark baseline missing native_total/total_findings"
     reduction = filtered / total
     assert reduction >= 0.95, f"benchmark FP reduction dropped to {reduction:.1%} (README claims ~97.9%)"
 
