@@ -261,23 +261,18 @@ class SemgrepScanner(BaseScanner):
         """Map Semgrep severity to MEDUSA severity."""
         extra = finding.get('extra', {})
         semgrep_severity = extra.get('severity', 'WARNING').upper()
-        metadata = extra.get('metadata', {})
-        owasp = metadata.get('owasp', [])
 
+        # Honor Semgrep's own 3-level rating (consistent with the bandit de-inflation,
+        # P4b): an external tool's findings cap at HIGH — CRITICAL is reserved for
+        # MEDUSA's own high-confidence analysis. Previously every ERROR became CRITICAL
+        # and an arbitrary OWASP A01/A02/A03 boost force-promoted to CRITICAL (e.g. a
+        # sha1/A02 finding -> CRITICAL regardless of its real severity).
         severity_map = {
-            'ERROR': Severity.CRITICAL,
-            'WARNING': Severity.HIGH,
-            'INFO': Severity.MEDIUM,
+            'ERROR': Severity.HIGH,
+            'WARNING': Severity.MEDIUM,
+            'INFO': Severity.LOW,
         }
-        base_severity = severity_map.get(semgrep_severity, Severity.MEDIUM)
-
-        # Boost to CRITICAL for top OWASP categories
-        critical_owasp = ('A01', 'A02', 'A03')
-        if any(isinstance(o, str) and o.startswith(critical_owasp) for o in owasp):
-            if base_severity != Severity.CRITICAL:
-                return Severity.CRITICAL
-
-        return base_severity
+        return severity_map.get(semgrep_severity, Severity.LOW)
 
     def get_install_instructions(self) -> str:
         return (
