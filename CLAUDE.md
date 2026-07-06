@@ -30,7 +30,7 @@ Always use `dangerouslyDisableSandbox: true` on Bash tool calls that run `medusa
 
 ## Project Overview
 
-This project uses **MEDUSA v2026.7.0** - AI Security Scanner with 40,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
+This project uses **MEDUSA v2026.8.0** - AI Security Scanner with 40,000+ detection patterns for AI/ML, agents, and LLM applications. Works out of the box with no external tool installation required.
 
 ## MEDUSA Configuration
 
@@ -137,7 +137,7 @@ medusa scan . --fail-on high
 Edit `.medusa.yml` to customize:
 
 ```yaml
-version: 2026.7.0
+version: 2026.8.0
 scanners:
   enabled: []     # Empty = all enabled
   disabled: []    # List scanners to disable

@@ -829,7 +829,7 @@ MEDUSA uses a YAML configuration file for project-specific settings:
 
 ```yaml
 # MEDUSA Configuration File
-version: 2026.7.0
+version: 2026.8.0
 
 # Scanner control
 scanners:
@@ -1306,7 +1306,7 @@ For commercial licensing options, contact: support@pantheonsecurity.io
 
 ## Statistics
 
-**Version**: 2026.7.0
+**Version**: 2026.8.0
 **Release Date**: 2026-06-24
 **Detection Patterns**: 40,000+ AI security rules
 **Analyzers**: 79 specialized scanners
