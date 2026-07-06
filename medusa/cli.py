@@ -3976,6 +3976,16 @@ def vet(target, as_json, allow):
     """
     from medusa.core import scan_api
 
+    # PR-006: the whole scan runs silently under vet_repo's _quiet() (correct for the
+    # MCP stdio channel), so an interactive user cloning + scanning would stare at a
+    # dead terminal and read it as a hang. Emit a heartbeat to STDERR only — stdout
+    # stays reserved for the verdict block so `medusa vet . > verdict.txt` is clean.
+    # Only the CLI path prints this; vet_repo() (shared with the MCP server) is untouched.
+    if not as_json:
+        _is_git = '://' in target or target.startswith('git@')
+        click.echo(f"Vetting {target}…" + (" (cloning + scanning)" if _is_git else " (scanning)"),
+                   err=True)
+
     result = scan_api.vet_repo(target, allow=list(allow) or None)
     verdict = result.get('verdict', scan_api.CAUTION)
 
