@@ -1182,6 +1182,14 @@ class MedusaParallelScanner:
 
     def scan_parallel(self, files: List[Path]) -> List[ScanResult]:
         """Scan files in parallel with live progress table"""
+        # Never fork more workers than there are files: a small target (the
+        # common `medusa vet` case — often a single manifest/skill file) would
+        # otherwise spin up N worker processes, each paying fork + Pool
+        # ship/teardown overhead, to scan one file. Cap to the file count so a
+        # 1-file vet uses 1 worker (no wasted process churn).
+        if files:
+            self.workers = max(1, min(self.workers, len(files)))
+
         _icon = '*' if self.force_ascii else '\U0001f4ca'
         print(f"{_icon} Scanning {len(files)} files across {self.workers} parallel workers (each file is checked by all applicable scanners)...\n")
 

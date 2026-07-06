@@ -17,6 +17,11 @@ from dataclasses import dataclass
 
 import yaml
 
+# PR-005: libyaml-backed parser when available (silent fallback to the pure
+# -python SafeLoader). The integrity scan parses every rule file too, so it
+# gets the same ~8x parse speedup. Same safe-subset semantics.
+_YAML_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 
 # Field names whose scalar values are regex detection data, glob lists, or
 # bounded structured metadata — never a prompt-injection vector, so they are not
@@ -291,7 +296,7 @@ class RuleIntegrityScanner:
             return []
 
         try:
-            data = yaml.safe_load(content)
+            data = yaml.load(content, Loader=_YAML_LOADER)
         except Exception:
             data = None
 
