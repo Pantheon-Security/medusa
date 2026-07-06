@@ -219,8 +219,9 @@ VERDICT: SAFE  (risk score 0)
 | Exit code | Verdict | Meaning |
 |-----------|---------|---------|
 | `0` | **SAFE** | No blocking issues — install away. |
-| `1` | **CAUTION** | A HIGH or several MEDIUM findings (or a scan error) — review first. |
+| `1` | **CAUTION** | A HIGH or several MEDIUM findings — review first. |
 | `2` | **DO_NOT_INSTALL** | A CRITICAL or multiple HIGH findings — do not install. |
+| `3` | **ERROR** | Could not vet the target (bad path / unclonable URL) — *not* a security verdict; fails closed so a gate still halts. |
 
 Use it as a one-line CI gate before anything untrusted touches the machine:
 

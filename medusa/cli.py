@@ -3969,10 +3969,13 @@ def vet(target, as_json, allow):
     \b
     Exit codes:
       0  SAFE            — no blocking issues.
-      1  CAUTION         — non-SAFE; a HIGH or several MEDIUM findings (or a
-                           scan error). Non-zero so an automated gate (the hook)
-                           halts and lets a human decide.
+      1  CAUTION         — non-SAFE; a HIGH or several MEDIUM findings. Non-zero
+                           so an automated gate (the hook) halts and lets a
+                           human decide.
       2  DO_NOT_INSTALL  — CRITICAL or multiple HIGH findings; do not install.
+      3  ERROR           — could not vet the target (not a local path or a
+                           recognized/clonable git URL). NOT a verdict; prints
+                           an ERROR line, no VERDICT. Non-zero -> fails closed.
     """
     from medusa.core import scan_api
 
@@ -3988,6 +3991,17 @@ def vet(target, as_json, allow):
 
     result = scan_api.vet_repo(target, allow=list(allow) or None)
     verdict = result.get('verdict', scan_api.CAUTION)
+
+    # PR-007: "could not vet" is an ERROR, not a verdict — never print a VERDICT line
+    # for it (that reads as "vetted and borderline"). Exit 3 (non-zero -> fail-closed).
+    if verdict == scan_api.ERROR:
+        if as_json:
+            import json as _json
+            click.echo(_json.dumps(result, indent=2))
+        else:
+            click.echo(f"ERROR: could not vet '{target}' — {result.get('error', 'unknown error')}",
+                       err=True)
+        raise SystemExit(3)
 
     if as_json:
         import json as _json

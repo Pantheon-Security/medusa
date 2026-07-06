@@ -40,6 +40,10 @@ from urllib.parse import urlparse
 SAFE = "SAFE"
 CAUTION = "CAUTION"
 DO_NOT_INSTALL = "DO_NOT_INSTALL"
+# PR-007: "we could not vet this target at all" (bad path / unclonable URL) is NOT a
+# security verdict — it must never look like CAUTION. Distinct outcome, exit code 3
+# (still non-zero, so an automated gate/hook fails closed).
+ERROR = "ERROR"
 
 # Severity weights for the numeric score (higher = worse).
 _SEVERITY_WEIGHT = {
@@ -642,7 +646,7 @@ def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
 
     if not _looks_like_url(value):
         return {
-            "verdict": CAUTION,
+            "verdict": ERROR,
             "score": 0,
             "counts_by_severity": {},
             "total_findings": 0,
@@ -655,7 +659,7 @@ def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
         clone_dir = _clone_repo(value)
     except RuntimeError as exc:
         return {
-            "verdict": CAUTION,
+            "verdict": ERROR,
             "score": 0,
             "counts_by_severity": {},
             "total_findings": 0,
