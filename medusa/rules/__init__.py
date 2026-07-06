@@ -80,6 +80,15 @@ class Rule:
     # extraction harvests). Derived by the loader from file/dir conventions when
     # not set explicitly on the rule.
     provenance: Optional[str] = None
+    # PR-014: FP levers the harvest pipeline emits but the loader used to discard.
+    # `pipeline_confidence` is the harvester's self-assessed precision for the
+    # rule ('high'/'medium'/'low'); a 'low' rule is screening-only (see
+    # is_screening_only() below), composing with the PR-013 provenance gate.
+    # Missing = NEUTRAL — never inferred. `fp_guards` are benign example strings
+    # the rule must NOT flag; carried for future FP-filter use, parsed here so the
+    # metadata is no longer thrown away.
+    pipeline_confidence: Optional[str] = None
+    fp_guards: List[str] = field(default_factory=list)
     references: List[str] = field(default_factory=list)
     file_types: List[str] = field(default_factory=list)
 
@@ -129,6 +138,29 @@ class Rule:
             for match in compiled.finditer(content):
                 matches.append(match)
         return matches
+
+
+def is_screening_only(rule) -> bool:
+    """True if a rule should run ONLY in screening/vet/--all-rules mode.
+
+    The single predicate behind the PR-013 provenance gate and its PR-014
+    extension, so the loader owns the policy and the scanner just consumes it:
+
+    - PR-013: harvested-provenance rules (bulk keyword greps that mention-match
+      normal code) are screening-only.
+    - PR-014: rules whose pipeline_confidence is 'low' are screening-only too —
+      the harvester's own low-precision self-assessment composes with provenance.
+
+    Missing confidence is NEUTRAL (never gated on that basis alone). Uses getattr
+    so a lightweight stand-in object with only `provenance` (as in the PR-013
+    invariant tests) still works without a pipeline_confidence attribute.
+    """
+    if getattr(rule, 'provenance', None) == 'harvested':
+        return True
+    conf = getattr(rule, 'pipeline_confidence', None)
+    if conf is not None and str(conf).strip().lower() == 'low':
+        return True
+    return False
 
 
 @dataclass
@@ -497,6 +529,20 @@ class RuleLoader:
         if isinstance(file_types, str):
             file_types = [file_types]
 
+        # PR-014: carry the harvest pipeline's FP metadata onto the rule instead
+        # of discarding it. Keep pipeline_confidence as the raw string (normalized
+        # only at the gate) so we never invent a value for rules lacking it.
+        pipeline_confidence = data.get('pipeline_confidence')
+        if pipeline_confidence is not None:
+            pipeline_confidence = str(pipeline_confidence)
+        fp_guards = data.get('fp_guards') or []
+        if isinstance(fp_guards, str):
+            fp_guards = [fp_guards]
+        elif not isinstance(fp_guards, list):
+            fp_guards = [str(fp_guards)]
+        else:
+            fp_guards = [str(g) for g in fp_guards]
+
         return Rule(
             id=data['id'],
             name=name,
@@ -517,6 +563,8 @@ class RuleLoader:
             remediation=data.get('remediation') or data.get('fix'),
             # P2-7: explicit rule-level provenance wins over the file default.
             provenance=data.get('provenance') or default_provenance,
+            pipeline_confidence=pipeline_confidence,
+            fp_guards=fp_guards,
             references=references,
             file_types=file_types,
         )

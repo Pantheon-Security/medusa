@@ -89,6 +89,45 @@ class MyLangScanner(BaseScanner):
 
 See existing scanners in `medusa/scanners/` for examples.
 
+### Fixing a False Positive
+
+A rule fired on benign code. There are **three** places to fix it, and picking the
+wrong one either misses the fix or hides real detections. Use this decision tree:
+
+```
+Is the rule PATTERN itself wrong (too broad — bare acronym, missing \b, over-broad .*)?
+│   e.g.  PLA|...  matching "temPLAte";  \.filename  matching every attribute access
+├─ YES → EDIT THE RULE. Tighten the pattern (word boundaries, required context,
+│        anchor the acronym). ReDoS-safe: bounded quantifiers only.
+│        File: the rule's YAML under medusa/rules/<category>/
+│
+└─ NO — the pattern is correct, it matched a real construct that's benign HERE.
+    │
+    Does it fire because of the FILE / CODE class (an AI rule firing on non-AI code,
+    a web rule on non-web code, a signature in a doc/comment)?
+    ├─ YES → ADD/EXTEND A CONTEXT GATE. Gate the scanner on context.
+    │        Files: medusa/scanners/_ml_context.py (AI/LLM context),
+    │        _web_context.py (web code), _signature_context.py (docs/prose).
+    │        (Harvested "mention" rules are already screening-only — see PR-013.)
+    │
+    └─ NO — pattern right, context right, this specific match is a known benign class
+             (test fixtures, example placeholders, MEDUSA's own signatures).
+         → ADD AN FP-FILTER ENTRY. File: medusa/core/fp_filter.py
+             NEVER FP-filter a malice signal (CC-/MEDUSA-SKILL-/MCP-POISON-/TAINT-).
+```
+
+**Every FP fix MUST be two-sided and benchmark-verified:**
+
+1. Show the benign case no longer fires (add a test).
+2. Show a crafted **true positive** for the rule's real intent STILL fires (add a test).
+3. `python3 -m pytest tests/test_regression.py -q -o addopts=""` — the native benchmark
+   (354) must not drop a real detection. If it moves, you dropped a corpus true positive
+   — do **not** re-baseline around it; fix the fix.
+
+New detection rules must also pass the corpus lint gate (`tests/test_rule_corpus_lint.py`):
+no bare short-acronym alternates, `file_types` on harvested rules, CRITICAL only on
+curated provenance.
+
 ## Pull Request Guidelines
 
 - Keep PRs focused on a single change

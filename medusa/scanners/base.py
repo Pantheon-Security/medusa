@@ -495,20 +495,23 @@ class RuleBasedScanner(BaseScanner):
         return True
 
     def _gate_provenance(self, rules):
-        """Apply the PR-013 provenance gate to a rule list.
+        """Apply the PR-013/PR-014 screening gate to a rule list.
 
         Screening mode (--screening / --git / vet) and the --all-rules escape
         hatch run every rule (current behavior). On a default self-scan, drop
-        rules whose provenance == 'harvested'. Curated rules always run. The
-        filtered view is cached against the source list identity so we filter
-        the ~30k harvested rules once per scan, not once per file.
+        rules that are screening-only per medusa.rules.is_screening_only —
+        harvested provenance (PR-013) OR pipeline_confidence == 'low' (PR-014).
+        Curated / high-or-missing-confidence rules always run. The filtered view
+        is cached against the source list identity so we filter the ~30k
+        screening-only rules once per scan, not once per file.
         """
         if self._screening or self._all_rules_override:
             return rules
         cache = self._provenance_cache
         if cache is not None and cache[0] is rules:
             return cache[1]
-        filtered = [r for r in rules if r.provenance != 'harvested']
+        from medusa.rules import is_screening_only
+        filtered = [r for r in rules if not is_screening_only(r)]
         self._provenance_cache = (rules, filtered)
         return filtered
 

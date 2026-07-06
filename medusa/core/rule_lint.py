@@ -91,3 +91,168 @@ def lint_rules(rules, run_canary: bool = True) -> List[Tuple[str, str, List[str]
             if reasons:
                 findings.append((rule.id, pat, reasons))
     return findings
+
+
+# ---------------------------------------------------------------------------
+# PR-015: corpus-quality lint (beyond ReDoS)
+#
+# Three structural checks that a bad rule can trip at authoring time. Run as a
+# pytest gate (tests/test_rule_corpus_lint.py) against a committed baseline of
+# grandfathered violations, so the gate blocks only NEW regressions rather than
+# forcing a mass-edit of the existing 42k-rule corpus.
+#
+#   (a) short_literal_alternate — an unanchored alternation branch that is a bare
+#       short literal (<MIN_LITERAL chars, no \b, no structure). This is what let
+#       `PLA|...` match "temPLAte".
+#   (b) harvested_missing_file_types — a harvested-provenance rule with no
+#       file_types, so its pattern can fire on every file type.
+#   (c) critical_requires_curated — CRITICAL severity self-assigned by a
+#       non-curated (harvested/unknown) rule.
+# ---------------------------------------------------------------------------
+
+CHECK_SHORT_ALT = "short_literal_alternate"
+CHECK_HARVEST_FT = "harvested_missing_file_types"
+CHECK_CRIT_PROV = "critical_requires_curated"
+
+# Minimum literal length for an unanchored alternation branch to be considered
+# specific enough not to mention-match arbitrary substrings.
+MIN_LITERAL = 5
+
+# Anchors / assertions that give a short literal enough matching context.
+_HAS_ANCHOR = re.compile(r'\\b|\\B|\\<|\\>|\^|\$|\(\?[=!]|\(\?<[=!]')
+# Any regex structure metacharacter — if a branch has one, it is more than a
+# bare literal token (char class, group, quantifier, escape, wildcard, …).
+_HAS_STRUCTURE = re.compile(r'[\[\](){}\\.*+?]')
+
+
+def _split_top_alternation(pattern: str) -> List[str]:
+    """Split `pattern` on top-level `|` only (not inside (), [], or escaped)."""
+    branches: List[str] = []
+    cur: List[str] = []
+    depth = 0
+    in_class = False
+    i, n = 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == '\\' and i + 1 < n:
+            cur.append(c)
+            cur.append(pattern[i + 1])
+            i += 2
+            continue
+        if in_class:
+            cur.append(c)
+            if c == ']':
+                in_class = False
+            i += 1
+            continue
+        if c == '[':
+            in_class = True
+            cur.append(c)
+        elif c == '(':
+            depth += 1
+            cur.append(c)
+        elif c == ')':
+            depth = max(0, depth - 1)
+            cur.append(c)
+        elif c == '|' and depth == 0:
+            branches.append(''.join(cur))
+            cur = []
+        else:
+            cur.append(c)
+        i += 1
+    branches.append(''.join(cur))
+    return branches
+
+
+def _iter_group_contents(pattern: str):
+    """Yield the inner text of each parenthesized group (group prefix stripped)."""
+    stack: List[int] = []
+    in_class = False
+    i, n = 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == '\\' and i + 1 < n:
+            i += 2
+            continue
+        if in_class:
+            if c == ']':
+                in_class = False
+            i += 1
+            continue
+        if c == '[':
+            in_class = True
+        elif c == '(':
+            stack.append(i)
+        elif c == ')':
+            if stack:
+                start = stack.pop()
+                inner = pattern[start + 1:i]
+                # Strip a leading group prefix: (?:  (?i)  (?=  (?<=  (?P<name>  …
+                inner = re.sub(r'^\?(P<[^>]+>|<[=!]|[:=!aiLmsux-]+)', '', inner)
+                yield inner
+        i += 1
+
+
+def _alternation_branches(pattern: str) -> List[str]:
+    """Every alternation branch at the top level and inside every group.
+
+    Only contents that actually contain a top-level `|` (i.e. a real
+    alternation of >=2 branches) contribute branches.
+    """
+    out: List[str] = []
+    for content in (pattern, *_iter_group_contents(pattern)):
+        branches = _split_top_alternation(content)
+        if len(branches) >= 2:
+            out.extend(branches)
+    return out
+
+
+def is_short_bare_alternate(branch: str) -> bool:
+    """True if `branch` is an unanchored, structure-free literal < MIN_LITERAL.
+
+    Precise by design: a branch is only flagged when it is a plain literal token
+    (no anchor/assertion, no char class/group/quantifier/escape/wildcard) whose
+    trimmed length is below the minimum. `\\berror\\b`, `\\d{5}`, `foo(?:x|y)`
+    and any branch >= MIN_LITERAL literal chars all pass.
+    """
+    if _HAS_ANCHOR.search(branch):
+        return False
+    if _HAS_STRUCTURE.search(branch):
+        return False
+    return len(branch.strip()) < MIN_LITERAL
+
+
+def corpus_findings(rules) -> List[Tuple[str, str, str]]:
+    """Corpus-quality violations across loaded Rule objects.
+
+    Returns (rule_id, check, detail) tuples. `check` is one of the CHECK_*
+    constants. At most one finding per (rule, check) is emitted (the first
+    offending branch/pattern), so the baseline stays rule-scoped and stable.
+    """
+    findings: List[Tuple[str, str, str]] = []
+    for rule in rules:
+        # (a) short bare literal alternation branch
+        flagged = None
+        for pat in rule.patterns:
+            for branch in _alternation_branches(pat):
+                if is_short_bare_alternate(branch):
+                    flagged = branch.strip()
+                    break
+            if flagged is not None:
+                break
+        if flagged is not None:
+            findings.append((rule.id, CHECK_SHORT_ALT, flagged))
+
+        provenance = getattr(rule, 'provenance', None)
+
+        # (b) harvested rule must declare file_types
+        if provenance == 'harvested' and not getattr(rule, 'file_types', None):
+            findings.append((rule.id, CHECK_HARVEST_FT, ''))
+
+        # (c) CRITICAL severity requires curated provenance
+        sev = getattr(rule, 'severity', None)
+        sev_name = getattr(sev, 'value', sev)
+        if str(sev_name).upper() == 'CRITICAL' and provenance != 'curated':
+            findings.append((rule.id, CHECK_CRIT_PROV, str(provenance)))
+
+    return findings
