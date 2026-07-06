@@ -30,6 +30,11 @@ from pathlib import Path
 
 import pytest
 
+# Full benchmark corpus scan via MedusaParallelScanner with the complete
+# rule set (~90s per in-process scan, ~4min for the module) — too slow
+# for the per-PR fast set; runs on push-to-main / release gate instead.
+pytestmark = pytest.mark.slow
+
 BASELINE_FILE = Path(__file__).parent / "benchmark_baseline.json"
 CORPUS_DIR = Path(__file__).parent / "benchmark_corpus"
 
@@ -182,15 +187,16 @@ class TestRegression:
         exactly. External-linter findings are informational only (see module
         docstring) and are not asserted here."""
         baseline = _load_baseline()
-        results = _run_scan()
 
         if baseline is None:
-            _save_baseline(results)
-            pytest.skip(
-                f"Baseline created with {results['native_total']} native "
-                f"pre-filter findings ({results['external_total']} external, "
-                f"not gated)."
+            pytest.fail(
+                f"Baseline missing at {BASELINE_FILE} — regenerate via "
+                f"`python3 tests/test_regression.py --save-baseline` and commit "
+                f"the result. A fresh checkout must never silently create its "
+                f"own baseline (that hides real regressions on CI/new machines)."
             )
+
+        results = _run_scan()
 
         assert results["native_total"] == baseline["native_total"], (
             f"Native pre-filter finding count changed! "

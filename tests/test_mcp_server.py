@@ -82,9 +82,11 @@ def test_vet_repo_local_clean(clean_dir):
 
 def test_vet_repo_bogus_url_fails_safe():
     # Not a local path and a URL we won't actually reach — must fail safe,
-    # not raise. (Uses a non-resolvable host; clone fails fast via env hardening.)
+    # not raise. PR-007: "could not vet" is now the honest ERROR outcome (not a
+    # misleading CAUTION verdict); still fail-safe (non-SAFE, carries an error).
     result = scan_api.vet_repo("not-a-path-or-url")
-    assert result["verdict"] == scan_api.CAUTION
+    assert result["verdict"] == scan_api.ERROR
+    assert result["verdict"] != scan_api.SAFE  # never fails open
     assert "error" in result
 
 

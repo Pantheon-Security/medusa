@@ -86,6 +86,35 @@ jobs:
       - name: Test install --check command
         run: medusa install --check
 
+  pytest:
+    name: Run pytest suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install MEDUSA
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      # Deselect @pytest.mark.slow tests on PRs so contributor feedback is fast.
+      # -o addopts="" overrides pyproject's --cov/-v defaults for clean, quick CI output.
+      - name: Run fast test suite (pull request)
+        if: github.event_name == 'pull_request'
+        run: python -m pytest tests/ -m "not slow" -q -o addopts=""
+
+      # Full suite, including slow tests, only on push to main.
+      - name: Run full test suite (push to main)
+        if: github.event_name == 'push'
+        run: python -m pytest tests/ -q -o addopts=""
+
   test-docker:
     name: Test Docker Build
     runs-on: ubuntu-latest
@@ -112,30 +141,3 @@ jobs:
         run: |
           docker run --rm -v $(pwd):/workspace medusa:test scan \
             /workspace --workers 2
-
-  lint-and-format:
-    name: Lint and Format Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dev dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install black ruff mypy
-
-      - name: Check code formatting with black
-        run: black --check medusa/ || true
-
-      - name: Lint with ruff
-        run: ruff check medusa/ || true
-
-      - name: Type check with mypy
-        run: mypy medusa/ || true

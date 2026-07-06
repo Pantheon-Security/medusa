@@ -21,7 +21,7 @@ from medusa.core import scan_api
 
 def _run(fake, args=("vet", "some/dir"), monkeypatch=None):
     monkeypatch.setattr("medusa.core.scan_api.vet_repo", lambda *a, **k: fake)
-    return CliRunner().invoke(main, list(args))
+    return CliRunner(mix_stderr=False).invoke(main, list(args))
 
 
 def test_caution_leads_with_blocking_not_total(monkeypatch):

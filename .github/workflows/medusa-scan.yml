@@ -38,7 +38,36 @@ jobs:
 
       - name: Run MEDUSA Security Scan
         id: scan
-        run: medusa scan . --format sarif --fail-on high
+        continue-on-error: true  # let the workflow keep going so we can parse + report counts, then re-fail below
+        run: medusa scan . --format sarif --format json --fail-on high
+
+      - name: Parse scan results
+        id: parse
+        run: |
+          python3 - <<'PYEOF'
+          import glob
+          import json
+          import os
+
+          candidates = [
+              f for f in glob.glob(".medusa/reports/medusa-scan-*.json")
+              if "raw-payloads" not in f
+          ]
+          if not candidates:
+              raise SystemExit("No MEDUSA JSON report found in .medusa/reports/")
+
+          with open(sorted(candidates)[-1]) as f:
+              data = json.load(f)
+
+          severity = data.get("severity_breakdown", {})
+          total = data.get("scan_summary", {}).get("total_issues", 0)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"critical-count={severity.get('CRITICAL', 0)}\n")
+              out.write(f"high-count={severity.get('HIGH', 0)}\n")
+              out.write(f"medium-count={severity.get('MEDIUM', 0)}\n")
+              out.write(f"issues-count={total}\n")
+          PYEOF
 
       - name: Upload SARIF results
         if: always()  # upload findings even when --fail-on trips the scan step
@@ -56,10 +85,10 @@ jobs:
 
             | Severity | Count |
             |----------|-------|
-            | Critical | ${{ steps.scan.outputs.critical-count }} |
-            | High | ${{ steps.scan.outputs.high-count }} |
-            | Medium | ${{ steps.scan.outputs.medium-count }} |
-            | **Total** | **${{ steps.scan.outputs.issues-count }}** |
+            | Critical | ${{ steps.parse.outputs.critical-count }} |
+            | High | ${{ steps.parse.outputs.high-count }} |
+            | Medium | ${{ steps.parse.outputs.medium-count }} |
+            | **Total** | **${{ steps.parse.outputs.issues-count }}** |
 
             [View full results in the Security tab](../../security/code-scanning)
             `;
@@ -70,3 +99,9 @@ jobs:
               repo: context.repo.repo,
               body: output
             });
+
+      - name: Enforce fail-on threshold
+        if: steps.scan.outcome == 'failure'
+        run: |
+          echo "MEDUSA scan reported findings at or above the --fail-on threshold." >&2
+          exit 1

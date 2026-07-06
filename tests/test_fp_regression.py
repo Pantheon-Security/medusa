@@ -5,8 +5,16 @@ Golden-file FP regression tests.
 Scans known reference projects and asserts the finding count stays below
 a threshold. Catches FP explosions before they ship.
 
-These tests require the reference projects to exist on disk.
-Skip gracefully if they don't (CI without test repos).
+PORTABLE CORPUS (PR-009, 2026-07): reference projects live under
+tests/corpus/ and tests/benchmark_corpus/ — both committed to the repo —
+instead of machine-local paths like /home/ross/Documents/projects/canopy.
+Those local paths never existed on any machine but Ross's, so this whole
+test class silently skipped everywhere else, including CI. tests/corpus/
+holds small, self-authored "clean" fixtures (not vendored third-party code,
+so there's no licensing question) written to be realistic enough to trip
+harvested keyword-mention rules (agent/model/prompt/token vocabulary used
+in ordinary business logic) without containing any actual vulnerability —
+exactly what an FP-explosion regression needs to catch.
 """
 
 import json
@@ -16,31 +24,40 @@ from pathlib import Path
 
 import pytest
 
+_CORPUS_ROOT = Path(__file__).parent / "corpus"
+_BENCHMARK_CORPUS = Path(__file__).parent / "benchmark_corpus"
 
-# Reference projects and their maximum acceptable finding counts.
+# Clean reference projects and their maximum acceptable finding counts.
 # Update thresholds after verified improvements or when adding new rule categories.
 # Format: scan the project, verify findings are correct, set threshold = count + ~20% buffer.
 GOLDEN_FILES = {
-    "/home/ross/Documents/projects/canopy": {
-        # v2026.5.12: 254 findings after harvest rule addition. Threshold = 254 + ~20% buffer.
-        "max_findings": 310,
-        "description": "Vue SPA + Docker — minimal AI code",
+    str(_CORPUS_ROOT / "clean_python_service"): {
+        # 2026-07: 2 post-filter MEDIUM findings observed (SSRF on an internal
+        # URL literal, "agent without callback" mention) — both low-signal,
+        # expected noise for a small clean corpus. Threshold = 2 + buffer.
+        "max_findings": 4,
+        "description": "Self-authored clean Flask-style catalog/recommendation service",
     },
-    "/home/ross/Documents/projects/mirofish": {
-        # v2026.5.12: harvest FP explosion fixed via corpus-driven pattern drop
-        # (278,059 -> 873). 873 is in line with the original pre-harvest baseline
-        # of 647 legit findings. Threshold = 873 + ~25% buffer.
-        "max_findings": 1100,
-        "description": "Flask AI simulation app — moderate AI code",
+    str(_CORPUS_ROOT / "clean_js_frontend"): {
+        # 2026-07: 0 findings observed on a small clean Vue+fetch frontend.
+        # Small absolute buffer (not a percentage of zero) to tolerate minor
+        # legitimate rule tuning without flapping the gate.
+        "max_findings": 2,
+        "description": "Self-authored clean Vue + fetch frontend",
     },
 }
 
-# Intentionally vulnerable repos that SHOULD produce findings.
+# Intentionally vulnerable corpus that SHOULD produce findings.
 # We assert a MINIMUM count to catch rule breakage / over-filtering.
 DETECTION_FILES = {
-    "/home/ross/Documents/medusa/medusa-test-targets/vulnerable-chat": {
-        "min_findings": 10,
-        "description": "Deliberately vulnerable AI chatbot",
+    str(_BENCHMARK_CORPUS): {
+        # 2026-07: 8 findings observed via the same `medusa scan --output json`
+        # path this test uses (command injection, root-user Dockerfile,
+        # hardcoded credential, ...). Minimum set below the observed count so
+        # legitimate FP tightening doesn't trip this, while still catching
+        # wholesale rule breakage.
+        "min_findings": 5,
+        "description": "MEDUSA's own attack-sample corpus (already committed, used by test_regression.py)",
     },
 }
 
@@ -111,8 +128,11 @@ class TestFPRegression:
         )
 
 
+@pytest.mark.slow
 class TestRuleQuality:
-    """Validate rule patterns at the unit level."""
+    """Validate rule patterns at the unit level. Each test walks and parses
+    every YAML file under medusa/rules/ (~38s/test, ~115s for the class) —
+    too slow for the per-PR fast set."""
 
     def test_no_broken_lookaheads(self):
         """No production rules should have .*(?!...) anti-pattern."""

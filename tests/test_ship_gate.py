@@ -31,6 +31,11 @@ from click.testing import CliRunner
 from medusa.cli import main
 from medusa.core.parallel import MedusaCacheManager, MedusaParallelScanner
 
+# Nearly every test in this module invokes the CLI or MedusaParallelScanner,
+# each of which reloads the full ~43k-rule corpus (no cross-test rule cache);
+# measured full-module runtime exceeds 400s. Too slow for the per-PR fast set.
+pytestmark = pytest.mark.slow
+
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
