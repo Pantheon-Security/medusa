@@ -552,6 +552,10 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
                 project_root=target if target.is_dir() else target.parent,
                 use_cache=False,
                 quick_mode=False,
+                # Vet screens a stranger's repo before install: the harvested
+                # keyword corpus (mention-detection) IS signal here, so run the
+                # full rule set exactly as --git / --screening do (PR-013).
+                screening=True,
             )
             scan_root = target if target.is_dir() else target.parent
             # Owner-overrides allowlist. Two sources, different trust:

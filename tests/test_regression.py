@@ -103,6 +103,10 @@ def _run_scan():
         project_root=CORPUS_DIR,
         workers=2,
         use_cache=False,
+        # The benchmark corpus is attack samples; harvested-provenance rules are
+        # legitimate detections here. Screen (as --git / vet do) so the PR-013
+        # provenance gate does not drop them and deflate the native baseline.
+        screening=True,
     )
     files = scanner.find_scannable_files()
     results = scanner.scan_parallel(files)

@@ -54,7 +54,12 @@ def atksig():
 
 @pytest.fixture(scope="module")
 def owasp():
-    return OWASPLLMScanner()
+    s = OWASPLLMScanner()
+    # PR-013: MM-ENCODE-003 is harvested-provenance (runs in screening/vet mode only).
+    # These tests assert its unicode-smuggling DETECTION capability, which lives in
+    # screening mode now, so exercise the scanner there.
+    s._screening = True
+    return s
 
 
 def _rule(scanner, rule_id):

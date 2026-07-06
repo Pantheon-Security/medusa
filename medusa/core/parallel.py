@@ -38,7 +38,23 @@ from medusa.core.rule_integrity import neutralize_injection
 _CODE_SNIPPET_MAX = 200
 
 
-def _inject_batch_scanner_caches(snapshot):
+def _apply_screening_to_scanners(screening: bool, all_rules: bool) -> None:
+    """Propagate the PR-013 screening / --all-rules mode onto every rule-based
+    scanner singleton, so the provenance gate (hide harvested rules on a default
+    self-scan) is consistent across the parent process and every Pool worker.
+
+    Called from scan_parallel's pre-warm loop (parent + fork-inherited workers)
+    and from the Pool initializer (spawn-mode workers, macOS/Windows).
+    """
+    from medusa.scanners import registry as _reg
+    for scanner in _reg.scanners:
+        if hasattr(scanner, '_screening'):
+            scanner._screening = screening
+            scanner._all_rules_override = all_rules
+            scanner._provenance_cache = None  # invalidate any stale filtered view
+
+
+def _inject_batch_scanner_caches(snapshot, screening=False, all_rules=False):
     """Pool initializer: restore batch-scanner caches in spawn-mode workers.
 
     On Linux, Pool workers inherit parent memory via fork (copy-on-write) so
@@ -47,8 +63,14 @@ def _inject_batch_scanner_caches(snapshot):
     to spawn, which starts fresh interpreters with empty scanner caches —
     causing per-file lookups to fall back to slow subprocess invocations.
     This initializer rehydrates each worker's scanner instances from a
-    snapshot built in the parent process.
+    snapshot built in the parent process. It also re-applies the PR-013
+    screening mode, which spawn-mode workers would otherwise reset to default
+    (harvested rules gated) even during a --screening / --git / vet scan.
     """
+    # Apply screening BEFORE the snapshot guard: harvested-rule scanners are not
+    # batch scanners, so they never appear in `snapshot`, but they still need the
+    # screening flag on spawn workers.
+    _apply_screening_to_scanners(screening, all_rules)
     if not snapshot:
         return
     from medusa.scanners import registry as _reg
@@ -134,12 +156,19 @@ class ScanResult:
 class MedusaCacheManager:
     """Manage file scanning cache for incremental scans"""
 
-    def __init__(self, cache_dir: Path = None, full_hash: bool = False):
+    def __init__(self, cache_dir: Path = None, full_hash: bool = False,
+                 rule_mode: str = ""):
         self.cache_dir = cache_dir or Path.home() / ".medusa" / "cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.cache_file = self.cache_dir / "file_cache.json"
         self.hmac_key_file = self.cache_dir / ".hmac_key"
         self._hmac_key = self._load_or_create_hmac_key()
+        # PR-013: the provenance gate makes which rules FIRE depend on the scan
+        # mode (default vs screening vs --all-rules), so cache entries are not
+        # interchangeable across modes. Fold the mode into the rule fingerprint
+        # so a default (gated) scan and a --screening/--all-rules scan of the
+        # same tree don't serve each other stale findings.
+        self._rule_mode = rule_mode
         self.rule_version = self._compute_rule_fingerprint()
         self.cache: Dict[str, FileMetadata] = self._load_cache()
         self.full_hash = full_hash
@@ -197,6 +226,7 @@ class MedusaCacheManager:
             return ""
         yaml_files = sorted(rules_dir.rglob("*.yaml"))
         hasher = hashlib.sha256()
+        hasher.update(f"mode={self._rule_mode}|".encode())  # PR-013: mode-aware cache
         hasher.update(str(len(yaml_files)).encode())
         for yf in yaml_files:
             # Stat-based fingerprint (path + size + mtime) detects rule changes
@@ -415,12 +445,24 @@ class MedusaParallelScanner:
                  quick_mode: bool = False,
                  extra_excludes: list = None,
                  full_hash: bool = False,
-                 include_user_mcp_configs: bool = False):
+                 include_user_mcp_configs: bool = False,
+                 screening: bool = False,
+                 all_rules: bool = False):
         self.project_root = project_root.absolute()
         self.workers = workers or cpu_count()
         self.use_cache = use_cache
         self.quick_mode = quick_mode
-        self.cache = MedusaCacheManager(full_hash=full_hash) if use_cache else None
+        # PR-013: screening mode runs harvested rules (vetting a stranger's repo);
+        # a default self-scan gates them out. --all-rules forces them on anyway.
+        self.screening = screening
+        self.all_rules = all_rules
+        # Distinct cache namespace per rule mode so gated/screening/all-rules
+        # scans of the same tree don't serve each other stale findings.
+        _rule_mode = 'all' if all_rules else ('screen' if screening else 'gated')
+        self.cache = (
+            MedusaCacheManager(full_hash=full_hash, rule_mode=_rule_mode)
+            if use_cache else None
+        )
         self.include_user_mcp_configs = include_user_mcp_configs
         self.force_ascii = not self._is_modern_terminal()
 
@@ -1146,6 +1188,12 @@ class MedusaParallelScanner:
         # Pre-map which scanners will handle which files
         scanner_expected = self._pre_map_scanners(files)
 
+        # PR-013: stamp the screening / --all-rules mode onto every rule-based
+        # scanner BEFORE the pre-warm below, so the provenance gate is set for
+        # the parent process and every fork-inherited worker. Spawn workers get
+        # it again via the Pool initializer.
+        _apply_screening_to_scanners(self.screening, self.all_rules)
+
         # Pre-warm YAML rules in the main process before Pool() forks workers.
         # Linux fork() uses copy-on-write, so workers inherit compiled patterns
         # at zero cost. Without this, each worker independently pays the ~1.8s
@@ -1324,7 +1372,7 @@ class MedusaParallelScanner:
         with Pool(
             processes=self.workers,
             initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
+            initargs=(_snapshot, self.screening, self.all_rules),
         ) as pool:
             if use_live:
                 # Live updating table - uses stderr to avoid corruption from stray stdout
@@ -1400,7 +1448,7 @@ class MedusaParallelScanner:
         with Pool(
             processes=self.workers,
             initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
+            initargs=(_snapshot, self.screening, self.all_rules),
         ) as pool:
             pbar = tqdm(
                 pool.imap_unordered(self.scan_file, files, chunksize=chunksize),
@@ -1438,7 +1486,7 @@ class MedusaParallelScanner:
         with Pool(
             processes=self.workers,
             initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
+            initargs=(_snapshot, self.screening, self.all_rules),
         ) as pool:
             for result in pool.imap_unordered(self.scan_file, files, chunksize=chunksize):
                 results.append(result)

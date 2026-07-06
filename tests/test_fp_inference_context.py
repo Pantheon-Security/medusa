@@ -102,6 +102,10 @@ def start_server(cfg):
 def _scan(content: str, filename: str):
     """Run the real LLMOpsScanner over an on-disk file; return ScannerIssues."""
     scanner = LLMOpsScanner()
+    # PR-013: these tests exercise harvested-provenance inference rules' detection
+    # (screening/vet capability) AND their ML-context/FP-filter benign suppression —
+    # both were the pre-PR-013 all-rules behavior, which screening reproduces.
+    scanner._screening = True
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / filename
         p.write_text(content)

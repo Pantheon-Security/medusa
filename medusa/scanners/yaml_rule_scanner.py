@@ -117,7 +117,11 @@ class YAMLRuleScanner(RuleBasedScanner):
     def unclaimed_rules(self):
         if not self._unclaimed_loaded:
             self._load_unclaimed_rules()
-        return self._unclaimed_rules
+        # PR-013: this catch-all scanner runs the bulk of the harvested corpus,
+        # so the provenance gate matters most here. _gate_provenance (from
+        # RuleBasedScanner) hides harvested rules on a default self-scan and
+        # runs everything under screening / --all-rules.
+        return self._gate_provenance(self._unclaimed_rules)
 
     def scan_file(self, file_path: Path) -> ScannerResult:
         return self.scan(file_path)

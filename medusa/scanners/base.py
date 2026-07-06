@@ -479,10 +479,38 @@ class RuleBasedScanner(BaseScanner):
         super().__init__()
         self._rules = None
         self._rules_loaded = False
+        # PR-013 provenance gate. On a default self-scan we hide auto-harvested
+        # keyword rules (they mention-match normal code as FPs, e.g. `import
+        # socket` -> CRITICAL). They ARE signal when screening a stranger's repo
+        # before install, so screening mode (--screening / --git / vet) runs them.
+        # `_all_rules_override` (--all-rules) forces harvested rules on even in
+        # the default mode. Both are set on the singleton before scanning starts
+        # (parallel.py pre-warm loop + the Pool initializer for spawn workers).
+        self._screening = False
+        self._all_rules_override = False
+        self._provenance_cache = None  # (source_list, filtered_list) — filter once, not per file
 
     def is_available(self) -> bool:
         """Rule-based scanners are always available (no external tool needed)."""
         return True
+
+    def _gate_provenance(self, rules):
+        """Apply the PR-013 provenance gate to a rule list.
+
+        Screening mode (--screening / --git / vet) and the --all-rules escape
+        hatch run every rule (current behavior). On a default self-scan, drop
+        rules whose provenance == 'harvested'. Curated rules always run. The
+        filtered view is cached against the source list identity so we filter
+        the ~30k harvested rules once per scan, not once per file.
+        """
+        if self._screening or self._all_rules_override:
+            return rules
+        cache = self._provenance_cache
+        if cache is not None and cache[0] is rules:
+            return cache[1]
+        filtered = [r for r in rules if r.provenance != 'harvested']
+        self._provenance_cache = (rules, filtered)
+        return filtered
 
     def _load_rules(self):
         """Lazy-load rules from YAML files"""
@@ -510,10 +538,17 @@ class RuleBasedScanner(BaseScanner):
 
     @property
     def rules(self):
-        """Get loaded rules (loads on first access)"""
+        """Get loaded rules (loads on first access).
+
+        Applies the PR-013 provenance gate: on a default self-scan harvested
+        rules are hidden; screening / --all-rules run them all. Gating here
+        (rather than only in _scan_with_rules) covers every subclass that
+        iterates self.rules directly (e.g. MultiAgentScanner's payload-rule
+        loop, AIAttackSignatureScanner).
+        """
         if not self._rules_loaded:
             self._load_rules()
-        return self._rules
+        return self._gate_provenance(self._rules)
 
     # Maximum number of lines to scan with regex rules.
     # Files with more lines than this are data files / generated code

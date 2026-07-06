@@ -1482,6 +1482,11 @@ def main(ctx, version):
                    'tests/, examples/, tools/, or dataset files (in a repo you are screening, those ARE '
                    'the attack surface). Auto-enabled for --git pre-install screening. Off by default for '
                    'scanning your own clean codebase.')
+@click.option('--all-rules', 'all_rules', is_flag=True, default=False,
+              help='[Power users] Run the full rule corpus — including auto-harvested keyword '
+                   'patterns — even on a normal self-scan. By default those harvested rules run '
+                   'only in screening mode (--screening / --git / vet), since they mention-match '
+                   'normal code as false positives. Off by default.')
 @click.option('--trace-rules', 'trace_rules', is_flag=True, default=False, envvar='MEDUSA_TRACE_RULES',
               help='[For rule authors / debugging] Rule diagnostics: log every rule firing '
                    '(rule-trace.jsonl) and per-rule timing (slow_rules.csv) to the report dir, to '
@@ -1507,7 +1512,7 @@ def main(ctx, version):
 @click.option('--offline', '--no-network', 'offline', is_flag=True, default=False,
               help='Disable all network egress: skip the OSV.dev dependency-CVE lookup so no '
                    'package names/versions leave the machine. The scan runs fully local.')
-def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage, llm_backend, offline):
+def scan(target, workers, quick, force, no_cache, fail_on, output, output_formats, no_report, no_ai_safe, exclude, git_url, allow_any_host, include_user_mcp_configs, screening, all_rules, trace_rules, yes, no_prompt, baseline, write_baseline_path, llm_triage, llm_backend, offline):
     """
     Scan a directory or file for security issues.
 
@@ -1745,6 +1750,8 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             extra_excludes=list(exclude) if exclude else None,
             full_hash=bool(fail_on),
             include_user_mcp_configs=include_user_mcp_configs,
+            screening=screening,
+            all_rules=all_rules,
         )
 
         # Rule diagnostics (--trace-rules / MEDUSA_TRACE_RULES): collect rule
@@ -2259,6 +2266,7 @@ def _scan_git_repo(
             extra_excludes=list(exclude) if exclude else None,
             full_hash=bool(fail_on),
             include_user_mcp_configs=include_user_mcp_configs,
+            screening=screening,  # --git pre-install screening runs the full harvested corpus
         )
 
         # Rule diagnostics (--trace-rules) — shared helper with the local path so
