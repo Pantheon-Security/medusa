@@ -136,7 +136,7 @@ rules:
   name: unsigned-prompt-injection-risk
   owasp_llm: LLM01:2025
   patterns:
-  - (?i)(prompt|instruction|message).{0,40}(=|\+=).{0,40}(user|input|query|request).{0,40}(?!sign|verify|hash|hmac)
+  - (?i)(prompt|instruction|message).{0,40}((?<![=!<>])=(?!=)|\+=).{0,40}(user|input|query|request).{0,40}(?!sign|verify|hash|hmac)
   remediation: Review usage context. Remove if not authorized research/testing.
   severity: medium
   source_paper: Suo (2024) - Missing prompt signing enabling injection in LLM-integrated apps
@@ -355,7 +355,7 @@ rules:
   name: neural-exec-trigger-code-segments
   owasp_llm: LLM01:2025
   patterns:
-  - (?i)(<\!--|\/\*|\*\/|<\/|\]\)|\}\)).{0,30}(ignore|disregard|payload|exec|execute|instruct|instruction)
+  - (?i)(<\!--|\/\*|\*\/|<\/|\]\)|\}\)).{0,30}(?<!type: )(?<!type:)(ignore|disregard|payload|exec|execute|instruct|instruction)
   remediation: Review usage context. Remove if not authorized research/testing.
   severity: critical
   source_paper: Pasquini et al. (2024) - Neural Exec code segment triggers for prompt injection
@@ -372,7 +372,7 @@ rules:
   name: inline-trigger-single-line-payload
   owasp_llm: LLM01:2025
   patterns:
-  - (?i)(\)\)\)|\}\}\}|>>>|===).{0,20}(ignore|now|instruction|payload|execute|write|describe|tell|answer)
+  - (?i)(\)\)\)|\}\}\}|>>>|===).{0,20}(?<!type: )(?<!type:)\b(ignore|now|instruction|payload|execute|write|describe|tell|answer)\b
   remediation: Review usage context. Remove if not authorized research/testing.
   severity: high
   source_paper: Pasquini et al. (2024) - Inline triggers surviving RAG chunking pipelines
@@ -769,7 +769,7 @@ rules:
   name: code-comment-injection-payload
   owasp_llm: LLM01:2025
   patterns:
-  - (?i)(#|//|/\*).{0,40}(ignore|disregard|override|forget).{0,40}(instruction|context|above|previous|task)
+  - (?i)(#|//|/\*).{0,40}(ignore|disregard|override|forget)\b.{0,40}(instruction|context|above|previous|task)
   remediation: Review usage context. Remove if not authorized research/testing.
   severity: high
   source_paper: QueryIPI (2025) - Code comment injection targeting coding agents
@@ -1021,7 +1021,7 @@ rules:
   name: access-code-extraction-injection
   owasp_llm: LLM01:2025
   patterns:
-  - (?i)(reveal|tell|show|give|share|what is).{0,30}(the )?(access code|api key|secret|password|token|credential|auth)
+  - (?i)\b(reveal|tell|show|give|share|what is)\b.{0,30}(the )?(access code|api key|secret|password|token|credential|auth)
   remediation: Review usage context. Remove if not authorized research/testing.
   severity: critical
   source_paper: Tensor Trust - Access code and credential extraction via prompt injection
@@ -1517,7 +1517,7 @@ rules:
   - language-switch
   - semantic-closure
   patterns:
-  - (?i)(from\s+(now\s+on|this\s+point).*switch.*to\s+\w+\s+language)|(end\s+of\s+(context|document|input|conversation)\s*[.\n]\s*(new|now|next))|(---+\s*(new|system|admin|operator)\s*(instruction|task|prompt|command))|(\.\s{2,}(ignore|forget|disregard|new\s+task))
+  - (?i)(from\s+(now\s+on|this\s+point).*switch.*to\s+\w+\s+language)|(end\s+of\s+(context|document|input|conversation)\s*[.\n]\s*(new|now|next))|(---+\s*(new|system|admin|operator)\s*(instruction|task|prompt|command))|(\.[ \t]{2,}(ignore|forget|disregard|new\s+task))
   file_types: *id001
 - id: MEDUSA-PINJATT-SCAN-092
   name: prompt-injection-signed-prompt-missing-verification
@@ -1619,8 +1619,8 @@ rules:
   severity: critical
   category: prompt_injection_attacks
   patterns:
-  - (?i)(DAN|do anything now).{0,50}(mode|enabled|activated|jailbreak)
-  - (?i)(developer mode|chaos mode|opposite mode).{0,60}(enabled|activated|on|unlocked)
+  - (?i)(\bDAN\b|do anything now).{0,50}(mode|enabled|activated|jailbreak)
+  - (?i)(developer mode|chaos mode|opposite mode).{0,60}(enabled|activated|\bon\b|unlocked)
   file_types:
   - '*.txt'
   - '*.py'
@@ -2156,7 +2156,7 @@ rules:
   category: prompt_injection_attacks
   patterns:
   - (?i)(act as|pretend to be|you are now).{0,50}(unrestricted|uncensored|jailbroken|unfiltered|no limits|no restrictions)
-  - (?i)(developer mode|virtual machine|simulation|hypothetical scenario|fictional world).{0,60}(enabled|activated|on|in this
+  - (?i)(developer mode|virtual machine|simulation|hypothetical scenario|fictional world).{0,60}(enabled|activated|\bon\b|in this
     mode|you can|allows you)
   file_types:
   - '*.txt'
@@ -2194,7 +2194,7 @@ rules:
   severity: high
   category: prompt_injection_attacks
   patterns:
-  - (?i)(base64|b64|encode|encoded|decode|hex).{0,30}(instruction|command|payload|message|prompt)
+  - (?i)(base64|b64|encode|encoded|decode|hex).{0,30}(instruction|command|payload|prompt)
   - (?i)(decode (the following|this|it) and (execute|follow|obey|perform|run))
   file_types:
   - '*.txt'
