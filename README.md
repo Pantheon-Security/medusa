@@ -1161,19 +1161,25 @@ Unified severity levels across all tools:
 
 ### Dogfooding Results
 
-MEDUSA scans itself — and real-world projects:
+MEDUSA scans itself. Its own signature corpus (`medusa/rules/`) and detector
+source (`medusa/scanners/`) are scoped out of the self-scan — those files literally
+*are* the attack signatures the tool hunts for, so scanning them flags the
+signatures, not vulnerabilities (the standard practice bandit/semgrep follow for
+their own rules).
 
 ```
-Self-scan (473 files):
-  Issues found: 114 (pre-filter) -> 0 (post-filter)
-  FP reduction: 100% on own codebase
-  Time: 8.2s
-
-OpenClaw benchmark (4,124 files, 751K LOC):
-  Issues found: 825 (post-filter)
-  FPs filtered: 11,436 (93.9% reduction)
-  Time: 3.3 hours (79 scanners)
+Self-scan — MEDUSA application code (detector corpus scoped out):
+  CRITICAL: 5 — all verified false positives, 0 real vulnerabilities.
+    (curated rules matching our own security identifiers: an OpenAI client init,
+     the "prompt-injection" keyword in package metadata, a threat-describing code
+     comment, a docs line). Tracked for curated-rule precision tuning.
+  Harvested research rules run in screening/vet mode only (medusa vet / --git /
+    --screening), so a self-scan of your own code is not flooded by them.
 ```
+
+> Honesty note: an earlier README claimed "114 → 0, 100% FP reduction." That was
+> measured with the detector corpus in scope and is superseded by the scoped,
+> reproducible number above. Run `medusa scan .` to reproduce.
 
 ### Performance Benchmarks
 
