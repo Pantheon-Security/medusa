@@ -135,6 +135,7 @@ class TestBaselineHelpers:
 # End-to-end CLI behaviour
 # --------------------------------------------------------------------------- #
 
+@pytest.mark.slow  # each test runs a real CLI scan (full rule corpus reload, ~16-18s each)
 class TestBaselineCLI:
     def test_write_baseline_records_fingerprints(self, tmp_path):
         proj = _make_project(tmp_path)

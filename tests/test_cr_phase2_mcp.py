@@ -16,6 +16,8 @@ from __future__ import annotations
 import asyncio
 import json
 
+import pytest
+
 from medusa.core import scan_api
 from medusa.mcp import server
 
@@ -56,6 +58,7 @@ def test_scan_repo_out_of_root_refused(monkeypatch, tmp_path):
     assert "Top findings:" not in text
 
 
+@pytest.mark.slow  # real scan_repo call, full rule corpus reload (~13s)
 def test_scan_repo_in_root_redacts_snippets(monkeypatch, tmp_path):
     """Over MCP (redact_snippets=True) top findings carry rule_id/severity/
     location only — never the matched source body."""

@@ -33,6 +33,7 @@ from click.testing import CliRunner
 from medusa.cli import main
 
 
+@pytest.mark.slow  # each test runs a real CLI scan (full rule corpus reload, ~11-12s each)
 class TestCLIAffirmativeEmptyState:
     """CLI must emit a green affirmative 'clean' message with explicit file count."""
 

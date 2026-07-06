@@ -184,6 +184,7 @@ def test_empty_allowlist_behaviour_unchanged():
 # (c) ADVERSARIAL: an untrusted target CANNOT suppress its own findings
 # --------------------------------------------------------------------------- #
 
+@pytest.mark.slow  # real vet_path call, full rule corpus reload (~10s)
 def test_target_side_allowlist_is_not_honored(tmp_path, monkeypatch):
     """A cloned/untrusted repo ships its OWN .medusa.yml allowlisting its poison.
 
@@ -213,6 +214,7 @@ def test_target_side_allowlist_is_not_honored(tmp_path, monkeypatch):
     assert result["blocking_findings"] >= 1
 
 
+@pytest.mark.slow  # real vet_path call, full rule corpus reload (~9s)
 def test_owner_side_allowlist_reaches_safe(tmp_path, monkeypatch):
     """The contrapositive: an owner reaches SAFE for their own security content
     via a TRUSTED allowlist source — a config that lives ABOVE the target dir
@@ -242,6 +244,7 @@ def test_owner_side_allowlist_reaches_safe(tmp_path, monkeypatch):
     assert result["blocking_findings"] == 0
 
 
+@pytest.mark.slow  # real vet_path call, full rule corpus reload (~9s)
 def test_cd_inside_untrusted_repo_self_allowlist_blocks(tmp_path, monkeypatch):
     """The natural attack flow: `git clone evil && cd evil && medusa vet .`.
 
@@ -266,6 +269,7 @@ def test_cd_inside_untrusted_repo_self_allowlist_blocks(tmp_path, monkeypatch):
     assert result["blocking_findings"] >= 1
 
 
+@pytest.mark.slow  # real vet_path call, full rule corpus reload (~17s)
 def test_explicit_allow_flag_reaches_safe(tmp_path, monkeypatch):
     """An explicit ``allow=`` (the CLI ``--allow`` flag) is always honored — a
     user-typed flag cannot be shipped by the scanned repo — and reaches SAFE.

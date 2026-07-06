@@ -14,6 +14,8 @@ a CRITICAL is never dropped at all. Interactive users triage via their existing
 
 import subprocess
 
+import pytest
+
 import medusa.core.llm_triage as llm_triage
 from click.testing import CliRunner
 
@@ -364,6 +366,7 @@ def test_scan_command_params_include_llm_options():
 
 # --- CLI: default path never invokes triage (no subprocess) ----------------
 
+@pytest.mark.slow  # real CLI scan call, full rule corpus reload (~11s)
 def test_default_scan_does_not_invoke_triage(monkeypatch, tmp_path):
     """Without --llm-triage, triage_findings must never be called."""
     called = {"n": 0}
@@ -383,6 +386,7 @@ def test_default_scan_does_not_invoke_triage(monkeypatch, tmp_path):
 
 # --- CLI: --llm-triage with no backend prints message, exits 0 -------------
 
+@pytest.mark.slow  # real CLI scan call, full rule corpus reload (~12s)
 def test_llm_triage_flag_no_backend_message_and_exit_zero(monkeypatch, tmp_path):
     _clear_llm_env(monkeypatch)
     _which_none(monkeypatch)

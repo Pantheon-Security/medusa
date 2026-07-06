@@ -206,6 +206,7 @@ def test_pr015_git_rejects_baseline():
 # PR-016 -- --llm-triage announces itself up-front
 # --------------------------------------------------------------------------- #
 
+@pytest.mark.slow  # real CLI scan call, full rule corpus reload (~12s)
 def test_pr016_llm_triage_announced(tmp_path):
     """`scan <dir> --llm-triage` must print the up-front triage notice even when
     no backend is installed (console notice only, network-free)."""
@@ -218,6 +219,7 @@ def test_pr016_llm_triage_announced(tmp_path):
 # PR-017 -- one canonical scanner count + correct pluralization
 # --------------------------------------------------------------------------- #
 
+@pytest.mark.slow  # real CLI scan call, full rule corpus reload (~13s)
 def test_pr017_clean_line_scanner_count_matches_box(tmp_path):
     """On a clean scan the affirmative clean-state line's scanner count must
     equal the SCAN COMPLETE box's 'Scanners used: N' count."""

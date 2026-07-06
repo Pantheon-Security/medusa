@@ -540,6 +540,7 @@ class TestScanGitRepoRegression:
         monkeypatch.setattr("medusa.cli.subprocess.run", fake_run)
         return tmp_path
 
+    @pytest.mark.slow  # real _scan_git_repo call, full rule corpus reload (~32s)
     def test_scan_git_repo_no_nameerror(self, mock_clone):
         """
         _scan_git_repo must not raise NameError for include_user_mcp_configs.
@@ -570,6 +571,7 @@ class TestScanGitRepoRegression:
         except SystemExit:
             pass  # acceptable — scan may exit cleanly after running
 
+    @pytest.mark.slow  # real _scan_git_repo call, full rule corpus reload (~27s)
     def test_scan_git_repo_accepts_include_user_mcp_configs_true(self, mock_clone):
         """include_user_mcp_configs=True must also be accepted without error."""
         from medusa.cli import _scan_git_repo

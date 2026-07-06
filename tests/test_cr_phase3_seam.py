@@ -15,6 +15,7 @@ import inspect
 import subprocess
 import threading
 
+import pytest
 from click.testing import CliRunner
 
 
@@ -170,6 +171,7 @@ def test_sessionstart_does_not_rewrite_mcp(tmp_path):
 # --------------------------------------------------------------------------- #
 # CR-018 — _quiet is thread-safe under concurrent scans
 # --------------------------------------------------------------------------- #
+@pytest.mark.slow  # concurrent real vet calls, full rule corpus reload (~11s)
 def test_quiet_threadsafe_concurrent_vet(tmp_path):
     from medusa.core import scan_api
 

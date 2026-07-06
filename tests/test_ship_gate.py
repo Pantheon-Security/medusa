@@ -11,11 +11,13 @@ Grouped by priority tier:
   P3 — Secrets command (scan, reveal, purge safety)
   P4 — MedusaParallelScanner params (extra_excludes, include_user_mcp_configs)
 
-Run fast subset (no YAML rule loading):
-    pytest tests/test_ship_gate.py -v
+Nearly every test here invokes the CLI or MedusaParallelScanner, each of
+which reloads the full rule corpus with no cross-test cache (module runtime
+> 400s) — the whole module is marked `slow` (see `pytestmark` below) and
+runs on push-to-main / the release gate, not on the per-PR fast set.
 
-Run full suite including slow tests:
-    pytest tests/test_ship_gate.py -v -m "slow or not slow"
+Run this module directly:
+    pytest tests/test_ship_gate.py -v -m slow
 """
 from __future__ import annotations
 

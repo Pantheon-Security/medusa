@@ -84,6 +84,7 @@ def test_rule_directories_wired():
     )
 
 
+@pytest.mark.slow  # walks and parses the full rule corpus (~39s)
 def test_no_duplicate_rule_ids():
     """No two rules should share the same ID in production (within threshold)."""
     seen_ids = {}
@@ -150,6 +151,7 @@ def test_no_runtime_rules_leaked():
     )
 
 
+@pytest.mark.slow  # walks and parses the full rule corpus (~41s)
 def test_rule_count_minimum():
     """Production should have at least 7,000 unique rule IDs."""
     seen_ids = set()
