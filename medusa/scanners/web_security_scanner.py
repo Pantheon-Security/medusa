@@ -94,23 +94,36 @@ class WebSecurityScanner(RuleBasedScanner):
         r'urllib\.request',
     ]
 
-    # WEB-SSRF: Server-Side Request Forgery patterns
+    # WEB-SSRF: Server-Side Request Forgery patterns.
+    #
+    # SSRF is a *data-flow* vuln: user/request-controlled input reaching an HTTP
+    # client call. Every pattern below therefore requires an actual HTTP client
+    # invocation (fetch/axios/requests|httpx|urllib .get/.post/... or a DNS
+    # lookup) with a dynamic/user-derived argument. A bare loopback/private-IP
+    # STRING LITERAL (e.g. `host = "127.0.0.1"`, `default="localhost"`, a DB
+    # connection URL containing `@localhost`) is NOT an SSRF sink and is
+    # deliberately not matched here — that literal-only pattern was the dominant
+    # WEB-SSRF false-positive source on clean third-party code.
+    _HTTP_CLIENT = (
+        r'(?:fetch|axios|'
+        r'(?:requests|httpx|session|client|urllib\.request)\.'
+        r'(?:get|post|put|delete|patch|head|options|request)|'
+        r'request|urlopen)'
+    )
     SSRF_PATTERNS: List[Tuple[str, str, 'Severity']] = [
-        # URL from user input without validation
-        (r'(?:fetch|axios|request|urllib|requests\.get)\s*\(\s*(?:url|uri|input|param|user)',
+        # HTTP client call whose URL arg is a user-input variable (url/uri/param/...)
+        (rf'{_HTTP_CLIENT}\s*\(\s*(?:url|uri|input|param|user)',
          'SSRF risk - URL from user input without validation', Severity.HIGH),
-        (r'(?:fetch|axios|request)\s*\(\s*f["\']',
+        # HTTP client call with an f-string URL (interpolated, likely user-derived)
+        (rf'{_HTTP_CLIENT}\s*\(\s*f["\']',
          'SSRF risk - URL constructed with f-string', Severity.HIGH),
-        (r'(?:fetch|axios|request)\s*\([^)]*\+',
+        # HTTP client call with a concatenated URL
+        (rf'{_HTTP_CLIENT}\s*\([^)]*\+',
          'SSRF risk - URL with string concatenation', Severity.HIGH),
-
-        # Internal network access patterns
-        (r'(?:127\.0\.0\.1|localhost|0\.0\.0\.0|169\.254\.|10\.\d|172\.(?:1[6-9]|2\d|3[01])\.|192\.168\.)',
-         'Internal/private IP address - potential SSRF target', Severity.MEDIUM),
-        (r'(?:fetch|request|urllib)\s*\([^)]*(?:metadata|169\.254\.169\.254)',
+        # Cloud metadata endpoint reached via an HTTP client call
+        (rf'{_HTTP_CLIENT}\s*\([^)]*(?:metadata|169\.254\.169\.254)',
          'SSRF - cloud metadata endpoint access', Severity.CRITICAL),
-
-        # DNS rebinding indicators
+        # DNS rebinding: a DNS lookup driven by user input
         (r'(?:dns|resolve|lookup)\s*\([^)]*(?:user|input|param)',
          'DNS lookup with user input (rebinding risk)', Severity.MEDIUM),
     ]

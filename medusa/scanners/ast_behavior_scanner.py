@@ -9,11 +9,16 @@ risk is `exec(payload)` where the argument is computed at runtime.
 
 Detects:
 - MEDUSA-AST-EXEC-001: exec()/eval()/compile(...,'exec') with a NON-literal
-  argument (variable, call result, concatenation, f-string).
+  argument (variable, call result, concatenation, f-string). Severity is tiered
+  by argument source: CRITICAL for a tainted (untrusted-input-derived) argument,
+  demoted to HIGH/MEDIUM for a merely locally-computed one (dual-use).
 - MEDUSA-AST-REFLECT-001: reflective dispatch on a dangerous module, e.g.
-  getattr(os, name)(...) / getattr(subprocess, ...) / getattr(__builtins__, ...).
+  getattr(os, name)(...) / getattr(subprocess, ...) / getattr(__builtins__, ...),
+  OR getattr/setattr with a TAINTED attribute name. The benign fallback idiom
+  getattr(mod, "literal", default) is NOT flagged.
 - MEDUSA-AST-DYNIMPORT-001: dynamic import of a NON-literal module name via
-  __import__(var) or importlib.import_module(var).
+  __import__(var) or importlib.import_module(var). MEDIUM for a locally-derived
+  name (plugin/loader code), HIGH when the name is tainted.
 - MEDUSA-AST-SHELL-001: subprocess.*(cmd, shell=True) where the command is a
   variable / f-string / concatenation rather than a constant string.
 - MEDUSA-AST-OBFUS-001: decode-then-execute chain, e.g.
@@ -22,6 +27,9 @@ Detects:
 Design notes:
 - Pure-literal exec/eval forms are intentionally NOT flagged here (low risk and
   high FP rate); the non-literal/dynamic forms are the real attack surface.
+- exec/eval/compile/dynamic-import/reflection detection is never suppressed on a
+  non-literal argument — severity is DEMOTED when the source is not demonstrably
+  untrusted. A false negative on a real RCE is worse than a low-severity FP.
 - On a SyntaxError (e.g. Python 2 source, partial file) the scanner returns no
   issues rather than failing the whole scan.
 """
@@ -45,6 +53,67 @@ _DECODE_FUNCS = {
     "b64decode", "b16decode", "b32decode", "b85decode", "a85decode",
     "decodebytes", "decode", "unhexlify", "decompress", "fromhex",
 }
+
+# Untrusted (attacker-controllable) sources. When a risky sink's argument is
+# derived from one of these the finding is escalated; a sink acting on a literal
+# or a locally-derived value is dual-use (formatter / plugin-loader / parser code)
+# and is reported at a DEMOTED severity instead of suppressed. The heuristic is
+# deliberately conservative: a False means "not demonstrably untrusted", which
+# lowers severity rather than dropping the finding.
+_TAINT_ROOTS = {"request", "flask_request", "req"}  # HTTP request objects
+_TAINT_NAMES = {
+    "user_input", "userinput", "untrusted", "untrusted_input", "payload",
+    "attacker_input", "user_supplied", "external_input", "raw_input",
+    "user_data", "request_data", "req_data",
+}
+_TAINT_CALL_NAMES = {"input", "getenv"}  # builtin input(), os.getenv()
+
+# LLM / model output is untrusted input for the purpose of exec/eval/import/reflect
+# sinks (OWASP LLM02 — insecure output handling). Executing model output is a
+# top-tier risk, so these sources escalate the SAME as a request object.
+# Attribute-access shapes on a model response object:
+_TAINT_LLM_ATTRS = {
+    "text", "content", "message", "choices", "completion", "output", "response",
+}
+# Substrings that mark a variable as carrying model/LLM output (llm_response,
+# model_output, gpt_result, chat_response, completion, agent_reply, ...):
+_TAINT_LLM_NAME_TOKENS = (
+    "llm", "gpt", "claude", "model", "completion", "response", "chat",
+    "ai_", "agent_",
+)
+
+
+def _is_tainted(node: ast.AST) -> bool:
+    """Best-effort taint check: True if the expression subtree references an
+    untrusted source — an HTTP request object (``request.args``/``.form``/
+    ``.data`` ...), ``sys.argv``/``os.environ``, ``input()``/``os.getenv()``,
+    LLM/model output (``result.text``, ``response.content``, ``llm_response`` ...),
+    or a conventionally-named user-input variable. Used only to TIER severity,
+    never to gate detection: an un-tainted risky call is still reported, demoted."""
+    for sub in ast.walk(node):
+        if isinstance(sub, ast.Name):
+            lid = sub.id.lower()
+            if lid in _TAINT_NAMES:
+                return True
+            if any(tok in lid for tok in _TAINT_LLM_NAME_TOKENS):
+                return True  # llm_response / model_output / gpt_result / ...
+        elif isinstance(sub, ast.Attribute):
+            root = _attr_root(sub)
+            if root in _TAINT_ROOTS:
+                return True
+            if root == "sys" and sub.attr == "argv":
+                return True
+            if root == "os" and sub.attr == "environ":
+                return True
+            if sub.attr in _TAINT_LLM_ATTRS:
+                return True  # result.text / response.content / mo.choices ...
+        elif isinstance(sub, ast.Call):
+            fn = _func_name(sub.func)
+            if fn in _TAINT_CALL_NAMES:
+                return True
+            if fn == "get" and _attr_root(sub.func) in _TAINT_ROOTS:
+                return True  # request.args.get(...) style access
+    return False
 
 
 class AstBehaviorScanner(BaseScanner):
@@ -189,58 +258,102 @@ class _BehaviorVisitor(ast.NodeVisitor):
                 return
 
         # --- MEDUSA-AST-EXEC-001: dynamic exec/eval/compile ---
+        # exec/eval/compile ARE real RCE sinks, but a formatter/parser running them
+        # on its OWN content is dual-use. CRITICAL is reserved for a demonstrably
+        # untrusted (tainted) argument; a locally-computed argument is demoted but
+        # still reported (never suppressed).
         if name in ("exec", "eval") and node.args:
             if not _is_literal(node.args[0]):
+                tainted = _is_tainted(node.args[0])
                 self._add(
-                    "MEDUSA-AST-EXEC-001", Severity.CRITICAL,
-                    f"Dynamic code execution: {name}() called with a non-literal "
-                    "argument (runtime-computed code)",
+                    "MEDUSA-AST-EXEC-001",
+                    Severity.CRITICAL if tainted else Severity.HIGH,
+                    f"Dynamic code execution: {name}() called with a "
+                    + ("tainted (untrusted-input-derived)" if tainted
+                       else "non-literal runtime-computed")
+                    + " argument",
                     node, cwe_id=95,
                 )
         elif name == "compile" and len(node.args) >= 3:
             mode = node.args[2]
             is_exec_mode = isinstance(mode, ast.Constant) and mode.value == "exec"
             if is_exec_mode and not _is_literal(node.args[0]):
+                tainted = _is_tainted(node.args[0])
                 self._add(
-                    "MEDUSA-AST-EXEC-001", Severity.HIGH,
+                    "MEDUSA-AST-EXEC-001",
+                    Severity.HIGH if tainted else Severity.MEDIUM,
                     "Dynamic code compilation: compile(..., 'exec') with a "
-                    "non-literal source",
+                    + ("tainted" if tainted else "non-literal")
+                    + " source",
                     node, cwe_id=95,
                 )
 
         # --- MEDUSA-AST-REFLECT-001: reflective dangerous dispatch ---
-        # getattr(<dangerous-module>, <name>) — the result is typically called.
-        if name == "getattr" and node.args:
+        # Two attacker-relevant shapes:
+        #  (a) getattr(<dangerous-module>, <name>) — reflectively fetching an
+        #      os/subprocess/builtins attribute to dodge static detection; and
+        #  (b) getattr/setattr(obj, <tainted-name>) — the attribute NAME itself is
+        #      attacker-controlled (e.g. request.args['attr']).
+        # The benign fallback idiom getattr(mod, "literal", default) — a
+        # string-literal name WITH a default, the normal "fetch attr or fall back"
+        # pattern (e.g. `getattr(os, "O_BINARY", 0)`) — is explicitly NOT flagged.
+        if name in ("getattr", "setattr") and node.args:
             target = node.args[0]
             root = None
             if isinstance(target, ast.Name):
                 root = target.id
             elif isinstance(target, ast.Attribute):
                 root = _attr_root(target)
-            if root in _REFLECT_DANGEROUS_MODULES:
+            name_arg = node.args[1] if len(node.args) >= 2 else None
+            name_is_literal_str = (
+                isinstance(name_arg, ast.Constant) and isinstance(name_arg.value, str)
+            )
+            # getattr(obj, name, default): a default is the safe-fallback signature.
+            has_default = name == "getattr" and len(node.args) >= 3
+            benign_fallback = name_is_literal_str and has_default
+
+            if name == "getattr" and root in _REFLECT_DANGEROUS_MODULES and not benign_fallback:
                 self._add(
                     "MEDUSA-AST-REFLECT-001", Severity.HIGH,
                     f"Reflective dispatch on dangerous module '{root}' via getattr() "
                     "— evades static detection of os/subprocess/builtins calls",
                     node, cwe_id=470,
                 )
+            elif name_arg is not None and _is_tainted(name_arg):
+                self._add(
+                    "MEDUSA-AST-REFLECT-001", Severity.HIGH,
+                    f"Attacker-controlled attribute access: {name}() with a "
+                    "tainted (untrusted-input-derived) attribute name",
+                    node, cwe_id=470,
+                )
 
         # --- MEDUSA-AST-DYNIMPORT-001: dynamic import of a non-literal name ---
+        # Dynamic import of a LITERAL or locally-derived module name is normal
+        # plugin/loader code, so a non-literal name is reported at MEDIUM; only a
+        # TAINTED (user/request-derived) module name — an actual attacker-controlled
+        # import — is escalated to HIGH.
         if name == "__import__" and node.args:
             if not _is_literal(node.args[0]):
+                tainted = _is_tainted(node.args[0])
                 self._add(
-                    "MEDUSA-AST-DYNIMPORT-001", Severity.HIGH,
-                    "Dynamic import: __import__() with a non-literal module name",
+                    "MEDUSA-AST-DYNIMPORT-001",
+                    Severity.HIGH if tainted else Severity.MEDIUM,
+                    "Dynamic import: __import__() with a "
+                    + ("tainted (untrusted-input-derived)" if tainted else "non-literal")
+                    + " module name",
                     node, cwe_id=470,
                 )
         elif name == "import_module" and node.args:
             # importlib.import_module(var) — guard on the attribute root when present.
             root = _attr_root(node.func) if isinstance(node.func, ast.Attribute) else None
             if (root in (None, "importlib")) and not _is_literal(node.args[0]):
+                tainted = _is_tainted(node.args[0])
                 self._add(
-                    "MEDUSA-AST-DYNIMPORT-001", Severity.HIGH,
-                    "Dynamic import: importlib.import_module() with a non-literal "
-                    "module name",
+                    "MEDUSA-AST-DYNIMPORT-001",
+                    Severity.HIGH if tainted else Severity.MEDIUM,
+                    "Dynamic import: importlib.import_module() with a "
+                    + ("tainted (untrusted-input-derived)" if tainted else "non-literal")
+                    + " module name",
                     node, cwe_id=470,
                 )
 

@@ -94,7 +94,7 @@ rules:
   severity: MEDIUM
   category: web_security
   patterns:
-    - '(?i)hashlib\.md5\s*\('
+    - '(?i)hashlib\.md5\s*\((?![^)]*usedforsecurity\s*=\s*False)'
     - '(?i)(?:from|import)\s+hashlib.*\bmd5\b'
     - '(?i)MD5\.new\s*\('
     - '(?i)Digest::MD5'
@@ -139,8 +139,8 @@ rules:
   category: web_security
   patterns:
     - '(?i)(?:return|response|jsonify|json\.dumps|res\.(?:send|json))\s*\(.*os\.(?:environ|getenv)'
-    - '(?i)os\.(?:environ|getenv)\s*\[.*(?:SECRET|KEY|TOKEN|PASSWORD|CREDENTIAL)'
-  message: "Environment variable containing secrets may be exposed in response"
+    - '(?i)(?:os\.system|os\.popen|subprocess\.(?:run|call|Popen|check_output|check_call)|\beval|\bexec)\s*\([^)]*os\.(?:environ|getenv)'
+  message: "Environment variable containing secrets may be exposed in response or flow to a shell/eval sink"
   description: "Sensitive environment variables should not be returned in API responses."
   cwe: CWE-200
   file_types:
@@ -267,13 +267,24 @@ rules:
 
 - id: SAST-DESER-001
   name: pickle-load
+  severity: HIGH
+  category: deserialization
+  patterns:
+    - '(?i)pickle\.loads?\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())'
+    - '(?i)pickle\.Unpickler\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())'
+    - '(?i)cPickle\.loads?\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())'
+  message: "pickle deserialization — code execution risk if the source is untrusted; use a safe format for untrusted data"
+  cwe: CWE-502
+  file_types:
+    - "*.py"
+
+- id: SAST-DESER-003
+  name: pickle-load-untrusted-source
   severity: CRITICAL
   category: deserialization
   patterns:
-    - '(?i)pickle\.loads?\s*\('
-    - '(?i)pickle\.Unpickler\s*\('
-    - '(?i)cPickle\.loads?\s*\('
-  message: "Unsafe pickle deserialization — arbitrary code execution risk"
+    - '(?i)(?:pickle|cPickle|_pickle)\.(?:loads?|Unpickler)\s*\([^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\()'
+  message: "Unsafe pickle deserialization of untrusted data — arbitrary code execution risk"
   cwe: CWE-502
   file_types:
     - "*.py"

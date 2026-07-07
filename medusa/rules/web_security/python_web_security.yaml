@@ -207,9 +207,8 @@ rules:
   severity: MEDIUM
   category: ssrf
   patterns:
-  - startswith\s*\(\s*['"]http
-  - url\.startswith\s*\(\s*\(?\s*['"]https?
-  message: Weak URL validation - bypass possible
+  - startswith\s*\(\s*\(?\s*['"]https?://\S
+  message: Weak URL validation - prefix allowlist bypassable via userinfo/encoding
   description: 'Checking if URL startswith(''http'') is insufficient validation.
 
     Attackers can bypass with http://evil.com@target.com or encoding tricks.
@@ -237,15 +236,11 @@ rules:
   file_types: *id001
 - id: WEB-REDIR-002
   name: open-redirect-url-parameter
-  severity: HIGH
+  severity: MEDIUM
   category: open_redirect
   patterns:
-  - redirect.*next_url
-  - redirect.*return_url
-  - redirect.*goto
-  - redirect.*target
-  - redirect.*continue
-  - redirect.*dest
+  - \bredirect\s*\(\s*(?:next_url|return_url|redirect_url|redirect_uri|goto\b|target_url|continue_url|dest_url|next\b|dest\b)
+  - \bredirect\s*\([^)\n]{0,60}(?:request|params|query|args\b|form\b)
   message: Potential open redirect via URL parameter
   description: 'A URL or destination parameter may be used in redirect.
 
@@ -464,18 +459,39 @@ rules:
   file_types: *id001
 - id: WEB-DESER-001
   name: pickle-deserialization
+  severity: HIGH
+  category: deserialization
+  patterns:
+  - pickle\.loads?\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())
+  - cPickle\.loads?\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())
+  - _pickle\.loads?\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())
+  - pickle\.Unpickler\s*\((?![^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\())
+  - shelve\.open\s*\(
+  message: pickle deserialization - code execution risk if the source is untrusted
+  description: 'Pickle deserialization can lead to arbitrary code execution when the
+
+    input comes from an untrusted source. A bare pickle.load of a local/trusted file
+    (caches, model artifacts) is dual-use, so this fires at MEDIUM; an untrusted
+    source (request/socket/input) is escalated to CRITICAL by WEB-DESER-003.
+
+    Reference: Bandit B301
+
+    '
+  cwe: CWE-502
+  owasp: A08:2021
+  file_types: *id001
+- id: WEB-DESER-003
+  name: pickle-deserialization-untrusted
   severity: CRITICAL
   category: deserialization
   patterns:
-  - pickle\.loads?\s*\(
-  - cPickle\.loads?\s*\(
-  - _pickle\.loads?\s*\(
-  - shelve\.open\s*\(
-  - pickle\.Unpickler\s*\(
-  message: Insecure deserialization - pickle can execute arbitrary code
-  description: 'Pickle deserialization of untrusted data can lead to arbitrary
+  - (?:pickle|cPickle|_pickle)\.(?:loads?|Unpickler)\s*\([^)\n]*(?:request|response|\.recv|socket|urlopen|\binput\s*\()
+  message: Insecure deserialization of untrusted data - pickle can execute arbitrary code
+  description: 'Pickle deserialization of data from an untrusted source
 
-    code execution. Never unpickle data from untrusted sources.
+    (HTTP request, socket, user input) enables arbitrary code execution.
+
+    Never unpickle data from untrusted sources.
 
     Reference: Bandit B301
 
@@ -504,8 +520,8 @@ rules:
   severity: HIGH
   category: weak_crypto
   patterns:
-  - hashlib\.md5\s*\(
-  - hashlib\.sha1\s*\(
+  - hashlib\.md5\s*\((?![^)]*usedforsecurity\s*=\s*False)
+  - hashlib\.sha1\s*\((?![^)]*usedforsecurity\s*=\s*False)
   - hashlib\.new\s*\(\s*['"]md5['"]
   - hashlib\.new\s*\(\s*['"]sha1['"]
   - Crypto\.Hash\.MD5
@@ -646,12 +662,12 @@ rules:
   file_types: *id001
 - id: WEB-AUTH-002
   name: basic-auth-over-http
-  severity: HIGH
+  severity: MEDIUM
   category: authentication
   patterns:
-  - HTTPBasicAuth
-  - Authorization.*Basic
-  message: Basic authentication detected - ensure HTTPS
+  - Authorization["'\s:=]+Basic\s+[A-Za-z0-9+/]{12,}={0,2}
+  - HTTPBasicAuth\s*\(\s*['"][^'"]+['"]\s*,\s*['"][^'"]+['"]
+  message: Basic authentication with hardcoded/literal credentials - ensure HTTPS
   description: 'HTTP Basic Authentication sends credentials in Base64 encoding (not encryption).
 
     Always use HTTPS when using Basic Auth to protect credentials in transit.
@@ -683,11 +699,10 @@ rules:
   severity: MEDIUM
   category: information_disclosure
   patterns:
-  - logging\..*password
-  - logger\..*password
-  - print.*password
-  - logging\..*secret
-  - logging\..*token
+  - logging\.\w{3,}\s*\([^)\n]*password
+  - logger\.\w{3,}\s*\([^)\n]*password
+  - logging\.\w{3,}\s*\([^)\n]*(?:secret|token|api[_-]?key)
+  - logger\.\w{3,}\s*\([^)\n]*(?:secret|token|api[_-]?key)
   message: Potentially logging sensitive data
   description: 'Logging passwords, tokens, or other secrets can expose them in
 
