@@ -3,7 +3,7 @@
 P2-4 gate: Affirmative empty state for zero-findings scans.
 
 Expected state: RED for the tighter assertions — the CLI currently prints
-"✅ Clean — 0 issues found across N files, M scanners" (already implemented),
+"Clean — 0 issues found across N files, M scanners" (already implemented),
 but it does NOT print a clearly formatted file count separate from the progress
 table, and the HTML empty-state block ("no-findings" div) does not include
 files-scanned or LOC stats (they appear only in the summary cards, not in the
@@ -39,7 +39,7 @@ class TestCLIAffirmativeEmptyState:
 
     def test_clean_scan_prints_explicit_zero_issues_message(self, tmp_path):
         """Zero-findings scan must print a line containing '0 issues' explicitly
-        (not just a bare '✅ Scan complete!' with no affirmative content)."""
+        (not just a bare 'Scan complete!' with no affirmative content)."""
         clean_file = tmp_path / "hello.py"
         clean_file.write_text('print("hello world")\n')
 

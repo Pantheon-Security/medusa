@@ -328,7 +328,7 @@ def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_
                 '   ```powershell',
                 '   stack setup',
                 '   ```',
-                '   ⚠️ This downloads ~2GB and takes 20-30 minutes',
+                '   This downloads ~2GB and takes 20-30 minutes',
                 '3. Install hlint:',
                 '   ```powershell',
                 '   stack install hlint',
@@ -360,7 +360,7 @@ def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_
                 '   ```powershell',
                 '   choco install elixir',
                 '   ```',
-                '   ⚠️ Downloads ~150MB',
+                '   Downloads ~150MB',
                 '2. Mix is included with Elixir',
                 '3. Verify:',
                 '   ```powershell',
@@ -435,7 +435,7 @@ def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_
             'ecosystem': 'Swift (macOS only)',
             'why_failed': 'Swift development is macOS/Linux only',
             'windows': [
-                '⚠️ SwiftLint is not officially supported on Windows.',
+                'SwiftLint is not officially supported on Windows.',
                 'Swift development requires macOS or Linux.',
             ],
             'docs': 'https://github.com/realm/SwiftLint',
@@ -696,7 +696,7 @@ def _handle_batch_install(target, analysis=None):
     """
     if analysis is None:
         from medusa.core.pattern_analyzer import CodePatternAnalyzer
-        console.print("\n[cyan]🔍 Analyzing repository...[/cyan]")
+        console.print("\n[cyan]Analyzing repository...[/cyan]")
         analyzer = CodePatternAnalyzer()
         analysis = analyzer.analyze_repo(Path(target))
 
@@ -752,20 +752,20 @@ def _handle_batch_install(target, analysis=None):
     # Show scanner status by category (compact)
     missing_tools = []
 
-    def show_category(title, scanners, icon):
+    def show_category(title, scanners):
         if not scanners:
             return
-        console.print(f"[bold cyan]{icon} {title}:[/bold cyan]")
+        console.print(f"[bold cyan]{title}:[/bold cyan]")
         for scanner in scanners:
-            status = "✅" if scanner.is_available() else "❌"
+            status = "OK" if scanner.is_available() else "--"
             if not scanner.is_available() and scanner.tool_name not in missing_tools:
                 missing_tools.append(scanner.tool_name)
             console.print(f"   {status} {scanner.name:25} ({scanner.tool_name or 'built-in'})")
         console.print()
 
-    show_category("Language Scanners", language_scanners, "📝")
-    show_category("AI Security Scanners", ai_scanners, "🤖")
-    show_category("Infrastructure Scanners", infra_scanners, "🔧")
+    show_category("Language Scanners", language_scanners)
+    show_category("AI Security Scanners", ai_scanners)
+    show_category("Infrastructure Scanners", infra_scanners)
 
     # External linters are optional — just note if any are missing
     if missing_tools:
@@ -819,7 +819,7 @@ def _check_runtime_dependencies(
         _n = len(npm_tools_failed)
         console.print("")
         console.print(
-            f"[yellow]⚠️  {_n} tool{'s' if _n > 1 else ''} require Node.js (npm):[/yellow]"
+            f"[yellow]{_n} tool{'s' if _n > 1 else ''} require Node.js (npm):[/yellow]"
         )
         for tool in npm_tools_failed:
             console.print(f"   • {tool}")
@@ -834,7 +834,7 @@ def _check_runtime_dependencies(
     # ========================================
     if php_tools_missing and not shutil.which('php'):
         console.print()
-        console.print(f"[bold yellow]⚠️  {len(php_tools_missing)} tool{'s' if len(php_tools_missing) > 1 else ''} require PHP runtime:[/bold yellow]")
+        console.print(f"[bold yellow]{len(php_tools_missing)} tool{'s' if len(php_tools_missing) > 1 else ''} require PHP runtime:[/bold yellow]")
         for t in php_tools_missing:
             console.print(f"   • {t}")
         console.print()
@@ -871,15 +871,15 @@ def _check_runtime_dependencies(
                     )
 
                     if php_success:
-                        console.print("[dark_green]✅ PHP installed successfully[/dark_green]")
+                        console.print("[dark_green]PHP installed successfully[/dark_green]")
                         console.print("[dim]   You may need to restart your terminal for PHP to be available[/dim]")
                     else:
-                        console.print("[red]❌ Failed to install PHP[/red]")
+                        console.print("[red]Failed to install PHP[/red]")
                         console.print("[yellow]You can manually install PHP from: https://windows.php.net/download/[/yellow]")
                 except Exception as e:
                     console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
             else:
-                console.print("[red]❌ winget not found[/red]")
+                console.print("[red]winget not found[/red]")
         else:
             console.print("[yellow]Skipping PHP installation[/yellow]")
             console.print("[dim]   phpstan will not work without PHP runtime[/dim]")
@@ -889,7 +889,7 @@ def _check_runtime_dependencies(
     # ========================================
     if java_tools_missing and not shutil.which('java'):
         console.print()
-        console.print(f"[bold yellow]⚠️  {len(java_tools_missing)} tool{'s' if len(java_tools_missing) > 1 else ''} require Java runtime (not auto-installed for security):[/bold yellow]")
+        console.print(f"[bold yellow]{len(java_tools_missing)} tool{'s' if len(java_tools_missing) > 1 else ''} require Java runtime (not auto-installed for security):[/bold yellow]")
         for t in java_tools_missing:
             tool_desc = {
                 'checkstyle': 'Java linter',
@@ -955,7 +955,7 @@ def _install_tools(tools: list, use_latest: bool = False):
             attempted_installers.append(pm.value)
             success = installer.install(tool)
             if success:
-                console.print(f"  [dark_green]✅ Installed via {pm.value}[/dark_green]")
+                console.print(f"  [dark_green]Installed via {pm.value}[/dark_green]")
         elif pm:
             console.print(f"  ⊘ Not available in {pm.value}")
 
@@ -967,7 +967,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append('npm')
                 success = npm_installer.install(tool, use_latest=use_latest)
                 if success:
-                    console.print(f"  [dark_green]✅ Installed via npm[/dark_green]")
+                    console.print(f"  [dark_green]Installed via npm[/dark_green]")
             else:
                 console.print(f"  ⊘ npm not available (install Node.js)")
                 attempted_installers.append('npm (Node.js required)')
@@ -981,7 +981,7 @@ def _install_tools(tools: list, use_latest: bool = False):
                 attempted_installers.append('pip')
                 success = pip_installer.install(tool, use_latest=use_latest)
                 if success:
-                    console.print(f"  [dark_green]✅ Installed via pip[/dark_green]")
+                    console.print(f"  [dark_green]Installed via pip[/dark_green]")
             else:
                 console.print(f"  ⊘ pip not available")
                 attempted_installers.append('pip (not available)')
@@ -998,9 +998,9 @@ def _install_tools(tools: list, use_latest: bool = False):
                     result = subprocess.run(shlex.split(eco_cmd), capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
-                        console.print(f"  [dark_green]✅ Installed via {eco_name}[/dark_green]")
+                        console.print(f"  [dark_green]Installed via {eco_name}[/dark_green]")
                 except Exception as e:
-                    console.print(f"  [yellow]⚠ {eco_name} failed: {e}[/yellow]")
+                    console.print(f"  [yellow]{eco_name} failed: {e}[/yellow]")
 
         # Try manual install script as last resort (Linux only)
         if not success and platform_info.os_type.value == 'linux':
@@ -1013,11 +1013,11 @@ def _install_tools(tools: list, use_latest: bool = False):
                     result = subprocess.run(shlex.split(manual_cmd), capture_output=True, text=True, timeout=600)
                     if result.returncode == 0:
                         success = True
-                        console.print(f"  [dark_green]✅ Installed via manual script[/dark_green]")
+                        console.print(f"  [dark_green]Installed via manual script[/dark_green]")
                     else:
-                        console.print(f"  [yellow]⚠ Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
+                        console.print(f"  [yellow]Manual install failed: {result.stderr[:100] if result.stderr else 'unknown error'}[/yellow]")
                 except Exception as e:
-                    console.print(f"  [yellow]⚠ Manual install failed: {e}[/yellow]")
+                    console.print(f"  [yellow]Manual install failed: {e}[/yellow]")
             elif manual_cmd and manual_cmd.startswith('http'):
                 console.print(f"  [dim]Manual install required: {manual_cmd}[/dim]")
 
@@ -1028,15 +1028,15 @@ def _install_tools(tools: list, use_latest: bool = False):
             cache = ToolCache()
             cache.mark_installed(tool)
         else:
-            console.print(f"  [red]❌ Failed[/red] (tried: {', '.join(attempted_installers) if attempted_installers else 'no installers available'})")
+            console.print(f"  [red]Failed[/red] (tried: {', '.join(attempted_installers) if attempted_installers else 'no installers available'})")
             failed += 1
 
         console.print("")  # Blank line between tools
 
     if installed > 0:
-        console.print(f"\n[dark_green]✅ Installed {installed}/{len(tools)} tools[/dark_green]")
+        console.print(f"\n[dark_green]Installed {installed}/{len(tools)} tools[/dark_green]")
     if failed > 0:
-        console.print(f"[yellow]⚠️  {failed} tools failed to install (may need manual installation)[/yellow]")
+        console.print(f"[yellow]{failed} tools failed to install (may need manual installation)[/yellow]")
 
     # Check for runtime dependencies (Node.js/npm, PHP, Java)
     _check_runtime_dependencies(
@@ -1067,8 +1067,8 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
     Returns the intended exit code: 1 if findings exist at/above the --fail-on
     severity, else 0. The caller sys.exit()s only on a non-zero return, then
     prints its own "scan complete" line (marker style differs per caller).
-    `found_marker` prefixes the threshold message (e.g. "❌ " for the local
-    scan, "" for --git) to preserve each caller's existing output style.
+    `found_marker` optionally prefixes the threshold message to preserve
+    each caller's existing output style.
     """
     # Generate reports
     if not no_report:
@@ -1113,9 +1113,9 @@ def _print_scan_complete() -> None:
 
     Both the local `scan()` path and the `--git` `_scan_git_repo()` path call
     this so the message can never drift again (they previously printed
-    "✅ Scan complete!" vs "Scan complete!").
+    two different completion lines).
     """
-    console.print("\n[dark_green]✅ Scan complete![/dark_green]")
+    console.print("\n[dark_green]Scan complete![/dark_green]")
 
 
 def _print_secrets_tip() -> None:
@@ -1153,7 +1153,7 @@ def _run_llm_triage(results, backend=None) -> None:
     available, info = llm_available(backend)
     if not available:
         console.print(
-            f"\n[yellow]ℹ️  --llm-triage requested but no LLM backend available: "
+            f"\n[yellow]--llm-triage requested but no LLM backend available: "
             f"{info}.[/yellow]"
         )
         console.print(
@@ -1162,7 +1162,7 @@ def _run_llm_triage(results, backend=None) -> None:
         )
         return
 
-    console.print(f"\n[cyan]🤖 LLM triage ({info}) — annotating findings...[/cyan]")
+    console.print(f"\n[cyan]LLM triage ({info}) — annotating findings...[/cyan]")
 
     # Triage every finding in ONE call so the CR-007 count/wall-clock bounds
     # apply to the whole scan (not reset per file), then rebuild each result's
@@ -1215,7 +1215,7 @@ def _enable_rule_diagnostics(scanner, output, console) -> None:
     _fine = _os.environ.get("MEDUSA_TRACE_FINE") == "1"
     rule_diag.enable(_diag_out, fine=_fine)
     scanner.trace_rules = True
-    console.print("[yellow]🔬 Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
+    console.print("[yellow]Rule diagnostics ON (serial scan) — writing rule-trace.jsonl + slow_rules.csv[/yellow]")
     console.print(f"[yellow]   heartbeat → {_diag_out / 'rule-diag-current.txt'}"
                   f"{' (per-rule)' if _fine else ' (per-file)'} — names the culprit if a scan hangs[/yellow]")
 
@@ -1227,7 +1227,7 @@ def _write_rule_diagnostics(output, console) -> None:
     if _d is not None:
         _diag_out = Path(output) if output else Path.cwd() / ".medusa" / "reports"
         _tp, _sp, _nfire, _nrules = _d.write(_diag_out)
-        console.print(f"[cyan]🔬 Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
+        console.print(f"[cyan]Rule diagnostics:[/cyan] {_nfire} firings → {_tp}")
         console.print(f"[cyan]                   [/cyan] {_nrules} rules timed → {_sp}")
         rule_diag.disable()
 
@@ -1290,7 +1290,7 @@ def print_banner():
     # Version line: split on the first dot so the YEAR stays plain and the
     # remainder (e.g. "6.0" of 2026.6.0) is highlighted, matching Target:/Mode:.
     version_parts = __version__.split('.', 1)  # e.g. '2026.6.0' -> ['2026', '6.0']
-    line2 = f"79 Analyzers | {_banner_rules_label()} | AI Security Detection"
+    line2 = f"40+ analyzers | {_banner_rules_label()} | AI Security Detection"
 
     try:
         # Use GLOBAL console - same one used for Target:/Mode:
@@ -1307,7 +1307,7 @@ def print_banner():
         # Fallback for Windows terminals that don't support Unicode
         _rules_label = _banner_rules_label()
         try:
-            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]79 Analyzers | {_rules_label} | AI Security Detection[/dark_green]")
+            rprint(f"[dark_green][bold]MEDUSA[/bold][/dark_green] [dim]v{__version__}[/dim] | [dark_green]40+ analyzers | {_rules_label} | AI Security Detection[/dark_green]")
             rprint("")
         except Exception:
             # Last resort: plain text
@@ -1482,16 +1482,16 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
     print_banner()
 
-    console.print(f"\n[cyan]🎯 Target:[/cyan] {target}")
-    console.print(f"[cyan]🔧 Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
+    console.print(f"\n[cyan]Target:[/cyan] {target}")
+    console.print(f"[cyan]Mode:[/cyan] {'Quick' if quick else 'Force' if force else 'Full'}")
     if exclude:
-        console.print(f"[cyan]🚫 Excluding:[/cyan] {', '.join(exclude)}")
+        console.print(f"[cyan]Excluding:[/cyan] {', '.join(exclude)}")
     # PR-016: announce triage up-front so --llm-triage isn't silent — it only
     # runs after the full scan, so on a long scan the user would otherwise see
     # nothing triage-related and assume it hung. Console notice only; no backend
     # is imported or invoked here (the default path stays network-free).
     if llm_triage:
-        console.print("[cyan]🤖 LLM triage enabled — findings will be triaged after the scan.[/cyan]")
+        console.print("[cyan]LLM triage enabled — findings will be triaged after the scan.[/cyan]")
 
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
@@ -1508,14 +1508,14 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     if repo_analysis.languages:
         top_langs = sorted(repo_analysis.languages.items(), key=lambda x: -x[1])[:5]
         lang_summary = ", ".join(f"{lang} ({count})" for lang, count in top_langs)
-        console.print(f"[cyan]📊 Languages:[/cyan] {lang_summary}")
+        console.print(f"[cyan]Languages:[/cyan] {lang_summary}")
 
     if repo_analysis.frameworks:
         fw_list = sorted(repo_analysis.frameworks)[:8]
         fw_summary = ", ".join(fw_list)
         if len(repo_analysis.frameworks) > 8:
             fw_summary += f" (+{len(repo_analysis.frameworks) - 8} more)"
-        console.print(f"[cyan]🔧 Frameworks:[/cyan] {fw_summary}")
+        console.print(f"[cyan]Frameworks:[/cyan] {fw_summary}")
 
     # Highlight AI patterns
     if repo_analysis.security_context.has_ai_patterns:
@@ -1527,7 +1527,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         if repo_analysis.security_context.has_agent_patterns:
             ai_patterns.append("Agents")
         if ai_patterns:
-            console.print(f"[magenta]🤖 AI Patterns:[/magenta] {', '.join(ai_patterns)} detected - AI security scanners enabled")
+            console.print(f"[magenta]AI Patterns:[/magenta] {', '.join(ai_patterns)} detected - AI security scanners enabled")
 
     # Show recommended scanners and what's missing
     from medusa.scanners import registry as _scan_reg
@@ -1548,7 +1548,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             missing_scanners.append(s)
 
     console.print()
-    console.print(f"[dark_green]✓ Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
+    console.print(f"[dark_green]Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
     if repo_analysis.skip_scanners:
         _langs = _summarize_skip_languages(repo_analysis)
         _hint = f" ({_langs})" if _langs else ""
@@ -1569,7 +1569,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     # where model files would silently go unscanned — is allowed to prompt, and
     # only when interactive and not auto-continuing.
     console.print()
-    console.print("[dark_green]✓ 40,000+ AI security patterns active (no setup needed)[/dark_green]")
+    console.print("[dark_green]40,000+ AI security patterns active (no setup needed)[/dark_green]")
 
     # External linters: optional enrichment, informational only — never blocks.
     if missing_scanners:
@@ -1590,7 +1590,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     critical_warning = has_model_files and modelscan_missing
     if critical_warning:
         console.print(
-            f"\n[bold red]⚠️  Model files detected but modelscan is not installed — "
+            f"\n[bold red]Model files detected but modelscan is not installed — "
             f"these files will NOT be scanned.[/bold red]"
         )
         console.print(
@@ -1628,7 +1628,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
 
     # Warn if system is overloaded
     if load.warning_message:
-        console.print(f"[yellow]⚠️  {load.warning_message}[/yellow]")
+        console.print(f"[yellow]{load.warning_message}[/yellow]")
         console.print(f"[dim]Using {workers} workers (reduced due to system load)[/dim]")
 
     # Capture missing linters for post-scan recommendation
@@ -1669,7 +1669,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Find files (a single-file target scans exactly that file — PR-027)
         files = [target_path] if single_file else scanner.find_scannable_files()
         if not files:
-            console.print("[yellow]⚠️  No files found to scan[/yellow]")
+            console.print("[yellow]No files found to scan[/yellow]")
             return
 
         console.print(f"[dark_green]Found {len(files)} scannable files[/dark_green]\n")
@@ -1749,7 +1749,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
             scanner, results, fail_on=fail_on, output=output,
             output_formats=output_formats, no_report=no_report,
             no_ai_safe=no_ai_safe, missing_linters=missing_linters,
-            found_marker="❌ ", screening=screening,
+            found_marker="", screening=screening,
         )
         if _exit_code:
             sys.exit(_exit_code)
@@ -1776,12 +1776,12 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
                 # would read as "nothing was checked" and contradict the box's
                 # "(N unchanged, cache hit)". State the cache hit instead.
                 console.print(
-                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"\n[bold green]Clean — 0 issues found across "
                     f"{len(files)} {_file_word} (cache hit — unchanged since last scan)[/bold green]"
                 )
             else:
                 console.print(
-                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"\n[bold green]Clean — 0 issues found across "
                     f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
                 )
 
@@ -1797,7 +1797,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         _print_secrets_tip()
 
     except Exception as e:
-        console.print(f"\n[red]❌ Error: {e}[/red]")
+        console.print(f"\n[red]Error: {e}[/red]")
         if '--debug' in sys.argv:
             raise
         # Exit 3 = internal/unexpected error, distinct from exit 1 (findings at or
@@ -2253,12 +2253,12 @@ def _scan_git_repo(
                 # would read as "nothing was checked" and contradict the box's
                 # "(N unchanged, cache hit)". State the cache hit instead.
                 console.print(
-                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"\n[bold green]Clean — 0 issues found across "
                     f"{len(files)} {_file_word} (cache hit — unchanged since last scan)[/bold green]"
                 )
             else:
                 console.print(
-                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"\n[bold green]Clean — 0 issues found across "
                     f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
                 )
 
@@ -2313,25 +2313,25 @@ def _analyze_project(project_root: Path, console: Console) -> dict:
     # Display summary
     if analysis.languages:
         top_languages = sorted(analysis.languages.items(), key=lambda x: -x[1])[:6]
-        console.print(f"[dark_green]✓[/dark_green] Languages detected:")
+        console.print(f"Languages detected:")
         for lang, count in top_languages:
             console.print(f"  • {lang.title():20} ({count} files)")
 
         if analysis.frameworks:
             frameworks_display = sorted(list(analysis.frameworks))[:8]
-            console.print(f"[dark_green]✓[/dark_green] Frameworks: {', '.join(f.replace('_', ' ').title() for f in frameworks_display)}")
+            console.print(f"Frameworks: {', '.join(f.replace('_', ' ').title() for f in frameworks_display)}")
 
         if analysis.security_context.has_ai_patterns:
             ai_patterns = sorted(list(analysis.security_context.ai_frameworks))[:5]
-            console.print(f"[dark_green]✓[/dark_green] AI Patterns: {', '.join(f.replace('_', ' ').title() for f in ai_patterns)}")
+            console.print(f"AI Patterns: {', '.join(f.replace('_', ' ').title() for f in ai_patterns)}")
 
-        console.print(f"[dark_green]✓[/dark_green] Recommended scanners: {len(analysis.recommended_scanners)}")
+        console.print(f"Recommended scanners: {len(analysis.recommended_scanners)}")
         if analysis.skip_scanners:
             _langs = _summarize_skip_languages(analysis)
             _hint = f" ({_langs})" if _langs else ""
             console.print(f"[dim]   {len(analysis.skip_scanners)} scanners skipped — no matching files{_hint}[/dim]")
     else:
-        console.print("[yellow]⚠️  No language files detected[/yellow]")
+        console.print("[yellow]No language files detected[/yellow]")
 
     # Save analysis to .medusa/analysis.json for future scans
     medusa_dir = project_root / ".medusa"
@@ -2369,7 +2369,7 @@ def _analyze_project(project_root: Path, console: Console) -> dict:
 
     analysis_file = medusa_dir / "analysis.json"
     analysis_file.write_text(json.dumps(analysis_data, indent=2))
-    console.print(f"[dark_green]✓[/dark_green] Saved analysis to .medusa/analysis.json ({len(file_hashes)} files indexed)")
+    console.print(f"Saved analysis to .medusa/analysis.json ({len(file_hashes)} files indexed)")
 
     # For backwards compatibility, also build detected_files dict
     detected_files = {}
@@ -2408,9 +2408,9 @@ def _check_scanner_availability(analysis, do_install: bool, console: Console) ->
     missing_scanners = [s for s in needed_scanners if not s.is_available()]
     missing_tools = [s.tool_name for s in missing_scanners if s.tool_name]  # Filter None (built-in)
 
-    console.print(f"[dark_green]✓[/dark_green] {len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
+    console.print(f"{len(available_scanners)}/{len(needed_scanners)} scanners available for your project")
     if missing_tools:
-        console.print(f"[yellow]⚠️[/yellow]  {len(missing_tools)} tools missing for your project: {', '.join(missing_tools[:5])}" +
+        console.print(f"{len(missing_tools)} tools missing for your project: {', '.join(missing_tools[:5])}" +
                      (f" and {len(missing_tools) - 5} more" if len(missing_tools) > 5 else ""))
 
         # Separate AI tools (auto-installable) from external linters (manual)
@@ -2429,7 +2429,7 @@ def _check_scanner_availability(analysis, do_install: bool, console: Console) ->
                 cmd = [sys.executable, '-m', 'medusa', 'install', '--ai-tools']
                 result = subprocess.run(cmd, capture_output=False, text=True, check=False)
                 if result.returncode != 0:
-                    console.print("[yellow]⚠️  Some tools may not have installed successfully[/yellow]")
+                    console.print("[yellow]Some tools may not have installed successfully[/yellow]")
                     console.print("[dim]You can retry with: medusa install --ai-tools[/dim]")
                 console.print()  # Extra newline for spacing
 
@@ -2570,7 +2570,7 @@ def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
         # Pre-existing visible config: don't orphan it by writing a dotted twin.
         config_path = visible_path
         console.print(
-            f"[yellow]⚠️  Using existing {visible_path.name}; "
+            f"[yellow]Using existing {visible_path.name}; "
             f"the canonical name is .medusa.yml (both are read).[/yellow]"
         )
     else:
@@ -2578,7 +2578,7 @@ def _create_init_config(project_root: Path, ide, console: Console) -> tuple:
 
     # Save configuration
     ConfigManager.save_config(config, config_path)
-    console.print(f"[dark_green]✓[/dark_green] Created {config_path}")
+    console.print(f"Created {config_path}")
 
     return config_path, ide_list
 
@@ -2664,7 +2664,7 @@ def _setup_ide_integrations(project_root: Path, ide_list: list, console: Console
         all_backed_up_files.extend(backed_up)
 
         if success:
-            console.print(f"[dark_green]✓[/dark_green] {label} integration configured")
+            console.print(f"{label} integration configured")
 
             # Claude Code has special handling for CLAUDE.md created vs preserved
             if selected_ide == 'claude-code':
@@ -2680,12 +2680,12 @@ def _setup_ide_integrations(project_root: Path, ide_list: list, console: Console
 
             success_count += 1
 
-    console.print(f"\n[dark_green]✓[/dark_green] Configured {success_count}/{len(ide_list)} IDE integration(s)")
+    console.print(f"\nConfigured {success_count}/{len(ide_list)} IDE integration(s)")
 
     # Show backup information if files were backed up
     if all_backed_up_files:
         backup_path = backup_manager.get_backup_path()
-        console.print(f"\n[yellow]📁 Backed up {len(all_backed_up_files)} existing file(s) to:[/yellow]")
+        console.print(f"\n[yellow]Backed up {len(all_backed_up_files)} existing file(s) to:[/yellow]")
         console.print(f"   [dim]{backup_path}[/dim]")
         console.print(f"   [dim]Use 'medusa backup --list' to view backups[/dim]")
         console.print(f"   [dim]Use 'medusa backup --restore' to rollback changes[/dim]")
@@ -2720,7 +2720,7 @@ def init(ide, force, install):
     """
     print_banner()
 
-    console.print("\n[cyan]🔧 MEDUSA Initialization Wizard[/cyan]\n")
+    console.print("\n[cyan]MEDUSA Initialization Wizard[/cyan]\n")
 
     project_root = Path.cwd()
 
@@ -2750,12 +2750,12 @@ def init(ide, force, install):
     # If BOTH names exist, the tool reads either — warn so the user can dedupe.
     if dotted_path.exists() and visible_path.exists():
         console.print(
-            "[yellow]⚠️  Both .medusa.yml and medusa.yml exist — "
+            "[yellow]Both .medusa.yml and medusa.yml exist — "
             ".medusa.yml takes precedence. Consider removing medusa.yml.[/yellow]"
         )
 
     if config_path.exists() and not force:
-        console.print(f"[yellow]⚠️  Configuration already exists: {config_path}[/yellow]")
+        console.print(f"[yellow]Configuration already exists: {config_path}[/yellow]")
         if not click.confirm("Overwrite existing configuration?", default=False):
             console.print("[dim]Cancelled. Use --force to overwrite.[/dim]")
             return
@@ -2781,7 +2781,7 @@ def init(ide, force, install):
         console.print("\n[bold cyan]Step 4/4: Skipping IDE integration[/bold cyan]")
 
     # Summary
-    console.print("\n[bold dark_green]✅ MEDUSA Initialized Successfully![/bold dark_green]")
+    console.print("\n[bold dark_green]MEDUSA Initialized Successfully![/bold dark_green]")
     console.print("\n[bold]Next steps:[/bold]")
     console.print(f"  1. Review configuration: [cyan]{config_path.name}[/cyan]")
     if missing_tools:
@@ -2821,7 +2821,7 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
     backup_manager = IDEBackupManager(project_root)
 
     if list_backups:
-        console.print("\n[cyan]📁 IDE Configuration Backups[/cyan]\n")
+        console.print("\n[cyan]IDE Configuration Backups[/cyan]\n")
         backups = backup_manager.list_backups()
 
         if not backups:
@@ -2852,7 +2852,7 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
         timestamp = restore_timestamp if restore_timestamp else None
         action = "Would restore" if dry_run else "Restoring"
 
-        console.print(f"\n[cyan]🔄 {action} IDE Configuration Backup[/cyan]\n")
+        console.print(f"\n[cyan]{action} IDE Configuration Backup[/cyan]\n")
 
         try:
             restored = backup_manager.restore_backup(timestamp=timestamp, dry_run=dry_run)
@@ -2868,14 +2868,14 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
                 console.print(f"\n[yellow]Dry run - no files were modified[/yellow]")
                 console.print(f"[dim]Remove --dry-run to actually restore these files[/dim]")
             else:
-                console.print(f"\n[dark_green]✓ Restored {len(restored)} file(s)[/dark_green]")
+                console.print(f"\n[dark_green]Restored {len(restored)} file(s)[/dark_green]")
 
         except ValueError as e:
             console.print(f"[red]Error: {e}[/red]")
             return
 
     elif cleanup:
-        console.print("\n[cyan]🧹 Cleaning Up Old Backups[/cyan]\n")
+        console.print("\n[cyan]Cleaning Up Old Backups[/cyan]\n")
 
         backups_before = len(backup_manager.list_backups())
         backup_manager.cleanup_old_backups(keep_count=10)
@@ -2883,13 +2883,13 @@ def backup(list_backups, restore_timestamp, restore_latest, dry_run, cleanup):
 
         removed = backups_before - backups_after
         if removed > 0:
-            console.print(f"[dark_green]✓ Removed {removed} old backup(s)[/dark_green]")
+            console.print(f"[dark_green]Removed {removed} old backup(s)[/dark_green]")
         else:
             console.print("[dim]No old backups to remove (keeping last 10)[/dim]")
 
     else:
         # Default: show summary
-        console.print("\n[cyan]📁 IDE Configuration Backups[/cyan]\n")
+        console.print("\n[cyan]IDE Configuration Backups[/cyan]\n")
         backups = backup_manager.list_backups()
 
         if backups:
@@ -2968,7 +2968,7 @@ def install(check, ai_tools, debug, install_all):
 
         for tool_name, tool_info in AI_TOOLS.items():
             if is_tool_installed(tool_name):
-                console.print(f"  [cyan]✓ {tool_name}[/cyan] — already installed")
+                console.print(f"  [cyan]{tool_name}[/cyan] — already installed")
                 installed_count += 1
                 continue
 
@@ -2981,18 +2981,18 @@ def install(check, ai_tools, debug, install_all):
             try:
                 result = _sp.run(cmd, capture_output=True, text=True, timeout=600)
                 if result.returncode == 0:
-                    console.print(f"[dark_green]✓ installed[/dark_green]")
+                    console.print(f"[dark_green]installed[/dark_green]")
                     installed_count += 1
                 else:
                     err = result.stderr.strip().split('\n')[-1] if result.stderr else 'unknown error'
-                    console.print(f"[red]✗ failed[/red]")
+                    console.print(f"[red]failed[/red]")
                     console.print(f"    [dim]{err[:120]}[/dim]")
                     failed_count += 1
             except _sp.TimeoutExpired:
-                console.print(f"[red]✗ timed out[/red]")
+                console.print(f"[red]timed out[/red]")
                 failed_count += 1
             except Exception as e:
-                console.print(f"[red]✗ {e}[/red]")
+                console.print(f"[red]{e}[/red]")
                 failed_count += 1
 
         console.print()
@@ -3236,7 +3236,7 @@ def config():
     """
     print_banner()
 
-    console.print("\n[cyan]⚙️  MEDUSA Configuration[/cyan]\n")
+    console.print("\n[cyan]MEDUSA Configuration[/cyan]\n")
 
     # Platform detection
     from medusa.platform import get_platform_info
@@ -3259,14 +3259,14 @@ def config():
 
     available_scanners = registry.get_available_scanners()
     if available_scanners:
-        console.print(f"\n[bold dark_green]✅ Installed Scanners:[/bold dark_green]")
+        console.print(f"\n[bold dark_green]Installed Scanners:[/bold dark_green]")
         for scanner in available_scanners:
             extensions = ", ".join(scanner.get_file_extensions()) if scanner.get_file_extensions() else "special"
             console.print(f"  • {scanner.name:20} ({scanner.tool_name:15}) → {extensions}")
 
     missing_tools = registry.get_missing_tools()
     if missing_tools:
-        console.print(f"\n[bold yellow]❌ Missing Tools:[/bold yellow]")
+        console.print(f"\n[bold yellow]Missing Tools:[/bold yellow]")
         for tool in missing_tools:
             console.print(f"  • {tool}")
         console.print(f"\n[dim]Run 'medusa install' to install missing tools[/dim]")
@@ -3310,7 +3310,7 @@ def versions():
     vm = VersionManager()
 
     if not vm.is_locked():
-        console.print("[yellow]⚠ No tool-versions.lock found[/yellow]")
+        console.print("[yellow]No tool-versions.lock found[/yellow]")
         console.print("[dim]Run 'python scripts/capture_tool_versions.py' to create it[/dim]")
         return
 
@@ -3382,7 +3382,7 @@ def scanners(show_ai, show_available):
         is_avail = scanner.is_available()
         if is_avail:
             installed += 1
-        status = "[dark_green]✓ Ready[/dark_green]" if is_avail else "[dim]✗ Tool missing[/dim]"
+        status = "[dark_green]Ready[/dark_green]" if is_avail else "[dim]Tool missing[/dim]"
         exts = ", ".join(scanner.get_file_extensions()[:5])
         if len(scanner.get_file_extensions()) > 5:
             exts += "..."
@@ -3450,7 +3450,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
         table.add_column("Status", style="yellow")
 
         for scanner in sorted(registry.get_all_scanners(), key=lambda s: s.name):
-            status = "✓ Installed" if scanner.is_available() else "✗ Not installed"
+            status = "Installed" if scanner.is_available() else "Not installed"
             exts = ", ".join(scanner.get_file_extensions())
             table.add_row(scanner.name, scanner.tool_name, exts, status)
 
@@ -3481,7 +3481,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
         if file_path in config.scanner_overrides:
             removed_scanner = config.scanner_overrides.pop(file_path)
             ConfigManager.save_config(config, config_path)
-            console.print(f"[dark_green]✓[/dark_green] Removed override for [cyan]{file_path}[/cyan]")
+            console.print(f"Removed override for [cyan]{file_path}[/cyan]")
             console.print(f"[dim]  (was: {removed_scanner})[/dim]")
         else:
             console.print(f"[yellow]No override found for {file_path}[/yellow]")
@@ -3504,7 +3504,7 @@ def override(file_path, scanner_name, list_scanners, show, remove):
     config.scanner_overrides[file_path] = scanner_name
     ConfigManager.save_config(config, config_path)
 
-    console.print(f"[dark_green]✓[/dark_green] Scanner override saved")
+    console.print(f"Scanner override saved")
     console.print(f"  File: [cyan]{file_path}[/cyan]")
     console.print(f"  Scanner: [magenta]{scanner_name}[/magenta]")
     console.print(f"  Config: [dim]{config_path}[/dim]")
@@ -3540,7 +3540,7 @@ def sbom(target, output_format, output):
     import hashlib
 
     print_banner()
-    console.print("\n[cyan]📦 SBOM Generation[/cyan]\n")
+    console.print("\n[cyan]SBOM Generation[/cyan]\n")
 
     target_path = Path(target).resolve()
     console.print(f"[dim]Target: {target_path}[/dim]\n")
@@ -3590,7 +3590,7 @@ def sbom(target, output_format, output):
             seen[key] = dep
 
     dependencies = unique_deps
-    console.print(f"\n[dark_green]✓ Found {len(dependencies)} dependencies[/dark_green]\n")
+    console.print(f"\n[dark_green]Found {len(dependencies)} dependencies[/dark_green]\n")
 
     if not dependencies:
         console.print("[yellow]No dependencies found. Make sure you have:[/yellow]")
@@ -3611,7 +3611,7 @@ def sbom(target, output_format, output):
 
         with open(output_path, 'w') as f:
             json.dump(sbom_data, f, indent=2)
-        console.print(f"[dark_green]✓ CycloneDX SBOM:[/dark_green] {output_path}")
+        console.print(f"[dark_green]CycloneDX SBOM:[/dark_green] {output_path}")
 
     if output_format in ['spdx', 'both']:
         sbom_data = _generate_spdx(target_path, dependencies)
@@ -3622,7 +3622,7 @@ def sbom(target, output_format, output):
 
         with open(output_path, 'w') as f:
             json.dump(sbom_data, f, indent=2)
-        console.print(f"[dark_green]✓ SPDX SBOM:[/dark_green] {output_path}")
+        console.print(f"[dark_green]SPDX SBOM:[/dark_green] {output_path}")
 
     console.print(f"\n[dim]Components: {len(dependencies)}[/dim]")
     console.print(f"[dim]Use 'medusa scan' to check for vulnerabilities[/dim]")

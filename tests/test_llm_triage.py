@@ -381,7 +381,7 @@ def test_default_scan_does_not_invoke_triage(monkeypatch, tmp_path):
     runner = CliRunner()
     result = runner.invoke(main, ["scan", str(tmp_path), "--no-report"])
     assert called["n"] == 0
-    assert "🤖 LLM triage" not in result.output
+    assert "LLM triage" not in result.output
 
 
 # --- CLI: --llm-triage with no backend prints message, exits 0 -------------

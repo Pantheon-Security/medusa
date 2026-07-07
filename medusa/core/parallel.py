@@ -311,7 +311,7 @@ class MedusaCacheManager:
                 f.write(envelope_str)
             os.replace(tmp_file, self.cache_file)
         except Exception as e:
-            print(f"⚠️  Cache save error: {e}")
+            print(f"Cache save error: {e}")
 
     def _get_file_hash(self, file_path: Path) -> str:
         """Calculate file hash — full file when full_hash is set, else first 8KB."""
@@ -381,7 +381,7 @@ class MedusaCacheManager:
         self.cache.clear()
         if self.cache_file.exists():
             self.cache_file.unlink()
-        print("✅ Cache cleared")
+        print("Cache cleared")
 
 
 class MedusaParallelScanner:
@@ -488,7 +488,7 @@ class MedusaParallelScanner:
         # Find medusa.sh (optional - only needed for non-Python scanners)
         self.medusa_script = self._find_medusa_script()
 
-        _icon = '>' if self.force_ascii else '\U0001f40d'
+        _icon = '>'
         print(f"{_icon} MEDUSA Parallel Scanner v1.1.0")
         print(f"   Workers: {self.workers} cores")
         print(f"   Cache: {'enabled' if use_cache else 'disabled'}")
@@ -825,7 +825,7 @@ class MedusaParallelScanner:
                     _maybe_add(mcp_file)
 
         if unreadable_dirs:
-            _ic = '!' if self.force_ascii else '⚠️'
+            _ic = '!'
             print(
                 f"{_ic}  {len(unreadable_dirs)} director(ies) could not be read "
                 f"and were skipped (e.g. {unreadable_dirs[0]})"
@@ -888,7 +888,7 @@ class MedusaParallelScanner:
         if file_size > MAX_SCAN_FILE_SIZE:
             large_capable = [s for s in scanners if getattr(s, 'supports_large_files', False)]
             if not large_capable:
-                print(f"⚠️  Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
+                print(f"Skipped {file_path} ({file_size // (1024 * 1024)} MB exceeds 2 MB limit)")
                 return ScanResult(
                     file=str(file_path),
                     scanner='skipped-large-file',
@@ -1133,11 +1133,11 @@ class MedusaParallelScanner:
             # Status (ASCII fallback for legacy PowerShell/CMD)
             # When all files are processed, mark every scanner that ran as Done
             if (done >= expected and expected > 0) or (scan_complete and done > 0):
-                status = Text("+ Done" if self.force_ascii else "\u2713 Done", style="green")
+                status = Text("+ Done", style="green")
             elif done > 0:
-                status = Text("> Active" if self.force_ascii else "\u27f3 Active", style="yellow")
+                status = Text("> Active", style="yellow")
             else:
-                status = Text("- Queued" if self.force_ascii else "\u25e6 Queued", style="dim")
+                status = Text("- Queued", style="dim")
 
             # Issues display — render an explicit 0 (not a middot) so a
             # zero-finding scanner row reads as a real count, not a placeholder.
@@ -1214,7 +1214,7 @@ class MedusaParallelScanner:
         if files:
             self.workers = max(1, min(self.workers, len(files)))
 
-        _icon = '*' if self.force_ascii else '\U0001f4ca'
+        _icon = '*'
         print(f"{_icon} Scanning {len(files)} files across {self.workers} parallel workers (each file is checked by all applicable scanners)...\n")
 
         # Pre-map which scanners will handle which files
@@ -1245,7 +1245,7 @@ class MedusaParallelScanner:
         # the entire home directory.
         if files:
             _project_root = self.project_root
-            _icon2 = '*' if self.force_ascii else '\U0001f50d'
+            _icon2 = '*'
 
             from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
             _semgrep = next(
@@ -1338,7 +1338,7 @@ class MedusaParallelScanner:
                 results = self._scan_with_pool(files)
         except (PermissionError, OSError) as e:
             # Fallback to sequential scanning if multiprocessing fails
-            _ic = '!' if self.force_ascii else '\u26a0\ufe0f'
+            _ic = '!'
             print(f"{_ic}  Multiprocessing unavailable ({e}), falling back to sequential scan...")
             results = self._scan_sequential(files, scanner_expected)
 
@@ -1374,7 +1374,7 @@ class MedusaParallelScanner:
                 f"{n} ({c})"
                 for n, c in sorted(agg_errors.items(), key=lambda kv: -kv[1])[:5]
             )
-            _ic = '!' if self.force_ascii else '⚠️'
+            _ic = '!'
             print(f"{_ic}  {total} scanner error(s)/timeout(s) during scan: {top}")
 
         return results
@@ -1529,14 +1529,14 @@ class MedusaParallelScanner:
                     last_update = now
             if is_tty:
                 print("\r" + " " * 32 + "\r", end="", flush=True)
-            _ic = '+' if self.force_ascii else '\u2705'
+            _ic = '+'
             print(f"{_ic} Scanned {total} files")
         return results
 
     def _print_scanner_summary(self, scanner_totals: Dict[str, Dict[str, int]]):
         """Print a clean per-scanner summary table (tqdm fallback)"""
         print()
-        _ic = '*' if self.force_ascii else '\U0001f527'
+        _ic = '*'
         _sep = '-' if self.force_ascii else '\u2500'
         print(f"{_ic} Scanner Activity:")
         print(f"   {'Scanner':<30} {'Files':>6} {'Issues':>7}")
@@ -1625,7 +1625,7 @@ class MedusaParallelScanner:
                 results.append(self.scan_file(file_path))
                 if i % 10 == 0:
                     print(f"   Scanned {i}/{len(files)} files...")
-            _ic = '+' if self.force_ascii else '\u2705'
+            _ic = '+'
             print(f"{_ic} Scanned {len(files)} files (sequential mode)")
 
         return results
@@ -1708,7 +1708,7 @@ class MedusaParallelScanner:
             }
         except Exception as e:
             # FP filter is optional - continue if it fails
-            _ic = '!' if self.force_ascii else '\u26a0\ufe0f'
+            _ic = '!'
             print(f"{_ic}  FP filter skipped: {e}")
 
         # Calculate total lines
@@ -1756,7 +1756,7 @@ class MedusaParallelScanner:
         # Print generated files
         _ascii = self.force_ascii
         if generated_files:
-            _ic = '*' if _ascii else '\U0001f4ca'
+            _ic = '*'
             print(f"\n{_ic} Reports generated:")
             _arrow = '->' if _ascii else '\u2192'
             for format_name, file_path in generated_files:
@@ -1776,7 +1776,7 @@ class MedusaParallelScanner:
 
         # Print summary with colour
         _con = RichConsole()
-        _ic = '>' if _ascii else '\U0001f3af'
+        _ic = '>'
         _bar = "[dim]" + "\u2500" * 44 + "[/dim]"
         _con.print()
         _con.print(_bar)
