@@ -279,9 +279,9 @@ This release makes the vet loop fast, precise, and honest end to end.
   screening/vet mode, so a scan of *your* code is not drowned in mentions of attack research.
 - **Fast vet.** A parsed-rule cache means a repo or skill verdict returns in seconds, not the
   tens of seconds an earlier build spent re-parsing the corpus on every invocation.
-- **Honest trust proof.** Dogfooding self-scan CRITICALs went from **214 → 5** — all 5 verified
-  false positives, 0 real vulnerabilities (see [Dogfooding](#dogfooding-results)). No "100%"
-  hand-waving.
+- **Honest trust proof.** Dogfooding self-scan CRITICALs went from **214 → 4** — all 4 verified
+  false positives (MEDUSA's own detector signatures + doc/config strings), 0 real
+  vulnerabilities (see [Dogfooding](#dogfooding-results)). No "100%" hand-waving.
 - **Real CI.** The test suite now runs on every pull request (previously an install-smoke check
   only), so changes to a 42,684-rule corpus get automated feedback.
 
@@ -555,7 +555,7 @@ standard practice bandit/semgrep follow for their own rules).
 
 ```
 Self-scan — MEDUSA application code (detector corpus scoped out):
-  CRITICAL: 214 → 5 after FP-hardening — the residual 5 are all verified false
+  CRITICAL: 214 → 4 after FP-hardening — the residual 4 are all verified false
     positives, 0 real vulnerabilities (curated rules matching our own security
     identifiers: an OpenAI client init, the "prompt-injection" keyword in package
     metadata, a threat-describing comment, a docs line). Tracked for precision tuning.
