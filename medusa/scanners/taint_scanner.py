@@ -34,6 +34,7 @@ Design notes (precision over recall — this scanner must NOT flood):
 
 import ast
 import time
+import warnings
 from pathlib import Path
 from typing import List, Optional, Set
 
@@ -126,7 +127,12 @@ class TaintScanner(BaseScanner):
             )
 
         try:
-            tree = ast.parse(content)
+            # Suppress the TARGET's own SyntaxWarnings (e.g. invalid escape
+            # sequences in sloppy code) — they are not MEDUSA findings and must
+            # never leak into our scan output.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                tree = ast.parse(content)
         except SyntaxError:
             # Not parseable as Python 3 — degrade gracefully, no findings.
             return ScannerResult(

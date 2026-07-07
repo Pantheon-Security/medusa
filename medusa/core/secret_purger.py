@@ -1,4 +1,4 @@
-"""Redact credentials in chat / shell history files, in place.
+r"""Redact credentials in chat / shell history files, in place.
 
 Operations are designed to be safe-by-default:
 
