@@ -224,8 +224,8 @@ exclude:
 **v2026.3.0** is the scanner precision + FP tuning release:
 
 - **52% Faster Scans**: Single-pass file discovery, scanner pre-mapping cache, pre-compiled patterns
-- **514 FP Filter Patterns**: 96.8% false positive reduction rate
-- **265 CVEs**: CVEMiner database for known vulnerability scanning (140 AI/ML + 125 critical SAST rule entries)
+- **583 FP Filter Patterns**: 97.9% false positive reduction rate (measured on the benchmark corpus)
+- **310 CVEs**: CVEMiner database for known vulnerability scanning (AI/ML + critical SAST rule entries)
 - **Structural Refactoring**: God methods split, dead code removed, data/logic separation
 - **Large Project Support**: Live progress responsive on 40,000+ file codebases
 - **40,000+ AI Security Patterns**: Works immediately with no tool installation

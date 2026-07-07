@@ -10,8 +10,9 @@ MODEL-ATK-* rules, OWASPLLMScanner loads LLM* rules, etc.). But some rules
 have categories/prefixes that no scanner claims — they'd never fire without
 this catch-all scanner.
 
-This prevents the FP explosion that happens when ALL 9,000+ rules run on
-every file, while ensuring orphaned rules still get executed.
+This prevents the FP explosion that happens when the full harvested corpus
+(~42k screening patterns) runs on every file, while ensuring orphaned rules
+still get executed. Run `medusa rules --count` for the exact current figure.
 """
 
 import re
