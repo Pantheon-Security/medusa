@@ -131,15 +131,15 @@ def test_readme_documents_inline_suppression():
 # --------------------------------------------------------------------------
 # RH-2: CVE count must be coherent -- only 265, never the stale 133.
 # --------------------------------------------------------------------------
-def test_readme_cve_count_is_only_265():
+def test_readme_cve_count_is_only_310():
     import re
 
     text = _read(README)
-    # No "133 ... CVE" claim anywhere (stale CVEMiner number).
-    stale = re.findall(r"133\s+[A-Za-z ]*CVE", text, flags=re.IGNORECASE)
-    assert not stale, f"README still claims 133 critical CVEs: {stale}"
-    # The canonical number must be present.
-    assert "265" in text, "README must state the canonical CVE count (265)"
+    # No stale CVE counts anywhere (133 = old CVEMiner, 265 = pre-2026.8.0 count).
+    stale = re.findall(r"\b(?:133|265)\s+[A-Za-z ]*CVE", text, flags=re.IGNORECASE)
+    assert not stale, f"README still claims a stale CVE count: {stale}"
+    # The canonical, measured number (PR-019: rules/cve/ = 310).
+    assert "310" in text, "README must state the canonical CVE count (310)"
 
 
 # --------------------------------------------------------------------------

@@ -257,12 +257,15 @@ def _safe_print(*args, **kwargs):
 
 console.print = _safe_print
 
-# Module-level flag to track Node.js installation attempts within a session
-_nodejs_install_attempted = False
-
 
 def _summarize_skip_languages(analysis) -> str:
-    """Summarize the languages whose scanners were skipped, for display."""
+    """Summarize the languages whose scanners were skipped, for display.
+
+    Returns a comma-joined sample like ``"Bash, Batch, Clojure, Csharp, +33
+    more"`` (at most 4 names shown), or ``""`` when none of the skipped
+    scanners map to a known language — the caller drops the parenthetical
+    entirely in that case (PR-023).
+    """
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
     scanner_to_lang = {}
     for lang, scanner in CodePatternAnalyzer.LANGUAGE_TO_SCANNER.items():
@@ -273,13 +276,29 @@ def _summarize_skip_languages(analysis) -> str:
         if lang:
             skipped_langs.add(lang)
     if not skipped_langs:
-        return "matching"
+        return ""
     samples = sorted(skipped_langs)[:4]
     display = ", ".join(s.title() for s in samples)
     remaining = len(skipped_langs) - len(samples)
     if remaining > 0:
         display += f", +{remaining} more"
     return display
+
+
+def _analyze_single_file(analyzer, file_path: Path):
+    """Build a RepoAnalysis for a single-file scan target (PR-027).
+
+    ``analyze_repo`` walks a directory tree, so it can't be pointed at a lone
+    file. For a single-file target we run the same per-file analysis and
+    scanner-recommendation primitives directly, so the pre-scan display and
+    scanner selection match a normal scan of that one file.
+    """
+    from medusa.core.pattern_analyzer import RepoAnalysis, SecurityContext
+    analysis = RepoAnalysis()
+    analysis.security_context = SecurityContext()
+    analyzer._analyze_file(file_path, file_path.parent, analysis)
+    analyzer._recommend_scanners(analysis)
+    return analysis
 
 
 def _generate_installation_guide(failed_tools: list, guide_path: Path, platform_info):
@@ -790,146 +809,25 @@ def _check_runtime_dependencies(
     java_tools_missing = [t for t in missing_tools if t in java_tools]
 
     # ========================================
-    # Node.js / npm auto-install
+    # Node.js / npm runtime hint (PR-026)
     # ========================================
+    # A security tool must not install a language runtime onto the user's
+    # machine, so the winget auto-install + PATH-refresh path was removed.
+    # Report the missing runtime and the exact command to get it, then let the
+    # user decide. Detection of the failed npm tools (above) is unchanged.
     if npm_tools_failed:
-        # Check if we've already attempted Node.js installation this session
-        global _nodejs_install_attempted
-
-        if _nodejs_install_attempted:
-            console.print("")
-            console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
-            console.print("[dim]   Node.js installation was already attempted. Please restart your terminal.[/dim]")
-            return
-
-        from medusa.platform import PackageManager
-        if pm in (PackageManager.WINGET, PackageManager.CHOCOLATEY):
-            console.print("")
-            console.print(f"[yellow]⚠️  {len(npm_tools_failed)} tool{'s' if len(npm_tools_failed) > 1 else ''} require Node.js (npm)[/yellow]")
-
-            # Check if running in non-interactive mode (CI environment)
-            if not sys.stdin.isatty():
-                console.print("[yellow]   Non-interactive mode detected, skipping Node.js installation[/yellow]")
-                return  # Skip Node.js prompt in CI
-
-            # Mark that we're attempting Node.js installation
-            _nodejs_install_attempted = True
-
-            # Prompt user
-            if not yes:
-                response = Prompt.ask(
-                    "   Install Node.js via winget to enable these tools?",
-                    choices=["y", "Y", "n", "N"],
-                    default="y",
-                    show_choices=False
-                )
-                install_nodejs = response.upper() == "Y"
-            else:
-                install_nodejs = True
-
-            if install_nodejs:
-                # First check if Node.js is already installed
-                console.print("\n[cyan]Checking for existing Node.js installation...[/cyan]")
-                nodejs_already_installed = False
-                node_path = shutil.which('node')
-                if node_path:
-                    success, output = _safe_run_version_check([node_path, '--version'])
-                    if success:
-                        nodejs_already_installed = True
-                        console.print(f"[dark_green]✓[/dark_green] Node.js found: {output.strip()}")
-                        console.print("[yellow]   But npm not in PATH. Attempting to fix...[/yellow]")
-                if not nodejs_already_installed:
-                    console.print("[dim]   Node.js not found, installing...[/dim]")
-
-                if not nodejs_already_installed:
-                    console.print("\n[cyan]Installing Node.js via winget...[/cyan]")
-
-                # Install Node.js via winget (even if already installed, to ensure npm is available)
-                from medusa.platform.installers import WingetInstaller
-                winget_installer = WingetInstaller()
-                nodejs_success = False
-
-                winget_path = shutil.which('winget')
-                if winget_path:
-                    try:
-                        # Use LTS version for stability, add --disable-interactivity for CI
-                        success, output = _safe_run_version_check(
-                            [winget_path, 'install', '--id', 'OpenJS.NodeJS.LTS', '--accept-source-agreements', '--accept-package-agreements', '--disable-interactivity'],
-                            timeout=600  # 10 minute timeout for slow networks
-                        )
-                        output_lower = output.lower() if output else ''
-                        nodejs_success = (
-                            success or
-                            'already installed' in output_lower or
-                            'no available upgrade found' in output_lower
-                        )
-
-                        # Show winget output for debugging
-                        if not success:
-                            console.print(f"[dim]Winget output: {output[:300]}[/dim]")
-                    except Exception as e:
-                        nodejs_success = False
-                        console.print(f"[red]Error during installation: {str(e)[:100]}[/red]")
-
-                if nodejs_success:
-                    console.print("[dark_green]✅ Node.js installed successfully[/dark_green]")
-
-                    # Refresh PATH
-                    from medusa.platform.installers.windows import refresh_windows_path
-                    refresh_windows_path()
-                    console.print("[dim]   PATH refreshed from registry[/dim]")
-
-                    # Verify npm is now available
-                    console.print("\n[cyan]Checking for npm...[/cyan]")
-                    npm_path = shutil.which('npm.cmd') or shutil.which('npm')
-
-                    if npm_path:
-                        console.print(f"[dark_green]✓[/dark_green] npm found at: {npm_path}")
-                        # Verify npm works
-                        try:
-                            success, output = _safe_run_version_check([npm_path, '--version'])
-                            if success:
-                                console.print(f"[dark_green]✓[/dark_green] npm version: {output.strip()}")
-                            else:
-                                console.print(f"[yellow]⚠[/yellow] npm found but returned error")
-                        except Exception as e:
-                            console.print(f"[yellow]⚠[/yellow] npm found but test failed: {str(e)[:50]}")
-                    else:
-                        console.print("[yellow]✗[/yellow] npm not found in PATH")
-                        console.print("[dim]   This usually means you need to restart your terminal[/dim]")
-
-                    # Retry npm tools
-                    console.print("\n[cyan]Retrying npm tools...[/cyan]\n")
-                    from medusa.platform.installers import NpmInstaller, ToolMapper
-                    npm_installer = NpmInstaller() if npm_path else None
-
-                    if npm_installer:
-                        npm_installed = 0
-                        for tool in npm_tools_failed:
-                            console.print(f"[cyan]Installing {tool}...[/cyan]")
-                            npm_package = ToolMapper.get_package_name(tool, 'npm')
-                            console.print(f"  → Trying npm: {npm_package}")
-
-                            if npm_installer.install(tool, use_latest=use_latest):
-                                console.print(f"  [dark_green]✅ Installed via npm[/dark_green]\n")
-                                npm_installed += 1
-                                # Mark tool as installed in cache
-                                from medusa.platform.tool_cache import ToolCache
-                                cache = ToolCache()
-                                cache.mark_installed(tool)
-                            else:
-                                console.print(f"  [red]❌ Failed[/red]\n")
-
-                        if npm_installed > 0:
-                            console.print(f"[dark_green]✅ Installed {npm_installed}/{len(npm_tools_failed)} npm tools[/dark_green]")
-                    else:
-                        console.print("[yellow]⚠️  npm still not available. Try restarting your terminal.[/yellow]")
-                        console.print("[dim]   Node.js may need a terminal restart to be detected.[/dim]")
-                        return
-                else:
-                    console.print("[red]❌ Failed to install Node.js[/red]")
-                    console.print("[yellow]You can manually install Node.js from: https://nodejs.org[/yellow]")
-                    return
+        _n = len(npm_tools_failed)
+        console.print("")
+        console.print(
+            f"[yellow]⚠️  {_n} tool{'s' if _n > 1 else ''} require Node.js (npm):[/yellow]"
+        )
+        for tool in npm_tools_failed:
+            console.print(f"   • {tool}")
+        console.print(
+            "[dim]   Install Node.js from https://nodejs.org "
+            "(or 'winget install OpenJS.NodeJS.LTS'), then re-run "
+            "'medusa install'.[/dim]"
+        )
 
     # ========================================
     # PHP auto-install
@@ -1569,15 +1467,17 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         )
         return
 
-    # Validate target exists and is a directory (Issue #2 fix)
+    # Validate target exists (Issue #2 fix). PR-027: a single file is a valid
+    # target — scan just that file (mirrors `vet`, which already accepts files).
     target_path = Path(target)
     if not target_path.exists():
         console.print(f"[red]Error: Path '{target}' does not exist.[/red]")
         raise SystemExit(2)
-    if not target_path.is_dir():
-        console.print(f"[red]Error: Target must be a directory, not a file[/red]")
+    single_file = target_path.is_file()
+    if not single_file and not target_path.is_dir():
+        # Neither a regular file nor a directory (socket, device, broken mount).
+        console.print(f"[red]Error: Target is not a file or directory[/red]")
         console.print(f"[yellow]   Got: {target_path}[/yellow]")
-        console.print(f"[dim]   Tip: To scan a single file, specify its parent directory[/dim]")
         raise SystemExit(1)
 
     print_banner()
@@ -1596,9 +1496,13 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     # Run CodePatternAnalyzer for smart scanner selection
     from medusa.core.pattern_analyzer import CodePatternAnalyzer
 
-    console.print("\n[dim]Analyzing repository...[/dim]")
     analyzer = CodePatternAnalyzer()
-    repo_analysis = analyzer.analyze_repo(Path(target))
+    if single_file:
+        console.print("\n[dim]Analyzing file...[/dim]")
+        repo_analysis = _analyze_single_file(analyzer, target_path)
+    else:
+        console.print("\n[dim]Analyzing repository...[/dim]")
+        repo_analysis = analyzer.analyze_repo(Path(target))
 
     # Display analysis summary
     if repo_analysis.languages:
@@ -1646,7 +1550,9 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
     console.print()
     console.print(f"[dark_green]✓ Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
     if repo_analysis.skip_scanners:
-        console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(repo_analysis)} files found)[/dim]")
+        _langs = _summarize_skip_languages(repo_analysis)
+        _hint = f" ({_langs})" if _langs else ""
+        console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped — no matching files{_hint}[/dim]")
 
     # Check for CRITICAL missing tools (model files need modelscan, AI patterns need AI tools)
     model_exts = {'.pkl', '.pickle', '.pt', '.pth', '.bin', '.h5', '.hdf5', '.safetensors', '.joblib', '.ckpt', '.model', '.onnx', '.gguf'}
@@ -1743,7 +1649,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         from medusa.core.parallel import MedusaParallelScanner
 
         scanner = MedusaParallelScanner(
-            project_root=Path(target),
+            project_root=target_path.parent if single_file else Path(target),
             workers=workers,
             use_cache=not no_cache and not force,
             quick_mode=quick,
@@ -1760,8 +1666,8 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         if trace_rules:
             _enable_rule_diagnostics(scanner, output, console)
 
-        # Find files
-        files = scanner.find_scannable_files()
+        # Find files (a single-file target scans exactly that file — PR-027)
+        files = [target_path] if single_file else scanner.find_scannable_files()
         if not files:
             console.print("[yellow]⚠️  No files found to scan[/yellow]")
             return
@@ -1851,6 +1757,7 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         # Affirmative empty state: when nothing was found, say so plainly with a
         # file count rather than leaving a bare "Scan complete!" / silent zero.
         _total_findings = sum(len(r.issues) for r in results)
+        _cached_count = sum(1 for r in results if getattr(r, 'cached', False))
         # PR-017: derive the clean-line scanner count the SAME way the SCAN
         # COMPLETE box does (unique scanner_stats keys) so the two numbers can
         # never disagree. Fall back to the distinct scanner attribute only when
@@ -1864,10 +1771,19 @@ def scan(target, workers, quick, force, no_cache, fail_on, output, output_format
         _scanner_word = "scanner" if _scanner_count == 1 else "scanners"
         if _total_findings == 0:
             _file_word = "file" if len(files) == 1 else "files"
-            console.print(
-                f"\n[bold green]✅ Clean — 0 issues found across "
-                f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
-            )
+            if _cached_count and _cached_count == len(results):
+                # PR-021: a full cache hit re-ran no scanners, so "0 scanners"
+                # would read as "nothing was checked" and contradict the box's
+                # "(N unchanged, cache hit)". State the cache hit instead.
+                console.print(
+                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"{len(files)} {_file_word} (cache hit — unchanged since last scan)[/bold green]"
+                )
+            else:
+                console.print(
+                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
+                )
 
         _print_scan_complete()
 
@@ -2228,7 +2144,9 @@ def _scan_git_repo(
         console.print()
         console.print(f"[dark_green]Ready to scan:[/dark_green] {len(ready_scanners)} scanners")
         if repo_analysis.skip_scanners:
-            console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(repo_analysis)} files found)[/dim]")
+            _langs = _summarize_skip_languages(repo_analysis)
+            _hint = f" ({_langs})" if _langs else ""
+            console.print(f"[dim]  {len(repo_analysis.skip_scanners)} scanners skipped — no matching files{_hint}[/dim]")
 
         console.print()
 
@@ -2316,6 +2234,7 @@ def _scan_git_repo(
         # Affirmative empty state — mirror the local scan() path (RM-1) so a clean
         # cloned repo reads as "verified clean" rather than a silent zero.
         _total_findings = sum(len(r.issues) for r in results)
+        _cached_count = sum(1 for r in results if getattr(r, 'cached', False))
         # PR-017: derive the clean-line scanner count the SAME way the SCAN
         # COMPLETE box does (unique scanner_stats keys) so the two numbers can
         # never disagree. Fall back to the distinct scanner attribute only when
@@ -2329,10 +2248,19 @@ def _scan_git_repo(
         _scanner_word = "scanner" if _scanner_count == 1 else "scanners"
         if _total_findings == 0:
             _file_word = "file" if len(files) == 1 else "files"
-            console.print(
-                f"\n[bold green]✅ Clean — 0 issues found across "
-                f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
-            )
+            if _cached_count and _cached_count == len(results):
+                # PR-021: a full cache hit re-ran no scanners, so "0 scanners"
+                # would read as "nothing was checked" and contradict the box's
+                # "(N unchanged, cache hit)". State the cache hit instead.
+                console.print(
+                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"{len(files)} {_file_word} (cache hit — unchanged since last scan)[/bold green]"
+                )
+            else:
+                console.print(
+                    f"\n[bold green]✅ Clean — 0 issues found across "
+                    f"{len(files)} {_file_word}, {_scanner_count} {_scanner_word}[/bold green]"
+                )
 
         _print_scan_complete()
 
@@ -2399,7 +2327,9 @@ def _analyze_project(project_root: Path, console: Console) -> dict:
 
         console.print(f"[dark_green]✓[/dark_green] Recommended scanners: {len(analysis.recommended_scanners)}")
         if analysis.skip_scanners:
-            console.print(f"[dim]   {len(analysis.skip_scanners)} scanners skipped (no {_summarize_skip_languages(analysis)} files found)[/dim]")
+            _langs = _summarize_skip_languages(analysis)
+            _hint = f" ({_langs})" if _langs else ""
+            console.print(f"[dim]   {len(analysis.skip_scanners)} scanners skipped — no matching files{_hint}[/dim]")
     else:
         console.print("[yellow]⚠️  No language files detected[/yellow]")
 

@@ -1180,6 +1180,30 @@ class MedusaParallelScanner:
 
         return table
 
+    def _print_final_scan_table(self, scanner_expected: Dict[str, int],
+                                scanner_totals: Dict[str, Dict[str, int]],
+                                files_done: int, total_files: int,
+                                total_issues: int) -> None:
+        """Render the end-of-scan per-scanner view.
+
+        PR-022: a clean scan (0 findings) collapses the ~20-row Rich table to a
+        single summary line so the "Clean" signal isn't buried under ceremony.
+        A scan that found something still prints the full table — the rows are
+        where the user looks for which scanner fired. Every scan path funnels
+        its final render through here so the two behaviours can't drift.
+        """
+        _con = RichConsole()
+        if total_issues > 0:
+            _con.print(self._build_live_table(
+                scanner_expected, scanner_totals,
+                files_done, total_files, total_issues,
+            ))
+        else:
+            n = len(scanner_totals)
+            _word = "scanner" if n == 1 else "scanners"
+            _con.print(f"[dim]{n} {_word} checked, 0 issues[/dim]")
+        print()
+
     def scan_parallel(self, files: List[Path]) -> List[ScanResult]:
         """Scan files in parallel with live progress table"""
         # Never fork more workers than there are files: a small target (the
@@ -1414,11 +1438,10 @@ class MedusaParallelScanner:
                     ))
 
                 # Print final table on main screen (after Live context exits)
-                console.print(self._build_live_table(
+                self._print_final_scan_table(
                     scanner_expected, scanner_totals,
                     len(results), len(files), total_issues
-                ))
-                print()
+                )
             else:
                 # Legacy terminals: simple progress without live table
                 print(f"  Scanning: ", end="", flush=True)
@@ -1438,11 +1461,10 @@ class MedusaParallelScanner:
                 print(" Done!")
                 print()
                 # Print final table once for legacy terminals
-                console.print(self._build_live_table(
+                self._print_final_scan_table(
                     scanner_expected, scanner_totals,
                     len(results), len(files), total_issues
-                ))
-                print()
+                )
 
         return results
 
@@ -1572,14 +1594,12 @@ class MedusaParallelScanner:
                     len(results), len(files), total_issues
                 ))
             # Print final table on main screen
-            console.print(self._build_live_table(
+            self._print_final_scan_table(
                 scanner_expected, scanner_totals,
                 len(results), len(files), total_issues
-            ))
-            print()
+            )
         elif HAS_RICH:
             # Legacy Windows: simple progress then final table
-            console = RichConsole()
             print(f"  Scanning: ", end="", flush=True)
             last_pct = 0
             for file_path in files:
@@ -1592,11 +1612,10 @@ class MedusaParallelScanner:
                     last_pct = pct
             print(" Done!")
             print()
-            console.print(self._build_live_table(
+            self._print_final_scan_table(
                 scanner_expected, scanner_totals,
                 len(results), len(files), total_issues
-            ))
-            print()
+            )
         elif HAS_TQDM:
             for file_path in tqdm(files, desc="Scanning files", unit="file"):
                 result = self.scan_file(file_path)
@@ -1741,10 +1760,10 @@ class MedusaParallelScanner:
             print(f"\n{_ic} Reports generated:")
             _arrow = '->' if _ascii else '\u2192'
             for format_name, file_path in generated_files:
-                try:
-                    display_path = os.path.relpath(file_path)
-                except ValueError:
-                    display_path = file_path
+                # PR-023: print the absolute path. os.path.relpath() emitted
+                # unreadable "../../../.."-style chains when the report dir sat
+                # outside the cwd (e.g. a user-supplied -o).
+                display_path = Path(file_path).resolve()
                 print(f"   {format_name:10} {_arrow} {display_path}")
 
         # Show unique scanners that ran (extracted from scanner_stats)
@@ -1766,7 +1785,15 @@ class MedusaParallelScanner:
 
         _w = 20  # label width for alignment
         total_time = sum(r.scan_time for r in results)
-        _con.print(f"  [dim]{'Files scanned:':<{_w}}[/dim] [white]{len(results) - cached_count}[/white]")
+        _files_scanned = len(results) - cached_count
+        # PR-021: on a cache hit, annotate the unchanged count inline so a bare
+        # "Files scanned: 0" no longer contradicts the "across N files" clean
+        # line three rows below — the box states plainly why nothing re-scanned.
+        if cached_count and self.use_cache:
+            _unchanged = f" [dim]({cached_count} unchanged, cache hit)[/dim]"
+        else:
+            _unchanged = ""
+        _con.print(f"  [dim]{'Files scanned:':<{_w}}[/dim] [white]{_files_scanned}[/white]{_unchanged}")
         _con.print(f"  [dim]{'Lines of code:':<{_w}}[/dim] [white]{total_lines:,}[/white]")
         _con.print(f"  [dim]{'Issues found:':<{_w}}[/dim] [bold yellow]{len(findings)}[/bold yellow]")
         if likely_fps:

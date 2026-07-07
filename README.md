@@ -429,6 +429,7 @@ medusa scan . --format sarif     # json | html | markdown | sarif | all
 | `-o, --output PATH` | Custom output directory for reports |
 | `--format FORMAT` | Output format: `json`, `html`, `markdown`, `sarif`, `all` (repeatable) |
 | `--no-report` | Skip generating HTML report |
+| `--no-ai-safe` | Disable AI-safe output redaction (show raw matched payloads in the report) |
 | `-y, --yes` / `--no-prompt` | Skip confirmation prompts / auto-continue optional-tool gates (CI) |
 | `--trace-rules` | Rule diagnostics: per-rule firing log and timing (`rule-trace.jsonl`, `slow_rules.csv`); forces a serial scan |
 | `--screening` | Target-vetting mode: surface attack/high-severity findings even in `tests/`, `examples/`, or dataset files (auto-enabled for `--git`) |
@@ -636,6 +637,6 @@ also be released under AGPL-3.0. Commercial licensing: support@pantheonsecurity.
 
 ---
 
-**MEDUSA v2026.8.0** · 42,684 detection patterns (228 curated core + ~42,456 research-harvested
+**Version**: 2026.8.0 · 42,684 detection patterns (228 curated core + ~42,456 research-harvested
 screening) · 40+ built-in AI/ML analyzers + 44 optional linter integrations · 310 CVE detections · Linux · macOS ·
 Windows · Standards: OWASP Top 10 for LLM 2025, MITRE ATLAS.
