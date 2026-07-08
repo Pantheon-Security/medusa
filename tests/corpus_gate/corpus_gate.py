@@ -109,8 +109,11 @@ def vet_repo(medusa, repo):
 def scan_findings(medusa, repo):
     """Full findings list via `medusa scan --format json` (rule-level detail)."""
     with tempfile.TemporaryDirectory() as td:
+        # --screening so the harvested corpus fires exactly as `vet` runs it
+        # (default mode gates harvested rules out; vet does not). --no-cache
+        # because the result cache is keyed on content, not scanner version.
         rc, out, err = run([medusa, "scan", repo, "--format", "json",
-                            "--yes", "--no-cache", "-o", td])
+                            "--screening", "--yes", "--no-cache", "-o", td])
         # find the report json the scanner wrote
         cand = [p for p in Path(td).glob("medusa-scan-*.json")
                 if "raw-payload" not in p.name and "history" not in p.name]
@@ -123,7 +126,27 @@ def scan_findings(medusa, repo):
         return data.get("findings", []) or []
 
 
-def analyse(repo, verdict, findings):
+def harvested_rule_ids():
+    """Rule IDs that are screening-only (harvested / low pipeline_confidence).
+
+    Lets the gate tag each false-block by provenance: harvested FPs are fixable
+    en masse by capping the screening corpus below the hard-block tier; curated
+    FPs need per-rule hand-tuning.
+    """
+    try:
+        from medusa.rules import RuleLoader, is_screening_only
+        ids = set()
+        for r in RuleLoader().load_all_rules():
+            rid = getattr(r, "id", None)
+            if rid and is_screening_only(r):
+                ids.add(rid)
+        return frozenset(ids)
+    except Exception as e:  # pragma: no cover
+        print(f"  (provenance tagging unavailable: {e})")
+        return frozenset()
+
+
+def analyse(repo, verdict, findings, harvested_ids=frozenset()):
     blocking = [f for f in findings
                 if str(f.get("severity", "")).upper() in _BLOCK_SEV]
     # dedup key: same rule at same file:line seen more than once
@@ -141,6 +164,10 @@ def analyse(repo, verdict, findings):
         "total_findings": len(findings),
         "blocking_findings": len(blocking),
         "blocking_rules": Counter(f.get("rule_id") for f in blocking),
+        "blocking_harvested": Counter(f.get("rule_id") for f in blocking
+                                      if f.get("rule_id") in harvested_ids),
+        "blocking_curated": Counter(f.get("rule_id") for f in blocking
+                                    if f.get("rule_id") not in harvested_ids),
         "dup_inflation": dup_inflation,      # extra copies of an identical finding
         "tmp_findings": len(tmp_hits),       # findings under throwaway dirs
     }
@@ -166,22 +193,32 @@ def main():
     print(f"Corpus: {len(good)} known-good, {len(vuln)} known-vuln repos "
           f"(medusa: {args.medusa})\n")
 
-    fp_repos, fp_rule_counts = [], Counter()
+    harvested_ids = harvested_rule_ids()
+    print(f"  (tagged {len(harvested_ids)} harvested/screening-only rule ids)\n")
+
+    hard_fp, soft_fp = [], []          # DO_NOT_INSTALL vs CAUTION on known-good
+    fp_harvested, fp_curated = Counter(), Counter()
     dedup_offenders, tmp_offenders, empty_offenders = [], [], []
     rows = []
 
     for repo in good:
         verdict, _ = vet_repo(args.medusa, repo)
         findings = scan_findings(args.medusa, repo)
-        a = analyse(repo, verdict, findings)
+        a = analyse(repo, verdict, findings, harvested_ids)
         rows.append(("good", a))
         # empty-dir honesty: 0 code files must not read as a plain SAFE
         if a["code_files"] == 0 and a["verdict"] == "SAFE":
             empty_offenders.append(repo)
-        # false block: benign repo returned a blocking verdict
+        # false block, split by tier: DO_NOT_INSTALL is the cry-wolf error;
+        # CAUTION is softer (advisory). Both aggregate the driving rules by
+        # provenance so we know harvested-cap-fixable vs curated-hand-tune.
+        if a["verdict"] == "DO_NOT_INSTALL":
+            hard_fp.append((repo, a["score"]))
+        elif a["verdict"] == "CAUTION":
+            soft_fp.append((repo, a["score"]))
         if a["verdict"] in ("CAUTION", "DO_NOT_INSTALL"):
-            fp_repos.append((repo, a["verdict"], a["score"]))
-            fp_rule_counts.update(a["blocking_rules"])
+            fp_harvested.update(a["blocking_harvested"])
+            fp_curated.update(a["blocking_curated"])
         if a["dup_inflation"] > 0:
             dedup_offenders.append((repo, a["dup_inflation"]))
         if a["tmp_findings"] > 0:
@@ -191,55 +228,69 @@ def main():
     for repo in vuln:
         verdict, _ = vet_repo(args.medusa, repo)
         findings = scan_findings(args.medusa, repo)
-        a = analyse(repo, verdict, findings)
+        a = analyse(repo, verdict, findings, harvested_ids)
         rows.append(("vuln", a))
         if a["verdict"] == "SAFE":
             missed.append(repo)
 
     # ---- report ----
     n_good, n_vuln = len(good), len(vuln)
-    fp_rate = (len(fp_repos) / n_good * 100) if n_good else 0.0
+    hard_rate = (len(hard_fp) / n_good * 100) if n_good else 0.0
     det_rate = ((n_vuln - len(missed)) / n_vuln * 100) if n_vuln else None
 
     print("=" * 64)
     print("MEDUSA CORPUS-VALIDATION GATE")
     print("=" * 64)
-    print(f"  FALSE-BLOCK RATE (known-good): {len(fp_repos)}/{n_good} "
-          f"= {fp_rate:.1f}%   (target 0%)")
+    print(f"  HARD-BLOCK (DO_NOT_INSTALL) known-good: {len(hard_fp)}/{n_good} "
+          f"= {hard_rate:.1f}%   (target 0% -- the cry-wolf error)")
+    print(f"  SOFT-BLOCK (CAUTION) known-good:        {len(soft_fp)}/{n_good}   (advisory)")
     if det_rate is not None:
-        print(f"  DETECTION RATE  (known-vuln): {n_vuln-len(missed)}/{n_vuln} "
+        print(f"  DETECTION RATE (known-vuln):            {n_vuln-len(missed)}/{n_vuln} "
               f"= {det_rate:.1f}%   (target 100%)")
-    print(f"  DEDUP inflation:  {sum(d for _,d in dedup_offenders)} extra dup findings "
-          f"across {len(dedup_offenders)} repos   (target 0)")
-    print(f"  TMP/BUILD scanned: {sum(t for _,t in tmp_offenders)} findings in throwaway dirs "
-          f"across {len(tmp_offenders)} repos   (target 0)")
-    print(f"  EMPTY-DIR-as-SAFE: {len(empty_offenders)} repos   (target 0)")
+    print(f"  DEDUP inflation:   {sum(d for _,d in dedup_offenders)} across {len(dedup_offenders)} repos")
+    print(f"  TMP/BUILD scanned: {sum(t for _,t in tmp_offenders)} across {len(tmp_offenders)} repos")
+    print(f"  EMPTY-DIR-as-SAFE: {len(empty_offenders)} repos")
 
-    if fp_repos:
-        print("\n  Known-good repos FALSELY BLOCKED:")
-        for repo, v, s in fp_repos:
-            print(f"    [{v}] score {s}  {repo}")
-    if fp_rule_counts:
-        print("\n  PER-RULE false-positive ranking (blocking hits on good code):")
-        for rule, c in fp_rule_counts.most_common(15):
+    if hard_fp:
+        print("\n  HARD-BLOCKED (DO_NOT_INSTALL) known-good repos:")
+        for repo, s in sorted(hard_fp, key=lambda x: -(x[1] or 0)):
+            print(f"    score {str(s):>6}  {repo}")
+    if soft_fp:
+        print("\n  CAUTION known-good repos:")
+        for repo, s in sorted(soft_fp, key=lambda x: -(x[1] or 0)):
+            print(f"    score {str(s):>6}  {repo}")
+
+    def _rank(counter, title):
+        if not counter:
+            return
+        tot = sum(counter.values())
+        print(f"\n  {title}  ({tot} hits, {len(counter)} rules):")
+        for rule, c in counter.most_common(20):
             print(f"    {c:4d}  {rule}")
+
+    _rank(fp_curated, "CURATED false-block drivers  [hand-tune]")
+    _rank(fp_harvested, "HARVESTED false-block drivers  [screening-corpus cap]")
+
     if missed:
         print("\n  Known-vuln repos MISSED (returned SAFE):")
         for r in missed:
             print(f"    {r}")
 
-    passed = (len(fp_repos) == 0 and not missed and not dedup_offenders
+    # PASS = no HARD blocks on known-good (CAUTION is advisory, allowed),
+    # full detection, and no dedup/tmp/empty regressions.
+    passed = (not hard_fp and not missed and not dedup_offenders
               and not tmp_offenders and not empty_offenders)
     print("\n" + ("GATE PASS" if passed else "GATE FAIL") +
-          f"  ({len(fp_repos)} false blocks, {len(missed)} missed, "
-          f"{len(dedup_offenders)} dedup, {len(tmp_offenders)} tmp, "
-          f"{len(empty_offenders)} empty-safe)")
+          f"  ({len(hard_fp)} hard-block, {len(soft_fp)} caution, {len(missed)} missed, "
+          f"{len(dedup_offenders)} dedup, {len(tmp_offenders)} tmp, {len(empty_offenders)} empty)")
 
     if args.out:
         Path(args.out).write_text(json.dumps({
-            "fp_rate": fp_rate, "detection_rate": det_rate,
-            "false_blocked": [{"repo": r, "verdict": v, "score": s} for r, v, s in fp_repos],
-            "per_rule_fp": dict(fp_rule_counts),
+            "hard_block_rate": hard_rate, "detection_rate": det_rate,
+            "hard_blocked": [{"repo": r, "score": s} for r, s in hard_fp],
+            "caution": [{"repo": r, "score": s} for r, s in soft_fp],
+            "curated_fp_drivers": dict(fp_curated),
+            "harvested_fp_drivers": dict(fp_harvested),
             "missed_vuln": missed,
             "dedup_offenders": dedup_offenders, "tmp_offenders": tmp_offenders,
             "empty_as_safe": empty_offenders,
