@@ -104,17 +104,56 @@ class ToolCallbackScanner(RuleBasedScanner):
         re.compile(r'filterResponse', re.IGNORECASE),
     ]
 
-    # Patterns indicating destructive operations
-    DESTRUCTIVE_PATTERNS = [
-        (re.compile(r'delete|remove|drop|truncate|destroy', re.IGNORECASE), 'Destructive operation'),
-        (re.compile(r'rm\s+-rf|rmdir|unlink', re.IGNORECASE), 'File deletion'),
-        (re.compile(r'exec|eval|spawn|system', re.IGNORECASE), 'Code execution'),
-        (re.compile(r'write.{0,30}file|writeFile|fs\.write', re.IGNORECASE), 'File write'),
-        (re.compile(r'update|modify|alter', re.IGNORECASE), 'Data modification'),
-        (re.compile(r'send.{0,20}email|sendEmail|smtp', re.IGNORECASE), 'Email sending'),
-        (re.compile(r'(post|put|patch).{0,30}http|fetch.{0,30}method.{0,10}POST', re.IGNORECASE), 'External API call'),
-        (re.compile(r'subprocess|child_process|exec', re.IGNORECASE), 'Process execution'),
+    # Dangerous/destructive SINK call-sites (TC004), as (regex, description,
+    # category).
+    #
+    # These are ACTUAL function-call invocations, not bare word fragments. The
+    # previous version matched substrings like `system`, `exec`, `remove`,
+    # `update` anywhere in the file — including comments, docstrings, string
+    # literals, import statements and identifiers (`File system`, `remove_tool`,
+    # `SYSTEM = "system"`), which carpet-bombed every benign MCP server. A real
+    # TC004 is a dangerous sink (shell/code execution, file deletion) invoked on
+    # *untrusted/tainted* input (see _arg_is_tainted) inside a tool-callback file
+    # with no nearby validation — i.e. a tool that can execute or destroy on
+    # attacker-controlled arguments. Each pattern ends with `\(` so the match
+    # consumes the opening paren; _find_dangerous_sinks inspects the arg list.
+    #
+    # Category drives the taint policy:
+    #   'exec'   — command/code execution: tainted by dynamic construction
+    #              (f-string/concat/format/shell=True) OR an input-named arg.
+    #   'delete' — destructive filesystem op: tainted only when the path derives
+    #              from an input-named arg (so benign log-rotation on an internal
+    #              path like fs.unlinkSync(path.join(this.config.logDir, file))
+    #              does NOT fire).
+    SINK_CALL_PATTERNS = [
+        # Shell / command execution
+        (re.compile(r'\bos\.system\s*\('), 'Shell command execution', 'exec'),
+        (re.compile(r'\bos\.popen\s*\('), 'Shell command execution', 'exec'),
+        (re.compile(r'\bsubprocess\.(?:run|call|check_call|check_output|Popen)\s*\('), 'Subprocess execution', 'exec'),
+        (re.compile(r'\bchild_process\.(?:exec|execSync|spawn|spawnSync|execFile|execFileSync)\s*\('), 'Subprocess execution', 'exec'),
+        # Dynamic code execution / evaluation (not the benign `regex.exec()` — the
+        # negative look-behind rules out method calls like `.exec(`)
+        (re.compile(r'(?<![\w.])exec\s*\('), 'Dynamic code execution', 'exec'),
+        (re.compile(r'(?<![\w.])eval\s*\('), 'Dynamic code evaluation', 'exec'),
+        (re.compile(r'\bnew\s+Function\s*\('), 'Dynamic code execution', 'exec'),
+        # Destructive filesystem operations
+        (re.compile(r'\bos\.(?:remove|unlink|rmdir)\s*\('), 'File deletion', 'delete'),
+        (re.compile(r'\bshutil\.rmtree\s*\('), 'Recursive directory deletion', 'delete'),
+        (re.compile(r'\bfs\.(?:unlink|unlinkSync|rm|rmSync|rmdir|rmdirSync)\s*\('), 'File deletion', 'delete'),
     ]
+
+    # Identifier words that mark an argument as untrusted (tool/agent/request)
+    # input. Matched against camelCase/snake_case-split tokens of the arg text.
+    # Deliberately excludes generic path/data/file words so benign internal path
+    # building does not read as tainted.
+    TAINT_WORDS = frozenset({
+        'arg', 'args', 'argument', 'arguments', 'argv',
+        'param', 'params', 'parameter', 'parameters',
+        'request', 'req', 'payload', 'input', 'inputs',
+        'cmd', 'cmdline', 'command', 'commands', 'query', 'querystring',
+        'body', 'form', 'formdata', 'kwargs', 'prompt', 'stdin',
+        'untrusted', 'usersupplied', 'userinput', 'toolinput', 'toolargs',
+    })
 
     # Audit logging patterns
     AUDIT_PATTERNS = [
@@ -240,21 +279,30 @@ class ToolCallbackScanner(RuleBasedScanner):
                 for pattern in self.RATE_LIMIT_PATTERNS
             )
 
-            # TC001: Missing before_tool_callback
-            if not has_before_validation:
-                # Find tool execution locations
-                for pattern in self.TOOL_EXECUTION_PATTERNS:
-                    matches = pattern.finditer(content)
-                    for match in matches:
-                        line = _get_line_number(_offsets, match.start())
-                        issues.append(ScannerIssue(
-                            rule_id="TC001",
-                            severity=Severity.HIGH,
-                            message="Tool execution without before_tool_callback validation",
-                            line=line,
-                            column=1,
-                        ))
-                        break  # One issue per pattern is enough
+            # Locate genuinely-dangerous sink call-sites (shell/code execution,
+            # file deletion) that consume dynamic/tainted input. Both TC001 and
+            # TC004 are gated on these — the "missing guard" and "unprotected
+            # destructive op" findings only make sense when a real dangerous
+            # operation on untrusted input is actually present. This replaces the
+            # previous behaviour of firing on the bare tool-callback shape.
+            dangerous_sinks = self._find_dangerous_sinks(content, file_path, _offsets)
+
+            # TC001: a tool reaches a dangerous sink on dynamic input but the file
+            # has no before_tool_callback / permission / argument-validation guard
+            # anywhere. One finding per file (at the first risky sink), not one per
+            # tool-execution pattern.
+            if not has_before_validation and dangerous_sinks:
+                first_line, _desc, _s, _e = min(dangerous_sinks, key=lambda s: s[2])
+                issues.append(ScannerIssue(
+                    rule_id="TC001",
+                    severity=Severity.HIGH,
+                    message=(
+                        "Tool reaches a dangerous operation on dynamic input "
+                        "without a before_tool_callback validation guard"
+                    ),
+                    line=first_line,
+                    column=1,
+                ))
 
             # TC005: Missing after_tool_callback
             if not has_after_validation and has_tool_execution:
@@ -287,7 +335,7 @@ class ToolCallbackScanner(RuleBasedScanner):
                 ))
 
             # Check destructive operations
-            issues.extend(self._check_destructive_operations(content, file_path, has_before_validation, _offsets))
+            issues.extend(self._check_destructive_operations(content, file_path, has_before_validation, dangerous_sinks, _offsets))
 
             # Check for hardcoded permissions
             issues.extend(self._check_hardcoded_permissions(content, file_path, _offsets))
@@ -325,38 +373,264 @@ class ToolCallbackScanner(RuleBasedScanner):
                 error_message=str(e),
             )
 
+    def _find_dangerous_sinks(
+        self, content: str, file_path: Path, _offsets: List[int] = None
+    ) -> List[Tuple[int, str, int, int]]:
+        """Locate real dangerous/destructive sink call-sites on dynamic input.
+
+        Returns (line, description, start_offset, end_offset) for each sink
+        invocation (from SINK_CALL_PATTERNS) that:
+          - is NOT inside a comment or string literal (via _mask_code), and
+          - is called with an *untrusted/tainted* argument (via _arg_is_tainted)
+            per the sink's category — not a static literal like os.system("clear")
+            or subprocess.run(["where", "python"]), and not benign internal-path
+            deletion like fs.unlinkSync(path.join(this.config.logDir, file)).
+
+        This is the taint/dynamic-exec signal that separates a genuinely
+        dangerous tool (`subprocess.run(params["cmd"], shell=True)`) from
+        ordinary tool-callback/registration code.
+        """
+        if _offsets is None:
+            _offsets = _build_line_offsets(content)
+
+        is_python = file_path.suffix.lower() in (".py", ".pyi")
+        mask = self._mask_code(content, is_python)
+
+        sinks: List[Tuple[int, str, int, int]] = []
+        for pattern, description, category in self.SINK_CALL_PATTERNS:
+            for match in pattern.finditer(content):
+                start = match.start()
+                # Skip sinks that live inside a comment or string literal:
+                # masked positions are blanked to spaces.
+                if start >= len(mask) or mask[start] == ' ':
+                    continue
+                # Pattern ends with '\(' so match.end()-1 is the opening paren.
+                args = self._extract_call_args(content, match.end() - 1)
+                if not self._arg_is_tainted(args, category):
+                    continue
+                line = _get_line_number(_offsets, start)
+                sinks.append((line, description, start, match.end()))
+        return sinks
+
     def _check_destructive_operations(
-        self, content: str, file_path: Path, has_validation: bool, _offsets: List[int] = None
+        self,
+        content: str,
+        file_path: Path,
+        has_validation: bool,
+        dangerous_sinks: List[Tuple[int, str, int, int]],
+        _offsets: List[int] = None,
     ) -> List[ScannerIssue]:
-        """Check destructive operations have proper guards"""
+        """Flag dangerous sinks (on dynamic input) that lack nearby validation.
+
+        Operates only on the pre-vetted `dangerous_sinks` (real sink calls on
+        tainted args, not comments/strings/identifiers), so it no longer fires
+        on the bare word-fragments that carpet-bombed benign MCP servers.
+        """
         issues = []
 
-        for pattern, description in self.DESTRUCTIVE_PATTERNS:
-            matches = list(pattern.finditer(content))
-            for match in matches:
-                line = _get_line_number(_offsets, match.start())
+        for line, description, start, end in dangerous_sinks:
+            # Check if there's a confirmation/validation guard nearby
+            context_start = max(0, start - 500)
+            context_end = min(len(content), end + 100)
+            context = content[context_start:context_end].lower()
 
-                # Check if there's a confirmation/validation nearby
-                context_start = max(0, match.start() - 500)
-                context_end = min(len(content), match.end() + 100)
-                context = content[context_start:context_end].lower()
+            has_confirm = any(word in context for word in [
+                'confirm', 'verify', 'approve', 'authorized',
+                'permission', 'allowed', 'check', 'validate'
+            ])
 
-                has_confirm = any(word in context for word in [
-                    'confirm', 'verify', 'approve', 'authorized',
-                    'permission', 'allowed', 'check', 'validate'
-                ])
-
-                if not has_confirm and not has_validation:
-                    issues.append(ScannerIssue(
-                        rule_id="TC004",
-                        severity=Severity.HIGH,
-                        message=f"{description} without validation/confirmation",
-                        line=line,
-                        column=1,
-                        code="Add confirmation or validation before destructive operations",
-                    ))
+            if not has_confirm and not has_validation:
+                issues.append(ScannerIssue(
+                    rule_id="TC004",
+                    severity=Severity.HIGH,
+                    message=f"{description} on dynamic input without validation/confirmation",
+                    line=line,
+                    column=1,
+                    code="Add confirmation or validation before destructive operations",
+                ))
 
         return issues
+
+    @staticmethod
+    def _extract_call_args(content: str, open_paren_idx: int, limit: int = 400) -> str:
+        """Return the argument text between a call's balanced parentheses.
+
+        Bounded to `limit` chars to avoid pathological scans. Does not attempt
+        to skip parens inside strings — good enough for the boolean taint check
+        in _arg_is_tainted (a stray ')' in a literal only truncates the arg
+        text, it doesn't flip a variable reference into a literal).
+        """
+        depth = 0
+        n = len(content)
+        end_limit = min(n, open_paren_idx + limit)
+        i = open_paren_idx
+        while i < end_limit:
+            c = content[i]
+            if c == '(':
+                depth += 1
+            elif c == ')':
+                depth -= 1
+                if depth == 0:
+                    return content[open_paren_idx + 1:i]
+            i += 1
+        return content[open_paren_idx + 1:end_limit]
+
+    @staticmethod
+    def _split_identifier(token: str) -> List[str]:
+        """Split a camelCase / snake_case identifier into lowercase words.
+
+        `toolInput` -> ['tool', 'input']; `bat_path` -> ['bat', 'path'];
+        `logDir` -> ['log', 'dir']. Used to test arg tokens against TAINT_WORDS.
+        """
+        parts = re.split(r'[_\W]+', token)
+        words: List[str] = []
+        for p in parts:
+            # split camelCase: insert boundary between lower/digit and Upper
+            for w in re.findall(r'[A-Z]+(?=[A-Z][a-z])|[A-Z]?[a-z]+|[A-Z]+|\d+', p):
+                words.append(w.lower())
+        return words
+
+    @classmethod
+    def _arg_has_taint_source(cls, stripped: str) -> bool:
+        """True if any identifier in the (string-stripped) arg text is an
+        untrusted-input name (TAINT_WORDS), by camel/snake word split."""
+        for ident in re.findall(r'[A-Za-z_]\w*', stripped):
+            if any(word in cls.TAINT_WORDS for word in cls._split_identifier(ident)):
+                return True
+        return False
+
+    @classmethod
+    def _arg_is_tainted(cls, raw: str, category: str) -> bool:
+        """True if a sink's argument carries untrusted/tainted input.
+
+        Policy by sink category:
+          - 'exec'   (command/code execution): tainted by dynamic command
+            construction (f-string, `${...}` template, `+` concat, `.format(`,
+            `%`-format, `shell=True`) OR an input-named argument. This keeps the
+            classic injection vectors even when the variable name is generic.
+          - 'delete' (destructive filesystem op): tainted ONLY when the path
+            derives from an input-named argument — benign internal-path deletion
+            (`fs.unlinkSync(path.join(this.config.logDir, file))`) is not flagged.
+
+        A pure-literal argument (`os.system("clear")`,
+        `subprocess.run(["ls", "-la"])`) is never tainted.
+        """
+        a = raw.strip()
+        if not a:
+            return False
+
+        stripped = re.sub(
+            r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|"[^"]*"|\'[^\']*\'|`[^`]*`',
+            '', a,
+        )
+
+        if category == 'exec':
+            # Dynamic command-construction signals (injection vectors)
+            if re.search(r'f["\']', a):          # Python f-string
+                return True
+            if '${' in a:                         # JS/TS template interpolation
+                return True
+            if '+' in stripped:                   # concatenation of code/vars
+                return True
+            if '.format(' in a:
+                return True
+            if re.search(r'%\s*[\(\w\'"]', a):    # printf-style % formatting
+                return True
+            if re.search(r'shell\s*=\s*True', a):
+                return True
+
+        # Both categories: an input-named argument marks the sink as tainted.
+        return cls._arg_has_taint_source(stripped)
+
+    @staticmethod
+    def _mask_code(content: str, is_python: bool) -> str:
+        """Return a same-length copy of `content` with comment and string-literal
+        characters replaced by spaces (newlines preserved).
+
+        Used to reject sink matches that live inside comments or string literals
+        (e.g. a docstring mentioning `os.system(cmd)` or `# subprocess.run(x)`).
+        A lightweight lexer — not a full parser — but only ever *reduces* false
+        positives, and the taint check is the primary precision gate.
+        """
+        out: List[str] = []
+        i = 0
+        n = len(content)
+        string_char: Optional[str] = None
+        triple = False
+        while i < n:
+            c = content[i]
+            if string_char is not None:
+                # Inside a string literal
+                if c == '\\' and i + 1 < n:
+                    out.append('\n' if c == '\n' else ' ')
+                    out.append('\n' if content[i + 1] == '\n' else ' ')
+                    i += 2
+                    continue
+                if triple:
+                    if content[i:i + 3] == string_char * 3:
+                        out.append('   ')
+                        string_char = None
+                        triple = False
+                        i += 3
+                        continue
+                    out.append('\n' if c == '\n' else ' ')
+                    i += 1
+                    continue
+                # single/double-quoted (single line)
+                if c == string_char:
+                    out.append(' ')
+                    string_char = None
+                    i += 1
+                    continue
+                if c == '\n':  # unterminated — reset at line end
+                    out.append('\n')
+                    string_char = None
+                    i += 1
+                    continue
+                out.append(' ')
+                i += 1
+                continue
+            # Not inside a string
+            if is_python and c == '#':
+                while i < n and content[i] != '\n':
+                    out.append(' ')
+                    i += 1
+                continue
+            if not is_python and c == '/' and i + 1 < n and content[i + 1] == '/':
+                while i < n and content[i] != '\n':
+                    out.append(' ')
+                    i += 1
+                continue
+            if not is_python and c == '/' and i + 1 < n and content[i + 1] == '*':
+                while i < n and content[i:i + 2] != '*/':
+                    out.append('\n' if content[i] == '\n' else ' ')
+                    i += 1
+                if i < n:
+                    out.append(' ')
+                    i += 1
+                if i < n:
+                    out.append(' ')
+                    i += 1
+                continue
+            if c in ('"', "'"):
+                if content[i:i + 3] == c * 3:
+                    triple = True
+                    string_char = c
+                    out.append('   ')
+                    i += 3
+                    continue
+                string_char = c
+                out.append(' ')
+                i += 1
+                continue
+            if not is_python and c == '`':
+                string_char = '`'
+                out.append(' ')
+                i += 1
+                continue
+            out.append(c)
+            i += 1
+        return ''.join(out)
 
     def _check_hardcoded_permissions(
         self, content: str, file_path: Path, _offsets: List[int] = None
