@@ -287,6 +287,15 @@ class GitLeaksScanner(BaseScanner):
         """
         rule_id = finding.get('RuleID', '').lower()
 
+        # Low-confidence catch-all rules ("generic-api-key" and friends) match
+        # any high-entropy value near a key/token-ish name — gitleaks' single
+        # biggest false-positive source. Surface them, but NEVER at a blocking
+        # tier: hard-blocking a vet on a generic entropy match is the exact
+        # cry-wolf failure avoided elsewhere, and MEDUSA's own secrets scanner
+        # covers real credentials. Specific-format rules below still block.
+        if 'generic' in rule_id:
+            return Severity.MEDIUM
+
         critical_patterns = [
             'aws', 'gcp', 'azure', 'private-key', 'ssh-key',
             'pgp', 'rsa', 'stripe', 'twilio', 'sendgrid'
