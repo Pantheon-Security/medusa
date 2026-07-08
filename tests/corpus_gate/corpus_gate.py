@@ -110,7 +110,7 @@ def scan_findings(medusa, repo):
     """Full findings list via `medusa scan --format json` (rule-level detail)."""
     with tempfile.TemporaryDirectory() as td:
         rc, out, err = run([medusa, "scan", repo, "--format", "json",
-                            "--yes", "-o", td])
+                            "--yes", "--no-cache", "-o", td])
         # find the report json the scanner wrote
         cand = [p for p in Path(td).glob("medusa-scan-*.json")
                 if "raw-payload" not in p.name and "history" not in p.name]
