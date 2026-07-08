@@ -175,8 +175,18 @@ class SkillManifestScanner(BaseScanner):
     ]
 
     # -- MEDUSA-SKILL-TOOLS-001: over-broad allowed-tools -------------------- #
-    # Tool-value tokens that grant everything (compared lowercased, trimmed).
-    _ALLOW_ALL_TOOLS = {"*", "all", "any", "bash", "bash(*)", "bash(*:*)", "bash(:*)"}
+    # Tool-value tokens that grant EVERYTHING (compared lowercased, trimmed).
+    # Only genuine grant-all sentinels belong here. A *bare* `Bash` (or `Shell`)
+    # token is an ENUMERATED, scoped tool grant — it lists the Bash tool amongst
+    # a specific set (Read, Write, Edit, Bash, Grep, ...) and still gates each
+    # command through per-invocation approval — so it is NOT over-broad and must
+    # not fire. Unrestricted shell is expressed as a WILDCARD scope — `Bash(*)`,
+    # `Bash(*:*)`, `Bash(:*)` — which grants any command; those DO fire (kept
+    # below and via _WILDCARD_TOOL_RE). Removing the bare `bash`/`shell` tokens
+    # here is the precision fix: an enumerated list that merely includes Bash no
+    # longer masquerades as "grants ALL tools".
+    _ALLOW_ALL_TOOLS = {"*", "all", "any", "bash(*)", "bash(*:*)", "bash(:*)",
+                        "shell(*)", "shell(*:*)"}
     # Inline wildcard within a tool value, e.g. "Bash(*)", "Bash(*:*)".
     _WILDCARD_TOOL_RE = re.compile(r'\b(?:bash|shell|exec|run)\s*\(\s*\*', re.IGNORECASE)
 

@@ -304,6 +304,43 @@ class MCPServerScanner(RuleBasedScanner):
          'File operation without directory restriction', Severity.HIGH),
     ]
 
+    # ------------------------------------------------------------------
+    # MCP124 precision gate (path traversal needs an UNTRUSTED path)
+    # ------------------------------------------------------------------
+    # A path-traversal finding is only real when a caller/tool-controlled value
+    # reaches a file operation WITHOUT validation. The raw PATH_TRAVERSAL_PATTERNS
+    # match any `open(path)`, `Path(filename)` or `.read_text()` — so a hardcoded
+    # package-relative read (`Path(__file__).parent/"docs"/x; x.read_text()`), a
+    # config read (`docker_config.read_text()`) and even the sandbox validator
+    # itself (`Path(path).expanduser().resolve()`) fired at HIGH/CRITICAL. These
+    # gates suppress those benign cases while keeping tool-input-to-file flows.
+
+    # An untrusted (caller/tool/request-controlled) source for a path value.
+    # Request accessors (.args/.json/.params/...) must be receiver-qualified
+    # (req./request./ctx.) so a plain filename ending in ``.json`` / ``.body`` is
+    # NOT mistaken for a request body accessor.
+    _MCP_UNTRUSTED_RE = re.compile(
+        r'(?i)(?:'
+        r'\btool_input\b|\buser_input\b|\barguments\b|\bpayload\b|'
+        r'\brequest\b|\breq\b|\bparams\b|\bquery\b|\binput\b|'
+        r'(?:req|request|ctx|context|flask)\.(?:args|json|params|query|body|form|'
+        r'values|data|get_json)\b|'
+        r'process\.argv|sys\.argv'
+        r')'
+    )
+    # Inline validation / sandboxing that neutralises a traversal.
+    _MCP_PATH_VALIDATION_RE = re.compile(
+        r'(?i)(?:\.resolve\s*\(|realpath|abspath|is_relative_to|commonpath|'
+        r'commonprefix|secure_filename|safe_join|_?check_path|safe_path|sanitiz|'
+        r'allowed_dir|allow_?list|base_?dir|base_?path|\bwithin\b|\.startswith\s*\(|'
+        r'relpath|expanduser\s*\(\s*\)\s*\.resolve)'
+    )
+    # Assignment `<name> = <expr containing an untrusted source>` — marks <name>
+    # as tainted so a later file op on that variable is treated as untrusted.
+    _MCP_TAINT_ASSIGN_RE = re.compile(r'^\s*(?:const\s+|let\s+|var\s+)?([A-Za-z_]\w*)\s*=')
+    # Triple-quote docstring / block markers (Python) to skip example code.
+    _MCP_TRIPLE_RE = re.compile(r'"""|\'\'\'')
+
     # Missing validation patterns
     MISSING_VALIDATION_PATTERNS: List[Tuple[str, str, Severity]] = [
         # Direct use of input without validation
@@ -821,12 +858,8 @@ class MCPServerScanner(RuleBasedScanner):
                 "MCP111"
             ))
 
-            # MCP124: Path traversal vulnerabilities
-            issues.extend(self._scan_patterns(
-                content, lines,
-                self.PATH_TRAVERSAL_PATTERNS,
-                "MCP124"
-            ))
+            # MCP124: Path traversal vulnerabilities (untrusted-path precision gate)
+            issues.extend(self._scan_path_traversal(content, lines))
 
             # MCP108/MCP109: Missing annotations
             issues.extend(self._scan_missing_annotations(content, lines))
@@ -1174,6 +1207,76 @@ class MCPServerScanner(RuleBasedScanner):
                         cwe_link=cwe_link
                     ))
                     break  # One issue per line per rule
+
+        return issues
+
+    def _scan_path_traversal(self, content: str, lines: List[str]) -> List[ScannerIssue]:
+        """MCP124 with a precision gate.
+
+        Fires only when a path/file operation acts on an UNTRUSTED value and is
+        NOT inline-validated. Suppresses the context-blind false positives the
+        raw patterns produced: reads of hardcoded / ``__file__``-relative paths,
+        config reads, example code inside docstrings, and the sandbox validator
+        itself (which literally calls ``.resolve()`` / a root check).
+        """
+        issues: List[ScannerIssue] = []
+
+        # 1. Pre-compute tainted variables: any `name = ... <untrusted> ...`.
+        tainted: set = set()
+        for line in lines:
+            if self._MCP_UNTRUSTED_RE.search(line):
+                m = self._MCP_TAINT_ASSIGN_RE.match(line)
+                if m:
+                    tainted.add(m.group(1))
+        tainted_re = (
+            re.compile(r'\b(?:' + '|'.join(re.escape(v) for v in tainted) + r')\b')
+            if tainted else None
+        )
+
+        # 2. Track triple-quoted docstring/example blocks to skip example code.
+        in_triple = False
+        window = 3  # lines each side to look for inline validation
+
+        for i, line in enumerate(lines, 1):
+            quote_hits = len(self._MCP_TRIPLE_RE.findall(line))
+            starts_in_triple = in_triple
+            if quote_hits % 2 == 1:
+                in_triple = not in_triple
+            # Skip lines that are wholly inside a docstring/example block, or comments.
+            if starts_in_triple:
+                continue
+            stripped = line.lstrip()
+            if stripped.startswith('#') or stripped.startswith('//') or stripped.startswith('*'):
+                continue
+
+            for pattern, description, severity in self.PATH_TRAVERSAL_PATTERNS:
+                if not re.search(pattern, line, re.IGNORECASE):
+                    continue
+
+                # Validated inline or within a small window -> not a traversal.
+                lo, hi = max(0, i - 1 - window), min(len(lines), i + window)
+                if any(self._MCP_PATH_VALIDATION_RE.search(w) for w in lines[lo:hi]):
+                    break
+
+                # Require an untrusted origin: an untrusted marker on the line, a
+                # tainted variable used on the line, or a literal input.* token.
+                untrusted = (
+                    self._MCP_UNTRUSTED_RE.search(line) is not None
+                    or (tainted_re is not None and tainted_re.search(line) is not None)
+                )
+                if not untrusted:
+                    break  # hardcoded / package-relative path — benign
+
+                cwe_id, cwe_link = self._CWE_MAP.get("MCP124", (None, None))
+                issues.append(ScannerIssue(
+                    severity=severity,
+                    message=description,
+                    line=i,
+                    rule_id="MCP124",
+                    cwe_id=cwe_id,
+                    cwe_link=cwe_link,
+                ))
+                break  # One issue per line
 
         return issues
 

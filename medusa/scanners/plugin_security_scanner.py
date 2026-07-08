@@ -106,17 +106,47 @@ class PluginSecurityScanner(BaseScanner):
     ]
 
     # PLG006: Unrestricted plugin capabilities
+    #
+    # Precision contract: the genuinely-suspicious signal is a plugin/tool hook
+    # that EXERCISES a dangerous capability on UNTRUSTED input — a rogue hook
+    # that runs caller-supplied code/commands or touches a caller-supplied path.
+    # The old patterns matched the bare word "plugin" anywhere on a line next to
+    # a capability noun (`plugin.*execute`, `plugin.*file.*write`), so benign
+    # plumbing — `plugin_file.write_text(TEMPLATE)`, `print("... hook written")`,
+    # an identifier like `PLUGIN_PATH` — fired at CRITICAL. These patterns instead
+    # require an actual dangerous SINK CALL whose argument references untrusted /
+    # caller-controlled data, so a hardcoded write or a log line no longer fires.
+    # A caller/tool/request-controlled source. Deliberately NOT `args` (internal
+    # argv lists like `subprocess.run(["gh", *args])` are safe) and request
+    # accessors are receiver-qualified (`req.json`, not a `.json` filename).
+    _UNTRUSTED = (
+        r'(?:tool_input|user_input|\barguments\b|\bpayload\b|'
+        r'\brequest\b|\breq\b|\binput\b|\bparams\b|\bquery\b|\bbody\b|'
+        r'(?:req|request|ctx|context|flask)\.(?:args|json|params|query|body|'
+        r'form|values|data|get_json)\b)'
+    )
     CAPABILITY_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'plugin.*(?:file|filesystem|disk).*(?:read|write|delete)',
-         'Plugin with filesystem access', Severity.HIGH),
-        (r'plugin.*(?:network|http|request).*(?:send|fetch|get)',
-         'Plugin with network access', Severity.MEDIUM),
-        (r'plugin.*(?:execute|run|shell|subprocess)',
-         'Plugin with code execution capability', Severity.CRITICAL),
-        (r'plugin.*(?:database|sql|query)',
-         'Plugin with database access', Severity.HIGH),
-        (r'(?:os\.|subprocess\.|exec\().*plugin',
-         'OS/subprocess in plugin code', Severity.CRITICAL),
+        # Dynamic code execution built from untrusted input. `(?<![.\w])` keeps
+        # this to the builtin exec()/eval()/compile() — NOT a method call like
+        # `regex.exec(input)` (JS RegExp.exec) or `re.compile(input)` (regex),
+        # which execute no caller code.
+        (r'(?<![.\w])(?:exec|eval|compile)\s*\([^)]*' + _UNTRUSTED,
+         'Plugin executes dynamic code from untrusted input', Severity.CRITICAL),
+        # Shell / OS command built from untrusted input.
+        (r'\b(?:os\.system|os\.popen|commands\.getoutput|'
+         r'subprocess\.(?:run|call|Popen|check_output|check_call))\s*\([^)]*' + _UNTRUSTED,
+         'Plugin runs a shell/OS command from untrusted input', Severity.CRITICAL),
+        # Shell spawned with shell=True and an untrusted argument (injection surface).
+        (r'subprocess\.\w+\s*\((?=[^)]*shell\s*=\s*True)[^)]*' + _UNTRUSTED,
+         'Plugin spawns a shell (shell=True) with untrusted input', Severity.CRITICAL),
+        # Node/JS child process spawned from untrusted input.
+        (r'child_process\.(?:exec|execSync|spawn|spawnSync)\s*\([^)]*' + _UNTRUSTED,
+         'Plugin executes a child process from untrusted input', Severity.CRITICAL),
+        # Filesystem write/delete on an untrusted (caller-controlled) path.
+        # `(?<![.\w])open` matches the builtin open(), not a method like
+        # `opener.open(req)` (a urllib opener, not a file operation).
+        (r'(?:(?<![.\w])open|os\.remove|os\.unlink|shutil\.rmtree|os\.rmdir)\s*\([^)]*' + _UNTRUSTED,
+         'Plugin file operation on an untrusted path', Severity.HIGH),
     ]
 
     # PLG007: Plugin-to-plugin trust
