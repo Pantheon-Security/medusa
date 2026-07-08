@@ -40,6 +40,111 @@ def _demote_severity(severity: Severity) -> Severity:
     return _SEVERITY_ORDER[new_rank]
 
 
+# ---------------------------------------------------------------------------
+# Leak-sink / system-prompt-token fragments (PL001 precision)
+# ---------------------------------------------------------------------------
+# A real system-prompt LEAK requires the prompt to reach an untrusted / user-
+# visible SINK (an HTTP response, a return value, a log line, stdout, a JS
+# response). The mere presence of a `{system_prompt}` interpolation -- or worse
+# a generically-named `{instructions}` file-path variable -- is NOT a leak.
+# These fragments let PL001 require BOTH a leak sink AND a genuinely system-
+# scoped prompt token, so `print(f"{instructions}")` (a CLI status line printing
+# a copilot-instructions.md path) no longer fires while `return f"...{system_prompt}"`
+# and `logger.info(f"...{system_prompt}")` still do.
+_LEAK_SINK = (
+    r'(?:return|response|resp|reply|res|output|result|answer|send\w*|write|writeln'
+    r'|render\w*|jsonify|make_response|json_response|self\.write|emit|print'
+    r'|console\.\w+|log(?:ger)?\.\w+|res\.(?:send|json|write)|say|puts)'
+)
+# System-scoped prompt/message/instruction token. Deliberately excludes bare
+# `instructions` / `prompt` / `PROMPT`, which match ordinary variables and file
+# paths (copilot-instructions.md, setup instructions, prompt templates).
+_SYS_PROMPT_TOKEN = (
+    r'(?:system[_-]?prompt|systemPrompt|SYS[_-]?PROMPT|system[_-]?message'
+    r'|systemMessage|system[_-]?instruction|systemInstruction|hidden[_-]?prompt'
+    r'|secret[_-]?prompt|internal[_-]?prompt)'
+)
+
+
+# ---------------------------------------------------------------------------
+# Illustrative / detection-context suppression (PL101-PL108 precision)
+# ---------------------------------------------------------------------------
+# The prompt-EXTRACTION patterns (PL101-PL108) detect adversarial attack
+# *strings* ("ignore previous instructions", ...). Those exact strings also
+# appear, entirely benignly, in three places all over agent/MCP projects:
+#   1. security *documentation* that quotes the attack as an example,
+#   2. *detection rules* (another scanner's YAML/regex that matches the attack),
+#   3. markdown *attack-example tables* in threat-model write-ups.
+# In none of these is the string a deployed payload. Suppress an extraction
+# match when its line/context is one of these illustrative/detection forms; a
+# real payload (a bare weaponised string literal / message content) carries
+# none of these markers and still fires.
+_DETECTION_LINE_RE = re.compile(
+    r'\b(?:pattern|regex|signature|matcher|rule_?id)\s*[:=]'   # rule definition
+    r'|\(\?[aiLmsuxU]*[:)]'                                    # inline regex (?i) / (?:
+    r'|re\.(?:compile|search|match|findall|finditer|sub)'      # python regex API
+    r'|\\b|\\s[*+?]|\[\^',                                     # raw regex metacharacters
+    re.IGNORECASE,
+)
+_MD_TABLE_ROW_RE = re.compile(r'^\s{0,8}\|.*\|')
+# An attack string presented as a quoted example: introduced by an example
+# marker (e.g./like/for example) OR a narration verb (attacker *writes*/*says*/
+# *sends* "..."), followed by an opening quote. Straight AND smart quotes are
+# covered because prose in .md files routinely uses curly quotes.
+_QUOTED_EXAMPLE_RE = re.compile(
+    # No trailing \b: markers ending in "." (e.g./i.e.) have no word boundary
+    # before the following punctuation. The leading \b anchors the left edge.
+    r'(?i)\b(?:e\.?g\.?|i\.?e\.?|such as|like|for example|for instance'
+    r'|examples?|samples?|writes?|says?|sends?|inputs?|contains?|injects?)'
+    r'[\s:,.\-–—]*["\'`“”‘’]'
+)
+# A line whose leading label announces an attack/example scenario, e.g.
+# `Attack: ...`, `[CRITICAL] Injection: ...`, `Payload: ...`. The colon must
+# precede any quote so a real payload assignment (`attack = "...:..."`) is not
+# mistaken for a label.
+_ATTACK_LABEL_RE = re.compile(
+    r'^\s*(?:[>#*\-•]+\s*)?(?:\[[^\]\n]*\]\s*)?'
+    r'(?:attack|payload|exploit|example|injection|jailbreak|threat'
+    r'|malicious|adversarial|prompt injection|attacker|red[\s-]?team'
+    r'|scenario|technique)'
+    r'\b[^:"\'`\n]{0,40}:',
+    re.IGNORECASE,
+)
+_EXAMPLE_HEADER_RE = re.compile(
+    r'(?i)\b(?:examples?|phrases?|attack vectors?|injection examples?'
+    r'|sample (?:attacks?|phrases?|payloads?)|payload examples?'
+    r'|test (?:cases?|vectors?|strings?)|known (?:attacks?|payloads?))\s*:'
+)
+
+
+def _is_illustrative_prompt_context(
+    line_text: str,
+    preceding_lines: List[str],
+    match_col: Optional[int] = None,
+) -> bool:
+    """True when an extraction match is a documented/detected *example*, not a
+    deployed payload (detection rule, markdown attack-example table, markdown
+    inline-code reference, a quoted example introduced by e.g./like/attacker-
+    writes, an ``Attack:`` label, or a ``phrases:`` header on a preceding line)."""
+    if _DETECTION_LINE_RE.search(line_text):
+        return True
+    if _MD_TABLE_ROW_RE.match(line_text):
+        return True
+    if _QUOTED_EXAMPLE_RE.search(line_text):
+        return True
+    if _ATTACK_LABEL_RE.match(line_text):
+        return True
+    # Markdown inline-code span: an odd number of backticks before the match
+    # means the attack phrase is quoted as `code` (a reference in a security
+    # doc, e.g. a "Prompt Injection Detection" blocklist), not a live payload.
+    if match_col is not None and line_text.count('`', 0, match_col) % 2 == 1:
+        return True
+    for prev in preceding_lines:
+        if _EXAMPLE_HEADER_RE.search(prev):
+            return True
+    return False
+
+
 class PromptLeakageScanner(RuleBasedScanner):
     """
     Prompt Leakage Detection Scanner
@@ -99,15 +204,28 @@ class PromptLeakageScanner(RuleBasedScanner):
             Severity.HIGH,
             'PL001',
         ),
+        # f-string interpolation of a *system* prompt into a leak sink. Requires
+        # BOTH a leak sink (return/response/log/print/...) and a system-scoped
+        # token so benign CLI status lines like `print(f"{instructions}")` (where
+        # `instructions` is a copilot-instructions.md Path) no longer fire.
         (
-            re.compile(r'f["\'].*\{(system_prompt|instructions|PROMPT)\}', re.IGNORECASE | re.MULTILINE),
-            'System prompt interpolated in f-string response',
+            re.compile(
+                r'\b' + _LEAK_SINK + r'\b[^\n]{0,60}f["\'][^"\'\n]*\{[^}\n]*'
+                + _SYS_PROMPT_TOKEN + r'[^}\n]*\}',
+                re.IGNORECASE | re.MULTILINE,
+            ),
+            'System prompt interpolated into a user-facing sink (f-string leak)',
             Severity.CRITICAL,
             'PL001',
         ),
+        # JS/TS template-literal interpolation of a system prompt into a leak sink.
         (
-            re.compile(r'\$\{(systemPrompt|system_prompt|instructions)\}', re.IGNORECASE | re.MULTILINE),
-            'System prompt in template literal',
+            re.compile(
+                r'\b' + _LEAK_SINK + r'\b[^\n]{0,60}\$\{[^}\n]*'
+                + _SYS_PROMPT_TOKEN + r'[^}\n]*\}',
+                re.IGNORECASE | re.MULTILINE,
+            ),
+            'System prompt interpolated into a user-facing sink (template-literal leak)',
             Severity.CRITICAL,
             'PL001',
         ),
@@ -663,6 +781,16 @@ class PromptLeakageScanner(RuleBasedScanner):
             for pattern, message, severity, rule_id in self.PROMPT_EXTRACTION_PATTERNS:
                 for match in pattern.finditer(content):
                     line = _get_line_number(_offsets, match.start())
+                    # Precision gate: skip attack strings that are merely being
+                    # documented, quoted as an example, or defined inside another
+                    # tool's detection rule -- none of those are live payloads.
+                    # A real weaponised payload string carries none of these
+                    # markers and still fires.
+                    line_text = lines[line - 1] if 0 <= line - 1 < len(lines) else ''
+                    preceding = lines[max(0, line - 6):line - 1]
+                    match_col = match.start() - (content.rfind('\n', 0, match.start()) + 1)
+                    if _is_illustrative_prompt_context(line_text, preceding, match_col):
+                        continue
                     issues.append(ScannerIssue(
                         rule_id=rule_id,
                         severity=severity,
