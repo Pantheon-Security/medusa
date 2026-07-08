@@ -55,16 +55,21 @@ rules:
 # --- Weak Cryptography ---
 
 - id: SAST-CRYPTO-001
-  name: md5-password-hashing
+  name: md5-security-context
   severity: HIGH
   category: web_security
   patterns:
-    - '(?i)md5\s*\(.*(?:password|passwd|pwd|pass_hash|user_pass)'
-    - '(?i)hashlib\.md5\s*\(.*(?:password|passwd|pwd|encode)'
-    - '(?i)(?:password|passwd|pwd).*md5\s*\('
-    - '(?i)(?:password|passwd|pwd).*=.*md5\('
-  message: "Weak hash: MD5 used for password hashing — use bcrypt, scrypt, or argon2"
-  description: "MD5 is cryptographically broken for password hashing. Use bcrypt, scrypt, or argon2id instead."
+    # MD5 whose argument carries a security token (password/secret/token/key/
+    # signature/HMAC/salt). Note: the alternation deliberately excludes the bare
+    # word `encode` — `hashlib.md5(data.encode())` is the single most common
+    # NON-security use (cache keys, ETags, content hashing) and flagging it HIGH
+    # was the dominant weak-crypto false positive. Generic bare MD5 is covered
+    # at MEDIUM by WEB-CRYPTO-001 / SAST-CRYPTO-003.
+    - '(?i)md5\s*\([^)]*(?:password|passwd|pwd|pass_hash|user_pass|secret|token|api[_-]?key|apikey|private[_-]?key|credential|hmac|\bsalt\b|\bsign(?:ed|ing|ature)?\b)'
+    # security-purpose variable assigned from an MD5 digest (e.g. secret = md5(x))
+    - '(?i)(?:password|passwd|pwd|pass_hash|user_pass|secret|token|api[_-]?key|apikey|private[_-]?key|credential|hmac|signature)\w*\s*=\s*[^=\n]*\bmd5\s*\('
+  message: "Weak hash: MD5 used in a security context (password/token/secret/signing) — use bcrypt/scrypt/argon2 for passwords, SHA-256+/HMAC otherwise"
+  description: "MD5 is cryptographically broken. Using it to hash passwords, derive or verify tokens/API keys, or produce signatures/HMACs is exploitable. Use bcrypt/scrypt/argon2id for passwords and SHA-256+/HMAC-SHA256 for integrity and signing. (Non-security MD5 — cache keys, ETags, dedup — is reported at MEDIUM by WEB-CRYPTO-001.)"
   cwe: CWE-328
   file_types:
     - "*.py"
@@ -75,14 +80,18 @@ rules:
     - "*.java"
 
 - id: SAST-CRYPTO-002
-  name: sha1-password-hashing
+  name: sha1-security-context
   severity: HIGH
   category: web_security
   patterns:
-    - '(?i)sha1\s*\(.*(?:password|passwd|pwd)'
-    - '(?i)hashlib\.sha1\s*\(.*(?:password|passwd|pwd|encode)'
-    - '(?i)(?:password|passwd|pwd).*sha1\s*\('
-  message: "Weak hash: SHA1 used for password hashing — use bcrypt, scrypt, or argon2"
+    # SHA1 whose argument carries a security token. As with SAST-CRYPTO-001 the
+    # bare word `encode` is deliberately excluded — `hashlib.sha1(data.encode())`
+    # for HTML node IDs / cache keys / content dedup is non-security and was a
+    # top false-positive source. Bare SHA1 is covered at MEDIUM by WEB-CRYPTO-001.
+    - '(?i)sha1\s*\([^)]*(?:password|passwd|pwd|pass_hash|user_pass|secret|token|api[_-]?key|apikey|private[_-]?key|credential|hmac|\bsalt\b|\bsign(?:ed|ing|ature)?\b)'
+    # security-purpose variable assigned from a SHA1 digest
+    - '(?i)(?:password|passwd|pwd|pass_hash|user_pass|secret|token|api[_-]?key|apikey|private[_-]?key|credential|hmac|signature)\w*\s*=\s*[^=\n]*\bsha1\s*\('
+  message: "Weak hash: SHA1 used in a security context (password/token/secret/signing) — use bcrypt/scrypt/argon2 for passwords, SHA-256+/HMAC otherwise"
   cwe: CWE-328
   file_types:
     - "*.py"

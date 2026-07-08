@@ -517,21 +517,25 @@ rules:
   file_types: *id001
 - id: WEB-CRYPTO-001
   name: weak-hash-md5-sha1
-  severity: HIGH
+  severity: MEDIUM
   category: weak_crypto
   patterns:
-  - hashlib\.md5\s*\((?![^)]*usedforsecurity\s*=\s*False)
-  - hashlib\.sha1\s*\((?![^)]*usedforsecurity\s*=\s*False)
+  - hashlib\.md5\s*\((?!.*usedforsecurity\s*=\s*False)
+  - hashlib\.sha1\s*\((?!.*usedforsecurity\s*=\s*False)
   - hashlib\.new\s*\(\s*['"]md5['"]
   - hashlib\.new\s*\(\s*['"]sha1['"]
   - Crypto\.Hash\.MD5
   - Crypto\.Hash\.SHA\b
-  message: Weak hash function (MD5/SHA1) - use SHA256 or better
-  description: 'MD5 and SHA1 are cryptographically broken and should not be used
-
-    for security purposes. Use SHA256, SHA3, or bcrypt for passwords.
-
-    Reference: Bandit B303, B324
+  message: Weak hash function (MD5/SHA1) detected - prefer SHA-256+ (non-blocking;
+    security-context use is flagged HIGH by SAST-CRYPTO-001/002)
+  description: 'MD5 and SHA1 are cryptographically broken for SECURITY use — password
+    hashing, signatures, tokens, integrity checks. This generic detection is MEDIUM
+    (below the fail-on:high blocking gate) because bare MD5/SHA1 for NON-security
+    purposes (cache keys, ETags, content dedup, checksums of non-secret data) is
+    common and not a vulnerability. Weak-hash in a genuine security context
+    (near password/token/secret/sign/hmac) is reported HIGH by SAST-CRYPTO-001
+    (MD5) and SAST-CRYPTO-002 (SHA1). Pass usedforsecurity=False to silence the
+    non-security case. Reference: Bandit B303, B324
 
     '
   cwe: CWE-328
