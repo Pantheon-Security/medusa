@@ -182,6 +182,9 @@ def main():
     ap.add_argument("--medusa", default="medusa", help="path to the medusa executable")
     ap.add_argument("--max-depth", type=int, default=3)
     ap.add_argument("--out", default=None, help="write full JSON report here")
+    ap.add_argument("--fast-vuln", action="store_true",
+                    help="vet-only for known-vuln repos (detection); skip the "
+                         "second screening scan to make a full run feasible")
     args = ap.parse_args()
 
     good = args.good_repos + discover_repos(args.good, args.max_depth)
@@ -227,7 +230,10 @@ def main():
     missed = []
     for repo in vuln:
         verdict, _ = vet_repo(args.medusa, repo)
-        findings = scan_findings(args.medusa, repo)
+        # Detection only needs the verdict (not SAFE = caught); skip the second
+        # (slow) screening scan unless --vuln-detail is set. Makes an overnight
+        # full-corpus run feasible.
+        findings = [] if args.fast_vuln else scan_findings(args.medusa, repo)
         a = analyse(repo, verdict, findings, harvested_ids)
         rows.append(("vuln", a))
         if a["verdict"] == "SAFE":
