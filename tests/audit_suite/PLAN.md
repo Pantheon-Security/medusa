@@ -14,6 +14,12 @@ We have that corpus (`medusa-test-targets`, ~270 repos, ground-truth labels in `
 
 **This suite is the fix:** a containerised, resumable, labelled audit harness that produces the same detection + false-positive numbers every time, on any machine, and survives a crash.
 
+**It has two components, both running in the same Docker sandbox:**
+- **Component A — Rule audit.** Detection + false-positive accuracy of the *scanner rules* (`medusa vet` / `medusa scan` verdicts on the labelled corpus). This is the drafted `audit.py` / `report.py`.
+- **Component B — Hook / integration audit.** Does the *git hook and install-time integration* actually enforce the verdict at the right moment — the PreToolUse hook intercepting `git clone` / URL-based `pip|npm|uv|curl` installs, the pre-commit secrets block, and the MCP gatekeeper (`scan_repo`/`scan_skill`/`secrets_scan`)? Same corpus, but this is *integration* testing, not rule-accuracy.
+
+> **Security is the reason this is Docker, not a venv.** We scan and — for Component B — *drive install/clone commands against deliberately-malicious repos on purpose*. That must never touch the host. Every run is in a container: corpus mounted **read-only**, **non-root** user, **`--network none`** by default (a bad repo/package can't phone home), ephemeral (`--rm`), no host bind beyond the RO corpus + a results volume. Component B especially: if a hook is meant to block `pip install <malicious-url>` and we test that it does, the command is issued **inside the sandbox** so a failure-to-block can't run a malicious `setup.py` on the laptop.
+
 ---
 
 ## 2. Goals / Non-goals
@@ -62,6 +68,21 @@ We have that corpus (`medusa-test-targets`, ~270 repos, ground-truth labels in `
 
 ---
 
+## 4B. Component B — hook / integration audit (the git hook)
+
+Component A proves the *verdict is correct*. Component B proves the *hook enforces it at the moment of install/commit*. All of this runs **inside the Docker sandbox** (see the security box in §1) because it drives real clone/install commands against malicious repos.
+
+**Tests (each: feed a known-malicious corpus repo → assert BLOCK; feed a clean repo → assert ALLOW):**
+- **B1 — PreToolUse: `git clone`.** Simulate the Claude Code PreToolUse hook receiving a `git clone <repo>` for a corpus repo; assert it returns DO_NOT_INSTALL / non-zero (blocks) for a malicious repo and SAFE (allows) for a clean one, **before** any clone executes.
+- **B2 — PreToolUse: URL installs.** Same for URL-based `pip` / `npm` / `uv` / `poetry` / `cargo` / `go` / `curl|sh` installs that reference a git/URL source (bare-name `pip install requests` is out of scope — documented as no-URL-to-vet).
+- **B3 — pre-commit secrets block.** Stage a file containing a planted credential; assert the `medusa hooks install --pre-commit` hook blocks the commit; assert a clean file commits fine.
+- **B4 — MCP gatekeeper.** Start `medusa mcp`; call `scan_repo` / `scan_skill` / `secrets_scan` on corpus repos over the MCP protocol; assert the verdict returned to the "agent" matches the CLI vet verdict and that out-of-tree paths are refused.
+- **B5 — hooks install/status wiring.** `medusa hooks install --all` in a throwaway project → `hooks status` shows every integration present (Claude PreToolUse/SessionStart/vet-skill/MCP, Cursor, Codex, git pre-commit).
+
+**How B differs from A operationally:** B is small and fast (a handful of asserted flows, not a 270-repo sweep), so it can run every time; A is the periodic broad sweep. B's harness reuses A's corpus + labels to pick its malicious/clean inputs. B does **not** need `--no-cache`/screening tuning — it asserts hook *behaviour*, not rule counts.
+
+**Security for B (non-negotiable):** every clone/install B issues runs in the `--network none`, non-root, `--rm` container; a hook that *fails* to block therefore executes the malicious command **inside a throwaway sandbox with no host mount but the RO corpus and no network** — it cannot reach the laptop or the internet. Never run Component B outside the container.
+
 ## 5. Architecture
 
 ```
@@ -95,7 +116,8 @@ Both run bare today (`python3 audit.py --corpus … --labels …`). They have **
 2. **docker-compose.yml / run.sh** — one command: build, mount corpus RO + results RW, run audit then report. Flags pass through (`--only`, `--redo`, `--osv`).
 3. **Validate end-to-end small** — `--only` on ~6 repos (rampart, guardrails, damn-vulnerable-MCP-server, ai-goat, garak, notebooklm) → confirm checkpoints written, resume works (kill mid-run, re-run, it continues), report tables render.
 4. **First real audit** — run the clean-tool set + vuln set; confirm **detection ≥ 132/152** and record the hard-block rate + per-rule ranking as the baseline.
-5. **README** — usage, the §3 label rule, the security model, how to add repos to the catalog.
+5. **Component B — `hook_audit.py`** — implement B1–B5 (§4B), all inside the container; assert block-on-malicious / allow-on-clean using corpus repos as inputs.
+6. **README** — usage, the §3 label rule, the security model, how to add repos to the catalog.
 6. **gitignore** `tests/audit_suite/results/`.
 7. **Optional CI** — a `--only` smoke subset in CI so the suite itself can't rot.
 
