@@ -278,6 +278,39 @@ def _is_dependency_vuln_signal(finding: dict) -> bool:
     return (finding.get("rule_id") or "").startswith(_VET_DEP_VULN_RULE_PREFIXES)
 
 
+# --- Screening-only (harvested) sub-tier (softer than curated malice) ---------
+# vet runs the full 40k-pattern corpus in screening mode for RECALL, but the
+# harvested rules are high-recall / low-precision BY DESIGN (PR-013 gates them out
+# of default scans). Like the dependency-CVE tier, a screening-only match can
+# raise the verdict to CAUTION ("we screened this and found things worth a look")
+# but must NEVER hard-block (DO_NOT_INSTALL) on its own — otherwise the harvested
+# corpus carpet-bombs any repo that merely *mentions* attack strings (security
+# tools, research, benchmarks). Curated rules + the malice-signal prefixes
+# (CC-/MEDUSA-MCP-POISON-/MEDUSA-SKILL-/MEDUSA-TAINT-/MEDUSA-ATKSIG-) still
+# hard-block. See tests/test_vet_screening_cap.py.
+@functools.lru_cache(maxsize=1)
+def _screening_only_rule_ids() -> frozenset:
+    """Rule IDs that are screening-only (harvested / low pipeline_confidence).
+
+    Loaded once per process from the rule corpus (the parsed-rule cache keeps this
+    cheap). Falls back to an empty set if the corpus can't load, so a load failure
+    degrades to the prior behaviour rather than silently dropping malice.
+    """
+    try:
+        from medusa.rules import RuleLoader, is_screening_only
+        return frozenset(
+            rid for r in RuleLoader().load_all_rules()
+            if (rid := getattr(r, "id", None)) and is_screening_only(r)
+        )
+    except Exception:
+        return frozenset()
+
+
+def _is_screening_only_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding comes from a screening-only rule."""
+    return (finding.get("rule_id") or "") in _screening_only_rule_ids()
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -425,10 +458,13 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
         if _is_vet_signal(f) and not _is_allowlisted(f.get("file"), root, vet_allowlist)
     ]
 
-    # Within the signal set, separate the hard-blocking malice tier from the
-    # softer known-vulnerable-dependency tier (CVE/OSV).
-    dep_vuln = [f for f in signal if _is_dependency_vuln_signal(f)]
-    malice = [f for f in signal if not _is_dependency_vuln_signal(f)]
+    # Within the signal set, separate the hard-blocking curated-malice tier from
+    # the softer tiers that INFORM but never hard-block: known-vulnerable
+    # dependencies (CVE/OSV) and screening-only (harvested, low-precision) rules.
+    def _is_soft(f):
+        return _is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
+    soft = [f for f in signal if _is_soft(f)]
+    malice = [f for f in signal if not _is_soft(f)]
 
     # Severity counts (for display) come from the whole SIGNAL subset.
     counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
@@ -442,9 +478,9 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
         sev = f.get("severity", "MEDIUM")
         malice_counts[sev] = malice_counts.get(sev, 0) + 1
     verdict = _verdict_from_counts(malice_counts)
-    # A known-vulnerable dependency (with no malice) warrants CAUTION, never a
-    # hard block — cap the dependency tier at CAUTION.
-    if verdict == SAFE and dep_vuln:
+    # A soft signal (known-vulnerable dependency OR a screening-only harvested
+    # match) with no curated malice warrants CAUTION, never a hard block.
+    if verdict == SAFE and soft:
         verdict = CAUTION
 
     # Sort SIGNAL findings worst-first for the top list — the user sees the
