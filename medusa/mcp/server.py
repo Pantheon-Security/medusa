@@ -254,12 +254,31 @@ def secrets_scan(path: str = "") -> str:
     return _format_secrets(result)
 
 
+def _use_spawn_start_method() -> None:
+    """Force the multiprocessing 'spawn' start method for this server process.
+
+    The scan path (MedusaParallelScanner) forks a multiprocessing Pool. Forking
+    from this process — which runs an asyncio event loop for the stdio transport —
+    inherits loop/anyio locks in an indeterminate state and the workers deadlock
+    (`scan_repo` never returns). 'spawn' starts scan workers from a clean
+    interpreter (the scanner already supports spawn via the Pool initializer; it's
+    the default on macOS/Windows). Slower per scan, but it returns instead of
+    hanging.
+    """
+    import multiprocessing
+    try:
+        multiprocessing.set_start_method("spawn", force=True)
+    except RuntimeError:
+        pass  # already set — fine
+
+
 def main() -> None:
     """Run the MEDUSA MCP gatekeeper server over stdio.
 
     Phase 2 wires this to a `medusa mcp` CLI command. Safe to call directly:
     `python3 -m medusa.mcp.server`.
     """
+    _use_spawn_start_method()
     mcp.run(transport="stdio")
 
 

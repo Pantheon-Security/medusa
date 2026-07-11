@@ -28,6 +28,25 @@ def test_mcp_help_renders_without_launching():
     assert "gatekeeper" in result.output.lower()
 
 
+def test_mcp_server_forces_spawn_start_method():
+    """B4 regression: the MCP server must use the 'spawn' multiprocessing start
+    method so the scan Pool doesn't fork from the asyncio loop and deadlock.
+    Checked in a subprocess so it doesn't mutate this test process's global
+    start method."""
+    import subprocess
+    import sys
+
+    code = (
+        "import multiprocessing;"
+        "from medusa.mcp import server;"
+        "server._use_spawn_start_method();"
+        "print(multiprocessing.get_start_method())"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "spawn"
+
+
 def test_hooks_install_all_writes_every_config():
     runner = CliRunner()
     with runner.isolated_filesystem():
