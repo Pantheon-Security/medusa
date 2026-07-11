@@ -119,6 +119,44 @@ def test_pre_commit_preserves_existing_hook(tmp_path: Path):
     assert os.access(hook_path, os.X_OK)
 
 
+def test_pre_commit_scans_staged_diff_not_host_history(tmp_path: Path):
+    """The gate must inspect the STAGED changes, not host chat/shell history."""
+    install.install_pre_commit(tmp_path)
+    content = (tmp_path / ".git" / "hooks" / "pre-commit").read_text()
+    assert "git diff --cached" in content          # scans the staged diff
+    assert "--exit-code" in content                # so a finding actually fails
+
+
+def test_pre_commit_blocks_a_staged_secret(tmp_path: Path):
+    """Born-RED gate for B3: a staged detectable credential blocks the commit,
+    a clean file commits fine. Exercises the real hook + real `medusa`."""
+    import shutil
+    import subprocess
+
+    med = shutil.which("medusa")
+    if not (med and shutil.which("git")):
+        pytest.skip("git/medusa not on PATH")
+
+    def git(*a, **kw):
+        return subprocess.run(["git", *a], cwd=tmp_path, capture_output=True, text=True, **kw)
+
+    git("init", "-q")
+    git("config", "user.email", "a@b.c")
+    git("config", "user.name", "t")
+    install.install_pre_commit(tmp_path)
+
+    (tmp_path / "clean.txt").write_text("nothing secret here\n")
+    git("add", "clean.txt")
+    assert git("commit", "-m", "clean").returncode == 0, "clean file must commit"
+
+    ghp = "ghp_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8"   # detectable GitHub PAT
+    (tmp_path / "leak.env").write_text(f"GITHUB_TOKEN={ghp}\n")
+    git("add", "leak.env")
+    r = git("commit", "-m", "leak")
+    assert r.returncode != 0, "pre-commit gate must block a staged secret"
+    assert "blocked" in (r.stdout + r.stderr).lower()
+
+
 # --------------------------------------------------------------------------- #
 # Cursor MCP
 # --------------------------------------------------------------------------- #

@@ -184,17 +184,31 @@ def install_claude_sessionstart(base: str | os.PathLike[str]) -> Path:
 # --------------------------------------------------------------------------- #
 # 2. Git pre-commit secrets block
 # --------------------------------------------------------------------------- #
-_PRE_COMMIT_BLOCK = f"""{_MARKER_BEGIN}
-# MEDUSA secrets gate: block the commit if secrets are detected.
+# POSIX-sh compatible (the block may be appended to a /bin/sh hook, not only the
+# fresh bash one), so no arrays/process-substitution. Scans the STAGED changes
+# (`git diff --cached` files) — NOT host chat/shell history — and relies on
+# `secrets scan --exit-code` to fail the command when a credential is found.
+_PRE_COMMIT_BLOCK = (
+    _MARKER_BEGIN + "\n"
+    + r"""# MEDUSA secrets gate: block the commit if a secret is in the STAGED changes.
 if command -v medusa >/dev/null 2>&1; then
-    if ! medusa secrets scan; then
-        echo "MEDUSA: secrets detected in working tree - commit blocked." >&2
+    set --
+    _medusa_ifs=$IFS
+    IFS='
+'
+    for _f in $(git diff --cached --name-only --diff-filter=ACM); do
+        [ -f "$_f" ] && set -- "$@" --path "$_f"
+    done
+    IFS=$_medusa_ifs
+    if [ "$#" -gt 0 ] && ! medusa secrets scan --exit-code "$@"; then
+        echo "MEDUSA: secrets detected in staged changes - commit blocked." >&2
         echo "Resolve the findings or run 'git commit --no-verify' to override." >&2
         exit 1
     fi
 fi
-{_MARKER_END}
 """
+    + _MARKER_END + "\n"
+)
 
 
 def install_pre_commit(base: str | os.PathLike[str]) -> Path:

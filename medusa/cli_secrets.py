@@ -93,8 +93,17 @@ def secrets():
     help="Show actual secret values in the output instead of masked. "
          "Requires a typed confirmation; the report becomes a secrets dump.",
 )
-def secrets_scan(explicit_paths: tuple[Path, ...], source_filter: Optional[str], reveal: bool):
-    """Scan host artefacts for credentials."""
+@click.option(
+    "--exit-code",
+    "exit_code",
+    is_flag=True,
+    default=False,
+    help="Exit non-zero (1) if any credential is found (git-diff convention). "
+         "Use in gates/hooks so a detection actually blocks; default is 0.",
+)
+def secrets_scan(explicit_paths: tuple[Path, ...], source_filter: Optional[str],
+                 reveal: bool, exit_code: bool):
+    """Scan host artefacts (or explicit --path files) for credentials."""
     if reveal:
         click.echo(
             "\n  ⚠  --reveal will print actual secret values to this terminal.\n"
@@ -176,6 +185,11 @@ def secrets_scan(explicit_paths: tuple[Path, ...], source_filter: Optional[str],
             "\n  Values are masked. Re-run with --reveal to show full values, or\n"
             "  run `medusa secrets purge` to interactively redact in place.\n"
         )
+
+    # total > 0 here (the total == 0 branch returned early). With --exit-code the
+    # command fails so a gate/hook that runs it blocks (default stays exit 0).
+    if exit_code:
+        raise click.exceptions.Exit(1)
 
 
 def _mask_for_report_finding(finding: dict) -> str:
