@@ -79,3 +79,21 @@ def test_atksig_plus_real_malice_still_blocks(monkeypatch):
     r = api._summarize([_f("MEDUSA-ATKSIG-001", "AIAttackSignatureScanner"),
                         _f("CC-HOOK-001", "ClaudeCodeScanner")], root="/x")
     assert r["verdict"] == api.DO_NOT_INSTALL, r["verdict"]
+
+
+def test_docker_hardening_alone_caps_at_caution(monkeypatch):
+    _patch(monkeypatch)
+    # DKR004 (hardcoded env secret in a compose file) fires on every dockerised
+    # repo — config hardening, not install malice. CAUTION, never DO_NOT_INSTALL.
+    r = api._summarize([_f("DKR004", "DockerMCPScanner"),
+                        _f("DKR007", "DockerMCPScanner")], root="/x")
+    assert r["verdict"] != api.DO_NOT_INSTALL, r["verdict"]
+    assert r["verdict"] in (api.SAFE, api.CAUTION), r["verdict"]
+
+
+def test_docker_hardening_plus_malice_still_blocks(monkeypatch):
+    _patch(monkeypatch)
+    # A poisoned hook alongside Docker hardening still hard-blocks.
+    r = api._summarize([_f("DKR004", "DockerMCPScanner"),
+                        _f("CC-HOOK-001", "ClaudeCodeScanner")], root="/x")
+    assert r["verdict"] == api.DO_NOT_INSTALL, r["verdict"]

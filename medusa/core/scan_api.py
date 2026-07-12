@@ -330,6 +330,23 @@ def _is_attack_signature_signal(finding: dict) -> bool:
     return (finding.get("rule_id") or "").startswith(_ATTACK_SIGNATURE_PREFIX)
 
 
+# --- Docker/config-hardening sub-tier (softer than curated malice) ------------
+# DockerMCPScanner's DKR rules are container-HARDENING findings: a hardcoded env
+# password in a compose file (POSTGRES_PASSWORD=example — every dockerised repo
+# has one), a docker-socket volume mount (portainer needs it), latest-tag,
+# host-network, missing caps. These are "review your container hardening"
+# (CAUTION), not "this attacks you on install" (DO_NOT_INSTALL). A genuinely
+# LEAKED credential still hard-blocks via GitLeaks/EnvScanner; a malicious
+# container's actual payload trips its own rules. So a DKR match caps the verdict
+# at CAUTION, never DO_NOT_INSTALL on its own. See tests/test_vet_screening_cap.py.
+_DOCKER_HARDENING_PREFIX = "DKR"
+
+
+def _is_docker_hardening_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a Docker config-hardening (DKR) rule."""
+    return (finding.get("rule_id") or "").startswith(_DOCKER_HARDENING_PREFIX)
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -482,7 +499,7 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     # dependencies (CVE/OSV) and screening-only (harvested, low-precision) rules.
     def _is_soft(f):
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
-                or _is_attack_signature_signal(f))
+                or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
