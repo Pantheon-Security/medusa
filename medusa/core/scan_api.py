@@ -311,6 +311,25 @@ def _is_screening_only_signal(finding: dict) -> bool:
     return (finding.get("rule_id") or "") in _screening_only_rule_ids()
 
 
+# --- Attack-signature sub-tier (softer than curated malice) -------------------
+# ATKSIG detects named attack strings (jailbreaks, DAN, "ignore previous
+# instructions"). Their PRESENCE means a repo CONTAINS attack content — worth a
+# human look (CAUTION) — but not that installing it attacks you: a jailbreak
+# dataset, a fuzzing corpus, or a firewall's own detection patterns are full of
+# these strings legitimately, and that's the biggest false-block source on
+# security tools / attack research. Actionable install-time malice (poisoned
+# hook, MCP/skill poisoning, taint exfil, leaked secret) still hard-blocks via
+# its OWN rules, which ATKSIG only ever corroborated. So an attack-signature
+# match caps the verdict at CAUTION, never DO_NOT_INSTALL on its own — the same
+# tier as dependency-CVE and harvested screening. See tests/test_vet_screening_cap.py.
+_ATTACK_SIGNATURE_PREFIX = "MEDUSA-ATKSIG-"
+
+
+def _is_attack_signature_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is an attack-signature match."""
+    return (finding.get("rule_id") or "").startswith(_ATTACK_SIGNATURE_PREFIX)
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -462,7 +481,8 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     # the softer tiers that INFORM but never hard-block: known-vulnerable
     # dependencies (CVE/OSV) and screening-only (harvested, low-precision) rules.
     def _is_soft(f):
-        return _is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
+        return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
+                or _is_attack_signature_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 

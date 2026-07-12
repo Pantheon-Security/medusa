@@ -53,8 +53,29 @@ def test_malice_beats_harvested(monkeypatch):
     assert r["verdict"] == api.DO_NOT_INSTALL, r["verdict"]
 
 
-def test_atksig_curated_still_blocks(monkeypatch):
+def test_atksig_alone_caps_at_caution(monkeypatch):
     _patch(monkeypatch)
-    # MEDUSA-ATKSIG- is a curated signal prefix (real attack signatures) — hard-block.
+    # ATKSIG = "this repo CONTAINS attack strings" (a jailbreak dataset, a fuzzing
+    # corpus, a firewall's own detection patterns) — CAUTION (review), never
+    # DO_NOT_INSTALL on its own. This is the biggest false-block fix on security
+    # tools / attack research.
     r = api._summarize([_f("MEDUSA-ATKSIG-001", "AIAttackSignatureScanner")], root="/x")
+    assert r["verdict"] != api.DO_NOT_INSTALL, r["verdict"]
+    assert r["verdict"] in (api.SAFE, api.CAUTION), r["verdict"]
+
+
+def test_many_atksig_still_never_hard_blocks(monkeypatch):
+    _patch(monkeypatch)
+    # A jailbreak dataset with hundreds of ATKSIG hits must not hard-block.
+    r = api._summarize([_f("MEDUSA-ATKSIG-003", "AIAttackSignatureScanner", file=f"d/{i}.txt")
+                        for i in range(50)], root="/x")
+    assert r["verdict"] != api.DO_NOT_INSTALL, r["verdict"]
+
+
+def test_atksig_plus_real_malice_still_blocks(monkeypatch):
+    _patch(monkeypatch)
+    # A poisoned hook (CC-) alongside attack signatures still hard-blocks — ATKSIG
+    # only ever corroborated the actionable malice.
+    r = api._summarize([_f("MEDUSA-ATKSIG-001", "AIAttackSignatureScanner"),
+                        _f("CC-HOOK-001", "ClaudeCodeScanner")], root="/x")
     assert r["verdict"] == api.DO_NOT_INSTALL, r["verdict"]
