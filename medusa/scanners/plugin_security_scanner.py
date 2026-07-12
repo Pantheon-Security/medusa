@@ -228,6 +228,20 @@ class PluginSecurityScanner(BaseScanner):
             if content is None:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
 
+            # Minified / bundled third-party files (a giant single line) are not
+            # user-authored plugins. Running plugin patterns over a minified JS
+            # bundle (a vendored highlight.js, jquery, …) produces pure false
+            # positives — a 10k-char line matches almost anything. Skip them; a
+            # real insecure plugin is hand-written, normally-wrapped code.
+            if any(len(_l) > 1000 for _l in content.split("\n", 500)[:500]):
+                return ScannerResult(
+                    scanner_name=self.name,
+                    file_path=str(file_path),
+                    issues=[],
+                    scan_time=time.time() - start_time,
+                    success=True,
+                )
+
             # Check if file is plugin/tool related
             plugin_indicators = [
                 'plugin', 'tool', 'function_call', 'action', 'capability',
