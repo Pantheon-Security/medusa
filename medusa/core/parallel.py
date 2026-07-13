@@ -608,22 +608,29 @@ class MedusaParallelScanner:
             if _file_parts:
                 _file_exclude_re = re.compile('|'.join(_file_parts))
 
-        # Pre-compile full-path exclusion regexes (for substring and wildcard checks)
+        # Pre-compile full-path exclusion regexes — ONLY for genuine path patterns
+        # (containing '/') and wildcards. A BARE directory token (env, dist, bin,
+        # .env, node_modules, target, cache, …) is a directory NAME: it is already
+        # matched by component via _exact_dir_excludes / _is_dir_excluded and pruned
+        # at the walk level. Compiling a bare re.escape(pc) here and applying it with
+        # regex.search() over the WHOLE relative path was a substring match that
+        # silently dropped any FILE whose path merely CONTAINS the token —
+        # environment.py, distribution.py, config.env, and EVERY .env secret file —
+        # defeating secret detection on a directory scan. (CRITICAL, PC001 test.)
         _fullpath_regexes: List[re.Pattern] = []
         for pc in _path_exclude_patterns_cleaned:
-            # For substring matching: compile a pattern that matches pc anywhere in the path
+            has_wild = ('*' in pc or '?' in pc or '[' in pc)
+            if '/' not in pc and not has_wild:
+                continue  # bare directory token -> component check handles it
             try:
-                _fullpath_regexes.append(re.compile(re.escape(pc)))
-            except re.error:
-                pass
-            # For wildcard patterns, also add a full-path wildcard match
-            if '*' in pc or '?' in pc or '[' in pc:
-                try:
+                if has_wild:
                     _fullpath_regexes.append(
                         re.compile(fnmatch.translate('*' + pc + '*'))
                     )
-                except re.error:
-                    pass
+                else:  # explicit path pattern like 'docs/generated'
+                    _fullpath_regexes.append(re.compile(re.escape(pc)))
+            except re.error:
+                pass
 
         def _is_dir_excluded(dir_name: str) -> bool:
             """Fast check if a single directory component should be pruned."""
