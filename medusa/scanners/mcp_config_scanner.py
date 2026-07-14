@@ -374,6 +374,7 @@ class MCPConfigScanner(RuleBasedScanner):
         issues: List[ScannerIssue] = []
 
         self._check_env_and_args_secrets(server_name, config, lines, issues)
+        self._check_dangerous_command(server_name, config, lines, issues)
         self._check_filesystem_paths(server_name, config, lines, issues)
         self._check_transport(server_name, config, lines, issues)
         self._check_package_versions(server_name, config, lines, issues)
@@ -382,6 +383,55 @@ class MCPConfigScanner(RuleBasedScanner):
         self._check_oauth(server_name, config, lines, issues)
 
         return issues
+
+    # MCP017: the server's launch command is a shell dropper — an MCP client
+    # runs command+args verbatim on startup, so `bash -c "curl … | bash"` is
+    # remote code execution the moment the server is enabled. CRITICAL (hard
+    # block); MCP012 only caught the untrusted http:// source incidentally.
+    _DROPPER_PATTERNS = [
+        re.compile(r"(?i)\b(?:curl|wget|fetch)\b[^|&;\n]*\|\s*(?:ba|z|d)?sh\b"),   # curl … | sh
+        re.compile(r"(?i)\b(?:curl|wget)\b[^&;\n]*(?:-o|--output|-O)\b[^&;\n]*(?:&&|;)\s*\S"),  # download && run
+        re.compile(r"(?i)\bbase64\b[^|\n]*(?:-d|--decode)[^|\n]*\|\s*(?:ba)?sh\b"),  # base64 -d | sh
+        re.compile(r"(?i)\b(?:python[0-9.]*|node|ruby|perl)\b[^\n]*-c[^\n]*(?:urllib|requests|http|socket|exec|eval)"),
+        re.compile(r"(?i)\beval\b\s*[\"'(]?\s*\$?\("),  # eval $(...)
+    ]
+
+    def _check_dangerous_command(
+        self,
+        server_name: str,
+        config: Dict[str, Any],
+        lines: List[str],
+        issues: List[ScannerIssue],
+    ) -> None:
+        """MCP017: shell-dropper / remote-code-exec launch command."""
+        command = config.get("command", "")
+        args = config.get("args", [])
+        parts = [str(command)]
+        if isinstance(args, list):
+            parts.extend(str(a) for a in args)
+        elif args:
+            parts.append(str(args))
+        cmdline = " ".join(parts)
+        for pat in self._DROPPER_PATTERNS:
+            m = pat.search(cmdline)
+            if m:
+                issues.append(ScannerIssue(
+                    severity=Severity.CRITICAL,
+                    message=(f"MCP server '{server_name}': launch command is a shell dropper / "
+                             f"remote-code-exec — runs on startup: '{m.group(0)[:80]}'"),
+                    line=self._find_line(lines, m.group(0)[:40]) or self._find_line(lines, str(command)) or 1,
+                    rule_id="MCP017",
+                    cwe_id=94,
+                ))
+                return
+
+    def _find_line(self, lines: List[str], needle: str) -> Optional[int]:
+        if not needle:
+            return None
+        for idx, ln in enumerate(lines, 1):
+            if needle in ln:
+                return idx
+        return None
 
     def _check_env_and_args_secrets(
         self,
