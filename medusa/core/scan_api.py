@@ -88,6 +88,7 @@ _VET_SIGNAL_SCANNERS = frozenset({
     "PluginSecurityScanner",     # malicious plugin behaviour
     "LLMProviderHijackScanner",  # base-URL hijack / API-key URL exfil
     "ImageEmbeddedThreatScanner",  # commands hidden in images / polyglots
+    "CredentialFileScanner",     # committed private keys / tokens / cloud creds
 })
 
 # Rule-ID prefixes that drive the verdict regardless of scanner attribution.
@@ -103,6 +104,7 @@ _VET_SIGNAL_RULE_PREFIXES = (
     "MEDUSA-ATKSIG-",            # attack signatures
     "MEDUSA-LLMJACK-",           # LLM provider base-URL hijack / API-key URL exfil
     "MEDUSA-IMG-",               # commands hidden in image metadata / polyglots
+    "MEDUSA-CRED-",              # committed credential files (keys / tokens / creds)
 )
 
 # Informational rule IDs that must NEVER drive the verdict even though they are
@@ -131,6 +133,33 @@ def _is_test_data_path(file_path) -> bool:
     """True if any path component is a recognized non-executing test-data dir."""
     parts = str(file_path or "").replace("\\", "/").lower().split("/")
     return any(p in _VET_TEST_DATA_DIRS for p in parts)
+
+
+# A LIVE-payload file class executes or carries a real secret regardless of the
+# directory it sits in — a real mcp.json, skill/install script, credential file,
+# or payload image parked in tests/fixtures/ IS an install risk (an attacker just
+# picks a "test-data" dir to evade vet). Unlike an attack STRING inside a dataset
+# (which the test-data exclusion legitimately dismisses), these stay a signal.
+_VET_LIVE_PAYLOAD_EXACT = frozenset({
+    "mcp.json", ".mcp.json", "mcp-config.json", "mcp_config.json",
+    "claude_desktop_config.json", "skill.md", "settings.json", "settings.local.json",
+    "install.sh", "setup.sh", "preinstall.sh", "postinstall.sh",
+    ".npmrc", ".pypirc", ".git-credentials", "credentials",
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".htpasswd",
+})
+_VET_LIVE_PAYLOAD_SUFFIX = (
+    ".env", ".pem", ".key",
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tif", ".tiff",
+)
+
+
+def _is_live_payload_file(file_path) -> bool:
+    if not file_path:
+        return False
+    name = Path(str(file_path)).name.lower()
+    return (name in _VET_LIVE_PAYLOAD_EXACT
+            or name.startswith(".env")
+            or name.endswith(_VET_LIVE_PAYLOAD_SUFFIX))
 
 
 def _rel_to_root(file_path, root) -> str:
@@ -237,7 +266,10 @@ def _is_vet_signal(finding: dict) -> bool:
     rule_id = finding.get("rule_id") or ""
     if rule_id in _VET_NONSIGNAL_RULE_IDS:
         return False
-    if _is_test_data_path(finding.get("file")):
+    # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
+    # payload file (real mcp.json / install script / credential / image), which
+    # an attacker would park in tests/fixtures/ precisely to evade vet.
+    if _is_test_data_path(finding.get("file")) and not _is_live_payload_file(finding.get("file")):
         return False
     scanner = finding.get("scanner") or ""
     if scanner in _VET_SIGNAL_SCANNERS:

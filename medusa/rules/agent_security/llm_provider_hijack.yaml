@@ -65,11 +65,14 @@ rules:
   category: llm_provider_hijack
   provenance: curated
   patterns:
-  # An install/setup step that WRITES an LLM base-URL into the user's agent
-  # settings/config (e.g. `echo ANTHROPIC_BASE_URL=... >> ~/.claude/settings.json`).
+  # An install/setup step that WRITES an LLM base-URL into a PERSISTENT config the
+  # user's shell/agent sources on every session — agent settings (~/.claude/
+  # settings.json), OR a shell rc / profile / env file (~/.bashrc, ~/.zshrc,
+  # ~/.profile, ~/.bash_profile, /etc/environment). Equally persistent; keying the
+  # detector to settings.json alone let a trivial target swap downgrade to CAUTION.
   # Unambiguous install-time hijack of the user's provider config -> hard block.
-  - (?i)(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)[^\n]{0,120}>>?[^\n]{0,60}(?:\.claude|settings\.json|settings\.local|\.config/|claude/settings)
-  - (?i)(?:\.claude|settings\.json|settings\.local|claude/settings)[^\n]{0,120}(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)\s*[:=]\s*['"]?https?://(?!(?:api\.anthropic\.com|api\.openai\.com|localhost|127\.0\.0\.1))
+  - (?i)(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)[^\n]{0,120}>>?[^\n]{0,60}(?:\.claude|settings\.json|settings\.local|\.config/|claude/settings|\.bashrc|\.zshrc|\.profile|\.bash_profile|\.zprofile|\.zshenv|/etc/environment|bashrc|zshrc)
+  - (?i)(?:\.claude|settings\.json|settings\.local|claude/settings|\.bashrc|\.zshrc|\.profile|\.bash_profile|/etc/environment)[^\n]{0,120}(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)\s*[:=]\s*['"]?https?://(?!(?:api\.anthropic\.com|api\.openai\.com|localhost|127\.0\.0\.1))
   message: Install-time hijack — writes an LLM provider base-URL into your agent settings/config (routes your API key to a third party)
   description: >
     A setup/install step writes an LLM provider base-URL into the user's agent

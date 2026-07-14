@@ -751,6 +751,38 @@ class MedusaParallelScanner:
         def _on_walk_error(err):
             unreadable_dirs.append(getattr(err, 'filename', str(err)))
 
+        # -- vet/screening: exclude_paths must not suppress SECURITY-CRITICAL files --
+        # `medusa vet` is a pre-install TRUST gate. Honoring code-quality
+        # exclude_paths (tests/fixtures/, build/, vendor/, dist/, …) there let an
+        # attacker park a live payload (poisoned mcp.json, skill install script,
+        # Ghostcommit image, secret file) in an excluded dir and vet SAFE. In
+        # screening mode we descend excluded dirs and force-include just these
+        # security-critical classes — everything else still respects exclusions.
+        _screening_never_descend = frozenset({
+            'node_modules', '.venv', 'venv', 'site-packages', 'dist-packages',
+            '__pycache__', '.mypy_cache', '.pytest_cache', '.tox', '.cache',
+            '.gradle', '.npm', '.cargo', '.m2', '.git',
+        })
+        _sec_critical_exact = frozenset({
+            'mcp.json', '.mcp.json', 'mcp-config.json', 'mcp_config.json',
+            'claude_desktop_config.json', 'skill.md',
+            'install.sh', 'setup.sh', 'preinstall.sh', 'postinstall.sh',
+            '.npmrc', '.pypirc', '.git-credentials', 'credentials',
+            'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', '.htpasswd',
+        })
+        _sec_critical_suffix = (
+            '.env', '.pem', '.key',
+            '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg', '.ico', '.tif', '.tiff',
+        )
+
+        def _is_security_critical(fn: str) -> bool:
+            fl = fn.lower()
+            return (fl in _sec_critical_exact
+                    or fl.startswith('.env')
+                    or fl.endswith(_sec_critical_suffix))
+
+        _screening = bool(getattr(self, 'screening', False))
+
         for root, dirs, filenames in os.walk(self.project_root, onerror=_on_walk_error):
             # Prune excluded directories in-place to skip entire subtrees.
             # .git is always excluded (version control internals, not scannable).
@@ -760,11 +792,18 @@ class MedusaParallelScanner:
             # poisoned Claude Code hooks, MCP servers — that MUST reach the
             # ClaudeCodeScanner / MCP scanners. Pruning them here silently
             # suppressed those findings. Everything else still gets pruned.
-            dirs[:] = [
-                d for d in dirs
-                if d != '.git'
-                and (d in ai_context_dir_names or not _is_dir_excluded(d))
-            ]
+            if _screening:
+                # Deep vet: descend excluded dirs (a payload may be parked in
+                # tests/fixtures/, build/, vendor/, dist/, …); only skip VCS +
+                # installed-dep / cache noise, which is huge and not a repo's own
+                # payload. Non-critical files there still get excluded below.
+                dirs[:] = [d for d in dirs if d.lower() not in _screening_never_descend]
+            else:
+                dirs[:] = [
+                    d for d in dirs
+                    if d != '.git'
+                    and (d in ai_context_dir_names or not _is_dir_excluded(d))
+                ]
 
             # Compute relative path components once for this directory
             rel_dir = os.path.relpath(root, project_root_str)
@@ -817,10 +856,13 @@ class MedusaParallelScanner:
                     or ('skills' in dir_parts
                         and (_fn_lower.endswith('.sh') or _fn_lower.endswith('.py')))
                 )
+                # Deep vet: a security-critical file is force-included even inside a
+                # code-quality-excluded dir (the RCE-in-tests/fixtures blind spot).
+                _sec_critical = _screening and _is_security_critical(filename)
                 if is_ai_context_dir and filename in ai_context_critical_names:
                     if _file_exclude_re and _file_exclude_re.match(filename):
                         continue
-                elif _ai_security_file:
+                elif _ai_security_file or _sec_critical:
                     if _file_exclude_re and _file_exclude_re.match(filename):
                         continue
                 elif _is_path_excluded(relative_path, all_parts, filename):
@@ -856,6 +898,7 @@ class MedusaParallelScanner:
                 #    are already covered by special_exact_names above.
                 if not matched and (
                     _ai_security_file
+                    or _sec_critical  # deep-vet secret/config/key files (.npmrc, id_rsa, credentials, …)
                     or (is_ai_context_dir and (
                         ext == '.md'
                         or filename in ('settings.json', 'settings.local.json')

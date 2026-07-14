@@ -228,6 +228,9 @@ class FalsePositiveFilter:
         # as "data" to the generic heuristics, but a hidden directive or an
         # appended shell payload is a true positive, not inert image data.
         'MEDUSA-IMG-',
+        # committed credential files — a key/token in a .npmrc/id_rsa/credentials
+        # file is the whole point of the file, never a "data-file" false positive.
+        'MEDUSA-CRED-',
     )
 
     # --- B1: security-rule / signature-definition data-file recognition ---
