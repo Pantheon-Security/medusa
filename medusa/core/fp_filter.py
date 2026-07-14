@@ -211,6 +211,23 @@ class FalsePositiveFilter:
         'CC-',
         'MEDUSA-SKILL-',
         'MEDUSA-TAINT-',
+        # base-URL hijack / API-key URL exfil. The key-exfil variant deliberately
+        # HIDES its directive in an HTML comment inside a SKILL.md — the exact
+        # thing _check_docstring suppresses — so it must bypass the generic
+        # comment/data-file heuristics like the other install-decision detectors.
+        'MEDUSA-LLMJACK-',
+        # MCP-config poison (MCPConfigScanner's own checks: untrusted server
+        # source, wildcard/traversal paths, tor/tunnel, insecure TLS, secrets)
+        # and supply-chain MCP. These fire ONLY on mcp.json — which the
+        # `findings_in_json_data_files` heuristic wrongly clears as "JSON data,
+        # not exploitable code," so a poisoned mcp.json vetted to SAFE. mcp.json
+        # is executable config: it launches the server/command. Not data.
+        'MCP0',
+        'MEDUSA-SC-MCP-',
+        # commands hidden in image metadata / polyglot payloads. Image bytes read
+        # as "data" to the generic heuristics, but a hidden directive or an
+        # appended shell payload is a true positive, not inert image data.
+        'MEDUSA-IMG-',
     )
 
     # --- B1: security-rule / signature-definition data-file recognition ---

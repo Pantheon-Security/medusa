@@ -95,6 +95,8 @@ from medusa.scanners.ast_behavior_scanner import AstBehaviorScanner
 from medusa.scanners.dependency_cve_scanner import DependencyCVEScanner
 from medusa.scanners.skill_manifest_scanner import SkillManifestScanner
 from medusa.scanners.taint_scanner import TaintScanner
+from medusa.scanners.llm_provider_hijack_scanner import LLMProviderHijackScanner
+from medusa.scanners.image_embedded_threat_scanner import ImageEmbeddedThreatScanner
 from medusa.scanners.yaml_rule_scanner import YAMLRuleScanner
 
 # Create global scanner registry
@@ -186,6 +188,8 @@ registry.register(AstBehaviorScanner())
 registry.register(DependencyCVEScanner())
 registry.register(SkillManifestScanner())
 registry.register(TaintScanner())
+registry.register(LLMProviderHijackScanner())
+registry.register(ImageEmbeddedThreatScanner())
 # YAMLRuleScanner is available but NOT registered by design — every rule
 # should be claimed by a specific scanner with proper file/context gating.
 # Orphaned rules indicate a wiring gap that should be fixed at the rule or
@@ -280,6 +284,8 @@ __all__ = [
     'GitLeaksScanner',
     'SemgrepScanner',
     'TrivyScanner',
+    'LLMProviderHijackScanner',
+    'ImageEmbeddedThreatScanner',
     'YAMLRuleScanner',
     'registry',
 ]

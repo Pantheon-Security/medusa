@@ -116,12 +116,32 @@ def test_crypto_usedforsecurity_false_does_not_fire(tmp_path):
 
 
 def test_crypto_md5_password_still_fires(tmp_path):
+    # md5 on a PASSWORD (security context) must still be flagged HIGH. The generic
+    # WEB-CRYPTO-001 was intentionally demoted to MEDIUM (53bf39a — non-security
+    # md5 like etag/cache hashing was a corpus FP at HIGH); the HIGH now comes
+    # from the context-aware SAST-CRYPTO-001 ("MD5 in a security context:
+    # password/token/secret"). This locks BOTH halves of that split.
     body = "import hashlib\ndef h(password):\n    return hashlib.md5(password).hexdigest()\n"
     issues = _scan(tmp_path, "auth.py", body)
-    assert "WEB-CRYPTO-001" in _ids(issues), (
-        "hashlib.md5 without usedforsecurity=False must still fire WEB-CRYPTO-001"
+    ids = _ids(issues)
+    # md5 without usedforsecurity=False is still DETECTED (generic rule fires)...
+    assert "WEB-CRYPTO-001" in ids or "SAST-CRYPTO-003" in ids, (
+        "hashlib.md5 without usedforsecurity=False must still be detected"
     )
-    assert "HIGH" in _sevs(issues, "WEB-CRYPTO-001")
+    # ...and a security-context md5 must carry a HIGH-severity finding.
+    assert "HIGH" in _sevs(issues, "SAST-CRYPTO-001"), (
+        "md5 on a password (security context) must fire a HIGH finding via SAST-CRYPTO-001"
+    )
+
+
+def test_crypto_nonsecurity_md5_is_not_high(tmp_path):
+    # The other half of the split: a NON-security md5 (no password/token/secret
+    # context) must NOT be HIGH — only the demoted MEDIUM generic detector — so
+    # the demotion genuinely suppresses the etag/cache FP it was meant to.
+    body = "import hashlib\ndef etag(data):\n    return hashlib.md5(data).hexdigest()\n"
+    issues = _scan(tmp_path, "cache.py", body)
+    assert "HIGH" not in _sevs(issues, "WEB-CRYPTO-001"), "non-security md5 must be demoted off HIGH"
+    assert "HIGH" not in _sevs(issues, "SAST-CRYPTO-001"), "SAST-CRYPTO-001 must not fire on non-security md5"
 
 
 # ── WEB-DESER-001 / SAST-DESER-001 — bare pickle is dual-use (demote) ─────────

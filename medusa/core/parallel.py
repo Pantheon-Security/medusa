@@ -427,6 +427,18 @@ class MedusaParallelScanner:
         '.ckpt': 'model',
         '.onnx': 'model',
         '.gguf': 'model',
+        # Image files (scanned by ImageEmbeddedThreatScanner for hidden
+        # commands in metadata, polyglot payloads, and SVG script — NOT pixels).
+        '.png': 'image',
+        '.jpg': 'image',
+        '.jpeg': 'image',
+        '.gif': 'image',
+        '.bmp': 'image',
+        '.webp': 'image',
+        '.tif': 'image',
+        '.tiff': 'image',
+        '.ico': 'image',
+        '.svg': 'image',
         # Dependency manifests (CVE scanner)
         '.txt': 'requirements',
         '.lock': 'lockfile',
@@ -643,8 +655,17 @@ class MedusaParallelScanner:
 
         def _is_path_excluded(relative_path: str, path_parts: List[str], file_name: str) -> bool:
             """Check if a file's relative path matches any exclusion."""
-            # Check each path component against dir exclusions
-            for part in path_parts:
+            # Check each DIRECTORY component against dir exclusions. path_parts
+            # includes the filename as its last element (all_parts = dir_parts +
+            # [filename]); excluding it here is deliberate — those tokens are
+            # DIRECTORY names, so matching the filename against them dropped any
+            # file whose name equals a bare token (.env, build, dist, env, obj,
+            # vendor, target, packages) — most critically the canonical `.env`
+            # secrets file — on every default-config scan (PC001 2026-07-14).
+            # The filename is still handled by the classifier and _file_exclude_re
+            # below; walk-level dir pruning already stops descent into real
+            # excluded directories, so no exclusion coverage is lost.
+            for part in path_parts[:-1]:
                 if part in _exact_dir_excludes:
                     return True
                 for regex in _fnmatch_dir_regexes:
@@ -756,6 +777,13 @@ class MedusaParallelScanner:
             is_ai_context_dir = (
                 len(dir_parts) == 1 and dir_parts[0] in ai_context_dir_names
             )
+            # Anywhere inside a `.claude`/`.cursor`/`.github` subtree. NESTED
+            # AI-context dirs (`.claude/skills/<name>/`) hold installed skills —
+            # SKILL.md manifests + companion scripts — that MUST be vetted even
+            # though `.claude/` is a default exclude_path. Dropping them silently
+            # suppressed the skill/hook scanners (a poisoned skill in its natural
+            # installed location would evade detection entirely).
+            in_ai_context_tree = any(p in ai_context_dir_names for p in dir_parts)
 
             for filename in filenames:
                 file_path = Path(root) / filename
@@ -776,7 +804,23 @@ class MedusaParallelScanner:
                 # exclusions (*.min.js, .medusa.yml, etc.). Prose (*.md) and other
                 # files in these dirs still respect the user's exclusions — this
                 # closes the poison-config gap without scanning excluded docs.
+                # Security-relevant files inside an AI-context subtree bypass the
+                # dir-level exclusion of `.claude/` (default / .medusa.yml). Scoped
+                # tightly so we do NOT scan `.claude` noise (chat logs, caches):
+                # only critical configs (any depth), SKILL.md manifests (any
+                # depth), and skill companion scripts under a `skills/` subtree.
+                # They still honor genuine file-name exclusions.
+                _fn_lower = filename.lower()
+                _ai_security_file = in_ai_context_tree and (
+                    filename in ai_context_critical_names
+                    or _fn_lower == 'skill.md'
+                    or ('skills' in dir_parts
+                        and (_fn_lower.endswith('.sh') or _fn_lower.endswith('.py')))
+                )
                 if is_ai_context_dir and filename in ai_context_critical_names:
+                    if _file_exclude_re and _file_exclude_re.match(filename):
+                        continue
+                elif _ai_security_file:
                     if _file_exclude_re and _file_exclude_re.match(filename):
                         continue
                 elif _is_path_excluded(relative_path, all_parts, filename):
@@ -810,9 +854,12 @@ class MedusaParallelScanner:
                 #    to these dirs (NOT special_exact_names) so we don't scan every
                 #    VSCode/tool settings.json across the tree. mcp.json/.mcp.json
                 #    are already covered by special_exact_names above.
-                if not matched and is_ai_context_dir and (
-                    ext == '.md'
-                    or filename in ('settings.json', 'settings.local.json')
+                if not matched and (
+                    _ai_security_file
+                    or (is_ai_context_dir and (
+                        ext == '.md'
+                        or filename in ('settings.json', 'settings.local.json')
+                    ))
                 ):
                     matched = True
 
@@ -1235,11 +1282,19 @@ class MedusaParallelScanner:
 
         # Pre-warm YAML rules in the main process before Pool() forks workers.
         # Linux fork() uses copy-on-write, so workers inherit compiled patterns
-        # at zero cost. Without this, each worker independently pays the ~1.8s
-        # cold-start to load and compile all 40,000+ rules from 226 YAML files.
+        # at zero cost. Rule pattern compilation is LAZY (keeps the corpus load
+        # ~0.2s warm instead of ~6s), so we must warm the patterns that will RUN
+        # here in the parent — otherwise each forked worker recompiles them
+        # independently (N× the work on a big scan). We compile exactly the
+        # provenance-gated subset each scanner will use: curated-only on a
+        # default scan, everything under screening. Compiled once, shared by COW.
         for scanner in scanner_registry.scanners:
             if hasattr(scanner, '_load_rules'):
                 scanner._load_rules()
+                _gated_rules = getattr(scanner, 'rules', None)
+                if _gated_rules:
+                    for _rule in _gated_rules:
+                        _rule._compiled_patterns  # compile+cache in parent (COW-shared)
 
         # Run external tools once against the project root before the Pool forks.
         # Each tool has startup overhead per invocation; running per-file creates O(N)
@@ -1842,3 +1897,8 @@ class MedusaParallelScanner:
                     _con.print(f"   [{_style.get(sev, 'white')}]{sev}[/] "
                                f"{f.get('file', '?')}:{f.get('line', '?')} — {(f.get('issue') or '')[:80]}")
                 _con.print(_bar)
+
+        # Return the RETAINED (post-FP-filter) findings so callers (the CLI
+        # --fail-on gate) count what the report actually shows, not raw
+        # pre-filter matches. Each is a standardized dict with a 'severity' key.
+        return findings

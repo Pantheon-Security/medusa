@@ -12,6 +12,7 @@ Rules are defined in YAML format in the following directories:
 """
 
 import logging
+import sys
 from bisect import bisect_left
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Set
@@ -19,6 +20,10 @@ import re
 import yaml
 from dataclasses import dataclass, field
 from enum import Enum
+
+# First-run "building rule cache" hint fires at most once per process (see
+# RuleLoader.load_all_rules cold path).
+_COLD_BUILD_ANNOUNCED = False
 
 # CR-050 (resolved 2026.7.0): the two bundled patterns that emitted Python's
 # "Possible nested set" FutureWarning (MEDUSA-PRIV-SCAN-1514, MEDUSA-PIA-SCAN-2531)
@@ -92,27 +97,20 @@ class Rule:
     references: List[str] = field(default_factory=list)
     file_types: List[str] = field(default_factory=list)
 
-    # Compiled regex patterns
-    _compiled_patterns: List[re.Pattern] = field(default_factory=list, repr=False)
+    # Compiled regex patterns. LAZY: compilation is deferred to the
+    # `_compiled_patterns` property so loading the 42k-rule corpus does not pay
+    # ~109k regex compilations up front. Eager compilation in __post_init__ ran
+    # again on every process start — even from the disk pickle, because
+    # re.Pattern recompiles on unpickle — and dominated startup (~14s warm). Most
+    # rules never match the files in a given scan, so we compile on first use.
+    # `_compiled_cache` is None until the property first compiles them; it pickles
+    # as None so a warm load compiles nothing.
+    _compiled_cache: Optional[List[re.Pattern]] = field(default=None, repr=False, compare=False)
     _compiled_file_globs: List[str] = field(default_factory=list, repr=False)
 
     def __post_init__(self):
-        """Compile regex patterns after initialization"""
-        self._compiled_patterns = []
-        for pattern in self.patterns:
-            try:
-                self._compiled_patterns.append(re.compile(pattern, re.IGNORECASE | re.MULTILINE))
-            except re.error as e:
-                _log.warning("Invalid regex pattern in rule %s (pattern skipped): %s — %s", self.id, pattern, e)
-                continue
-            # CR-050 follow-up: cheap static ReDoS/nested-set smell check. DEBUG-only
-            # (silent on normal scans), so a misbehaving pattern is greppable in -v
-            # logs without the per-search cost. See medusa/core/rule_lint.py.
-            if _log.isEnabledFor(logging.DEBUG):
-                from medusa.core import rule_lint
-                smells = rule_lint.static_findings(pattern)
-                if smells:
-                    _log.debug("Lint smell %s in rule %s: %s", smells, self.id, pattern)
+        """Normalize file-type globs. Regex compilation is deferred (lazy) — see
+        the `_compiled_patterns` property."""
         # Normalize file_types globs for matching
         self._compiled_file_globs = []
         for ft in self.file_types:
@@ -123,6 +121,34 @@ class Rule:
                 self._compiled_file_globs.append(ft)
             else:
                 self._compiled_file_globs.append(f'.{ft}')
+
+    @property
+    def _compiled_patterns(self) -> List[re.Pattern]:
+        """Regex patterns, compiled on first access and cached (lazy).
+
+        Deferring compilation keeps corpus load fast: only rules actually
+        matched against a scanned file pay their compilation cost, instead of
+        all ~109k patterns compiling at every process start. Invalid patterns
+        are skipped with a warning (same behavior as the old eager path).
+        """
+        compiled = self._compiled_cache
+        if compiled is None:
+            compiled = []
+            for pattern in self.patterns:
+                try:
+                    compiled.append(re.compile(pattern, re.IGNORECASE | re.MULTILINE))
+                except re.error as e:
+                    _log.warning("Invalid regex pattern in rule %s (pattern skipped): %s — %s",
+                                 self.id, pattern, e)
+                    continue
+                # CR-050: cheap static ReDoS/nested-set smell check, DEBUG-only.
+                if _log.isEnabledFor(logging.DEBUG):
+                    from medusa.core import rule_lint
+                    smells = rule_lint.static_findings(pattern)
+                    if smells:
+                        _log.debug("Lint smell %s in rule %s: %s", smells, self.id, pattern)
+            self._compiled_cache = compiled
+        return compiled
 
     def matches_file_type(self, file_path: str) -> bool:
         """Check if this rule should apply to the given file type."""
@@ -252,6 +278,20 @@ class RuleLoader:
                 self._rules_cache['all'] = cached
                 self._integrity_verified = True
                 return cached
+
+        # First-run hint. On a cold cache the parse + integrity scan of 226 rule
+        # files takes several seconds; without a line here an interactive scan
+        # sits silent after the banner and looks hung. To stderr (never pollutes
+        # --format json stdout), only on a real terminal, once per process.
+        global _COLD_BUILD_ANNOUNCED
+        if not _COLD_BUILD_ANNOUNCED:
+            _COLD_BUILD_ANNOUNCED = True
+            try:
+                if sys.stderr.isatty():
+                    print("Building rule cache (first run, one-time ~10s)...",
+                          file=sys.stderr, flush=True)
+            except Exception:
+                pass
 
         # Run integrity check before loading (prompt-in-a-prompt protection)
         if not self._skip_integrity and not self._integrity_verified:

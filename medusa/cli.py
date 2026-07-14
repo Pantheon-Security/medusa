@@ -1070,7 +1070,11 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
     `found_marker` optionally prefixes the threshold message to preserve
     each caller's existing output style.
     """
-    # Generate reports
+    # Generate reports. Capture the RETAINED (post-FP-filter) findings so the
+    # --fail-on gate below counts what the report actually shows — it was
+    # printing the pre-filter count (e.g. "Found 11 issues at HIGH+") while the
+    # report retained fewer (9). [PC001 handover]
+    retained = None
     if not no_report:
         output_dir = Path(output) if output else Path.cwd() / ".medusa" / "reports"
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1080,26 +1084,31 @@ def _run_scan_pipeline(scanner, results, *, fail_on, output, output_formats,
         if 'all' in formats:
             formats = ['json', 'html', 'markdown', 'sarif']
 
-        scanner.generate_report(results, output_dir, formats=formats,
-                                missing_linters=missing_linters, ai_safe=not no_ai_safe,
-                                screening=screening)
+        retained = scanner.generate_report(results, output_dir, formats=formats,
+                                           missing_linters=missing_linters, ai_safe=not no_ai_safe,
+                                           screening=screening)
 
-    # Check fail threshold — only count issues at or above the specified severity
+    # Check fail threshold — count POST-FP-filter issues at/above the severity so
+    # a CI gate fails on real findings (matching the report), not filtered FPs.
     if fail_on:
         from medusa.scanners import Severity
         severity_order = [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
         threshold = Severity(fail_on.upper())
         threshold_index = severity_order.index(threshold)
-        allowed_severities = {s.value for s in severity_order[:threshold_index + 1]}
+        allowed_severities = {str(s.value).upper() for s in severity_order[:threshold_index + 1]}
 
-        def _sev_value(issue):
-            s = _get_severity(issue)
-            return s.value if hasattr(s, 'value') else s
+        if retained is None:
+            # No report generated — still count post-FP so the gate doesn't fail
+            # on filtered FPs. Build + filter inline (cheap on the findings set).
+            from medusa.core.finding_schema import standardize_issue
+            from medusa.core.fp_filter import FalsePositiveFilter
+            raw = [standardize_issue(issue, r) for r in results for issue in r.issues]
+            retained, _ = FalsePositiveFilter(
+                scanner.project_root, screening=screening).filter_findings(raw)
 
         total_issues = sum(
-            1 for r in results
-            for issue in r.issues
-            if _sev_value(issue) in allowed_severities
+            1 for f in retained
+            if str(f.get('severity', '')).upper() in allowed_severities
         )
         if total_issues > 0:
             console.print(f"\n[red]{found_marker}Found {total_issues} issues at {fail_on.upper()}+ severity[/red]")

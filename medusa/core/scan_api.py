@@ -86,6 +86,8 @@ _VET_SIGNAL_SCANNERS = frozenset({
     "EnvScanner",                # leaked secrets in env files
     "ModelScanScanner",          # malicious serialized models
     "PluginSecurityScanner",     # malicious plugin behaviour
+    "LLMProviderHijackScanner",  # base-URL hijack / API-key URL exfil
+    "ImageEmbeddedThreatScanner",  # commands hidden in images / polyglots
 })
 
 # Rule-ID prefixes that drive the verdict regardless of scanner attribution.
@@ -99,6 +101,8 @@ _VET_SIGNAL_RULE_PREFIXES = (
     "MEDUSA-OSV-001",            # OSV known-vuln dependency (NOT -INCOMPLETE)
     "CVE-",                      # curated CVE hits
     "MEDUSA-ATKSIG-",            # attack signatures
+    "MEDUSA-LLMJACK-",           # LLM provider base-URL hijack / API-key URL exfil
+    "MEDUSA-IMG-",               # commands hidden in image metadata / polyglots
 )
 
 # Informational rule IDs that must NEVER drive the verdict even though they are

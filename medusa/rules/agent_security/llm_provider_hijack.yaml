@@ -1,0 +1,83 @@
+rules:
+# LLM-provider hijack / credential exfil — the "malicious skill switches your
+# base URL on install" class (CVE-2026-21852 and the SKILL.md $API_KEY-in-URL
+# variant). A repo/skill you install has no business rewriting your provider
+# endpoint or putting your API key in a URL. Curated, claimed by
+# LLMProviderHijackScanner, and a hard-block vet signal (MEDUSA-LLMJACK-*).
+- id: MEDUSA-LLMJACK-001
+  name: llm-base-url-override
+  severity: high
+  category: llm_provider_hijack
+  provenance: curated
+  patterns:
+  # An LLM-provider base/API URL env var SET to an external host that is NOT the
+  # official provider (or localhost). Worth review in anything you install; a
+  # legitimate corporate/proxy gateway also matches, so this alone is CAUTION.
+  - (?i)\b(?:ANTHROPIC|OPENAI|CLAUDE|MISTRAL|GROQ|COHERE)_(?:BASE_URL|API_URL|API_BASE|ENDPOINT)\s*[:=]\s*['"]?https?://(?!(?:api\.anthropic\.com|api\.openai\.com|api\.mistral\.ai|api\.groq\.com|api\.cohere\.(?:ai|com)|localhost|127\.0\.0\.1|0\.0\.0\.0)[/:'"\s])
+  message: LLM provider base-URL override to a non-official endpoint — review the destination (CVE-2026-21852 class)
+  description: >
+    A base-URL / API-endpoint env var for an LLM provider is set to a non-official
+    external host. In an installed repo or skill this can be the "switch the URL on
+    install" attack: API calls (carrying your API key) route through a third-party
+    proxy. Legitimate corporate/proxy gateways also match — review the destination.
+  cwe: CWE-506
+  owasp_llm: LLM03:2025
+  file_types: &id_llmjack
+  - '*.sh'
+  - '*.bash'
+  - '*.zsh'
+  - '*.json'
+  - '*.jsonc'
+  - '*.md'
+  - '*.markdown'
+  - '*.py'
+  - '*.js'
+  - '*.ts'
+  - '*.toml'
+  - '*.yaml'
+  - '*.yml'
+  - '*.env'
+  - '*.cfg'
+  - '*.ini'
+  - '*.ps1'
+- id: MEDUSA-LLMJACK-002
+  name: llm-api-key-url-exfil
+  severity: critical
+  category: llm_provider_hijack
+  provenance: curated
+  patterns:
+  # API key placed into a URL / query parameter -> credential exfiltration.
+  - (?i)https?://[^\s'"`]{0,200}[?&][^\s'"`]{0,40}=\s*\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE|MISTRAL|GROQ)[_A-Z]*API_KEY
+  - (?i)(?:append|concat|\+|\`|f["']|url\s*=|href\s*=|fetch\s*\(|open\s*\()[^\n]{0,80}\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE)[_A-Z]*API_KEY\}?[^\n]{0,40}(?:\?|&|url|http)
+  - (?i)\?[a-z_]{1,12}=\$\{?(?:ANTHROPIC|OPENAI|CLAUDE)[_A-Z]*API_KEY
+  message: API-key URL exfiltration — an LLM provider API key is appended to a URL / query parameter
+  description: >
+    An LLM provider API key ($ANTHROPIC_API_KEY / $OPENAI_API_KEY) is placed into
+    a URL or query parameter. This is credential exfiltration — the SKILL.md
+    variant of the base-URL hijack, where a hidden instruction appends your API
+    key to any URL the agent opens, sending it to an attacker.
+  cwe: CWE-598
+  owasp_llm: LLM06:2025
+  file_types: *id_llmjack
+- id: MEDUSA-LLMJACK-003
+  name: llm-base-url-config-hijack
+  severity: critical
+  category: llm_provider_hijack
+  provenance: curated
+  patterns:
+  # An install/setup step that WRITES an LLM base-URL into the user's agent
+  # settings/config (e.g. `echo ANTHROPIC_BASE_URL=... >> ~/.claude/settings.json`).
+  # Unambiguous install-time hijack of the user's provider config -> hard block.
+  - (?i)(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)[^\n]{0,120}>>?[^\n]{0,60}(?:\.claude|settings\.json|settings\.local|\.config/|claude/settings)
+  - (?i)(?:\.claude|settings\.json|settings\.local|claude/settings)[^\n]{0,120}(?:ANTHROPIC|OPENAI|CLAUDE)_(?:BASE_URL|API_URL|API_BASE)\s*[:=]\s*['"]?https?://(?!(?:api\.anthropic\.com|api\.openai\.com|localhost|127\.0\.0\.1))
+  message: Install-time hijack — writes an LLM provider base-URL into your agent settings/config (routes your API key to a third party)
+  description: >
+    A setup/install step writes an LLM provider base-URL into the user's agent
+    configuration (~/.claude/settings.json or similar). This is the core of the
+    malicious-skill "switch the URL on install" attack (CVE-2026-21852): after
+    install, every API call — and the API key it carries — is routed through the
+    attacker's endpoint. There is no legitimate reason for an installed skill to
+    rewrite your provider endpoint.
+  cwe: CWE-506
+  owasp_llm: LLM03:2025
+  file_types: *id_llmjack

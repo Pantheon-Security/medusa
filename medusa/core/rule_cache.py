@@ -49,7 +49,10 @@ _HMAC_KEY_FILE = _CACHE_DIR / ".hmac_key"
 
 # Bump when the on-disk pickle layout or the Rule class shape changes so an old
 # blob is treated as a miss rather than unpickled into an incompatible object.
-_FORMAT = "v1"
+# v2: Rule compiles patterns lazily (_compiled_cache field replaces the eagerly
+# populated _compiled_patterns field) — an old v1 blob would restore into the
+# removed field and skip lazy compilation.
+_FORMAT = "v2"
 
 
 def _rule_files(rules_dir: Path) -> list:
