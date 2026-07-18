@@ -193,8 +193,8 @@ class LLMGuardScanner(BaseScanner):
             (re.compile(r'credit.*card.*\d{4}', re.IGNORECASE), "Credit card number"),
             (re.compile(r'email.*@.*\.(com|org|net)', re.IGNORECASE), "Email address"),
             (re.compile(r'phone.*\d{3}[-\s]?\d{3}[-\s]?\d{4}', re.IGNORECASE), "Phone number"),
-            (re.compile(r'dob|birth.*date.*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', re.IGNORECASE), "Date of birth"),
-            (re.compile(r'address.*\d+.*street|ave|road', re.IGNORECASE), "Street address"),
+            (re.compile(r'(?:dob\b|birth.*date).*\d{1,2}[/-]\d{1,2}[/-]\d{2,4}', re.IGNORECASE), "Date of birth"),
+            (re.compile(r'address.*\d+.*(?:street|ave|road)', re.IGNORECASE), "Street address"),
         ]
 
         for line_num, line in enumerate(lines, 1):

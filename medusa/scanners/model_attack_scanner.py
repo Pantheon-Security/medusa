@@ -205,7 +205,7 @@ class ModelAttackScanner(RuleBasedScanner):
         (r'marshal\.loads?\s*\(', 'Unsafe marshal deserialization', Severity.HIGH),
 
         # Python yaml.load without SafeLoader
-        (r'yaml\.load\s*\([^)]*(?!Loader\s*=\s*(?:Safe|Base))',
+        (r'yaml\.load\s*\((?![^)]*Loader\s*=)',
          'yaml.load without SafeLoader (code execution risk)', Severity.HIGH),
         (r'yaml\.unsafe_load\s*\(', 'yaml.unsafe_load (arbitrary code execution)', Severity.CRITICAL),
 
