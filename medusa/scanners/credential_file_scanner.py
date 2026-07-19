@@ -31,6 +31,25 @@ _NAMES = frozenset({
 })
 _SUFFIXES = (".pem", ".key")
 
+# Test-fixture credential material — test TLS certs/keys, sample .npmrc — is a
+# standard, expected part of a repo's test suite: every HTTP/TLS library ships
+# `tests/certs/*.key`. Flagging it as a "committed credential" is a ~100%-FP that
+# hard-blocks legitimate repos (this is exactly why `requests` vetted
+# DO_NOT_INSTALL — 4 test certs under tests/certs/). A real leaked secret in a
+# test dir is vanishingly rare, and live-payload malice (droppers, hijack skills)
+# is caught by the other scanners that still descend test dirs. So skip credential
+# scanning under obvious test-fixture paths.
+_TEST_FIXTURE_DIRS = frozenset({
+    "test", "tests", "testing", "testdata", "test_data", "__tests__",
+    "fixtures", "fixture", "__fixtures__", "testfixtures",
+    "mocks", "mock", "examples", "example", "spec", "specs", "e2e",
+})
+
+
+def _is_test_fixture_path(file_path: Path) -> bool:
+    """True if any parent directory marks this as test-fixture material."""
+    return any(part.lower() in _TEST_FIXTURE_DIRS for part in file_path.parts[:-1])
+
 # (compiled pattern, human description). can_scan already restricts us to
 # credential-bearing files, so these are deliberately simple / high-signal.
 _PATTERNS = [
@@ -63,7 +82,10 @@ class CredentialFileScanner(BaseScanner):
 
     def can_scan(self, file_path: Path) -> bool:
         n = file_path.name.lower()
-        return n in _NAMES or n.endswith(_SUFFIXES)
+        if not (n in _NAMES or n.endswith(_SUFFIXES)):
+            return False
+        # test certs/keys are expected fixtures, not leaked secrets (see above)
+        return not _is_test_fixture_path(file_path)
 
     def get_confidence_score(self, file_path: Path,
                              content_head: Optional[str] = None) -> int:
