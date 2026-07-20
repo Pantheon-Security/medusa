@@ -3948,6 +3948,8 @@ def vet(target, as_json, allow):
     else:
         score = result.get('score', 0)
         click.echo(f"VERDICT: {verdict}  (risk score {score})")
+        if result.get('partial_scan'):
+            click.echo(f"PARTIAL SCAN: {result.get('partial_note', 'some directories were not fully screened — not a clean pass')}")
         # Honest headline (Round-2 FP Phase 1): lead with the BLOCKING count —
         # the signals that actually drove the verdict — and keep the full total
         # as a secondary "detected (non-blocking)" number. Leading with the raw

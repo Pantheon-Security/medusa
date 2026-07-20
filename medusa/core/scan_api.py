@@ -706,6 +706,19 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
 
     summary = _summarize(findings, redact_snippets=redact_snippets,
                          root=scan_root, vet_allowlist=vet_allowlist)
+    # Honest-partial: if the deep-vet walk hit the enum cap inside a huge
+    # installed-dep / cache tree it did NOT fully screen that subtree. A partial
+    # scan must never read as a clean SAFE — surface it and floor the verdict at
+    # CAUTION ("couldn't fully screen — review"). A real payload found before the
+    # cap still hard-blocks; this only lifts a would-be SAFE.
+    if getattr(scanner, "_screening_partial", False):
+        summary["partial_scan"] = True
+        summary["partial_note"] = (
+            "vet could not fully screen a large installed-dependency / cache tree "
+            "(file budget exceeded) — result is PARTIAL, not a clean pass"
+        )
+        if summary.get("verdict") == SAFE:
+            summary["verdict"] = CAUTION
     summary["target"] = str(target)
     return summary
 

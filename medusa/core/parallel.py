@@ -384,6 +384,15 @@ class MedusaCacheManager:
         print("Cache cleared")
 
 
+# Deep-vet enumeration budget for installed-dep / cache / VCS trees. A vet that
+# descends node_modules/ for security-critical files must not turn into a
+# multi-minute walk on a giant tree; once this many files have been examined
+# inside those trees we stop descending them and mark the scan PARTIAL (surfaced
+# by scan_api.scan_target so a capped scan can't read as a clean SAFE). Module-
+# level so tests can lower it.
+_NEVER_DESCEND_ENUM_CAP = 100_000
+
+
 class MedusaParallelScanner:
     """Parallel MEDUSA security scanner"""
 
@@ -787,12 +796,13 @@ class MedusaParallelScanner:
         # site-packages/, .venv/, .git/, …) for SECURITY-CRITICAL files only — a
         # poisoned mcp.json / install.sh / key / Ghostcommit image SHIPPED there
         # IS the supply-chain attack, and pruning them made vet return SAFE
-        # (score 0) on a live dropper. Cap the cheap enumeration so a giant
-        # node_modules can't turn vet into a multi-minute walk (we only ever SCAN
-        # the critical files, so the expensive rule pass is already bounded).
-        _NEVER_DESCEND_ENUM_CAP = 100_000
+        # (score 0) on a live dropper. Cap the cheap enumeration (module-level
+        # _NEVER_DESCEND_ENUM_CAP) so a giant node_modules can't turn vet into a
+        # multi-minute walk; when the cap trips the scan is PARTIAL
+        # (self._screening_partial) so it can't read as a clean SAFE.
         _never_descend_enum = 0
         _never_descend_capped = False
+        self._screening_partial = False
 
         for root, dirs, filenames in os.walk(self.project_root, onerror=_on_walk_error):
             # Prune excluded directories in-place to skip entire subtrees.
@@ -855,6 +865,7 @@ class MedusaParallelScanner:
                     _never_descend_enum += 1
                     if _never_descend_enum > _NEVER_DESCEND_ENUM_CAP:
                         _never_descend_capped = True
+                        self._screening_partial = True
                         break
                     if not _is_security_critical(filename):
                         continue
