@@ -28,6 +28,7 @@ from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Sever
 _NAMES = frozenset({
     ".npmrc", ".pypirc", ".git-credentials", "credentials", ".htpasswd",
     "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+    ".netrc", ".dockercfg", ".pgpass", ".s3cfg",
 })
 _SUFFIXES = (".pem", ".key")
 
@@ -62,6 +63,14 @@ _PATTERNS = [
     (re.compile(r"(?i)\b_password\s*=\s*\S{6,}"), "npm password"),
     (re.compile(r"https?://[^/\s:@]+:[^/\s:@]{3,}@"), "credentials embedded in a URL"),
     (re.compile(r"(?i)^\s*password\s*[:=]\s*\S{6,}", re.MULTILINE), "plaintext password"),
+    # .netrc: `machine host login user password SECRET` (space-separated).
+    (re.compile(r"(?i)\bpassword\s+\S{4,}"), "netrc/plaintext password"),
+    # .dockercfg / .docker/config.json: base64 registry auth token.
+    (re.compile(r'(?i)"auth"\s*:\s*"[A-Za-z0-9+/]{8,}={0,2}"'), "docker registry auth token"),
+    # .s3cfg: cloud access/secret key assignments.
+    (re.compile(r"(?i)\b(?:secret_key|access_key)\s*=\s*\S{8,}"), "cloud access/secret key"),
+    # .pgpass: host:port:db:user:PASSWORD line.
+    (re.compile(r"(?m)^(?:[^:\n]*:){4}[^:\n]{3,}$"), "pgpass credential line"),
 ]
 
 _MAX_BYTES = 1 * 1024 * 1024  # credential files are tiny; cap defensively
@@ -82,7 +91,14 @@ class CredentialFileScanner(BaseScanner):
 
     def can_scan(self, file_path: Path) -> bool:
         n = file_path.name.lower()
-        if not (n in _NAMES or n.endswith(_SUFFIXES)):
+        is_cred = (
+            n in _NAMES
+            or n.endswith(_SUFFIXES)
+            # docker config lives at .docker/config.json — only credential-bearing
+            # under a .docker/ dir (a bare config.json elsewhere is not a cred file)
+            or (n == "config.json" and file_path.parent.name.lower() == ".docker")
+        )
+        if not is_cred:
             return False
         # test certs/keys are expected fixtures, not leaked secrets (see above)
         return not _is_test_fixture_path(file_path)

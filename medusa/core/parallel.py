@@ -769,6 +769,7 @@ class MedusaParallelScanner:
             'install.sh', 'setup.sh', 'preinstall.sh', 'postinstall.sh',
             '.npmrc', '.pypirc', '.git-credentials', 'credentials',
             'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', '.htpasswd',
+            '.netrc', '.dockercfg', '.pgpass', '.s3cfg',
         })
         _sec_critical_suffix = (
             '.env', '.pem', '.key',
@@ -782,6 +783,16 @@ class MedusaParallelScanner:
                     or fl.endswith(_sec_critical_suffix))
 
         _screening = bool(getattr(self, 'screening', False))
+        # Deep vet descends installed-dep / cache / VCS trees (node_modules/,
+        # site-packages/, .venv/, .git/, …) for SECURITY-CRITICAL files only — a
+        # poisoned mcp.json / install.sh / key / Ghostcommit image SHIPPED there
+        # IS the supply-chain attack, and pruning them made vet return SAFE
+        # (score 0) on a live dropper. Cap the cheap enumeration so a giant
+        # node_modules can't turn vet into a multi-minute walk (we only ever SCAN
+        # the critical files, so the expensive rule pass is already bounded).
+        _NEVER_DESCEND_ENUM_CAP = 100_000
+        _never_descend_enum = 0
+        _never_descend_capped = False
 
         for root, dirs, filenames in os.walk(self.project_root, onerror=_on_walk_error):
             # Prune excluded directories in-place to skip entire subtrees.
@@ -793,11 +804,15 @@ class MedusaParallelScanner:
             # ClaudeCodeScanner / MCP scanners. Pruning them here silently
             # suppressed those findings. Everything else still gets pruned.
             if _screening:
-                # Deep vet: descend excluded dirs (a payload may be parked in
-                # tests/fixtures/, build/, vendor/, dist/, …); only skip VCS +
-                # installed-dep / cache noise, which is huge and not a repo's own
-                # payload. Non-critical files there still get excluded below.
-                dirs[:] = [d for d in dirs if d.lower() not in _screening_never_descend]
+                # Deep vet: descend ALL dirs — excluded code-quality dirs
+                # (tests/fixtures/, build/, vendor/, dist/) AND installed-dep /
+                # cache / VCS trees (node_modules/, site-packages/, .git/, …).
+                # Inside the latter the file loop collects ONLY security-critical
+                # files, so a payload shipped in node_modules/ is caught without a
+                # full dep-tree scan. Once the enum cap is blown we revert to
+                # pruning the dep/cache/VCS trees so a pathological repo can't hang.
+                if _never_descend_capped:
+                    dirs[:] = [d for d in dirs if d.lower() not in _screening_never_descend]
             else:
                 dirs[:] = [
                     d for d in dirs
@@ -823,9 +838,26 @@ class MedusaParallelScanner:
             # suppressed the skill/hook scanners (a poisoned skill in its natural
             # installed location would evade detection entirely).
             in_ai_context_tree = any(p in ai_context_dir_names for p in dir_parts)
+            # Are we inside an installed-dep / cache / VCS tree during a deep vet?
+            # If so, only security-critical files are collected (dep noise skipped).
+            _in_never_descend = _screening and any(
+                p.lower() in _screening_never_descend for p in dir_parts
+            )
 
             for filename in filenames:
                 file_path = Path(root) / filename
+
+                # Inside a deep-vet descent through node_modules/ / site-packages/
+                # / .git/ / cache dirs, collect ONLY security-critical files — never
+                # scan the dep noise (thousands of .js/.py). This catches a payload
+                # SHIPPED in those trees without a full dependency scan.
+                if _in_never_descend:
+                    _never_descend_enum += 1
+                    if _never_descend_enum > _NEVER_DESCEND_ENUM_CAP:
+                        _never_descend_capped = True
+                        break
+                    if not _is_security_critical(filename):
+                        continue
 
                 # Build relative path for exclusion checking
                 if dir_parts:
