@@ -383,6 +383,31 @@ def _is_docker_hardening_signal(finding: dict) -> bool:
     return (finding.get("rule_id") or "").startswith(_DOCKER_HARDENING_PREFIX)
 
 
+# --- "Review, don't block" sub-tier (softer than curated malice) --------------
+# These curated rules fire on operations a legitimate agent/skill/LLM TOOL
+# performs as its normal function — indistinguishable from a rogue one by text
+# alone — so they carpet-block legit frameworks (claude-forge, nanoclaw, agent
+# tools). A genuinely malicious repo carries its actual PAYLOAD (a persistent
+# base-URL write to settings/rc = LLMJACK-003, key exfil = LLMJACK-002, an MCP
+# dropper, taint exfil, an anti-refusal directive) which hard-blocks via its OWN
+# rule (verified in tests/test_vet_scoping.py). So these are "review this" signals
+# that cap the verdict at CAUTION, never DO_NOT_INSTALL on their own — the same
+# tier as attack-signature / dependency-CVE / docker-hardening:
+#   SKILL-ROGUE-001  self-modification / persistence ("add a hook to settings.json")
+#   SKILL-MEMORY-001 memory-poisoning ("remember to always …")
+#   LLMJACK-001      base-URL OVERRIDE *mentioned* (a README `ANTHROPIC_BASE_URL=…`
+#                    config example) — the persistent WRITE (LLMJACK-003) still blocks.
+_VET_SOFT_REVIEW_RULE_IDS = frozenset({
+    'MEDUSA-SKILL-ROGUE-001', 'MEDUSA-SKILL-MEMORY-001', 'MEDUSA-LLMJACK-001',
+})
+
+
+def _is_soft_review_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a 'review, don't block' rule (a legit
+    tool's normal operation; the active-attack payload rules hard-block separately)."""
+    return (finding.get("rule_id") or "") in _VET_SOFT_REVIEW_RULE_IDS
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -535,7 +560,8 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     # dependencies (CVE/OSV) and screening-only (harvested, low-precision) rules.
     def _is_soft(f):
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
-                or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f))
+                or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
+                or _is_soft_review_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
