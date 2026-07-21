@@ -135,6 +135,25 @@ def _is_test_data_path(file_path) -> bool:
     return any(p in _VET_TEST_DATA_DIRS for p in parts)
 
 
+# Documentation dirs — a leaked-secret finding here is overwhelmingly a copy-paste
+# example (`Authorization: Bearer <TOKEN>`, a sample `.env`), not a real credential.
+# Scoped to the GitLeaks exemption only (below); other scanners (e.g. a prompt-
+# injection directive in a README) still drive the verdict inside docs/.
+_VET_DOC_DIRS = frozenset({"docs", "doc", "documentation"})
+
+
+def _is_test_or_doc_path(file_path) -> bool:
+    """True if a path component is a test-data OR documentation dir."""
+    parts = str(file_path or "").replace("\\", "/").lower().split("/")
+    return any(p in _VET_TEST_DATA_DIRS or p in _VET_DOC_DIRS for p in parts)
+
+
+def _is_gitleaks_signal(finding: dict) -> bool:
+    """A leaked-secret finding from GitLeaks (scanner name or ``GL-`` rule prefix)."""
+    return (finding.get("scanner") == "GitLeaksScanner"
+            or str(finding.get("rule_id") or "").startswith("GL-"))
+
+
 # A LIVE-payload file class executes or carries a real secret regardless of the
 # directory it sits in — a real mcp.json, skill/install script, credential file,
 # or payload image parked in tests/fixtures/ IS an install risk (an attacker just
@@ -265,6 +284,15 @@ def _is_vet_signal(finding: dict) -> bool:
     """
     rule_id = finding.get("rule_id") or ""
     if rule_id in _VET_NONSIGNAL_RULE_IDS:
+        return False
+    # GitLeaks (leaked-secret) finding on a test-fixture / example / doc path is a
+    # fixture or documentation snippet — a test TLS cert (`.key`/`.pem`), a sample
+    # `.env`, a `Bearer <TOKEN>` doc example — NOT a real leaked credential. It does
+    # not drive the verdict. The SAME leak in shipped source / root is still a signal
+    # (not a test/doc path -> falls through below). This deliberately overrides the
+    # live-payload exception for GitLeaks only: a test cert IS a `.key`, so the
+    # live-payload class would otherwise re-block it (the okhttp / requests FP class).
+    if _is_gitleaks_signal(finding) and _is_test_or_doc_path(finding.get("file")):
         return False
     # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
     # payload file (real mcp.json / install script / credential / image), which
