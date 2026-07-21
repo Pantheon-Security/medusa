@@ -423,10 +423,14 @@ def _is_docker_hardening_signal(finding: dict) -> bool:
 # tier as attack-signature / dependency-CVE / docker-hardening:
 #   SKILL-ROGUE-001  self-modification / persistence ("add a hook to settings.json")
 #   SKILL-MEMORY-001 memory-poisoning ("remember to always …")
+#   SKILL-TRIGGER-001 over-broad / shadowing skill trigger (a legit skill framework
+#                    like claude-forge declares broad triggers) — the anti-refusal /
+#                    hidden-instruction SKILL rules still hard-block.
 #   LLMJACK-001      base-URL OVERRIDE *mentioned* (a README `ANTHROPIC_BASE_URL=…`
 #                    config example) — the persistent WRITE (LLMJACK-003) still blocks.
 _VET_SOFT_REVIEW_RULE_IDS = frozenset({
-    'MEDUSA-SKILL-ROGUE-001', 'MEDUSA-SKILL-MEMORY-001', 'MEDUSA-LLMJACK-001',
+    'MEDUSA-SKILL-ROGUE-001', 'MEDUSA-SKILL-MEMORY-001',
+    'MEDUSA-SKILL-TRIGGER-001', 'MEDUSA-LLMJACK-001',
 })
 
 
@@ -454,6 +458,32 @@ _PLUGIN_SECURITY_PREFIX = "PLG"
 def _is_plugin_security_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a PluginSecurityScanner (PLG) rule."""
     return (finding.get("rule_id") or "").startswith(_PLUGIN_SECURITY_PREFIX)
+
+
+# --- Repo AI-security-hygiene sub-tier (softer than curated malice) ------------
+# DatasetInjectionScanner (DSI001-003: attack strings embedded in a DATASET) and
+# PromptInjectionCodeScanner (PIC001-008: the repo's OWN code builds a prompt from
+# user input — an injection sink) describe attack-content-as-DATA or a prompt-
+# injection weakness in the repo's own code — the same "review this repo" class as
+# ATKSIG (attack signatures as data) and PLG (plugin code-quality). A research /
+# red-team repo ships attack datasets (AdvBox / GPTFuzz / llm-attacks) and a prompt-
+# firewall (openshield / superagent) flows user input into an LLM by design, so these
+# carpet-block legit AI tooling. The INSTALLER-directed prompt attack (a poisoned
+# SKILL.md directive, an mcp.json injected directive, a base-URL hijack) is a
+# DIFFERENT scanner (SkillManifest / MCP / LLMJACK) and still hard-blocks via its own
+# rule. So DSI / PIC cap the verdict at CAUTION, never DO_NOT_INSTALL on their own.
+_REPO_AI_HYGIENE_SCANNERS = frozenset({
+    "DatasetInjectionScanner", "PromptInjectionCodeScanner",
+})
+_REPO_AI_HYGIENE_PREFIXES = ("DSI", "PIC")
+
+
+def _is_repo_ai_hygiene_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a dataset-injection (DSI) or prompt-
+    injection-in-code (PIC) rule — the repo's own AI-security weakness / attack-
+    content-as-data, not an install-time attack on the installer."""
+    return (finding.get("scanner") in _REPO_AI_HYGIENE_SCANNERS
+            or str(finding.get("rule_id") or "").startswith(_REPO_AI_HYGIENE_PREFIXES))
 
 
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
@@ -609,7 +639,8 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     def _is_soft(f):
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
                 or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
-                or _is_soft_review_signal(f) or _is_plugin_security_signal(f))
+                or _is_soft_review_signal(f) or _is_plugin_security_signal(f)
+                or _is_repo_ai_hygiene_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
