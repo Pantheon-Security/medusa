@@ -393,6 +393,36 @@ class MedusaCacheManager:
 _NEVER_DESCEND_ENUM_CAP = 100_000
 
 
+# External tools whose findings DRIVE the install verdict — kept even in
+# screening/vet: gitleaks (leaked live secret = malice) and modelscan (malicious
+# model = malice). Both are cheap (batch / model-files-only), not the per-file
+# subprocess storm.
+_VET_KEEP_EXTERNAL_TOOLS = frozenset({'gitleaks', 'modelscan'})
+
+
+def _is_screening_skippable_external(scanner) -> bool:
+    """True if the scanner shells out to an external SAST/lint tool whose findings
+    are informational enrichment (bandit/eslint/semgrep/shellcheck/hadolint/…),
+    NOT a vet verdict signal.
+
+    Profiling a screening scan showed 99% of the wall-clock is spawning + waiting
+    on these per-file linter subprocesses (semgrep/bandit ~2-3s each), while the
+    built-in 42k-pattern matching — the actual trust signal — is ~0.06s. `vet` is
+    a fast TRUST gate, and external-linter findings are already "informational
+    only" (never asserted, never a vet signal), so screening skips them for a
+    ~100x speedup. gitleaks/modelscan (verdict signals) are kept.
+    """
+    try:
+        tool = (scanner.get_tool_name() or '').lower()
+    except Exception:
+        return False
+    if tool in ('', 'python', 'python3'):
+        return False                      # built-in in-process pattern scanner
+    if tool in _VET_KEEP_EXTERNAL_TOOLS:
+        return False                      # external but drives the verdict
+    return bool(getattr(scanner, 'tool_path', None))  # resolved external binary
+
+
 class MedusaParallelScanner:
     """Parallel MEDUSA security scanner"""
 
@@ -1017,6 +1047,14 @@ class MedusaParallelScanner:
         if scanners is None:
             scanners = scanner_registry.get_scanners_for_file(file_path)
 
+        # Screening/vet is a fast TRUST gate driven by the built-in 42k patterns.
+        # External SAST/lint subprocesses (bandit/eslint/semgrep/…) dominate the
+        # runtime (one process per file, ~2-3s each) and only add informational
+        # findings — never a verdict signal — so skip them here. gitleaks/modelscan
+        # (verdict signals) are kept. See _is_screening_skippable_external.
+        if getattr(self, 'screening', False):
+            scanners = [s for s in scanners if not _is_screening_skippable_external(s)]
+
         # --- File size guard ---
         # Data files (73MB JSON datasets, large logs, vendor bundles) will hang
         # full regex scanning for minutes. For oversized files run ONLY
@@ -1395,23 +1433,32 @@ class MedusaParallelScanner:
             _project_root = self.project_root
             _icon2 = '*'
 
-            from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
-            _semgrep = next(
-                (s for s in scanner_registry.scanners if isinstance(s, _SemgrepScanner)),
-                None,
-            )
-            if _semgrep and _semgrep.is_available():
-                print(f"{_icon2} Running Semgrep batch scan on {_project_root}...")
-                _semgrep.scan_project(_project_root)
+            # Screening/vet skips the slow informational SAST / container linters
+            # (semgrep — a heavy batch pass that scales with repo size; trivy) —
+            # neither drives the install verdict. gitleaks (secrets) + OSV
+            # (dependency-CVE) below ARE verdict signals and always run. This is the
+            # batch-side of the per-file skip in scan_file (see
+            # _is_screening_skippable_external): together they take vet from
+            # subprocess-bound (minutes / timeouts on large repos) to pattern-bound.
+            _screening = bool(getattr(self, 'screening', False))
+            if not _screening:
+                from medusa.scanners.semgrep_scanner import SemgrepScanner as _SemgrepScanner
+                _semgrep = next(
+                    (s for s in scanner_registry.scanners if isinstance(s, _SemgrepScanner)),
+                    None,
+                )
+                if _semgrep and _semgrep.is_available():
+                    print(f"{_icon2} Running Semgrep batch scan on {_project_root}...")
+                    _semgrep.scan_project(_project_root)
 
-            from medusa.scanners.trivy_scanner import TrivyScanner as _TrivyScanner
-            _trivy = next(
-                (s for s in scanner_registry.scanners if isinstance(s, _TrivyScanner)),
-                None,
-            )
-            if _trivy and _trivy.is_available():
-                print(f"{_icon2} Running Trivy batch scan on {_project_root}...")
-                _trivy.scan_project(_project_root)
+                from medusa.scanners.trivy_scanner import TrivyScanner as _TrivyScanner
+                _trivy = next(
+                    (s for s in scanner_registry.scanners if isinstance(s, _TrivyScanner)),
+                    None,
+                )
+                if _trivy and _trivy.is_available():
+                    print(f"{_icon2} Running Trivy batch scan on {_project_root}...")
+                    _trivy.scan_project(_project_root)
 
             from medusa.scanners.gitleaks_scanner import GitLeaksScanner as _GitLeaksScanner
             _gitleaks = next(
