@@ -408,6 +408,26 @@ def _is_soft_review_signal(finding: dict) -> bool:
     return (finding.get("rule_id") or "") in _VET_SOFT_REVIEW_RULE_IDS
 
 
+# --- Plugin-security sub-tier (softer than curated malice) ---------------------
+# PluginSecurityScanner's PLG001-PLG010 are plugin CODE-QUALITY / info-leak
+# findings (missing input validation / auth, chat-history exposure, "sensitive
+# data in a plugin response", plugin command injection). Like external SAST, they
+# describe a weakness in the REPO's own plugin code — a "review this repo's plugin
+# security" concern — not an install-time attack on the installer, and they were
+# the #1 false-block driver on legit agent frameworks (PLG008 alone = 25x across
+# nanoclaw/agentshield/openshield/rampart/superagent; its `return.*key` pattern
+# matches `registry.keys()`, `continuationKey`, code comments, test strings). A
+# genuinely malicious plugin's actual payload (exfil, dropper, taint) hard-blocks
+# via its OWN rule. So a PLG match caps the verdict at CAUTION, never
+# DO_NOT_INSTALL on its own — same tier as attack-signature / dependency-CVE.
+_PLUGIN_SECURITY_PREFIX = "PLG"
+
+
+def _is_plugin_security_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a PluginSecurityScanner (PLG) rule."""
+    return (finding.get("rule_id") or "").startswith(_PLUGIN_SECURITY_PREFIX)
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -561,7 +581,7 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     def _is_soft(f):
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
                 or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
-                or _is_soft_review_signal(f))
+                or _is_soft_review_signal(f) or _is_plugin_security_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 

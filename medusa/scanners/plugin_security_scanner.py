@@ -163,7 +163,7 @@ class PluginSecurityScanner(BaseScanner):
 
     # PLG008: Sensitive data in plugin responses
     SENSITIVE_DATA_PATTERNS: List[Tuple[str, str, Severity]] = [
-        (r'return.*(?:password|secret|key|token|credential)',
+        (r'return\s[^\n]{0,40}?\b(?:password|secret|api[_-]?key|access[_-]?token|auth[_-]?token|private[_-]?key|credentials?)\b',
          'Sensitive data in plugin return', Severity.CRITICAL),
         (r'plugin.*response.*(?:api_key|secret|password)',
          'Sensitive data in plugin response', Severity.CRITICAL),
