@@ -75,6 +75,13 @@ _PATTERNS = [
 
 _MAX_BYTES = 1 * 1024 * 1024  # credential files are tiny; cap defensively
 
+# A committed PRIVATE KEY is a CRITICAL exposure — it hard-blocks the install
+# verdict on its own (aligns with GitLeaks, which maps private-key -> CRITICAL, and
+# with scan_api's "leaked live secrets still hard-block" intent). A committed TOKEN
+# file (npm/aws/docker/netrc/s3cfg/pgpass) stays HIGH: serious, but the private key
+# is the higher-severity plant. Keyed on the pattern description above.
+_CRITICAL_DESCS = frozenset({"private key material"})
+
 
 class CredentialFileScanner(BaseScanner):
     """Flags committed credential files (private keys, tokens, cloud creds)."""
@@ -124,7 +131,7 @@ class CredentialFileScanner(BaseScanner):
             if m and desc not in seen:
                 seen.add(desc)
                 issues.append(ScannerIssue(
-                    severity=Severity.HIGH,
+                    severity=Severity.CRITICAL if desc in _CRITICAL_DESCS else Severity.HIGH,
                     message=(f"Committed credential file '{file_path.name}': {desc} — a repo/skill "
                              "you install should not ship credentials (leaked secret or plant)"),
                     line=content[:m.start()].count("\n") + 1,
