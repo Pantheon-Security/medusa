@@ -89,6 +89,7 @@ _VET_SIGNAL_SCANNERS = frozenset({
     "LLMProviderHijackScanner",  # base-URL hijack / API-key URL exfil
     "ImageEmbeddedThreatScanner",  # commands hidden in images / polyglots
     "CredentialFileScanner",     # committed private keys / tokens / cloud creds
+    "RemoteFetchExecScanner",    # download-remote-script-then-execute (curl|bash + split form)
 })
 
 # Rule-ID prefixes that drive the verdict regardless of scanner attribution.
@@ -105,6 +106,7 @@ _VET_SIGNAL_RULE_PREFIXES = (
     "MEDUSA-LLMJACK-",           # LLM provider base-URL hijack / API-key URL exfil
     "MEDUSA-IMG-",               # commands hidden in image metadata / polyglots
     "MEDUSA-CRED-",              # committed credential files (keys / tokens / creds)
+    "MEDUSA-RCE-FETCHEXEC-",     # fetch-then-execute a remote script (no integrity check)
 )
 
 # Informational rule IDs that must NEVER drive the verdict even though they are
@@ -519,6 +521,25 @@ def _is_repo_ai_hygiene_signal(finding: dict) -> bool:
             or str(finding.get("rule_id") or "").startswith(_REPO_AI_HYGIENE_PREFIXES))
 
 
+# --- Remote fetch-execute sub-tier (review, don't auto-block) ------------------
+# A fetch-then-execute-remote-script (curl|bash and its split download-then-execute
+# form) is a genuine supply-chain surface (the source can be swapped), but many
+# LEGITIMATE installers do exactly this (nvm, rustup, homebrew, devcontainer setup),
+# so hard-blocking every repo with a curl|bash reproduces the false-block problem. It
+# is a "review this install path" signal: it shows prominently in `medusa scan` (HIGH)
+# and drives the vet verdict to CAUTION, but never an automatic DO_NOT_INSTALL on its
+# own. The script's actual malicious payload — if any — is remote and can't be known
+# statically; the install-time payloads MEDUSA CAN see (dropper, hijack, taint, MCP
+# poisoning) still hard-block via their own rules.
+_FETCH_EXEC_PREFIX = "MEDUSA-RCE-FETCHEXEC-"
+
+
+def _is_fetch_exec_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a remote fetch-execute (curl|bash) rule."""
+    return (finding.get("scanner") == "RemoteFetchExecScanner"
+            or str(finding.get("rule_id") or "").startswith(_FETCH_EXEC_PREFIX))
+
+
 # --- Env sensitive-NAME-only sub-tier (softer than a confirmed secret) ---------
 # EnvScanner's `env-sensitive-var-*` fires on a sensitive-named var (API_KEY / SECRET
 # / TOKEN / PASSWORD) whose value is present but LOW-entropy — a config default or
@@ -692,7 +713,8 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
                 or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
                 or _is_soft_review_signal(f) or _is_plugin_security_signal(f)
-                or _is_repo_ai_hygiene_signal(f) or _is_env_name_only_signal(f))
+                or _is_repo_ai_hygiene_signal(f) or _is_env_name_only_signal(f)
+                or _is_fetch_exec_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
