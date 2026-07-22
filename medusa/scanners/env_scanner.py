@@ -238,12 +238,31 @@ class EnvScanner(BaseScanner):
                         if sensitive_name in key_lower:
                             # Don't flag if it looks like a reference/placeholder
                             if not (value.startswith('${') or value.startswith('$(')):
-                                issues.append(ScannerIssue(
-                                    severity=severity,
-                                    message=f"Sensitive variable '{key}' has hardcoded value",
-                                    line=line_num,
-                                    rule_id=f"env-sensitive-var-{sensitive_name}",
-                                ))
+                                # A HIGH-ENTROPY value in a sensitive-named var is a
+                                # CONFIRMED hardcoded secret (a real leaked key), not
+                                # merely a sensitive NAME -> emit a hard `env-secret-var`
+                                # id that the vet tier does NOT soften. A LOW-entropy
+                                # value (config default / short placeholder) is only a
+                                # name match -> the softer `env-sensitive-var` id (caps
+                                # at CAUTION in vet). This split also stops Check 2 from
+                                # shadowing the high-entropy signal on the same line: it
+                                # used to fire on EVERY sensitive-named var and suppress
+                                # Check 3, routing real high-entropy secrets through the
+                                # name-only id (FX-003b false-negative trap).
+                                if len(value) >= 16 and self._calculate_entropy(value) > 4.5:
+                                    issues.append(ScannerIssue(
+                                        severity=severity,
+                                        message=f"Sensitive variable '{key}' has a hardcoded high-entropy value (likely a real secret)",
+                                        line=line_num,
+                                        rule_id=f"env-secret-var-{sensitive_name}",
+                                    ))
+                                else:
+                                    issues.append(ScannerIssue(
+                                        severity=severity,
+                                        message=f"Sensitive variable '{key}' has hardcoded value",
+                                        line=line_num,
+                                        rule_id=f"env-sensitive-var-{sensitive_name}",
+                                    ))
                             break
 
                 # Check 3: High entropy strings (likely secrets)

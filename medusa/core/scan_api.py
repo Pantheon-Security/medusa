@@ -486,6 +486,25 @@ def _is_repo_ai_hygiene_signal(finding: dict) -> bool:
             or str(finding.get("rule_id") or "").startswith(_REPO_AI_HYGIENE_PREFIXES))
 
 
+# --- Env sensitive-NAME-only sub-tier (softer than a confirmed secret) ---------
+# EnvScanner's `env-sensitive-var-*` fires on a sensitive-named var (API_KEY / SECRET
+# / TOKEN / PASSWORD) whose value is present but LOW-entropy — a config default or
+# short placeholder, not a confirmed secret. (A HIGH-entropy value in the same var is a
+# real leaked secret and gets the hard `env-secret-var-*` id; a known-format secret
+# gets `env-secret-*` via the pattern check; both still hard-block.) So a bare
+# sensitive-NAME match is a "review this config" concern -> cap at CAUTION, never
+# DO_NOT_INSTALL on its own. This is only safe BECAUSE the scanner now routes real
+# high-entropy secrets to `env-secret-var-*` instead of this id (FX-003b).
+_ENV_NAME_ONLY_PREFIX = "env-sensitive-var-"
+
+
+def _is_env_name_only_signal(finding: dict) -> bool:
+    """True if a (already-signal) finding is a sensitive-NAME-only env match (a
+    low-entropy value) — softer than a confirmed hardcoded secret (`env-secret-*`
+    / `env-secret-var-*`, which stay hard-blocking malice)."""
+    return (finding.get("rule_id") or "").startswith(_ENV_NAME_ONLY_PREFIX)
+
+
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
 # a thread pool, so two concurrent scans could otherwise interleave their swaps
 # and one call would close a devnull fd another call still owns
@@ -640,7 +659,7 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
         return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
                 or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
                 or _is_soft_review_signal(f) or _is_plugin_security_signal(f)
-                or _is_repo_ai_hygiene_signal(f))
+                or _is_repo_ai_hygiene_signal(f) or _is_env_name_only_signal(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
