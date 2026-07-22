@@ -51,15 +51,47 @@ case "$cmd" in
     *"git clone"* | *"gh repo clone"* | *curl* | *wget* | \
     *"pip install"* | *"pip3 install"* | *"pipx install"* | \
     *"npm install"* | *"poetry add"* | *"cargo install"* | *"go install"*)
-        # Vet every extracted URL. `grep -oE` prints one match per line; a
-        # `while read` loop keeps this shellcheck-clean (no word-split of $()).
+        # FIRST catch a credential embedded in the install COMMAND itself — a token
+        # in a clone URL (`git clone https://user:ghp_…@host`) or pasted into the
+        # command. Runs BEFORE URL vetting so a leaked token is caught up front and
+        # is never handed to `medusa vet` (which would clone WITH the token in the
+        # URL). This scans the actual TARGET present at hook time (the command
+        # string), NOT the user's $HOME chat/shell history — the bare
+        # `medusa secrets scan` default, which fired on unrelated host artefacts and,
+        # lacking --exit-code, returned 0 so it never actually blocked (dead line).
+        # `--exit-code` makes a real detection non-zero; temp file is 0600, removed
+        # immediately.
+        _sec_tmp="$(mktemp "${TMPDIR:-/tmp}/medusa_hook_cmd.XXXXXX")" || _sec_tmp=""
+        if [ -n "$_sec_tmp" ]; then
+            chmod 600 "$_sec_tmp" 2>/dev/null
+            printf '%s' "$cmd" > "$_sec_tmp"
+            medusa secrets scan --path "$_sec_tmp" --exit-code
+            _sec_rc=$?
+            rm -f "$_sec_tmp"
+            [ "$_sec_rc" -eq 0 ] || block "a credential is embedded in the command (e.g. a token in the URL)"
+        fi
+
+        # Extract the URLs to vet with the precise per-segment parser packaged
+        # alongside this hook (`_vet_url_extract.py`): it only vets a URL whose
+        # statement's LEADING command is a real fetch (git clone / gh repo clone /
+        # pip|npm|… install / curl|wget piped into a shell). This stops the
+        # compound-command URL bleed (`git clone X && az … https://dev.azure.com`),
+        # substring/echo matches (`echo "pip install …"`), greedy-regex junk
+        # (`https://x.git;cd`) and plain-download FPs — while still emitting every
+        # real clone/dropper target. If the helper is unavailable it falls back to
+        # the old greedy grep (fail SAFE — over-vet rather than under-vet).
+        _hook_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+        urls="$(printf '%s' "$cmd" | python3 "$_hook_dir/_vet_url_extract.py" 2>/dev/null)"
+        parser_rc=$?
+        if [ "$parser_rc" -ne 0 ]; then
+            urls="$(printf '%s' "$cmd" | grep -oE '(https?://|git@)[^ ]+')"
+        fi
+        # Vet every extracted URL. `medusa vet` is the single verdict model shared
+        # with the MCP gatekeeper (SkillSpector thresholds): exit 0 = SAFE, 1 =
+        # CAUTION, 2 = DO_NOT_INSTALL, any other non-zero = could-not-vet. All
+        # non-SAFE outcomes block by default; the reason is worded per case.
         while IFS= read -r url; do
             [ -n "$url" ] || continue
-            # `medusa vet` is the single verdict model shared with the MCP
-            # gatekeeper (SkillSpector thresholds). It exits 0 only on SAFE;
-            # CAUTION (1) and DO_NOT_INSTALL (2) are non-SAFE verdicts; any other
-            # non-zero means vetting could not run. Both block by default, but we
-            # word the reason differently so the user knows which happened.
             medusa vet "$url"
             rc=$?
             if [ "$rc" -eq 1 ] || [ "$rc" -eq 2 ]; then
@@ -67,10 +99,7 @@ case "$cmd" in
             elif [ "$rc" -ne 0 ]; then
                 block "could not vet $url (medusa error, exit $rc)"
             fi
-        done < <(printf '%s' "$cmd" | grep -oE '(https?://|git@)[^ ]+')
-
-        # Also catch credentials being staged alongside the install.
-        medusa secrets scan || block "secrets detected"
+        done < <(printf '%s\n' "$urls")
         ;;
     *)
         exit 0
