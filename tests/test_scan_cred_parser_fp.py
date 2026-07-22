@@ -41,3 +41,31 @@ def test_real_hardcoded_secret_still_flagged():
                  "password = 'hunter2SecretPass'",
                  'token="ghp_ABCDEFGHIJKLMNOP0123456"'):
         assert re.search(pat, real), f"real hardcoded secret must still fire: {real!r}"
+
+
+# --- WEB-AUTH-001 (same cookie-parser FP class, web_security rule file) -------- #
+_WEB_RULE_FILE = (Path(__file__).resolve().parent.parent / "medusa" / "rules" /
+                  "web_security" / "python_web_security.yaml")
+
+
+def _web_auth_patterns():
+    doc = yaml.safe_load(_WEB_RULE_FILE.read_text())
+    rules = doc["rules"] if isinstance(doc, dict) else doc
+    for r in rules:
+        if isinstance(r, dict) and r.get("id") == "WEB-AUTH-001":
+            return r["patterns"]
+    raise AssertionError("WEB-AUTH-001 not found")
+
+
+def test_web_auth_parser_not_flagged():
+    pats = _web_auth_patterns()
+    assert not any(re.search(p, 'if "auth_token=" in value and "ct0=" in value:') for p in pats), \
+        "WEB-AUTH-001 must not flag the cookie parser membership-test"
+
+
+def test_web_auth_real_secret_still_flagged():
+    pats = _web_auth_patterns()
+    for real in ('$api_key = "sk_live_realkey9876543210";',
+                 'password = "hunter2SecretPass"',
+                 'token = "ghp_ABCDEFGHIJKLMNOP0123456"'):
+        assert any(re.search(p, real) for p in pats), f"real secret must still fire: {real!r}"

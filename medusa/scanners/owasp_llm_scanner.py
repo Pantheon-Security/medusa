@@ -117,7 +117,7 @@ class OWASPLLMScanner(RuleBasedScanner):
     PROMPT_INJECTION_PATTERNS = [
         (re.compile(r'(prompt|message)\s*=\s*.{0,50}\+\s*(user|input|request)', re.IGNORECASE),
          'User input concatenated into prompt (direct injection risk)'),
-        (re.compile(r'f["\'].{0,100}\{(user_input|request|query|message)\}.{0,100}["\']', re.IGNORECASE),
+        (re.compile(r'f["\'].{0,100}\{(user_input|request|query)\}.{0,100}["\']', re.IGNORECASE),
          'User input interpolated in prompt string'),
         (re.compile(r'(system_prompt|instructions)\s*\+\s*', re.IGNORECASE),
          'System prompt concatenated with untrusted data'),
