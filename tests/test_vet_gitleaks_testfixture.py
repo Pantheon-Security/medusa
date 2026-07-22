@@ -49,6 +49,29 @@ def test_test_cert_repo_not_dni():
     assert r["verdict"] == api.SAFE, f"test cert must not hard-block (SAFE like requests), got {r['verdict']}"
 
 
+# --- FX-005: GL findings in doc/test FILES (by name, not dir) are dismissed ---- #
+def test_gitleaks_in_readme_file_not_signal():
+    # okhttp class: an example PEM in okhttp-tls/README.md (a README, not a docs/ dir)
+    for p in ("repo/okhttp-tls/README.md", "repo/CHANGELOG.md", "repo/module/CONTRIBUTING.rst"):
+        assert not api._is_vet_signal(_gl(p)), f"GL should be dismissed in doc file: {p}"
+
+
+def test_gitleaks_in_test_file_by_name_not_signal():
+    # rampart class: example tokens in notify_helper_test.go (a *_test.go, not a test/ dir)
+    for p in ("repo/cmd/cli/notify_helper_test.go",
+              "repo/pkg/auth_test.py",
+              "repo/src/login.test.ts",
+              "repo/spec/user_spec.rb",
+              "repo/src/main/java/FooTest.java"):
+        assert not api._is_vet_signal(_gl(p)), f"GL should be dismissed in test file: {p}"
+
+
+def test_gitleaks_in_real_source_file_still_signals():
+    # a real leaked secret in shipped (non-test, non-doc) source still hard-blocks
+    for p in ("repo/cmd/cli/notify_helper.go", "repo/src/config.py", "repo/app/settings.java"):
+        assert api._is_vet_signal(_gl(p)), f"real leaked secret must stay a signal: {p}"
+
+
 # --- adversarial: a parked LIVE payload (mcp.json dropper) in tests/ STILL blocks #
 def test_parked_live_payload_in_tests_still_signal():
     # NOT a GL finding -> the GL exemption must not apply; the live-payload rule

@@ -126,6 +126,8 @@ _VET_TEST_DATA_DIRS = frozenset({
     "test", "tests", "testing", "__tests__", "spec", "specs",
     "vectors", "testdata", "test_data", "fixtures", "fixture",
     "examples", "example", "samples", "sample", "mocks",
+    # Kotlin/Java multiplatform + gradle test source sets
+    "jvmtest", "androidtest", "commontest", "jstest", "nativetest", "integrationtest",
 })
 
 
@@ -152,6 +154,35 @@ def _is_gitleaks_signal(finding: dict) -> bool:
     """A leaked-secret finding from GitLeaks (scanner name or ``GL-`` rule prefix)."""
     return (finding.get("scanner") == "GitLeaksScanner"
             or str(finding.get("rule_id") or "").startswith("GL-"))
+
+
+# Documentation / test FILES identified by NAMING CONVENTION, not by directory —
+# an example key in `okhttp-tls/README.md` or example tokens in a Go `*_test.go`
+# live outside any `docs/`/`tests/` dir but are still documentation / fixtures. Used
+# (with the GitLeaks exemption only) so an example secret in a README or a token in a
+# `*_test` file does not hard-block; a real secret in shipped source still does.
+_VET_DOC_FILE_SUFFIXES = (".md", ".markdown", ".rst", ".adoc")
+_VET_DOC_FILE_STEMS = ("readme", "changelog", "contributing", "changes", "history")
+_VET_TEST_FILE_MARKERS = ("_test.", ".test.", "_spec.", ".spec.", "_tests.")
+
+
+# Java/Kotlin CamelCase test-class suffixes — matched on the ORIGINAL case so a
+# lowercase word ending (`latest.py`, `submit.go`) can never be mistaken for a test.
+_VET_TEST_FILE_CAMEL = ("Test.java", "Tests.java", "Test.kt", "Tests.kt",
+                        "IT.java", "Test.scala", "Spec.scala")
+
+
+def _is_doc_or_test_file(file_path) -> bool:
+    """True if the FILE itself is documentation or a test by naming convention."""
+    orig = Path(str(file_path or "")).name
+    name = orig.lower()
+    if not name:
+        return False
+    if name.endswith(_VET_DOC_FILE_SUFFIXES) or any(name.startswith(s) for s in _VET_DOC_FILE_STEMS):
+        return True
+    if name.startswith("test_") or any(m in name for m in _VET_TEST_FILE_MARKERS):
+        return True
+    return orig.endswith(_VET_TEST_FILE_CAMEL)
 
 
 # A LIVE-payload file class executes or carries a real secret regardless of the
@@ -292,7 +323,9 @@ def _is_vet_signal(finding: dict) -> bool:
     # (not a test/doc path -> falls through below). This deliberately overrides the
     # live-payload exception for GitLeaks only: a test cert IS a `.key`, so the
     # live-payload class would otherwise re-block it (the okhttp / requests FP class).
-    if _is_gitleaks_signal(finding) and _is_test_or_doc_path(finding.get("file")):
+    if _is_gitleaks_signal(finding) and (
+            _is_test_or_doc_path(finding.get("file"))
+            or _is_doc_or_test_file(finding.get("file"))):
         return False
     # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
     # payload file (real mcp.json / install script / credential / image), which
