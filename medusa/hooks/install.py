@@ -605,7 +605,13 @@ def _remove_medusa_server(path: Path) -> Path | None:
     if not servers:
         config.pop("mcpServers", None)
     _backup(path)
-    _write_json(path, config)
+    # If MEDUSA was the only content, the file is now empty ({}). A file we created
+    # and fully emptied is litter — remove it rather than leave a bare `{}` behind
+    # (FX-H01/#26). A file with any other user content is kept and rewritten.
+    if not config:
+        path.unlink()
+    else:
+        _write_json(path, config)
     return path
 
 
@@ -647,7 +653,13 @@ def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
     # Text-fallback form: strip the marker-guarded block.
     if _MARKER_BEGIN in text:
         _backup(path)
-        path.write_text(_strip_marker_block(text), encoding="utf-8")
+        stripped = _strip_marker_block(text)
+        # Nothing left but whitespace -> the MEDUSA block was the only content;
+        # remove the file we created instead of leaving an empty one (FX-H01/#26).
+        if not stripped.strip():
+            path.unlink()
+        else:
+            path.write_text(stripped, encoding="utf-8")
         return path
 
     # Structured form: parse, drop [mcp_servers.medusa], re-serialize.
@@ -662,7 +674,12 @@ def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
             if not servers:
                 data.pop("mcp_servers", None)
             _backup(path)
-            path.write_text(tomli_w.dumps(data), encoding="utf-8")
+            # MEDUSA was the only content -> remove the now-empty file we created
+            # rather than write an empty TOML (FX-H01/#26).
+            if not data:
+                path.unlink()
+            else:
+                path.write_text(tomli_w.dumps(data), encoding="utf-8")
             return path
     return None
 
