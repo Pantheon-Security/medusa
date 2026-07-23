@@ -129,6 +129,12 @@ class MedusaReportGenerator:
         'UNDEFINED': 0
     }
 
+    # FX-H04 (#25c): the most a pile of MEDIUM / LOW findings can subtract from the
+    # score. Low-severity noise (best-practice suggestions) should never dominate the
+    # headline the way 38 LOW findings did on agent-reach. CRITICAL/HIGH are uncapped.
+    _MEDIUM_WEIGHT_CAP = 24   # up to ~12 MEDIUM findings' worth
+    _LOW_WEIGHT_CAP = 15      # up to 15 LOW findings' worth
+
     SEVERITY_COLORS = {
         'CRITICAL': '#dc3545',  # Red
         'HIGH': '#fd7e14',      # Orange
@@ -167,24 +173,46 @@ class MedusaReportGenerator:
             # every finding is in a test dir -> nothing drives the score
             return 100.0
 
-        # Calculate weighted issue score (test-dir findings excluded)
-        total_weight = sum(
-            self.SEVERITY_WEIGHTS.get(f['severity'], 0)
-            for f in scored
+        # Weighted penalty per severity. FX-H04 (#25c) part (a): CAP the total LOW and
+        # MEDIUM contribution so a pile of low-severity noise can't tank the score. A
+        # repo with 38 harmless best-practice LOW findings must not read the same as one
+        # with a critical bug (agent-reach: 38 LOW dragged the score to 41 -> "CRITICAL").
+        # CRITICAL/HIGH accumulate uncapped — those are the ones that should move the score.
+        by_sev = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0, 'LOW': 0}
+        for f in scored:
+            s = str(f.get('severity', '')).upper()
+            if s in by_sev:
+                by_sev[s] += self.SEVERITY_WEIGHTS.get(f['severity'], 0)
+        total_weight = (
+            by_sev['CRITICAL'] + by_sev['HIGH']
+            + min(by_sev['MEDIUM'], self._MEDIUM_WEIGHT_CAP)
+            + min(by_sev['LOW'], self._LOW_WEIGHT_CAP)
         )
 
         # Penalty: -1 point per weighted issue, minimum 0
         score = max(0, 100 - total_weight)
 
-        # PR-018a: a single CRITICAL (or HIGH) must never read as a "GOOD" score.
-        # The weighted penalty alone lets e.g. 1 CRITICAL + 1 HIGH score 85/GOOD,
-        # which is a trust-killer for a security scanner. Cap the score by the
-        # worst severity present (among non-test findings) so the risk level is honest.
         severities = {str(f.get('severity', '')).upper() for f in scored}
+
+        # PR-018a: a single CRITICAL (or HIGH) must never read as a "GOOD" score. Cap the
+        # score by the worst severity present so a serious finding can't hide behind a
+        # high score.
         if 'CRITICAL' in severities:
             score = min(score, 40)   # -> risk level CRITICAL
         elif 'HIGH' in severities:
             score = min(score, 65)   # -> risk level CONCERNING
+
+        # FX-H04 part (b): FLOOR the score by the worst severity so the risk LEVEL never
+        # exceeds what the worst finding warrants. "CRITICAL risk" must mean "there is a
+        # critical issue", not "there is a lot of low-severity noise". No CRITICAL -> at
+        # most CONCERNING (>=50); no HIGH+ -> at most MODERATE (>=70); LOW-only -> GOOD.
+        if 'CRITICAL' not in severities:
+            if 'HIGH' in severities:
+                score = max(score, 50)   # >= CONCERNING (never CRITICAL)
+            elif 'MEDIUM' in severities:
+                score = max(score, 70)   # >= MODERATE
+            elif 'LOW' in severities:
+                score = max(score, 85)   # >= GOOD
 
         return round(score, 2)
 
