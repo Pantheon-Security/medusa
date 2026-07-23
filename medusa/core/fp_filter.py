@@ -276,12 +276,27 @@ class FalsePositiveFilter:
     # such a literal collection (a NAME ending in _PATTERNS/_SIGNATURES/_RULES/
     # _REGEXES/_INDICATORS assigned a list/dict/tuple/set), and the matched line
     # is a string literal element — never the executable code around it.
+    # An UPPERCASE module-level constant (optional leading underscore for a
+    # module-private name) assigned a collection literal. The NAME's purpose is
+    # checked separately against _PATTERN_LITERAL_NAME_TOKENS so a leading-underscore
+    # or denylist-by-name constant (FX-H03/#25b: `_BLOCKED_HOSTS = {...}` — a security
+    # DENYLIST, matched literally as the SSRF-defense the handover flagged) is covered,
+    # not only the `_PATTERNS`/`_SIGNATURES` suffix forms.
     _PATTERN_LITERAL_ASSIGN_RE = re.compile(
-        r'^\s*[A-Z][A-Z0-9_]*'
-        r'(?:_PATTERNS?|_SIGNATURES?|_RULES?|_REGEXE?S?|_INDICATORS?|_KEYWORDS?'
-        r'|_PAYLOADS?|_BLOCKLIST|_BLACKLIST|_DENYLIST)\b'
-        r'\s*(?::[^=]+)?=\s*[\[\{\(]',
+        r'^\s*(?P<name>_?[A-Z][A-Z0-9_]*)\s*(?::[^=]+)?=\s*[\[\{\(]',
     )
+    # Purpose tokens (matched per underscore-delimited token of the name, so no
+    # substring over-match like ORIGINAL/GHOST): a datum inside one of these
+    # collections is signature/denylist DATA, not executable logic.
+    _PATTERN_LITERAL_NAME_TOKENS = frozenset({
+        'PATTERN', 'PATTERNS', 'SIGNATURE', 'SIGNATURES', 'RULE', 'RULES',
+        'REGEX', 'REGEXES', 'REGEXPS', 'INDICATOR', 'INDICATORS',
+        'KEYWORD', 'KEYWORDS', 'PAYLOAD', 'PAYLOADS',
+        'BLOCK', 'BLOCKED', 'BLOCKLIST', 'BLACKLIST',
+        'DENY', 'DENIED', 'DENYLIST',
+        'ALLOW', 'ALLOWED', 'ALLOWLIST', 'WHITELIST',
+        'HOST', 'HOSTS', 'DOMAIN', 'DOMAINS', 'ORIGIN', 'ORIGINS',
+    })
     # A line that is (predominantly) a quoted string literal element, optionally a
     # raw/byte/format string, with an optional trailing comma — i.e. a datum in a
     # collection literal, not a statement that calls/executes anything.
@@ -578,15 +593,17 @@ class FalsePositiveFilter:
             stripped = prev.strip()
             if not stripped:
                 continue
-            if self._PATTERN_LITERAL_ASSIGN_RE.match(prev):
+            m = self._PATTERN_LITERAL_ASSIGN_RE.match(prev)
+            if m and any(t in self._PATTERN_LITERAL_NAME_TOKENS
+                         for t in m.group('name').strip('_').split('_')):
                 return FilterResult(
                     is_likely_fp=True,
                     confidence=0.85,
                     reason=FPReason.PATTERN_LITERAL,
                     explanation=(
-                        "Match is a string literal inside an attack-pattern "
-                        "constant (e.g. *_PATTERNS/_SIGNATURES); definition data, "
-                        "not executable logic"
+                        "Match is a string literal inside a signature / denylist "
+                        "constant (e.g. *_PATTERNS/_SIGNATURES/_BLOCKED_HOSTS); "
+                        "definition or defense DATA, not executable logic"
                     ),
                 )
             prev_indent = len(prev) - len(prev.lstrip())
