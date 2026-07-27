@@ -17,6 +17,10 @@ from enum import Enum
 
 import yaml
 
+from medusa.core.vet_tiers import (  # CR-008: canonical malice-prefix set
+    NEVER_GENERIC_FP_PREFIXES as _VET_NEVER_GENERIC_FP_PREFIXES,
+)
+
 
 class FPPatternSchemaError(ValueError):
     """Raised when an FP pattern YAML file has invalid schema."""
@@ -206,32 +210,10 @@ class FalsePositiveFilter:
     # a poisoned .claude/ hook or SKILL.md is a true positive, not "config data".
     # (ATKSIG/OSV are intentionally NOT here: they rely on the rule-corpus/data-
     # file recognition below to avoid firing on MEDUSA's own signature corpus.)
-    _NEVER_GENERIC_FP_PREFIXES = (
-        'MEDUSA-MCP-POISON-',
-        'CC-',
-        'MEDUSA-SKILL-',
-        'MEDUSA-TAINT-',
-        # base-URL hijack / API-key URL exfil. The key-exfil variant deliberately
-        # HIDES its directive in an HTML comment inside a SKILL.md — the exact
-        # thing _check_docstring suppresses — so it must bypass the generic
-        # comment/data-file heuristics like the other install-decision detectors.
-        'MEDUSA-LLMJACK-',
-        # MCP-config poison (MCPConfigScanner's own checks: untrusted server
-        # source, wildcard/traversal paths, tor/tunnel, insecure TLS, secrets)
-        # and supply-chain MCP. These fire ONLY on mcp.json — which the
-        # `findings_in_json_data_files` heuristic wrongly clears as "JSON data,
-        # not exploitable code," so a poisoned mcp.json vetted to SAFE. mcp.json
-        # is executable config: it launches the server/command. Not data.
-        'MCP0',
-        'MEDUSA-SC-MCP-',
-        # commands hidden in image metadata / polyglot payloads. Image bytes read
-        # as "data" to the generic heuristics, but a hidden directive or an
-        # appended shell payload is a true positive, not inert image data.
-        'MEDUSA-IMG-',
-        # committed credential files — a key/token in a .npmrc/id_rsa/credentials
-        # file is the whole point of the file, never a "data-file" false positive.
-        'MEDUSA-CRED-',
-    )
+    # CR-008: canonical in medusa.core.vet_tiers (shared with scan_api's signal
+    # prefixes) so the two malice sets can't drift out of sync — a prefix added to
+    # one but not the other used to silently flip a finding hard-block <-> dropped.
+    _NEVER_GENERIC_FP_PREFIXES = _VET_NEVER_GENERIC_FP_PREFIXES
 
     # --- B1: security-rule / signature-definition data-file recognition ---
     #

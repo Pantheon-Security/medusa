@@ -14,22 +14,16 @@ from typing import Dict, List, Any
 from collections import defaultdict
 
 from medusa import __version__
+from medusa.core.path_classes import TEST_DATA_DIRS, is_test_data_path  # CR-007
 
 # Non-executing test/fixture/example dir components. A finding buried here is not a
-# repo-level risk (security tests embed attack strings by design), so it does not drive
-# the security SCORE (FX-H02/#25a). Kept local to the reporter to avoid a layering
-# dependency on scan_api; mirrors scan_api._VET_TEST_DATA_DIRS.
-_TEST_DATA_DIRS = frozenset({
-    "test", "tests", "testing", "__tests__", "spec", "specs",
-    "vectors", "testdata", "test_data", "fixtures", "fixture",
-    "examples", "example", "samples", "sample", "mocks",
-})
-
-
-def _is_test_data_path(file_path) -> bool:
-    """True if any path component is a recognized non-executing test-data dir."""
-    parts = str(file_path or "").replace("\\", "/").lower().split("/")
-    return any(p in _TEST_DATA_DIRS for p in parts)
+# repo-level risk (security tests embed attack strings by design), so it does not
+# drive the security SCORE (FX-H02/#25a). CR-007: canonical in path_classes — this
+# was a hand-synced mirror of scan_api that had already drifted (missing the JVM /
+# e2e source-set dirs), so a secret in androidtest/ tanked the score while the vet
+# verdict correctly ignored it.
+_TEST_DATA_DIRS = TEST_DATA_DIRS
+_is_test_data_path = is_test_data_path
 
 
 # Pre-compiled regex patterns for SARIF rule ID sanitisation (used per-finding)

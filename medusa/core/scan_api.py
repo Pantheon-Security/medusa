@@ -36,6 +36,11 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
+from medusa.core.path_classes import (  # CR-007: single source of truth
+    TEST_DATA_DIRS, is_test_data_path, LIVE_PAYLOAD_EXACT, is_live_payload_file,
+)
+from medusa.core.vet_tiers import SIGNAL_RULE_PREFIXES, soft_tier_of  # CR-008
+
 # Verdict labels (stable strings — the MCP tools and hooks key off these).
 SAFE = "SAFE"
 CAUTION = "CAUTION"
@@ -95,19 +100,9 @@ _VET_SIGNAL_SCANNERS = frozenset({
 # Rule-ID prefixes that drive the verdict regardless of scanner attribution.
 # Defence in depth: a finding is a signal if EITHER its scanner OR its rule_id
 # says so, so a future attribution change can't silently drop malice signals.
-_VET_SIGNAL_RULE_PREFIXES = (
-    "CC-",                       # Claude Code hook/config abuse
-    "MEDUSA-MCP-POISON-",        # MCP metadata poisoning
-    "MEDUSA-SKILL-",             # skill manifest abuse
-    "MEDUSA-TAINT-",             # taint exfil
-    "MEDUSA-OSV-001",            # OSV known-vuln dependency (NOT -INCOMPLETE)
-    "CVE-",                      # curated CVE hits
-    "MEDUSA-ATKSIG-",            # attack signatures
-    "MEDUSA-LLMJACK-",           # LLM provider base-URL hijack / API-key URL exfil
-    "MEDUSA-IMG-",               # commands hidden in image metadata / polyglots
-    "MEDUSA-CRED-",              # committed credential files (keys / tokens / creds)
-    "MEDUSA-RCE-FETCHEXEC-",     # fetch-then-execute a remote script (no integrity check)
-)
+# CR-008: canonical in medusa.core.vet_tiers (shared with fp_filter's
+# NEVER_GENERIC_FP_PREFIXES to kill the fail-open drift between the two sets).
+_VET_SIGNAL_RULE_PREFIXES = SIGNAL_RULE_PREFIXES
 
 # Informational rule IDs that must NEVER drive the verdict even though they are
 # emitted by a signal scanner. MEDUSA-OSV-INCOMPLETE is a "couldn't reach the
@@ -124,19 +119,10 @@ _VET_NONSIGNAL_RULE_IDS = frozenset({
 # the generic secret detector). Such findings are still scanned and counted in
 # `medusa scan`, but they do not gate the install verdict. Genuine install-path
 # malice (poisoned .claude/, install scripts, package code) lives outside these.
-_VET_TEST_DATA_DIRS = frozenset({
-    "test", "tests", "testing", "__tests__", "spec", "specs",
-    "vectors", "testdata", "test_data", "fixtures", "fixture",
-    "examples", "example", "samples", "sample", "mocks",
-    # Kotlin/Java multiplatform + gradle test source sets
-    "jvmtest", "androidtest", "commontest", "jstest", "nativetest", "integrationtest",
-})
-
-
-def _is_test_data_path(file_path) -> bool:
-    """True if any path component is a recognized non-executing test-data dir."""
-    parts = str(file_path or "").replace("\\", "/").lower().split("/")
-    return any(p in _VET_TEST_DATA_DIRS for p in parts)
+# CR-007: the dir set + classifier are now canonical in medusa.core.path_classes;
+# aliased here so the rest of this module is unchanged.
+_VET_TEST_DATA_DIRS = TEST_DATA_DIRS
+_is_test_data_path = is_test_data_path
 
 
 # Documentation dirs — a leaked-secret finding here is overwhelmingly a copy-paste
@@ -192,26 +178,9 @@ def _is_doc_or_test_file(file_path) -> bool:
 # or payload image parked in tests/fixtures/ IS an install risk (an attacker just
 # picks a "test-data" dir to evade vet). Unlike an attack STRING inside a dataset
 # (which the test-data exclusion legitimately dismisses), these stay a signal.
-_VET_LIVE_PAYLOAD_EXACT = frozenset({
-    "mcp.json", ".mcp.json", "mcp-config.json", "mcp_config.json",
-    "claude_desktop_config.json", "skill.md", "settings.json", "settings.local.json",
-    "install.sh", "setup.sh", "preinstall.sh", "postinstall.sh",
-    ".npmrc", ".pypirc", ".git-credentials", "credentials",
-    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".htpasswd",
-})
-_VET_LIVE_PAYLOAD_SUFFIX = (
-    ".env", ".pem", ".key",
-    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tif", ".tiff",
-)
-
-
-def _is_live_payload_file(file_path) -> bool:
-    if not file_path:
-        return False
-    name = Path(str(file_path)).name.lower()
-    return (name in _VET_LIVE_PAYLOAD_EXACT
-            or name.startswith(".env")
-            or name.endswith(_VET_LIVE_PAYLOAD_SUFFIX))
+# CR-007: canonical in medusa.core.path_classes; aliased here.
+_VET_LIVE_PAYLOAD_EXACT = LIVE_PAYLOAD_EXACT
+_is_live_payload_file = is_live_payload_file
 
 
 def _rel_to_root(file_path, root) -> str:
@@ -352,29 +321,13 @@ def _is_vet_signal(finding: dict) -> bool:
 # skill, MCP poisoning, taint exfil, attack signature, prompt/dataset injection,
 # leaked live secrets, malicious model/plugin) still hard-block. See
 # tests/test_vet_scoping.py.
-_VET_DEP_VULN_SCANNERS = frozenset({
-    "CriticalCVEScanner",
-    "DependencyCVEScanner",
-})
-_VET_DEP_VULN_RULE_PREFIXES = (
-    "CVE-",
-    "cve-",          # CriticalCVEScanner emits lowercase ``cve-cve-...`` ids
-    "MEDUSA-OSV-001",
-)
-
-
 def _is_dependency_vuln_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a known-vulnerable-DEPENDENCY hit.
 
-    These are the softer supply-chain tier: they can escalate the verdict to
-    CAUTION but never to DO_NOT_INSTALL by themselves. Assumes the finding has
-    already passed :func:`_is_vet_signal` (so MEDUSA-OSV-INCOMPLETE, an INFO
-    network notice, is already excluded).
+    Softer supply-chain tier — escalates to CAUTION, never DO_NOT_INSTALL alone.
+    CR-008: classification is the vet_tiers SOFT_TIERS table (single source).
     """
-    scanner = finding.get("scanner") or ""
-    if scanner in _VET_DEP_VULN_SCANNERS:
-        return True
-    return (finding.get("rule_id") or "").startswith(_VET_DEP_VULN_RULE_PREFIXES)
+    return soft_tier_of(finding) == "dependency_vuln"
 
 
 # --- Screening-only (harvested) sub-tier (softer than curated malice) ---------
@@ -421,12 +374,9 @@ def _is_screening_only_signal(finding: dict) -> bool:
 # its OWN rules, which ATKSIG only ever corroborated. So an attack-signature
 # match caps the verdict at CAUTION, never DO_NOT_INSTALL on its own — the same
 # tier as dependency-CVE and harvested screening. See tests/test_vet_screening_cap.py.
-_ATTACK_SIGNATURE_PREFIX = "MEDUSA-ATKSIG-"
-
-
 def _is_attack_signature_signal(finding: dict) -> bool:
-    """True if a (already-signal) finding is an attack-signature match."""
-    return (finding.get("rule_id") or "").startswith(_ATTACK_SIGNATURE_PREFIX)
+    """True if a (already-signal) finding is an attack-signature match. CR-008: table."""
+    return soft_tier_of(finding) == "attack_signature"
 
 
 # --- Docker/config-hardening sub-tier (softer than curated malice) ------------
@@ -438,12 +388,9 @@ def _is_attack_signature_signal(finding: dict) -> bool:
 # LEAKED credential still hard-blocks via GitLeaks/EnvScanner; a malicious
 # container's actual payload trips its own rules. So a DKR match caps the verdict
 # at CAUTION, never DO_NOT_INSTALL on its own. See tests/test_vet_screening_cap.py.
-_DOCKER_HARDENING_PREFIX = "DKR"
-
-
 def _is_docker_hardening_signal(finding: dict) -> bool:
-    """True if a (already-signal) finding is a Docker config-hardening (DKR) rule."""
-    return (finding.get("rule_id") or "").startswith(_DOCKER_HARDENING_PREFIX)
+    """True if a (already-signal) finding is a Docker config-hardening (DKR) rule. CR-008: table."""
+    return soft_tier_of(finding) == "docker_hardening"
 
 
 # --- "Review, don't block" sub-tier (softer than curated malice) --------------
@@ -463,16 +410,11 @@ def _is_docker_hardening_signal(finding: dict) -> bool:
 #                    hidden-instruction SKILL rules still hard-block.
 #   LLMJACK-001      base-URL OVERRIDE *mentioned* (a README `ANTHROPIC_BASE_URL=…`
 #                    config example) — the persistent WRITE (LLMJACK-003) still blocks.
-_VET_SOFT_REVIEW_RULE_IDS = frozenset({
-    'MEDUSA-SKILL-ROGUE-001', 'MEDUSA-SKILL-MEMORY-001',
-    'MEDUSA-SKILL-TRIGGER-001', 'MEDUSA-LLMJACK-001',
-})
-
-
 def _is_soft_review_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a 'review, don't block' rule (a legit
-    tool's normal operation; the active-attack payload rules hard-block separately)."""
-    return (finding.get("rule_id") or "") in _VET_SOFT_REVIEW_RULE_IDS
+    tool's normal operation; the active-attack payload rules hard-block separately).
+    CR-008: rule-id set is the vet_tiers SOFT_TIERS 'soft_review' row."""
+    return soft_tier_of(finding) == "soft_review"
 
 
 # --- Plugin-security sub-tier (softer than curated malice) ---------------------
@@ -487,12 +429,9 @@ def _is_soft_review_signal(finding: dict) -> bool:
 # genuinely malicious plugin's actual payload (exfil, dropper, taint) hard-blocks
 # via its OWN rule. So a PLG match caps the verdict at CAUTION, never
 # DO_NOT_INSTALL on its own — same tier as attack-signature / dependency-CVE.
-_PLUGIN_SECURITY_PREFIX = "PLG"
-
-
 def _is_plugin_security_signal(finding: dict) -> bool:
-    """True if a (already-signal) finding is a PluginSecurityScanner (PLG) rule."""
-    return (finding.get("rule_id") or "").startswith(_PLUGIN_SECURITY_PREFIX)
+    """True if a (already-signal) finding is a PluginSecurityScanner (PLG) rule. CR-008: table."""
+    return soft_tier_of(finding) == "plugin_security"
 
 
 # --- Repo AI-security-hygiene sub-tier (softer than curated malice) ------------
@@ -507,18 +446,11 @@ def _is_plugin_security_signal(finding: dict) -> bool:
 # SKILL.md directive, an mcp.json injected directive, a base-URL hijack) is a
 # DIFFERENT scanner (SkillManifest / MCP / LLMJACK) and still hard-blocks via its own
 # rule. So DSI / PIC cap the verdict at CAUTION, never DO_NOT_INSTALL on their own.
-_REPO_AI_HYGIENE_SCANNERS = frozenset({
-    "DatasetInjectionScanner", "PromptInjectionCodeScanner",
-})
-_REPO_AI_HYGIENE_PREFIXES = ("DSI", "PIC")
-
-
 def _is_repo_ai_hygiene_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a dataset-injection (DSI) or prompt-
     injection-in-code (PIC) rule — the repo's own AI-security weakness / attack-
-    content-as-data, not an install-time attack on the installer."""
-    return (finding.get("scanner") in _REPO_AI_HYGIENE_SCANNERS
-            or str(finding.get("rule_id") or "").startswith(_REPO_AI_HYGIENE_PREFIXES))
+    content-as-data, not an install-time attack on the installer. CR-008: table."""
+    return soft_tier_of(finding) == "repo_ai_hygiene"
 
 
 # --- Remote fetch-execute sub-tier (review, don't auto-block) ------------------
@@ -531,13 +463,9 @@ def _is_repo_ai_hygiene_signal(finding: dict) -> bool:
 # own. The script's actual malicious payload — if any — is remote and can't be known
 # statically; the install-time payloads MEDUSA CAN see (dropper, hijack, taint, MCP
 # poisoning) still hard-block via their own rules.
-_FETCH_EXEC_PREFIX = "MEDUSA-RCE-FETCHEXEC-"
-
-
 def _is_fetch_exec_signal(finding: dict) -> bool:
-    """True if a (already-signal) finding is a remote fetch-execute (curl|bash) rule."""
-    return (finding.get("scanner") == "RemoteFetchExecScanner"
-            or str(finding.get("rule_id") or "").startswith(_FETCH_EXEC_PREFIX))
+    """True if a (already-signal) finding is a remote fetch-execute (curl|bash) rule. CR-008: table."""
+    return soft_tier_of(finding) == "fetch_exec"
 
 
 # --- Env sensitive-NAME-only sub-tier (softer than a confirmed secret) ---------
@@ -549,14 +477,11 @@ def _is_fetch_exec_signal(finding: dict) -> bool:
 # sensitive-NAME match is a "review this config" concern -> cap at CAUTION, never
 # DO_NOT_INSTALL on its own. This is only safe BECAUSE the scanner now routes real
 # high-entropy secrets to `env-secret-var-*` instead of this id (FX-003b).
-_ENV_NAME_ONLY_PREFIX = "env-sensitive-var-"
-
-
 def _is_env_name_only_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a sensitive-NAME-only env match (a
     low-entropy value) — softer than a confirmed hardcoded secret (`env-secret-*`
-    / `env-secret-var-*`, which stay hard-blocking malice)."""
-    return (finding.get("rule_id") or "").startswith(_ENV_NAME_ONLY_PREFIX)
+    / `env-secret-var-*`, which stay hard-blocking malice). CR-008: table."""
+    return soft_tier_of(finding) == "env_name_only"
 
 
 # Serializes the global sys.stdout swap in _quiet. FastMCP runs tool handlers in
@@ -710,11 +635,9 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     # the softer tiers that INFORM but never hard-block: known-vulnerable
     # dependencies (CVE/OSV) and screening-only (harvested, low-precision) rules.
     def _is_soft(f):
-        return (_is_dependency_vuln_signal(f) or _is_screening_only_signal(f)
-                or _is_attack_signature_signal(f) or _is_docker_hardening_signal(f)
-                or _is_soft_review_signal(f) or _is_plugin_security_signal(f)
-                or _is_repo_ai_hygiene_signal(f) or _is_env_name_only_signal(f)
-                or _is_fetch_exec_signal(f))
+        # CR-008: the 8 static soft tiers via the vet_tiers table, plus the dynamic
+        # screening-only tier (a rule-corpus lookup, not a static prefix).
+        return soft_tier_of(f) is not None or _is_screening_only_signal(f)
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 

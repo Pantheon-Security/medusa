@@ -24,6 +24,9 @@ from pathlib import Path
 from typing import List, Optional
 
 from medusa.scanners.base import BaseScanner, ScannerResult, ScannerIssue, Severity
+# CR-007: TEST_DATA_DIRS is imported lazily inside _is_test_fixture_path — a
+# module-level import of medusa.core here would trigger medusa.core.__init__
+# (parallel -> scanners) during scanners package init and create a cycle.
 
 _NAMES = frozenset({
     ".npmrc", ".pypirc", ".git-credentials", "credentials", ".htpasswd",
@@ -40,16 +43,13 @@ _SUFFIXES = (".pem", ".key")
 # test dir is vanishingly rare, and live-payload malice (droppers, hijack skills)
 # is caught by the other scanners that still descend test dirs. So skip credential
 # scanning under obvious test-fixture paths.
-_TEST_FIXTURE_DIRS = frozenset({
-    "test", "tests", "testing", "testdata", "test_data", "__tests__",
-    "fixtures", "fixture", "__fixtures__", "testfixtures",
-    "mocks", "mock", "examples", "example", "spec", "specs", "e2e",
-})
-
-
+# CR-007: canonical set in medusa.core.path_classes (its union includes every
+# member this scanner used). Semantics preserved: match on PARENT dirs only
+# (parts[:-1]).
 def _is_test_fixture_path(file_path: Path) -> bool:
     """True if any parent directory marks this as test-fixture material."""
-    return any(part.lower() in _TEST_FIXTURE_DIRS for part in file_path.parts[:-1])
+    from medusa.core.path_classes import TEST_DATA_DIRS  # lazy: avoid import cycle
+    return any(part.lower() in TEST_DATA_DIRS for part in file_path.parts[:-1])
 
 # (compiled pattern, human description). can_scan already restricts us to
 # credential-bearing files, so these are deliberately simple / high-signal.
