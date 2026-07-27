@@ -6,8 +6,9 @@ Every writer is:
 
 * **idempotent** — running twice yields exactly one MEDUSA entry;
 * **merge-safe** — it preserves unrelated keys / servers / hook blocks;
-* **backup-first** — an existing file is copied to ``<name>.medusa.bak``
-  before it is modified.
+* **backup-first** — an existing file is copied to a timestamped
+  ``<name>.medusa.bak.<epoch>`` before it is modified (never overwriting an
+  earlier backup), and JSON writes are atomic (temp + ``os.replace``).
 
 The writers are deliberately free of any scanning logic so they stay fast and
 trivially testable; they only emit config that invokes the ``medusa`` CLI at
@@ -20,6 +21,7 @@ import json
 import os
 import shutil
 import stat
+import time
 from pathlib import Path
 from typing import Any
 
@@ -61,30 +63,92 @@ _CLAUDE_HOOK_COMMAND = f'bash "{_CLAUDE_HOOK_SCRIPT}"'
 _CLAUDE_SESSIONSTART_COMMAND = (
     'echo "MEDUSA gatekeeper available: vet repos/skills with scan_repo/scan_skill '
     'and check for leaked credentials with secrets_scan before risky actions. '
+    'These tools are ADVISORY (the PreToolUse hook is the enforcing gate) - on any '
+    'non-SAFE verdict, STOP and defer to a human. '
     'If the tools are not loaded, run: medusa hooks install --claude."'
 )
 
 
+class ConfigParseError(ValueError):
+    """An existing config file could not be parsed.
+
+    Raised by :func:`_load_json` when a file that EXISTS and has content will not
+    parse as JSON. Callers on the WRITE path MUST abort rather than merge into an
+    empty dict — merging would silently overwrite the user's real settings with
+    ``{}`` (CR-012). Read-only callers use :func:`_load_json_safe` to treat this as
+    "no MEDUSA config present" instead.
+    """
+
+
 def _backup(path: Path) -> None:
-    """Copy ``path`` to ``<path>.medusa.bak`` if it exists (best effort)."""
-    if path.exists():
-        shutil.copy2(path, path.with_name(path.name + ".medusa.bak"))
+    """Copy ``path`` to a TIMESTAMPED ``<name>.medusa.bak.<epoch>`` if it exists.
+
+    Timestamped and never-overwriting (CR-012): a single fixed ``.medusa.bak`` let
+    a second run copy an already-corrupt file over the last recoverable backup.
+    Best effort — a backup failure must not block the (atomic) write itself.
+    """
+    if not path.exists():
+        return
+    stamp = int(time.time())
+    dest = path.with_name(f"{path.name}.medusa.bak.{stamp}")
+    n = 0
+    while dest.exists():                       # never clobber an existing backup
+        n += 1
+        dest = path.with_name(f"{path.name}.medusa.bak.{stamp}.{n}")
+    shutil.copy2(path, dest)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
-    """Read a JSON object from ``path``; return ``{}`` if missing/invalid."""
+    """Read a JSON object from ``path``.
+
+    Missing OR empty/whitespace-only file → ``{}`` (nothing to lose by merging).
+    An existing file with content that will not parse raises
+    :class:`ConfigParseError` so a caller never merges MEDUSA config into ``{}``
+    and overwrites a settings file it simply couldn't read (e.g. one with a ``//``
+    JSONC comment). Valid non-object JSON still yields ``{}`` (unchanged).
+    """
     if not path.exists():
         return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigParseError(f"cannot read {path}: {exc}") from exc
+    if not text.strip():
         return {}
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ConfigParseError(
+            f"{path} is not valid JSON ({exc}); refusing to overwrite it — "
+            f"fix or remove the file, then re-run."
+        ) from exc
     return data if isinstance(data, dict) else {}
 
 
+def _load_json_safe(path: Path) -> dict[str, Any]:
+    """Best-effort read for READ-ONLY callers (status / uninstall detection).
+
+    An unparseable existing file is treated as ``{}`` ("no MEDUSA config here")
+    rather than aborting — a `hooks status` check must never crash, and an
+    uninstall that can't parse the file leaves it untouched (no medusa key found).
+    """
+    try:
+        return _load_json(path)
+    except ConfigParseError:
+        return {}
+
+
 def _write_json(path: Path, data: dict[str, Any]) -> None:
+    """Atomically write ``data`` as JSON to ``path`` (CR-012).
+
+    Writes a sibling ``.medusa.tmp`` then ``os.replace`` (atomic on the same
+    filesystem), so a crash mid-write can never truncate the real file — it either
+    holds the old content or the new, never a partial.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    tmp = path.with_name(path.name + ".medusa.tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def _is_medusa_entry(entry: Any) -> bool:
@@ -348,6 +412,13 @@ when-to-use: >-
 The `medusa` MCP server exposes three READ-ONLY vetting tools. Use them
 proactively — do not wait to be asked.
 
+**These tools are ADVISORY, not enforcement.** They only return a verdict; the
+deterministic control that actually blocks a risky command is the MEDUSA
+PreToolUse hook (installed by `medusa hooks install --claude`), which fails
+closed. On ANY non-SAFE verdict (CAUTION or DO_NOT_INSTALL), **STOP and defer to
+a human — do not proceed.** Never treat a SAFE verdict from these advisory tools
+as permission to skip the hook.
+
 ## Tools
 
 - `scan_repo(url_or_path)` — vet a local repo path or a remote git URL before
@@ -367,8 +438,9 @@ proactively — do not wait to be asked.
 2. **Before running fetched/untrusted code** — `scan_repo` on the local path.
 3. **Before committing or pasting code** — `secrets_scan` to catch credentials.
 
-If a tool reports a blocking verdict, surface the findings and ask before
-continuing. If the MCP tools are not available, use the CLI equivalents
+On ANY non-SAFE verdict, STOP and defer to a human — surface the findings and do
+not proceed. Remember these MCP tools are advisory: the PreToolUse hook is the
+real gate. If the MCP tools are not available, use the CLI equivalents
 (`medusa scan --git <url>`, `medusa scan <path>`, `medusa secrets scan`).
 """
 
@@ -434,7 +506,7 @@ def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 def _claude_hook_present(base: Path) -> bool:
     """True if a MEDUSA PreToolUse hook is wired in ``<base>/.claude/settings.json``."""
-    data = _load_json(Path(base) / ".claude" / "settings.json")
+    data = _load_json_safe(Path(base) / ".claude" / "settings.json")
     hooks = data.get("hooks", {})
     if not isinstance(hooks, dict):
         return False
@@ -460,7 +532,7 @@ def _pre_commit_present(base: Path) -> bool:
 
 def _cursor_present(base: Path) -> bool:
     """True if a ``medusa`` MCP server is registered in ``<base>/.cursor/mcp.json``."""
-    data = _load_json(Path(base) / ".cursor" / "mcp.json")
+    data = _load_json_safe(Path(base) / ".cursor" / "mcp.json")
     servers = data.get("mcpServers", {})
     return isinstance(servers, dict) and MEDUSA_MARKER in servers
 
@@ -480,7 +552,7 @@ def _codex_present(base: Path) -> bool:
 
 def _claude_sessionstart_present(base: Path) -> bool:
     """True if a MEDUSA SessionStart hook is wired in ``<base>/.claude/settings.json``."""
-    data = _load_json(Path(base) / ".claude" / "settings.json")
+    data = _load_json_safe(Path(base) / ".claude" / "settings.json")
     hooks = data.get("hooks", {})
     if not isinstance(hooks, dict):
         return False
@@ -500,7 +572,7 @@ def _claude_skill_present(base: Path) -> bool:
 
 def _claude_mcp_present(base: Path) -> bool:
     """True if a ``medusa`` MCP server is registered in the project ``<base>/.mcp.json``."""
-    data = _load_json(Path(base) / ".mcp.json")
+    data = _load_json_safe(Path(base) / ".mcp.json")
     servers = data.get("mcpServers", {})
     return isinstance(servers, dict) and MEDUSA_MARKER in servers
 
@@ -545,7 +617,7 @@ def _remove_medusa_from_settings(base: str | os.PathLike[str], hook_type: str) -
     path = Path(base) / ".claude" / "settings.json"
     if not path.exists():
         return None
-    settings = _load_json(path)
+    settings = _load_json_safe(path)   # unparseable -> {} -> no medusa entry -> no-op
     hooks = settings.get("hooks")
     if not isinstance(hooks, dict):
         return None
@@ -597,7 +669,7 @@ def _remove_medusa_server(path: Path) -> Path | None:
     """Remove the ``medusa`` key from an ``mcpServers`` JSON config at ``path``."""
     if not path.exists():
         return None
-    config = _load_json(path)
+    config = _load_json_safe(path)     # unparseable -> {} -> no medusa server -> no-op
     servers = config.get("mcpServers")
     if not isinstance(servers, dict) or MEDUSA_MARKER not in servers:
         return None

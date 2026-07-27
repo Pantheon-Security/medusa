@@ -3,13 +3,18 @@ cap at CAUTION, while active-attack payloads still hard-block.
 
 An FP measurement over the clean corpus (2026-07-21) showed the #1 false-block
 class is legit agent/skill frameworks (claude-forge, nanoclaw) tripping rules
-that describe operations a legitimate tool performs — SKILL-ROGUE-001 (self-mod:
-"add a hook to settings.json"), SKILL-MEMORY-001 ("remember to always …"),
-LLMJACK-001 (a README `ANTHROPIC_BASE_URL=…` config example). Textually these are
-indistinguishable from a rogue tool, so they now cap the verdict at CAUTION. The
-ACTUAL attack payloads a malicious repo carries — API-key URL exfil (LLMJACK-002),
-a persistent base-URL WRITE to settings/rc (LLMJACK-003), an MCP curl|bash dropper
-(MCP017) — still hard-block via their own rules.
+that describe operations a legitimate tool performs — SKILL-MEMORY-001
+("remember to always …") and LLMJACK-001 (a README `ANTHROPIC_BASE_URL=…` config
+example). Textually these are indistinguishable from a rogue tool, so they cap the
+verdict at CAUTION. The ACTUAL attack payloads a malicious repo carries — API-key
+URL exfil (LLMJACK-002), a persistent base-URL WRITE to settings/rc (LLMJACK-003),
+an MCP curl|bash dropper (MCP017) — still hard-block via their own rules.
+
+CR-010: SKILL-ROGUE-001 (self-modification / persistence / config rewrite) was
+REMOVED from the soft tier. A directive to write agent-executable config or
+disable a control is self-persistence entrenchment that can silently disable
+MEDUSA's own gate under an auto-block workflow, so it now hard-blocks. The
+benign broad-trigger case is a SEPARATE rule (SKILL-TRIGGER-001) that stays soft.
 """
 import medusa.core.scan_api as api
 
@@ -22,15 +27,17 @@ def _vf(rule_id, sev="CRITICAL", scanner="LLMProviderHijackScanner"):
 
 def test_soft_review_rules_cap_at_caution():
     # even many of these together -> CAUTION, never DO_NOT_INSTALL (they were the
-    # carpet-block driver on legit skill frameworks).
-    for rid in ("MEDUSA-SKILL-ROGUE-001", "MEDUSA-SKILL-MEMORY-001", "MEDUSA-LLMJACK-001"):
+    # carpet-block driver on legit skill frameworks). ROGUE-001 is NOT here (CR-010).
+    for rid in ("MEDUSA-SKILL-MEMORY-001", "MEDUSA-SKILL-TRIGGER-001", "MEDUSA-LLMJACK-001"):
         r = api._summarize([_vf(rid) for _ in range(6)], root="/x")
         assert r["verdict"] == api.CAUTION, f"{rid} should cap at CAUTION, got {r['verdict']}"
 
 
 def test_active_attack_payloads_still_hard_block():
     # a single one of these is an install-time attack and must still DO_NOT_INSTALL.
-    for rid, scanner in (("MEDUSA-LLMJACK-002", "LLMProviderHijackScanner"),
+    # CR-010: self-persistence (ROGUE-001) joins the hard-block set.
+    for rid, scanner in (("MEDUSA-SKILL-ROGUE-001", "SkillManifestScanner"),
+                         ("MEDUSA-LLMJACK-002", "LLMProviderHijackScanner"),
                          ("MEDUSA-LLMJACK-003", "LLMProviderHijackScanner"),
                          ("MCP017", "MCPConfigScanner")):
         r = api._summarize([_vf(rid, scanner=scanner)], root="/x")
@@ -38,7 +45,8 @@ def test_active_attack_payloads_still_hard_block():
 
 
 def test_soft_review_helper_membership():
-    assert api._is_soft_review_signal(_vf("MEDUSA-SKILL-ROGUE-001"))
+    assert api._is_soft_review_signal(_vf("MEDUSA-SKILL-TRIGGER-001"))   # broad trigger = soft
     assert api._is_soft_review_signal(_vf("MEDUSA-LLMJACK-001"))
-    assert not api._is_soft_review_signal(_vf("MEDUSA-LLMJACK-003"))  # persistent write = malice
-    assert not api._is_soft_review_signal(_vf("MCP017"))               # dropper = malice
+    assert not api._is_soft_review_signal(_vf("MEDUSA-SKILL-ROGUE-001"))  # self-persistence = malice (CR-010)
+    assert not api._is_soft_review_signal(_vf("MEDUSA-LLMJACK-003"))      # persistent write = malice
+    assert not api._is_soft_review_signal(_vf("MCP017"))                  # dropper = malice

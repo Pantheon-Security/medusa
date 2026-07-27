@@ -62,8 +62,13 @@ SOFT_TIERS = (
      frozenset()),
     ("attack_signature", frozenset(), ("MEDUSA-ATKSIG-",), frozenset()),
     ("docker_hardening", frozenset(), ("DKR",), frozenset()),
+    # CR-010: a broad TRIGGER / "remember to…" MEMORY / README base-URL LLMJACK-001
+    # example are the legit-framework FP drivers → cap at CAUTION. ROGUE-001
+    # (self-modification / persistence / config rewrite) is self-persistence
+    # ENTRENCHMENT — a directive to write agent-executable config or disable a
+    # control — so it is NOT soft: it hard-blocks via its own CRITICAL malice tier.
     ("soft_review", frozenset(), (),
-     frozenset({"MEDUSA-SKILL-ROGUE-001", "MEDUSA-SKILL-MEMORY-001",
+     frozenset({"MEDUSA-SKILL-MEMORY-001",
                 "MEDUSA-SKILL-TRIGGER-001", "MEDUSA-LLMJACK-001"})),
     ("plugin_security", frozenset(), ("PLG",), frozenset()),
     ("repo_ai_hygiene",

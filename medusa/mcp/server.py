@@ -14,6 +14,14 @@ All three are READ-ONLY (no state changes, no installs, no writes to the
 target). Each returns a concise human+machine-readable verdict string:
 verdict label, numeric score, and the top findings.
 
+ADVISORY, NOT ENFORCEMENT (CR-015): these tools only RETURN a verdict — a
+manipulable agent can ignore it, so the MCP path cannot stop an install. The
+deterministic control is the MEDUSA PreToolUse **hook** (or an out-of-band
+gate), which fails closed and blocks the command regardless of the model. Treat
+any non-SAFE verdict from these tools as "STOP and defer to a human", not as a
+suggestion to weigh — but never rely on the MCP layer alone to prevent a risky
+action.
+
 Transport is stdio only — this server is launched per-client by the MCP host
 and inherits process isolation. There is no HTTP listener, so DNS-rebinding /
 Origin concerns do not apply here.
@@ -125,12 +133,18 @@ def _format_verdict(result: dict) -> str:
                 f"({_neutralize(f.get('scanner', ''), 60)} {_neutralize(f.get('rule_id') or '', 60)}) {where}".rstrip()
             )
 
+    # This verdict is ADVISORY (CR-015): on ANY non-SAFE result, STOP and defer to
+    # a human — do not proceed. The enforcing control is the PreToolUse hook, not
+    # this string.
     if verdict == scan_api.DO_NOT_INSTALL:
-        lines.append("RECOMMENDATION: Do NOT install/run this. Review the findings above first.")
+        lines.append("RECOMMENDATION: Do NOT install/run this. STOP and defer to a human — "
+                     "review the findings above first.")
     elif verdict == scan_api.CAUTION:
-        lines.append("RECOMMENDATION: Proceed with caution — review the findings before installing.")
+        lines.append("RECOMMENDATION: Non-SAFE verdict — STOP and defer to a human; "
+                     "review the findings before installing.")
     else:
-        lines.append("RECOMMENDATION: No blocking issues found.")
+        lines.append("RECOMMENDATION: No blocking issues found (advisory — the PreToolUse "
+                     "hook remains the enforcing control).")
 
     return "\n".join(lines)
 
@@ -182,7 +196,9 @@ def scan_repo(url_or_path: str) -> str:
 
     Returns a verdict — SAFE, CAUTION, or DO_NOT_INSTALL — with a numeric
     risk score and the top security findings. DO_NOT_INSTALL means the code
-    has critical or multiple high-severity issues; do not run it.
+    has critical or multiple high-severity issues; do not run it. This verdict
+    is ADVISORY: on ANY non-SAFE result, STOP and defer to a human. The
+    deterministic gate is the MEDUSA PreToolUse hook, not this tool.
 
     Args:
         url_or_path: A git URL (https://github.com/owner/repo) or a local

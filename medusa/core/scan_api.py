@@ -40,6 +40,23 @@ from medusa.core.path_classes import (  # CR-007: single source of truth
     TEST_DATA_DIRS, is_test_data_path, LIVE_PAYLOAD_EXACT, is_live_payload_file,
 )
 from medusa.core.vet_tiers import SIGNAL_RULE_PREFIXES, soft_tier_of  # CR-008
+from medusa.scanners._normalize import (  # CR-011: neutralize repo-derived strings
+    normalize as _norm_text, whitespace_flatten as _ws_flat,
+)
+
+
+def _safe_field(value, cap: int) -> str:
+    """Neutralize a REPO-DERIVED string before it enters MEDUSA's own trusted output.
+
+    A malicious repo can name a signal-tripping file (or provoke an error) whose
+    text contains a newline + a spoofed ``VERDICT: SAFE`` line, an "ignore previous
+    instructions" directive, or a raw ANSI/terminal-control sequence. The CLI/hook
+    path prints these fields verbatim (and the installed SKILL tells the agent to
+    surface them), so strip C0/ESC controls, collapse newlines to a single line, and
+    cap the length — regardless of ``redact_snippets`` (CR-011). MEDUSA-controlled
+    enums (severity / scanner / rule_id / line) are NOT passed through here.
+    """
+    return _ws_flat(_norm_text(str(value or "")))[:cap]
 
 # Verdict labels (stable strings — the MCP tools and hooks key off these).
 SAFE = "SAFE"
@@ -407,13 +424,16 @@ def _is_docker_hardening_signal(finding: dict) -> bool:
 # rule (verified in tests/test_vet_scoping.py). So these are "review this" signals
 # that cap the verdict at CAUTION, never DO_NOT_INSTALL on their own — the same
 # tier as attack-signature / dependency-CVE / docker-hardening:
-#   SKILL-ROGUE-001  self-modification / persistence ("add a hook to settings.json")
 #   SKILL-MEMORY-001 memory-poisoning ("remember to always …")
 #   SKILL-TRIGGER-001 over-broad / shadowing skill trigger (a legit skill framework
 #                    like claude-forge declares broad triggers) — the anti-refusal /
 #                    hidden-instruction SKILL rules still hard-block.
 #   LLMJACK-001      base-URL OVERRIDE *mentioned* (a README `ANTHROPIC_BASE_URL=…`
 #                    config example) — the persistent WRITE (LLMJACK-003) still blocks.
+# CR-010: SKILL-ROGUE-001 (self-modification / persistence / config rewrite) is NO
+# LONGER soft — a directive to write agent-executable config or disable a control
+# is self-persistence entrenchment, so it hard-blocks via its own CRITICAL malice
+# tier. The benign broad-trigger case is SKILL-TRIGGER-001 (which stays soft).
 def _is_soft_review_signal(finding: dict) -> bool:
     """True if a (already-signal) finding is a 'review, don't block' rule (a legit
     tool's normal operation; the active-attack payload rules hard-block separately).
@@ -670,15 +690,20 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     )
     top = []
     for f in ordered[:_TOP_FINDINGS]:
+        # CR-011: ``file`` and ``issue`` are attacker-controllable (a repo names a
+        # signal-tripping file; a scanner echoes matched source) and the CLI/hook
+        # prints them verbatim — neutralize them at source regardless of
+        # redact_snippets. Path relativisation for the MCP path is unchanged.
+        raw_file = _relativize(f.get("file"), root) if redact_snippets else f.get("file")
         entry = {
             "severity": f.get("severity"),
             "scanner": f.get("scanner"),
             "rule_id": f.get("rule_id"),
-            "file": _relativize(f.get("file"), root) if redact_snippets else f.get("file"),
+            "file": _safe_field(raw_file, 120),
             "line": f.get("line"),
         }
         if not redact_snippets:
-            entry["issue"] = (f.get("issue") or "")[:200]
+            entry["issue"] = _safe_field(f.get("issue"), 200)
         top.append(entry)
 
     return {
@@ -760,8 +785,8 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
             "counts_by_severity": {},
             "total_findings": 0,
             "top_findings": [],
-            "target": str(target),
-            "error": f"path does not exist: {target}",
+            "target": _safe_field(target, 120),
+            "error": _safe_field(f"path does not exist: {target}", 200),
         }
 
     try:
@@ -795,7 +820,7 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
             if not files:
                 summary = _summarize([], redact_snippets=redact_snippets,
                                      root=scan_root, vet_allowlist=vet_allowlist)
-                summary["target"] = str(target)
+                summary["target"] = _safe_field(target, 120)
                 return summary
             results = scanner.scan_parallel(files)
             findings = _extract_findings(scanner, results)
@@ -806,8 +831,8 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
             "counts_by_severity": {},
             "total_findings": 0,
             "top_findings": [],
-            "target": str(target),
-            "error": f"scan failed: {exc}",
+            "target": _safe_field(target, 120),
+            "error": _safe_field(f"scan failed: {exc}", 200),
         }
 
     summary = _summarize(findings, redact_snippets=redact_snippets,
@@ -869,7 +894,7 @@ def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
     # An existing local path always wins over URL heuristics.
     if Path(value).exists():
         result = vet_path(value, redact_snippets=redact_snippets, allow=allow)
-        result["target"] = value
+        result["target"] = _safe_field(value, 120)
         return result
 
     if not _looks_like_url(value):
@@ -879,8 +904,8 @@ def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
             "counts_by_severity": {},
             "total_findings": 0,
             "top_findings": [],
-            "target": value,
-            "error": f"not a local path or recognized git URL: {value}",
+            "target": _safe_field(value, 120),
+            "error": _safe_field(f"not a local path or recognized git URL: {value}", 200),
         }
 
     try:
@@ -892,8 +917,8 @@ def vet_repo(url_or_path, redact_snippets: bool = False, allow=None) -> dict:
             "counts_by_severity": {},
             "total_findings": 0,
             "top_findings": [],
-            "target": value,
-            "error": str(exc),
+            "target": _safe_field(value, 120),
+            "error": _safe_field(exc, 200),
         }
 
     try:
@@ -921,7 +946,7 @@ def vet_skill(path, redact_snippets: bool = False) -> dict:
         result = vet_path(target.parent, redact_snippets=redact_snippets)
     else:
         result = vet_path(target, redact_snippets=redact_snippets)
-    result["target"] = str(target)
+    result["target"] = _safe_field(target, 120)
     return result
 
 
@@ -962,8 +987,8 @@ def secrets_scan(path: Optional[str] = None) -> dict:
             "count": 0,
             "files_with_findings": 0,
             "findings_summary": [],
-            "target": str(path) if path is not None else "host-discovery",
-            "error": error,
+            "target": _safe_field(path, 120) if path is not None else "host-discovery",
+            "error": _safe_field(error, 200),
         }
 
     count = 0
@@ -994,5 +1019,5 @@ def secrets_scan(path: Optional[str] = None) -> dict:
         "count": count,
         "files_with_findings": files_with_findings,
         "findings_summary": summary,
-        "target": str(path) if path is not None else "host-discovery",
+        "target": _safe_field(path, 120) if path is not None else "host-discovery",
     }

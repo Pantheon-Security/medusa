@@ -41,10 +41,19 @@ def has_invisible(text: str) -> bool:
     return bool(_INVISIBLE_RE.search(text or ""))
 
 
+# C0 control chars + DEL, EXCEPT tab/newline/CR (0x09/0x0a/0x0d) which are ordinary
+# whitespace that `whitespace_flatten` collapses. Stripping these stops an ANSI ESC
+# sequence or a NUL/backspace smuggled into a repo-controlled string (a filename, a
+# finding body) from injecting terminal control or a spoofed line into MEDUSA's own
+# trusted CLI/hook/MCP output (CR-011).
+_C0_CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
 def normalize(text: str) -> str:
-    """NFKC-fold, strip invisibles, map common Cyrillic/Greek homoglyphs to ASCII."""
+    """NFKC-fold, strip invisibles + C0/ESC controls, map Cyrillic/Greek homoglyphs."""
     t = unicodedata.normalize("NFKC", text or "")
     t = _INVISIBLE_RE.sub("", t)
+    t = _C0_CONTROL_RE.sub("", t)
     return "".join(_HOMOGLYPH.get(c, c) for c in t)
 
 
