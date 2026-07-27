@@ -48,9 +48,14 @@ command -v medusa >/dev/null 2>&1 || block "medusa not found — cannot vet (fai
 # `uv pip install` is matched by the `pip install` substring pattern below (kept
 # as one pattern to stay shellcheck-clean — SC2221/SC2222).
 case "$cmd" in
-    *"git clone"* | *"gh repo clone"* | *curl* | *wget* | \
+    *"git clone"* | *"gh repo clone"* | *"gh gist clone"* | *curl* | *wget* | \
     *"pip install"* | *"pip3 install"* | *"pipx install"* | \
-    *"npm install"* | *"poetry add"* | *"cargo install"* | *"go install"*)
+    *"uv add"* | *uvx* | *"npm install"* | *"npm i "* | *npx* | *"pnpm add"* | \
+    *"pnpm dlx"* | *"yarn add"* | *bunx* | *"bun add"* | \
+    *"poetry add"* | *"cargo install"* | *"go install"* | *"deno run"* | *"deno install"*)
+        # NB: `uv pip install` / `pnpm install` are intentionally NOT listed —
+        # they are already matched by the `pip install` / `npm install` substring
+        # patterns above (kept implicit to stay shellcheck-clean, SC2221/SC2222).
         # FIRST catch a credential embedded in the install COMMAND itself — a token
         # in a clone URL (`git clone https://user:ghp_…@host`) or pasted into the
         # command. Runs BEFORE URL vetting so a leaked token is caught up front and
@@ -100,6 +105,16 @@ case "$cmd" in
                 block "could not vet $url (medusa error, exit $rc)"
             fi
         done < <(printf '%s\n' "$urls")
+        # Fail CLOSED: a clone command whose target we could not turn into a
+        # vettable URL (ext::/file:///scp/local) must not slip through un-vetted.
+        # Scoped to clone patterns only — bare-name installs (pip install requests)
+        # legitimately have no URL and must NOT be blocked here.
+        case "$cmd" in
+            *"git clone"* | *"gh repo clone"*)
+                [ -n "${urls//[[:space:]]/}" ] || \
+                    block "clone target could not be identified for vetting (fail closed)"
+                ;;
+        esac
         ;;
     *)
         exit 0

@@ -452,6 +452,12 @@ class FalsePositiveFilter:
         (Rust/PHP/JS/C-family). This is an explicit author opt-out, so it gets
         the highest confidence and wins over every other check.
         """
+        # A target-controlled `medusa:ignore` must NOT suppress findings while
+        # VETTING an untrusted repo (screening): an attacker would append it to
+        # every malicious line to force SAFE. The author opt-out applies only when
+        # scanning your OWN code (screening=False).
+        if self.screening:
+            return FilterResult()
         line_num = finding.get('line') or 0
         if not context or line_num <= 0:
             return FilterResult()

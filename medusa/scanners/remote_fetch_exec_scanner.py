@@ -42,12 +42,16 @@ _PIPE_RE = re.compile(
 
 # SPLIT form — download target capture (shell `-o FILE` / `-O FILE` / `> FILE`, and the
 # subprocess list form `"curl", …, "https://…", …, "-o", target`).
+# NOTE: the first span is possessive (`\S++`) so the engine cannot backtrack
+# character-by-character into the following lazy `[^\n]*?` when the trailing
+# -o/-O/> anchor is absent — that overlap was catastrophic ReDoS (a 2 MB line ran
+# for hours). Possessive is correctness-preserving here (verified identical matches).
 _DL_FLAG_RE = re.compile(
-    r"(?i)\b" + _FETCH + r"\b[^\n]*\bhttps?://\S+[^\n]*?\s(?:-o|--output|-O)\s+"
+    r"(?i)\b" + _FETCH + r"\b[^\n]*\bhttps?://\S++[^\n]*?\s(?:-o|--output|-O)\s+"
     r"['\"]?([\w./${}~-]+)['\"]?"
 )
 _DL_REDIR_RE = re.compile(
-    r"(?i)\b" + _FETCH + r"\b[^\n]*\bhttps?://\S+[^\n]*?>\s*['\"]?([\w./${}~-]+)"
+    r"(?i)\b" + _FETCH + r"\b[^\n]*\bhttps?://\S++[^\n]*?>\s*['\"]?([\w./${}~-]+)"
 )
 _DL_SUBPROC_RE = re.compile(
     r"(?i)['\"]" + _FETCH + r"['\"][^\n]*https?://[^\n]*['\"](?:-o|--output|-O)['\"]"

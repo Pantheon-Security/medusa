@@ -28,6 +28,7 @@ non-SAFE verdict). It is a parser — it never executes the command.
 """
 from __future__ import annotations
 
+import re
 import shlex
 import sys
 from typing import List
@@ -36,16 +37,26 @@ _STATEMENT_SEPS = {"&&", "||", ";", "&", "\n"}
 _CMD_PREFIXES = {"sudo", "doas", "env", "command", "nohup", "time", "exec", "then", "do"}
 _INSTALL_CMDS = {"pip", "pip3", "pipx", "uv", "npm", "pnpm", "yarn", "poetry", "cargo", "go"}
 _SHELLS = {"sh", "bash", "zsh", "dash", "ksh"}
+# A dropper can pipe a fetched script into ANY interpreter, not just a shell
+# (`curl URL | python3`). _pipes_to_shell checks this superset.
+_INTERPRETERS = {"sh", "bash", "zsh", "dash", "ksh",
+                 "python", "python2", "python3", "perl", "ruby", "node", "php"}
+
+# Set True when _tokenize falls back to a naive split (degraded parse) so main()
+# signals the shell to over-vet via grep instead of trusting an under-emitted list.
+_DEGRADED = False
 
 
 def _tokenize(cmd: str) -> List[str]:
     """Shell-tokenise, keeping shell operators (&& || ; | & > …) as their own tokens."""
+    global _DEGRADED
     try:
         lex = shlex.shlex(cmd, posix=True, punctuation_chars=True)
         lex.whitespace_split = True
         return list(lex)
     except ValueError:
         # unbalanced quotes etc. — fall back to a naive split (still no execution)
+        _DEGRADED = True
         return cmd.split()
 
 
@@ -95,13 +106,21 @@ def _clean_url(tok: str) -> str:
 
 
 def _pipes_to_shell(stmt: List[str]) -> bool:
-    return "|" in stmt and any(t in _SHELLS for t in stmt)
+    # A pipe into ANY interpreter (shell OR python/perl/ruby/node/php) is a dropper.
+    return "|" in stmt and any(t.rsplit("/", 1)[-1] in _INTERPRETERS for t in stmt)
 
 
 def urls_to_vet(cmd: str) -> List[str]:
     """Return the ordered, de-duplicated URLs that should be vetted for ``cmd``."""
     urls: List[str] = []
-    for stmt in _split_statements(_tokenize(cmd)):
+    # Process each physical line independently. shlex(whitespace_split=True) treats
+    # "\n" as whitespace, so _split_statements never sees the newline separator and a
+    # multi-line command collapses into ONE statement (later-line curl|bash / git
+    # clone dropped). Splitting on newlines first restores per-line classification.
+    statements = []
+    for _line in cmd.splitlines() or [cmd]:
+        statements.extend(_split_statements(_tokenize(_line)))
+    for stmt in statements:
         argv = _argv(stmt)
         if not argv:
             continue
@@ -111,8 +130,14 @@ def urls_to_vet(cmd: str) -> List[str]:
 
         if cmd0 == "git" and sub == "clone":
             urls += seg_urls
-        elif cmd0 == "gh" and sub == "repo":            # gh repo clone
-            urls += seg_urls
+        elif cmd0 == "gh" and sub == "repo" and len(argv) > 2 and argv[2] == "clone":
+            if seg_urls:
+                urls += seg_urls
+            else:
+                for t in argv[3:]:                       # gh repo clone owner/repo
+                    if re.match(r"^[\w.-]+/[\w.-]+$", t):
+                        urls.append(f"https://github.com/{t}")
+                        break
         elif cmd0 in _INSTALL_CMDS:                      # pip/npm/… install <url>
             urls += seg_urls
         elif cmd0 in ("curl", "wget"):                  # only the dropper form
@@ -133,10 +158,18 @@ def urls_to_vet(cmd: str) -> List[str]:
 
 
 def main() -> int:
+    global _DEGRADED
+    _DEGRADED = False
     cmd = sys.stdin.read()
-    for u in urls_to_vet(cmd):
+    urls = urls_to_vet(cmd)
+    for u in urls:
         print(u)
-    return 0
+    fetch_kw = any(k in cmd for k in ("git clone", "gh repo clone", "curl", "wget",
+                                      "pip install", "npm install"))
+    # Signal "over-vet via grep" to the shell when the parse degraded or a fetch
+    # keyword produced no vettable URL. The exit code is the signal; stdout stays
+    # URLs-only.
+    return 1 if (_DEGRADED or (fetch_kw and not urls)) else 0
 
 
 if __name__ == "__main__":
