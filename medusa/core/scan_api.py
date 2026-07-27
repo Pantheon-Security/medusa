@@ -299,8 +299,12 @@ def _is_vet_signal(finding: dict) -> bool:
             or _is_doc_or_test_file(finding.get("file"))):
         return False
     # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
-    # payload file (real mcp.json / install script / credential / image), which
-    # an attacker would park in tests/fixtures/ precisely to evade vet.
+    # payload file, which an attacker would park in tests/fixtures/ precisely to
+    # evade vet. CR-009 widened the live-payload class (path_classes) to recognise
+    # agent/skill/IDE CONTROL surfaces (.claude/, .cursor/, agents/, skills/, a
+    # real mcp.json / SKILL.md / settings.json / credential), so a poisoned
+    # agent-control file under examples/ stays a signal — while a taint/attack
+    # STRING inside an ordinary test file remains a non-signal (no FP regression).
     if _is_test_data_path(finding.get("file")) and not _is_live_payload_file(finding.get("file")):
         return False
     scanner = finding.get("scanner") or ""

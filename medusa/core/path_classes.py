@@ -53,12 +53,27 @@ LIVE_PAYLOAD_SUFFIX = (
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tif", ".tiff",
 )
 
+# CR-009: agent/skill/IDE instruction surfaces. A file under any of these dirs — or
+# with one of these exact names — CONTROLS an agent (grants Bash, rewrites rules,
+# drops a skill), so it is a live install-risk regardless of the directory it sits
+# in. An attacker parking `.claude/agents/evil.md` under examples/ must not slip
+# through the test-data exclusion.
+LIVE_PAYLOAD_DIRS = frozenset({
+    ".claude", ".cursor", ".github", ".clinerules", "agents", "skills",
+})
+LIVE_PAYLOAD_NAME_EXTRA = frozenset({
+    ".cursorrules", ".clinerules", "agents.md", "copilot-instructions.md",
+})
+
 
 def is_live_payload_file(file_path) -> bool:
-    """True if the file executes / carries a real secret regardless of directory."""
+    """True if the file executes / carries a real secret / controls an agent,
+    regardless of the directory it sits in."""
     if not file_path:
         return False
-    name = Path(str(file_path)).name.lower()
-    return (name in LIVE_PAYLOAD_EXACT
-            or name.startswith(".env")
-            or name.endswith(LIVE_PAYLOAD_SUFFIX))
+    p = str(file_path).replace("\\", "/")
+    name = Path(p).name.lower()
+    if (name in LIVE_PAYLOAD_EXACT or name in LIVE_PAYLOAD_NAME_EXTRA
+            or name.startswith(".env") or name.endswith(LIVE_PAYLOAD_SUFFIX)):
+        return True
+    return any(part.lower() in LIVE_PAYLOAD_DIRS for part in p.split("/")[:-1])

@@ -67,3 +67,23 @@ def test_cr008_soft_tier_of_matches_predicates():
     # a hard-block malice id is NOT in any soft tier
     assert vt.soft_tier_of(f("MEDUSA-MCP-POISON-001")) is None
     assert vt.soft_tier_of(f("CC-HOOK-001")) is None
+
+
+# ---- CR-009 — curated malice survives an attacker-chosen test-data path ------
+def _vf(rid, file, scn="X"):
+    return {"rule_id": rid, "scanner": scn, "file": file, "severity": "CRITICAL"}
+
+def test_cr009_curated_malice_survives_examples_dir():
+    # CC-AGENT under examples/.claude/agents/ is a wildcard-Bash grant, not a fixture.
+    assert api._is_vet_signal(_vf("CC-AGENT-001", "examples/.claude/agents/evil.md"))
+    assert api._is_vet_signal(_vf("MEDUSA-SKILL-ROGUE-001", "fixtures/skills/x/drop.sh"))
+    assert api._is_vet_signal(_vf("MEDUSA-CRED-001", "tests/fixtures/id_rsa"))
+
+def test_cr009_live_payload_dirs_recognised():
+    assert pc.is_live_payload_file("examples/.claude/agents/evil.md")
+    assert pc.is_live_payload_file("tests/skills/pkg/postinstall.sh")
+
+def test_cr009_generic_finding_in_tests_still_dropped():
+    # preserve behavior: a generic (non-malice, non-signal) finding under tests/
+    # with an attack STRING is still not a verdict signal.
+    assert not api._is_vet_signal(_vf("MEDUSA-INF-SCAN-2830", "tests/test_x.py", "InferenceScanner"))
