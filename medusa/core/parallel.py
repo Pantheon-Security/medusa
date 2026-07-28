@@ -45,6 +45,14 @@ def _apply_screening_to_scanners(screening: bool, all_rules: bool) -> None:
 
     Called from scan_parallel's pre-warm loop (parent + fork-inherited workers)
     and from the Pool initializer (spawn-mode workers, macOS/Windows).
+
+    CR-041: this mutates the shared scanner singletons and does NOT reset them
+    afterward — deliberately. Every ``scan_parallel`` call RE-APPLIES the mode from
+    ``self.screening`` before any scanner runs (see the pre-warm call), so a later
+    scan never reads a previous scan's leftover flag: the state is effectively
+    scan-scoped by re-application, not a stale global. (No race was found; a
+    finally-reset would only add control-flow to the scan hot path for no behaviour
+    change.)
     """
     from medusa.scanners import registry as _reg
     for scanner in _reg.scanners:

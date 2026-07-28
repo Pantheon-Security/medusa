@@ -78,6 +78,9 @@ _EXEC_SUBPROC_RE = re.compile(
     r"\s*,\s*['\"]?([\w./${}~-]+)['\"]?"
 )
 
+# Cap the bytes we read/regex per file. A fetch-exec line lives near the top of an
+# install script; 2 MiB covers any real installer while bounding the regex work on a
+# pathological huge/minified file (CR-041: documented — was a bare magic number).
 _MAX_BYTES = 2 * 1024 * 1024
 # Documentation file types: a README mentioning `curl | bash` is install PROSE, not the
 # repo actively fetch-executing — excluded to avoid flagging every tool's install docs.
@@ -124,6 +127,10 @@ class RemoteFetchExecScanner(BaseScanner):
         return n.endswith(_CODE_SUFFIXES) or n in _CODE_NAMES
 
     def get_confidence_score(self, file_path: Path, content_head=None) -> int:
+        # 80 = high but not certain: can_scan guarantees a code/script file, yet
+        # whether it actually fetch-executes is decided by scan_file's correlation
+        # (CR-041: documented — was a bare magic number). Comfortably above the
+        # registry's dispatch threshold so this scanner runs on every code file.
         return 80 if self.can_scan(file_path) else 0
 
     def is_available(self) -> bool:

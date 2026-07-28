@@ -275,6 +275,10 @@ class MedusaReportGenerator:
         fp_stats = scan_results.get('fp_stats')
         likely_fps = scan_results.get('likely_fps', [])
 
+        # CR-039: compute the O(n) security score ONCE and reuse it for risk_level,
+        # instead of calling calculate_security_score twice (score + inside risk).
+        _score = self.calculate_security_score(findings)
+
         report = {
             'timestamp': timestamp,
             'medusa_version': __version__,
@@ -289,8 +293,8 @@ class MedusaReportGenerator:
                 'total_issues': len(findings),
                 'files_scanned': scan_results.get('files_scanned', 0),
                 'lines_scanned': scan_results.get('total_lines_scanned', 0),
-                'security_score': self.calculate_security_score(findings),
-                'risk_level': self.calculate_risk_level(self.calculate_security_score(findings)),
+                'security_score': _score,
+                'risk_level': self.calculate_risk_level(_score),
                 'false_positives_filtered': len(likely_fps),
                 'missing_linters': scan_results.get('missing_linters', []),
             },

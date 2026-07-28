@@ -23,6 +23,7 @@ import shlex
 import shutil
 import stat
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -110,9 +111,15 @@ def _backup(path: Path) -> None:
 
     Timestamped and never-overwriting (CR-012): a single fixed ``.medusa.bak`` let
     a second run copy an already-corrupt file over the last recoverable backup.
+    CR-038: never follow a SYMLINK (don't copy content through an untrusted link),
+    and create the backup ``0600`` — a config backup can hold tokens/secrets.
     Best effort — a backup failure must not block the (atomic) write itself.
     """
     if not path.exists():
+        return
+    if path.is_symlink():
+        # Don't back up through a symlink: copying would follow it to an arbitrary
+        # target. The atomic write (os.replace) later replaces the link itself.
         return
     stamp = int(time.time())
     dest = path.with_name(f"{path.name}.medusa.bak.{stamp}")
@@ -121,6 +128,10 @@ def _backup(path: Path) -> None:
         n += 1
         dest = path.with_name(f"{path.name}.medusa.bak.{stamp}.{n}")
     shutil.copy2(path, dest)
+    try:
+        os.chmod(dest, 0o600)                  # backup may hold secrets
+    except OSError:
+        pass
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -465,6 +476,27 @@ def install_pre_commit(base: str | os.PathLike[str]) -> Path:
 # --------------------------------------------------------------------------- #
 # 3. Cursor MCP server entry
 # --------------------------------------------------------------------------- #
+def _install_medusa_server(base: str | os.PathLike[str], path: Path) -> Path:
+    """Write/merge the ``medusa`` MCP server into an ``mcpServers`` JSON config.
+
+    The symmetric inverse of :func:`_remove_medusa_server` (CR-041 — this was
+    copy-pasted verbatim in ``install_cursor_mcp`` / ``install_claude_mcp``).
+    Existing servers are preserved; idempotent; backup-first; atomic write; and a
+    file MEDUSA creates is recorded in the manifest (CR-025).
+    """
+    existed = path.exists()
+    config = _load_json(path)
+    servers = config.setdefault("mcpServers", {})
+    if not isinstance(servers, dict):
+        servers = {}
+        config["mcpServers"] = servers
+    servers[MEDUSA_MARKER] = {"command": "medusa", "args": ["mcp"]}
+    _backup(path)
+    _write_json(path, config)
+    _manifest_record_created(base, path, existed)
+    return path
+
+
 def install_cursor_mcp(base: str | os.PathLike[str]) -> Path:
     """Write/merge ``<base>/.cursor/mcp.json`` with a ``medusa`` MCP server.
 
@@ -472,21 +504,7 @@ def install_cursor_mcp(base: str | os.PathLike[str]) -> Path:
     to launch ``medusa mcp``. Idempotent (re-running overwrites only the medusa
     key with the same value).
     """
-    path = Path(base) / ".cursor" / "mcp.json"
-    existed = path.exists()
-    config = _load_json(path)
-
-    servers = config.setdefault("mcpServers", {})
-    if not isinstance(servers, dict):
-        servers = {}
-        config["mcpServers"] = servers
-
-    servers[MEDUSA_MARKER] = {"command": "medusa", "args": ["mcp"]}
-
-    _backup(path)
-    _write_json(path, config)
-    _manifest_record_created(base, path, existed)   # CR-025
-    return path
+    return _install_medusa_server(base, Path(base) / ".cursor" / "mcp.json")
 
 
 # --------------------------------------------------------------------------- #
@@ -519,8 +537,15 @@ def install_codex_mcp(base: str | os.PathLike[str]) -> Path:
         # Preferred path: parse + structured merge + serialize.
         try:
             data: dict[str, Any] = tomllib.loads(existing_text) if existing_text else {}
-        except tomllib.TOMLDecodeError:
-            data = {}
+        except tomllib.TOMLDecodeError as exc:
+            # CR-038 carryover (same data-loss class as CR-012, TOML path): an
+            # existing file that won't parse must NOT be silently reset to `{}` and
+            # overwritten with only the medusa server — refuse so the user's real
+            # config is preserved. (Uninstall's read path stays a safe no-op.)
+            raise ConfigParseError(
+                f"{path} is not valid TOML ({exc}); refusing to overwrite it — "
+                f"fix or remove the file, then re-run."
+            ) from exc
         mcp_servers = data.get("mcp_servers")
         if not isinstance(mcp_servers, dict):
             mcp_servers = {}
@@ -629,45 +654,40 @@ def install_claude_mcp(base: str | os.PathLike[str]) -> Path:
     preserved; the MEDUSA entry launches ``medusa mcp``. Idempotent and
     backup-first.
     """
-    path = Path(base) / ".mcp.json"
-    existed = path.exists()
-    config = _load_json(path)
-
-    servers = config.setdefault("mcpServers", {})
-    if not isinstance(servers, dict):
-        servers = {}
-        config["mcpServers"] = servers
-
-    servers[MEDUSA_MARKER] = {"command": "medusa", "args": ["mcp"]}
-
-    _backup(path)
-    _write_json(path, config)
-    _manifest_record_created(base, path, existed)   # CR-025
-    return path
+    return _install_medusa_server(base, Path(base) / ".mcp.json")
 
 
 # --------------------------------------------------------------------------- #
 # 7. Install everything
 # --------------------------------------------------------------------------- #
+# CR-041: serialize install_all so two concurrent runs can't interleave their
+# read-modify-write on the shared settings.json / manifest. Each individual writer
+# is already backup-first + atomic (CR-012); the lock closes the last
+# check-then-write gap between them.
+_INSTALL_LOCK = threading.Lock()
+
+
 def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
     """Run every installer against ``base`` and return ``{name: path}``.
 
     The pre-commit gate needs a git work tree (CR-024); in a non-repo ``base`` it
     is skipped (omitted from the result) rather than aborting the whole install.
+    Serialized under ``_INSTALL_LOCK`` (CR-041).
     """
-    result = {
-        "claude": str(install_claude_hook(base)),
-        "claude_sessionstart": str(install_claude_sessionstart(base)),
-        "claude_skill": str(install_claude_skill(base)),
-        "claude_mcp": str(install_claude_mcp(base)),
-        "cursor": str(install_cursor_mcp(base)),
-        "codex": str(install_codex_mcp(base)),
-    }
-    try:
-        result["pre_commit"] = str(install_pre_commit(base))
-    except RuntimeError:
-        pass  # not a git work tree — the other configs still install
-    return result
+    with _INSTALL_LOCK:
+        result = {
+            "claude": str(install_claude_hook(base)),
+            "claude_sessionstart": str(install_claude_sessionstart(base)),
+            "claude_skill": str(install_claude_skill(base)),
+            "claude_mcp": str(install_claude_mcp(base)),
+            "cursor": str(install_cursor_mcp(base)),
+            "codex": str(install_codex_mcp(base)),
+        }
+        try:
+            result["pre_commit"] = str(install_pre_commit(base))
+        except RuntimeError:
+            pass  # not a git work tree — the other configs still install
+        return result
 
 
 # --------------------------------------------------------------------------- #
@@ -675,17 +695,11 @@ def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
 # --------------------------------------------------------------------------- #
 def _claude_hook_present(base: Path) -> bool:
     """True if a MEDUSA PreToolUse hook is wired in ``<base>/.claude/settings.json``."""
-    data = _load_json_safe(Path(base) / ".claude" / "settings.json")
-    hooks = data.get("hooks", {})
+    hooks = _load_json_safe(Path(base) / ".claude" / "settings.json").get("hooks", {})
     if not isinstance(hooks, dict):
         return False
-    for entry in hooks.get("PreToolUse", []):
-        if not isinstance(entry, dict):
-            continue
-        for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and _is_medusa_command(hook.get("command", "")):
-                return True
-    return False
+    # CR-041: reuse _is_medusa_entry rather than re-implement its dict/command walk.
+    return any(_is_medusa_entry(e) for e in hooks.get("PreToolUse", []))
 
 
 def _pre_commit_present(base: Path) -> bool:
@@ -721,17 +735,11 @@ def _codex_present(base: Path) -> bool:
 
 def _claude_sessionstart_present(base: Path) -> bool:
     """True if a MEDUSA SessionStart hook is wired in ``<base>/.claude/settings.json``."""
-    data = _load_json_safe(Path(base) / ".claude" / "settings.json")
-    hooks = data.get("hooks", {})
+    hooks = _load_json_safe(Path(base) / ".claude" / "settings.json").get("hooks", {})
     if not isinstance(hooks, dict):
         return False
-    for entry in hooks.get("SessionStart", []):
-        if not isinstance(entry, dict):
-            continue
-        for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and _is_medusa_command(hook.get("command", "")):
-                return True
-    return False
+    # CR-041: reuse _is_medusa_entry rather than re-implement its dict/command walk.
+    return any(_is_medusa_entry(e) for e in hooks.get("SessionStart", []))
 
 
 def _claude_skill_present(base: Path) -> bool:

@@ -18,6 +18,14 @@
 # This file is a FIXED, MEDUSA-authored constant: it never interpolates
 # untrusted data into itself. The scanned command is only ever passed as a
 # quoted argument to `medusa`, never evaluated.
+#
+# CR-037: `set -u` (unset-variable guard) ONLY — `set -euo pipefail` is
+# DELIBERATELY avoided. This hook inspects non-zero exit codes itself:
+# `command -v medusa`, `medusa vet` (1/2 = non-SAFE), the URL parser's exit code,
+# and a `mktemp` failure all drive the fail-closed `block` logic. `set -e` would
+# abort on the first non-zero BEFORE block() can emit a reason (and would turn a
+# normal non-SAFE verdict into a bare exit), and `set -o pipefail` would make a
+# benign non-zero inside a status pipeline an unhandled exit. Blocking is explicit.
 set -u
 
 # Explicit, documented escape hatch. Setting MEDUSA_HOOK_BYPASS=1 (alias:
@@ -27,7 +35,13 @@ set -u
 # with neither var set, a missing medusa or a non-SAFE verdict still blocks
 # (exit 2). This only ever fails OPEN when the user explicitly opts in.
 if [ "${MEDUSA_HOOK_BYPASS:-}" = "1" ] || [ "${MEDUSA_HOOK_DISABLE:-}" = "1" ]; then
-    echo "MEDUSA vet bypassed (MEDUSA_HOOK_BYPASS=1) — this command was NOT vetted." >&2
+    # CR-037: bypass is an explicit persistence surface — anyone who can set this
+    # env var disables the gate for a command. Emit a LOUD, greppable audit banner
+    # so its use is never silent (semantics unchanged: this still exits 0).
+    echo "════════════════════════════════════════════════════════════════════" >&2
+    echo "!! MEDUSA VET BYPASSED (MEDUSA_HOOK_BYPASS/DISABLE=1) — NOT VETTED !!" >&2
+    echo "!! AUDIT: an install/clone command was allowed to run un-vetted.    !!" >&2
+    echo "════════════════════════════════════════════════════════════════════" >&2
     exit 0
 fi
 
@@ -100,15 +114,17 @@ case "$cmd" in
         # lacking --exit-code, returned 0 so it never actually blocked (dead line).
         # `--exit-code` makes a real detection non-zero; temp file is 0600, removed
         # immediately.
-        _sec_tmp="$(mktemp "${TMPDIR:-/tmp}/medusa_hook_cmd.XXXXXX")" || _sec_tmp=""
-        if [ -n "$_sec_tmp" ]; then
-            chmod 600 "$_sec_tmp" 2>/dev/null
-            printf '%s' "$cmd" > "$_sec_tmp"
-            "${MEDUSA_BIN}" secrets scan --path "$_sec_tmp" --exit-code
-            _sec_rc=$?
-            rm -f "$_sec_tmp"
-            [ "$_sec_rc" -eq 0 ] || block "a credential is embedded in the command (e.g. a token in the URL)"
-        fi
+        # CR-037: if mktemp fails we CANNOT run the embedded-credential pre-check —
+        # FAIL CLOSED rather than skip it (a leaked token in the command must never
+        # slip through un-checked because of a transient temp-file failure).
+        _sec_tmp="$(mktemp "${TMPDIR:-/tmp}/medusa_hook_cmd.XXXXXX")" \
+            || block "cannot create a temp file for the embedded-credential pre-check (fail closed)"
+        chmod 600 "$_sec_tmp" 2>/dev/null
+        printf '%s' "$cmd" > "$_sec_tmp"
+        "${MEDUSA_BIN}" secrets scan --path "$_sec_tmp" --exit-code
+        _sec_rc=$?
+        rm -f "$_sec_tmp"
+        [ "$_sec_rc" -eq 0 ] || block "a credential is embedded in the command (e.g. a token in the URL)"
 
         # Extract the URLs to vet with the precise per-segment parser packaged
         # alongside this hook (`_vet_url_extract.py`): it only vets a URL whose

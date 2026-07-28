@@ -68,8 +68,11 @@ def clone_hardened(url: str, prefix: str = "medusa-vet-", timeout: int = CLONE_T
 
     try:
         result = subprocess.run(
+            # CR-038: `--` terminates option parsing so a URL crafted to look like
+            # a flag (e.g. `--upload-pack=…`) can never be treated as a git option
+            # (argument-injection defence in depth; the URL is already host-vetted).
             [git_bin, "clone", "--depth", "1", "--single-branch",
-             "--filter=blob:limit=5m", url, tmp_dir],
+             "--filter=blob:limit=5m", "--", url, tmp_dir],
             capture_output=True,
             text=True,
             timeout=timeout,
