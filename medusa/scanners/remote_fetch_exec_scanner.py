@@ -31,8 +31,12 @@ from typing import List
 
 from medusa.scanners.base import BaseScanner, ScannerIssue, ScannerResult, Severity
 
-# Interpreters that execute a script argument.
-_INTERP = r"(?:sudo\s+)?(?:bash|sh|zsh|ksh|dash|python[0-9.]*|ruby|perl|node|source|\.)"
+# Interpreters that execute a script argument. CR-036: ONE alternation constant,
+# referenced by both the PIPE form (_INTERP/_PIPE_RE) and the SPLIT shell form
+# (_EXEC_SHELL_RE). Previously the split form omitted `node`, so `node evil.js`
+# (fetched then run) was detected piped but not split — silent membership drift.
+_INTERP_ALT = r"bash|sh|zsh|ksh|dash|python[0-9.]*|ruby|perl|node|source|\."
+_INTERP = r"(?:sudo\s+)?(?:" + _INTERP_ALT + r")"
 _FETCH = r"(?:curl|wget)"
 
 # PIPE form: fetch a remote URL piped straight into an interpreter.
@@ -53,18 +57,25 @@ _DL_FLAG_RE = re.compile(
 _DL_REDIR_RE = re.compile(
     r"(?i)\b" + _FETCH + r"\b[^\n]*\bhttps?://\S++[^\n]*?>\s*['\"]?([\w./${}~-]+)"
 )
+# CR-021: capture a QUOTED path literal as the `-o` download target
+# (`"curl", …, "-o", "/tmp/x.sh"`), not only an unquoted variable — the
+# string-literal form correlates with the quoted exec target below.
 _DL_SUBPROC_RE = re.compile(
     r"(?i)['\"]" + _FETCH + r"['\"][^\n]*https?://[^\n]*['\"](?:-o|--output|-O)['\"]"
-    r"\s*,\s*([\w.]+)"
+    r"\s*,\s*['\"]?([\w./${}~-]+)['\"]?"
 )
 
 # SPLIT form — execute-of-target capture (shell `bash FILE`, subprocess `"bash", FILE`).
+# CR-036: shares `_INTERP_ALT` with the pipe form so the two never drift.
 _EXEC_SHELL_RE = re.compile(
-    r"(?im)(?:^|[;&|]|\bsudo\s+)\s*(?:bash|sh|zsh|ksh|dash|python[0-9.]*|ruby|perl|source|\.)"
+    r"(?im)(?:^|[;&|]|\bsudo\s+)\s*(?:" + _INTERP_ALT + r")"
     r"\s+['\"]?([\w./${}~-]+)"
 )
+# CR-021: capture a QUOTED path literal too (`"bash", "/tmp/x.sh"`), not only an
+# unquoted variable token — the string-literal split form otherwise evaded.
 _EXEC_SUBPROC_RE = re.compile(
-    r"(?i)['\"](?:bash|sh|zsh|ksh|dash|python[0-9.]*|ruby|perl)['\"]\s*,\s*([\w.]+)"
+    r"(?i)['\"](?:bash|sh|zsh|ksh|dash|python[0-9.]*|ruby|perl|node)['\"]"
+    r"\s*,\s*['\"]?([\w./${}~-]+)['\"]?"
 )
 
 _MAX_BYTES = 2 * 1024 * 1024
@@ -95,12 +106,21 @@ class RemoteFetchExecScanner(BaseScanner):
         return "python"
 
     def get_file_extensions(self) -> List[str]:
+        # A DISPATCH HINT only. Scanner selection routes every collected file
+        # through `can_scan` (ScannerRegistry.get_scanners_for_file →
+        # scanner.can_scan), NOT through this suffix list — so the extensionless
+        # `_CODE_NAMES` (Dockerfile/Makefile/justfile), which `can_scan` accepts,
+        # ARE dispatched to this scanner even though they have no suffix here.
+        # Confirmed by tests/test_remote_fetch_exec_scanner.py (CR-034).
         return list(_CODE_SUFFIXES)
 
     def can_scan(self, file_path: Path) -> bool:
         n = file_path.name.lower()
         if n.endswith(_DOC_SUFFIXES):
             return False
+        # `_CODE_NAMES` covers extensionless build files (Dockerfile, Makefile,
+        # justfile) — a `Dockerfile` with `RUN curl … | bash` is a prime target,
+        # and can_scan-based dispatch reaches it (CR-034).
         return n.endswith(_CODE_SUFFIXES) or n in _CODE_NAMES
 
     def get_confidence_score(self, file_path: Path, content_head=None) -> int:

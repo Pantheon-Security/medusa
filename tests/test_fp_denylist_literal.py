@@ -45,10 +45,22 @@ def test_leading_underscore_blocklist_suppressed():
     assert _check(src, 2).is_likely_fp, "leading-underscore _BLOCKLIST must be recognized"
 
 
-def test_allowlist_and_domains_recognized():
-    for name in ("ALLOWED_ORIGINS", "BLOCKED_DOMAINS", "DENIED_HOSTS"):
+def test_denyside_domains_and_hosts_recognized():
+    # DENY-side defense-data constants keep the recognition (their BLOCKED*/DENIED*
+    # token remains in _PATTERN_LITERAL_NAME_TOKENS after CR-017).
+    for name in ("BLOCKED_DOMAINS", "DENIED_HOSTS"):
         src = [f"{name} = {{", '    "metadata.google.internal",', "}"]
-        assert _check(src, 2).is_likely_fp, f"{name} must be recognized as a denylist/allowlist"
+        assert _check(src, 2).is_likely_fp, f"{name} must be recognized as a denylist"
+
+
+def test_cr017_allowside_constants_not_suppressed():
+    # CR-017: the ALLOW-side network tokens (ALLOWED/ALLOWLIST/WHITELIST/HOST/
+    # DOMAIN/ORIGIN) were REMOVED. A permissive allowlist member — e.g. the `'*'`
+    # in `ALLOWED_ORIGINS = ['*']` / `CORS_ALLOWED_HOSTS = ['*']` — IS the
+    # vulnerability, not denylist DATA, so it must NOT be suppressed.
+    for name in ("ALLOWED_ORIGINS", "ALLOWED_HOSTS", "CORS_WHITELIST"):
+        src = [f"{name} = {{", '    "*",', "}"]
+        assert not _check(src, 2).is_likely_fp, f"{name} must NOT be suppressed (CR-017)"
 
 
 # --- FN-safety: a real fetch of the metadata IP is NOT suppressed ------------- #

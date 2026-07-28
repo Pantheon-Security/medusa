@@ -77,12 +77,14 @@ def hooks_install(claude, cursor, codex, pre_commit, claude_mcp, install_all_fla
         written.append(hook_install.install_codex_mcp(base))
     if pre_commit:
         # pre-commit only makes sense inside a git repo; skip gracefully otherwise.
-        if (base / ".git").is_dir():
+        # install_pre_commit resolves the hooks dir via git (honoring
+        # core.hooksPath / worktrees, CR-024) and refuses in a non-repo — catch
+        # that refusal and print a friendly skip instead of crashing.
+        try:
             written.append(hook_install.install_pre_commit(base))
-        else:
+        except RuntimeError as exc:
             console.print(
-                f"[yellow]Skipping pre-commit:[/yellow] no .git directory at {base}. "
-                "Run this inside a git repository to install the secrets gate."
+                f"[yellow]Skipping pre-commit:[/yellow] {exc}"
             )
 
     # PreToolUse + SessionStart share settings.json; show each distinct path once

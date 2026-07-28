@@ -137,12 +137,18 @@ _URL_PREFIXES = ("http://", "https://", "git@",
 
 
 def _is_url(tok: str) -> bool:
-    return tok.startswith(_URL_PREFIXES)
+    # CR-035: on the degraded `.split()` fallback (unbalanced quotes) a token can
+    # arrive with a leading quote glued on (`"https://evil/x`); strip surrounding
+    # quotes before the prefix test so the URL is still recognised, not dropped.
+    return tok.strip("'\"").startswith(_URL_PREFIXES)
 
 
 def _clean_url(tok: str) -> str:
-    """Strip trailing shell punctuation and a ``git+`` VCS prefix (pip install form)."""
-    tok = tok.rstrip(";,)")
+    """Strip surrounding quotes, trailing shell punctuation, and a ``git+`` VCS
+    prefix (pip install form). CR-035: the quote strip (both ends, twice around the
+    punctuation strip) copes with the unbalanced-quote fallback that would
+    otherwise leave a quote glued to the URL."""
+    tok = tok.strip("'\"").rstrip(";,)").strip("'\"")
     if tok.startswith(("git+http://", "git+https://", "git+ssh://")):
         tok = tok[4:]
     return tok

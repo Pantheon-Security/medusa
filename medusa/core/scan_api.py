@@ -30,6 +30,7 @@ import io
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -159,6 +160,44 @@ def _is_gitleaks_signal(finding: dict) -> bool:
     """A leaked-secret finding from GitLeaks (scanner name or ``GL-`` rule prefix)."""
     return (finding.get("scanner") == "GitLeaksScanner"
             or str(finding.get("rule_id") or "").startswith("GL-"))
+
+
+# CR-027: HIGH-CONFIDENCE secret FORMATS that have NO benign example/fixture form —
+# an AWS key, a GitHub/GitLab/Slack token, a Google API key is a real credential
+# wherever it appears, so naming the file README.md / *_test.* must NOT downgrade it
+# to an "example". DELIBERATELY EXCLUDES private keys: a sample PEM in a README or a
+# throwaway key in a `*_test.go` is a ubiquitous, harmless doc/test fixture (the
+# okhttp/rampart false-block class), and a COMMITTED private-key FILE is already
+# caught by CredentialFileScanner (CR-018) regardless of path — so private keys keep
+# the doc/test exemption to avoid re-introducing that cry-wolf. A `Bearer <TOKEN>` /
+# `api_key = "..."` placeholder matches none of these and stays exemptible.
+_HIGH_CONF_SECRET_RE = re.compile(
+    r"AKIA[0-9A-Z]{16}"                       # AWS access key id
+    r"|ASIA[0-9A-Z]{16}"                      # AWS temp session key id
+    r"|gh[opusr]_[A-Za-z0-9]{20,}"            # GitHub token (ghp_/gho_/…)
+    r"|github_pat_[A-Za-z0-9_]{20,}"          # GitHub fine-grained PAT
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}"          # Slack token
+    r"|AIza[0-9A-Za-z_\-]{35}"                # Google API key
+)
+_HIGH_CONF_SECRET_RULE_RE = re.compile(
+    r"(?i)\b(aws|github|gitlab|slack[-_ ]?token|"
+    r"gcp|google[-_ ]?api|stripe|npm[-_ ]?token)\b"
+)
+
+
+def _is_high_confidence_secret(finding: dict) -> bool:
+    """True if the leak is a high-confidence secret FORMAT (see above) — such a
+    finding drives the verdict even on a doc/test path (CR-027)."""
+    blob = f"{finding.get('rule_id') or ''}\n{finding.get('issue') or ''}"
+    return bool(_HIGH_CONF_SECRET_RE.search(blob)
+                or _HIGH_CONF_SECRET_RULE_RE.search(blob))
+
+
+def _is_test_tls_cert(file_path) -> bool:
+    """A ``.key`` / ``.pem`` file — a test TLS cert/key is a standard fixture. Its
+    exemption is preserved even for a private-key match (CR-027 Do-NOT: never
+    re-introduce the requests/okhttp test-cert false-block)."""
+    return Path(str(file_path or "")).name.lower().endswith((".key", ".pem"))
 
 
 # Documentation / test FILES identified by NAMING CONVENTION, not by directory —
@@ -314,7 +353,16 @@ def _is_vet_signal(finding: dict) -> bool:
     if _is_gitleaks_signal(finding) and (
             _is_test_or_doc_path(finding.get("file"))
             or _is_doc_or_test_file(finding.get("file"))):
-        return False
+        # CR-027: the doc/test exemption is driven by PATH — but a high-confidence
+        # secret format (AWS key, private key, GitHub/Slack/Google token) has no
+        # benign example form, so naming the file README.md / *_test.* must NOT
+        # exempt it. A `.key`/`.pem` test TLS cert stays exempt (the requests/
+        # okhttp false-block fix). Placeholders (`Bearer <TOKEN>`) fall through
+        # to the exemption as before.
+        if not (_is_high_confidence_secret(finding)
+                and not _is_test_tls_cert(finding.get("file"))):
+            return False
+        # else: real secret format in a doc/test path -> still a signal.
     # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
     # payload file, which an attacker would park in tests/fixtures/ precisely to
     # evade vet. CR-009 widened the live-payload class (path_classes) to recognise
@@ -518,25 +566,45 @@ _QUIET_LOCK = threading.Lock()
 
 @contextlib.contextmanager
 def _quiet():
-    """Redirect stdout to devnull for the duration of a scan.
+    """Silence stdout for the duration of a scan — at the FILE-DESCRIPTOR level.
 
-    The parallel scanner prints a banner and progress to stdout. That would
-    corrupt an MCP stdio session (stdout carries JSON-RPC), so we swallow it.
-    stderr is left alone so genuine errors can still surface in logs.
+    The parallel scanner prints a banner and progress to stdout; in an MCP stdio
+    session that fd carries JSON-RPC, so we swallow the chatter. stderr is left
+    alone so genuine errors still surface in logs.
 
-    Guarded by a module-level lock so concurrent handlers (FastMCP thread pool)
-    cannot clobber each other's stdout swap or close a shared fd.
+    CR-023: we no longer reassign the process-global ``sys.stdout`` object. That
+    swap raced the FastMCP transport thread — a concurrent JSON-RPC response
+    written through the swapped-out ``sys.stdout`` went to /dev/null and hung the
+    client. Instead we ``os.dup2`` /dev/null over fd 1 for just this scope and
+    restore the original fd in ``finally``; ``sys.stdout`` is never mutated. The
+    module lock still serialises callers so overlapping save/restore of fd 1 can
+    never interleave. If stdout has no real fd (already a StringIO), we no-op.
     """
+    try:
+        stdout_fd = sys.stdout.fileno()
+    except (AttributeError, OSError, ValueError):
+        stdout_fd = None
+    if stdout_fd is None:
+        yield
+        return
     with _QUIET_LOCK:
-        devnull = open(os.devnull, "w")
-        saved = sys.stdout
+        saved_fd = os.dup(stdout_fd)
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
         try:
-            sys.stdout = devnull
-            with contextlib.redirect_stdout(devnull):
-                yield
+            try:
+                sys.stdout.flush()
+            except (OSError, ValueError):
+                pass
+            os.dup2(devnull_fd, stdout_fd)
+            yield
         finally:
-            sys.stdout = saved
-            devnull.close()
+            try:
+                sys.stdout.flush()
+            except (OSError, ValueError):
+                pass
+            os.dup2(saved_fd, stdout_fd)
+            os.close(saved_fd)
+            os.close(devnull_fd)
 
 
 def _normalize_severity(value) -> str:
@@ -743,10 +811,28 @@ def _config_origin_allowlist(scanner, target_root) -> list:
         if cfg_path is not None:
             cfg_resolved = Path(cfg_path).resolve()
             root_resolved = Path(target_root).resolve()
-            # Honor ONLY if the config is strictly outside the target root:
-            # not the target dir itself and not any file nested within it.
-            if (cfg_resolved != root_resolved
-                    and root_resolved not in cfg_resolved.parents):
+            # CR-028: the boundary is the target's GIT WORK TREE, not merely the
+            # target dir. For a SUBDIR target (`medusa vet ./subdir`),
+            # find_config() walks UP past the subdir to the enclosing repo root —
+            # so the repo's OWN root `.medusa.yml` sits "outside the subdir" and
+            # would be honored, letting `vet_allowlist:['**']` self-suppress the
+            # subdir to SAFE. Requiring the config to live outside the git
+            # top-level closes that. A non-repo target keeps the target-root
+            # boundary, so a legit user config in $HOME / a parent still works.
+            boundary = root_resolved
+            try:
+                top = subprocess.run(
+                    ["git", "-C", str(root_resolved), "rev-parse", "--show-toplevel"],
+                    capture_output=True, text=True, timeout=5, check=False,
+                )
+                if top.returncode == 0 and top.stdout.strip():
+                    boundary = Path(top.stdout.strip()).resolve()
+            except (OSError, subprocess.SubprocessError):
+                boundary = root_resolved
+            # Honor ONLY if the config is strictly outside the boundary: neither
+            # the boundary dir itself nor any file nested within it.
+            if (cfg_resolved != boundary
+                    and boundary not in cfg_resolved.parents):
                 honored = True
     except (ValueError, OSError):
         honored = False
@@ -758,6 +844,84 @@ def _config_origin_allowlist(scanner, target_root) -> list:
         file=sys.stderr,
     )
     return []
+
+
+def _unresolved_submodules(scan_root) -> list:
+    """Return ``[(path, url), …]`` for submodules DECLARED in ``.gitmodules`` whose
+    working-tree directory is absent/empty — i.e. present in the attacker's
+    ``.gitmodules`` but NOT fetched, hence never scanned (CR-029).
+
+    The hardened vet clone does not recurse submodules, but a victim's
+    ``git clone --recurse-submodules`` WOULD — so a payload behind a `.gitmodules`
+    URL installs on the victim while vetting SAFE. A repo already fully checked out
+    locally (submodule dirs populated) returns [] — those were scanned in place.
+    """
+    gm = Path(scan_root) / ".gitmodules"
+    if not gm.is_file():
+        return []
+    import configparser
+    cp = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        cp.read(str(gm), encoding="utf-8")
+    except (configparser.Error, OSError):
+        # Unparseable .gitmodules — treat as an unresolved anomaly (fail safe).
+        return [("<unparseable .gitmodules>", "")]
+    out = []
+    for section in cp.sections():
+        if not section.lower().startswith("submodule"):
+            continue
+        sub_path = (cp.get(section, "path", fallback="") or "").strip()
+        url = (cp.get(section, "url", fallback="") or "").strip()
+        if not (sub_path or url):
+            continue
+        sub_dir = Path(scan_root) / sub_path if sub_path else None
+        resolved = bool(sub_dir and sub_dir.is_dir() and any(sub_dir.iterdir()))
+        if not resolved:
+            out.append((sub_path or section, url))
+    return out
+
+
+def _apply_vet_anomaly_floors(summary: dict, scanner, scan_root) -> dict:
+    """Floor a would-be SAFE verdict to CAUTION for structural anomalies that a
+    file scan alone doesn't catch, and annotate the summary. Applied on EVERY
+    vet return path (including the no-scannable-files short-circuit) so a repo
+    that is *only* a `.gitmodules` / a committed node_modules can't read SAFE.
+    Never lowers a stronger verdict — a real payload still hard-blocks.
+    """
+    # Honest-partial: the deep-vet walk hit the enum cap inside a huge dep/cache
+    # tree, so that subtree was NOT fully screened — never a clean SAFE.
+    if getattr(scanner, "_screening_partial", False):
+        summary["partial_scan"] = True
+        summary["partial_note"] = (
+            "vet could not fully screen a large installed-dependency / cache tree "
+            "(file budget exceeded) — result is PARTIAL, not a clean pass"
+        )
+        if summary.get("verdict") == SAFE:
+            summary["verdict"] = CAUTION
+    # CR-020 note (no blanket floor): a *benign* committed dep tree must stay SAFE
+    # (that is the whole anti-cry-wolf point of this branch) — flooring every
+    # node_modules to CAUTION regressed it. Instead the deep-vet now COLLECTS the
+    # executables inside those trees (parallel.py) and, in screening mode, the FP
+    # filter no longer buries a HIGH/CRITICAL payload found there (fp_filter.py) —
+    # so a real dropper drives the verdict as a normal signal while a clean vendored
+    # tree is untouched. A record of the tree's presence is still surfaced.
+    if getattr(scanner, "_committed_dep_tree", False):
+        summary["committed_dep_tree"] = True
+    # CR-029: a `.gitmodules` declaring submodules we did NOT fetch/scan is an
+    # un-vetted install surface — a victim's --recurse-submodules would pull them.
+    unresolved = _unresolved_submodules(scan_root)
+    if unresolved:
+        summary["unresolved_submodules"] = [
+            {"path": p, "url": _safe_field(u, 200)} for p, u in unresolved
+        ]
+        summary["submodule_note"] = (
+            "repo declares git submodule(s) that were not fetched/scanned — a "
+            "victim's `git clone --recurse-submodules` would pull them; review "
+            "each submodule URL before installing"
+        )
+        if summary.get("verdict") == SAFE:
+            summary["verdict"] = CAUTION
+    return summary
 
 
 def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
@@ -820,6 +984,9 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
             if not files:
                 summary = _summarize([], redact_snippets=redact_snippets,
                                      root=scan_root, vet_allowlist=vet_allowlist)
+                # Apply anomaly floors even with no scannable files: a repo that is
+                # only a `.gitmodules` / committed dep tree must not read SAFE.
+                _apply_vet_anomaly_floors(summary, scanner, scan_root)
                 summary["target"] = _safe_field(target, 120)
                 return summary
             results = scanner.scan_parallel(files)
@@ -837,19 +1004,7 @@ def vet_path(path, redact_snippets: bool = False, allow=None) -> dict:
 
     summary = _summarize(findings, redact_snippets=redact_snippets,
                          root=scan_root, vet_allowlist=vet_allowlist)
-    # Honest-partial: if the deep-vet walk hit the enum cap inside a huge
-    # installed-dep / cache tree it did NOT fully screen that subtree. A partial
-    # scan must never read as a clean SAFE — surface it and floor the verdict at
-    # CAUTION ("couldn't fully screen — review"). A real payload found before the
-    # cap still hard-blocks; this only lifts a would-be SAFE.
-    if getattr(scanner, "_screening_partial", False):
-        summary["partial_scan"] = True
-        summary["partial_note"] = (
-            "vet could not fully screen a large installed-dependency / cache tree "
-            "(file budget exceeded) — result is PARTIAL, not a clean pass"
-        )
-        if summary.get("verdict") == SAFE:
-            summary["verdict"] = CAUTION
+    _apply_vet_anomaly_floors(summary, scanner, scan_root)
     summary["target"] = str(target)
     return summary
 

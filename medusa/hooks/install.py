@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import shutil
 import stat
+import subprocess
 import time
 from pathlib import Path
 from typing import Any
@@ -52,6 +54,29 @@ _MARKER_END = "# <<< medusa <<<"
 # no untrusted data is ever templated into a shell string.
 _CLAUDE_HOOK_SCRIPT = Path(__file__).resolve().with_name("claude_pretooluse.sh")
 _CLAUDE_HOOK_COMMAND = f'bash "{_CLAUDE_HOOK_SCRIPT}"'
+# CR-026: ownership is decided on these SPECIFIC shipped-command fingerprints, not
+# a bare "medusa" substring — otherwise a user's own hook whose command merely
+# mentions medusa (e.g. `python ~/my_medusa_notes.py`) was treated as MEDUSA-owned
+# and silently replaced/removed. The pretooluse script basename and the
+# SessionStart sentinel phrase are both unique to MEDUSA's emitted commands and
+# survive a reinstall at a different absolute path.
+_CLAUDE_HOOK_SCRIPT_NAME = _CLAUDE_HOOK_SCRIPT.name           # claude_pretooluse.sh
+_SESSIONSTART_SENTINEL = "MEDUSA gatekeeper available"
+
+
+def _pinned_hook_command() -> str:
+    """The PreToolUse hook command with the resolved ``medusa`` binary PINNED into
+    it (CR-030): a ``MEDUSA_BIN=<abs path>`` env prefix so the hook invokes that
+    exact binary rather than a PATH-resolved ``medusa`` a compromise could shim.
+
+    The path is resolved and shell-quoted at install time (MEDUSA-controlled, not
+    attacker input). If ``medusa`` can't be resolved now, the bare command is
+    emitted and the hook falls back to PATH resolution at runtime.
+    """
+    med = shutil.which("medusa")
+    if med:
+        return f"MEDUSA_BIN={shlex.quote(med)} {_CLAUDE_HOOK_COMMAND}"
+    return _CLAUDE_HOOK_COMMAND
 
 # The Claude SessionStart hook command. Runs once when a session starts to
 # announce that the MEDUSA MCP gatekeeper is available. It CHECKS — it never
@@ -151,14 +176,95 @@ def _write_json(path: Path, data: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+# --------------------------------------------------------------------------- #
+# Created-by-MEDUSA manifest (CR-025)
+# --------------------------------------------------------------------------- #
+# Uninstall unlinks a config file only when the file becomes empty AFTER removing
+# the MEDUSA entry. Without a record of WHICH files MEDUSA created, that deleted a
+# file the USER hand-authored with a lone `medusa` server. We record every file a
+# MEDUSA installer CREATES (did not exist before) in a small per-base manifest and
+# only unlink files present in it. A file absent from the manifest — user-authored,
+# or a manifest we couldn't read — is KEPT (fail safe: never delete on doubt).
+def _manifest_path(base: str | os.PathLike[str]) -> Path:
+    return Path(base) / ".medusa" / "install-manifest.json"
+
+
+def _manifest_load(base: str | os.PathLike[str]) -> set[str]:
+    try:
+        data = json.loads(_manifest_path(base).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    created = data.get("created") if isinstance(data, dict) else None
+    return {str(p) for p in created} if isinstance(created, list) else set()
+
+
+def _manifest_key(path: Path) -> str:
+    try:
+        return str(Path(path).resolve())
+    except OSError:
+        return str(path)
+
+
+def _manifest_record_created(base: str | os.PathLike[str], path: Path,
+                             existed_before: bool) -> None:
+    """Record ``path`` as MEDUSA-created iff it did not exist before the write."""
+    if existed_before:
+        return
+    created = _manifest_load(base)
+    created.add(_manifest_key(path))
+    mp = _manifest_path(base)
+    try:
+        mp.parent.mkdir(parents=True, exist_ok=True)
+        mp.write_text(json.dumps({"created": sorted(created)}, indent=2) + "\n",
+                      encoding="utf-8")
+    except OSError:
+        pass  # best effort — an unwritable manifest just means "don't auto-delete"
+
+
+def _manifest_says_created(base: str | os.PathLike[str], path: Path) -> bool:
+    return _manifest_key(path) in _manifest_load(base)
+
+
+def _manifest_forget(base: str | os.PathLike[str], path: Path) -> None:
+    created = _manifest_load(base)
+    key = _manifest_key(path)
+    if key not in created:
+        return
+    created.discard(key)
+    mp = _manifest_path(base)
+    try:
+        if created:
+            mp.write_text(json.dumps({"created": sorted(created)}, indent=2) + "\n",
+                          encoding="utf-8")
+        else:
+            mp.unlink()
+            try:                       # prune an empty .medusa/ we may have made
+                mp.parent.rmdir()
+            except OSError:
+                pass
+    except OSError:
+        pass
+
+
+def _is_medusa_command(command: Any) -> bool:
+    """True if a settings hook COMMAND is one MEDUSA emits (CR-026).
+
+    Matched on the shipped-command fingerprints (the pretooluse script basename or
+    the SessionStart sentinel), NOT a bare ``medusa`` substring — so an unrelated
+    user hook that merely mentions medusa in a path/word is never claimed as ours.
+    """
+    c = str(command or "")
+    return _CLAUDE_HOOK_SCRIPT_NAME in c or _SESSIONSTART_SENTINEL in c
+
+
 def _is_medusa_entry(entry: Any) -> bool:
-    """True if a Claude settings hook entry is a MEDUSA-owned one (its command
-    carries the MEDUSA marker). Used by both the PreToolUse and SessionStart
-    installers to replace any prior MEDUSA entry idempotently."""
+    """True if a Claude settings hook entry is a MEDUSA-owned one. Used by both the
+    PreToolUse and SessionStart installers to replace any prior MEDUSA entry
+    idempotently."""
     if not isinstance(entry, dict):
         return False
     for hook in entry.get("hooks", []):
-        if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+        if isinstance(hook, dict) and _is_medusa_command(hook.get("command", "")):
             return True
     return False
 
@@ -198,7 +304,7 @@ def install_claude_hook(base: str | os.PathLike[str]) -> Path:
 
     medusa_entry = {
         "matcher": "Bash",
-        "hooks": [{"type": "command", "command": _CLAUDE_HOOK_COMMAND}],
+        "hooks": [{"type": "command", "command": _pinned_hook_command()}],  # CR-030
     }
 
     # Replace any prior MEDUSA entry (idempotent update), keep everything else.
@@ -275,17 +381,64 @@ fi
 )
 
 
-def install_pre_commit(base: str | os.PathLike[str]) -> Path:
-    """Write/merge ``<base>/.git/hooks/pre-commit`` running ``medusa secrets scan``.
+def _git_query(base_path: Path, args: list[str]) -> tuple[int, str]:
+    """Run ``git -C <base_path> <args>``; return ``(returncode, stripped stdout)``.
 
-    A fresh hook gets a shebang + the MEDUSA block. An existing non-MEDUSA hook
-    is preserved and the MEDUSA block is appended (guarded by markers). The file
-    is made executable. Idempotent via the marker block.
+    Isolated in its own helper so the ``subprocess.run`` call and its stdout stay
+    local: the caller only ever receives a plain string, never a run() result that
+    then flows onward into a filesystem path (which is a legitimate-but-noisy
+    tainted-output shape). List-form (no shell); trusted git binary.
     """
-    path = Path(base) / ".git" / "hooks" / "pre-commit"
-    path.parent.mkdir(parents=True, exist_ok=True)
+    proc = subprocess.run(
+        ["git", "-C", str(base_path), *args],
+        capture_output=True, text=True, timeout=5, check=False,
+    )
+    return proc.returncode, (proc.stdout or "").strip()
 
-    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+
+def _git_hooks_dir(base: str | os.PathLike[str]) -> Path:
+    """Resolve the git hooks directory for ``base`` (CR-024).
+
+    Uses ``git -C <base> rev-parse --git-path hooks`` so ``core.hooksPath``
+    (husky / the pre-commit framework) is honored — writing to ``.git/hooks``
+    directly would silently never run under those setups. Refuses (RuntimeError)
+    when ``base`` is not inside a git work tree, so we never fabricate a bogus
+    ``.git/`` in a plain directory.
+    """
+    base_path = Path(base)
+    try:
+        rc, out = _git_query(base_path, ["rev-parse", "--is-inside-work-tree"])
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError(f"cannot run git to locate the hooks dir: {exc}") from exc
+    if rc != 0 or out != "true":
+        raise RuntimeError(
+            f"{base_path} is not a git work tree — refusing to create a .git/ "
+            "hooks dir; run `medusa hooks install --pre-commit` inside a repo"
+        )
+    rc, out = _git_query(base_path, ["rev-parse", "--git-path", "hooks"])
+    raw = out if (rc == 0 and out) else "hooks"
+    hooks_dir = Path(raw)
+    if not hooks_dir.is_absolute():
+        # git returns a path relative to base (we passed -C base).
+        hooks_dir = base_path / raw
+    return hooks_dir
+
+
+def install_pre_commit(base: str | os.PathLike[str]) -> Path:
+    """Write/merge the git ``pre-commit`` hook running ``medusa secrets scan``.
+
+    The hooks directory is resolved via git (honoring ``core.hooksPath``); a
+    non-repo ``base`` is refused rather than fabricating ``.git/`` (CR-024). A
+    fresh hook gets a shebang + the MEDUSA block. An existing non-MEDUSA hook is
+    preserved and the MEDUSA block is appended (guarded by markers). The file is
+    made executable. Idempotent via the marker block.
+    """
+    hooks_dir = _git_hooks_dir(base)
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    path = hooks_dir / "pre-commit"
+    existed = path.exists()
+
+    existing = path.read_text(encoding="utf-8") if existed else ""
 
     if _MARKER_BEGIN in existing:
         # Replace the existing MEDUSA block in place (idempotent update).
@@ -301,6 +454,7 @@ def install_pre_commit(base: str | os.PathLike[str]) -> Path:
 
     _backup(path)
     path.write_text(new_content, encoding="utf-8")
+    _manifest_record_created(base, path, existed)   # CR-025
 
     # chmod +x (preserve read perms, add execute for u/g/o).
     mode = path.stat().st_mode
@@ -319,6 +473,7 @@ def install_cursor_mcp(base: str | os.PathLike[str]) -> Path:
     key with the same value).
     """
     path = Path(base) / ".cursor" / "mcp.json"
+    existed = path.exists()
     config = _load_json(path)
 
     servers = config.setdefault("mcpServers", {})
@@ -330,6 +485,7 @@ def install_cursor_mcp(base: str | os.PathLike[str]) -> Path:
 
     _backup(path)
     _write_json(path, config)
+    _manifest_record_created(base, path, existed)   # CR-025
     return path
 
 
@@ -356,7 +512,8 @@ def install_codex_mcp(base: str | os.PathLike[str]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
 
     medusa_server = {"command": "medusa", "args": ["mcp"]}
-    existing_text = path.read_text(encoding="utf-8") if path.exists() else ""
+    existed = path.exists()
+    existing_text = path.read_text(encoding="utf-8") if existed else ""
 
     if tomllib is not None and tomli_w is not None and _MARKER_BEGIN not in existing_text:
         # Preferred path: parse + structured merge + serialize.
@@ -371,6 +528,7 @@ def install_codex_mcp(base: str | os.PathLike[str]) -> Path:
         mcp_servers[MEDUSA_MARKER] = medusa_server
         _backup(path)
         path.write_text(tomli_w.dumps(data), encoding="utf-8")
+        _manifest_record_created(base, path, existed)   # CR-025
         return path
 
     # Fallback: guarded text block (also used to update an existing block).
@@ -386,6 +544,7 @@ def install_codex_mcp(base: str | os.PathLike[str]) -> Path:
 
     _backup(path)
     path.write_text(new_content, encoding="utf-8")
+    _manifest_record_created(base, path, existed)   # CR-025
     return path
 
 
@@ -471,6 +630,7 @@ def install_claude_mcp(base: str | os.PathLike[str]) -> Path:
     backup-first.
     """
     path = Path(base) / ".mcp.json"
+    existed = path.exists()
     config = _load_json(path)
 
     servers = config.setdefault("mcpServers", {})
@@ -482,6 +642,7 @@ def install_claude_mcp(base: str | os.PathLike[str]) -> Path:
 
     _backup(path)
     _write_json(path, config)
+    _manifest_record_created(base, path, existed)   # CR-025
     return path
 
 
@@ -489,16 +650,24 @@ def install_claude_mcp(base: str | os.PathLike[str]) -> Path:
 # 7. Install everything
 # --------------------------------------------------------------------------- #
 def install_all(base: str | os.PathLike[str]) -> dict[str, str]:
-    """Run every installer against ``base`` and return ``{name: path}``."""
-    return {
+    """Run every installer against ``base`` and return ``{name: path}``.
+
+    The pre-commit gate needs a git work tree (CR-024); in a non-repo ``base`` it
+    is skipped (omitted from the result) rather than aborting the whole install.
+    """
+    result = {
         "claude": str(install_claude_hook(base)),
         "claude_sessionstart": str(install_claude_sessionstart(base)),
         "claude_skill": str(install_claude_skill(base)),
         "claude_mcp": str(install_claude_mcp(base)),
-        "pre_commit": str(install_pre_commit(base)),
         "cursor": str(install_cursor_mcp(base)),
         "codex": str(install_codex_mcp(base)),
     }
+    try:
+        result["pre_commit"] = str(install_pre_commit(base))
+    except RuntimeError:
+        pass  # not a git work tree — the other configs still install
+    return result
 
 
 # --------------------------------------------------------------------------- #
@@ -514,7 +683,7 @@ def _claude_hook_present(base: Path) -> bool:
         if not isinstance(entry, dict):
             continue
         for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+            if isinstance(hook, dict) and _is_medusa_command(hook.get("command", "")):
                 return True
     return False
 
@@ -560,7 +729,7 @@ def _claude_sessionstart_present(base: Path) -> bool:
         if not isinstance(entry, dict):
             continue
         for hook in entry.get("hooks", []):
-            if isinstance(hook, dict) and MEDUSA_MARKER in str(hook.get("command", "")):
+            if isinstance(hook, dict) and _is_medusa_command(hook.get("command", "")):
                 return True
     return False
 
@@ -665,7 +834,7 @@ def uninstall_claude_skill(base: str | os.PathLike[str]) -> Path | None:
     return skill_dir
 
 
-def _remove_medusa_server(path: Path) -> Path | None:
+def _remove_medusa_server(base: str | os.PathLike[str], path: Path) -> Path | None:
     """Remove the ``medusa`` key from an ``mcpServers`` JSON config at ``path``."""
     if not path.exists():
         return None
@@ -677,11 +846,16 @@ def _remove_medusa_server(path: Path) -> Path | None:
     if not servers:
         config.pop("mcpServers", None)
     _backup(path)
-    # If MEDUSA was the only content, the file is now empty ({}). A file we created
-    # and fully emptied is litter — remove it rather than leave a bare `{}` behind
-    # (FX-H01/#26). A file with any other user content is kept and rewritten.
+    # If MEDUSA was the only content the file is now empty ({}). Unlink it ONLY if
+    # MEDUSA created it (manifest) — FX-H01 litter-cleanup. A file the USER
+    # authored with a lone medusa server (or one we can't confirm we made) is KEPT
+    # as `{}` rather than deleted (CR-025 — never delete a user's file on doubt).
     if not config:
-        path.unlink()
+        if _manifest_says_created(base, path):
+            path.unlink()
+            _manifest_forget(base, path)
+        else:
+            _write_json(path, config)
     else:
         _write_json(path, config)
     return path
@@ -689,12 +863,12 @@ def _remove_medusa_server(path: Path) -> Path | None:
 
 def uninstall_claude_mcp(base: str | os.PathLike[str]) -> Path | None:
     """Remove the ``medusa`` server from the project ``.mcp.json``."""
-    return _remove_medusa_server(Path(base) / ".mcp.json")
+    return _remove_medusa_server(base, Path(base) / ".mcp.json")
 
 
 def uninstall_cursor_mcp(base: str | os.PathLike[str]) -> Path | None:
     """Remove the ``medusa`` server from ``.cursor/mcp.json``."""
-    return _remove_medusa_server(Path(base) / ".cursor" / "mcp.json")
+    return _remove_medusa_server(base, Path(base) / ".cursor" / "mcp.json")
 
 
 def _strip_marker_block(text: str) -> str:
@@ -726,10 +900,15 @@ def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
     if _MARKER_BEGIN in text:
         _backup(path)
         stripped = _strip_marker_block(text)
-        # Nothing left but whitespace -> the MEDUSA block was the only content;
-        # remove the file we created instead of leaving an empty one (FX-H01/#26).
+        # Nothing left but whitespace -> the MEDUSA block was the only content.
+        # Unlink only a file MEDUSA created (manifest); otherwise keep the user's
+        # now-empty file rather than deleting it (CR-025 / FX-H01).
         if not stripped.strip():
-            path.unlink()
+            if _manifest_says_created(base, path):
+                path.unlink()
+                _manifest_forget(base, path)
+            else:
+                path.write_text(stripped, encoding="utf-8")
         else:
             path.write_text(stripped, encoding="utf-8")
         return path
@@ -746,10 +925,14 @@ def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
             if not servers:
                 data.pop("mcp_servers", None)
             _backup(path)
-            # MEDUSA was the only content -> remove the now-empty file we created
-            # rather than write an empty TOML (FX-H01/#26).
+            # MEDUSA was the only content. Remove only a file MEDUSA created
+            # (manifest); keep a user-authored now-empty file (CR-025 / FX-H01).
             if not data:
-                path.unlink()
+                if _manifest_says_created(base, path):
+                    path.unlink()
+                    _manifest_forget(base, path)
+                else:
+                    path.write_text(tomli_w.dumps(data), encoding="utf-8")
             else:
                 path.write_text(tomli_w.dumps(data), encoding="utf-8")
             return path
@@ -757,12 +940,18 @@ def uninstall_codex_mcp(base: str | os.PathLike[str]) -> Path | None:
 
 
 def uninstall_pre_commit(base: str | os.PathLike[str]) -> Path | None:
-    """Strip the MEDUSA block from ``.git/hooks/pre-commit``.
+    """Strip the MEDUSA block from the git ``pre-commit`` hook.
 
-    If the file is *only* the MEDUSA hook (bare shebang + our block), it is
-    removed entirely; a hook that also holds user commands keeps them.
+    The hooks dir is resolved via git (honoring ``core.hooksPath``, CR-024); a
+    non-repo base is a no-op. If the file is *only* the MEDUSA hook (bare shebang +
+    our block) AND MEDUSA created it, it is removed; a hook that also holds user
+    commands — or one MEDUSA did not create — keeps its content (CR-025).
     """
-    path = Path(base) / ".git" / "hooks" / "pre-commit"
+    try:
+        hooks_dir = _git_hooks_dir(base)
+    except RuntimeError:
+        return None            # not a git work tree -> nothing MEDUSA wrote here
+    path = hooks_dir / "pre-commit"
     if not path.exists():
         return None
     try:
@@ -782,9 +971,11 @@ def uninstall_pre_commit(base: str | os.PathLike[str]) -> Path | None:
     ]
 
     _backup(path)
-    if not meaningful:
+    if not meaningful and _manifest_says_created(base, path):
         path.unlink()
+        _manifest_forget(base, path)
         return path
+    # User-authored hook (or unknown provenance) — keep the file, strip our block.
     path.write_text(_strip_marker_block(text), encoding="utf-8")
     return path
 

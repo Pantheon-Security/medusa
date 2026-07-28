@@ -270,14 +270,19 @@ class FalsePositiveFilter:
     # Purpose tokens (matched per underscore-delimited token of the name, so no
     # substring over-match like ORIGINAL/GHOST): a datum inside one of these
     # collections is signature/denylist DATA, not executable logic.
+    # CR-017: the ALLOW-side network tokens (ALLOW/ALLOWED/ALLOWLIST/WHITELIST,
+    # HOST/HOSTS, DOMAIN/DOMAINS, ORIGIN/ORIGINS) were REMOVED. A string literal
+    # inside `ALLOWED_HOSTS = ['*']` / `CORS_ALLOWED_ORIGINS = ['*']` is NOT
+    # denylist DATA — the `'*'` there IS the permissive-config vulnerability, so
+    # suppressing it as a "pattern literal" blinded the scanner to the finding.
+    # The DENY-side defense-data tokens (BLOCK*/DENY*/BLACKLIST — the SSRF-defense
+    # denylists of FX-H03) stay: a datum in `_BLOCKED_HOSTS` really is defense data.
     _PATTERN_LITERAL_NAME_TOKENS = frozenset({
         'PATTERN', 'PATTERNS', 'SIGNATURE', 'SIGNATURES', 'RULE', 'RULES',
         'REGEX', 'REGEXES', 'REGEXPS', 'INDICATOR', 'INDICATORS',
         'KEYWORD', 'KEYWORDS', 'PAYLOAD', 'PAYLOADS',
         'BLOCK', 'BLOCKED', 'BLOCKLIST', 'BLACKLIST',
         'DENY', 'DENIED', 'DENYLIST',
-        'ALLOW', 'ALLOWED', 'ALLOWLIST', 'WHITELIST',
-        'HOST', 'HOSTS', 'DOMAIN', 'DOMAINS', 'ORIGIN', 'ORIGINS',
     })
     # A line that is (predominantly) a quoted string literal element, optionally a
     # raw/byte/format string, with an optional trailing comma — i.e. a datum in a
@@ -309,6 +314,26 @@ class FalsePositiveFilter:
         self.screening = screening
         self._file_cache: Dict[str, List[str]] = {}
         self._class_cache: Dict[str, Dict] = {}
+        # CR-022: memoise the rule-schema-key SET per file_path. Without it,
+        # _check_signature_data_file re-joins the context and re-runs the schema
+        # regex once PER FINDING — O(findings x file_size) on a large YAML/JSON.
+        # Caching the key set (not just a bool) keeps the suppression decision AND
+        # its explanation identical while collapsing the cost to one scan per file.
+        # Instance-scoped (like _file_cache), never shared across filter instances.
+        self._schema_cache: Dict[str, frozenset] = {}
+
+    def _relax_context(self, finding: Dict) -> bool:
+        """CR-033: the ONE definition of the screening context-FP relaxation.
+
+        In screening (target-vet) mode a CRITICAL/HIGH finding must not be buried
+        by the test/example/utility-file heuristic — in a poisoned repo those dirs
+        ARE the attack surface. The decision was previously computed independently
+        in ``filter_finding`` and the pattern-scan loop with two slightly different
+        default handlings; folding it here removes the drift risk. The effective
+        condition (``screening and severity in {CRITICAL, HIGH}``) is unchanged.
+        """
+        severity = str(finding.get('severity') or 'MEDIUM').upper()
+        return self.screening and severity in ('CRITICAL', 'HIGH')
 
     def filter_finding(
         self,
@@ -368,8 +393,7 @@ class FalsePositiveFilter:
         # exactly where the malicious content lives. The genuinely-safe checks
         # (security-module self-detection, real docstrings, known FP patterns)
         # still run in all modes.
-        severity = (finding.get('severity') or 'MEDIUM').upper()
-        relax_context_fp = self.screening and severity in ('CRITICAL', 'HIGH')
+        relax_context_fp = self._relax_context(finding)   # CR-033: single source
         if not relax_context_fp:
             checks.append(self._check_test_file)
 
@@ -504,11 +528,17 @@ class FalsePositiveFilter:
         # Content signal: rule-definition schema inside a data file anywhere.
         # Only inspect data-extension files — we never want to schema-match a .py.
         if is_data_ext and context:
-            blob = '\n'.join(context)
-            schema_keys = {
-                m.group(1).lower().replace('_', '')
-                for m in self._RULE_SCHEMA_KEY_RE.finditer(blob)
-            }
+            # CR-022: memoise the schema-key set per file_path — the join+finditer
+            # is otherwise redone for every finding on the same (large) data file.
+            cache_key = raw_path or norm_path
+            schema_keys = self._schema_cache.get(cache_key)
+            if schema_keys is None:
+                blob = '\n'.join(context)
+                schema_keys = frozenset(
+                    m.group(1).lower().replace('_', '')
+                    for m in self._RULE_SCHEMA_KEY_RE.finditer(blob)
+                )
+                self._schema_cache[cache_key] = schema_keys
             # Require an identity key plus a rule-detail key so a generic config
             # with a lone `severity:` does not qualify.
             has_identity = bool(schema_keys & {'ruleid', 'id'})
@@ -824,10 +854,7 @@ class FalsePositiveFilter:
         # When vetting a target those locations are the attack surface. The
         # content-safety guards (security wrappers, safe patterns, rule-definition
         # files) still apply.
-        relax_context_fp = (
-            self.screening
-            and str(finding.get('severity', '')).upper() in ('CRITICAL', 'HIGH')
-        )
+        relax_context_fp = self._relax_context(finding)   # CR-033: single source
 
         # Get the line and surrounding context (may be empty for external tools)
         line = ""
@@ -856,6 +883,19 @@ class FalsePositiveFilter:
 
             # Screening: don't let a file-location guard bury a real attack finding
             if relax_context_fp and fp_pattern.reason in _CONTEXT_FP_REASONS:
+                continue
+
+            # CR-020: nor a PATH-only catch-all suppressor (e.g. `vendor_dir_finding`:
+            # any finding under vendor/ node_modules/ site-packages/ → "not
+            # actionable"). When VETTING a stranger's repo those trees ARE where a
+            # payload hides, so a HIGH/CRITICAL there must still surface. Scoped to a
+            # path-based rule whose CONTENT pattern is a catch-all (`.*`), so
+            # content-specific safe-patterns are untouched; regular (non-screening)
+            # scans keep the vendor suppression intact.
+            if (relax_context_fp
+                    and fp_pattern.reason == FPReason.SAFE_PATTERN
+                    and fp_pattern.file_pattern
+                    and (fp_pattern.pattern or "").strip() in (".*", ".+", "")):
                 continue
 
             # Skip if this pattern can't beat current best

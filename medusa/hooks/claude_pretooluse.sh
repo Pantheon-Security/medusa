@@ -34,16 +34,50 @@ fi
 # Read tool_input.command from the stdin JSON (best effort; empty on any error).
 cmd=$(python3 -c 'import sys, json; print(json.load(sys.stdin).get("tool_input", {}).get("command", ""))' 2>/dev/null)
 
+# CR-031: cap the command length we attempt to vet. A pathological multi-hundred-KB
+# blob is never a real clone/install line; refuse rather than feed it to the parser.
+if [ "${#cmd}" -gt 200000 ]; then
+    echo "MEDUSA blocked: command too long to vet safely (fail closed)" >&2
+    exit 2
+fi
+
 block() {
-    echo "MEDUSA blocked: $1" >&2
+    # CR-032: the reason may embed an attacker-controlled URL. Strip control bytes
+    # (ANSI/bidi/newline injection) and cap the length so a crafted URL cannot forge
+    # trusted-looking text or terminal escapes in the agent-visible block reason.
+    reason_safe=$(printf '%s' "$1" | tr -d '\000-\037\177' | cut -c1-300)
+    echo "MEDUSA blocked: $reason_safe" >&2
     echo "  To retry: re-run the command once MEDUSA is reachable." >&2
     echo "  To override this one command (false alarm / offline): prefix it with MEDUSA_HOOK_BYPASS=1" >&2
     exit 2
 }
 
+# CR-030: resolve the medusa binary to a PINNED absolute path, not a PATH lookup.
+# `medusa hooks install --claude` bakes MEDUSA_BIN=<abs path> into the settings.json
+# command that Claude Code runs, so an earlier-PATH `medusa` shim (dropped by a
+# prior compromise) can't turn this gate into a rubber stamp. Fall back to PATH
+# resolution only when no pin was recorded (older install / manual invocation).
+if [ -n "${MEDUSA_BIN:-}" ] && [ -x "${MEDUSA_BIN}" ]; then
+    :
+else
+    MEDUSA_BIN="$(command -v medusa 2>/dev/null || true)"
+fi
 # Fail CLOSED: if we cannot run medusa we cannot vouch for anything. This is a
 # "could not run" case (distinct from a finding) but still blocks by default.
-command -v medusa >/dev/null 2>&1 || block "medusa not found — cannot vet (fail closed)"
+# (Explicit if, not `A && B || C`, so a false B can't fall through — SC2015.)
+if [ -z "${MEDUSA_BIN}" ] || [ ! -x "${MEDUSA_BIN}" ]; then
+    block "medusa not found — cannot vet (fail closed)"
+fi
+
+# CR-031: wrap each scan in a wall-clock timeout so a slow/hung scan fails CLOSED
+# (exit 124 -> block) instead of Claude Code killing the hook and running the
+# command un-vetted. `timeout` is optional (absent on some minimal hosts); degrade
+# to a direct call there.
+if command -v timeout >/dev/null 2>&1; then
+    _vet_cmd=(timeout 120 "${MEDUSA_BIN}")
+else
+    _vet_cmd=("${MEDUSA_BIN}")
+fi
 
 # `uv pip install` is matched by the `pip install` substring pattern below (kept
 # as one pattern to stay shellcheck-clean — SC2221/SC2222).
@@ -70,7 +104,7 @@ case "$cmd" in
         if [ -n "$_sec_tmp" ]; then
             chmod 600 "$_sec_tmp" 2>/dev/null
             printf '%s' "$cmd" > "$_sec_tmp"
-            medusa secrets scan --path "$_sec_tmp" --exit-code
+            "${MEDUSA_BIN}" secrets scan --path "$_sec_tmp" --exit-code
             _sec_rc=$?
             rm -f "$_sec_tmp"
             [ "$_sec_rc" -eq 0 ] || block "a credential is embedded in the command (e.g. a token in the URL)"
@@ -95,14 +129,25 @@ case "$cmd" in
         # with the MCP gatekeeper (SkillSpector thresholds): exit 0 = SAFE, 1 =
         # CAUTION, 2 = DO_NOT_INSTALL, any other non-zero = could-not-vet. All
         # non-SAFE outcomes block by default; the reason is worded per case.
+        _url_count=0
         while IFS= read -r url; do
             [ -n "$url" ] || continue
-            medusa vet "$url"
+            # CR-031: cap the number of URLs vetted per command — a command with a
+            # flood of URLs is not a normal clone/install; refuse (fail closed).
+            _url_count=$((_url_count + 1))
+            if [ "$_url_count" -gt 50 ]; then
+                block "too many URLs to vet in one command (>50) — fail closed"
+            fi
+            # CR-030: pinned MEDUSA_BIN. CR-031: wrapped in `timeout` so a hung scan
+            # exits 124 and blocks. CR-032: the URL is scrubbed inside block().
+            "${_vet_cmd[@]}" vet "$url"
             rc=$?
-            if [ "$rc" -eq 1 ] || [ "$rc" -eq 2 ]; then
-                block "$url failed vetting (non-SAFE verdict)"
+            if [ "$rc" -eq 124 ]; then
+                block "vetting timed out (>120s) for (untrusted value follows) $url — fail closed"
+            elif [ "$rc" -eq 1 ] || [ "$rc" -eq 2 ]; then
+                block "vetting failed (non-SAFE verdict) for (untrusted value follows) $url"
             elif [ "$rc" -ne 0 ]; then
-                block "could not vet $url (medusa error, exit $rc)"
+                block "could not vet (medusa error, exit $rc) for (untrusted value follows) $url"
             fi
         done < <(printf '%s\n' "$urls")
         # Fail CLOSED: a clone command whose target we could not turn into a

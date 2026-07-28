@@ -5,11 +5,22 @@ writes in an isolated temp cwd. The MCP server is never actually launched (it
 blocks on stdio); we only assert its command/help renders.
 """
 
+import shutil
+import subprocess
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from medusa.cli import main
+
+
+def _git_init_cwd() -> None:
+    """CR-024: pre-commit install requires a real git work tree (resolved via git,
+    honoring core.hooksPath). A bare `.git` mkdir no longer suffices."""
+    if not shutil.which("git"):
+        pytest.skip("git not on PATH")
+    subprocess.run(["git", "init", "-q"], check=True)
 
 
 def test_help_lists_mcp_and_hooks():
@@ -50,8 +61,8 @@ def test_mcp_server_forces_spawn_start_method():
 def test_hooks_install_all_writes_every_config():
     runner = CliRunner()
     with runner.isolated_filesystem():
-        # Create a .git dir so the pre-commit gate installs (vs. skipping).
-        Path(".git").mkdir()
+        # Init a real repo so the pre-commit gate installs (vs. skipping).
+        _git_init_cwd()
 
         result = runner.invoke(main, ["hooks", "install", "--all"])
         assert result.exit_code == 0, result.output
@@ -65,7 +76,7 @@ def test_hooks_install_all_writes_every_config():
 def test_hooks_status_reports_present_after_install():
     runner = CliRunner()
     with runner.isolated_filesystem():
-        Path(".git").mkdir()
+        _git_init_cwd()
 
         install = runner.invoke(main, ["hooks", "install", "--all"])
         assert install.exit_code == 0, install.output

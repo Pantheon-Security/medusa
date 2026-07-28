@@ -821,6 +821,36 @@ class MedusaParallelScanner:
                     or fl.startswith('.env')
                     or fl.endswith(_sec_critical_suffix))
 
+        # CR-020: inside an installed-dep / cache / VCS tree the deep-vet loop
+        # otherwise collects ONLY `_is_security_critical` names — so a payload in an
+        # arbitrarily-named executable (`node_modules/evil/build.sh` piping curl|bash)
+        # or a `package.json` with a malicious `postinstall`/`bin` shipped there was
+        # skipped, though it runs on the victim's `npm install`. Widen the
+        # never-descend collection to executable scripts and package.json WITHOUT
+        # touching the line-934 force-include (keeps blast radius off the normal walk).
+        _never_descend_script_suffix = (
+            '.sh', '.bash', '.zsh', '.ksh', '.bat', '.cmd', '.ps1',
+        )
+        _never_descend_extra_exact = frozenset({'package.json'})
+
+        def _is_never_descend_collectible(fn: str) -> bool:
+            fl = fn.lower()
+            return (_is_security_critical(fn)
+                    or fl.endswith(_never_descend_script_suffix)
+                    or fl in _never_descend_extra_exact)
+
+        # CR-020 (1): a SOURCE repo that ships an installed-dependency tree
+        # (node_modules/, site-packages/, a committed venv) is anomalous for
+        # something you are about to install — the payload rides inside the vendored
+        # deps. Presence of such a tree floors the verdict to CAUTION (a review
+        # signal, never an auto-block). Deliberately EXCLUDES `.git/` and the tool
+        # caches from `_screening_never_descend` — every clone has a `.git/`, so
+        # keying the anomaly on the full set would floor EVERY repo to CAUTION.
+        _committed_dep_dirs = frozenset({
+            'node_modules', 'site-packages', 'dist-packages', '.venv', 'venv',
+        })
+        self._committed_dep_tree = False
+
         _screening = bool(getattr(self, 'screening', False))
         # Deep vet descends installed-dep / cache / VCS trees (node_modules/,
         # site-packages/, .venv/, .git/, …) for SECURITY-CRITICAL files only — a
@@ -897,7 +927,14 @@ class MedusaParallelScanner:
                         _never_descend_capped = True
                         self._screening_partial = True
                         break
-                    if not _is_security_critical(filename):
+                    # CR-020 (1): flag a committed installed-dep tree (not .git/caches).
+                    if any(p.lower() in _committed_dep_dirs for p in dir_parts):
+                        self._committed_dep_tree = True
+                    # CR-020 (2): collect security-critical files, executable scripts,
+                    # package.json, AND anything under a git `hooks/` dir (post-checkout
+                    # etc. are extensionless) — the install-time execution surface.
+                    _in_hooks_dir = any(p.lower() == 'hooks' for p in dir_parts)
+                    if not (_is_never_descend_collectible(filename) or _in_hooks_dir):
                         continue
 
                 # Build relative path for exclusion checking
@@ -932,10 +969,15 @@ class MedusaParallelScanner:
                 # Deep vet: a security-critical file is force-included even inside a
                 # code-quality-excluded dir (the RCE-in-tests/fixtures blind spot).
                 _sec_critical = _screening and _is_security_critical(filename)
+                # CR-020: a file collected inside a never-descend dep/cache/VCS tree
+                # (it already passed the collectible gate above) must bypass the
+                # PATH exclusion too — node_modules/ etc. is an excluded path, so
+                # without this a collected `node_modules/evil/build.sh` was dropped
+                # again here. Still honors genuine file-NAME exclusions.
                 if is_ai_context_dir and filename in ai_context_critical_names:
                     if _file_exclude_re and _file_exclude_re.match(filename):
                         continue
-                elif _ai_security_file or _sec_critical:
+                elif _ai_security_file or _sec_critical or _in_never_descend:
                     if _file_exclude_re and _file_exclude_re.match(filename):
                         continue
                 elif _is_path_excluded(relative_path, all_parts, filename):

@@ -35,6 +35,18 @@ _NAMES = frozenset({
 })
 _SUFFIXES = (".pem", ".key")
 
+# CR-018: confirmed LIVE-credential filenames. These carry a real secret, not a
+# test artefact — an attacker parking one under tests/fixtures/ was evading the
+# scanner entirely (the test-fixture exemption below suppressed it). They are
+# scanned regardless of directory. The `.pem`/`.key` SUFFIX exemption stays for
+# genuine test TLS certs (the requests/okhttp false-block fix) — a real leaked
+# private key still trips the private-key CONTENT pattern wherever it sits, since
+# `id_*` keys are named here and a `.pem` cert holds no PRIVATE KEY block.
+_ALWAYS_SCAN = frozenset({
+    "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+    ".git-credentials", ".npmrc", ".pypirc", ".netrc", "credentials",
+})
+
 # Test-fixture credential material — test TLS certs/keys, sample .npmrc — is a
 # standard, expected part of a repo's test suite: every HTTP/TLS library ships
 # `tests/certs/*.key`. Flagging it as a "committed credential" is a ~100%-FP that
@@ -107,6 +119,12 @@ class CredentialFileScanner(BaseScanner):
         )
         if not is_cred:
             return False
+        # CR-018: a confirmed live-credential filename (id_rsa, .git-credentials,
+        # .npmrc, …) is scanned even under a test-fixture path — an attacker would
+        # park it there precisely to evade vet. Only test TLS certs (.pem/.key and
+        # other non-_ALWAYS_SCAN names) keep the fixture exemption.
+        if n in _ALWAYS_SCAN:
+            return True
         # test certs/keys are expected fixtures, not leaked secrets (see above)
         return not _is_test_fixture_path(file_path)
 

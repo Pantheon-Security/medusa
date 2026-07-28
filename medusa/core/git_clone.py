@@ -24,6 +24,24 @@ import tempfile
 # otherwise hang for a long time even with prompts disabled.
 CLONE_TIMEOUT = 120
 
+# CR-030: standard system locations for the real ``git``. Preferred OVER a
+# PATH-resolved binary so an earlier-PATH ``git`` shim (dropped by a prior
+# compromise to neuter the hardened clone) cannot intercept it. PATH is only a
+# last resort when no standard binary exists (unusual layouts / Windows).
+_GIT_ABS_CANDIDATES = (
+    "/usr/bin/git", "/bin/git", "/usr/local/bin/git",
+    "/opt/homebrew/bin/git", "/opt/local/bin/git",
+)
+
+
+def _resolve_git() -> str | None:
+    """Absolute path to a trusted ``git``: a fixed system location if present,
+    else the PATH-resolved binary (CR-030)."""
+    for cand in _GIT_ABS_CANDIDATES:
+        if os.path.isfile(cand) and os.access(cand, os.X_OK):
+            return cand
+    return shutil.which("git")
+
 
 def clone_hardened(url: str, prefix: str = "medusa-vet-", timeout: int = CLONE_TIMEOUT) -> str:
     """Shallow, hardened clone of ``url`` into a fresh temp dir; return its path.
@@ -32,7 +50,7 @@ def clone_hardened(url: str, prefix: str = "medusa-vet-", timeout: int = CLONE_T
     non-zero clone) with credentials stripped from the message. The temp dir is
     registered for atexit cleanup and also removed eagerly on failure.
     """
-    git_bin = shutil.which("git")
+    git_bin = _resolve_git()
     if not git_bin:
         raise RuntimeError("git not found on PATH — cannot clone repository")
 

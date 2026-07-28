@@ -75,7 +75,7 @@ _ALL_STATUS_KEYS = {
 
 
 def test_status_reports_all_seven_after_install_all(tmp_path: Path):
-    (tmp_path / ".git").mkdir()  # so pre-commit installs
+    _init_repo(tmp_path)  # so pre-commit installs (CR-024 needs a real repo)
     install.install_all(tmp_path)
 
     st = install.status(tmp_path)
@@ -91,7 +91,7 @@ def test_status_all_absent_on_empty_dir(tmp_path: Path):
 
 
 def test_hooks_status_cli_prints_new_configs(tmp_path: Path, monkeypatch):
-    (tmp_path / ".git").mkdir()
+    _init_repo(tmp_path)
     install.install_all(tmp_path)
     monkeypatch.chdir(tmp_path)
 
@@ -122,9 +122,20 @@ def test_install_claude_dedups_settings_path(tmp_path: Path, monkeypatch):
 # --------------------------------------------------------------------------- #
 # PR-003 — uninstall reverses every writer, preserving unrelated entries
 # --------------------------------------------------------------------------- #
+def _init_repo(base: Path) -> None:
+    """CR-024: the pre-commit installer resolves its hooks dir via git and refuses
+    outside a work tree, so tests that install it need a real repo (a bare
+    ``.git/`` mkdir no longer suffices). Skip if git is unavailable."""
+    if not shutil.which("git"):
+        import pytest
+        pytest.skip("git not on PATH")
+    subprocess.run(["git", "init", "-q"], cwd=base, check=True)
+
+
 def _seed_unrelated(base: Path) -> None:
     """Pre-seed non-MEDUSA content in every touched config before install."""
-    (base / ".git" / "hooks").mkdir(parents=True)
+    _init_repo(base)
+    (base / ".git" / "hooks").mkdir(parents=True, exist_ok=True)
     (base / ".git" / "hooks" / "pre-commit").write_text(
         "#!/bin/sh\necho 'existing project hook'\n"
     )
@@ -200,7 +211,7 @@ def test_uninstall_is_idempotent_and_safe_when_absent(tmp_path: Path, monkeypatc
     assert res.exit_code == 0, res.output
 
     # Install then uninstall twice — second run removes nothing, still exit 0.
-    (tmp_path / ".git").mkdir()
+    _init_repo(tmp_path)
     install.install_all(tmp_path)
     first = CliRunner().invoke(main, ["hooks", "uninstall", "--all"])
     assert first.exit_code == 0, first.output
@@ -210,8 +221,8 @@ def test_uninstall_is_idempotent_and_safe_when_absent(tmp_path: Path, monkeypatc
 
 
 def test_uninstall_pre_commit_removes_solely_medusa_hook(tmp_path: Path):
-    # A pre-commit that is ONLY the MEDUSA block should be removed entirely.
-    (tmp_path / ".git" / "hooks").mkdir(parents=True)
+    # A pre-commit that is ONLY the MEDUSA block (and MEDUSA-created) is removed.
+    _init_repo(tmp_path)
     install.install_pre_commit(tmp_path)
     p = install.uninstall_pre_commit(tmp_path)
     assert p is not None

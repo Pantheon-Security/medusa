@@ -11,12 +11,24 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import tomllib
 from pathlib import Path
 
 import pytest
 
 from medusa.hooks import install
+
+
+def _init_repo(path: Path) -> None:
+    """CR-024: the pre-commit installer now requires a real git work tree
+    (it resolves the hooks dir via git so core.hooksPath is honored and never
+    fabricates a bogus .git/). Init one so these writer tests have somewhere to
+    land; skip if git is unavailable."""
+    if not shutil.which("git"):
+        pytest.skip("git not on PATH")
+    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -91,6 +103,7 @@ def test_claude_hook_merge_preserves_existing(tmp_path: Path):
 # Git pre-commit
 # --------------------------------------------------------------------------- #
 def test_pre_commit_executable_and_references_secrets(tmp_path: Path):
+    _init_repo(tmp_path)
     path = install.install_pre_commit(tmp_path)
     assert path == tmp_path / ".git" / "hooks" / "pre-commit"
     assert os.access(path, os.X_OK)  # executable
@@ -100,6 +113,7 @@ def test_pre_commit_executable_and_references_secrets(tmp_path: Path):
 
 
 def test_pre_commit_idempotent(tmp_path: Path):
+    _init_repo(tmp_path)
     install.install_pre_commit(tmp_path)
     install.install_pre_commit(tmp_path)
     content = (tmp_path / ".git" / "hooks" / "pre-commit").read_text()
@@ -108,8 +122,9 @@ def test_pre_commit_idempotent(tmp_path: Path):
 
 
 def test_pre_commit_preserves_existing_hook(tmp_path: Path):
+    _init_repo(tmp_path)
     hook_path = tmp_path / ".git" / "hooks" / "pre-commit"
-    hook_path.parent.mkdir(parents=True)
+    hook_path.parent.mkdir(parents=True, exist_ok=True)
     hook_path.write_text("#!/bin/sh\necho 'existing project hook'\n")
 
     install.install_pre_commit(tmp_path)
@@ -121,6 +136,7 @@ def test_pre_commit_preserves_existing_hook(tmp_path: Path):
 
 def test_pre_commit_scans_staged_diff_not_host_history(tmp_path: Path):
     """The gate must inspect the STAGED changes, not host chat/shell history."""
+    _init_repo(tmp_path)
     install.install_pre_commit(tmp_path)
     content = (tmp_path / ".git" / "hooks" / "pre-commit").read_text()
     assert "git diff --cached" in content          # scans the staged diff
@@ -318,6 +334,7 @@ def test_claude_mcp_merge_preserves_server(tmp_path: Path):
 # install_all
 # --------------------------------------------------------------------------- #
 def test_install_all(tmp_path: Path):
+    _init_repo(tmp_path)
     result = install.install_all(tmp_path)
     assert set(result) == {
         "claude",

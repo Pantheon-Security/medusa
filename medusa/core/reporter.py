@@ -14,7 +14,9 @@ from typing import Dict, List, Any
 from collections import defaultdict
 
 from medusa import __version__
-from medusa.core.path_classes import TEST_DATA_DIRS, is_test_data_path  # CR-007
+from medusa.core.path_classes import (  # CR-007 / CR-019
+    TEST_DATA_DIRS, is_test_data_path, is_live_payload_file,
+)
 
 # Non-executing test/fixture/example dir components. A finding buried here is not a
 # repo-level risk (security tests embed attack strings by design), so it does not
@@ -162,7 +164,15 @@ class MedusaReportGenerator:
         if not findings:
             return 100.0
 
-        scored = [f for f in findings if not _is_test_data_path(f.get('file'))]
+        # CR-019: mirror scan_api._is_vet_signal — a LIVE-payload file (a real
+        # dropper/credential/agent-control file) drives the score even under a
+        # test-data dir. Without the re-inclusion a CRITICAL live dropper parked in
+        # examples/ scored a clean 100 (an attacker just picks a test-data dir).
+        scored = [
+            f for f in findings
+            if not _is_test_data_path(f.get('file'))
+            or is_live_payload_file(f.get('file'))
+        ]
         if not scored:
             # every finding is in a test dir -> nothing drives the score
             return 100.0
