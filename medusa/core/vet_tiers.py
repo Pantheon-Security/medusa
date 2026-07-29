@@ -77,6 +77,11 @@ SOFT_TIERS = (
     ("fetch_exec", frozenset({"RemoteFetchExecScanner"}),
      ("MEDUSA-RCE-FETCHEXEC-",), frozenset()),
     ("env_name_only", frozenset(), ("env-sensitive-var-",), frozenset()),
+    # Model-LOADING-call hygiene (from_pretrained / torch.load / trust_remote_code /
+    # revision-pin) fires on essentially every model-loading repo → INFORM, cap at
+    # CAUTION. The committed poisoned-model FILE families (MLSC-SERIAL-*/MLSC-HUB-*)
+    # are deliberately NOT here — they remain hard-block malice.
+    ("model_load", frozenset(), ("MLSC-LOAD-",), frozenset()),
 )
 
 
