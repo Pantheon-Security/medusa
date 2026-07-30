@@ -20,3 +20,35 @@ def test_poisoned_model_file_families_stay_hard():
     # install-time-malice signal — the model_load tier must not soften it.
     for rid in ("MLSC-SERIAL-001", "MLSC-HUB-001"):
         assert soft_tier_of({"scanner": "ModelScanScanner", "rule_id": rid}) is None, rid
+
+
+# --- FX-B03: committed test TLS certs (.key/.pem in test dirs) are fixtures ------
+from medusa.core import scan_api as _s  # noqa: E402
+
+
+def test_fxb03_test_tls_cert_is_not_a_hard_signal():
+    cert = {"scanner": "CredentialFileScanner", "rule_id": "MEDUSA-CRED-001",
+            "file": "requests/tests/certs/server.key", "severity": "HIGH"}
+    assert _s._is_vet_signal(cert) is False                 # test-cert fixture, not a signal
+    # Do-NOT: a private key OUTSIDE a test dir still hard-blocks
+    assert _s._is_vet_signal(dict(cert, file="requests/src/prod.key")) is True
+    # Do-NOT: a non-TLS-cert credential (a token in a .env) in a test dir still hard-blocks
+    assert _s._is_vet_signal({"scanner": "CredentialFileScanner", "rule_id": "MEDUSA-CRED-002",
+                              "file": "tests/data/aws.env", "severity": "HIGH"}) is True
+
+
+# --- FX-B04: LLMJACK-002 base-URL/key example in a DOC file caps at CAUTION ------
+def test_fxb04_llmjack002_in_readme_is_caution_not_block():
+    doc = _s._summarize([{"scanner": "LLMProviderHijackScanner", "rule_id": "MEDUSA-LLMJACK-002",
+                          "file": "README.md", "severity": "CRITICAL", "line": 10}])
+    assert doc["verdict"] == _s.CAUTION, doc["verdict"]      # config example → review, not block
+    # Do-NOT: the same finding in shipped code stays a hard block
+    code = _s._summarize([{"scanner": "LLMProviderHijackScanner", "rule_id": "MEDUSA-LLMJACK-002",
+                           "file": "app.py", "severity": "CRITICAL", "line": 10}])
+    assert code["verdict"] == _s.DO_NOT_INSTALL, code["verdict"]
+
+# FX-B05 (claude-forge SKILL-ROGUE-001) intentionally NOT auto-fixed: the claude-forge
+# false-positive comes from the flattened/normalized anti-evasion pass (a verb + a
+# .claude/ or SKILL.md target joined across lines), NOT a single-line match — so
+# narrowing the rule risks weakening that deliberate split-directive detection.
+# Surfaced for careful detection-engineering; see the suite triage notes.
