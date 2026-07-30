@@ -363,6 +363,16 @@ def _is_vet_signal(finding: dict) -> bool:
                 and not _is_test_tls_cert(finding.get("file"))):
             return False
         # else: real secret format in a doc/test path -> still a signal.
+    # FX-B03: CredentialFileScanner (MEDUSA-CRED-) flags committed key FILES
+    # regardless of path (CR-018) — but a `.key`/`.pem` test TLS cert INSIDE a
+    # test-data dir is a ubiquitous fixture (the requests/okhttp false-block class),
+    # not a real leaked credential. Exempt ONLY that narrow case: a private key
+    # OUTSIDE a test dir, or any non-TLS-cert credential, still hard-blocks.
+    if ((str(rule_id).startswith("MEDUSA-CRED-")
+         or finding.get("scanner") == "CredentialFileScanner")
+            and _is_test_tls_cert(finding.get("file"))
+            and _is_test_data_path(finding.get("file"))):
+        return False
     # A test-data dir dismisses attack STRINGS in datasets — but NOT a live
     # payload file, which an attacker would park in tests/fixtures/ precisely to
     # evade vet. CR-009 widened the live-payload class (path_classes) to recognise
@@ -487,6 +497,15 @@ def _is_soft_review_signal(finding: dict) -> bool:
     tool's normal operation; the active-attack payload rules hard-block separately).
     CR-008: rule-id set is the vet_tiers SOFT_TIERS 'soft_review' row."""
     return soft_tier_of(finding) == "soft_review"
+
+
+def _is_llmjack_key_url_doc_example(finding: dict) -> bool:
+    """FX-B04: a base-URL / key-in-URL LLMJACK-002 match inside a DOC file (README,
+    CHANGELOG, …) is a CONFIG EXAMPLE, not a live key-exfil payload — cap it at
+    CAUTION like LLMJACK-001. The persistent-WRITE form (LLMJACK-003) and any
+    LLMJACK-002 in executable / shipped source stay hard-block."""
+    return (str(finding.get("rule_id") or "").startswith("MEDUSA-LLMJACK-002")
+            and _is_doc_or_test_file(finding.get("file")))
 
 
 # --- Plugin-security sub-tier (softer than curated malice) ---------------------
@@ -729,7 +748,9 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
     def _is_soft(f):
         # CR-008: the 8 static soft tiers via the vet_tiers table, plus the dynamic
         # screening-only tier (a rule-corpus lookup, not a static prefix).
-        return soft_tier_of(f) is not None or _is_screening_only_signal(f)
+        # FX-B04: a base-URL/key LLMJACK-002 EXAMPLE in a doc file is soft too.
+        return (soft_tier_of(f) is not None or _is_screening_only_signal(f)
+                or _is_llmjack_key_url_doc_example(f))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 
