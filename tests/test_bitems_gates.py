@@ -5,6 +5,8 @@ CAUTION), so a legitimate model-loading repo (openshield / GPTFuzz / llm-attacks
 is not hard-blocked (DO_NOT_INSTALL). Committed poisoned-model FILE families
 (MLSC-SERIAL-* / MLSC-HUB-*) must stay hard.
 """
+import pytest
+
 from medusa.core.vet_tiers import soft_tier_of
 
 
@@ -46,6 +48,30 @@ def test_fxb04_llmjack002_in_readme_is_caution_not_block():
     code = _s._summarize([{"scanner": "LLMProviderHijackScanner", "rule_id": "MEDUSA-LLMJACK-002",
                            "file": "app.py", "severity": "CRITICAL", "line": 10}])
     assert code["verdict"] == _s.DO_NOT_INSTALL, code["verdict"]
+
+
+# --- FX-B04a: the doc exemption must NOT cover agent-CONTROL manifests ----------
+# Born-RED regression gate. FX-B04 keyed on `_is_doc_or_test_file`, which is true for
+# ANY `.md` — including SKILL.md, the primary delivery vehicle for the key-exfil
+# attack (CVE-2026-21852 class). That softened a poisoned skill from DO_NOT_INSTALL
+# to CAUTION and broke the functional gate's Check E, while all 59 unit gates passed.
+@pytest.mark.parametrize("path", [
+    ".claude/skills/x/SKILL.md",
+    "examples/.claude/skills/helper/SKILL.md",   # parked under a test-data dir
+    ".claude/agents/evil.md",
+    "skills/helper/SKILL.md",
+])
+def test_fxb04a_agent_control_manifest_still_hard_blocks(path):
+    r = _s._summarize([{"scanner": "LLMProviderHijackScanner", "rule_id": "MEDUSA-LLMJACK-002",
+                        "file": path, "severity": "CRITICAL", "line": 2}])
+    assert r["verdict"] == _s.DO_NOT_INSTALL, f"{path} -> {r['verdict']} (must hard-block)"
+
+
+def test_fxb04a_plain_readme_still_softens():
+    # The aifw false-block fix must survive the guard above.
+    r = _s._summarize([{"scanner": "LLMProviderHijackScanner", "rule_id": "MEDUSA-LLMJACK-002",
+                        "file": "docs/README.md", "severity": "CRITICAL", "line": 10}])
+    assert r["verdict"] == _s.CAUTION, r["verdict"]
 
 # FX-B05 (claude-forge SKILL-ROGUE-001) intentionally NOT auto-fixed: the claude-forge
 # false-positive comes from the flattened/normalized anti-evasion pass (a verb + a
