@@ -60,7 +60,16 @@ dependencies = [
     "tomli-w>=1.0.0",
     "toml>=0.10.2",
     "pathspec>=0.11.0",
-    "mcp>=1.0.0",
+    # Upper bound is REQUIRED, not cosmetic: `medusa/mcp/server.py` imports
+    # `from mcp.server.fastmcp import FastMCP`, which exists only in mcp 1.x.
+    # mcp 2.0 REMOVED that path (its successor is `mcp.server.mcpserver.MCPServer`,
+    # a different API), so an unbounded `mcp>=1.0.0` resolves a fresh
+    # `pip install medusa-security` to mcp 2.x and `medusa mcp` then dies on import
+    # — the MCP gatekeeper is dead on arrival for every NEW user, while an existing
+    # dev box keeps working off its pinned 1.x. Found by the audit-suite container
+    # (a genuine fresh install). Lift this bound only together with a port to the
+    # 2.x MCPServer API.
+    "mcp>=1.0.0,<2",
 ]
 
 [project.optional-dependencies]
