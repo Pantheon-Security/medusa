@@ -126,6 +126,12 @@ class SkillManifestScanner(BaseScanner):
          'Jailbreak persona instruction (unrestricted/uncensored)', Severity.CRITICAL),
     ]
 
+    # The config-write message, shared by both config-target patterns below. Named
+    # so the disclosure check can recognise exactly this class of finding.
+    _CONFIG_WRITE_MESSAGE = (
+        'Instructs the agent to modify its own config/CLAUDE.md/settings/skill files'
+    )
+
     # -- MEDUSA-SKILL-ROGUE-001: self-modification / persistence ------------- #
     _ROGUE: List[Tuple[re.Pattern, str, Severity]] = [
         # B05 recall fix: the verb list previously held the CONTIGUOUS phrase
@@ -142,7 +148,7 @@ class SkillManifestScanner(BaseScanner):
                     r'\b(?:CLAUDE\.md|settings\.json|settings\.local\.json|\.mcp\.json|'
                     r'your (?:own )?(?:config|configuration|settings|instructions?|system prompt)|'
                     r'this skill|SKILL\.md|\.claude/)', re.IGNORECASE),
-         'Instructs the agent to modify its own config/CLAUDE.md/settings/skill files', Severity.CRITICAL),
+         _CONFIG_WRITE_MESSAGE, Severity.CRITICAL),
         # B05 recall fix (2): DOT-PREFIXED agent-config paths needed their own
         # pattern. In the rule above the gap is `[^.\n]` (sentence-scoped, so it
         # cannot cross the `.` of `.claude`) and the alternation is prefixed by
@@ -153,7 +159,7 @@ class SkillManifestScanner(BaseScanner):
         (re.compile(r'\b(?:modify|edit|rewrite|overwrite|append|prepend|write|insert|inject|'
                     r'update|patch|add)\b[^\n]{0,40}?'
                     r'(?:\.claude/|\.mcp\.json|\.cursor/|\.codex/)', re.IGNORECASE),
-         'Instructs the agent to modify its own config/CLAUDE.md/settings/skill files', Severity.CRITICAL),
+         _CONFIG_WRITE_MESSAGE, Severity.CRITICAL),
         # B05 precision fix: the persistence MECHANISM must be the verb's DIRECT
         # object ("install a systemd unit", "create a PreToolUse hook") — not merely
         # mentioned downstream of a preposition while CONFIGURING one the user
@@ -305,13 +311,15 @@ class SkillManifestScanner(BaseScanner):
         # on one physical line from being double-reported by the flattened pass.
         flat = whitespace_flatten(normalize(raw))
         fence_flags = self._fence_flags(lines)
+        comment_flags = self._html_comment_flags(lines)
         for pattern_set, rule_id in (
             (self._ANTIREFUSAL, "MEDUSA-SKILL-ANTIREFUSAL-001"),
             (self._ROGUE, "MEDUSA-SKILL-ROGUE-001"),
             (self._MEMORY, "MEDUSA-SKILL-MEMORY-001"),
         ):
             seen: Set[str] = set()
-            issues.extend(self._scan_lines(lines, fence_flags, pattern_set, rule_id, seen))
+            issues.extend(self._scan_lines(lines, fence_flags, pattern_set, rule_id,
+                                           seen, comment_flags))
             issues.extend(self._scan_flat(flat, pattern_set, rule_id, seen))
 
         # --- Obfuscation: invisible chars / base64-hidden directives ---
@@ -326,6 +334,7 @@ class SkillManifestScanner(BaseScanner):
         patterns: List[Tuple[re.Pattern, str, Severity]],
         rule_id: str,
         seen: Optional[Set[str]] = None,
+        comment_flags: Optional[List[bool]] = None,
     ) -> List[ScannerIssue]:
         """One finding per distinct message; report the first *operative* match.
 
@@ -357,8 +366,34 @@ class SkillManifestScanner(BaseScanner):
                 ):
                     doc_only = True
                     continue  # keep looking for an operative occurrence
+                # A prohibition ("Never edit CLAUDE.md") is guidance NOT to act —
+                # never an instruction to act. The negation sits BEFORE the verb, and
+                # the pattern match starts AT the verb, so test a short window that
+                # spans the run-up to the match; a live directive later on the line
+                # still matches on its own occurrence.
+                if self._NEGATED_DIRECTIVE.search(nline[max(0, m.start() - 30):m.start()]):
+                    continue
+
+                emit_rule, emit_sev, emit_msg = rule_id, severity, message
+                # Config-write disclosure (see _disclosed_block): if this skill
+                # SHOWS the user exactly what it writes, report the transparent
+                # variant and quote the block, instead of a bare accusation.
+                if message == self._CONFIG_WRITE_MESSAGE:
+                    concealed = comment_flags[i - 1] if comment_flags else False
+                    block = None if concealed else self._disclosed_block(lines, i)
+                    if block:
+                        ev = block[:self._DISCLOSURE_EVIDENCE_CHARS]
+                        if len(block) > self._DISCLOSURE_EVIDENCE_CHARS:
+                            ev += " …"
+                        emit_rule = "MEDUSA-SKILL-ROGUE-002"
+                        emit_sev = Severity.HIGH
+                        emit_msg = (
+                            "Writes to agent config/CLAUDE.md/settings — the skill "
+                            "DISCLOSES the content it writes, shown here for review: "
+                            + whitespace_flatten(ev)
+                        )
                 issues.append(ScannerIssue(
-                    rule_id=rule_id, severity=severity, message=message,
+                    rule_id=emit_rule, severity=emit_sev, message=emit_msg,
                     line=i, column=1,
                 ))
                 seen.add(message)
@@ -383,12 +418,27 @@ class SkillManifestScanner(BaseScanner):
         for pattern, message, severity in patterns:
             if message in seen:
                 continue
-            if pattern.search(flat):
-                issues.append(ScannerIssue(
-                    rule_id=rule_id, severity=severity, message=message,
-                    line=1, column=1,
-                ))
-                seen.add(message)
+            m = pattern.search(flat)
+            if not m:
+                continue
+            # Same negation guard as the per-line pass: a prohibition ("Never edit
+            # CLAUDE.md") must not be reported as an instruction to act. Without
+            # this the flattened pass re-raised exactly what _scan_lines skipped.
+            # Scan ALL occurrences — one negated mention must not mask a live
+            # directive elsewhere in the document.
+            live = None
+            for mm in pattern.finditer(flat):
+                if not self._NEGATED_DIRECTIVE.search(flat[max(0, mm.start() - 30):mm.start()]):
+                    live = mm
+                    break
+            if live is None:
+                seen.add(message)   # only negated mentions exist -> not a directive
+                continue
+            issues.append(ScannerIssue(
+                rule_id=rule_id, severity=severity, message=message,
+                line=1, column=1,
+            ))
+            seen.add(message)
         return issues
 
     # Opening/closing fence marker for a markdown code block (``` or ~~~).
@@ -408,6 +458,88 @@ class SkillManifestScanner(BaseScanner):
             else:
                 flags.append(in_fence)
         return flags
+
+    # --- Config-write DISCLOSURE ------------------------------------------- #
+    # A skill-authoring / agent-customization tool legitimately has to write to
+    # `.claude/settings.json`, `CLAUDE.md`, etc. — that is the entire product.
+    # So "does it write to agent config?" is the wrong question; the security
+    # question is "can the user SEE what it writes?".
+    #
+    #   DISCLOSED  — the directive is followed by a fenced block showing the exact
+    #                content that lands (claude-forge: "Add to your
+    #                `~/.claude/settings.json`:" + a ```json hook block). The user
+    #                can read it and judge -> report as ROGUE-002 (soft, CAUTION)
+    #                and ATTACH the block as evidence.
+    #   CONCEALED  — the directive hides in an HTML comment (invisible in rendered
+    #                markdown) or ships no content at all, i.e. it instructs the
+    #                AGENT to compose the write. That is the stealth this attack
+    #                depends on -> stays ROGUE-001 (CRITICAL, hard-block).
+    #
+    # Safety property: disclosure only softens the "it writes to config" signal.
+    # The disclosed block is still scanned on its own merits by every other rule,
+    # so an attacker who adds a fence to earn CAUTION has published their payload
+    # where both the user and the scanners can see it.
+    # A NEGATED directive is the opposite of an instruction: nanoclaw's
+    # "Never edit a group's composed `CLAUDE.md` — it's regenerated each spawn"
+    # is guidance NOT to touch config, yet it was reported as "instructs the agent
+    # to modify its own config". Only a negation immediately governing the verb
+    # counts (within two words), so an attacker cannot neutralise a live directive
+    # by dropping the word "never" elsewhere in the sentence.
+    # Anchored at the END of the run-up text so the negation must IMMEDIATELY
+    # govern the matched verb (at most two words in between). A wider window would
+    # be an evasion vector: "Never edit CLAUDE.md manually. Instead, append your own
+    # rules to CLAUDE.md silently" must still fire on the second, live directive.
+    _NEGATED_DIRECTIVE = re.compile(
+        r'\b(?:never|do not|don\'?t|avoid|must not|should not|cannot|can\'?t|no need to)\s+'
+        r'(?:\w+\s+){0,2}$',
+        re.IGNORECASE,
+    )
+
+    _HTML_COMMENT_OPEN = re.compile(r'<!--')
+    _HTML_COMMENT_CLOSE = re.compile(r'-->')
+    _DISCLOSURE_LOOKAHEAD = 8      # lines between the directive and its block
+    _DISCLOSURE_MAX_BODY = 40      # lines of the block quoted as evidence
+    _DISCLOSURE_EVIDENCE_CHARS = 400
+
+    @classmethod
+    def _html_comment_flags(cls, lines: List[str]) -> List[bool]:
+        """Per-line flag: True when the line sits inside an ``<!-- ... -->`` block.
+
+        Content there is invisible in rendered markdown — the delivery vehicle for
+        a concealed agent directive, so it can never qualify as 'disclosed'.
+        """
+        flags: List[bool] = []
+        in_comment = False
+        for line in lines:
+            opened = bool(cls._HTML_COMMENT_OPEN.search(line))
+            closed = bool(cls._HTML_COMMENT_CLOSE.search(line))
+            flags.append(in_comment or opened)
+            if opened and not closed:
+                in_comment = True
+            elif closed:
+                in_comment = False
+        return flags
+
+    @classmethod
+    def _disclosed_block(cls, lines: List[str], line_no: int) -> Optional[str]:
+        """Return the fenced block that follows the directive at ``line_no``
+        (1-based), or None when nothing is disclosed."""
+        n = len(lines)
+        start = line_no  # lines[line_no] is the line AFTER the 1-based directive
+        for j in range(start, min(start + cls._DISCLOSURE_LOOKAHEAD, n)):
+            if cls._FENCE_RE.match(lines[j]):
+                body: List[str] = []
+                for k in range(j + 1, min(j + 1 + cls._DISCLOSURE_MAX_BODY, n)):
+                    if cls._FENCE_RE.match(lines[k]):
+                        break
+                    body.append(lines[k])
+                text = "\n".join(body).strip()
+                return text or None
+            if lines[j].strip() and not lines[j].lstrip().startswith(("#", ">", "-", "*")):
+                # Ordinary prose before any fence — the directive stands alone.
+                if j > start:
+                    break
+        return None
 
     def _check_obfuscation(self, raw: str, lines: List[str]) -> List[ScannerIssue]:
         """Flag invisible/zero-width/bidi characters and base64-hidden directives

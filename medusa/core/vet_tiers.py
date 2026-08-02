@@ -67,8 +67,16 @@ SOFT_TIERS = (
     # (self-modification / persistence / config rewrite) is self-persistence
     # ENTRENCHMENT — a directive to write agent-executable config or disable a
     # control — so it is NOT soft: it hard-blocks via its own CRITICAL malice tier.
+    # MEDUSA-SKILL-ROGUE-002 is the DISCLOSED config-write: the skill states it
+    # writes agent config AND shows the exact block it writes, so the user can read
+    # it and decide (a skill-authoring tool legitimately must write there — see
+    # SkillManifestScanner._disclosed_block). Transparency is the whole difference:
+    # the CONCEALED form (HTML comment / no content shown) stays ROGUE-001 and
+    # hard-blocks. This softens ONLY the "it writes to config" signal — the
+    # disclosed content is still scanned by every other rule, so a malicious block
+    # hard-blocks on its own merits.
     ("soft_review", frozenset(), (),
-     frozenset({"MEDUSA-SKILL-MEMORY-001",
+     frozenset({"MEDUSA-SKILL-MEMORY-001", "MEDUSA-SKILL-ROGUE-002",
                 "MEDUSA-SKILL-TRIGGER-001", "MEDUSA-LLMJACK-001"})),
     ("plugin_security", frozenset(), ("PLG",), frozenset()),
     ("repo_ai_hygiene",
