@@ -40,8 +40,28 @@ def test_cve_not_fired_by_bare_tf_or_generic_c():
         assert not _fires(rule, benign), f"CVE must NOT fire on non-tensorflow code: {benign!r}"
 
 
-def test_cve_still_fires_on_tensorflow_dependency():
+def test_cve_fires_on_a_VULNERABLE_tensorflow_pin():
+    """CR-040 sharpening of #24.
+
+    #24 correctly anchored this CVE to the tensorflow PACKAGE (it was firing on
+    `tf.write()` in repos with no tensorflow at all). But anchoring on a bare
+    `import tensorflow` is still wrong in the other direction: an import carries NO
+    version, and CVE-2018-7575 only affects TensorFlow <= 1.7. So every modern repo
+    on TF 2.x collected a CRITICAL "buffer overflow" for a 2018 bug it cannot have —
+    AdvBox was hard-blocked by five hits of exactly this. Evidence of a
+    version-specific vulnerability has to be an actually-pinned vulnerable version.
+    """
     rule = _load_rule("CVE-2018-7575")
-    for real in ("import tensorflow as tf", "from tensorflow import keras",
-                 "tensorflow==1.7.0"):
-        assert _fires(rule, real), f"CVE must still fire on a tensorflow dependency: {real!r}"
+    for vulnerable in ("tensorflow==1.7.0", "tensorflow<=1.6", "tensorflow~=1.4",
+                       "tensorflow == 1.5.0"):
+        assert _fires(rule, vulnerable), \
+            f"CVE must fire on a vulnerable pin: {vulnerable!r}"
+
+
+def test_cve_does_not_fire_on_safe_or_versionless_tensorflow():
+    """The other half of the contract: no version, or a fixed version, is not evidence."""
+    rule = _load_rule("CVE-2018-7575")
+    for safe in ("import tensorflow as tf", "from tensorflow import keras",
+                 "x = tf.constant(1)", "tensorflow==2.15.0", "tensorflow>=2.0"):
+        assert not _fires(rule, safe), \
+            f"CVE must NOT fire without a vulnerable version: {safe!r}"

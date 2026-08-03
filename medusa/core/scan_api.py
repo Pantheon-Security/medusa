@@ -499,6 +499,43 @@ def _is_soft_review_signal(finding: dict) -> bool:
     return soft_tier_of(finding) == "soft_review"
 
 
+# A path component that DECLARES the content is deliberately insecure. A security
+# tool ships its own vulnerable corpus — agentshield's `examples/vulnerable/mcp.json`
+# and `src/corpus/vulnerable-configs.ts`, agent-audit's `tests/fixtures/.../
+# vulnerable_hook` — and was hard-blocked for it, which is precisely the cry-wolf
+# this branch exists to kill: the tools that DETECT poisoned agent configs cannot
+# themselves be un-installable for containing examples of poisoned agent configs.
+#
+# Why this is not a loophole (same logic as config-write disclosure): an attacker's
+# payload has to be INCONSPICUOUS to survive review. Filing it under a directory
+# literally named `vulnerable/` or `insecure/` is the opposite of hiding — it is a
+# self-declaration that flags the file to every human who looks. And it only ever
+# SOFTENS: the finding is still reported and still drives CAUTION, so the content
+# stays visible; it just stops reading as "do not install this security tool".
+_DECLARED_VULN_DIRS = frozenset({
+    "vulnerable", "vulnerables", "insecure", "unsafe", "vuln", "vulns",
+    "bad-examples", "badexamples", "antipatterns", "anti-patterns",
+})
+
+
+def _is_declared_vulnerable_fixture(file_path) -> bool:
+    """True if the path self-declares as deliberately-insecure fixture material
+    AND sits in a non-executing test/example/corpus location."""
+    p = str(file_path or "").replace("\\", "/").lower()
+    parts = p.split("/")
+    declared = any(
+        part in _DECLARED_VULN_DIRS or part.startswith(("vulnerable-", "vulnerable_",
+                                                        "insecure-", "insecure_"))
+        for part in parts
+    )
+    if not declared:
+        return False
+    # Must also be fixture-shaped: a test/example/corpus tree, not shipped source.
+    return (_is_test_data_path(p)
+            or any(part in ("corpus", "corpora", "benchmarks", "benchmark", "cases")
+                   for part in parts))
+
+
 def _is_llmjack_key_url_doc_example(finding: dict) -> bool:
     """FX-B04: a base-URL / key-in-URL LLMJACK-002 match inside a DOC file (README,
     CHANGELOG, …) is a CONFIG EXAMPLE, not a live key-exfil payload — cap it at
@@ -766,8 +803,12 @@ def _summarize(findings: list, redact_snippets: bool = False, root=None,
         # CR-008: the 8 static soft tiers via the vet_tiers table, plus the dynamic
         # screening-only tier (a rule-corpus lookup, not a static prefix).
         # FX-B04: a base-URL/key LLMJACK-002 EXAMPLE in a doc file is soft too.
+        # Plus a finding in a SELF-DECLARED vulnerable fixture tree (a security
+        # tool's own test corpus) — still reported, still CAUTION, never a
+        # hard block on the tools that detect this class of attack.
         return (soft_tier_of(f) is not None or _is_screening_only_signal(f)
-                or _is_llmjack_key_url_doc_example(f))
+                or _is_llmjack_key_url_doc_example(f)
+                or _is_declared_vulnerable_fixture(f.get("file")))
     soft = [f for f in signal if _is_soft(f)]
     malice = [f for f in signal if not _is_soft(f)]
 

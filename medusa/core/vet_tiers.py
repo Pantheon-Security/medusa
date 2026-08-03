@@ -56,9 +56,13 @@ NEVER_GENERIC_FP_PREFIXES = (
 # startswith any of ``rule_prefixes``. Prefixes/scanners are mutually distinct, so
 # a finding matches at most one row (soft_tier_of returns the first).
 SOFT_TIERS = (
+    # EUVD- (EU Vulnerability Database) and GHSA- (GitHub Security Advisory) are the
+    # SAME class as CVE- — a published advisory against a DEPENDENCY — and were
+    # simply missing from this row, so identical findings hard-blocked or capped at
+    # CAUTION purely according to which advisory database happened to issue the ID.
     ("dependency_vuln",
      frozenset({"CriticalCVEScanner", "DependencyCVEScanner"}),
-     ("CVE-", "cve-", "MEDUSA-OSV-001"),
+     ("CVE-", "cve-", "EUVD-", "euvd-", "GHSA-", "ghsa-", "MEDUSA-OSV-001"),
      frozenset()),
     ("attack_signature", frozenset(), ("MEDUSA-ATKSIG-",), frozenset()),
     ("docker_hardening", frozenset(), ("DKR",), frozenset()),

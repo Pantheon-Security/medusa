@@ -383,6 +383,7 @@ class FalsePositiveFilter:
             self._check_security_module,
             self._check_docstring,
             self._check_security_wrapper,
+            self._check_shell_sanitized,
             self._check_known_patterns,
         ]
 
@@ -795,6 +796,71 @@ class FalsePositiveFilter:
                             explanation=f"Finding appears to be in docstring (keyword '{keyword}' in quoted string)"
                         )
 
+        return FilterResult()
+
+    # A command-injection finding is a FALSE POSITIVE when every value
+    # interpolated into the command was passed through `shlex.quote()` — that is
+    # precisely the documented, correct defence against shell injection, so
+    # flagging it punishes code for defending itself. pentest-mcp was hard-blocked
+    # by SIX rules all pointing at one line that is properly sanitised:
+    #     url = shlex.quote(url); wordlist = shlex.quote(wordlist)
+    #     os.system(f"gobuster dir -u {url} -w {wordlist} -o /tmp/out.txt")
+    # Deliberately strict: EVERY interpolated name must be quoted (a single
+    # unquoted variable keeps the finding), so partial sanitisation never hides a
+    # real injection.
+    _SHELL_INJECTION_RE = re.compile(
+        r'command\s+injection|shell\s+injection|shell=True|os\.system|'
+        r'unsanitiz|shell\s+execution|shell\s+invocation', re.IGNORECASE)
+    _SHLEX_QUOTE_ASSIGN_RE = re.compile(
+        r'(\w+)\s*=\s*(?:shlex|pipes)\.quote\s*\(')
+    _FSTRING_VAR_RE = re.compile(r'\{\s*(\w+)\s*[^}]*\}')
+
+    def _check_shell_sanitized(
+        self,
+        finding: Dict,
+        context: List[str]
+    ) -> FilterResult:
+        """Suppress a shell/command-injection finding whose interpolated values
+        were all `shlex.quote()`-sanitised (the correct defence)."""
+        blob = f"{finding.get('rule_id') or ''} {finding.get('issue') or ''} " \
+               f"{finding.get('message') or ''}"
+        if not self._SHELL_INJECTION_RE.search(blob):
+            return FilterResult()
+
+        line_num = finding.get('line') or 0
+        if not context or line_num <= 0:
+            return FilterResult()
+
+        line = context[line_num - 1] if line_num - 1 < len(context) else ""
+        interpolated = set(self._FSTRING_VAR_RE.findall(line))
+        if not interpolated:
+            return FilterResult()
+
+        # Names sanitised anywhere in the enclosing region above the finding.
+        above = '\n'.join(context[max(0, line_num - 40):line_num])
+        quoted = set(self._SHLEX_QUOTE_ASSIGN_RE.findall(above))
+        # Resolve ONE level of composition: `os.system(f"{command} ...")` where
+        # `command = f"gobuster -u {url} -w {wordlist}"` must be judged on url /
+        # wordlist, not on the opaque name `command`.
+        for name in list(interpolated):
+            if name in quoted:
+                continue
+            m = re.search(rf'\b{re.escape(name)}\s*=\s*f["\']([^"\']*)["\']', above)
+            if m:
+                interpolated.discard(name)
+                interpolated.update(self._FSTRING_VAR_RE.findall(m.group(1)))
+
+        if interpolated and interpolated.issubset(quoted):
+            return FilterResult(
+                is_likely_fp=True,
+                confidence=0.85,
+                reason=FPReason.SECURITY_WRAPPER,
+                explanation=(
+                    "Shell command is built from shlex.quote()-sanitised values ("
+                    + ", ".join(sorted(interpolated))
+                    + ") — that is the correct injection defence, not a vulnerability"
+                ),
+            )
         return FilterResult()
 
     def _check_security_wrapper(

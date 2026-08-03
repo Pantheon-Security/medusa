@@ -841,7 +841,17 @@ class MCPConfigScanner(RuleBasedScanner):
                 continue
 
             for pattern, description, severity in self.SECRET_PATTERNS:
-                if re.search(pattern, line):
+                m = re.search(pattern, line)
+                if m:
+                    # Same placeholder guard as the env-block path above. This
+                    # raw-line sweep had none, so a documentation filler like
+                    # AWS's own published `AKIAIOSFODNN7EXAMPLE` was reported as a
+                    # real key — hard-blocking agent-audit, whose example config
+                    # annotates each entry as a deliberate anti-pattern. MCP001 is
+                    # in NEVER_GENERIC_FP_PREFIXES, so the FP filter cannot correct
+                    # this downstream: it has to be right at the source.
+                    if self._is_placeholder(m.group(0)):
+                        continue
                     issues.append(ScannerIssue(
                         severity=severity,
                         message=f"Potential {description} found in config",
@@ -864,6 +874,22 @@ class MCPConfigScanner(RuleBasedScanner):
         # Check against known placeholders
         if value_lower in [p.lower() for p in self.PLACEHOLDER_VALUES]:
             return True
+
+        # PLACEHOLDER_VALUES is an EXACT-match list, so a doc filler that merely
+        # CONTAINS the tell slipped through — `AKIAIOSFODNN7EXAMPLE` (AWS's own
+        # published example key, in their docs verbatim) and
+        # `sk-live-EXAMPLE-PRODUCTION-KEY-12345` were both reported as hardcoded
+        # credentials. That hard-blocked agent-audit, an agent-AUDITING tool whose
+        # example config annotates every entry as a deliberate anti-pattern.
+        # Reuse the gitleaks scanner's substring/sequence heuristic — one
+        # definition of "obvious doc placeholder" across the scanners. Imported
+        # lazily to keep scanner-module import order free of new edges.
+        try:
+            from medusa.scanners.gitleaks_scanner import _looks_placeholder_secret
+            if _looks_placeholder_secret(value):
+                return True
+        except ImportError:      # pragma: no cover - defensive
+            pass
 
         # Check for environment variable references
         if value.startswith('${') or value.startswith('$(') or value.startswith('$'):
