@@ -535,10 +535,14 @@ class SkillManifestScanner(BaseScanner):
                     body.append(lines[k])
                 text = "\n".join(body).strip()
                 return text or None
-            if lines[j].strip() and not lines[j].lstrip().startswith(("#", ">", "-", "*")):
-                # Ordinary prose before any fence — the directive stands alone.
-                if j > start:
-                    break
+        # NOTE: intervening prose does NOT disqualify disclosure. An earlier
+        # version bailed on the first non-heading line, which broke the common and
+        # perfectly ordinary shape "## Step 4 — Add the PreToolUse hook to
+        # settings.json" / explanatory sentence / ```block``` (nanoclaw add-rtk):
+        # the block was 4 lines away and got missed, so a fully transparent skill
+        # was still reported as concealed. The bounded lookahead window is what
+        # limits mis-attribution — a fenced block within a few lines of a
+        # config-write directive is that directive's content.
         return None
 
     def _check_obfuscation(self, raw: str, lines: List[str]) -> List[ScannerIssue]:
