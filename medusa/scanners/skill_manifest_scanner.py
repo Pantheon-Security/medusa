@@ -131,6 +131,10 @@ class SkillManifestScanner(BaseScanner):
     _CONFIG_WRITE_MESSAGE = (
         'Instructs the agent to modify its own config/CLAUDE.md/settings/skill files'
     )
+    _PERSISTENCE_MESSAGE = 'Instructs the agent to install hooks/startup persistence'
+    # Both are "this skill writes to the agent's execution surface" — so both earn
+    # the disclosure treatment when the skill SHOWS the content it writes.
+    _DISCLOSABLE_MESSAGES = frozenset({_CONFIG_WRITE_MESSAGE, _PERSISTENCE_MESSAGE})
 
     # -- MEDUSA-SKILL-ROGUE-001: self-modification / persistence ------------- #
     _ROGUE: List[Tuple[re.Pattern, str, Severity]] = [
@@ -147,7 +151,7 @@ class SkillManifestScanner(BaseScanner):
                     r'update|patch)\b[^.\n]{0,60}?'
                     r'\b(?:CLAUDE\.md|settings\.json|settings\.local\.json|\.mcp\.json|'
                     r'your (?:own )?(?:config|configuration|settings|instructions?|system prompt)|'
-                    r'this skill|SKILL\.md|\.claude/)', re.IGNORECASE),
+                    r'SKILL\.md|\.claude/)', re.IGNORECASE),
          _CONFIG_WRITE_MESSAGE, Severity.CRITICAL),
         # B05 recall fix (2): DOT-PREFIXED agent-config paths needed their own
         # pattern. In the rule above the gap is `[^.\n]` (sentence-scoped, so it
@@ -378,7 +382,7 @@ class SkillManifestScanner(BaseScanner):
                 # Config-write disclosure (see _disclosed_block): if this skill
                 # SHOWS the user exactly what it writes, report the transparent
                 # variant and quote the block, instead of a bare accusation.
-                if message == self._CONFIG_WRITE_MESSAGE:
+                if message in self._DISCLOSABLE_MESSAGES:
                     concealed = comment_flags[i - 1] if comment_flags else False
                     block = None if concealed else self._disclosed_block(lines, i)
                     if block:
