@@ -48,8 +48,20 @@ rules:
   patterns:
   # API key placed into a URL / query parameter -> credential exfiltration.
   - (?i)https?://[^\s'"`]{0,200}[?&][^\s'"`]{0,40}=\s*\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE|MISTRAL|GROQ)[_A-Z]*API_KEY
-  - (?i)(?:append|concat|\+|\`|f["']|url\s*=|href\s*=|fetch\s*\(|open\s*\()[^\n]{0,80}\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE)[_A-Z]*API_KEY\}?[^\n]{0,40}(?:\?|&|\burl\b|http)
+  # The trailing context must be genuine URL structure — a query parameter
+  # (`?name=` / `&name=`), the word `url`, or an http(s) scheme. It used to accept a
+  # BARE `?` or `&`, so an ordinary shell command string matched on its `&&`
+  # operator: superagent's `f"export ANTHROPIC_API_KEY={key} && "` (an env export,
+  # containing no URL whatsoever) was reported as CRITICAL key exfiltration and
+  # hard-blocked the repo.
+  - (?i)(?:append|concat|\+|\`|f["']|url\s*=|href\s*=|fetch\s*\(|open\s*\()[^\n]{0,80}\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE)[_A-Z]*API_KEY\}?[^\n]{0,40}(?:[?&][a-z_]{1,20}=|\burl\b|https?://)
   - (?i)\?[a-z_]{1,12}=\$\{?(?:ANTHROPIC|OPENAI|CLAUDE)[_A-Z]*API_KEY
+  # Pre-existing recall gap (surfaced while fixing the `&&` false positive above):
+  # the CONCATENATION form `"https://host/p?token=" + OPENAI_API_KEY` was missed by
+  # every pattern — pattern 1's character class cannot cross the closing quote, and
+  # the key sits at end-of-expression so there is no trailing URL context for
+  # pattern 2. This is the most natural way to write the exfil in real code.
+  - (?i)https?://[^\n]{0,120}[?&][a-z_]{1,20}=\s*["'`]?\s*[+.,]\s*["'`]?\s*\$?\{?(?:ANTHROPIC|OPENAI|CLAUDE|MISTRAL|GROQ)[_A-Z]*API_KEY
   message: API-key URL exfiltration — an LLM provider API key is appended to a URL / query parameter
   description: >
     An LLM provider API key ($ANTHROPIC_API_KEY / $OPENAI_API_KEY) is placed into
