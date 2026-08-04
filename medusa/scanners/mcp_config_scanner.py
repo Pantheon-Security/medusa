@@ -845,7 +845,8 @@ class MCPConfigScanner(RuleBasedScanner):
                 if m:
                     # Same placeholder guard as the env-block path above. This
                     # raw-line sweep had none, so a documentation filler like
-                    # AWS's own published `AKIAIOSFODNN7EXAMPLE` was reported as a
+                    # AWS's own published example key id (`AKIA` + `IOSFODNN7EXAMPLE`)
+                    # was reported as a
                     # real key — hard-blocking agent-audit, whose example config
                     # annotates each entry as a deliberate anti-pattern. MCP001 is
                     # in NEVER_GENERIC_FP_PREFIXES, so the FP filter cannot correct
@@ -876,7 +877,8 @@ class MCPConfigScanner(RuleBasedScanner):
             return True
 
         # PLACEHOLDER_VALUES is an EXACT-match list, so a doc filler that merely
-        # CONTAINS the tell slipped through — `AKIAIOSFODNN7EXAMPLE` (AWS's own
+        # CONTAINS the tell slipped through — AWS's published example key id
+        # (`AKIA` + `IOSFODNN7EXAMPLE`, in their docs verbatim) and
         # published example key, in their docs verbatim) and
         # `sk-live-EXAMPLE-PRODUCTION-KEY-12345` were both reported as hardcoded
         # credentials. That hard-blocked agent-audit, an agent-AUDITING tool whose
