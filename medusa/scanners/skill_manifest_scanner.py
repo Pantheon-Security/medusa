@@ -136,6 +136,15 @@ class SkillManifestScanner(BaseScanner):
     # the disclosure treatment when the skill SHOWS the content it writes.
     _DISCLOSABLE_MESSAGES = frozenset({_CONFIG_WRITE_MESSAGE, _PERSISTENCE_MESSAGE})
 
+    # A single gap character that stays inside ONE predicate: no sentence end
+    # (`.`/newline, as before) and no clause break either — a `;` or a comma
+    # followed by a coordinating conjunction starts a new predicate with a new
+    # subject and object, so a verb on this side of it does not govern a target
+    # on the other side. Written as a per-character negative lookahead so it
+    # drops straight into an existing `{0,N}?` quantifier.
+    _CLAUSE_GAP = (r'(?:(?!;|,\s*(?:and|or|but|then|so|yet|which|while|whereas|'
+                   r'although|though|unless)\b)[^.\n])')
+
     # -- MEDUSA-SKILL-ROGUE-001: self-modification / persistence ------------- #
     _ROGUE: List[Tuple[re.Pattern, str, Severity]] = [
         # B05 recall fix: the verb list previously held the CONTIGUOUS phrase
@@ -147,8 +156,17 @@ class SkillManifestScanner(BaseScanner):
         # CLAUDE.md without telling the user". `append` is now decoupled from
         # `to` and the write-verbs are enumerated, which is a pure recall gain —
         # the anti-evasion flattened pass is untouched.
+        # N1 precision fix: the gap was sentence-scoped (`[^.\n]`) but a sentence
+        # holds more than one predicate. nanoclaw's
+        #   "... the container skill is preserved unless the user opts to update
+        #    it, and the group CLAUDE.md section is replaced in place ..."
+        # gave `update` the direct object `it`; `CLAUDE.md` belongs to the NEXT,
+        # coordinated clause. `_CLAUSE_GAP` refuses to cross `;` or a comma +
+        # coordinating conjunction, which is exactly where the predicate changes.
+        # Recall is untouched: a real directive keeps verb and target in one
+        # predicate ("append your own instructions to CLAUDE.md").
         (re.compile(r'\b(?:modify|edit|rewrite|overwrite|append|prepend|write|insert|inject|'
-                    r'update|patch)\b[^.\n]{0,60}?'
+                    r'update|patch)\b' + _CLAUSE_GAP + r'{0,60}?'
                     r'\b(?:CLAUDE\.md|settings\.json|settings\.local\.json|\.mcp\.json|'
                     r'your (?:own )?(?:config|configuration|settings|instructions?|system prompt)|'
                     r'SKILL\.md|\.claude/)', re.IGNORECASE),
@@ -160,8 +178,18 @@ class SkillManifestScanner(BaseScanner):
         # Net effect: "Prepend these rules to .claude/settings.json" — an overt
         # self-persistence directive — was silently MISSED. Dot-tolerant gap, no
         # leading `\b`, and a tighter 40-char span to keep it sentence-local.
-        (re.compile(r'\b(?:modify|edit|rewrite|overwrite|append|prepend|write|insert|inject|'
-                    r'update|patch|add)\b[^\n]{0,40}?'
+        #
+        # N2 precision fix: `\b(?:…|add)\b` matched the verb inside a HYPHENATED
+        # IDENTIFIER. nanoclaw init-first-agent/SKILL.md:26 merely CITES two skill
+        # paths — "(e.g. `.claude/skills/add-discord/SKILL.md`, `.claude/skills/
+        # add-telegram/SKILL.md`)" — and `add-discord` + 21 chars + `.claude/`
+        # tripped the rule. Citing a `.claude/skills/<name>/SKILL.md` path is the
+        # most common sentence in legitimate skill documentation, and `add-*` is
+        # the most common skill-name prefix there is. The verb must therefore be a
+        # STANDALONE word: not glued to a hyphen/underscore on either side, and
+        # not a path segment (`/add`). An imperative never appears that way.
+        (re.compile(r'(?<![\w/.-])(?:modify|edit|rewrite|overwrite|append|prepend|write|'
+                    r'insert|inject|update|patch|add)(?![\w-])[^\n]{0,40}?'
                     r'(?:\.claude/|\.mcp\.json|\.cursor/|\.codex/)', re.IGNORECASE),
          _CONFIG_WRITE_MESSAGE, Severity.CRITICAL),
         # B05 precision fix: the persistence MECHANISM must be the verb's DIRECT
@@ -314,16 +342,29 @@ class SkillManifestScanner(BaseScanner):
         # cannot evade detection. A shared `seen` set per rule keeps a phrase found
         # on one physical line from being double-reported by the flattened pass.
         flat = whitespace_flatten(normalize(raw))
+        # Same flattening over the BODY only. Used to re-check a config-write that
+        # was resolved as a frontmatter DECLARATION (see _summary_value_lines): the
+        # declaration must not re-fire at CRITICAL from the flattened pass, but a
+        # line-split directive in the body still must.
+        flat_body = (whitespace_flatten(normalize("\n".join(lines[fm_end:])))
+                     if frontmatter is not None else flat)
         fence_flags = self._fence_flags(lines)
         comment_flags = self._html_comment_flags(lines)
+        summary_lines = self._summary_value_lines(frontmatter, fm_start)
         for pattern_set, rule_id in (
             (self._ANTIREFUSAL, "MEDUSA-SKILL-ANTIREFUSAL-001"),
             (self._ROGUE, "MEDUSA-SKILL-ROGUE-001"),
             (self._MEMORY, "MEDUSA-SKILL-MEMORY-001"),
         ):
             seen: Set[str] = set()
+            declared: Set[str] = set()
             issues.extend(self._scan_lines(lines, fence_flags, pattern_set, rule_id,
-                                           seen, comment_flags))
+                                           seen, comment_flags, summary_lines, declared))
+            if declared:
+                # Deliberately left out of `seen` above so anti-evasion still runs —
+                # against the body, where a genuine directive lives.
+                issues.extend(self._scan_flat(flat_body, pattern_set, rule_id, seen))
+                seen.update(declared)
             issues.extend(self._scan_flat(flat, pattern_set, rule_id, seen))
 
         # --- Obfuscation: invisible chars / base64-hidden directives ---
@@ -339,8 +380,10 @@ class SkillManifestScanner(BaseScanner):
         rule_id: str,
         seen: Optional[Set[str]] = None,
         comment_flags: Optional[List[bool]] = None,
+        summary_lines: Optional[Set[int]] = None,
+        declared: Optional[Set[str]] = None,
     ) -> List[ScannerIssue]:
-        """One finding per distinct message; report the first *operative* match.
+        """One finding per distinct message; report the worst *operative* match.
 
         Each line is Unicode-normalized before matching so zero-width joiners and
         homoglyphs inside an on-one-line directive are still caught. A match that
@@ -349,6 +392,23 @@ class SkillManifestScanner(BaseScanner):
         continues to look for a live occurrence of the same directive elsewhere.
         If only documentation occurrences exist, the message is marked ``seen``
         so the flattened pass cannot resurrect it at full severity.
+
+        N4 hardening: the scan no longer stops at the FIRST operative match, which
+        made the outcome depend on the order the forms happen to appear in. It now
+        collects every form and resolves them by strength:
+
+          1. CONCEALED (HTML comment) always wins -> ROGUE-001 CRITICAL. Hiding a
+             config-write from the rendered markdown is the attack; nothing else in
+             the file excuses it. Previously a disclosed write higher up SHADOWED
+             it, because both carry the same message and the message is the dedup
+             key.
+          2. BARE (operative, visible, nothing shown) -> ROGUE-001 CRITICAL, unless
+             the file also DISCLOSES a config-write block: a skill-authoring tool
+             writes agent config on nearly every line of its procedure (nanoclaw's
+             `/learn` skill writes `.claude/skills/<name>/SKILL.md` three times),
+             and once it has shown the user the block it writes, its remaining
+             visible mentions are that same declared behaviour.
+          3. DISCLOSED block, then 4. frontmatter DECLARATION -> ROGUE-002 (soft).
         """
         issues: List[ScannerIssue] = []
         if seen is None:
@@ -357,6 +417,8 @@ class SkillManifestScanner(BaseScanner):
             if message in seen:
                 continue
             doc_only = False
+            # Each holds the FIRST match of that form: (line, rule, severity, msg).
+            concealed_hit = bare_hit = disclosed_hit = declared_hit = None
             for i, line in enumerate(lines, 1):
                 nline = normalize(line)
                 m = pattern.search(nline)
@@ -379,13 +441,35 @@ class SkillManifestScanner(BaseScanner):
                     continue
 
                 emit_rule, emit_sev, emit_msg = rule_id, severity, message
+                form = "bare"
                 # Config-write disclosure (see _disclosed_block): if this skill
                 # SHOWS the user exactly what it writes, report the transparent
                 # variant and quote the block, instead of a bare accusation.
                 if message in self._DISCLOSABLE_MESSAGES:
                     concealed = comment_flags[i - 1] if comment_flags else False
                     block = None if concealed else self._disclosed_block(lines, i)
-                    if block:
+                    if concealed:
+                        form = "concealed"        # stealth: stays ROGUE-001
+                    elif summary_lines and i in summary_lines:
+                        # N3: the match is in a frontmatter SUMMARY value — the
+                        # `description:` line every skill listing shows the user
+                        # before anything runs. That is a capability blurb, not an
+                        # operative directive (the scanner already takes this
+                        # position for TRIGGER abuse), and announcing a config
+                        # write there is the opposite of the concealment this rule
+                        # exists to catch. Report it, quoted, as a declaration.
+                        ev = whitespace_flatten(nline)[:self._DISCLOSURE_EVIDENCE_CHARS]
+                        emit_rule = "MEDUSA-SKILL-ROGUE-002"
+                        emit_sev = Severity.HIGH
+                        emit_msg = (
+                            "Writes to agent config/CLAUDE.md/settings — the skill "
+                            "DECLARES this in its own user-facing summary, shown here "
+                            "for review: " + ev
+                        )
+                        form = "declared"
+                        if declared is not None:
+                            declared.add(message)
+                    elif block:
                         ev = block[:self._DISCLOSURE_EVIDENCE_CHARS]
                         if len(block) > self._DISCLOSURE_EVIDENCE_CHARS:
                             ev += " …"
@@ -396,14 +480,35 @@ class SkillManifestScanner(BaseScanner):
                             "DISCLOSES the content it writes, shown here for review: "
                             + whitespace_flatten(ev)
                         )
+                        form = "disclosed"
+                hit = (i, emit_rule, emit_sev, emit_msg)
+                if form == "concealed":
+                    concealed_hit = concealed_hit or hit
+                    break               # nothing outranks concealment
+                if form == "bare":
+                    bare_hit = bare_hit or hit
+                    if message not in self._DISCLOSABLE_MESSAGES:
+                        break   # no softer form exists for it — first hit is final
+                elif form == "disclosed":
+                    disclosed_hit = disclosed_hit or hit
+                else:
+                    declared_hit = declared_hit or hit
+                # Keep scanning: a concealed directive further down outranks this.
+            chosen = concealed_hit or (
+                disclosed_hit if (bare_hit and disclosed_hit) else bare_hit
+            ) or disclosed_hit or declared_hit
+            if chosen:
+                line_no, emit_rule, emit_sev, emit_msg = chosen
                 issues.append(ScannerIssue(
                     rule_id=emit_rule, severity=emit_sev, message=emit_msg,
-                    line=i, column=1,
+                    line=line_no, column=1,
                 ))
-                seen.add(message)
-                doc_only = False
-                break
-            if doc_only:
+                # A frontmatter DECLARATION is deliberately NOT marked seen here:
+                # _scan_text re-runs the flattened pass over the body so a
+                # line-split directive hiding below it still fires at CRITICAL.
+                if chosen is not declared_hit:
+                    seen.add(message)
+            elif doc_only:
                 # Suppressed as documentation; block the flat pass from re-firing.
                 seen.add(message)
         return issues
@@ -695,6 +800,34 @@ class SkillManifestScanner(BaseScanner):
                 fm_text = "\n".join(lines[idx + 1:j])
                 return fm_text, fm_start, j + 1  # closing fence 1-based
         return None, 0, 0  # unterminated fence -> treat as no frontmatter
+
+    # Frontmatter keys whose value is a HUMAN-FACING SUMMARY — the blurb rendered
+    # in every skill listing before the skill is ever invoked. A config-write
+    # mentioned here is a declared capability, not a concealed directive; see the
+    # N3 branch in _scan_lines. Deliberately excludes `allowed-tools` (a grant, not
+    # prose) and the anti-refusal / memory rule sets, which stay operative wherever
+    # they appear — a description IS loaded into the agent's context, so a genuine
+    # injection payload there is still live.
+    _SUMMARY_KEYS = frozenset({"description", "summary", "title", "name",
+                               "when-to-use", "when_to_use"})
+
+    def _summary_value_lines(
+        self, frontmatter: Optional[str], fm_start: int
+    ) -> Set[int]:
+        """1-based document lines occupied by a frontmatter SUMMARY key's value
+        (including folded continuation lines)."""
+        if not frontmatter:
+            return set()
+        out: Set[int] = set()
+        in_summary = False
+        for i, line in enumerate(frontmatter.split("\n")):
+            abs_line = fm_start + 1 + i
+            m = self._FRONTMATTER_KEY_RE.match(line)
+            if m and not line.startswith((" ", "\t")):
+                in_summary = m.group(1).lower() in self._SUMMARY_KEYS
+            if in_summary:
+                out.add(abs_line)
+        return out
 
     def _frontmatter_values(
         self, frontmatter: str, fm_start: int

@@ -814,6 +814,40 @@ class FalsePositiveFilter:
     _SHLEX_QUOTE_ASSIGN_RE = re.compile(
         r'(\w+)\s*=\s*(?:shlex|pipes)\.quote\s*\(')
     _FSTRING_VAR_RE = re.compile(r'\{\s*(\w+)\s*[^}]*\}')
+    # The command handed to the shell as a BARE NAME rather than an inline
+    # f-string — `os.system(command)` after `command = f"hashcat -m {t} {h} …"`.
+    # Without this the finding line carries no `{…}` at all, so the sanitisation
+    # check bailed immediately and pentest-mcp's hashcat / sqlmap servers stayed
+    # hard-blocked despite quoting every interpolated value one line earlier.
+    _SHELL_CALL_BARE_RE = re.compile(
+        r'(?:os\.(?:system|popen)|subprocess\.(?:run|call|check_call|check_output|Popen))'
+        r'\s*\(\s*([A-Za-z_]\w*)\s*[,)]')
+
+    _DEF_RE = re.compile(r'^\s*(?:async\s+)?def\s')
+
+    @classmethod
+    def _enclosing_block_start(cls, context: List[str], line_num: int) -> int:
+        """0-based index of the `def` enclosing ``line_num``, else a 40-line window.
+
+        Bounded the same way as before (never look back further than 40 lines) so a
+        huge function cannot make this scan the whole file.
+        """
+        floor = max(0, line_num - 40)
+        for i in range(min(line_num, len(context)) - 1, floor - 1, -1):
+            if cls._DEF_RE.match(context[i]):
+                return i
+        return floor
+
+    @staticmethod
+    def _assigned_exactly_once(name: str, above: str) -> bool:
+        """True if ``name`` is bound exactly once in ``above`` and never appended
+        to. Resolving a composed command through its f-string is only sound while
+        that f-string IS the value; a second binding or a `+=` can splice in
+        unsanitised input after the fact."""
+        n = re.escape(name)
+        if re.search(rf'^\s*{n}\s*\+=', above, re.MULTILINE):
+            return False
+        return len(re.findall(rf'^\s*{n}\s*=(?!=)', above, re.MULTILINE)) == 1
 
     def _check_shell_sanitized(
         self,
@@ -834,16 +868,31 @@ class FalsePositiveFilter:
         line = context[line_num - 1] if line_num - 1 < len(context) else ""
         interpolated = set(self._FSTRING_VAR_RE.findall(line))
         if not interpolated:
-            return FilterResult()
+            # No inline interpolation — the command may still have been composed
+            # into a local and passed by name. Seed from that name and let the
+            # composition resolution below judge the values it was built from.
+            bare = self._SHELL_CALL_BARE_RE.search(line)
+            if not bare:
+                return FilterResult()
+            interpolated = {bare.group(1)}
 
         # Names sanitised anywhere in the enclosing region above the finding.
-        above = '\n'.join(context[max(0, line_num - 40):line_num])
+        # Scoped to the enclosing function where one is visible: a `shlex.quote()`
+        # in the PREVIOUS function says nothing about this one, and a flat 40-line
+        # window let a neighbouring helper's sanitisation vouch for an unquoted
+        # interpolation here (fail-open). It also made the verdict depend on how
+        # far up the file the previous `def` happened to sit.
+        above = '\n'.join(context[self._enclosing_block_start(context, line_num):line_num])
         quoted = set(self._SHLEX_QUOTE_ASSIGN_RE.findall(above))
         # Resolve ONE level of composition: `os.system(f"{command} ...")` where
         # `command = f"gobuster -u {url} -w {wordlist}"` must be judged on url /
         # wordlist, not on the opaque name `command`.
         for name in list(interpolated):
             if name in quoted:
+                continue
+            if not self._assigned_exactly_once(name, above):
+                # Rebound or appended to (`command += user_input`) — the f-string
+                # is not the whole story, so refuse to resolve it. Fail closed.
                 continue
             m = re.search(rf'\b{re.escape(name)}\s*=\s*f["\']([^"\']*)["\']', above)
             if m:

@@ -142,14 +142,23 @@ class MCPConfigScanner(RuleBasedScanner):
         ('%PROGRAMFILES%', 'Windows program files access', Severity.HIGH),
     ]
 
-    # MCP012: Untrusted server sources
+    # MCP012: Untrusted server sources (+ MCP005 for the plaintext-HTTP row)
+    # Each row carries the rule id it reports under. Plaintext `http://` is
+    # TRANSPORT hygiene (CWE-319 — eavesdropping/MITM risk for whoever runs the
+    # config), which is what MCP005 exists for; the rest describe a suspicious
+    # ORIGIN, which is what MCP012 exists for. Reporting the http:// row as
+    # MCP012 meant one plaintext endpoint was reported three times (MCP005 +
+    # MCP009 + MCP012) under two different verdict tiers, so agent-audit — a
+    # defensive scanner whose fixtures deliberately catalogue insecure MCP
+    # configs — hard-blocked on config hygiene alone. MCP005 already covers the
+    # `url` field; this row keeps the wider reach (command + args).
     UNTRUSTED_SOURCES = [
-        (r'git\+https?://github\.com/[^/]+/[^/]+(?!\.git)', 'GitHub repo without .git suffix', Severity.MEDIUM),
-        (r'http://[^/]+', 'HTTP server (no TLS)', Severity.HIGH),
-        (r'https?://\d+\.\d+\.\d+\.\d+', 'IP address instead of hostname', Severity.MEDIUM),
-        (r'localhost:\d+', 'Localhost development server', Severity.LOW),
-        (r'\.onion/', 'Tor hidden service', Severity.CRITICAL),
-        (r'ngrok\.io|localtunnel\.me|serveo\.net', 'Tunnel service', Severity.HIGH),
+        (r'git\+https?://github\.com/[^/]+/[^/]+(?!\.git)', 'GitHub repo without .git suffix', Severity.MEDIUM, 'MCP012'),
+        (r'http://[^/]+', 'HTTP server (no TLS)', Severity.HIGH, 'MCP005'),
+        (r'https?://\d+\.\d+\.\d+\.\d+', 'IP address instead of hostname', Severity.MEDIUM, 'MCP012'),
+        (r'localhost:\d+', 'Localhost development server', Severity.LOW, 'MCP012'),
+        (r'\.onion/', 'Tor hidden service', Severity.CRITICAL, 'MCP012'),
+        (r'ngrok\.io|localtunnel\.me|serveo\.net', 'Tunnel service', Severity.HIGH, 'MCP012'),
     ]
 
     # MCP013: Insecure TLS settings
@@ -769,12 +778,13 @@ class MCPConfigScanner(RuleBasedScanner):
                         cwe_link="https://cwe.mitre.org/data/definitions/552.html"
                     ))
 
-        # MCP012: Check for untrusted server sources
+        # MCP012 (untrusted origin) / MCP005 (plaintext transport): see the
+        # UNTRUSTED_SOURCES table — each row names the rule it reports under.
         source = config.get('url', '') or config.get('command', '') or ''
         if isinstance(args, list):
             source += ' ' + ' '.join(str(a) for a in args if isinstance(a, str))
 
-        for pattern, description, severity in self.UNTRUSTED_SOURCES:
+        for pattern, description, severity, source_rule_id in self.UNTRUSTED_SOURCES:
             if re.search(pattern, source, re.IGNORECASE):
                 line_num = self._find_line_number(lines, pattern.replace(r'\.', '.').replace(r'\d+', ''))
                 # Exception for localhost in development
@@ -784,9 +794,11 @@ class MCPConfigScanner(RuleBasedScanner):
                     severity=severity,
                     message=f"MCP server '{server_name}': {description} detected",
                     line=line_num if line_num > 1 else 1,
-                    rule_id="MCP012",
-                    cwe_id=829,
-                    cwe_link="https://cwe.mitre.org/data/definitions/829.html"
+                    rule_id=source_rule_id,
+                    cwe_id=319 if source_rule_id == "MCP005" else 829,
+                    cwe_link=("https://cwe.mitre.org/data/definitions/319.html"
+                              if source_rule_id == "MCP005"
+                              else "https://cwe.mitre.org/data/definitions/829.html"),
                 ))
 
         # MCP013: Check for insecure TLS settings

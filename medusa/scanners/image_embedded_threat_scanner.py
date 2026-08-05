@@ -60,16 +60,33 @@ _INJECT_PATTERNS = [
 _DROPPER = re.compile(r"(?i)\b(?:curl|wget|fetch)\b[^\n|]{0,200}\|\s*(?:ba)?sh\b")
 
 # --- polyglot: executable magic AFTER the image terminator ---
-_TRAILER_SIGNATURES = [
+# File magics that identify an APPENDED FILE. A polyglot's second payload begins
+# AT the boundary — that is what "appended after the image terminator" means — so
+# these are ANCHORED to the start of the trailer (leading padding stripped).
+# Searching a 4 KB window for them instead was a coin flip on any binary trailer:
+# a bare 2-byte `MZ` turns up in ~79% of 100 KB spans of compressed data, which is
+# how AdvBox's `demo_advbox.png` (a JPEG header with PNG data concatenated after
+# it) was reported CRITICAL as a "PE/DOS executable".
+_TRAILER_MAGIC = [
     (rb"#!\s*/", "shell/interpreter shebang"),
     (rb"PK\x03\x04", "ZIP archive"),
     (rb"MZ", "PE/DOS executable"),
     (rb"\x7fELF", "ELF executable"),
+]
+# Appended TEXT payloads (an HTML/PHP page served out of the same file). These do
+# not have to sit at the boundary, so they are still searched — but only inside a
+# trailer that is actually text, never inside compressed image bytes.
+_TRAILER_TEXT = [
     (rb"(?i)<\s*script", "HTML <script>"),
     (rb"(?i)<\?php", "PHP code"),
     (rb"(?i)<\s*html", "HTML document"),
     (rb"(?i)\beval\s*\(", "eval() call"),
 ]
+# Bytes a human-readable payload is made of (printable ASCII + ordinary
+# whitespace). A trailer must be overwhelmingly these to be searched as text.
+_TEXTY = frozenset(range(0x20, 0x7f)) | {0x09, 0x0a, 0x0d}
+_TEXTY_RATIO = 0.9
+_TEXTY_SAMPLE = 512
 
 # --- SVG active content ---
 _SVG_ACTIVE = [
@@ -214,17 +231,37 @@ class ImageEmbeddedThreatScanner(BaseScanner):
         if term is None or term >= len(data):
             return []
         trailer = data[term:term + 4096]
-        if not trailer.strip(b"\x00\r\n\t "):
+        # The appended file starts at the boundary; padding in between is ignored.
+        payload = trailer.lstrip(b"\x00\r\n\t ")
+        if not payload:
             return []
-        for sig, desc in _TRAILER_SIGNATURES:
-            if re.search(sig, trailer):
-                return [ScannerIssue(
-                    severity=Severity.CRITICAL, line=1, rule_id="MEDUSA-IMG-POLYGLOT-001",
-                    cwe_id=506,
-                    message=(f"Polyglot file: {desc} appended after the image terminator — the "
-                             "file is both a valid image and executable content"),
-                )]
+        for sig, desc in _TRAILER_MAGIC:
+            if re.match(sig, payload):
+                return [self._polyglot_issue(desc)]
+        if self._is_text(payload):
+            for sig, desc in _TRAILER_TEXT:
+                if re.search(sig, payload):
+                    return [self._polyglot_issue(desc)]
         return []
+
+    @staticmethod
+    def _polyglot_issue(desc: str) -> ScannerIssue:
+        return ScannerIssue(
+            severity=Severity.CRITICAL, line=1, rule_id="MEDUSA-IMG-POLYGLOT-001",
+            cwe_id=506,
+            message=(f"Polyglot file: {desc} appended after the image terminator — the "
+                     "file is both a valid image and executable content"),
+        )
+
+    @staticmethod
+    def _is_text(payload: bytes) -> bool:
+        """True if the trailer reads as human text rather than binary. Short ASCII
+        signatures (`<script`, `eval(`) turn up by chance in compressed image data,
+        so they are only meaningful in a payload that is text to begin with."""
+        sample = payload[:_TEXTY_SAMPLE]
+        if not sample:
+            return False
+        return sum(b in _TEXTY for b in sample) / len(sample) >= _TEXTY_RATIO
 
     def _scan_svg(self, data: bytes) -> List[ScannerIssue]:
         text = data.decode("utf-8", "ignore")

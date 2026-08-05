@@ -82,6 +82,17 @@ SOFT_TIERS = (
     ("soft_review", frozenset(), (),
      frozenset({"MEDUSA-SKILL-MEMORY-001", "MEDUSA-SKILL-ROGUE-002",
                 "MEDUSA-SKILL-TRIGGER-001", "MEDUSA-LLMJACK-001"})),
+    # MCP TRANSPORT hygiene (CWE-319): the config talks plaintext HTTP instead of
+    # HTTPS. That is an eavesdropping/MITM risk for whoever RUNS the config — a
+    # "review this config" concern — not an attack on the installer, and it is the
+    # same defect whether it surfaces as a bare `url` (MCP005), an SSE transport
+    # (MCP009), or an http:// source in command/args (also MCP005 since the
+    # UNTRUSTED_SOURCES split). MCP005 was already soft via the screening-only
+    # corpus while MCP009 hard-blocked, so one plaintext endpoint hard-blocked or
+    # not purely by which rule happened to see it first — the same inconsistency
+    # as EUVD-/GHSA- vs CVE- in the dependency row. Genuinely suspicious ORIGINS
+    # (Tor hidden service, tunnel service, raw IP) stay MCP012 and hard-block.
+    ("mcp_transport_hygiene", frozenset(), (), frozenset({"MCP005", "MCP009"})),
     ("plugin_security", frozenset(), ("PLG",), frozenset()),
     ("repo_ai_hygiene",
      frozenset({"DatasetInjectionScanner", "PromptInjectionCodeScanner"}),
