@@ -2,7 +2,7 @@
 
 Born-RED: every test here FAILS on the pre-fix code and PASSES once CR-001..CR-006
 are applied. Drives the REAL output path (urls_to_vet / main() exit code / the shell
-hook / FalsePositiveFilter / the compiled regex), never an internal shim.
+hook / FalsePositiveFilter / the scanner's scan_file), never an internal shim.
 
 Traceability: .claude-review/REMEDIATION.md Phase 1.
 """
@@ -105,13 +105,23 @@ def test_cr005_ignore_still_honored_on_self_scan():
     assert FalsePositiveFilter(screening=False).filter_finding(f, ctx).is_likely_fp
 
 
-# ---- CR-006 — ReDoS in the download-target regexes -------------------------
-def test_cr006_dl_flag_re_not_redos():
-    s = "curl https://" + "a" * 50000 + " foo"  # no -o/-O anchor -> worst case
-    t = time.time(); rfe._DL_FLAG_RE.search(s); dt = time.time() - t
-    assert dt < 1.0, f"_DL_FLAG_RE took {dt:.2f}s (ReDoS)"
-
-def test_cr006_dl_redir_re_not_redos():
-    s = "curl https://" + "a" * 50000 + " foo"  # no > anchor -> worst case
-    t = time.time(); rfe._DL_REDIR_RE.search(s); dt = time.time() - t
-    assert dt < 1.0, f"_DL_REDIR_RE took {dt:.2f}s (ReDoS)"
+# ---- CR-006 — ReDoS in download-target matching ----------------------------
+# Originally two tests pinning `_DL_FLAG_RE` / `_DL_REDIR_RE` directly. T3 replaced
+# both regexes with a linear tokeniser (they WERE the split-fetch-exec bug: each
+# required the URL *before* `-o`, so `curl -o F URL` never matched). Asserting on
+# the private names would now only prove the names exist, so the gate drives the
+# real `scan_file()` path instead — same CR-006 property, and it keeps holding
+# whatever the matching is implemented with next.
+@pytest.mark.parametrize("payload", [
+    "curl https://" + "a" * 50000 + " foo",          # no -o/-O anchor -> worst case
+    "curl -o " + "a" * 50000 + " https://x/y",       # flag anchor, huge target
+    "curl https://x/y > " + "a" * 50000,             # redirect anchor, huge target
+    "curl " + "-" * 50000 + " https://x/y",          # flag-storm, no target at all
+])
+def test_cr006_download_target_matching_not_redos(tmp_path, payload):
+    f = tmp_path / "x.sh"
+    f.write_text(payload)
+    t = time.time()
+    rfe.RemoteFetchExecScanner().scan_file(f)
+    dt = time.time() - t
+    assert dt < 1.0, f"download-target matching took {dt:.2f}s (ReDoS)"
