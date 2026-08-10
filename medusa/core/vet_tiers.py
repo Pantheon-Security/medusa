@@ -91,8 +91,21 @@ SOFT_TIERS = (
     # corpus while MCP009 hard-blocked, so one plaintext endpoint hard-blocked or
     # not purely by which rule happened to see it first — the same inconsistency
     # as EUVD-/GHSA- vs CVE- in the dependency row. Genuinely suspicious ORIGINS
-    # (Tor hidden service, tunnel service, raw IP) stay MCP012 and hard-block.
+    # (Tor hidden service, raw IP literal) stay MCP012 and hard-block.
     ("mcp_transport_hygiene", frozenset(), (), frozenset({"MCP005", "MCP009"})),
+    # MCP019 — the server is reached through an ephemeral tunnel provider (ngrok,
+    # trycloudflare, localtunnel, …). Worth surfacing at HIGH: the endpoint is
+    # third-party-relayed and short-lived, so it cannot be vouched for the way a
+    # stable domain can. But it is a REVIEW signal, not malice — running a local
+    # MCP server behind ngrok is the normal way to develop one, and
+    # `ngrok-free.app` is the current default domain. On the hard-block side
+    # (MCP012, `high >= 3`) three tunnelled servers in one config produced
+    # DO_NOT_INSTALL on an ordinary dev setup. Soft so the finding still reads at
+    # HIGH in `scan` output without the count deciding a verdict.
+    # NB: NOT MCP017 — that id already carries the CVE-2025-6514 mcp-remote RCE
+    # (CVSS 9.6) and the shell-dropper launch command. Soft-tiering it would have
+    # made both non-blocking.
+    ("mcp_ephemeral_origin", frozenset(), (), frozenset({"MCP019"})),
     ("plugin_security", frozenset(), ("PLG",), frozenset()),
     ("repo_ai_hygiene",
      frozenset({"DatasetInjectionScanner", "PromptInjectionCodeScanner"}),

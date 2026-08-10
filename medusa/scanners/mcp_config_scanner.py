@@ -26,6 +26,7 @@ class MCPConfigScanner(RuleBasedScanner):
     MCP Configuration Security Scanner
 
     Scans for:
+    - MCP000: Invalid JSON in the MCP config (parse failure, informational)
     - MCP001: Hardcoded secrets in env blocks
     - MCP002: Hardcoded secrets in args
     - MCP003: Root filesystem access exposure
@@ -44,6 +45,7 @@ class MCPConfigScanner(RuleBasedScanner):
     - MCP016: Stateful token management warning
     - MCP017: CVE-2025-6514 - mcp-remote RCE vulnerability (CVSS 9.6)
     - MCP018: mcp-remote over HTTP (MITM attack vector)
+    - MCP019: server reached through an ephemeral tunnel provider (soft-tiered)
     """
 
     # Rule ID prefixes to load from YAML
@@ -142,6 +144,49 @@ class MCPConfigScanner(RuleBasedScanner):
         ('%PROGRAMFILES%', 'Windows program files access', Severity.HIGH),
     ]
 
+    # Ephemeral-tunnel / instant-ingress providers. Enumerating brands is a losing
+    # game — `ngrok.io` was the only spelling listed, so ngrok outran the rule
+    # simply by renaming to `ngrok-free.app` (and `ngrok.app` / `ngrok.dev`), and
+    # localtunnel outran it by moving to `loca.lt`. There is no fully structural
+    # test available here: `<random>.<apex>` is the shape of a tunnel host but
+    # also the shape of every CDN and SaaS host, so the apex is the only real
+    # discriminator. The generalisation that IS defensible is the provider LABEL:
+    # an apex whose first label is `ngrok` belongs to ngrok whichever TLD they move
+    # to next, so that one is matched structurally instead of being re-enumerated
+    # every time they rebrand. The rest stay a list because nothing about
+    # `loca.lt` announces itself.
+    _TUNNEL_APEXES = (
+        # ngrok.io / ngrok-free.app / ngrok.app / ngrok.dev / whatever they rename to
+        # next. `ngrok` must be a WHOLE label (or `ngrok-<word>`) — `ngrok[a-z]*` also
+        # swallowed `ngrokked.example.com`, an ordinary host. The TLD stays open but
+        # length-bounded so `ngrok.example.com` (a real org's own host) is not a tunnel.
+        r'ngrok(?:-[a-z0-9]+)*\.[a-z]{2,6}',
+        r'trycloudflare\.com',           # cloudflare quick tunnel
+        r'devtunnels\.ms',               # microsoft dev tunnels
+        r'loca\.lt', r'localtunnel\.me',  # localtunnel (current, legacy)
+        r'localhost\.run', r'lhr\.life',  # localhost.run (both apexes it serves)
+        r'serveo\.net', r'tunnelto\.dev', r'tunnelmole\.(?:com|net)',
+        r'pagekite\.me', r'pinggy\.(?:io|link)', r'bore\.pub',
+        r'telebit\.io', r'zrok\.io',
+    )
+    # Left/right boundaries keep `ngrokked.example.com` and a path segment such as
+    # `/dl/bore.pub.tar.gz` out: the apex must start ON a label boundary and END the
+    # host, so anything with a further label after it (`bore.pub.tar`,
+    # `x.pinggy.link.evil.com`) is some other domain that merely contains the name.
+    #
+    # The subdomains in front are deliberately NOT matched. A leading
+    # `(?:[A-Za-z0-9-]+\.)*` reads naturally ("any labels, then the apex") but is
+    # QUADRATIC: on a long dotted string that never reaches an apex the engine
+    # retries every label split from every start. Measured on the pre-fix pattern,
+    # `"a."*n` in one args value: n=2000 0.14s, 4000 0.56s, 8000 2.26s, 20000 ~18s
+    # — 4x per doubling. That is a denial of service in the PRE-INSTALL gatekeeper
+    # (`medusa vet`, `medusa mcp`, the PreToolUse hook), reachable from a 40 KB
+    # attacker-supplied mcp.json, which is a worse outcome than the false negative
+    # the tunnel row was widened to close. The lookbehind already proves we are at
+    # a label boundary, so the preceding labels never needed to be consumed.
+    _TUNNEL_RE = (r'(?<![A-Za-z0-9-])(?:'
+                  + '|'.join(_TUNNEL_APEXES) + r')(?![A-Za-z0-9.-])')
+
     # MCP012: Untrusted server sources (+ MCP005 for the plaintext-HTTP row)
     # Each row carries the rule id it reports under. Plaintext `http://` is
     # TRANSPORT hygiene (CWE-319 — eavesdropping/MITM risk for whoever runs the
@@ -151,14 +196,58 @@ class MCPConfigScanner(RuleBasedScanner):
     # MCP009 + MCP012) under two different verdict tiers, so agent-audit — a
     # defensive scanner whose fixtures deliberately catalogue insecure MCP
     # configs — hard-blocked on config hygiene alone. MCP005 already covers the
-    # `url` field; this row keeps the wider reach (command + args).
+    # `url` field; this row keeps the wider reach (command + args). That split is
+    # load-bearing: an ORIGIN row added here hard-blocks, so nothing whose only
+    # defect is "not HTTPS" may be added to the MCP012 side.
     UNTRUSTED_SOURCES = [
         (r'git\+https?://github\.com/[^/]+/[^/]+(?!\.git)', 'GitHub repo without .git suffix', Severity.MEDIUM, 'MCP012'),
         (r'http://[^/]+', 'HTTP server (no TLS)', Severity.HIGH, 'MCP005'),
         (r'https?://\d+\.\d+\.\d+\.\d+', 'IP address instead of hostname', Severity.MEDIUM, 'MCP012'),
+        # Same IP literal, wearing a disguise. `http://2130706433`, `http://0x7f000001`,
+        # `http://017700000001` and `http://127.1` are all 127.0.0.1 to every HTTP
+        # client, and the dotted-decimal row sees none of them — so an endpoint that
+        # would have been reported was cleared by an encoding choice. Unlike a
+        # dotted quad these forms are never typed by accident, which is why they
+        # rank above it. The trailing `(?![\w.])` is what keeps a real dotted quad
+        # on the MEDIUM row above instead of double-reporting it here.
+        (r'https?://(?:0[xX][0-9a-fA-F]{2,}|0[0-7]{6,}|\d{5,10}|\d{1,3}(?:\.\d{1,3}){1,2})(?![\w.])',
+         'Obfuscated IP-literal server address', Severity.HIGH, 'MCP012'),
+        # IPv6 literal — the v4 row enumerated one address family, so `http://[::1]`
+        # or `http://[dead:beef::1]` cleared the rule by switching family. Brackets
+        # around a host are IPv6-literal syntax (RFC 3986) and nothing else, so the
+        # shape alone is the test. Same tier as the dotted-decimal row it mirrors.
+        # Written as "hextets separated by colons" rather than two open-ended
+        # character classes around a colon, which would give the engine a free
+        # split point and quadratic backtracking on an unterminated bracket. The
+        # 15-char tail admits the embedded-IPv4 form (`[::ffff:192.168.1.1]`).
+        (r'https?://\[(?:[0-9A-Fa-f]{0,4}:){1,7}[0-9A-Fa-f.]{0,15}\]',
+         'IPv6 literal instead of hostname', Severity.MEDIUM, 'MCP012'),
         (r'localhost:\d+', 'Localhost development server', Severity.LOW, 'MCP012'),
-        (r'\.onion/', 'Tor hidden service', Severity.CRITICAL, 'MCP012'),
-        (r'ngrok\.io|localtunnel\.me|serveo\.net', 'Tunnel service', Severity.HIGH, 'MCP012'),
+        # `\.onion/` was anchored on a trailing slash, so the bare origin form
+        # (`http://<hash>.onion`, or the host named in command/args) — the form an
+        # MCP `url` most often takes — reported nothing while the same service with
+        # a path reported CRITICAL. The negative lookahead replaces the slash: it
+        # accepts `/`, `:port`, quote and end-of-string while still rejecting a
+        # longer label like `.onionmail`. It also rejects a following DOT, because
+        # a Tor address always ENDS in `.onion` — `api.onion.example.com` is a
+        # clearnet host that merely contains the word, and this row hard-blocks.
+        (r'\.onion(?![\w.-])', 'Tor hidden service', Severity.CRITICAL, 'MCP012'),
+        # Ephemeral tunnel: see _TUNNEL_APEXES. An MCP endpoint behind one is a
+        # laptop published to the internet for a few hours under a throwaway
+        # hostname — the defining shape of a disposable C2/exfil endpoint, and
+        # unresolvable by the time anyone reviews the config.
+        # MCP019, not MCP012, and soft-tiered (see vet_tiers.SOFT_TIERS). An
+        # ephemeral third-party-relayed endpoint is a REVIEW signal, not evidence
+        # of malice: exposing a local MCP server through ngrok is how people
+        # develop them. Widening this row from 3 legacy brands to every current
+        # provider — including `ngrok-free.app`, ngrok's present-day default —
+        # made it fire on the ordinary dev case, and on MCP012 (no soft tier,
+        # `high >= 3` blocks) three tunnelled servers in one config hard-blocked.
+        # That is the exact false-block class this branch exists to remove. Its own
+        # id keeps the signal at HIGH and visible in `scan` while leaving the hard
+        # block to genuinely suspicious ORIGINS — Tor and raw IP literals, which
+        # stay on MCP012.
+        (_TUNNEL_RE, 'Tunnel service', Severity.HIGH, 'MCP019'),
     ]
 
     # MCP013: Insecure TLS settings
@@ -785,16 +874,53 @@ class MCPConfigScanner(RuleBasedScanner):
             source += ' ' + ' '.join(str(a) for a in args if isinstance(a, str))
 
         for pattern, description, severity, source_rule_id in self.UNTRUSTED_SOURCES:
-            if re.search(pattern, source, re.IGNORECASE):
-                line_num = self._find_line_number(lines, pattern.replace(r'\.', '.').replace(r'\d+', ''))
+            m = re.search(pattern, source, re.IGNORECASE)
+            if m:
                 # Exception for localhost in development
                 if 'localhost' in description.lower() and os.environ.get('MEDUSA_ALLOW_LOCALHOST'):
                     continue
+                # Locate by THIS SERVER'S OWN field value. Two bugs live here.
+                # The original call fed a partially unescaped copy of the REGEX to
+                # a substring search (`http://[^/]+`, `\.onion/` → `.onion/`),
+                # which no line contains, so every finding silently reported line 1.
+                # Locating by the matched text fixed that but only by accident:
+                # several rows match a fixed suffix shared by every server
+                # behind one provider (`ngrok-free.app`, `.onion`), so locating by
+                # `m.group(0)` puts every such server on the FIRST one's line —
+                # and the downstream (line, rule_id) dedup then discards all but
+                # one, so six tunnelled endpoints are reported as one and five
+                # disappear from both the report and the count. The field value is
+                # unique per server, which is what the reader needs to act on.
+                # (This is why the prefix-consuming form of _TUNNEL_RE appeared to
+                # matter: it widened the match enough to be accidentally unique.
+                # Location must not depend on how much text a pattern consumes.)
+                matched = m.group(0)
+                _fields = [v for v in (config.get('url'), config.get('command'))
+                           if isinstance(v, str) and re.search(pattern, v, re.IGNORECASE)]
+                if isinstance(args, list):
+                    _fields += [a for a in args if isinstance(a, str)
+                                and re.search(pattern, a, re.IGNORECASE)]
+                # Search for BOTH the parsed value and its JSON-encoded form. The
+                # parsed value holds the literal character; the file holds the
+                # escape, so an IDN/non-ASCII host (`éone.ngrok-free.app` written as
+                # `éone...`) is never found verbatim, the fallback fires, and
+                # every such server collapses onto the first match again.
+                precise = []
+                for v in _fields:
+                    precise.append(v)
+                    encoded = json.dumps(v)[1:-1]
+                    if encoded != v:
+                        precise.append(encoded)
+                line_num = self._find_line_number(lines, *precise) if precise else 1
+                if line_num <= 1:   # field value not found verbatim — fall back
+                    line_num = self._find_line_number(lines, matched, matched.split(' ')[0])
                 issues.append(ScannerIssue(
                     severity=severity,
                     message=f"MCP server '{server_name}': {description} detected",
                     line=line_num if line_num > 1 else 1,
                     rule_id=source_rule_id,
+                    # MCP005 = plaintext transport (CWE-319 cleartext).
+                    # MCP012/MCP019 = untrusted origin (CWE-829 untrusted include).
                     cwe_id=319 if source_rule_id == "MCP005" else 829,
                     cwe_link=("https://cwe.mitre.org/data/definitions/319.html"
                               if source_rule_id == "MCP005"

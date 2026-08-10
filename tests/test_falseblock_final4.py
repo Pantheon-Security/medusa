@@ -374,14 +374,32 @@ def test_a1_sse_over_http_is_reported_and_soft():
                for r in ids if r in ("MCP005", "MCP009", "MCP012")), ids
 
 
-@pytest.mark.parametrize("payload,label", [(_ONION, "Tor hidden service"),
-                                           (_TUNNEL, "Tunnel service")])
+@pytest.mark.parametrize("payload,label", [(_ONION, "Tor hidden service")])
 def test_a1_suspicious_origins_still_hard_block(payload, label):
     issues = [i for i in _scan_mcp_config(payload) if i.rule_id == "MCP012"]
     assert issues, f"{label} must still be reported as an untrusted origin (MCP012)"
     assert vet_tiers.soft_tier_of({"rule_id": "MCP012"}) is None, (
-        "MCP012 must stay hard-block malice — a .onion / tunnel MCP endpoint is "
-        "a C2 signal, not config hygiene")
+        "MCP012 must stay hard-block malice — a .onion MCP endpoint is a C2 "
+        "signal, not config hygiene")
+
+
+def test_a1_tunnel_origin_is_reported_but_soft():
+    """Tunnels moved OFF the hard-block side deliberately (2026-08-07).
+
+    They were widened from 3 legacy brands to every current provider, including
+    `ngrok-free.app` — ngrok's present-day default. On MCP012 (`high >= 3`) three
+    tunnelled servers in one config hard-blocked an ordinary dev setup, which is
+    the false-block class this branch exists to remove. Own id, still HIGH and
+    still reported, soft so the COUNT cannot decide a verdict.
+
+    Detection is asserted here precisely so "soft" can never quietly become
+    "dropped": the finding must keep appearing in scan output.
+    """
+    ids = {i.rule_id for i in _scan_mcp_config(_TUNNEL)}
+    assert "MCP019" in ids, f"a tunnelled MCP endpoint must still be reported: {ids}"
+    assert vet_tiers.soft_tier_of({"rule_id": "MCP019"}) == "mcp_ephemeral_origin"
+    assert "MCP012" not in ids, (
+        "a tunnel is an ephemeral-origin review signal, not the same class as Tor")
 
 
 # --------------------------------------------------------------------------- #
