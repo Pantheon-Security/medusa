@@ -4,7 +4,7 @@ MEDUSA Parallel Scanner v1.1.0
 High-performance parallel security scanning with caching and incremental modes
 
 Features:
-- Parallel execution (auto-detect CPU cores)
+- Parallel execution (auto-detect usable CPUs — cgroup quota + affinity aware)
 - File-level caching (skip unchanged files)
 - Quick scan mode (changed files only)
 - Progress tracking with tqdm
@@ -26,12 +26,13 @@ import stat
 import time
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 # Import new scanner architecture
 from medusa.scanners import registry as scanner_registry
 from medusa.core.rule_integrity import neutralize_injection
+from medusa.core.system import get_cpu_count
 
 # Max length for code snippets stored in findings — prevents full secret values
 # (API keys, tokens, passwords) from being written verbatim into report artifacts.
@@ -508,7 +509,11 @@ class MedusaParallelScanner:
                  screening: bool = False,
                  all_rules: bool = False):
         self.project_root = project_root.absolute()
-        self.workers = workers or cpu_count()
+        # An explicit workers= always wins; only the AUTO-DETECT default changes.
+        # cpu_count() reported the HOST's cores inside a container, so `medusa vet`
+        # (which reaches this constructor with workers=None and has no CLI knob)
+        # forked a full-width pool against a fraction of a CPU quota.
+        self.workers = workers or get_cpu_count()
         self.use_cache = use_cache
         self.quick_mode = quick_mode
         # PR-013: screening mode runs harvested rules (vetting a stranger's repo);

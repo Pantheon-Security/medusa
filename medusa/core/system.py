@@ -26,6 +26,95 @@ class SystemLoad:
     warning_message: Optional[str] = None
 
 
+# Where the cgroup hierarchy is mounted. Module-level so tests can point the
+# detector at a fixture directory.
+_CGROUP_ROOT = "/sys/fs/cgroup"
+
+# What this module has always fallen back to when the platform cannot report a
+# core count (the historical `os.cpu_count() or 4`). Kept so behaviour on such
+# platforms is unchanged.
+_UNKNOWN_CPU_DEFAULT = 4
+
+
+def _read_int(path: str) -> Optional[int]:
+    """Read a single integer from a sysfs file, or None if unreadable."""
+    try:
+        with open(path) as fh:
+            return int(fh.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _cgroup_cpu_quota(root: str) -> Optional[float]:
+    """CPU count permitted by the cgroup CPU bandwidth quota, or None if none is set.
+
+    None means "no quota visible", never "zero CPUs". Both hierarchies:
+
+        v2:  <root>/cpu.max  ->  "<quota_us> <period_us>"  |  "max <period_us>"
+        v1:  <root>[/cpu | /cpu,cpuacct]/cpu.cfs_quota_us + cpu.cfs_period_us
+             (quota -1 = unlimited)
+
+    Docker `--cpus`, Kubernetes CPU limits and CI runner caps are all expressed
+    this way, and none of them change the *visible* CPU list — which is exactly
+    why os.cpu_count() cannot see them.
+    """
+    # cgroup v2 first: if it is mounted it is authoritative.
+    try:
+        with open(os.path.join(root, "cpu.max")) as fh:
+            quota_s, _, period_s = fh.read().strip().partition(" ")
+        if quota_s == "max":
+            return None                                  # explicitly unlimited
+        quota, period = int(quota_s), int(period_s)
+        if quota > 0 and period > 0:
+            return quota / period
+    except (OSError, ValueError):
+        pass                                             # absent or malformed -> try v1
+
+    # cgroup v1: the controller may sit at the root or under cpu/ or cpu,cpuacct/.
+    for sub in ("", "cpu", "cpu,cpuacct"):
+        base = os.path.join(root, sub) if sub else root
+        quota = _read_int(os.path.join(base, "cpu.cfs_quota_us"))
+        period = _read_int(os.path.join(base, "cpu.cfs_period_us"))
+        if quota is not None and period is not None and quota > 0 and period > 0:
+            return quota / period
+    return None
+
+
+def get_cpu_count() -> int:
+    """CPUs this process may actually use — the number to size worker pools from.
+
+    Takes the MINIMUM of every restriction that is visible, floored at 1:
+
+      * cgroup CPU quota  — containers (`docker --cpus`, Kubernetes limits, CI caps)
+      * CPU affinity mask — `taskset`, cpuset pinning, some CI schedulers
+      * os.cpu_count()    — the machine's cores, and the answer everywhere else
+
+    `os.cpu_count()` on its own is wrong inside a container: a CPU *quota* does
+    not change the visible CPU list, so a `--cpus 4` container on a 64-core host
+    still reports 64 and any pool sized from it over-subscribes its own quota
+    16x. Affinity is the same bug seen from the other side — unlimited quota,
+    narrow CPU mask.
+
+    Every source is best-effort: anything absent, unreadable or malformed is
+    skipped, so macOS, Windows and bare metal keep today's behaviour.
+    """
+    counts = []
+
+    try:
+        affinity = len(os.sched_getaffinity(0))          # Linux only
+    except (AttributeError, OSError):
+        affinity = None
+    if affinity:
+        counts.append(affinity)
+
+    quota = _cgroup_cpu_quota(_CGROUP_ROOT)
+    if quota:
+        counts.append(int(quota))                        # round down; never over-commit
+
+    counts.append(os.cpu_count() or _UNKNOWN_CPU_DEFAULT)
+    return max(1, min(counts))
+
+
 def check_system_load() -> SystemLoad:
     """
     Check current system load and recommend worker count
@@ -35,7 +124,7 @@ def check_system_load() -> SystemLoad:
     """
     # If psutil not available, return safe defaults
     if not HAS_PSUTIL:
-        cpu_count = os.cpu_count() or 4
+        cpu_count = get_cpu_count()
         return SystemLoad(
             cpu_percent=0.0,
             memory_percent=0.0,
@@ -57,10 +146,12 @@ def check_system_load() -> SystemLoad:
         load_avg = os.getloadavg()[0]  # 1-minute load average
     except (AttributeError, OSError):
         # Windows doesn't have load average
-        load_avg = cpu_percent / 100.0 * os.cpu_count()
+        # (get_cpu_count never returns None, unlike the bare os.cpu_count() this
+        #  replaced — which raised TypeError here on platforms that can't count)
+        load_avg = cpu_percent / 100.0 * get_cpu_count()
 
-    # Get total CPU cores
-    cpu_count = os.cpu_count() or 4
+    # Get total CPU cores available to THIS process (cgroup quota / affinity aware)
+    cpu_count = get_cpu_count()
 
     # Determine if system is overloaded
     is_overloaded = False

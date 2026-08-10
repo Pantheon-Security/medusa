@@ -498,7 +498,8 @@ exclude:
 # ship its own allowlist to whitelist its malice); see `medusa vet`.
 vet_allowlist: []
 
-workers: null        # null = auto-detect CPU cores
+workers: null        # null = auto-detect usable CPUs (respects a container's
+                     # cgroup CPU quota and CPU affinity, not just core count)
 cache_enabled: true
 ```
 
