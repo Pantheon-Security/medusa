@@ -9,9 +9,13 @@ Intelligent post-scan filter to reduce false positives using:
 4. Known-safe pattern database
 """
 
+import ast
+import io
 import re
+import textwrap
+import tokenize
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -321,6 +325,12 @@ class FalsePositiveFilter:
         # its explanation identical while collapsing the cost to one scan per file.
         # Instance-scoped (like _file_cache), never shared across filter instances.
         self._schema_cache: Dict[str, frozenset] = {}
+        # T5: parsed-source cache for `_check_shell_sanitized`. That check needs
+        # to know what a name was LAST bound to, which needs a real parse; without
+        # this the file is re-parsed once PER shell-injection finding. Keyed by
+        # (file_path, line count, content hash) — see _sanitisation_states for why
+        # the path alone is NOT a safe identity. Instance-scoped like the others.
+        self._shell_scope_cache: Dict[tuple, object] = {}
 
     def _relax_context(self, finding: Dict) -> bool:
         """CR-033: the ONE definition of the screening context-FP relaxation.
@@ -811,8 +821,6 @@ class FalsePositiveFilter:
     _SHELL_INJECTION_RE = re.compile(
         r'command\s+injection|shell\s+injection|shell=True|os\.system|'
         r'unsanitiz|shell\s+execution|shell\s+invocation', re.IGNORECASE)
-    _SHLEX_QUOTE_ASSIGN_RE = re.compile(
-        r'(\w+)\s*=\s*(?:shlex|pipes)\.quote\s*\(')
     _FSTRING_VAR_RE = re.compile(r'\{\s*(\w+)\s*[^}]*\}')
     # The command handed to the shell as a BARE NAME rather than an inline
     # f-string — `os.system(command)` after `command = f"hashcat -m {t} {h} …"`.
@@ -838,16 +846,350 @@ class FalsePositiveFilter:
                 return i
         return floor
 
+    # ------------------------------------------------------------------ #
+    # Sanitisation lookback: what was this name LAST bound to?
+    # ------------------------------------------------------------------ #
+    # "A shlex.quote() appears somewhere above" is forgeable and was wrong in
+    # three ways, each of them a FALSE NEGATIVE — a real command injection
+    # deleted before the user saw it:
+    #   host = shlex.quote(user); host = user; os.system(f"…{host}")
+    #   # url = shlex.quote(url)          <- a COMMENT above the sink
+    #   """…  url = shlex.quote(url)  …"""  <- the same line in a DOCSTRING
+    # Only the last binding before the sink counts, and only real code may
+    # vouch for it, so the lookback is an AST pass. `pipes` is the pre-3.13
+    # spelling of the same defence; aliases (`import shlex as sh`,
+    # `from shlex import quote`) resolve to it too.
+    _QUOTE_MODULES = ('shlex', 'pipes')
+
+    # Degraded path only (see `_sanitisation_states` step 3): the whole
+    # right-hand side must BE one quote call. The old regex matched a mere
+    # `= shlex.quote(` prefix, so `target = shlex.quote(target) + extra` — a
+    # live injection — read as sanitised.
+    _QUOTE_ONLY_BIND_RE = re.compile(
+        r'^\s*(\w+)\s*=\s*(?:shlex|pipes)\.quote\s*\((?:[^()]|\([^()]*\))*\)\s*$')
+    _FSTRING_BIND_RE = re.compile(r'^\s*(\w+)\s*=\s*[rR]?f(["\'])(.*)\2\s*$')
+    _ANY_BIND_RE = re.compile(r'^\s*(\w+)\s*(=(?!=)|[-+*/|&^%]=|//=|\*\*=|>>=|<<=)')
+
+    # A whole-file parse is one-per-file and cached (~4 ms for 300 lines, ~37 ms
+    # for 2000), but a pathological source file must never dominate a scan: past
+    # this size only the (<=41-line) enclosing block is parsed — the same window
+    # the regex lookback used, just parsed instead of pattern-matched.
+    _MAX_AST_LINES = 2000
+
+    @classmethod
+    def _record_aliases(cls, node, mods: Set[str], funcs: Set[str]) -> None:
+        """Note any local name an import binds to `shlex.quote` — `import shlex
+        as sh` and `from shlex import quote` are the same defence as `shlex`."""
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name in cls._QUOTE_MODULES:
+                    mods.add(alias.asname or alias.name)
+        elif node.module in cls._QUOTE_MODULES:      # ImportFrom
+            for alias in node.names:
+                if alias.name == 'quote':
+                    funcs.add(alias.asname or alias.name)
+
     @staticmethod
-    def _assigned_exactly_once(name: str, above: str) -> bool:
-        """True if ``name`` is bound exactly once in ``above`` and never appended
-        to. Resolving a composed command through its f-string is only sound while
-        that f-string IS the value; a second binding or a `+=` can splice in
-        unsanitised input after the fact."""
-        n = re.escape(name)
-        if re.search(rf'^\s*{n}\s*\+=', above, re.MULTILINE):
-            return False
-        return len(re.findall(rf'^\s*{n}\s*=(?!=)', above, re.MULTILINE)) == 1
+    def _fstring_names(node: ast.JoinedStr) -> Set[str]:
+        """Every name interpolated into an f-string, including inside a nested
+        expression (`{' '.join(flags)}` is judged on `flags`)."""
+        names: Set[str] = set()
+        for part in node.values:
+            if isinstance(part, ast.FormattedValue):
+                names.update(n.id for n in ast.walk(part.value)
+                             if isinstance(n, ast.Name))
+        return names
+
+    @classmethod
+    def _binding_kind(cls, value, mods: Set[str], funcs: Set[str]) -> str:
+        """'quoted' | 'fstring' | 'other' for the value a name is bound to.
+
+        Top-level only, deliberately: `x = shlex.quote(a) + extra` is NOT
+        sanitised — the quote call is merely a substring of an expression that
+        also splices in raw input.
+        """
+        if isinstance(value, ast.Call):
+            func = value.func
+            if (isinstance(func, ast.Attribute) and func.attr == 'quote'
+                    and isinstance(func.value, ast.Name) and func.value.id in mods):
+                return 'quoted'
+            if isinstance(func, ast.Name) and func.id in funcs:
+                return 'quoted'
+        elif isinstance(value, ast.JoinedStr):
+            return 'fstring'
+        return 'other'
+
+    # Statements that bind a name to something we cannot judge as sanitised:
+    # loop variables, `with … as`, `except … as`, imports, tuple unpacking.
+    _OPAQUE_BINDERS = (ast.For, ast.AsyncFor, ast.With, ast.AsyncWith,
+                       ast.ExceptHandler, ast.Import, ast.ImportFrom)
+    # Nested scopes: their bindings are NOT this scope's bindings.
+    _NESTED_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda,
+                      ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+    # Block-structured children — everything that can *contain* a binding.
+    # Walking only these instead of every expression node is ~3x cheaper on a
+    # large file and loses nothing: bindings are statements. The one exception
+    # is the walrus, which hides inside expressions, so a source that contains
+    # `:=` at all is walked in full (`deep`).
+    _BLOCK_NODES = ((ast.stmt, ast.ExceptHandler)
+                    + ((ast.match_case,) if hasattr(ast, 'match_case') else ()))
+
+    @classmethod
+    def _analysis_index(cls, tree: ast.AST, offset: int, deep: bool = True):
+        """(mods, funcs, scopes, offset) for a parsed source, in ONE traversal.
+
+        Every scope is (start, end, binders sorted by position, loop spans).
+        Built per FILE, not per finding: the tree walk is the expensive part of
+        this check and a file with six shell rules pointing at one line must not
+        pay for it six times.
+        """
+        mods, funcs, scopes = set(cls._QUOTE_MODULES), set(), []
+
+        def collect(node, body):
+            if node is None:
+                span = (0, 1 << 30)                       # module scope
+            else:
+                span = (node.lineno + offset,
+                        (getattr(node, 'end_lineno', None) or node.lineno) + offset)
+            binders, loops = [], []
+            scopes.append((span[0], span[1], binders, loops))
+            stack = list(body)
+            while stack:
+                child = stack.pop()
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    collect(child, child.body)   # its own namespace, not ours
+                    continue
+                if isinstance(child, cls._NESTED_SCOPES):
+                    continue                     # lambda / comprehension
+                if isinstance(child, (ast.For, ast.AsyncFor, ast.While)):
+                    loops.append((child.lineno + offset,
+                                  (getattr(child, 'end_lineno', None) or child.lineno) + offset))
+                if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign,
+                                      ast.NamedExpr) + cls._OPAQUE_BINDERS):
+                    binders.append(child)
+                    if isinstance(child, (ast.Import, ast.ImportFrom)):
+                        cls._record_aliases(child, mods, funcs)
+                if deep:
+                    stack.extend(ast.iter_child_nodes(child))
+                else:
+                    stack.extend(c for c in ast.iter_child_nodes(child)
+                                 if isinstance(c, cls._BLOCK_NODES))
+            binders.sort(key=lambda n: (n.lineno, n.col_offset))
+
+        collect(None, getattr(tree, 'body', []))
+        return mods, funcs, scopes, offset
+
+    @classmethod
+    def _ast_binding_states(cls, index, sink_line: int) -> Dict[str, Tuple[str, Set[str]]]:
+        """name -> (kind, interpolated names) from the LAST binding before the
+        sink, scoped to the innermost function enclosing it."""
+        mods, funcs, scopes, offset = index
+
+        # Innermost enclosing scope (a quote in the PREVIOUS function, or in a
+        # sibling helper, says nothing about this sink).
+        _start, _end, binders, loops = max(
+            (s for s in scopes if s[0] <= sink_line <= s[1]),
+            key=lambda s: s[0], default=(0, 0, [], []))
+
+        # A binding BELOW the sink still reaches it on the next pass through an
+        # enclosing loop, so it can only ever weaken the verdict, never make it.
+        loop_end = max((end for lstart, end in loops if lstart <= sink_line <= end),
+                       default=0)
+
+        states: Dict[str, Tuple[str, Set[str]]] = {}
+        for node in binders:
+            line = node.lineno + offset
+            after = line > sink_line
+            if after and line > loop_end:
+                break  # binders are position-sorted: nothing further can reach
+
+            for name, kind, names in cls._targets(node, mods, funcs):
+                if after:
+                    if kind != 'quoted':
+                        states[name] = ('other', set())
+                    continue
+                states[name] = (kind, names)
+        return states
+
+    @classmethod
+    def _targets(cls, node, mods: Set[str], funcs: Set[str]):
+        """(name, kind, interpolated names) bound by one statement."""
+        def emit(target, kind, names):
+            if isinstance(target, ast.Name):
+                yield target.id, kind, names
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                # Unpacking: the value is a slice of something, not a quote call.
+                for elt in target.elts:
+                    yield from emit(elt, 'other', set())
+            # Attribute / Subscript targets bind no local name.
+
+        if isinstance(node, ast.Assign):
+            kind = cls._binding_kind(node.value, mods, funcs)
+            names = cls._fstring_names(node.value) if kind == 'fstring' else set()
+            for target in node.targets:
+                yield from emit(target, kind, names)
+        elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)):
+            if getattr(node, 'value', None) is None:
+                return  # bare annotation binds nothing
+            kind = cls._binding_kind(node.value, mods, funcs)
+            names = cls._fstring_names(node.value) if kind == 'fstring' else set()
+            yield from emit(node.target, kind, names)
+        elif isinstance(node, ast.AugAssign):
+            # `command += extra` splices raw input into an already-quoted value.
+            yield from emit(node.target, 'other', set())
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            yield from emit(node.target, 'other', set())
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                if item.optional_vars is not None:
+                    yield from emit(item.optional_vars, 'other', set())
+        elif isinstance(node, ast.ExceptHandler):
+            if node.name:
+                yield node.name, 'other', set()
+        elif isinstance(node, (ast.Import, ast.ImportFrom)):
+            for alias in node.names:
+                yield (alias.asname or alias.name).split('.')[0], 'other', set()
+
+    @staticmethod
+    def _strip_line_comment(line: str) -> str:
+        """The sink line without its trailing `#` comment.
+
+        The names we judge must come from the COMMAND, not from text written
+        next to it: `os.system(cmd)  # e.g. {safe}` would otherwise be judged on
+        `safe` (quoted above) instead of on `cmd`, and the injection vanishes.
+        Tokenised rather than split on `#`, because a `#` inside the command
+        string is data — cutting there would DROP real interpolations.
+        """
+        if '#' not in line:
+            return line
+        text = textwrap.dedent(line)
+        try:
+            for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+                if tok.type == tokenize.COMMENT:
+                    return text[:tok.start[1]]
+        except (tokenize.TokenError, SyntaxError, ValueError, IndentationError):
+            pass  # continuation line / not Python — judge the line as written
+        return text
+
+    @staticmethod
+    def _blank_uncode(lines: List[str]) -> Optional[List[str]]:
+        """`lines` with comments and multi-line string literals blanked out, or
+        None if the text cannot even be tokenised.
+
+        This is what stops `# url = shlex.quote(url)` — or the same line sitting
+        in a docstring — from vouching for a sink on the degraded path. Single
+        line strings are left alone: the binding regexes are anchored at the
+        start of the statement, so a quote inside one cannot forge a binding.
+        """
+        out = list(lines)
+        try:
+            stream = io.StringIO('\n'.join(lines)).readline
+            for tok in tokenize.generate_tokens(stream):
+                multiline_string = (tok.type == tokenize.STRING
+                                    and tok.start[0] != tok.end[0])
+                if tok.type != tokenize.COMMENT and not multiline_string:
+                    continue
+                (row1, col1), (row2, col2) = tok.start, tok.end
+                for row in range(row1, min(row2, len(out)) + 1):
+                    text = out[row - 1]
+                    start = col1 if row == row1 else 0
+                    end = col2 if row == row2 else len(text)
+                    out[row - 1] = text[:start] + ' ' * max(0, end - start) + text[end:]
+        except (tokenize.TokenError, SyntaxError, ValueError, IndentationError):
+            return None
+        return out
+
+    @classmethod
+    def _line_binding_states(cls, lines: List[str]) -> Dict[str, Tuple[str, Set[str]]]:
+        """Degraded, line-oriented version of `_ast_binding_states` for source
+        that does not parse. Same rule — the LAST binding before the sink wins,
+        and anything that is not exactly a quote call taints the name."""
+        states: Dict[str, Tuple[str, Set[str]]] = {}
+        for text in lines:
+            bind = cls._ANY_BIND_RE.match(text)
+            if not bind:
+                continue
+            name, op = bind.group(1), bind.group(2)
+            if op != '=':
+                states[name] = ('other', set())     # `command += extra`
+            elif cls._QUOTE_ONLY_BIND_RE.match(text):
+                states[name] = ('quoted', set())
+            else:
+                composed = cls._FSTRING_BIND_RE.match(text)
+                states[name] = (('fstring', set(cls._FSTRING_VAR_RE.findall(composed.group(3))))
+                                if composed else ('other', set()))
+        return states
+
+    def _sanitisation_states(self, finding: Dict, context: List[str],
+                             line_num: int) -> Optional[Dict[str, Tuple[str, Set[str]]]]:
+        """Every name's last binding before the sink, or None when that cannot
+        be established at all — in which case the caller must KEEP the finding.
+        Sanitisation we cannot read is sanitisation we cannot trust."""
+        file_path = str(finding.get('file') or '')
+        cache = self._shell_scope_cache
+        # Context may arrive from readlines() (trailing newlines) or from a
+        # split source; normalise so AST line numbers map 1:1 onto it.
+        lines = [ln.rstrip('\r\n') for ln in context]
+        # Cache identity is (path, CONTENT) — never the path alone. Keying on the
+        # path assumed "same path => same content for the life of this instance",
+        # which is false wherever one filter instance sees more than one tree: the
+        # MCP gatekeeper vets repo after repo in a long-lived process, and
+        # `scan --git` reuses temp clone dirs. Repo B's `src/util.py` would then be
+        # judged on repo A's parse, so a genuine injection in B could be suppressed
+        # by A's `shlex.quote` — reopening exactly the FN class this check closes.
+        # Hashing is far cheaper than the ast.parse it guards (str hashes are
+        # interned after first use), and it lets path-less contexts cache too.
+        ident = (file_path, len(lines), hash(tuple(lines)))
+        # Six rules pointing at ONE line (pentest-mcp) must analyse it once.
+        states_key = ('states', ident, line_num)
+        if states_key in cache:
+            return cache[states_key]
+
+        states = self._resolve_states(ident, lines, line_num)
+        cache[states_key] = states
+        return states
+
+    def _resolve_states(self, ident: tuple, lines: List[str],
+                        line_num: int) -> Optional[Dict[str, Tuple[str, Set[str]]]]:
+        """Three tiers, best first; None when none of them can read the code."""
+        cache = self._shell_scope_cache
+
+        # 1. Whole file: real scopes, real imports, real expressions.
+        index = None
+        if len(lines) <= self._MAX_AST_LINES:
+            index_key = ('index', ident)
+            if index_key in cache:
+                index = cache[index_key]
+            else:
+                src = '\n'.join(lines)
+                try:
+                    index = self._analysis_index(ast.parse(src), 0, deep=':=' in src)
+                except (SyntaxError, ValueError, MemoryError, RecursionError):
+                    index = None
+                cache[index_key] = index
+        if index is not None:
+            return self._ast_binding_states(index, line_num)
+
+        # 2. A syntax error elsewhere in the file (Python 2 source, a partial
+        #    context, a huge file) must not cost us the analysis: retry on the
+        #    enclosing block alone. Bounded to <=41 lines, so re-doing it per
+        #    finding is cheaper than caching it.
+        block_start = self._enclosing_block_start(lines, line_num)
+        region_src = textwrap.dedent('\n'.join(lines[block_start:line_num]))
+        region = region_src.split('\n')
+        try:
+            return self._ast_binding_states(
+                self._analysis_index(ast.parse(region_src), block_start,
+                                     deep=':=' in region_src), line_num)
+        except (SyntaxError, ValueError, MemoryError, RecursionError):
+            pass
+
+        # 3. Truncated / non-Python source: line-oriented, comments and
+        #    docstrings blanked first. Never a hole — if even the tokeniser
+        #    refuses, we prove nothing and suppress nothing.
+        blanked = self._blank_uncode(region)
+        return None if blanked is None else self._line_binding_states(blanked)
 
     def _check_shell_sanitized(
         self,
@@ -866,6 +1208,7 @@ class FalsePositiveFilter:
             return FilterResult()
 
         line = context[line_num - 1] if line_num - 1 < len(context) else ""
+        line = self._strip_line_comment(line)
         interpolated = set(self._FSTRING_VAR_RE.findall(line))
         if not interpolated:
             # No inline interpolation — the command may still have been composed
@@ -876,28 +1219,29 @@ class FalsePositiveFilter:
                 return FilterResult()
             interpolated = {bare.group(1)}
 
-        # Names sanitised anywhere in the enclosing region above the finding.
-        # Scoped to the enclosing function where one is visible: a `shlex.quote()`
-        # in the PREVIOUS function says nothing about this one, and a flat 40-line
-        # window let a neighbouring helper's sanitisation vouch for an unquoted
-        # interpolation here (fail-open). It also made the verdict depend on how
-        # far up the file the previous `def` happened to sit.
-        above = '\n'.join(context[self._enclosing_block_start(context, line_num):line_num])
-        quoted = set(self._SHLEX_QUOTE_ASSIGN_RE.findall(above))
-        # Resolve ONE level of composition: `os.system(f"{command} ...")` where
+        # What each name was LAST bound to before the sink, scoped to the
+        # enclosing function: a `shlex.quote()` in the PREVIOUS function says
+        # nothing about this one, and a quote that a later line rebinds or
+        # appends to says nothing about this sink either.
+        states = self._sanitisation_states(finding, context, line_num)
+        if states is None:
+            # The code that would prove sanitisation could not be read at all.
+            # An unverifiable claim of sanitisation must never delete a
+            # command-injection finding — fail closed.
+            return FilterResult()
+
+        # Resolve ONE level of composition: `os.system(command)` where
         # `command = f"gobuster -u {url} -w {wordlist}"` must be judged on url /
-        # wordlist, not on the opaque name `command`.
+        # wordlist, not on the opaque name `command`. Only the last binding is
+        # resolvable; a rebind or a `+=` leaves the name 'other' and unresolved,
+        # so a spliced command can never be judged on its earlier f-string.
         for name in list(interpolated):
-            if name in quoted:
-                continue
-            if not self._assigned_exactly_once(name, above):
-                # Rebound or appended to (`command += user_input`) — the f-string
-                # is not the whole story, so refuse to resolve it. Fail closed.
-                continue
-            m = re.search(rf'\b{re.escape(name)}\s*=\s*f["\']([^"\']*)["\']', above)
-            if m:
+            kind, composed = states.get(name, ('unbound', set()))
+            if kind == 'fstring':
                 interpolated.discard(name)
-                interpolated.update(self._FSTRING_VAR_RE.findall(m.group(1)))
+                interpolated.update(composed)
+
+        quoted = {name for name, (kind, _) in states.items() if kind == 'quoted'}
 
         if interpolated and interpolated.issubset(quoted):
             return FilterResult(
