@@ -5,6 +5,7 @@ Scans .env files for hardcoded secrets and security issues
 """
 
 import math
+import os
 import re
 import time
 from pathlib import Path
@@ -155,10 +156,68 @@ class EnvScanner(BaseScanner):
         """Built-in scanner, always available"""
         return True
 
+    # A template env file (`.env.example` / `.sample` / `.template` / `.dist`)
+    # exists to SHOW which variables to set. Its values are placeholders by
+    # convention — that is the file's entire purpose. Scanning it is still right
+    # ("sometimes has real values by mistake", see get_file_patterns), but a value
+    # that announces itself as a placeholder is not a leaked credential, and
+    # reporting one as CRITICAL hard-blocks the repo. llmgateway drew 36 CRITICALs
+    # from a single `.env.example` whose values are `change_this_secure_password`
+    # and a DATABASE_URL built from it — a DO_NOT_INSTALL on a documentation file.
+    # Only the placeholder-shaped values are skipped, so a real key pasted into a
+    # template by mistake is still reported.
+    _TEMPLATE_ENV_SUFFIXES = ('.example', '.sample', '.template', '.dist', '.tpl')
+    _PLACEHOLDER_VALUE = re.compile(
+        r"""^(?:
+              (?:change|replace|set|fill|update|insert)[-_]?(?:this|me|it|with)?[-_a-z0-9]*
+            | your[-_].* | my[-_].* | some[-_].* | example.* | sample.* | dummy.* | fake.*
+            | placeholder.* | changeme | secret | password | pass(?:word)?123
+            | test | testing | todo | fixme | none | null | undefined
+            | x{3,} | \.{3,} | <.*> | \{\{.*\}\} | \$\{.*\} | \[.*\]
+            )$""",
+        re.IGNORECASE | re.VERBOSE)
+
+    @classmethod
+    def _is_template_env(cls, file_path) -> bool:
+        # Callers pass either a Path or a plain string (both are used in-tree), so
+        # normalise rather than assuming Path — assuming it raised AttributeError
+        # on every str caller, which is a crash, not a mis-classification.
+        name = os.path.basename(str(file_path)).lower()
+        return any(s in name for s in cls._TEMPLATE_ENV_SUFFIXES)
+
+    # Template files usually show the REAL key prefix so the reader knows the
+    # format, then a fill-me-in body: `sk-your_openai_key_here`,
+    # `sk_test_your_stripe_secret_key`, `whsec_your_webhook_secret`. Those defeat
+    # a start-anchored match, so an embedded fill-me-in token is checked too.
+    # Deliberately NOT including a bare "example": AWS's documented example secret
+    # key literally ends `...CYEXAMPLEKEY`, and a value that looks like a real key
+    # should stay reported even in a template.
+    _PLACEHOLDER_TOKEN = re.compile(
+        r"your[-_]|[-_]here$|[-_]here[-_]|change[-_]?this|changeme|replace[-_]?me"
+        r"|placeholder|goes[-_]here|to[-_]be[-_]set|fill[-_]me|x{4,}"
+        r"|<[^>]+>|\{\{[^}]+\}\}|\$\{[^}]+\}",
+        re.IGNORECASE)
+
+    @classmethod
+    def _is_placeholder_value(cls, value: str) -> bool:
+        """True when the value announces itself as a fill-me-in, not a secret."""
+        v = value.strip().strip('"').strip("'")
+        if not v:
+            return True
+        if cls._PLACEHOLDER_VALUE.match(v):
+            return True
+        if cls._PLACEHOLDER_TOKEN.search(v):
+            return True
+        # A URL whose credential component is itself a placeholder
+        # (`postgres://user:change_this_password@host/db`) is still a template.
+        m = re.match(r'^[a-z][a-z0-9+.\-]*://[^:/@\s]+:([^@\s]+)@', v, re.IGNORECASE)
+        return bool(m and cls._PLACEHOLDER_VALUE.match(m.group(1)))
+
     def scan_file(self, file_path: Path) -> ScannerResult:
         """Scan .env file for secrets and security issues"""
         start_time = time.time()
         issues = []
+        is_template = self._is_template_env(file_path)
 
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -178,6 +237,12 @@ class EnvScanner(BaseScanner):
                 key, _, value = line.partition('=')
                 key = key.strip()
                 value = value.strip()
+
+                # In a template file, a placeholder value is the file doing its
+                # job — not a leaked credential. Real-looking values in the same
+                # file are still scanned (that is why templates are scanned at all).
+                if is_template and self._is_placeholder_value(value):
+                    continue
 
                 # Remove quotes from value
                 if (value.startswith('"') and value.endswith('"')) or \

@@ -132,8 +132,27 @@ _SVG_ACTIVE = [
     (re.compile(r"(?i)<\s*script\b"), "SVG <script> element"),
     (re.compile(r"(?i)\son\w+\s*="), "SVG inline event handler (on*=)"),
     (re.compile(r"(?i)javascript\s*:"), "SVG javascript: URI"),
-    (re.compile(r"(?i)<\s*foreignObject\b"), "SVG <foreignObject> (HTML embedding)"),
 ]
+
+# `<foreignObject>` on its own is NOT active content — it is the element every
+# diagram tool uses to lay out HTML text inside a drawing. Flagging its mere
+# presence hard-blocked any repo that documents itself with drawio: fastapi drew
+# 26 HIGH findings, all on `docs/**/*.drawio.svg`, and 26 HIGH is a
+# DO_NOT_INSTALL. Those files contain no script, no handler and no javascript:
+# URI — checked, zero matches for all three.
+#
+# It still matters as a CONTAINER: it is the one place an SVG can host real HTML,
+# so remote/active content nested inside it renders when the SVG does. So the
+# element is only reported when it actually holds something active. Script and
+# handlers nested inside are already caught by the rows above (they scan the whole
+# document), which leaves the embedding tags as what this check uniquely adds.
+_FOREIGN_OBJECT = re.compile(
+    r"<\s*foreignObject\b.*?(?:</\s*foreignObject\s*>|\Z)", re.IGNORECASE | re.DOTALL)
+_EMBEDS_REMOTE = re.compile(
+    r"<\s*(?:iframe|object|embed|applet|frame)\b"
+    r"|<\s*use\b[^>]*\bhref\s*=\s*[\"']?\s*(?:https?:)?//"
+    r"|<\s*image\b[^>]*\bhref\s*=\s*[\"']?\s*(?:https?:)?//",
+    re.IGNORECASE)
 
 
 class ImageEmbeddedThreatScanner(BaseScanner):
@@ -589,4 +608,18 @@ class ImageEmbeddedThreatScanner(BaseScanner):
                     cwe_id=79,
                     message=f"Active content in SVG: {desc} — runs when the SVG is rendered",
                 ))
+        # A <foreignObject> is reported only for what it CONTAINS (see
+        # _FOREIGN_OBJECT): the bare element is how every diagram tool lays out
+        # HTML text, and flagging it hard-blocked repos for having documentation.
+        for block in _FOREIGN_OBJECT.finditer(text):
+            hit = _EMBEDS_REMOTE.search(block.group(0))
+            if hit:
+                issues.append(ScannerIssue(
+                    severity=Severity.HIGH, line=1, rule_id="MEDUSA-IMG-SVGSCRIPT-001",
+                    cwe_id=79,
+                    message=("Active content in SVG: <foreignObject> embedding "
+                             f"'{hit.group(0)[:40]}' — remote/active HTML hosted "
+                             "inside the drawing, which renders when the SVG does"),
+                ))
+                break
         return issues
