@@ -26,7 +26,7 @@ import stat
 import time
 from pathlib import Path
 from typing import Dict, List, Set, Tuple, Optional
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count, get_context
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 # Import new scanner architecture
@@ -58,6 +58,57 @@ def _inject_batch_scanner_caches(snapshot):
             continue
         scanner._results_cache = entry.get('cache', {})
         scanner._cache_populated = entry.get('populated', False)
+
+
+# The MedusaParallelScanner a pool worker runs its tasks with, set once per
+# worker by _init_scan_worker.
+_WORKER_SCANNER = None
+
+
+def _pool_context():
+    """Return the multiprocessing context scan pools start their workers with.
+
+    Linux uses fork, so every worker inherits the parent's loaded and compiled
+    rules copy-on-write. Python 3.14 made forkserver the Linux default; its
+    workers start from a fresh import and would load and compile all rules
+    again (about 100 s for the 40,000+ rules). Other platforms keep their
+    default start method.
+    """
+    if sys.platform == 'linux':
+        return get_context('fork')
+    return get_context()
+
+
+def _init_scan_worker(snapshot, scanner):
+    """Pool initializer: restore batch-scanner caches and keep the scanner.
+
+    The scanner reaches each worker once: inherited under fork, pickled once
+    per worker under spawn. Tasks then name only a file (and scanner
+    positions), so no task pickles the scanners and their compiled rules.
+    """
+    global _WORKER_SCANNER
+    _inject_batch_scanner_caches(snapshot)
+    _WORKER_SCANNER = scanner
+
+
+def _scan_file_task(file_path):
+    """Pool task: scan one file with all its scanners in this worker."""
+    return _WORKER_SCANNER.scan_file(file_path)
+
+
+def _scan_slice_task(task):
+    """Pool task: run one slice of a file's scanners in this worker.
+
+    task is (file_path, positions): positions into the file's scanner list in
+    the worker's scanner map. Returns the file path with the slice's
+    outcomes for MedusaParallelScanner._assemble_result.
+    """
+    file_path, positions = task
+    scanners = _WORKER_SCANNER._scanner_map[str(file_path)]
+    return file_path, MedusaParallelScanner._run_scanners(
+        file_path, [(position, scanners[position]) for position in positions]
+    )
+
 
 def _truncate_code(code: str) -> str:
     """Truncate a code snippet to _CODE_SNIPPET_MAX chars to avoid leaking full secret values."""
@@ -428,6 +479,8 @@ class MedusaParallelScanner:
 
         # Pre-mapped scanner lookup (populated by _pre_map_scanners, reused by scan_file)
         self._scanner_map: Dict[str, list] = {}
+        # Scanner-slice plan of scan_parallel (see _plan_slices); None runs one task per file
+        self._slice_plan = None
 
         # Find medusa.sh (optional - only needed for non-Python scanners)
         self.medusa_script = self._find_medusa_script()
@@ -758,7 +811,30 @@ class MedusaParallelScanner:
         2. Each individual scanner is wrapped in a PER_SCANNER_TIMEOUT guard.
         """
         start_time = time.time()
+        early, scanners = self._prepare_file(file_path, start_time)
+        if early is not None:
+            return early
 
+        result = self._assemble_result(
+            file_path, self._run_scanners(file_path, list(enumerate(scanners))), start_time
+        )
+
+        # Update cache — store serialized issues so cache hits return real findings
+        if self.use_cache and self.cache:
+            serialized = [i.to_dict() if hasattr(i, 'to_dict') else i for i in result.issues]
+            self.cache.update_cache(file_path, len(result.issues), serialized)
+
+        return result
+
+    def _prepare_file(
+        self, file_path: Path, start_time: float
+    ) -> Tuple[Optional[ScanResult], list]:
+        """Decide whether a file needs a scanner run at all.
+
+        Returns (result, scanners): result is the finished ScanResult of a
+        symlink, a cache hit or an oversized file no scanner can take, else
+        None together with the scanners to run on the file.
+        """
         # Skip symlinks — following them during --git scans can leak host files
         if file_path.is_symlink():
             return ScanResult(
@@ -767,7 +843,7 @@ class MedusaParallelScanner:
                 issues=[],
                 scan_time=0.0,
                 cached=False
-            )
+            ), []
 
         # Check cache first
         if self.use_cache and self.cache and not self.cache.is_file_changed(file_path):
@@ -779,7 +855,7 @@ class MedusaParallelScanner:
                     issues=cached_meta.cached_issues,
                     scan_time=time.time() - start_time,
                     cached=True
-                )
+                ), []
 
         # Reuse pre-mapped scanners if available, otherwise look up fresh
         scanners = self._scanner_map.get(str(file_path))
@@ -805,50 +881,82 @@ class MedusaParallelScanner:
                     scan_time=time.time() - start_time,
                     cached=False,
                     scanner_stats={'skipped-large-file': 0}
-                )
+                ), []
             scanners = large_capable
 
+        return None, scanners
+
+    @staticmethod
+    def _run_scanners(file_path: Path, indexed_scanners: List[Tuple[int, object]]) -> list:
+        """Run (position, scanner) pairs on one file.
+
+        Returns one picklable (position, scanner_name, issues, error) tuple per
+        scanner: scanner_name is None when the scanner timed out or crashed
+        before returning, issues holds (dedup_key, issue_dict) pairs and error
+        names the scanner when it timed out or crashed. Slices of one file's
+        scanners can therefore run in different workers and still merge in
+        scanner order through _assemble_result.
+        """
+        outcomes = []
+        for position, scanner in indexed_scanners:
+            _sname = getattr(scanner, 'name', scanner.__class__.__name__)
+            scanner_name = None
+            issues = []
+            try:
+                scanner.reset()
+                scanner_result = MedusaParallelScanner._run_scanner_with_timeout(
+                    scanner, file_path, PER_SCANNER_TIMEOUT
+                )
+                if scanner_result is None:
+                    # Scanner timed out -- record and skip it
+                    outcomes.append((position, None, [], _sname))
+                    continue
+                scanner_name = scanner_result.scanner_name
+
+                for issue in scanner_result.issues:
+                    # Deduplicate later: same line + first 80 chars of message
+                    dedup_key = (issue.line, issue.message[:80] if issue.message else '')
+                    d = issue.to_dict()
+                    d['_scanner_name'] = scanner_name  # Per-issue attribution
+                    issues.append((dedup_key, d))
+            except Exception as _exc:
+                # Don't let one scanner failure stop others — but don't hide it
+                # either: record the failure so the parent can surface a summary.
+                logging.getLogger("medusa.scan").debug(
+                    "scanner %s failed on %s: %s", _sname, file_path, _exc
+                )
+                outcomes.append((position, scanner_name, issues, _sname))
+                continue
+            outcomes.append((position, scanner_name, issues, None))
+        return outcomes
+
+    def _assemble_result(self, file_path: Path, outcomes: list, start_time: float) -> ScanResult:
+        """Merge _run_scanners outcomes into the file's ScanResult.
+
+        Outcomes are taken in scanner order, so deduplication by (line, first
+        80 chars of message) keeps the finding of the earliest scanner, exactly
+        as one sequential pass over all scanners does.
+        """
         all_issues = []
         scanner_names = []
         scanner_issue_counts = {}  # Track issues per scanner
         scanner_errors = {}  # scanner_name -> failure count (crashes + timeouts)
         seen_issues = set()  # Deduplicate by (line, message_prefix)
 
-        for scanner in scanners:
-            try:
-                scanner.reset()
-                scanner_result = self._run_scanner_with_timeout(
-                    scanner, file_path, PER_SCANNER_TIMEOUT
-                )
-                if scanner_result is None:
-                    # Scanner timed out -- record and skip it
-                    _sname = getattr(scanner, 'name', scanner.__class__.__name__)
-                    scanner_errors[_sname] = scanner_errors.get(_sname, 0) + 1
-                    continue
-                scanner_name = scanner_result.scanner_name
+        ordered = sorted(outcomes, key=lambda outcome: outcome[0])
+        for _position, scanner_name, issues, error in ordered:
+            if scanner_name is not None:
                 scanner_names.append(scanner_name)
-                issues_from_this = 0
-
-                for issue in scanner_result.issues:
-                    # Deduplicate: same line + first 80 chars of message
-                    dedup_key = (issue.line, issue.message[:80] if issue.message else '')
-                    if dedup_key not in seen_issues:
-                        seen_issues.add(dedup_key)
-                        d = issue.to_dict()
-                        d['_scanner_name'] = scanner_name  # Per-issue attribution
-                        all_issues.append(d)
-                        issues_from_this += 1
-
+            issues_from_this = 0
+            for dedup_key, issue in issues:
+                if dedup_key not in seen_issues:
+                    seen_issues.add(dedup_key)
+                    all_issues.append(issue)
+                    issues_from_this += 1
+            if error is None:
                 scanner_issue_counts[scanner_name] = issues_from_this
-            except Exception as _exc:
-                # Don't let one scanner failure stop others — but don't hide it
-                # either: record the failure so the parent can surface a summary.
-                _sname = getattr(scanner, 'name', scanner.__class__.__name__)
-                logging.getLogger("medusa.scan").debug(
-                    "scanner %s failed on %s: %s", _sname, file_path, _exc
-                )
-                scanner_errors[_sname] = scanner_errors.get(_sname, 0) + 1
-                continue
+            else:
+                scanner_errors[error] = scanner_errors.get(error, 0) + 1
 
         # Count lines from the file content (avoids re-opening in generate_report)
         _line_count = 0
@@ -880,12 +988,70 @@ class MedusaParallelScanner:
                 scanner_errors=scanner_errors or None
             )
 
-        # Update cache — store serialized issues so cache hits return real findings
-        if self.use_cache and self.cache:
-            serialized = [i.to_dict() if hasattr(i, 'to_dict') else i for i in result.issues]
-            self.cache.update_cache(file_path, len(result.issues), serialized)
-
         return result
+
+    def _plan_slices(self, files: List[Path]):
+        """Split each file's scanners into slices when files cannot fill the pool.
+
+        With at least as many files as workers every file stays one task and
+        this returns None. With fewer, one task per file leaves all but
+        len(files) workers idle while each file runs every scanner in turn,
+        so each file's scanners are split round-robin into slices that run as
+        separate tasks and merge back in scanner order.
+
+        Must run before the pool starts: it stores each file's final scanner
+        list in self._scanner_map, which forked workers inherit.
+
+        Returns:
+            None, or (early, tasks, pending): early holds the ScanResults that
+            need no scanner run, tasks the (file_path, positions) slice tasks
+            and pending, per file, [slices left, outcomes, start time].
+        """
+        if len(files) >= self.workers:
+            return None
+        slices_per_file = -(-self.workers // len(files))
+        early, tasks = [], []
+        pending: Dict[str, list] = {}
+        for file_path in files:
+            start_time = time.time()
+            result, scanners = self._prepare_file(file_path, start_time)
+            if result is not None:
+                early.append(result)
+                continue
+            self._scanner_map[str(file_path)] = scanners
+            positions = list(range(len(scanners)))
+            count = max(1, min(len(positions), slices_per_file))
+            pending[str(file_path)] = [count, [], start_time]
+            tasks.extend((file_path, positions[index::count]) for index in range(count))
+        return early, tasks, pending
+
+    def _imap_results(self, pool, files: List[Path], chunksize: int):
+        """Yield one ScanResult per file from the pool, in completion order.
+
+        Runs the slice plan of _plan_slices when scan_parallel made one, else
+        one task per file.
+        """
+        plan = self._slice_plan
+        if plan is None:
+            yield from pool.imap_unordered(_scan_file_task, files, chunksize=chunksize)
+            return
+
+        early, tasks, pending = plan
+        yield from early
+        for file_path, outcomes in pool.imap_unordered(_scan_slice_task, tasks):
+            entry = pending[str(file_path)]
+            entry[0] -= 1
+            entry[1].extend(outcomes)
+            if entry[0] == 0:
+                yield self._assemble_result(file_path, entry[1], entry[2])
+
+    def _pool(self):
+        """Start the scan pool: one worker per self.workers, see _pool_context."""
+        return _pool_context().Pool(
+            processes=self.workers,
+            initializer=_init_scan_worker,
+            initargs=(getattr(self, '_batch_cache_snapshot', None), self),
+        )
 
     @staticmethod
     def _run_scanner_with_timeout(scanner, file_path: Path, timeout: int):
@@ -1150,8 +1316,11 @@ class MedusaParallelScanner:
                     'populated': True,
                 }
 
+        tracing = getattr(self, 'trace_rules', False)
+        self._slice_plan = None if tracing else self._plan_slices(files)
+
         try:
-            if getattr(self, 'trace_rules', False):
+            if tracing:
                 # Rule-diagnostics mode: scan serially in this process so the
                 # rule-trace + timing collector (medusa.core.rule_diag) gathers
                 # everything in one place (Pool workers can't return it cheaply).
@@ -1237,12 +1406,7 @@ class MedusaParallelScanner:
         # meaning the table only updates ~24 times total.
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
 
-        _snapshot = getattr(self, '_batch_cache_snapshot', None)
-        with Pool(
-            processes=self.workers,
-            initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
-        ) as pool:
+        with self._pool() as pool:
             if use_live:
                 # Live updating table - uses stderr to avoid corruption from stray stdout
                 live_console = RichConsole(stderr=True)
@@ -1253,7 +1417,7 @@ class MedusaParallelScanner:
                     transient=True,  # Clear when done (we'll print final table after)
                     screen=use_screen,  # Use alternate screen on Windows
                 ) as live:
-                    for result in pool.imap_unordered(self.scan_file, files, chunksize=chunksize):
+                    for result in self._imap_results(pool, files, chunksize):
                         results.append(result)
 
                         # Update per-scanner stats
@@ -1284,7 +1448,7 @@ class MedusaParallelScanner:
                 # Legacy terminals: simple progress without live table
                 print(f"  Scanning: ", end="", flush=True)
                 last_pct = 0
-                for result in pool.imap_unordered(self.scan_file, files, chunksize=chunksize):
+                for result in self._imap_results(pool, files, chunksize):
                     results.append(result)
 
                     # Update per-scanner stats
@@ -1313,14 +1477,9 @@ class MedusaParallelScanner:
         scanner_totals = {}
 
         chunksize = min(8, max(1, len(files) // (self.workers * 4)))
-        _snapshot = getattr(self, '_batch_cache_snapshot', None)
-        with Pool(
-            processes=self.workers,
-            initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
-        ) as pool:
+        with self._pool() as pool:
             pbar = tqdm(
-                pool.imap_unordered(self.scan_file, files, chunksize=chunksize),
+                self._imap_results(pool, files, chunksize),
                 total=len(files),
                 desc="Scanning files",
                 unit="file"
@@ -1336,13 +1495,11 @@ class MedusaParallelScanner:
 
     def _scan_with_pool(self, files: List[Path]) -> List[ScanResult]:
         """Fallback: scan with basic Pool.map"""
-        _snapshot = getattr(self, '_batch_cache_snapshot', None)
-        with Pool(
-            processes=self.workers,
-            initializer=_inject_batch_scanner_caches,
-            initargs=(_snapshot,),
-        ) as pool:
-            results = pool.map(self.scan_file, files)
+        with self._pool() as pool:
+            if self._slice_plan is None:
+                results = pool.map(_scan_file_task, files)
+            else:
+                results = list(self._imap_results(pool, files, 1))
             _ic = '+' if self.force_ascii else '\u2705'
             print(f"{_ic} Scanned {len(files)} files")
         return results

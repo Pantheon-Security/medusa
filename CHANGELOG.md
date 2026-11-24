@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Scans with fewer files than workers now split each file's scanners into slices that run on every worker and merge back in scanner order, so a 3-file scan on 13 workers keeps all 13 busy instead of 3. Findings, deduplication and attribution are unchanged.
+- Worker pools on Linux now use the `fork` start method and receive the scanner once through the pool initializer. Python 3.14 made `forkserver` the default, which pickled the scanner with every task and recompiled all rule patterns per task (about 100 s each); tasks now carry only a file path and scanner positions.
+
 ## [2026.7.0] - 2026-06-22
 
 **Claude Code supply-chain detection, broader language coverage, and rule-level observability.**
