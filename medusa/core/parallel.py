@@ -94,7 +94,32 @@ MAX_SCAN_FILE_SIZE = 2 * 1024 * 1024  # 2 MB
 # this on a single file it is killed and scanning moves on.
 # Set high enough for external tools (semgrep ~3s/file, gitleaks, etc.)
 # but low enough to catch runaway regex scans on large files.
-PER_SCANNER_TIMEOUT = 60  # seconds
+# MEDUSA_SCANNER_TIMEOUT overrides it (whole seconds) for long files or a
+# loaded CPU; 0 disables the guard.
+_DEFAULT_SCANNER_TIMEOUT = 60  # seconds
+# signal.alarm() takes a C int; a larger value would raise at scan time.
+_MAX_SCANNER_TIMEOUT = 2**31 - 1
+
+
+def _scanner_timeout() -> int:
+    raw = os.environ.get("MEDUSA_SCANNER_TIMEOUT", "").strip()
+    if not raw:
+        return _DEFAULT_SCANNER_TIMEOUT
+    digits = raw.lstrip("0") or "0"
+    if not raw.isdecimal() or len(digits) > 10 or int(digits) > _MAX_SCANNER_TIMEOUT:
+        raise ValueError(
+            "MEDUSA_SCANNER_TIMEOUT must be whole seconds from 0 to "
+            f"{_MAX_SCANNER_TIMEOUT}, got {raw!r}"
+        )
+    return int(digits)
+
+
+try:
+    PER_SCANNER_TIMEOUT = _scanner_timeout()  # seconds
+except ValueError:
+    # MedusaParallelScanner() reads the variable again and raises, so only
+    # scans fail on a bad value; --version, --help and install keep working.
+    PER_SCANNER_TIMEOUT = _DEFAULT_SCANNER_TIMEOUT
 
 
 @dataclass
@@ -408,6 +433,8 @@ class MedusaParallelScanner:
                  extra_excludes: list = None,
                  full_hash: bool = False,
                  include_user_mcp_configs: bool = False):
+        global PER_SCANNER_TIMEOUT
+        PER_SCANNER_TIMEOUT = _scanner_timeout()
         self.project_root = project_root.absolute()
         self.workers = workers or cpu_count()
         self.use_cache = use_cache
